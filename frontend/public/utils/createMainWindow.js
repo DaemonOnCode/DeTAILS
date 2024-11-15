@@ -39,12 +39,22 @@ exports.createMainWindow = async () => {
 		}
 	});
 
-	ipcMain.handle("select-folder", async () => {
-		const result = await dialog.showOpenDialog(mainWindow, {
-			properties: ["openDirectory"],
-		});
-		return result.filePaths[0]; // Return the selected folder path
-	});
+	// ipcMain.handle("select-folder", async () => {
+	// 	const result = await dialog.showOpenDialog(mainWindow, {
+	// 		properties: ["openDirectory"],
+	// 	});
+	// 	return result.filePaths[0]; // Return the selected folder path
+	// });
+
+	// ipcMain.handle('fetch-reddit-content', async (event, url) => {
+	// 	try {
+	// 		const content = await fetchRedditContent(url);
+	// 		return content;
+	// 	} catch (error) {
+	// 		console.error('Error fetching Reddit content:', error);
+	// 		return { error: 'Failed to fetch content' };
+	// 	}
+	// });
 
 	return window;
 };

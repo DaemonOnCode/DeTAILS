@@ -1,5 +1,5 @@
-import { createContext, useState, FC, useEffect, Dispatch, SetStateAction } from "react";
-import { IFile, ILayout, Mode } from "../types/shared";
+import { createContext, useState, FC, useEffect } from "react";
+import { IFile, ILayout, Mode, SetState } from "../types/shared";
 import { initialWords } from "../constants/shared";
 
 interface IDataContext {
@@ -7,16 +7,16 @@ interface IDataContext {
     currentMode: Mode;
     toggleMode: () => void,
     modeInput: string;
-    setModeInput: Dispatch<SetStateAction<string>>;
+    setModeInput: SetState<string>;
     basisFiles: IFile;
     addBasisFile: (filePath: string, fileName: string) => void;
     removeBasisFile: (filePath: string) => void;
     searchText?: string;
-    setSearchText: Dispatch<SetStateAction<string>>;
+    setSearchText: SetState<string>;
     words: string[];
-    setWords: Dispatch<SetStateAction<string[]>>;
+    setWords: SetState<string[]>;
     selectedWords: string[];
-    setSelectedWords: Dispatch<SetStateAction<string[]>>;
+    setSelectedWords: SetState<string[]>;
 }
 
 
@@ -52,7 +52,7 @@ export const DataProvider:FC<ILayout> = ({ children }) => {
   const [searchText, setSearchText] = useState<string>("");
 
     const [words, setWords] = useState<string[]>(initialWords);
-  const [selectedWords, setSelectedWords] = useState<string[]>([]);
+  const [selectedWords, setSelectedWords] = useState<string[]>([mainWord]);
 
   const toggleMode = () => {
 		setCurrentMode((prevMode: Mode)=>{

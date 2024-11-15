@@ -70,7 +70,7 @@ const WordCloudPage: FC = () => {
         />
       </div>
       
-      <NavigationBottomBar previousPage={ROUTES.BASIS} nextPage={ROUTES.GENERATION} isReady={checkIfReady} />
+      <NavigationBottomBar previousPage={ROUTES.BASIS} nextPage={ROUTES.INITIAL_CODING} isReady={checkIfReady} />
 
       {isFeedbackOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">

@@ -1,6 +1,6 @@
 // WordCloud.tsx
 import React, { useState, useEffect } from "react";
-import { WordBox } from "../../types/shared";
+import { IWordBox } from "../../types/shared";
 
 interface WordCloudProps {
   mainWord: string;
@@ -12,7 +12,7 @@ interface WordCloudProps {
 const mainWordFontSize = 20;
 const otherWordFontSize = 14;
 
-function areWordsColliding(word1: WordBox, word2: WordBox, padding: number = 5) {
+function areWordsColliding(word1: IWordBox, word2: IWordBox, padding: number = 5) {
   return !(
     word1.x + word1.width + padding < word2.x ||
     word1.x > word2.x + word2.width + padding ||
@@ -21,7 +21,7 @@ function areWordsColliding(word1: WordBox, word2: WordBox, padding: number = 5) 
   );
 }
 
-function placeWord(words: WordBox[], newWord: WordBox) {
+function placeWord(words: IWordBox[], newWord: IWordBox) {
   for (let placedWord of words) {
     if (areWordsColliding(placedWord, newWord)) {
       return false; // Collision detected
@@ -41,13 +41,13 @@ const measureTextWidth = (text: string, fontSize: number) => {
 };
 
 const WordCloud: React.FC<WordCloudProps> = ({ mainWord, words, selectedWords, toggleWordSelection }) => {
-  const [wordsPlaced, setWordsPlaced] = useState<WordBox[]>([]);
+  const [wordsPlaced, setWordsPlaced] = useState<IWordBox[]>([]);
   const [maxRadius, setMaxRadius] = useState(0);
 
   const radiusIncrement = 20;
 
-  const placeWordsAround = (): WordBox[] => {
-    const placedWords: WordBox[] = [];
+  const placeWordsAround = (): IWordBox[] => {
+    const placedWords: IWordBox[] = [];
     const mainWordWidth = measureTextWidth(mainWord, mainWordFontSize) + 30;
     const mainWordHeight = mainWordFontSize + 10;
 
@@ -61,7 +61,7 @@ const WordCloud: React.FC<WordCloudProps> = ({ mainWord, words, selectedWords, t
 
     words.forEach((word, index) => {
       const textWidth = measureTextWidth(word, otherWordFontSize);
-      const wordBox: WordBox = {
+      const wordBox: IWordBox = {
         text: word,
         x: 0,
         y: 0,

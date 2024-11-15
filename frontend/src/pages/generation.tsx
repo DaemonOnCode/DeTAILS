@@ -25,7 +25,7 @@ const GenerationPage = () => {
                 </>}
             </div>
 
-            <NavigationBottomBar previousPage={ROUTES.WORD_CLOUD} nextPage={ROUTES.CODING_VALIDATION}  isReady={!loading}/>
+            <NavigationBottomBar previousPage={ROUTES.INITIAL_CODING} nextPage={ROUTES.CODING_VALIDATION}  isReady={!loading}/>
         </div>
     );
 };

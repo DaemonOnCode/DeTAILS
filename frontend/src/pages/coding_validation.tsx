@@ -1,92 +1,19 @@
 import { FC, useReducer } from "react";
-import { ROUTES } from "../constants/shared";
+import { ROUTES, initialResponses } from "../constants/shared";
 import NavigationBottomBar from "../components/Shared/navigation_bottom_bar";
+import { ISentenceBox } from "../types/shared";
 // import { DataContext } from "../context/data_context";
-
-
-interface SentenceBox {
-  sentence: string;
-  word: string;
-  comment: string;
-  isMarked?: boolean;
-}
-
-// Initial responses data
-const initialResponses: SentenceBox[] = [
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-  { sentence: "This is the first sentence.", word: "first", comment: "" },
-  { sentence: "Another example sentence.", word: "example", comment: "" },
-  { sentence: "The validation example continues.", word: "validation", comment: "" },
-];
 
 // Define action types
 type Action =
   | { type: "SET_CORRECT"; index: number }
   | { type: "SET_INCORRECT"; index: number }
   | { type: "UPDATE_COMMENT"; index: number; comment: string }
-  | { type: "MARK_RESPONSE"; index: number; isMarked?: boolean};
+  | { type: "MARK_RESPONSE"; index: number; isMarked?: boolean}
+  | { type: "RERUN_CODING"; indexes: number[], newResponses: ISentenceBox[] };
 
 // Reducer function to manage the state of responses
-const responsesReducer = (state: SentenceBox[], action: Action): SentenceBox[] => {
+const responsesReducer = (state: ISentenceBox[], action: Action): ISentenceBox[] => {
   switch (action.type) {
     case "SET_CORRECT":
       return state.map((response, index) =>
@@ -106,6 +33,8 @@ const responsesReducer = (state: SentenceBox[], action: Action): SentenceBox[] =
       return state.map((response, index) =>
         index === action.index ? { ...response, isMarked: action.isMarked } : response
       );
+    case "RERUN_CODING":
+      return state.filter((_, index) => !action.indexes.includes(index)).concat(action.newResponses);
     default:
       return state;
   }
@@ -124,6 +53,20 @@ const CodingValidationPage: FC = () => {
     const handleMark = (index: number, isMarked?:boolean) => {
         dispatch({ type: "MARK_RESPONSE", index, isMarked });
     }
+
+    const handleRerunCoding = () => {
+        console.log("Re-running coding...");
+
+        // if responses are marked as correct, remove them from the list
+        const markedIndexes = responses.map((response, index) => response.isMarked !== undefined? index : null)
+        const filteredResponseIndexes = markedIndexes.filter((response_index) => response_index !== null);
+
+        // Dummy data for new responses
+        const newResponses = responses.filter((_, index) => !filteredResponseIndexes.includes(index));
+
+        dispatch({ type: "RERUN_CODING", indexes: filteredResponseIndexes as number[], newResponses });
+        
+    };
 
     const isReadyCheck = responses.some((response) => response.isMarked !== undefined);
 
@@ -145,7 +88,7 @@ const CodingValidationPage: FC = () => {
                         {responses.map((response, index) => (
                             <tr key={index} className="text-center">
                             <td className="border border-gray-400 p-2">{response.sentence}</td>
-                            <td className="border border-gray-400 p-2">{response.word}</td>
+                            <td className="border border-gray-400 p-2">{response.coded_word}</td>
                             <td className="border border-gray-400 p-2">
                                 <button
                                 className={`px-2 py-1 rounded mr-2 ${
@@ -192,7 +135,7 @@ const CodingValidationPage: FC = () => {
                 <div className="mt-6 flex justify-center">
                     <button
                         onClick={() => {
-                            
+                            handleRerunCoding();
                         }}
                         className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
                     >

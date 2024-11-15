@@ -1,13 +1,13 @@
 import { FC } from "react";
 
-type NavigationButtonsProps = {
+type NavigationBottomBarProps = {
     isReady?: boolean;
     previousPage?: string;
     nextPage?: string;
 }
 
-const NavigationButtons: FC<
-    NavigationButtonsProps
+const NavigationBottomBar: FC<
+    NavigationBottomBarProps
 > = ({isReady, previousPage, nextPage}) => {
   return (
     <div className="flex justify-between mt-20 pb-10">
@@ -34,4 +34,4 @@ const NavigationButtons: FC<
   );
 };
 
-export default NavigationButtons;
+export default NavigationBottomBar;

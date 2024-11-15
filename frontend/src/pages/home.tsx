@@ -5,7 +5,7 @@ import { ROUTES } from "../constants/shared";
 
 const { ipcRenderer } = window.require("electron");
 
-export const HomePage: FC = () => {
+const HomePage: FC = () => {
 	const dataContext = useContext(DataContext);
 
 	// Function to handle input change and extract links
@@ -61,3 +61,6 @@ export const HomePage: FC = () => {
 		</div>
 	);
 };
+
+
+export default HomePage;

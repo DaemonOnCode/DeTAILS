@@ -6,7 +6,7 @@ export const Layout: FC<ILayout> = ({ children }) => {
 	return (
 		<div className="flex w-full relative">
 			<Sidebar />
-			<div className="pl-64 h-screen overflow-auto w-full">{children}</div>
+			<div className="pl-64 min-h-screen overflow-auto w-full">{children}</div>
 		</div>
 	);
 };
