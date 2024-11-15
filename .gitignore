@@ -1,0 +1,6 @@
+**/*.pkg
+node_modules
+env
+**/.env
+**/._*
+app/*
