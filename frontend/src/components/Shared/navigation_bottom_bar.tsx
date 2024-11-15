@@ -1,7 +1,7 @@
 import { FC } from "react";
 
 type NavigationButtonsProps = {
-    isReady: boolean;
+    isReady?: boolean;
     previousPage?: string;
     nextPage?: string;
 }
@@ -10,15 +10,13 @@ const NavigationButtons: FC<
     NavigationButtonsProps
 > = ({isReady, previousPage, nextPage}) => {
   return (
-    <div className="flex justify-between mt-20">
-    {previousPage &&
+    <div className="flex justify-between mt-20 pb-10">
       <a
         href={previousPage}
-        className={`px-4 py-2 rounded transition duration-200 bg-blue-500 text-white hover:bg-blue-600`}
+        className={`${!previousPage && "invisible"} px-4 py-2 rounded transition duration-200 bg-blue-500 text-white hover:bg-blue-600`}
       >
         &lt;- Go back
       </a>
-    }
     {nextPage &&
       <a
         href={nextPage}

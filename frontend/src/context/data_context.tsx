@@ -1,22 +1,29 @@
-import { createContext, useState, FC, useEffect } from "react";
+import { createContext, useState, FC, useEffect, Dispatch, SetStateAction } from "react";
 import { IFile, ILayout, Mode } from "../types/shared";
+import { initialWords } from "../constants/shared";
 
 interface IDataContext {
+    mainWord: string;
     currentMode: Mode;
     toggleMode: () => void,
     modeInput: string;
-    setModeInput: (input: string) => void;
+    setModeInput: Dispatch<SetStateAction<string>>;
     basisFiles: IFile;
     addBasisFile: (filePath: string, fileName: string) => void;
     removeBasisFile: (filePath: string) => void;
     searchText?: string;
-    setSearchText: (text: string) => void;
+    setSearchText: Dispatch<SetStateAction<string>>;
+    words: string[];
+    setWords: Dispatch<SetStateAction<string[]>>;
+    selectedWords: string[];
+    setSelectedWords: Dispatch<SetStateAction<string[]>>;
 }
 
 
 
 // Create the context
 export const DataContext = createContext<IDataContext>({
+    mainWord: "",
     currentMode: "link",
     modeInput: "",
     toggleMode: () => {},
@@ -26,10 +33,16 @@ export const DataContext = createContext<IDataContext>({
     removeBasisFile: () => {},
     searchText: "",
     setSearchText: () => {},
+    words: [],
+    setWords: () => {},
+    selectedWords: [],
+    setSelectedWords: () => {}
 });
 
 // Create a provider component
 export const DataProvider:FC<ILayout> = ({ children }) => {
+
+    const mainWord = "React";
   const [currentMode, setCurrentMode] = useState<Mode>("link");
 
   const [modeInput, setModeInput] = useState<string>("");
@@ -37,6 +50,9 @@ export const DataProvider:FC<ILayout> = ({ children }) => {
   const [basisFiles, setBasisFiles] = useState<IFile>({});
 
   const [searchText, setSearchText] = useState<string>("");
+
+    const [words, setWords] = useState<string[]>(initialWords);
+  const [selectedWords, setSelectedWords] = useState<string[]>([]);
 
   const toggleMode = () => {
 		setCurrentMode((prevMode: Mode)=>{
@@ -67,8 +83,13 @@ export const DataProvider:FC<ILayout> = ({ children }) => {
         });
     };
 
+    useEffect(() => {
+        console.log(words, selectedWords);
+    }, [words, selectedWords]);
+
   return (
     <DataContext.Provider value={{ 
+        mainWord,
         currentMode,
         toggleMode, 
         modeInput, 
@@ -77,7 +98,11 @@ export const DataProvider:FC<ILayout> = ({ children }) => {
         removeBasisFile, 
         basisFiles, 
         searchText, 
-        setSearchText 
+        setSearchText,
+        words,
+        setWords,
+        selectedWords,
+        setSelectedWords
     }}>
       {children}
     </DataContext.Provider>

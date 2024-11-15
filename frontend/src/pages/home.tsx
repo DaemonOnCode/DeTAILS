@@ -1,5 +1,4 @@
 import { FC, useContext } from "react";
-import { Layout } from "../components/Layout";
 import { DataContext } from "../context/data_context";
 import NavigationBottomBar from "../components/Shared/navigation_bottom_bar";
 import { ROUTES } from "../constants/shared";
@@ -29,7 +28,8 @@ export const HomePage: FC = () => {
 
 
 	return (
-		<div className="w-full px-4 py-6">
+		<div className="w-full p-6 h-full flex justify-between flex-col">
+		<div>
 			<div>Load reddit</div>
 			<button
 				onClick={dataContext.toggleMode}  
@@ -56,6 +56,7 @@ export const HomePage: FC = () => {
 					</div>
 			</div>:
 			<></>}
+			</div>
 			<NavigationBottomBar nextPage={ROUTES.BASIS} isReady={dataContext.modeInput.length>0}/>
 		</div>
 	);
