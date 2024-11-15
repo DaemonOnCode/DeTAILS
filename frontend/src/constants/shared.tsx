@@ -125,3 +125,28 @@ export const mockPosts = [
     ],
   },
 ];
+
+
+export const exampleData = [
+  {
+    sentence: "Oh this'll be fun with a destroyed FDA and CDC",
+    word: "JavaScript",
+    link: "https://www.reddit.com/r/HermanCainAward/comments/1gnh2e1/bird_flu_begins_its_human_spread_as_health/",
+    reason: "Highly discussed technology in web development.",
+    context: "JavaScript is a core language for building interactive web applications.",
+  },
+  {
+    sentence: "Trump",
+    word: "Python",
+    link: "https://www.reddit.com/r/HermanCainAward/comments/1gnh2e1/comment/lwciyij/",
+    reason: "Popular for its ease of use and libraries for AI.",
+    context: "Reddit posts highlight Python's dominance in AI-related tasks.",
+  },
+  {
+    sentence: "God help us",
+    word: "React",
+    link: "https://www.reddit.com/r/HermanCainAward/comments/1gnh2e1/bird_flu_begins_its_human_spread_as_health/",
+    reason: "Frequently chosen for component-based web architecture.",
+    context: "Posts often emphasize React's role in frontend frameworks.",
+  },
+];
