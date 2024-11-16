@@ -4,17 +4,16 @@ const {
   BrowserView,
   ipcMain,
   dialog,
-  WebContentsView,
-  webContents,
-  session,
 } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { createMainWindow } = require("./utils/createMainWindow");
 const AutoLaunch = require("auto-launch");
 const remote = require("@electron/remote/main");
 const config = require("./utils/config");
+const { ChromaClient } = require("chromadb");
 
 const puppeteer = require("puppeteer-core");
+const { executeOllama } = require("./utils/executeOllama");
 
 if (config.isDev) require("electron-reloader")(module);
 
@@ -29,6 +28,8 @@ if (!config.isDev) {
 
 app.on("ready", async () => {
   config.mainWindow = await createMainWindow();
+
+  await executeOllama(app);
   // config.tray = createTray();
   // config.popupWindow = await createPopupWindow();
 
@@ -36,6 +37,56 @@ app.on("ready", async () => {
   // 	config.appName,
   // 	"Application running on background! See application tray.",
   // );
+  // const pythonExecutable = path.join(__dirname, "backend", "dist", "server"); // Adjust path as needed
+
+  // // Start the Flask backend
+  // pythonServer = spawn(pythonExecutable);
+
+  // pythonServer.stdout.on("data", (data) => {
+  //   console.log(`Python stdout: ${data}`);
+  // });
+
+  // pythonServer.stderr.on("data", (data) => {
+  //   console.error(`Python stderr: ${data}`);
+  // });
+
+  // pythonServer.on("close", (code) => {
+  //   console.log(`Python server exited with code ${code}`);
+  // });
+
+  // config.backendServer = pythonServer;
+
+  const chromaClient = new ChromaClient();
+
+  // Example collection for embeddings
+  const collection = await chromaClient.createCollection("my_collection");
+
+  // Insert embeddings into ChromaDB
+  await collection.add([
+    {
+      id: "1",
+      embedding: [0.1, 0.2, 0.3],
+      metadata: { text: "Hello, world!" },
+    },
+    {
+      id: "2",
+      embedding: [0.5, 0.6, 0.7],
+      metadata: { text: "Goodbye, world!" },
+    },
+  ]);
+
+  // Fetch embeddings from ChromaDB
+  const results = await collection.query([0.1, 0.2, 0.3]);
+  console.log("Query Results:", results);
+
+  // Using LangChain for conversation
+  //  const llm = new OpenAI({
+  //    apiKey: process.env.OPENAI_API_KEY,
+  //  });
+  //  const chain = new ConversationChain({ llm });
+
+  //  const response = await chain.call({ input: "What is the weather today?" });
+  //  console.log("LangChain Response:", response);
 });
 
 app.on("window-all-closed", () => {

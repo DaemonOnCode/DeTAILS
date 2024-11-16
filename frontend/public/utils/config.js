@@ -10,6 +10,7 @@ let config = {
   // popupWindow: null,
   isDev,
   browserView: null,
+  backendServer: null,
 };
 
 module.exports = config;

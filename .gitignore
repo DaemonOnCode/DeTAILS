@@ -4,3 +4,9 @@ env
 **/.env
 **/._*
 app/*
+**/__pycache__/*
+get-pip.py
+**/build/*
+**/dist/*
+ollama*
+.vscode

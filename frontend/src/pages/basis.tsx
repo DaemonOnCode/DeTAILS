@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { DataContext } from "../context/data_context";
 import FileCard from "../components/Shared/file_card";
 import NavigationBottomBar from "../components/Shared/navigation_bottom_bar";
@@ -7,10 +7,13 @@ import { ROUTES } from "../constants/shared";
 const BasisPage = () => {
     const dataContext = useContext(DataContext);
 
+    const [mainCode, setMainCode] = useState<string>("");
+    const [additionalInfo, setAdditionalInfo] = useState<string>("");
+
     const { basisFiles, addBasisFile, searchText, setSearchText } = dataContext;
 
 
-    const checkIfReady = Object.keys(basisFiles).length > 0 && searchText?.length !== 0;
+    const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
 
     const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
         console.log("Selecting files");
@@ -56,12 +59,20 @@ const BasisPage = () => {
 
                 </section>
                 <div>
-                    <p>What are you looking for?</p>
+                    <p>Main Code:</p>
                     <input 
                         type="text" 
                         className="p-2 border border-gray-300 rounded w-96" 
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
+                        value={mainCode}
+                        onChange={(e) => setMainCode(e.target.value)}
+                    />
+                </div>
+                <div>
+                    <p>Provide some additional information about main code:</p>
+                    <textarea 
+                        className="p-2 border border-gray-300 rounded w-96" 
+                        value={additionalInfo}
+                        onChange={(e) => setAdditionalInfo(e.target.value)}
                     />
                 </div>
             </div>
