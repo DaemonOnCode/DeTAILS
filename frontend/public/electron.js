@@ -86,7 +86,7 @@ ipcMain.handle("render-reddit-webview", async (event, url, text) => {
 
   if (config.browserView) {
     config.mainWindow.removeBrowserView(config.browserView);
-    config.browserView.destroy();
+    // config.browserView.destroy();
     config.browserView = null;
   }
 
@@ -118,76 +118,78 @@ ipcMain.handle("render-reddit-webview", async (event, url, text) => {
   // Load the URL
   view.webContents.loadURL(url);
 
-  view.webContents.on("did-finish-load", () => {
-    view.webContents
-      .executeJavaScript(
-        `
-    (function() {
-      try {
-        const sentence = ${JSON.stringify(text)};
-        const highlightColor = '#FFF9C4'; // Soft pastel yellow for highlighting
-        const textColor = '#000000'; // Black text color for readability
-        const highlightClass = 'highlighted-sentence';
-
-        // Add CSS for the highlight class
-        const style = document.createElement('style');
-        style.innerHTML = \`
-          .\${highlightClass} {
-            background-color: \${highlightColor};
-            color: \${textColor}; /* Set text color to black */
-            transition: background-color 0.5s ease;
-            padding: 2px; /* Add a bit of padding to make the highlight clearer */
-            border-radius: 4px; /* Rounded edges for a subtle highlight */
+  if (text) {
+    view.webContents.on("did-finish-load", () => {
+      view.webContents
+        .executeJavaScript(
+          `
+      (function() {
+        try {
+          const sentence = ${JSON.stringify(text)};
+          const highlightColor = '#FFF9C4'; // Soft pastel yellow for highlighting
+          const textColor = '#000000'; // Black text color for readability
+          const highlightClass = 'highlighted-sentence';
+  
+          // Add CSS for the highlight class
+          const style = document.createElement('style');
+          style.innerHTML = \`
+            .\${highlightClass} {
+              background-color: \${highlightColor};
+              color: \${textColor}; /* Set text color to black */
+              transition: background-color 0.5s ease;
+              padding: 2px; /* Add a bit of padding to make the highlight clearer */
+              border-radius: 4px; /* Rounded edges for a subtle highlight */
+            }
+          \`;
+          document.head.appendChild(style);
+  
+          function highlightExactText(node, sentence) {
+            if (node.nodeType === Node.TEXT_NODE) {
+              const index = node.textContent.indexOf(sentence);
+              if (index !== -1) {
+                const range = document.createRange();
+                range.setStart(node, index);
+                range.setEnd(node, index + sentence.length);
+  
+                // Create a span wrapper to apply the highlight
+                const span = document.createElement('span');
+                span.className = highlightClass;
+                span.textContent = sentence;
+  
+                range.deleteContents();
+                range.insertNode(span);
+  
+                // Scroll to the highlighted text
+                span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return true;
+              }
+            }
+            return false;
           }
-        \`;
-        document.head.appendChild(style);
-
-        function highlightExactText(node, sentence) {
-          if (node.nodeType === Node.TEXT_NODE) {
-            const index = node.textContent.indexOf(sentence);
-            if (index !== -1) {
-              const range = document.createRange();
-              range.setStart(node, index);
-              range.setEnd(node, index + sentence.length);
-
-              // Create a span wrapper to apply the highlight
-              const span = document.createElement('span');
-              span.className = highlightClass;
-              span.textContent = sentence;
-
-              range.deleteContents();
-              range.insertNode(span);
-
-              // Scroll to the highlighted text
-              span.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              return true;
+  
+          function searchAndHighlight(node, sentence) {
+            for (let child of node.childNodes) {
+              if (highlightExactText(child, sentence)) {
+                return; // Stop after the first exact match is highlighted
+              }
+              searchAndHighlight(child, sentence); // Recursively search in child nodes
             }
           }
-          return false;
+  
+          // Start searching from the body element
+          searchAndHighlight(document.body, sentence);
+  
+        } catch (error) {
+          console.error('Error in injected script:', error);
         }
-
-        function searchAndHighlight(node, sentence) {
-          for (let child of node.childNodes) {
-            if (highlightExactText(child, sentence)) {
-              return; // Stop after the first exact match is highlighted
-            }
-            searchAndHighlight(child, sentence); // Recursively search in child nodes
-          }
-        }
-
-        // Start searching from the body element
-        searchAndHighlight(document.body, sentence);
-
-      } catch (error) {
-        console.error('Error in injected script:', error);
-      }
-    })();
-  `
-      )
-      .catch((error) => {
-        console.error("Error executing injected script:", error);
-      });
-  });
+      })();
+    `
+        )
+        .catch((error) => {
+          console.error("Error executing injected script:", error);
+        });
+    });
+  }
 
   // Store the BrowserView reference
   config.browserView = view;
@@ -201,7 +203,6 @@ ipcMain.handle("render-reddit-webview", async (event, url, text) => {
 ipcMain.handle("close-reddit-webview", async (event) => {
   if (config.browserView) {
     config.mainWindow.removeBrowserView(config.browserView);
-    // config.browserView.destroy();
     config.browserView = null;
   }
 });

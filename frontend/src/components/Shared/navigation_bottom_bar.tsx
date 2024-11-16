@@ -10,7 +10,7 @@ const NavigationBottomBar: FC<
     NavigationBottomBarProps
 > = ({isReady, previousPage, nextPage}) => {
   return (
-    <div className="flex justify-between mt-20 pb-10">
+    <div className="flex justify-between mt-6">
       <a
         href={previousPage}
         className={`${!previousPage && "invisible"} px-4 py-2 rounded transition duration-200 bg-blue-500 text-white hover:bg-blue-600`}

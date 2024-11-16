@@ -24,7 +24,7 @@ interface IDataContext {
 // Create the context
 export const DataContext = createContext<IDataContext>({
     mainWord: "",
-    currentMode: "link",
+    currentMode: "folder",
     modeInput: "",
     toggleMode: () => {},
     setModeInput: () => {},
@@ -43,7 +43,7 @@ export const DataContext = createContext<IDataContext>({
 export const DataProvider:FC<ILayout> = ({ children }) => {
 
     const mainWord = "React";
-  const [currentMode, setCurrentMode] = useState<Mode>("link");
+  const [currentMode, setCurrentMode] = useState<Mode>("folder");
 
   const [modeInput, setModeInput] = useState<string>("");
 

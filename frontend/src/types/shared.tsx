@@ -53,3 +53,22 @@ export interface IReference {
   postId: number;
   isComment: boolean;
 }
+
+export type RedditPost = {
+    "over_18":boolean,
+    "subreddit":string,
+    "score":number,
+    "thumbnail":"image",
+    "permalink":string,
+    "is_self":boolean,
+    "domain":"i.redd.it",
+    "created_utc":number,
+    "url":string,
+    "id":string,
+    "num_comments":number,
+    "title":string,
+    "selftext":string,
+    "author":string,
+    "hide_score":boolean,
+    "subreddit_id":string
+};
