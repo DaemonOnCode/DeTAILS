@@ -2,19 +2,15 @@ const { exec } = require("child_process");
 const path = require("path");
 
 exports.executeOllama = async (app) => {
-  const ollamaPath = path.resolve(
-    __dirname,
-    "..",
-    "..",
-    "..",
-    "ollama-0.4.0",
-    "ollama"
-  );
+  const ollamaPath = path.resolve(__dirname, "..", "..", "..", "ollama-0.4.2");
 
   const escapedPath = `"${ollamaPath}"`;
+  const ollamaExecutable = "./dist/ollama-darwin";
+
+  const model = "llama3.2:3b";
   // Start the Ollama server
   const ollamaProcess = exec(
-    `${escapedPath} serve`,
+    `cd ${escapedPath} && ${ollamaExecutable} serve`,
     (error, stdout, stderr) => {
       if (error) {
         console.error(`Ollama failed to start: ${error.message}`);
