@@ -14,6 +14,7 @@ const { ChromaClient } = require("chromadb");
 
 const puppeteer = require("puppeteer-core");
 const { executeOllama } = require("./utils/executeOllama");
+const { executeChromadb } = require("./utils/executeChromadb");
 
 if (config.isDev) require("electron-reloader")(module);
 
@@ -29,7 +30,7 @@ if (!config.isDev) {
 app.on("ready", async () => {
   config.mainWindow = await createMainWindow();
 
-  await executeOllama(app);
+  await Promise.allSettled([executeOllama(app), executeChromadb(app)]);
   // config.tray = createTray();
   // config.popupWindow = await createPopupWindow();
 
