@@ -1,0 +1,131 @@
+# Build the default runner(s) for the platform which do not rely on 3rd party GPU libraries
+include make/common-defs.make
+
+CPU_GOFLAGS="-ldflags=-w -s \"-X=github.com/ollama/ollama/version.Version=$(VERSION)\" \"-X=github.com/ollama/ollama/llama.CpuFeatures=$(subst $(space),$(comma),$(TARGET_CPU_FLAGS))\" $(TARGET_LDFLAGS)"
+DEFAULT_RUNNER := $(if $(and $(filter darwin,$(OS)),$(filter arm64,$(ARCH))),metal,cpu)
+RUNNERS := $(DEFAULT_RUNNER)
+
+$(info CUSTOM_CPU_FLAGS: $(CUSTOM_CPU_FLAGS), $(ARCH), $(TARGET_LDFLAGS))
+
+ifeq ($(ARCH),amd64)
+ifeq ($(CUSTOM_CPU_FLAGS),)
+	RUNNERS += cpu_avx cpu_avx2
+endif
+endif
+
+$(info CUSTOM_CPU_FLAGS: $(CUSTOM_CPU_FLAGS))
+
+# Placeholder for spaces
+SPACE_PLACEHOLDER = __SPACE__
+
+# Escape paths by replacing spaces with a placeholder
+define ESCAPE
+$(subst $(space),$(SPACE_PLACEHOLDER),$1)
+endef
+
+# Unescape paths by replacing the placeholder with spaces
+define UNESCAPE
+$(subst $(SPACE_PLACEHOLDER),$(space),$1)
+endef
+
+define ESCAPE_RB
+$(subst $(space),\,$(1))
+endef
+
+# Unescape function to revert \ to spaces
+define UNESCAPE_RB
+$(subst \,$(space),$(1))
+endef
+
+# Escaped definitions
+DIST_RUNNERS = $(addprefix $(RUNNERS_DIST_DIR)/,$(addsuffix /ollama_llama_server$(EXE_EXT),$(RUNNERS)))
+ifneq ($(OS),windows)
+PAYLOAD_RUNNERS = $(addprefix $(RUNNERS_PAYLOAD_DIR)/,$(addsuffix /ollama_llama_server$(EXE_EXT).gz,$(RUNNERS)))
+endif
+BUILD_RUNNERS = $(addprefix $(RUNNERS_BUILD_DIR)/,$(addsuffix /ollama_llama_server$(EXE_EXT),$(RUNNERS)))
+
+
+$(info RUNNERS=$(RUNNERS))
+$(info BUILD_RUNNERS=$(BUILD_RUNNERS))
+$(info DIST_RUNNERS=$(DIST_RUNNERS))
+$(info PAYLOAD_RUNNERS=$(PAYLOAD_RUNNERS))
+$(info RUNNERS_DIST_DIR=$(RUNNERS_DIST_DIR))
+$(info RUNNERS_BUILD_DIR=$(RUNNERS_BUILD_DIR))
+$(info RUNNERS_PAYLOAD_DIR=$(RUNNERS_PAYLOAD_DIR))
+
+# Escape the paths before passing to all
+all: $(call ESCAPE,$(BUILD_RUNNERS)) $(call ESCAPE,$(DIST_RUNNERS)) $(call ESCAPE,$(PAYLOAD_RUNNERS))
+
+
+$(call ESCAPE,$(RUNNERS_BUILD_DIR))/$(DEFAULT_RUNNER)/ollama_llama_server$(EXE_EXT): TARGET_CPU_FLAGS=$(CUSTOM_CPU_FLAGS)
+$(call ESCAPE,$(RUNNERS_BUILD_DIR))/$(DEFAULT_RUNNER)/ollama_llama_server$(EXE_EXT): *.go ./runner/*.go $(COMMON_SRCS) $(COMMON_HDRS)
+	@echo "Building runner1: $(call UNESCAPE,$@), $(TARGET_CPU_FLAGS), $(COMMON_SRCS), $(COMMON_HDRS)"
+	@echo "Creating directory: $(call UNESCAPE,$(dir $@))"
+	@pwd
+	@ls *.go
+	@-mkdir -p "$(call UNESCAPE,$(dir $@))"
+	GOARCH=$(ARCH) go build -v -x -buildmode=pie $(CPU_GOFLAGS) -trimpath $(if $(CUSTOM_CPU_FLAGS),-tags $(subst $(space),$(comma),$(CUSTOM_CPU_FLAGS)))  -o "$(call UNESCAPE,$(dir $@))" ./runner
+	@echo "Ending building runner1"
+
+$(call ESCAPE,$(RUNNERS_BUILD_DIR))/cpu_avx/ollama_llama_server$(EXE_EXT): TARGET_CPU_FLAGS="avx"
+$(call ESCAPE,$(RUNNERS_BUILD_DIR))/cpu_avx/ollama_llama_server$(EXE_EXT): *.go ./runner/*.go $(COMMON_SRCS) $(COMMON_HDRS)
+	@echo "Building runner2: $(call UNESCAPE,$@)"
+	@echo "Creating directory: $(call UNESCAPE,$(dir $@))"
+	@-mkdir -p "$(call UNESCAPE,$(dir $@))"
+	GOARCH=$(ARCH) go build -buildmode=pie $(CPU_GOFLAGS) -trimpath -tags $(subst $(space),$(comma),$(TARGET_CPU_FLAGS)) -o $@ ./runner
+	@echo "Ending building runner2"
+
+$(call ESCAPE,$(RUNNERS_BUILD_DIR))/cpu_avx2/ollama_llama_server$(EXE_EXT): TARGET_CPU_FLAGS="avx avx2"
+$(call ESCAPE,$(RUNNERS_BUILD_DIR))/cpu_avx2/ollama_llama_server$(EXE_EXT): *.go ./runner/*.go $(COMMON_SRCS) $(COMMON_HDRS)
+	@echo "Building runner3: $(call UNESCAPE,$@)"
+	@echo "Creating directory: $(call UNESCAPE,$(dir $@))"
+	@-mkdir -p "$(call UNESCAPE,$(dir $@))"
+	GOARCH=$(ARCH) go build -buildmode=pie $(CPU_GOFLAGS) -trimpath -tags $(subst $(space),$(comma),$(TARGET_CPU_FLAGS)) -o $@ ./runner
+	@echo "Ending building runner3"
+
+$(call ESCAPE,$(RUNNERS_DIST_DIR))/%: $(call ESCAPE,$(RUNNERS_BUILD_DIR))/%
+	@echo "Copying $(call UNESCAPE,$<) to $(call UNESCAPE_RB,$@)"
+	@echo "Creating directory: $(call UNESCAPE,$(dir $@))"
+	@-mkdir -p "$(call UNESCAPE,$(dir $@))"
+	@{ cp "$(call UNESCAPE,$<)" "$(call UNESCAPE,$@)" || \
+		echo "Warning: Copy failed for $<"; }
+	@echo "Ending copying runner"
+
+$(call ESCAPE,$(RUNNERS_PAYLOAD_DIR))/%/ollama_llama_server$(EXE_EXT).gz: $(call ESCAPE,$(RUNNERS_BUILD_DIR))/%/ollama_llama_server$(EXE_EXT)
+	@echo "Compressing $(call UNESCAPE,$<) to $(call UNESCAPE,$@)"
+	@echo "Creating directory: $(call UNESCAPE,$(dir $@))"
+	@-mkdir -p "$(call UNESCAPE,$(dir $@))"
+	@{ $(GZIP) --best -c "$(call UNESCAPE,$<)" > "$(call UNESCAPE,$@)" || \
+		echo "Warning: gzip failed for $<"; }
+	@echo "Ending compressing runner"
+
+#$(call ESCAPE,$(RUNNERS_PAYLOAD_DIR))/%/ollama_llama_server$(EXE_EXT).gz: $(call ESCAPE,$(RUNNERS_BUILD_DIR))/%/ollama_llama_server$(EXE_EXT)
+#	@echo "Compressing $(call UNESCAPE,$<) to $(call UNESCAPE,$@)"
+#	@echo "Creating directory: $(call UNESCAPE,$(dir $@))"
+#	@-mkdir -p "$(call UNESCAPE,$(dir $@))"
+#	${GZIP} --best -c "$(call UNESCAPE,$<)" > "$(call UNESCAPE,$@)"
+#	@echo "Ending compressing runner"
+
+
+#$(call ESCAPE,$(RUNNERS_DIST_DIR))/%: $(call ESCAPE,$(RUNNERS_BUILD_DIR))/%
+#	@echo "Copying $(call UNESCAPE,$<) to $(call UNESCAPE_RB,$@)"
+#	@echo "Creating directory: $(call UNESCAPE,$(dir $@))"
+#	@-mkdir -p "$(call UNESCAPE,$(dir $@))"
+#	cp "$(call UNESCAPE,$<)" "$(call UNESCAPE,$@)"
+#	@echo "Ending copying runner"
+
+clean:
+	@echo "Cleaning build, dist, and payload runners..."
+	@rm -rf "$(RUNNERS_BUILD_DIR)" "$(RUNNERS_PAYLOAD_DIR)" "$(RUNNERS_DIST_DIR)"
+	@echo "Ending clean mkdef"
+
+
+.PHONY: clean all
+
+debug:
+	@echo "DIST_RUNNERS (escaped)=$(DIST_RUNNERS)"
+	@echo "PAYLOAD_RUNNERS (escaped)=$(PAYLOAD_RUNNERS)"
+	@echo "BUILD_RUNNERS (escaped)=$(BUILD_RUNNERS)"
+	@echo "DIST_RUNNERS (unescaped)=$(call UNESCAPE,$(DIST_RUNNERS))"
+	@echo "PAYLOAD_RUNNERS (unescaped)=$(call UNESCAPE,$(PAYLOAD_RUNNERS))"
+	@echo "BUILD_RUNNERS (unescaped)=$(call UNESCAPE,$(BUILD_RUNNERS))"
