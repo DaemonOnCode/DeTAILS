@@ -5,6 +5,9 @@
 OS := $(shell uname -s)
 ARCH := $(subst aarch64,arm64,$(subst x86_64,amd64,$(shell uname -m)))
 
+$(info Debug OS,ARCH: $(OS) | $(ARCH))
+
+
 # Handle specific OS conditions
 ifneq (,$(findstring MINGW,$(OS))$(findstring MSYS,$(OS)))
 	OS := windows

@@ -63,6 +63,8 @@ var (
 	RocrVisibleDevices    = String("ROCR_VISIBLE_DEVICES")
 	GpuDeviceOrdinal      = String("GPU_DEVICE_ORDINAL")
 	HsaOverrideGfxVersion = String("HSA_OVERRIDE_GFX_VERSION")
+
+	InitModels = String("INIT_MODELS")
 )
 
 

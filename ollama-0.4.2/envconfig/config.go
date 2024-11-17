@@ -76,7 +76,8 @@ func Origins() (origins []string) {
 // Default is $HOME/.ollama/models
 func Models() string {
 	if s := Var("OLLAMA_MODELS"); s != "" {
-		return s
+		fmt.Println("s: ", s, "ResolvePath(s): ", ResolvePath(s))
+		return ResolvePath(s)
 	}
 
 	home, err := os.UserHomeDir()
@@ -212,7 +213,7 @@ func AsMap() map[string]EnvVar {
 		"OLLAMA_LOAD_TIMEOUT":      {"OLLAMA_LOAD_TIMEOUT", LoadTimeout(), "How long to allow model loads to stall before giving up (default \"5m\")"},
 		"OLLAMA_MAX_LOADED_MODELS": {"OLLAMA_MAX_LOADED_MODELS", MaxRunners(), "Maximum number of loaded models per GPU"},
 		"OLLAMA_MAX_QUEUE":         {"OLLAMA_MAX_QUEUE", MaxQueue(), "Maximum number of queued requests"},
-		"OLLAMA_MODELS":            {"OLLAMA_MODELS", ResolvePath(Models()), "The path to the models directory"},
+		"OLLAMA_MODELS":            {"OLLAMA_MODELS", Models(), "The path to the models directory"},
 		"OLLAMA_NOHISTORY":         {"OLLAMA_NOHISTORY", NoHistory(), "Do not preserve readline history"},
 		"OLLAMA_NOPRUNE":           {"OLLAMA_NOPRUNE", NoPrune(), "Do not prune model blobs on startup"},
 		"OLLAMA_NUM_PARALLEL":      {"OLLAMA_NUM_PARALLEL", NumParallel(), "Maximum number of parallel requests"},
@@ -225,6 +226,9 @@ func AsMap() map[string]EnvVar {
 		"HTTP_PROXY":  {"HTTP_PROXY", String("HTTP_PROXY")(), "HTTP proxy"},
 		"HTTPS_PROXY": {"HTTPS_PROXY", String("HTTPS_PROXY")(), "HTTPS proxy"},
 		"NO_PROXY":    {"NO_PROXY", String("NO_PROXY")(), "No proxy"},
+
+		// Model Initialization
+		"INIT_MODELS": {"INIT_MODELS", InitModels(), "Comma separated list of models to initialize"},
 	}
 
 	if runtime.GOOS != "windows" {

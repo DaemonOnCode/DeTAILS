@@ -50,15 +50,7 @@ $(info Final RUNNER_TARGETS=$(RUNNER_TARGETS))
 all: clean-payload .WAIT runners
 
 runners: $(RUNNER_TARGETS)
-	@echo "Starting the runners build process"
-	@echo "RUNNER_TARGETS=$(RUNNER_TARGETS)"
-	@echo "Building the following runners: $(RUNNER_TARGETS)"
-	@for target in $(RUNNER_TARGETS); do \
-		echo "Building runner: $$target"; \
-		make -f make/Makefile.$$target; \
-		echo "Finished building runner: $$target"; \
-	done
-	@echo "All runners have been successfully built."
+
 
 
 $(RUNNER_TARGETS):

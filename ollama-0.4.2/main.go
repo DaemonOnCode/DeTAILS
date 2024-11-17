@@ -89,8 +89,8 @@ func main() {
 
 	fmt.Println("Cwd: ", cwd)
 
-	sourceFolder := filepath.Join(cwd, "llama", "make", "build", "darwin-arm64", "runners")
-	destinationFolder := filepath.Join(cwd, "lib", "ollama", "runners")
+	sourceFolder := filepath.Join(cwd, "llama", "make", "build", "darwin-arm64")
+	destinationFolder := filepath.Join(cwd, "lib", "ollama")
 
 	err = copyFolder(sourceFolder, destinationFolder)
 	if err != nil {

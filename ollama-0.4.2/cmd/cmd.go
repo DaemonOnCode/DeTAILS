@@ -26,6 +26,10 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"sync"
+	"encoding/json"
+	"net/url"
+	// "log/slog"
 
 	"github.com/containerd/console"
 	"github.com/mattn/go-runewidth"
@@ -1198,6 +1202,109 @@ func generate(cmd *cobra.Command, opts runOptions) error {
 
 	return nil
 }
+func constructURL(path string) (string, error) {
+	// Create a URL path reference
+	ref, err := url.Parse(path)
+	if err != nil {
+		return "", err
+	}
+
+	// Resolve the reference to the base URL
+	fullURL := envconfig.Host().ResolveReference(ref)
+	return fullURL.String(), nil
+}
+
+func pullModelViaHTTP(ctx context.Context, model string) error {
+    path := "/api/pull"
+    fullURL, err := constructURL(path)
+    if err != nil {
+        return err
+    }
+
+    body := map[string]string{"name": model}
+    bodyData, err := json.Marshal(body)
+    if err != nil {
+        return err
+    }
+
+    req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewBuffer(bodyData))
+    if err != nil {
+        return err
+    }
+    req.Header.Set("Content-Type", "application/json")
+
+    client := &http.Client{
+        Timeout: 0, // Allow long-running requests
+    }
+
+    resp, err := client.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    // Read the response progressively
+    reader := bufio.NewReader(resp.Body)
+    for {
+        line, err := reader.ReadString('\n')
+        if err != nil {
+            if err == io.EOF {
+                break
+            }
+            return fmt.Errorf("error reading response: %v", err)
+        }
+
+        log.Printf("Progress: %s", line)
+    }
+
+    return nil
+}
+
+
+
+func pullModelAfterServerStart() error {
+	fmt.Println("Server is on")
+	// Simulate loading models from config
+	models := strings.Split(envconfig.InitModels(), ",")
+
+	if len(models) == 0 {
+		log.Println("No models to pull")
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+
+	// Use a WaitGroup to wait for all model pulls to complete
+	var wg sync.WaitGroup
+	modelPullErrors := make(chan error, len(models))
+
+	for _, model := range models {
+		wg.Add(1)
+		go func(model string) {
+			defer wg.Done()
+			err := pullModelViaHTTP(ctx, model)
+			if err != nil {
+				modelPullErrors <- err
+			}
+		}(model)
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+	close(modelPullErrors)
+
+	// Check if any errors occurred
+	for err := range modelPullErrors {
+		log.Printf("Error pulling model: %v", err)
+		return err
+	}
+
+	log.Println("All models pulled successfully")
+	return nil
+}
+
 
 func RunServer(_ *cobra.Command, _ []string) error {
 	if err := initializeKeypair(); err != nil {
@@ -1209,13 +1316,26 @@ func RunServer(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
+	// // Schedule model pulling after server starts
+	// time.AfterFunc(5*time.Second, func() {
+	// 	err := pullModelAfterServerStart()
+	// 	if err != nil {
+	// 		log.Printf("Error pulling models after server start: %v", err)
+	// 	}
+	// })
+
+	// Start the server
 	err = server.Serve(ln)
 	if errors.Is(err, http.ErrServerClosed) {
-		return nil
+		log.Println("Server closed gracefully")
+	} else if err != nil {
+		log.Fatalf("Server error: %v", err)
 	}
 
 	return err
 }
+
+
 
 func initializeKeypair() error {
 	home, err := os.UserHomeDir()

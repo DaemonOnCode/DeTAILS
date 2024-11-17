@@ -14,7 +14,7 @@ export CGO_CFLAGS=-mmacosx-version-min=11.3
 export CGO_CXXFLAGS=-mmacosx-version-min=11.3
 export CGO_LDFLAGS=-mmacosx-version-min=11.3
 
-for TARGETARCH in arm64 amd64; do
+for TARGETARCH in amd64 arm64; do
     echo "Building Go runner darwin $TARGETARCH"
     rm -rf llama/build
     echo "Building llama darwin $TARGETARCH"

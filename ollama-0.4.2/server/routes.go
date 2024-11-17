@@ -1259,7 +1259,7 @@ func Serve(ln net.Listener) error {
 		schedDone()
 		sched.unloadAllRunners()
 		fmt.Println("Should start cleanup")
-		// runners.Cleanup(build.EmbedFS)
+		runners.Cleanup(build.EmbedFS)
 		done()
 	}()
 

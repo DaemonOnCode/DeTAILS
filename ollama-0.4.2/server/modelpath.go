@@ -94,6 +94,7 @@ func (mp ModelPath) GetShortTagname() string {
 // GetManifestPath returns the path to the manifest file for the given model path, it is up to the caller to create the directory if it does not exist.
 func (mp ModelPath) GetManifestPath() (string, error) {
 	if p := filepath.Join(mp.Registry, mp.Namespace, mp.Repository, mp.Tag); filepath.IsLocal(p) {
+		fmt.Println("model manifest in get path",envconfig.Models())
 		return filepath.Join(envconfig.Models(), "manifests", p), nil
 	}
 
@@ -109,6 +110,7 @@ func (mp ModelPath) BaseURL() *url.URL {
 
 func GetManifestPath() (string, error) {
 	path := filepath.Join(envconfig.Models(), "manifests")
+	fmt.Println("manifest path",path)
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		return "", err
 	}
@@ -126,8 +128,11 @@ func GetBlobsPath(digest string) (string, error) {
 	}
 
 	digest = strings.ReplaceAll(digest, ":", "-")
+	fmt.Println("model path",envconfig.Models())
 	path := filepath.Join(envconfig.Models(), "blobs", digest)
+	fmt.Println("path",path)
 	dirPath := filepath.Dir(path)
+	fmt.Println("dirPath",dirPath)
 	if digest == "" {
 		dirPath = path
 	}

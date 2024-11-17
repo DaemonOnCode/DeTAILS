@@ -54,8 +54,10 @@ func Refresh(payloadFS fs.FS) (string, error) {
 	defer lock.Unlock()
 	var err error
 
+	fmt.Println("In Refresh", runnersDir)
 	// Wire up extra logging on our first load
 	if runnersDir == "" {
+		fmt.Println("Runners Dir is empty")
 		defer func() {
 			var runners []string
 			for v := range GetAvailableServers(runnersDir) {
@@ -98,6 +100,7 @@ func Cleanup(payloadFS fs.FS) {
 	if hasPayloads(payloadFS) && runnersDir != "" {
 		// We want to fully clean up the tmpdir parent of the payloads dir
 		tmpDir := filepath.Clean(filepath.Join(runnersDir, ".."))
+		fmt.Println("In Cleanup", tmpDir)
 		slog.Debug("cleaning up", "dir", tmpDir)
 		err := os.RemoveAll(tmpDir)
 		if err != nil {
@@ -162,17 +165,18 @@ func extractRunners(payloadFS fs.FS) (string, error) {
 	fmt.Println("In extractRunners")
 
 	tmpDir, err := os.MkdirTemp(envconfig.TmpDir(), "ollama")
+	fmt.Println("In extractRunners tmpDir", tmpDir)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate tmp dir: %w", err)
 	}
 	// Track our pid so we can clean up orphaned tmpdirs
-	n := escapePath(filepath.Join(tmpDir, "ollama.pid"))
+	n := filepath.Join(tmpDir, "ollama.pid")
 	if err := os.WriteFile(n, []byte(strconv.Itoa(os.Getpid())), 0o644); err != nil {
 		slog.Warn("failed to write pid file", "file", n, "error", err)
 	}
 	// We create a distinct subdirectory for payloads within the tmpdir
 	// This will typically look like /tmp/ollama3208993108/runners on Linux
-	rDir := escapePath(filepath.Join(tmpDir, "runners"))
+	rDir := filepath.Join(tmpDir, "runners")
 
 	slog.Info("extracting embedded files", "dir", rDir)
 	return rDir, refreshRunners(payloadFS, rDir)
@@ -271,7 +275,11 @@ func cleanupTmpDirs() {
 	if tmpDir == "" {
 		tmpDir = os.TempDir()
 	}
+
+	fmt.Println("In cleanupTmpDirs ", tmpDir)
+
 	matches, err := filepath.Glob(filepath.Join(tmpDir, "ollama*", "ollama.pid"))
+	fmt.Println("Matches ", matches, err)
 	if err != nil {
 		return
 	}
@@ -325,16 +333,21 @@ func GetAvailableServers(payloadsDir string) map[string]string {
 	}
 
 	// glob payloadsDir for files that start with ollama_
-	pattern := filepath.Join(payloadsDir, "*", "ollama_*")
+	pattern := filepath.Join(payloadsDir, "..", "*", "*", "ollama_*")
+	fmt.Println("Pattern ", pattern)
 
 	files, err := filepath.Glob(pattern)
+	fmt.Println("Files ", files, err)
 	if err != nil {
+		fmt.Println("Error in GetAvailableServers", err)
 		slog.Debug("could not glob", "pattern", pattern, "error", err)
 		return nil
 	}
 
+	fmt.Println("After Files ", files)
 	servers := make(map[string]string)
 	for _, file := range files {
+		fmt.Println("File ", file)
 		slog.Debug("availableServers : found", "file", file)
 		servers[filepath.Base(filepath.Dir(file))] = filepath.Dir(file)
 	}
