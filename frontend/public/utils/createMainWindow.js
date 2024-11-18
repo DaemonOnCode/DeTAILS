@@ -1,60 +1,43 @@
-const { BrowserWindow, ipcMain, dialog } = require("electron");
-const { join } = require("path");
-const { autoUpdater } = require("electron-updater");
-const remote = require("@electron/remote/main");
-const config = require("./config");
+const { BrowserWindow, ipcMain, dialog } = require('electron');
+const { join } = require('path');
+const { autoUpdater } = require('electron-updater');
+const remote = require('@electron/remote/main');
+const config = require('./config');
 
 exports.createMainWindow = async () => {
-	const window = new BrowserWindow({
-		width: 800,
-		height: 600,
-		webPreferences: {
-			nodeIntegration: true,
-			enableRemoteModule: true,
-			devTools: config.isDev,
-			contextIsolation: false,
-			webSecurity: false,
-		},
-		icon: config.icon,
-		title: config.appName,
-	});
+    const window = new BrowserWindow({
+        width: 800,
+        height: 600,
+        webPreferences: {
+            nodeIntegration: true,
+            enableRemoteModule: true,
+            devTools: config.isDev,
+            contextIsolation: false
+            // webSecurity: false
+        },
+        icon: config.icon,
+        title: config.appName
+    });
 
-	remote.enable(window.webContents);
+    remote.enable(window.webContents);
 
-	await window.loadURL(
-		config.isDev
-			? "http://localhost:3000"
-			: `file://${join(__dirname, "..", "../build/index.html")}`,
-	);
+    await window.loadURL(
+        config.isDev
+            ? 'http://localhost:3000'
+            : `file://${join(__dirname, '..', '../build/index.html')}`
+    );
 
-	window.once("ready-to-show", () => {
-		autoUpdater.checkForUpdatesAndNotify();
-	});
+    window.once('ready-to-show', () => {
+        autoUpdater.checkForUpdatesAndNotify();
+    });
 
-	window.on("close", (e) => {
-		if (!config.isQuiting) {
-			e.preventDefault();
+    window.on('close', (e) => {
+        if (!config.isQuiting) {
+            e.preventDefault();
 
-			window.hide();
-		}
-	});
+            window.hide();
+        }
+    });
 
-	// ipcMain.handle("select-folder", async () => {
-	// 	const result = await dialog.showOpenDialog(mainWindow, {
-	// 		properties: ["openDirectory"],
-	// 	});
-	// 	return result.filePaths[0]; // Return the selected folder path
-	// });
-
-	// ipcMain.handle('fetch-reddit-content', async (event, url) => {
-	// 	try {
-	// 		const content = await fetchRedditContent(url);
-	// 		return content;
-	// 	} catch (error) {
-	// 		console.error('Error fetching Reddit content:', error);
-	// 		return { error: 'Failed to fetch content' };
-	// 	}
-	// });
-
-	return window;
+    return window;
 };

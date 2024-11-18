@@ -1,23 +1,21 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 
-import "./styles/index.css";
-import "./styles/tailwind.css";
+import './styles/index.css';
+import './styles/tailwind.css';
 
-import { Router } from "./router";
-import { DataProvider } from "./context/data_context";
-import { Layout } from "./components/Layout";
+import { Router } from './router';
+import { DataProvider } from './context/data_context';
+import { Layout } from './components/Layout';
 
-const root = ReactDOM.createRoot(
-	document.getElementById("root") as HTMLElement,
-);
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
 root.render(
-	<React.StrictMode>
-		<DataProvider>
-			<Layout>
-				<Router />
-			</Layout>
-		</DataProvider>
-	</React.StrictMode>,
+    <React.StrictMode>
+        <DataProvider>
+            <Layout>
+                <Router />
+            </Layout>
+        </DataProvider>
+    </React.StrictMode>
 );

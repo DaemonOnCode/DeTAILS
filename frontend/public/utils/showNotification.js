@@ -1,14 +1,14 @@
-const { Notification } = require("electron");
+const { Notification } = require('electron');
 
 exports.showNotification = (title, body) => {
-	const notification = new Notification({
-		title,
-		body,
-		silent: true,
-		timeoutType: "default",
-	});
+    const notification = new Notification({
+        title,
+        body,
+        silent: true,
+        timeoutType: 'default'
+    });
 
-	notification.show();
+    notification.show();
 
-	return notification;
+    return notification;
 };

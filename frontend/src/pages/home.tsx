@@ -1,17 +1,17 @@
-import { FC, useState, useContext } from "react";
-import NavigationBottomBar from "../components/Shared/navigation_bottom_bar";
-import { DataContext } from "../context/data_context";
-import { ROUTES } from "../constants/shared";
-import RedditTable from "../components/Home/reddit_table";
-import PaginationControls from "../components/Home/pagination_control";
-import useRedditData from "../hooks/Home/use_reddit_data";
+import { FC, useState, useContext } from 'react';
+import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
+import { DataContext } from '../context/data_context';
+import { ROUTES } from '../constants/shared';
+import RedditTable from '../components/Home/reddit_table';
+import PaginationControls from '../components/Home/pagination_control';
+import useRedditData from '../hooks/Home/use_reddit_data';
 
 const HomePage: FC = () => {
     const dataContext = useContext(DataContext);
     const { data, error, loadFolderData } = useRedditData();
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [searchTerm, setSearchTerm] = useState("");
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Filtered Data
     const filteredData = data.filter(
@@ -54,14 +54,13 @@ const HomePage: FC = () => {
             {!data.length && (
                 <button
                     onClick={dataContext.toggleMode}
-                    className="px-4 py-2 mb-4 text-white bg-blue-500 rounded hover:bg-blue-600"
-                >
-                    {dataContext.currentMode === "link" ? "Switch to Folder" : "Switch to Link"}
+                    className="px-4 py-2 mb-4 text-white bg-blue-500 rounded hover:bg-blue-600">
+                    {dataContext.currentMode === 'link' ? 'Switch to Folder' : 'Switch to Link'}
                 </button>
             )}
 
             {/* Conditionally render based on the current mode and whether data is loaded */}
-            {dataContext.currentMode === "link" ? (
+            {dataContext.currentMode === 'link' ? (
                 // Link Mode Input
                 <div>
                     <input
@@ -80,13 +79,12 @@ const HomePage: FC = () => {
                         <div>
                             <button
                                 onClick={loadFolderData}
-                                className="p-2 border border-gray-300 rounded w-96"
-                            >
+                                className="p-2 border border-gray-300 rounded w-96">
                                 Select Folder
                             </button>
                             <div>
                                 <h3>Selected Folder:</h3>
-                                <p>{dataContext.modeInput || "No folder selected"}</p>
+                                <p>{dataContext.modeInput || 'No folder selected'}</p>
                                 {error && <p className="text-red-500">{error}</p>}
                             </div>
                         </div>
@@ -112,8 +110,7 @@ const HomePage: FC = () => {
                                         id="itemsPerPage"
                                         value={itemsPerPage}
                                         onChange={handleItemsPerPageChange}
-                                        className="p-2 border border-gray-300 rounded"
-                                    >
+                                        className="p-2 border border-gray-300 rounded">
                                         {[10, 20, 50, 100].map((limit) => (
                                             <option key={limit} value={limit}>
                                                 {limit}
@@ -158,7 +155,7 @@ const HomePage: FC = () => {
             )}
 
             {/* Navigation Bottom Bar (kept fixed at the bottom of the screen) */}
-                <NavigationBottomBar nextPage={ROUTES.BASIS} isReady={data.length > 0} />
+            <NavigationBottomBar nextPage={ROUTES.BASIS} isReady={data.length > 0} />
         </div>
     );
 };

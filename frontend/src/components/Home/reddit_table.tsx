@@ -1,6 +1,6 @@
-import { FC, useState } from "react";
-import { RedditPost } from "../../types/shared";
-import RedditViewModal from "../Shared/reddit_view_modal";
+import { FC, useState } from 'react';
+import { RedditPost } from '../../types/shared';
+import RedditViewModal from '../Shared/reddit_view_modal';
 
 type RedditTableProps = {
     data: RedditPost[];
@@ -23,10 +23,9 @@ const RedditTable: FC<RedditTableProps> = ({ data }) => {
                     {data.map((post, index) => (
                         <tr key={index} className="hover:bg-gray-50">
                             <td className="px-4 py-2 border">
-                                <p 
+                                <p
                                     className="text-blue-500 underline cursor-pointer"
-                                    onClick={() => setSelectedPost(post)}
-                                >
+                                    onClick={() => setSelectedPost(post)}>
                                     {post.id}
                                 </p>
                             </td>
@@ -37,12 +36,14 @@ const RedditTable: FC<RedditTableProps> = ({ data }) => {
                     ))}
                 </tbody>
             </table>
-            {selectedPost && <RedditViewModal 
-                isViewOpen={selectedPost !== null}
-                postLink={selectedPost.url}
-                postText={selectedPost.selftext}
-                closeModal={() => setSelectedPost(null)}   
-            />}
+            {selectedPost && (
+                <RedditViewModal
+                    isViewOpen={selectedPost !== null}
+                    postLink={selectedPost.url}
+                    postText={selectedPost.selftext}
+                    closeModal={() => setSelectedPost(null)}
+                />
+            )}
         </div>
     );
 };
