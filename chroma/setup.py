@@ -3,17 +3,8 @@ from setuptools import setup, find_packages
 setup(
     name="chromadb",
     version="1.0.0",
-    description="Chroma.",
-    long_description=open("README.md").read(),
-    long_description_content_type="text/markdown",
-    author="Jeff Huber, Anton Troynikov",
-    author_email="jeff@trychroma.com, anton@trychroma.com",
+    description="Chromadb",
     python_requires=">=3.8",
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: Apache Software License",
-        "Operating System :: OS Independent",
-    ],
     packages=find_packages(),
     include_package_data=True,
     exclude_package_data={"": ["._*"]},

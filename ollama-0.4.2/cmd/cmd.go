@@ -1272,7 +1272,7 @@ func pullModelAfterServerStart() error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Hour)
 	defer cancel()
 
 
@@ -1316,13 +1316,13 @@ func RunServer(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	// // Schedule model pulling after server starts
-	// time.AfterFunc(5*time.Second, func() {
-	// 	err := pullModelAfterServerStart()
-	// 	if err != nil {
-	// 		log.Printf("Error pulling models after server start: %v", err)
-	// 	}
-	// })
+	// Schedule model pulling after server starts
+	time.AfterFunc(5*time.Second, func() {
+		err := pullModelAfterServerStart()
+		if err != nil {
+			log.Printf("Error pulling models after server start: %v", err)
+		}
+	})
 
 	// Start the server
 	err = server.Serve(ln)
