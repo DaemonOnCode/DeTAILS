@@ -1,0 +1,9 @@
+chroma/*
+chroma.log
+chroma_data/*
+ollama/*
+models/*
+.env
+!**/*.sh
+!**/*.yml
+**/._*

@@ -23,7 +23,7 @@ if (!config.isDev) {
 app.on('ready', async () => {
     config.mainWindow = await createMainWindow();
 
-    await Promise.allSettled([executeOllama(app), executeChromadb(app)]);
+    // await Promise.allSettled([executeOllama(app), executeChromadb(app)]);
 });
 
 app.on('window-all-closed', () => {
