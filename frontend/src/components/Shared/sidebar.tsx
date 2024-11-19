@@ -10,7 +10,7 @@ export const Sidebar: FC = () => {
                         <li className="p-4 hover:bg-gray-700">Home</li>
                     </a>
 
-                    <a href={ROUTES.FINAL}>
+                    <a href={ROUTES.BASIS}>
                         <li className="p-4 hover:bg-gray-700">Random</li>
                     </a>
                 </ul>

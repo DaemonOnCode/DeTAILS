@@ -6,10 +6,9 @@ const remote = require('@electron/remote/main');
 const config = require('./utils/config');
 const registerIpcHandlers = require('./handles');
 
-const { executeOllama } = require('./utils/executeOllama');
-const { executeChromadb } = require('./utils/executeChromadb');
-
-if (config.isDev) require('electron-reloader')(module);
+if (config.isDev) {
+    require('electron-reloader')(module);
+}
 
 remote.initialize();
 

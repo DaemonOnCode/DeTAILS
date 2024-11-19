@@ -12,8 +12,8 @@ exports.createMainWindow = async () => {
             nodeIntegration: true,
             enableRemoteModule: true,
             devTools: config.isDev,
-            contextIsolation: false
-            // webSecurity: false
+            contextIsolation: false,
+            webSecurity: false
         },
         icon: config.icon,
         title: config.appName

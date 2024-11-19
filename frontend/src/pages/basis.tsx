@@ -4,25 +4,51 @@ import FileCard from '../components/Shared/file_card';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
 import { ROUTES } from '../constants/shared';
 
+const { ipcRenderer } = window.require('electron');
+
+const validExtensions = ['.pdf', '.doc', '.docx', '.txt'];
+
 const BasisPage = () => {
     const dataContext = useContext(DataContext);
 
     const [mainCode, setMainCode] = useState<string>('');
     const [additionalInfo, setAdditionalInfo] = useState<string>('');
 
-    const { basisFiles, addBasisFile, searchText, setSearchText } = dataContext;
+    const { basisFiles, addBasisFile } = dataContext;
 
     const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
 
-    const handleSelectFiles = (e: ChangeEvent<HTMLInputElement>) => {
-        console.log('Selecting files');
-        if (!e.target.files) {
+    const handleSelectFiles = async () => {
+        const files: {
+            filePath: string;
+            fileName: string;
+        }[] = await ipcRenderer.invoke('select-files'); // Access through preload
+        if (!files || files.length === 0) return;
+
+        // Filter files based on allowed extensions
+        const filteredFiles = files.filter(({ fileName }) =>
+            validExtensions.some((ext) => fileName.toLowerCase().endsWith(ext))
+        );
+
+        if (filteredFiles.length === 0) {
+            alert('No valid files selected. Please select files with valid extensions.');
             return;
         }
-        const files: File[] = Array.from(e.target.files);
-        files.forEach((file) => {
-            addBasisFile((file as any).path, file.name);
+
+        // Pass the selected files to the parent or context
+        filteredFiles.forEach(({ filePath, fileName }) => {
+            addBasisFile(filePath, fileName);
         });
+    };
+
+    const handleOnNextClick = async () => {
+        await ipcRenderer.invoke(
+            'add-documents-langchain',
+            basisFiles,
+            'llama3.2:3b',
+            mainCode,
+            additionalInfo
+        );
     };
 
     console.log(dataContext.currentMode, dataContext.modeInput);
@@ -32,14 +58,12 @@ const BasisPage = () => {
                 <section className="">
                     {Object.keys(basisFiles).length === 0 ? (
                         <>
-                            <h1>Select basis pdf</h1>
-                            <input
-                                type="file"
-                                accept=".pdf,.doc,.docx,.txt"
-                                multiple={true}
-                                onChange={handleSelectFiles}
-                                className="p-2 border border-gray-300 rounded w-96 my-5"
-                            />
+                            <h1>Select basis pdfs</h1>
+                            <button
+                                onClick={handleSelectFiles}
+                                className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                Select Files
+                            </button>
                         </>
                     ) : (
                         <>
@@ -59,7 +83,7 @@ const BasisPage = () => {
                                         type="file"
                                         multiple={true}
                                         accept=".pdf,.doc,.docx,.txt"
-                                        onChange={(e) => handleSelectFiles(e)}
+                                        onChange={handleSelectFiles}
                                         className="hidden"
                                     />
                                 </label>
@@ -89,6 +113,7 @@ const BasisPage = () => {
                 previousPage={ROUTES.HOME}
                 nextPage={ROUTES.WORD_CLOUD}
                 isReady={checkIfReady}
+                onNextClick={handleOnNextClick}
             />
         </div>
     );

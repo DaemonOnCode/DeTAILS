@@ -1,5 +1,9 @@
 const { join } = require('path');
-const isDev = require('electron-is-dev');
+const isDevPromise = import('electron-is-dev').then((module) => module.default);
+
+async function getIsDev() {
+    return await isDevPromise;
+}
 
 let config = {
     appName: 'Electron React Tailwind Template',
@@ -8,7 +12,9 @@ let config = {
     isQuiting: true,
     mainWindow: null,
     // popupWindow: null,
-    isDev,
+   get isDev() {
+        return getIsDev();
+    },
     browserView: null,
     backendServer: null
 };
