@@ -91,6 +91,19 @@ class SqliteDB(MigratableDB, SqlEmbeddingsQueue, SqlSysDB):
             if not os.path.exists(self._db_file):
                 os.makedirs(os.path.dirname(self._db_file), exist_ok=True)
             self._conn_pool = PerThreadPool(self._db_file)
+        
+        # import sqlite3
+        # logger.debug(sqlite3.connect(self._db_file).execute("SELECT 1").fetchall())
+
+        # # import sqlite3
+
+        # conn = sqlite3.connect("test.db")
+        # cur = conn.cursor()
+        # cur.execute("CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT)")
+        # cur.execute("INSERT INTO test (name) VALUES ('test_name')")
+        # conn.commit()
+        # logger.debug(cur.execute("SELECT * FROM test").fetchall())
+
         self._tx_stack = local()
         super().__init__(system)
 

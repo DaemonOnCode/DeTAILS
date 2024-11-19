@@ -10,6 +10,8 @@ import uvicorn
 import os
 import webbrowser
 
+print(sys.path)
+
 from chromadb.api.client import Client
 from chromadb.cli.utils import get_directory_size, set_log_file_path, sizeof_fmt
 from chromadb.config import Settings, System

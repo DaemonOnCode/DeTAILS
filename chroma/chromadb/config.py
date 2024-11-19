@@ -206,7 +206,7 @@ class Settings(BaseSettings):  # type: ignore
     # Required for backwards compatibility
     chroma_telemetry_impl: str = chroma_product_telemetry_impl
 
-    anonymized_telemetry: bool = True
+    anonymized_telemetry: bool = False
 
     chroma_otel_collection_endpoint: Optional[str] = ""
     chroma_otel_service_name: Optional[str] = "chromadb"

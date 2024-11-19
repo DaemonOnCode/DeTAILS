@@ -34,6 +34,9 @@ import platform
 from chromadb.utils.lru_cache import LRUCache
 from chromadb.utils.directory import get_directory_size
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 if platform.system() != "Windows":
     import resource
@@ -188,10 +191,19 @@ class LocalSegmentManager(SegmentManager):
         OpenTelemetryGranularity.OPERATION_AND_SEGMENT,
     )
     def _get_segment_sysdb(self, collection_id: UUID, scope: SegmentScope) -> Segment:
+        logger.debug(f"_get_segment_sysdb 1 {collection_id}, {scope}")
         segments = self._sysdb.get_segments(collection=collection_id, scope=scope)
+        logger.debug(f"_get_segment_sysdb 2 {collection_id}, {scope}, {segments}")
         known_types = set([k.value for k in SEGMENT_TYPE_IMPLS.keys()])
+        logger.debug(f"_get_segment_sysdb 3 {collection_id}, {scope}, {segments}, {known_types}")
         # Get the first segment of a known type
-        segment = next(filter(lambda s: s["type"] in known_types, segments))
+        # arr = filter(lambda s: s["type"] in known_types, segments)
+        # logger.debug(f"_get_segment_sysdb {collection_id}, {scope}, {segments}, {known_types}, {arr}")
+        # segment = next(arr, None)
+        arr = list(filter(lambda s: s["type"] in known_types, segments))
+        # logger.debug(f"_get_segment_sysdb {collection_id}, {scope}, {segments}, {known_types}, {arr}")
+        segment = arr[0] if len(arr) > 0 else None
+        logger.debug(f"_get_segment_sysdb 4 {collection_id}, {scope}, {segments}, {known_types}, {segment}")
         return segment
 
     @trace_method(
@@ -199,22 +211,35 @@ class LocalSegmentManager(SegmentManager):
         OpenTelemetryGranularity.OPERATION_AND_SEGMENT,
     )
     def get_segment(self, collection_id: UUID, type: Type[S]) -> S:
+        logger.debug(f"get_segment {collection_id}, {type}")
         if type == MetadataReader:
             scope = SegmentScope.METADATA
         elif type == VectorReader:
             scope = SegmentScope.VECTOR
         else:
             raise ValueError(f"Invalid segment type: {type}")
+        
+        logger.debug(f"get_segment {collection_id}, {type}, {scope}")
 
         segment = self.segment_cache[scope].get(collection_id)
-        if segment is None:
-            segment = self._get_segment_sysdb(collection_id, scope)
-            self.segment_cache[scope].set(collection_id, segment)
 
+        logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment}")
+
+        if segment is None:
+            logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} is None")
+            segment = self._get_segment_sysdb(collection_id, scope)
+            logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} from sysdb")
+            self.segment_cache[scope].set(collection_id, segment)
+            logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} added to cache")
+
+        logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done")
         # Instances must be atomically created, so we use a lock to ensure that only one thread
         # creates the instance.
         with self._lock:
+            logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done, lock")
             instance = self._instance(segment)
+            logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done, instance")
+        logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done, instance done, start cast")
         return cast(S, instance)
 
     @trace_method(
@@ -225,15 +250,23 @@ class LocalSegmentManager(SegmentManager):
     def hint_use_collection(self, collection_id: UUID, hint_type: Operation) -> None:
         # The local segment manager responds to hints by pre-loading both the metadata and vector
         # segments for the given collection.
+        logger.debug(f"in segment impl manager local hint_use_collection {collection_id}, {hint_type}")
         for type in [MetadataReader, VectorReader]:
             # Just use get_segment to load the segment into the cache
+            logger.debug(f"1 get_segment {type}") 
             instance = self.get_segment(collection_id, type)
+            logger.debug(f"2 get_segment {type} done, {instance}")
             # If the segment is a vector segment, we need to keep segments in an LRU cache
             # to avoid hitting the OS file handle limit.
+
             if type == VectorReader and self._system.settings.require("is_persistent"):
+                logger.debug(f"3 get_segment {type} done, {instance} is persistent")
                 instance = cast(PersistentLocalHnswSegment, instance)
+                logger.debug(f"4 get_segment {type} done, {instance} is persistent, instance casted")
                 instance.open_persistent_index()
+                logger.debug(f"5 get_segment {type} done, {instance} is persistent, instance opened")
                 self._vector_instances_file_handle_cache.set(collection_id, instance)
+                logger.debug(f"6 get_segment {type} done, {instance} is persistent, instance added to cache")
 
     def _cls(self, segment: Segment) -> Type[SegmentImplementation]:
         classname = SEGMENT_TYPE_IMPLS[SegmentType(segment["type"])]
