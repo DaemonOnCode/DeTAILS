@@ -1,10 +1,11 @@
 import { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 type NavigationBottomBarProps = {
     isReady?: boolean;
     previousPage?: string;
     nextPage?: string;
-    onNextClick?: () => void;
+    onNextClick?: (e: any) => Promise<void>;
     onPreviousClick?: () => void;
 };
 
@@ -15,6 +16,8 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     onNextClick,
     onPreviousClick
 }) => {
+    const navigate = useNavigate();
+
     return (
         <div className="flex justify-between mt-6">
             <a
@@ -36,9 +39,14 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             ? 'bg-green-500 text-white hover:bg-green-600'
                             : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     }`}
-                    onClick={(e) => {
+                    onClick={async (e) => {
                         if (!isReady) e.preventDefault();
-                        else onNextClick && onNextClick();
+                        else {
+                            console.log('Next page clicked');
+                            onNextClick && (await onNextClick(e));
+                            console.log('Navigating to next page');
+                            navigate(nextPage.substring(1));
+                        }
                     }}>
                     Proceed -&gt;
                 </a>

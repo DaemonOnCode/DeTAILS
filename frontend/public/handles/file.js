@@ -11,7 +11,8 @@ const fileHandler = () => {
 
     ipcMain.handle('select-files', async () => {
         const result = await dialog.showOpenDialog({
-            properties: ['openFile', 'multiSelections']
+            properties: ['openFile', 'multiSelections'],
+            filters: [{ name: 'Documents', extensions: ['txt', 'docx', 'pdf'] }]
         });
         const fullResult = result.filePaths.map((path) => {
             return {

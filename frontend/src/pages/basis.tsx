@@ -2,7 +2,8 @@ import { useContext, useState, ChangeEvent } from 'react';
 import { DataContext } from '../context/data_context';
 import FileCard from '../components/Shared/file_card';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
-import { ROUTES } from '../constants/shared';
+import { LOADER_ROUTES, ROUTES } from '../constants/shared';
+import { useNavigate } from 'react-router-dom';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -10,11 +11,10 @@ const validExtensions = ['.pdf', '.doc', '.docx', '.txt'];
 
 const BasisPage = () => {
     const dataContext = useContext(DataContext);
+    const navigate = useNavigate();
 
-    const [mainCode, setMainCode] = useState<string>('');
-    const [additionalInfo, setAdditionalInfo] = useState<string>('');
-
-    const { basisFiles, addBasisFile } = dataContext;
+    const { basisFiles, addBasisFile, mainCode, additionalInfo, setAdditionalInfo, setMainCode } =
+        dataContext;
 
     const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
 
@@ -41,14 +41,31 @@ const BasisPage = () => {
         });
     };
 
-    const handleOnNextClick = async () => {
-        await ipcRenderer.invoke(
+    const handleOnNextClick = async (e: any) => {
+        e.preventDefault();
+        navigate(LOADER_ROUTES.FLASHCARDS_LOADER.substring(1));
+        const result: string = await ipcRenderer.invoke(
             'add-documents-langchain',
             basisFiles,
             'llama3.2:3b',
             mainCode,
             additionalInfo
         );
+        console.log(result);
+        let parsedResult: { flashcards: { question: string; answer: any }[] } = { flashcards: [] };
+        try {
+            parsedResult = JSON.parse(result);
+        } catch (error) {
+            console.error(error, JSON.stringify(result));
+        }
+
+        console.log(parsedResult);
+
+        parsedResult.flashcards.forEach(({ question, answer }) => {
+            dataContext.addFlashcard(question, answer);
+        });
+
+        console.log('Ending function');
     };
 
     console.log(dataContext.currentMode, dataContext.modeInput);
@@ -77,15 +94,15 @@ const BasisPage = () => {
                                         onRemove={dataContext.removeBasisFile}
                                     />
                                 ))}
-                                <label className="flex items-center justify-center h-32 w-32 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50">
+                                <label
+                                    className="flex items-center justify-center h-32 w-32 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50"
+                                    onClick={handleSelectFiles}>
                                     <span>+ Add File</span>
-                                    <input
-                                        type="file"
-                                        multiple={true}
-                                        accept=".pdf,.doc,.docx,.txt"
-                                        onChange={handleSelectFiles}
-                                        className="hidden"
-                                    />
+                                    {/* <button
+                                        onClick={handleSelectFiles}
+                                        className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                        Select Files
+                                    </button> */}
                                 </label>
                             </div>
                         </>
@@ -111,7 +128,7 @@ const BasisPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.HOME}
-                nextPage={ROUTES.WORD_CLOUD}
+                nextPage={ROUTES.FLASHCARDS}
                 isReady={checkIfReady}
                 onNextClick={handleOnNextClick}
             />

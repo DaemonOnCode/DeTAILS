@@ -1,6 +1,6 @@
 import { createContext, useState, FC, useEffect } from 'react';
 import { IFile, ILayout, Mode, SetState } from '../types/shared';
-import { initialWords } from '../constants/shared';
+import { initialFlashcards, initialWords } from '../constants/shared';
 
 interface IDataContext {
     mainWord: string;
@@ -11,8 +11,20 @@ interface IDataContext {
     basisFiles: IFile;
     addBasisFile: (filePath: string, fileName: string) => void;
     removeBasisFile: (filePath: string) => void;
-    searchText?: string;
-    setSearchText: SetState<string>;
+    mainCode: string;
+    setMainCode: SetState<string>;
+    additionalInfo?: string;
+    setAdditionalInfo: SetState<string>;
+    flashcards: {
+        id: number;
+        question: string;
+        answer: string;
+    }[];
+    addFlashcard: (question: string, answer: string) => void;
+    removeFlashcard: (id: number) => void;
+    selectedFlashcards: number[];
+    selectFlashcard: (id: number) => void;
+    deselectFlashcard: (id: number) => void;
     words: string[];
     setWords: SetState<string[]>;
     selectedWords: string[];
@@ -29,8 +41,16 @@ export const DataContext = createContext<IDataContext>({
     basisFiles: {},
     addBasisFile: () => {},
     removeBasisFile: () => {},
-    searchText: '',
-    setSearchText: () => {},
+    mainCode: '',
+    setMainCode: () => {},
+    additionalInfo: '',
+    setAdditionalInfo: () => {},
+    flashcards: [],
+    addFlashcard: () => {},
+    removeFlashcard: () => {},
+    selectedFlashcards: [],
+    selectFlashcard: () => {},
+    deselectFlashcard: () => {},
     words: [],
     setWords: () => {},
     selectedWords: [],
@@ -46,7 +66,18 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
 
     const [basisFiles, setBasisFiles] = useState<IFile>({});
 
-    const [searchText, setSearchText] = useState<string>('');
+    const [mainCode, setMainCode] = useState<string>('C++');
+    const [additionalInfo, setAdditionalInfo] = useState<string>('It is a programming language.');
+
+    const [flashcards, setFlashcards] = useState<
+        {
+            id: number;
+            question: string;
+            answer: string;
+        }[]
+    >([]);
+
+    const [selectedFlashcards, setSelectedFlashcards] = useState<number[]>([]);
 
     const [words, setWords] = useState<string[]>(initialWords);
     const [selectedWords, setSelectedWords] = useState<string[]>([mainWord]);
@@ -59,8 +90,8 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
     };
 
     useEffect(() => {
-        console.log(currentMode, modeInput, searchText);
-    }, [currentMode, modeInput, searchText]);
+        console.log(currentMode, modeInput, mainCode, additionalInfo);
+    }, [currentMode, modeInput, mainCode, additionalInfo]);
 
     useEffect(() => {
         console.log(basisFiles);
@@ -80,9 +111,44 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
         });
     };
 
+    const addFlashcard = (question: string, answer: string) => {
+        setFlashcards((prevFlashcards) => {
+            if (prevFlashcards.length === 0) return [{ id: 1, question, answer }];
+            const lastFlashcard = prevFlashcards[prevFlashcards.length - 1];
+            let newId = lastFlashcard.id + 1;
+            // const duplicateCheck =
+            //     prevFlashcards.filter((flashcard) => flashcard.id === newId).length !== 0;
+            // if (duplicateCheck) newId += 5;
+
+            return [...prevFlashcards, { id: newId, question, answer }];
+        });
+    };
+
+    const removeFlashcard = (id: number) => {
+        setFlashcards((prevFlashcards) => {
+            return prevFlashcards.filter((flashcard) => flashcard.id !== id);
+        });
+    };
+
+    const selectFlashcard = (id: number) => {
+        setSelectedFlashcards((prevFlashcards) => {
+            return [...prevFlashcards, id];
+        });
+    };
+
+    const deselectFlashcard = (id: number) => {
+        setSelectedFlashcards((prevFlashcards) => {
+            return prevFlashcards.filter((flashcardId) => flashcardId !== id);
+        });
+    };
+
     useEffect(() => {
         console.log(words, selectedWords);
     }, [words, selectedWords]);
+
+    useEffect(() => {
+        console.log(flashcards, selectedFlashcards);
+    }, [flashcards, selectedFlashcards]);
 
     return (
         <DataContext.Provider
@@ -95,8 +161,16 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
                 addBasisFile,
                 removeBasisFile,
                 basisFiles,
-                searchText,
-                setSearchText,
+                mainCode,
+                setMainCode,
+                additionalInfo,
+                setAdditionalInfo,
+                flashcards,
+                addFlashcard,
+                removeFlashcard,
+                selectedFlashcards,
+                selectFlashcard,
+                deselectFlashcard,
                 words,
                 setWords,
                 selectedWords,

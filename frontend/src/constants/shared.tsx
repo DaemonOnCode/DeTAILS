@@ -2,6 +2,7 @@ export enum ROUTES {
     HOME = '#/',
     BASIS = '#/basis',
     WORD_CLOUD = '#/word_cloud',
+    FLASHCARDS = '#/flashcards',
     NOT_FOUND = '*',
     GENERATION = '#/generation',
     INITIAL_CODING = '#/initial_coding',
@@ -9,7 +10,13 @@ export enum ROUTES {
     FINAL = '#/final'
 }
 
+export enum LOADER_ROUTES {
+    FLASHCARDS_LOADER = '#/flashcardsloader'
+}
+
 export const WORD_CLOUD_MIN_THRESHOLD = 10;
+
+export const FLASHCARDS_MIN_THRESHOLD = 10;
 
 export const initialWords = [
     'JavaScript',
@@ -195,5 +202,84 @@ export const exampleData = [
         link: 'https://www.reddit.com/r/HermanCainAward/comments/1gnh2e1/bird_flu_begins_its_human_spread_as_health/',
         reason: 'Frequently chosen for component-based web architecture.',
         context: "Posts often emphasize React's role in frontend frameworks."
+    }
+];
+
+export const initialFlashcards = [
+    {
+        question: 'What is Blame?',
+        answer: 'Blame is a command-line tool used to track changes made by Git.'
+    },
+    {
+        question: 'How does Blame work?',
+        answer: 'Blame shows the author and date of each line in a file, allowing you to see who made changes and when.'
+    },
+    {
+        question: 'What is the purpose of the --porcelain option with Blame?',
+        answer: "The --porcelain option produces a more compact output format that's easier to parse programmatically."
+    },
+    {
+        question: 'How can you use Blame to identify the author of a specific line in a file?',
+        answer: "You can use the 'git blame' command with the '-L' option followed by the range of lines you're interested in, e.g., 'git blame -L 10-20'."
+    },
+    {
+        question: "What is the difference between Blame and Git's built-in diff output?",
+        answer: 'Blame provides more detailed information about the changes made to a file, including the author and date of each line.'
+    },
+    {
+        question: 'Can you use Blame with other Git commands?',
+        answer: "Yes, Blame can be used in conjunction with other Git commands like 'git status' or 'git log'."
+    },
+    {
+        question: 'How does Blame handle merge commits?',
+        answer: 'Blame shows the author and date of each line in a file, even if it was modified by multiple people during a merge commit.'
+    },
+    {
+        question: 'Can you use Blame with Git submodules?',
+        answer: 'Yes, Blame can be used to track changes made to files within a Git submodule.'
+    },
+    {
+        question: 'What is the --first-base option with Blame?',
+        answer: 'The --first-base option shows the first base commit that was modified in a file, even if there were multiple merge commits.'
+    },
+    {
+        question: 'How can you use Blame to identify the changes made by a specific person?',
+        answer: "You can use the 'git blame' command with the '-C' option followed by the name of the person you're interested in, e.g., 'git blame -C JohnDoe'."
+    },
+    {
+        question: 'Can you use Blame to track changes made to a specific file?',
+        answer: 'Yes, Blame can be used to track changes made to a specific file over time.'
+    },
+    {
+        question: 'How does Blame handle files that have been deleted or renamed?',
+        answer: 'Blame shows the author and date of each line in a file, even if it was deleted or renamed during a merge commit.'
+    },
+    {
+        question: "Can you use Blame with Git's cherry-pick feature?",
+        answer: 'Yes, Blame can be used to track changes made by cherry-picking commits.'
+    },
+    {
+        question: 'What is the --statistic option with Blame?',
+        answer: 'The --statistic option shows statistics about the number of lines added or removed in a file during each commit.'
+    },
+    {
+        question: 'How can you use Blame to identify the most recent changes made to a file?',
+        answer: "You can use the 'git blame' command with the '-L' option followed by the range of lines you're interested in, e.g., 'git blame -L 0-'."
+    },
+    {
+        question: "Can you use Blame with Git's merge feature?",
+        answer: 'Yes, Blame can be used to track changes made during a merge commit.'
+    },
+    {
+        question: 'What is the --show-signature option with Blame?',
+        answer: 'The --show-signature option shows the author and date of each line in a file, along with their signature information.'
+    },
+    {
+        question: 'How can you use Blame to identify the changes made by multiple people?',
+        answer: "You can use the 'git blame' command with the '-C' option followed by the names of the people you're interested in, e.g., 'git blame -C JohnDoe JaneSmith'."
+    },
+    {
+        question: 'Can you use Blame to track changes made to a specific branch?',
+        answer: 'Yes, Blame can be used to track changes made to a specific branch over time.'
     }
 ];
