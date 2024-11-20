@@ -1,5 +1,5 @@
 import { FC, useEffect, useState } from 'react';
-import { IRedditPostData, IReference, PostIdTitle } from '../../types/shared';
+import { IRedditPostData, IReference, PostIdTitle, SetState } from '../../types/shared';
 import Comment from './comment';
 
 const { ipcRenderer } = window.require('electron');
@@ -10,6 +10,8 @@ interface ContentAreaProps {
     references: Record<string, IReference[]>;
     handleReferenceClick: (postId: string) => void;
     handleTextSelection: () => void;
+    selectedPostData: IRedditPostData | null;
+    setSelectedPostData: SetState<IRedditPostData | null>;
 }
 
 const ContentArea: FC<ContentAreaProps> = ({
@@ -17,10 +19,10 @@ const ContentArea: FC<ContentAreaProps> = ({
     selectedCodeForReferences,
     references,
     handleReferenceClick,
-    handleTextSelection
+    handleTextSelection,
+    selectedPostData,
+    setSelectedPostData
 }) => {
-    const [currentPost, setCurrentPost] = useState<IRedditPostData | null>(null);
-
     useEffect(() => {
         console.log('Getting post by id, content area', selectedPost);
 
@@ -31,7 +33,7 @@ const ContentArea: FC<ContentAreaProps> = ({
             .invoke('get-post-by-id', selectedPost?.id, '../test.db')
             .then((data: IRedditPostData) => {
                 console.log('Post data:', data);
-                setCurrentPost(data);
+                setSelectedPostData(data);
             });
     }, [selectedPost]);
     return (
@@ -71,12 +73,12 @@ const ContentArea: FC<ContentAreaProps> = ({
                         )}
                     </div>
                 </>
-            ) : selectedPost && currentPost ? (
+            ) : selectedPost && selectedPostData ? (
                 <>
-                    <h1 className="text-2xl font-bold mb-4">{currentPost.title}</h1>
-                    <p className="mb-6">{currentPost.selftext}</p>
+                    <h1 className="text-2xl font-bold mb-4">{selectedPostData.title}</h1>
+                    <p className="mb-6">{selectedPostData.selftext}</p>
                     <h2 className="text-xl font-semibold mb-4">Comments</h2>
-                    {(currentPost.comments ?? []).map((comment) => (
+                    {(selectedPostData.comments ?? []).map((comment) => (
                         <Comment key={comment.id} comment={comment} />
                     ))}
                 </>

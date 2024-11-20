@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ROUTES } from '../constants/shared';
-import { IReference, PostIdTitle } from '../types/shared';
+import { LOADER_ROUTES, ROUTES } from '../constants/shared';
+import { IComment, IRedditPostData, IReference, PostIdTitle } from '../types/shared';
 import HighlightModal from '../components/InitialCoding/highlight_modal';
 import AddCodeModal from '../components/InitialCoding/add_code_modal';
 import ContentArea from '../components/InitialCoding/content_area';
@@ -24,6 +24,7 @@ const InitialCodingPage = () => {
     const [selectedText, setSelectedText] = useState<string | null>(null);
     const [selectedTab, setSelectedTab] = useState<'data' | 'codes'>('data');
     const [selectedCodeForReferences, setSelectedCodeForReferences] = useState<string | null>(null);
+    const [selectedPostData, setSelectedPostData] = useState<IRedditPostData | null>(null);
 
     useEffect(() => {
         ipcRenderer
@@ -53,17 +54,49 @@ const InitialCodingPage = () => {
             return;
         }
 
-        // const isComment =
-        //     (selectedPost?.comments ?? []).some((comment) =>
-        //         comment.body.includes(selectedText || '')
-        //     ) || false;
-        // setReferences((prevRefs) => ({
-        //     ...prevRefs,
-        //     [selectedCode]: [
-        //         ...(prevRefs[selectedCode] || []),
-        //         { text: selectedText, postId: selectedPost!.id, isComment }
-        //     ]
-        // }));
+        console.log('Applying code to selection:', selectedText, selectedCode);
+
+        const normalizeText = (text: string) => text.toLowerCase().replace(/\s+/g, ' ').trim();
+
+        const checkComment = (comment: IComment, selectedText: string): boolean => {
+            if (!selectedText) {
+                console.error('Selected text is empty or null');
+                return false;
+            }
+
+            const normalizedBody = normalizeText(comment?.body || '');
+            const normalizedText = normalizeText(selectedText);
+
+            const check = normalizedBody.includes(normalizedText);
+            if (check) {
+                console.log('Found in comment:', comment.body);
+                return true;
+            }
+
+            if (comment?.comments?.length) {
+                return comment.comments.some((subComment) => {
+                    return checkComment(subComment, normalizedText);
+                });
+            }
+
+            return false;
+        };
+
+        const isComment =
+            selectedPostData?.comments?.some((comment) => {
+                const result = checkComment(comment, selectedText);
+                return result;
+            }) || false;
+
+        console.log('Final isComment value:', isComment);
+
+        setReferences((prevRefs) => ({
+            ...prevRefs,
+            [selectedCode]: [
+                ...(prevRefs[selectedCode] || []),
+                { text: selectedText, postId: selectedPost!.id, isComment }
+            ]
+        }));
 
         setSelectedText(null);
         setIsHighlightModalOpen(false);
@@ -103,6 +136,8 @@ const InitialCodingPage = () => {
                         <ContentArea
                             selectedPost={selectedPost}
                             selectedCodeForReferences={selectedCodeForReferences}
+                            selectedPostData={selectedPostData}
+                            setSelectedPostData={setSelectedPostData}
                             references={references}
                             handleReferenceClick={handleReferenceClick}
                             handleTextSelection={handleTextSelection}
@@ -131,7 +166,7 @@ const InitialCodingPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.WORD_CLOUD}
-                nextPage={ROUTES.GENERATION}
+                nextPage={LOADER_ROUTES.CODING_VALIDATION_LOADER}
                 isReady={true}
             />
         </div>

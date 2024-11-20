@@ -12,6 +12,8 @@ import InitialCodingPage from './pages/initial_coding';
 import FlashcardsPage from './pages/flashcards';
 import FlashcardsLoaderPage from './pages/Loader/flashcards_loader';
 import WordCloudLoaderPage from './pages/Loader/word_cloud_loader';
+import CodingValidationLoaderPage from './pages/Loader/coding_validation_loader';
+import FinalLoaderPage from './pages/Loader/final_loader';
 
 export const Router: FC = () => {
     return (
@@ -30,10 +32,18 @@ export const Router: FC = () => {
                 />
                 <Route path={ROUTES.WORD_CLOUD.substring(1)} element={<WordCloudPage />} />
                 <Route path={ROUTES.INITIAL_CODING.substring(1)} element={<InitialCodingPage />} />
-                <Route path={ROUTES.GENERATION.substring(1)} element={<GenerationPage />} />
+                {/* <Route path={ROUTES.GENERATION.substring(1)} element={<GenerationPage />} /> */}
+                <Route
+                    path={LOADER_ROUTES.CODING_VALIDATION_LOADER.substring(1)}
+                    element={<CodingValidationLoaderPage />}
+                />
                 <Route
                     path={ROUTES.CODING_VALIDATION.substring(1)}
                     element={<CodingValidationPage />}
+                />
+                <Route
+                    path={LOADER_ROUTES.FINAL_LOADER.substring(1)}
+                    element={<FinalLoaderPage />}
                 />
                 <Route path={ROUTES.FINAL.substring(1)} element={<FinalPage />} />
                 <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />

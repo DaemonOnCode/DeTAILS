@@ -12,7 +12,9 @@ export enum ROUTES {
 
 export enum LOADER_ROUTES {
     FLASHCARDS_LOADER = '#/flashcardsloader',
-    WORD_CLOUD_LOADER = '#/wordcloudloader'
+    WORD_CLOUD_LOADER = '#/wordcloudloader',
+    CODING_VALIDATION_LOADER = '#/codingvalidationloader',
+    FINAL_LOADER = '#/finalloader'
 }
 
 export const WORD_CLOUD_MIN_THRESHOLD = 10;
