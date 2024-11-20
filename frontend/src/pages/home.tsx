@@ -13,12 +13,15 @@ const HomePage: FC = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
 
+    console.log('rendered home page');
+    console.count('Component Render');
+
     // Filtered Data
-    const filteredData = data.filter(
-        (post) =>
-            post.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            post.selftext?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            post.url?.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredData = Object.entries(data).filter(
+        ([_, { title, selftext, url }]) =>
+            title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            selftext.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            url.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     // Pagination Logic
@@ -48,10 +51,12 @@ const HomePage: FC = () => {
         setCurrentPage(1); // Reset to the first page when changing items per page
     };
 
+    const isReadyCheck = dataContext.modeInput.length > 0 && Object.keys(data).length > 0;
+
     return (
         <div className="w-full h-screen flex flex-col p-6">
             {/* Toggle Button for Link/Folder Mode - Hidden when data is loaded */}
-            {!data.length && (
+            {Object.keys(data).length === 0 && (
                 <button
                     onClick={dataContext.toggleMode}
                     className="px-4 py-2 mb-4 text-white bg-blue-500 rounded hover:bg-blue-600">
@@ -74,7 +79,7 @@ const HomePage: FC = () => {
             ) : (
                 // Folder Mode
                 <div className="flex flex-col h-full">
-                    {!data.length ? (
+                    {Object.keys(data).length === 0 ? (
                         // Render folder selection button if no data is loaded
                         <div>
                             <button
@@ -154,8 +159,7 @@ const HomePage: FC = () => {
                 </div>
             )}
 
-            {/* Navigation Bottom Bar (kept fixed at the bottom of the screen) */}
-            <NavigationBottomBar nextPage={ROUTES.BASIS} isReady={data.length > 0} />
+            <NavigationBottomBar nextPage={ROUTES.BASIS} isReady={isReadyCheck} />
         </div>
     );
 };

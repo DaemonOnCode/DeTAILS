@@ -1,16 +1,16 @@
 import { FC, useState } from 'react';
-import { RedditPost } from '../../types/shared';
+import { RedditPosts } from '../../types/shared';
 import RedditViewModal from '../Shared/reddit_view_modal';
 
 type RedditTableProps = {
-    data: RedditPost[];
+    data: [string, RedditPosts[string]][];
 };
 
 const RedditTable: FC<RedditTableProps> = ({ data }) => {
-    const [selectedPost, setSelectedPost] = useState<RedditPost | null>(null);
+    const [selectedPost, setSelectedPost] = useState<(typeof data)[number] | null>(null);
     return (
         <div className="overflow-x-auto">
-            <table className="min-w-full border border-gray-300">
+            <table className="max-w-full border border-gray-300">
                 <thead className="bg-gray-100">
                     <tr>
                         <th className="px-4 py-2 border">URL</th>
@@ -26,12 +26,12 @@ const RedditTable: FC<RedditTableProps> = ({ data }) => {
                                 <p
                                     className="text-blue-500 underline cursor-pointer"
                                     onClick={() => setSelectedPost(post)}>
-                                    {post.id}
+                                    {post[0]}
                                 </p>
                             </td>
-                            <td className="px-4 py-2 border">{post.created_utc}</td>
-                            <td className="px-4 py-2 border">{post.title}</td>
-                            <td className="px-4 py-2 border">{post.selftext}</td>
+                            <td className="px-4 py-2 border">{post[1].created_utc}</td>
+                            <td className="px-4 py-2 border">{post[1].title}</td>
+                            <td className="px-4 py-2 border">{post[1].selftext}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -39,8 +39,8 @@ const RedditTable: FC<RedditTableProps> = ({ data }) => {
             {selectedPost && (
                 <RedditViewModal
                     isViewOpen={selectedPost !== null}
-                    postLink={selectedPost.url}
-                    postText={selectedPost.selftext}
+                    postLink={selectedPost[1].url}
+                    postText={selectedPost[1].selftext}
                     closeModal={() => setSelectedPost(null)}
                 />
             )}

@@ -1,4 +1,5 @@
-import { createContext, useState, FC, useEffect } from 'react';
+import { createContext, useState, FC, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
 import { IFile, ILayout, Mode, SetState } from '../types/shared';
 import { initialWords } from '../constants/shared';
 
@@ -56,16 +57,13 @@ export const DataContext = createContext<IDataContext>({
 });
 
 // Create a provider component
+
 export const DataProvider: FC<ILayout> = ({ children }) => {
     const [currentMode, setCurrentMode] = useState<Mode>('folder');
-
     const [modeInput, setModeInput] = useState<string>('');
-
     const [basisFiles, setBasisFiles] = useState<IFile>({});
-
     const [mainCode, setMainCode] = useState<string>('C++');
     const [additionalInfo, setAdditionalInfo] = useState<string>('It is a programming language.');
-
     const [flashcards, setFlashcards] = useState<
         {
             id: number;
@@ -73,106 +71,90 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
             answer: string;
         }[]
     >([]);
-
     const [selectedFlashcards, setSelectedFlashcards] = useState<number[]>([]);
-
     const [words, setWords] = useState<string[]>(initialWords);
     const [selectedWords, setSelectedWords] = useState<string[]>([]);
 
-    const toggleMode = () => {
+    const toggleMode = useCallback(() => {
         setCurrentMode((prevMode: Mode) => {
             setModeInput('');
             return prevMode === 'link' ? 'folder' : 'link';
         });
-    };
+    }, []);
 
-    useEffect(() => {
-        console.log(currentMode, modeInput, mainCode, additionalInfo);
-    }, [currentMode, modeInput, mainCode, additionalInfo]);
+    const addBasisFile = useCallback((filePath: string, fileName: string) => {
+        setBasisFiles((prevFiles) => ({ ...prevFiles, [filePath]: fileName }));
+    }, []);
 
-    useEffect(() => {
-        console.log(basisFiles);
-    }, [basisFiles]);
-
-    const addBasisFile = (filePath: string, fileName: string) => {
-        setBasisFiles((prevFiles) => {
-            return { ...prevFiles, [filePath]: fileName };
-        });
-    };
-
-    const removeBasisFile = (filePath: string) => {
+    const removeBasisFile = useCallback((filePath: string) => {
         setBasisFiles((prevFiles) => {
             const newFiles = { ...prevFiles };
             delete newFiles[filePath];
             return newFiles;
         });
-    };
+    }, []);
 
-    const addFlashcard = (question: string, answer: string) => {
+    const addFlashcard = useCallback((question: string, answer: string) => {
         setFlashcards((prevFlashcards) => {
             if (prevFlashcards.length === 0) return [{ id: 1, question, answer }];
             const lastFlashcard = prevFlashcards[prevFlashcards.length - 1];
-            let newId = lastFlashcard.id + 1;
-            // const duplicateCheck =
-            //     prevFlashcards.filter((flashcard) => flashcard.id === newId).length !== 0;
-            // if (duplicateCheck) newId += 5;
-
+            const newId = lastFlashcard.id + 1;
             return [...prevFlashcards, { id: newId, question, answer }];
         });
-    };
+    }, []);
 
-    const removeFlashcard = (id: number) => {
-        setFlashcards((prevFlashcards) => {
-            return prevFlashcards.filter((flashcard) => flashcard.id !== id);
-        });
-    };
+    const removeFlashcard = useCallback((id: number) => {
+        setFlashcards((prevFlashcards) =>
+            prevFlashcards.filter((flashcard) => flashcard.id !== id)
+        );
+    }, []);
 
-    const selectFlashcard = (id: number) => {
-        setSelectedFlashcards((prevFlashcards) => {
-            return [...prevFlashcards, id];
-        });
-    };
+    const selectFlashcard = useCallback((id: number) => {
+        setSelectedFlashcards((prevFlashcards) => [...prevFlashcards, id]);
+    }, []);
 
-    const deselectFlashcard = (id: number) => {
-        setSelectedFlashcards((prevFlashcards) => {
-            return prevFlashcards.filter((flashcardId) => flashcardId !== id);
-        });
-    };
+    const deselectFlashcard = useCallback((id: number) => {
+        setSelectedFlashcards((prevFlashcards) =>
+            prevFlashcards.filter((flashcardId) => flashcardId !== id)
+        );
+    }, []);
 
-    useEffect(() => {
-        console.log(words, selectedWords);
-    }, [words, selectedWords]);
-
-    useEffect(() => {
-        console.log(flashcards, selectedFlashcards);
-    }, [flashcards, selectedFlashcards]);
-
-    return (
-        <DataContext.Provider
-            value={{
-                currentMode,
-                toggleMode,
-                modeInput,
-                setModeInput,
-                addBasisFile,
-                removeBasisFile,
-                basisFiles,
-                mainCode,
-                setMainCode,
-                additionalInfo,
-                setAdditionalInfo,
-                flashcards,
-                addFlashcard,
-                removeFlashcard,
-                selectedFlashcards,
-                selectFlashcard,
-                deselectFlashcard,
-                words,
-                setWords,
-                selectedWords,
-                setSelectedWords
-            }}>
-            {children}
-        </DataContext.Provider>
+    const value = useMemo(
+        () => ({
+            currentMode,
+            toggleMode,
+            modeInput,
+            setModeInput,
+            basisFiles,
+            addBasisFile,
+            removeBasisFile,
+            mainCode,
+            setMainCode,
+            additionalInfo,
+            setAdditionalInfo,
+            flashcards,
+            addFlashcard,
+            removeFlashcard,
+            selectedFlashcards,
+            selectFlashcard,
+            deselectFlashcard,
+            words,
+            setWords,
+            selectedWords,
+            setSelectedWords
+        }),
+        [
+            currentMode,
+            modeInput,
+            basisFiles,
+            mainCode,
+            additionalInfo,
+            flashcards,
+            selectedFlashcards,
+            words,
+            selectedWords
+        ]
     );
+
+    return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

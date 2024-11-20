@@ -54,21 +54,44 @@ export interface IReference {
     isComment: boolean;
 }
 
-export type RedditPost = {
-    over_18: boolean;
-    subreddit: string;
-    score: number;
-    thumbnail: 'image';
-    permalink: string;
-    is_self: boolean;
-    domain: 'i.redd.it';
-    created_utc: number;
-    url: string;
-    id: string;
-    num_comments: number;
-    title: string;
-    selftext: string;
-    author: string;
-    hide_score: boolean;
-    subreddit_id: string;
+export type RedditPosts = {
+    [id: string]: {
+        over_18: boolean;
+        subreddit: string;
+        score: number;
+        thumbnail: 'image';
+        permalink: string;
+        is_self: boolean;
+        domain: 'i.redd.it';
+        created_utc: number;
+        url: string;
+        num_comments: number;
+        title: string;
+        selftext: string;
+        author: string;
+        hide_score: boolean;
+        subreddit_id: string;
+    };
+};
+
+export type RedditComments = {
+    [id: string]: {
+        controversiality: number;
+        score_hidden: false;
+        body: string;
+        score: number;
+        created_utc: number;
+        author: string;
+        parent_id: string;
+        subreddit_id: string;
+        retrieved_on: number;
+        gilded: number;
+        link_id: string;
+        subreddit: string;
+        comments: RedditComments;
+    };
+};
+
+export type FullRedditData = {
+    [id: string]: RedditPosts[string] & { comments: RedditComments };
 };
