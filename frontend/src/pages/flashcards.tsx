@@ -1,6 +1,11 @@
 import { useContext, useEffect, useState } from 'react';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
-import { FLASHCARDS_MIN_THRESHOLD, ROUTES } from '../constants/shared';
+import {
+    FLASHCARDS_MIN_THRESHOLD,
+    LOADER_ROUTES,
+    ROUTES,
+    initialFlashcards
+} from '../constants/shared';
 import { DataContext } from '../context/data_context';
 
 const { ipcRenderer } = window.require('electron');
@@ -8,11 +13,11 @@ const { ipcRenderer } = window.require('electron');
 const FlashcardsPage = () => {
     const dataContext = useContext(DataContext);
 
-    // useEffect(() => {
-    //     initialFlashcards.forEach(({ question, answer }) => {
-    //         dataContext.addFlashcard(question, answer);
-    //     });
-    // }, []);
+    useEffect(() => {
+        initialFlashcards.forEach(({ question, answer }) => {
+            dataContext.addFlashcard(question, answer);
+        });
+    }, []);
 
     const { flashcards, selectedFlashcards, selectFlashcard, deselectFlashcard } = dataContext;
 
@@ -120,7 +125,7 @@ const FlashcardsPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.BASIS}
-                nextPage={ROUTES.WORD_CLOUD}
+                nextPage={LOADER_ROUTES.WORD_CLOUD_LOADER}
                 isReady={isReadyCheck}
             />
             {/* {modalOpen && (

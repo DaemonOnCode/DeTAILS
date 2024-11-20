@@ -47,6 +47,8 @@ Return only the JSON object in the specified format.
     `{context}\n\n`
 ];
 
+const chromaBasisCollection = 'a-test-collection';
+
 const langchainHandler = () => {
     ipcMain.handle(
         'add-documents-langchain',
@@ -62,12 +64,11 @@ const langchainHandler = () => {
             });
 
             const embeddings = new OllamaEmbeddings({
-                model,
-                baseUrl: 'http://localhost:11434'
+                model
             });
 
             const vectorStore = new Chroma(embeddings, {
-                collectionName: 'a-test-collection'
+                collectionName: chromaBasisCollection
             });
 
             for (const key in documents) {
@@ -159,12 +160,11 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
             );
 
             const embeddings = new OllamaEmbeddings({
-                model,
-                baseUrl: 'http://localhost:11434'
+                model
             });
 
             const vectorStore = new Chroma(embeddings, {
-                collectionName: 'a-test-collection'
+                collectionName: chromaBasisCollection
             });
 
             const retriever = vectorStore.asRetriever();
@@ -252,6 +252,133 @@ Respond ONLY with the JSON object, nothing else.
             if (!jsonMatch) {
                 return JSON.stringify({ flashcards: [] });
             }
+
+            return jsonMatch.groups.json;
+        }
+    );
+
+    ipcMain.handle(
+        'generate-words',
+        async (
+            event,
+            model,
+            mainCode,
+            flashcards = null,
+            regenerate = false,
+            selectedWords = [],
+            feedback = ''
+        ) => {
+            const embeddings = new OllamaEmbeddings({
+                model
+            });
+
+            const vectorStore = new Chroma(embeddings, {
+                collectionName: chromaBasisCollection
+            });
+
+            const retriever = vectorStore.asRetriever();
+
+            const prompt = ChatPromptTemplate.fromMessages([
+                [
+                    'system',
+                    `You are an advanced AI model skilled in analyzing text and extracting structured data. Your task is to extract 20 unique and diverse words relevant to a specific topic referred to as "${mainCode}". 
+
+To perform this task optimally, follow these principles:
+1. Understand Context: Thoroughly analyze the content of the provided PDFs and flashcards. Focus on understanding the intent behind "${mainCode}" to ensure extracted words are directly related to the topic. You will be provided with some more references, use them to enhance your understanding of the context of ${mainCode}.
+2. Ensure Relevance: Select words that reflect core, tangential, and diverse aspects of "${mainCode}", avoiding redundancy.
+3. Prioritize Diversity: Aim to cover a broad range of concepts, ensuring the words span different subtopics or dimensions of "${mainCode}".
+4. Validate Output: Format your response as a JSON object. Before returning, validate the JSON to ensure it adheres to the required structure and contains exactly 20 words.
+
+Your response should adhere to the following format:
+{{
+  "words": [
+    "word1",
+    "word2",
+    "word3",
+    "...",
+    "word20"
+  ]
+}}
+
+Respond ONLY with the JSON object. Avoid any additional text, explanations, or comments.
+
+{context}`
+                ],
+                ['human', '{input}']
+            ]);
+
+            const questionAnswerChain = await createStuffDocumentsChain({
+                llm: new Ollama({
+                    model,
+                    numCtx: 8192,
+                    maxNumTokens: 8192,
+                    temperature: 0.3
+                }),
+                prompt
+            });
+
+            const ragChain = await createRetrievalChain({
+                retriever,
+                combineDocsChain: questionAnswerChain
+            });
+
+            const input = regenerate
+                ? `Please analyze the provided PDFs and use the flashcards to extract 20 unique and diverse words that are directly related to "${mainCode}". 
+
+Approach the task in the following steps:
+1. **Analyze the Content**: Carefully review the PDFs and flashcards to understand the core and contextual meaning of "${mainCode}".
+2. **Extract Relevant Words**: Identify words that represent critical, supporting, or contrasting elements of "${mainCode}".
+3. **Diversity Check**: Ensure the 20 words reflect various dimensions of the topic, avoiding repetitive or overly similar terms.
+4. **Validate Output**: Format the output as a JSON object and verify it adheres to the structure below. The response should ONLY include this JSON:
+
+{{
+  "words": [
+    "word1",
+    "word2",
+    "word3",
+    "...",
+    "word20"
+  ]
+}}
+
+Reference context, selected by user show the context of ${mainCode}.
+- Use the provided selected words to enhance your understanding of the topic and ensure the extracted words are relevant. ${selectedWords.join(', ')}
+${feedback && `- Incorporate the feedback provided on the selected words and why the other words were not selected. Feedback: ${feedback}`}
+
+Return only the JSON object and ensure it is correctly formatted.`
+                : `Please analyze the provided PDFs and use the flashcards to extract 20 unique and diverse words that are directly related to "${mainCode}". 
+
+Approach the task in the following steps:
+1. **Analyze the Content**: Carefully review the PDFs and flashcards to understand the core and contextual meaning of "${mainCode}".
+2. **Extract Relevant Words**: Identify words that represent critical, supporting, or contrasting elements of "${mainCode}".
+3. **Diversity Check**: Ensure the 20 words reflect various dimensions of the topic, avoiding repetitive or overly similar terms.
+4. **Validate Output**: Format the output as a JSON object and verify it adheres to the structure below. The response should ONLY include this JSON:
+
+{{
+  "words": [
+    "word1",
+    "word2",
+    "word3",
+    "...",
+    "word20"
+  ]
+}}
+
+Reference context, selected by user show the context of ${mainCode}.
+- Use the provided flashcards to enhance your understanding of the topic and ensure the extracted words are relevant. ${JSON.stringify(flashcards, null, 2)}
+
+Return only the JSON object and ensure it is correctly formatted.
+`;
+
+            const results = await ragChain.invoke({
+                input
+            });
+
+            const jsonMatch = results.answer.match(
+                /(?<!\S)(?:```(?:json)?\n)?\s*(?<json>\{\s*"words"\s*:\s*\[(?:[^\]]*?)\]\s*\})(?:\n```)?/
+            );
+
+            console.log('results', results, jsonMatch);
 
             return jsonMatch.groups.json;
         }

@@ -11,7 +11,8 @@ export enum ROUTES {
 }
 
 export enum LOADER_ROUTES {
-    FLASHCARDS_LOADER = '#/flashcardsloader'
+    FLASHCARDS_LOADER = '#/flashcardsloader',
+    WORD_CLOUD_LOADER = '#/wordcloudloader'
 }
 
 export const WORD_CLOUD_MIN_THRESHOLD = 10;
@@ -19,49 +20,51 @@ export const WORD_CLOUD_MIN_THRESHOLD = 10;
 export const FLASHCARDS_MIN_THRESHOLD = 10;
 
 export const initialWords = [
-    'JavaScript',
-    'SVG',
-    'CSS',
-    'HTML',
-    'Node',
-    'TypeScript',
-    'GraphQL',
-    'Redux',
-    'Python',
-    'Ruby',
-    'Java',
-    'C++',
-    'Go',
-    'Swift',
-    'Kotlin',
-    'Rust',
-    'PHP',
-    'SQL',
-    'Django'
+    'object-oriented',
+    'classes',
+    'structures',
+    'pointers',
+    'functions',
+    'variables',
+    'constants',
+    'namespace',
+    'constexpr',
+    'using',
+    'auto',
+    'explicit',
+    'stdvector',
+    'array',
+    'map',
+    'iterators',
+    'destructors',
+    'relational',
+    'operators',
+    'paradigm',
+    'programming'
 ];
 
 export const newWordsPool = [
-    'Angular',
-    'Vue',
-    'Svelte',
-    'Ember',
-    'Backbone',
-    'JQuery',
-    'Bootstrap',
-    'Tailwind',
-    'Materialize',
-    'Bulma',
-    'Foundation',
-    'Semantic',
-    'Ant',
-    'Chakra',
-    'styled-components',
-    'Emotion',
-    'JSS',
-    'CSS Modules',
-    'Sass',
-    'Less',
-    'Stylus'
+    'Object-Oriented',
+    'Template',
+    'Inheritance',
+    'Polymorphism',
+    'Encapsulation',
+    'Abstraction',
+    'Class',
+    'Struct',
+    'Namespace',
+    'Include',
+    'Header',
+    'Library',
+    'Compiler',
+    'Interpreter',
+    'Syntax',
+    'Semantics',
+    'Type',
+    'Operator',
+    'Function',
+    'Method',
+    'Constructor'
 ];
 
 export const initialResponses = [
@@ -207,79 +210,95 @@ export const exampleData = [
 
 export const initialFlashcards = [
     {
-        question: 'What is Blame?',
-        answer: 'Blame is a command-line tool used to track changes made by Git.'
+        question: 'What is C++?',
+        answer: 'C++ is a high-performance, compiled, general-purpose programming language that was developed by Bjarne Stroustrup as an extension of the C programming language.'
     },
     {
-        question: 'How does Blame work?',
-        answer: 'Blame shows the author and date of each line in a file, allowing you to see who made changes and when.'
+        question: 'What is object-oriented programming (OOP) in C++?',
+        answer: 'In C++, OOP is a programming paradigm that organizes software design around objects and classes, which have properties and behaviors.'
     },
     {
-        question: 'What is the purpose of the --porcelain option with Blame?',
-        answer: "The --porcelain option produces a more compact output format that's easier to parse programmatically."
+        question: 'What are the main types of user-defined data types in C++?',
+        answer: 'The main types of user-defined data types in C++ are structures, unions, enumerations, classes, and pointers.'
     },
     {
-        question: 'How can you use Blame to identify the author of a specific line in a file?',
-        answer: "You can use the 'git blame' command with the '-L' option followed by the range of lines you're interested in, e.g., 'git blame -L 10-20'."
+        question: 'What is a function in C++?',
+        answer: 'In C++, a function is a block of code that can be executed multiple times from different parts of a program.'
     },
     {
-        question: "What is the difference between Blame and Git's built-in diff output?",
-        answer: 'Blame provides more detailed information about the changes made to a file, including the author and date of each line.'
+        question: 'What is the difference between a variable and a constant in C++?',
+        answer: 'In C++, a variable is a storage location for a value, while a constant is a value that cannot be changed once it is initialized.'
     },
     {
-        question: 'Can you use Blame with other Git commands?',
-        answer: "Yes, Blame can be used in conjunction with other Git commands like 'git status' or 'git log'."
+        question: 'What is the purpose of the `#include` directive in C++?',
+        answer: 'The `#include` directive in C++ is used to include the contents of another file into the current file.'
     },
     {
-        question: 'How does Blame handle merge commits?',
-        answer: 'Blame shows the author and date of each line in a file, even if it was modified by multiple people during a merge commit.'
+        question: 'What is a namespace in C++?',
+        answer: 'In C++, a namespace is a way to group named entities (such as functions, variables, and classes) that otherwise would have global scope into a separate scope.'
     },
     {
-        question: 'Can you use Blame with Git submodules?',
-        answer: 'Yes, Blame can be used to track changes made to files within a Git submodule.'
+        question: 'What is the difference between `const` and `constexpr` in C++?',
+        answer: 'In C++, `const` means that a variable or function cannot be changed once it is initialized, while `constexpr` means that a function can be evaluated at compile-time.'
     },
     {
-        question: 'What is the --first-base option with Blame?',
-        answer: 'The --first-base option shows the first base commit that was modified in a file, even if there were multiple merge commits.'
+        question: 'What is the purpose of the `using` directive in C++?',
+        answer: 'The `using` directive in C++ is used to bring a name into scope from another namespace or to define an alias for a type, function, or variable.'
     },
     {
-        question: 'How can you use Blame to identify the changes made by a specific person?',
-        answer: "You can use the 'git blame' command with the '-C' option followed by the name of the person you're interested in, e.g., 'git blame -C JohnDoe'."
+        question: 'What is the difference between `auto` and `explicit` in C++?',
+        answer: 'In C++, `auto` means that the type of a variable will be deduced automatically at compile-time, while `explicit` means that a function or constructor cannot be used for implicit conversions.'
     },
     {
-        question: 'Can you use Blame to track changes made to a specific file?',
-        answer: 'Yes, Blame can be used to track changes made to a specific file over time.'
+        question: 'What is the purpose of the `std::vector` class in C++?',
+        answer: 'The `std::vector` class in C++ is a dynamic array that can grow or shrink at runtime.'
     },
     {
-        question: 'How does Blame handle files that have been deleted or renamed?',
-        answer: 'Blame shows the author and date of each line in a file, even if it was deleted or renamed during a merge commit.'
+        question: 'What is the difference between `std::array` and `std::vector` in C++?',
+        answer: 'In C++, `std::array` is a fixed-size array, while `std::vector` is a dynamic array that can grow or shrink at runtime.'
     },
     {
-        question: "Can you use Blame with Git's cherry-pick feature?",
-        answer: 'Yes, Blame can be used to track changes made by cherry-picking commits.'
+        question: 'What is the purpose of the `std::map` class in C++?',
+        answer: 'The `std::map` class in C++ is an associative container that stores elements in a sorted order based on their keys.'
     },
     {
-        question: 'What is the --statistic option with Blame?',
-        answer: 'The --statistic option shows statistics about the number of lines added or removed in a file during each commit.'
+        question: 'What is the difference between `std::set` and `std::map` in C++?',
+        answer: 'In C++, `std::set` is an unordered collection of unique elements, while `std::map` is an ordered collection of key-value pairs.'
     },
     {
-        question: 'How can you use Blame to identify the most recent changes made to a file?',
-        answer: "You can use the 'git blame' command with the '-L' option followed by the range of lines you're interested in, e.g., 'git blame -L 0-'."
+        question: 'What is the purpose of the `std::queue` class in C++?',
+        answer: 'The `std::queue` class in C++ is a First-In-First-Out (FIFO) container that follows the principle of least astonishment.'
     },
     {
-        question: "Can you use Blame with Git's merge feature?",
-        answer: 'Yes, Blame can be used to track changes made during a merge commit.'
+        question: 'What is the difference between `std::stack` and `std::queue` in C++?',
+        answer: 'In C++, `std::stack` is a Last-In-First-Out (LIFO) container, while `std::queue` is a FIFO container.'
     },
     {
-        question: 'What is the --show-signature option with Blame?',
-        answer: 'The --show-signature option shows the author and date of each line in a file, along with their signature information.'
+        question: 'What is the purpose of the `std::algorithm` library in C++?',
+        answer: 'The `std::algorithm` library in C++ provides a set of generic algorithms for manipulating containers and other data structures.'
     },
     {
-        question: 'How can you use Blame to identify the changes made by multiple people?',
-        answer: "You can use the 'git blame' command with the '-C' option followed by the names of the people you're interested in, e.g., 'git blame -C JohnDoe JaneSmith'."
+        question: 'What is the difference between `std::sort` and `std::stable_sort` in C++?',
+        answer: 'In C++, `std::sort` is an unstable sorting algorithm, while `std::stable_sort` is a stable sorting algorithm that preserves the relative order of equal elements.'
     },
     {
-        question: 'Can you use Blame to track changes made to a specific branch?',
-        answer: 'Yes, Blame can be used to track changes made to a specific branch over time.'
+        question: 'What is the purpose of the `std::function` class in C++?',
+        answer: 'The `std::function` class in C++ provides a way to represent functions as objects, allowing for more flexibility and generic programming.'
+    },
+    {
+        question: 'What is the difference between `std::bind` and `std::function` in C++?',
+        answer: 'In C++, `std::bind` is a function that creates a new bound object from an existing function and arguments, while `std::function` is a class template that can represent any callable object.'
+    },
+    {
+        question: 'What is the purpose of the `std::thread` class in C++?',
+        answer: 'The `std::thread` class in C++ provides a way to create and manage threads in a program, allowing for concurrent execution of tasks.'
+    },
+    {
+        question: 'What is the difference between `std::mutex` and `std::lock_guard` in C++?',
+        answer: 'In C++, `std::mutex` is a mutex class that provides mutual exclusion, while `std::lock_guard` is a lock guard class that automatically locks and unlocks a mutex.'
+    },
+    {
+        question: 'What is the purpose of the `std::atomic` class in C++?',
+        answer: 'The `std::atomic` class in C++ provides a way to create atomic objects, allowing for thread-safe access to shared variables.'
     }
 ];

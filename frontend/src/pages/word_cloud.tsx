@@ -1,8 +1,10 @@
-import { FC, useContext, useState } from 'react';
+import { FC, useContext, useEffect, useState } from 'react';
 import { ROUTES, WORD_CLOUD_MIN_THRESHOLD, newWordsPool } from '../constants/shared';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
 import WordCloud from '../components/WordCloud/index';
 import { DataContext } from '../context/data_context';
+
+const { ipcRenderer } = window.require('electron');
 
 const WordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -10,8 +12,12 @@ const WordCloudPage: FC = () => {
 
     const dataContext = useContext(DataContext);
 
+    useEffect(() => {
+        dataContext.setSelectedWords([dataContext.mainCode]);
+    }, []);
+
     const toggleWordSelection = (word: string) => {
-        if (word === dataContext.mainWord) return;
+        if (word === dataContext.mainCode) return;
 
         dataContext.setSelectedWords((prevSelected) =>
             prevSelected.includes(word)
@@ -26,26 +32,46 @@ const WordCloudPage: FC = () => {
 
     const submitFeedback = () => {
         console.log('User feedback:', feedback);
-        setFeedback(''); // Clear feedback input
+        setFeedback('');
         setIsFeedbackOpen(false); // Close the modal
 
         refreshWordCloud();
     };
 
-    const refreshWordCloud = () => {
-        const newSelectedWords = dataContext.words.filter((word) =>
-            dataContext.selectedWords.includes(word)
+    const refreshWordCloud = async () => {
+        const results = await ipcRenderer.invoke(
+            'generate-words',
+            'llama3.2:3b',
+            dataContext.mainCode,
+            newWordsPool,
+            null,
+            true,
+            dataContext.selectedWords,
+            feedback
         );
 
-        const additionalWords = newWordsPool
-            .filter(
-                (word) =>
-                    !dataContext.selectedWords.includes(word) && !newSelectedWords.includes(word)
-            )
-            .slice(0, 20 - newSelectedWords.length);
+        console.log(results, 'Word Cloud Page');
 
-        dataContext.setWords([...newSelectedWords, ...additionalWords]);
-        dataContext.setSelectedWords([...newSelectedWords]);
+        let newWords: string[] = [];
+
+        try {
+            const parsedResults = JSON.parse(results);
+            newWords = parsedResults.words;
+        } catch (e) {
+            console.log(e, 'Error parsing results');
+        }
+
+        dataContext.setWords((prevWords) => {
+            const filteredPrevWords = prevWords.filter((word) =>
+                dataContext.selectedWords.includes(word)
+            );
+            const filteredNewWords = newWords
+                .filter((word) => !filteredPrevWords.includes(word))
+                .slice(0, 20 - filteredPrevWords.length);
+            return [...filteredPrevWords, ...filteredNewWords];
+        });
+
+        console.log('Word Cloud refreshed');
     };
 
     const refreshWords = () => {
@@ -58,18 +84,17 @@ const WordCloudPage: FC = () => {
     return (
         <div className="p-6 h-full flex justify-between flex-col">
             <div className="flex justify-center items-center flex-col">
-                <div className="my-10 text-center">
-                    <h1 className="text-2xl font-bold mb-4">Word Cloud</h1>
+                <div className="my-6 text-center">
                     <p>Select all of the words which you feel are similar to the main word</p>
                     <button
                         onClick={refreshWords}
-                        className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 mt-10 mb-5">
+                        className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600  my-4">
                         Refresh word cloud
                     </button>
                 </div>
 
                 <WordCloud
-                    mainWord={dataContext.mainWord}
+                    mainCode={dataContext.mainCode}
                     words={dataContext.words}
                     selectedWords={dataContext.selectedWords}
                     toggleWordSelection={toggleWordSelection}
@@ -77,7 +102,7 @@ const WordCloudPage: FC = () => {
             </div>
 
             <NavigationBottomBar
-                previousPage={ROUTES.BASIS}
+                previousPage={ROUTES.FLASHCARDS}
                 nextPage={ROUTES.INITIAL_CODING}
                 isReady={checkIfReady}
             />

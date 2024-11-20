@@ -1,9 +1,8 @@
 import { createContext, useState, FC, useEffect } from 'react';
 import { IFile, ILayout, Mode, SetState } from '../types/shared';
-import { initialFlashcards, initialWords } from '../constants/shared';
+import { initialWords } from '../constants/shared';
 
 interface IDataContext {
-    mainWord: string;
     currentMode: Mode;
     toggleMode: () => void;
     modeInput: string;
@@ -33,7 +32,6 @@ interface IDataContext {
 
 // Create the context
 export const DataContext = createContext<IDataContext>({
-    mainWord: '',
     currentMode: 'folder',
     modeInput: '',
     toggleMode: () => {},
@@ -59,7 +57,6 @@ export const DataContext = createContext<IDataContext>({
 
 // Create a provider component
 export const DataProvider: FC<ILayout> = ({ children }) => {
-    const mainWord = 'React';
     const [currentMode, setCurrentMode] = useState<Mode>('folder');
 
     const [modeInput, setModeInput] = useState<string>('');
@@ -80,7 +77,7 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
     const [selectedFlashcards, setSelectedFlashcards] = useState<number[]>([]);
 
     const [words, setWords] = useState<string[]>(initialWords);
-    const [selectedWords, setSelectedWords] = useState<string[]>([mainWord]);
+    const [selectedWords, setSelectedWords] = useState<string[]>([]);
 
     const toggleMode = () => {
         setCurrentMode((prevMode: Mode) => {
@@ -153,7 +150,6 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
     return (
         <DataContext.Provider
             value={{
-                mainWord,
                 currentMode,
                 toggleMode,
                 modeInput,

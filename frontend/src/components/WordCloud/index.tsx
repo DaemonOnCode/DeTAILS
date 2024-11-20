@@ -1,18 +1,17 @@
-// WordCloud.tsx
 import React, { useState, useEffect } from 'react';
 import { IWordBox } from '../../types/shared';
 
 interface WordCloudProps {
-    mainWord: string;
+    mainCode: string;
     words: string[];
     selectedWords: string[];
     toggleWordSelection: (word: string) => void;
 }
 
-const mainWordFontSize = 20;
+const mainCodeFontSize = 20;
 const otherWordFontSize = 14;
 
-function areWordsColliding(word1: IWordBox, word2: IWordBox, padding: number = 5) {
+function areWordsColliding(word1: IWordBox, word2: IWordBox, padding: number = 10) {
     return !(
         word1.x + word1.width + padding < word2.x ||
         word1.x > word2.x + word2.width + padding ||
@@ -21,7 +20,11 @@ function areWordsColliding(word1: IWordBox, word2: IWordBox, padding: number = 5
     );
 }
 
-function placeWord(words: IWordBox[], newWord: IWordBox) {
+function placeWord(words: IWordBox[], newWord: IWordBox, mainCodeBox: IWordBox) {
+    if (areWordsColliding(mainCodeBox, newWord)) {
+        return false;
+    }
+
     for (let placedWord of words) {
         if (areWordsColliding(placedWord, newWord)) {
             return false; // Collision detected
@@ -41,7 +44,7 @@ const measureTextWidth = (text: string, fontSize: number) => {
 };
 
 const WordCloud: React.FC<WordCloudProps> = ({
-    mainWord,
+    mainCode,
     words,
     selectedWords,
     toggleWordSelection
@@ -49,20 +52,22 @@ const WordCloud: React.FC<WordCloudProps> = ({
     const [wordsPlaced, setWordsPlaced] = useState<IWordBox[]>([]);
     const [maxRadius, setMaxRadius] = useState(0);
 
-    const radiusIncrement = 20;
+    const radiusIncrement = 50;
 
     const placeWordsAround = (): IWordBox[] => {
         const placedWords: IWordBox[] = [];
-        const mainWordWidth = measureTextWidth(mainWord, mainWordFontSize) + 30;
-        const mainWordHeight = mainWordFontSize + 10;
+        const mainCodeWidth = measureTextWidth(mainCode, mainCodeFontSize) + 30;
+        const mainCodeHeight = mainCodeFontSize + 10;
 
-        placedWords.push({
-            text: mainWord,
+        const mainCodeBox: IWordBox = {
+            text: mainCode,
             x: 0,
             y: 0,
-            width: mainWordWidth,
-            height: mainWordHeight
-        });
+            width: mainCodeWidth,
+            height: mainCodeHeight
+        };
+
+        placedWords.push(mainCodeBox);
 
         words.forEach((word, index) => {
             const textWidth = measureTextWidth(word, otherWordFontSize);
@@ -74,8 +79,8 @@ const WordCloud: React.FC<WordCloudProps> = ({
                 height: otherWordFontSize + 10
             };
 
-            let angle = index * 0.8;
-            let radius = 100;
+            let angle = (index * (2 * Math.PI)) / words.length; // Spread words evenly
+            let radius = mainCodeWidth + 50;
             let placed = false;
 
             while (!placed) {
@@ -84,7 +89,7 @@ const WordCloud: React.FC<WordCloudProps> = ({
                 wordBox.x = x;
                 wordBox.y = y;
 
-                if (placeWord(placedWords, wordBox)) {
+                if (placeWord(placedWords, wordBox, mainCodeBox)) {
                     placedWords.push(wordBox);
                     placed = true;
                 } else {
@@ -115,24 +120,33 @@ const WordCloud: React.FC<WordCloudProps> = ({
     return (
         <div
             className="relative bg-gray-100 rounded-full shadow-lg"
-            style={{ width: maxRadius * 2, height: maxRadius * 2 }}>
+            style={{
+                width: `${maxRadius * 2}px`,
+                height: `${maxRadius * 2}px`,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center'
+            }}>
             <svg
                 width={maxRadius * 2}
                 height={maxRadius * 2}
-                style={{ position: 'absolute', top: 0, left: 0, zIndex: 0 }}>
+                viewBox={`-${maxRadius} -${maxRadius} ${maxRadius * 2} ${maxRadius * 2}`}
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0
+                }}>
                 {wordsPlaced.map((word) => {
-                    if (word.text === mainWord) return null;
+                    if (word.text === mainCode) return null;
 
-                    const mainWordX = maxRadius;
-                    const mainWordY = maxRadius;
-                    const wordX = word.x + maxRadius;
-                    const wordY = word.y + maxRadius;
+                    const wordX = word.x;
+                    const wordY = word.y;
 
                     return (
                         <line
                             key={`line-${word.text}`}
-                            x1={mainWordX}
-                            y1={mainWordY}
+                            x1={0}
+                            y1={0}
                             x2={wordX}
                             y2={wordY}
                             stroke="gray"
@@ -159,12 +173,12 @@ const WordCloud: React.FC<WordCloudProps> = ({
                                 : 'bg-gray-200 text-gray-800'
                         } font-bold`}
                         style={{
-                            fontSize: word.text === mainWord ? mainWordFontSize : otherWordFontSize
+                            fontSize: word.text === mainCode ? mainCodeFontSize : otherWordFontSize
                         }}>
                         {word.text}
                     </div>
                     {selectedWords.includes(word.text) && (
-                        <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2">
+                        <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 z-50">
                             <div className="bg-green-500 rounded-full w-4 h-4 flex items-center justify-center">
                                 <span className="text-white text-xs font-bold">✓</span>
                             </div>

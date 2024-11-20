@@ -11,6 +11,7 @@ import FinalPage from './pages/final';
 import InitialCodingPage from './pages/initial_coding';
 import FlashcardsPage from './pages/flashcards';
 import FlashcardsLoaderPage from './pages/Loader/flashcards_loader';
+import WordCloudLoaderPage from './pages/Loader/word_cloud_loader';
 
 export const Router: FC = () => {
     return (
@@ -18,10 +19,14 @@ export const Router: FC = () => {
             <Routes>
                 <Route path={ROUTES.HOME.substring(1)} element={<HomePage />} />
                 <Route path={ROUTES.BASIS.substring(1)} element={<BasisPage />} />
-                <Route path={ROUTES.FLASHCARDS.substring(1)} element={<FlashcardsPage />} />
                 <Route
                     path={LOADER_ROUTES.FLASHCARDS_LOADER.substring(1)}
                     element={<FlashcardsLoaderPage />}
+                />
+                <Route path={ROUTES.FLASHCARDS.substring(1)} element={<FlashcardsPage />} />
+                <Route
+                    path={LOADER_ROUTES.WORD_CLOUD_LOADER.substring(1)}
+                    element={<WordCloudLoaderPage />}
                 />
                 <Route path={ROUTES.WORD_CLOUD.substring(1)} element={<WordCloudPage />} />
                 <Route path={ROUTES.INITIAL_CODING.substring(1)} element={<InitialCodingPage />} />
