@@ -8,6 +8,8 @@ interface IDataContext {
     toggleMode: () => void;
     modeInput: string;
     setModeInput: SetState<string>;
+    selectedPosts: Set<string>;
+    setSelectedPosts: SetState<Set<string>>;
     basisFiles: IFile;
     addBasisFile: (filePath: string, fileName: string) => void;
     removeBasisFile: (filePath: string) => void;
@@ -37,6 +39,8 @@ export const DataContext = createContext<IDataContext>({
     modeInput: '',
     toggleMode: () => {},
     setModeInput: () => {},
+    selectedPosts: new Set(),
+    setSelectedPosts: () => {},
     basisFiles: {},
     addBasisFile: () => {},
     removeBasisFile: () => {},
@@ -61,6 +65,7 @@ export const DataContext = createContext<IDataContext>({
 export const DataProvider: FC<ILayout> = ({ children }) => {
     const [currentMode, setCurrentMode] = useState<Mode>('folder');
     const [modeInput, setModeInput] = useState<string>('');
+    const [selectedPosts, setSelectedPosts] = useState<Set<string>>(new Set());
     const [basisFiles, setBasisFiles] = useState<IFile>({});
     const [mainCode, setMainCode] = useState<string>('C++');
     const [additionalInfo, setAdditionalInfo] = useState<string>('It is a programming language.');
@@ -128,6 +133,8 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
             basisFiles,
             addBasisFile,
             removeBasisFile,
+            selectedPosts,
+            setSelectedPosts,
             mainCode,
             setMainCode,
             additionalInfo,
@@ -146,6 +153,7 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
         [
             currentMode,
             modeInput,
+            selectedPosts,
             basisFiles,
             mainCode,
             additionalInfo,

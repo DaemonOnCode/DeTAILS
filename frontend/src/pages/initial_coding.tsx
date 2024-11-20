@@ -7,6 +7,7 @@ import ContentArea from '../components/InitialCoding/content_area';
 import LeftPanel from '../components/InitialCoding/left_panel';
 import TopToolbar from '../components/InitialCoding/top_toolbar';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
+import { useNavigate } from 'react-router-dom';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -25,6 +26,8 @@ const InitialCodingPage = () => {
     const [selectedTab, setSelectedTab] = useState<'data' | 'codes'>('data');
     const [selectedCodeForReferences, setSelectedCodeForReferences] = useState<string | null>(null);
     const [selectedPostData, setSelectedPostData] = useState<IRedditPostData | null>(null);
+
+    const navigate = useNavigate();
 
     useEffect(() => {
         ipcRenderer
@@ -112,6 +115,12 @@ const InitialCodingPage = () => {
         }
     };
 
+    const handleNextClick = async (e: any) => {
+        e.preventDefault();
+        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER);
+        console.log('Next clicked');
+    };
+
     return (
         <div className="p-6 h-full flex justify-between flex-col">
             <div className="h-full flex flex-col -m-6">
@@ -166,8 +175,9 @@ const InitialCodingPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.WORD_CLOUD}
-                nextPage={LOADER_ROUTES.CODING_VALIDATION_LOADER}
+                nextPage={ROUTES.CODING_VALIDATION}
                 isReady={true}
+                onNextClick={handleNextClick}
             />
         </div>
     );

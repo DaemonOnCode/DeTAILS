@@ -1,10 +1,11 @@
 import { FC, useState, useContext, useEffect } from 'react';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
 import { DataContext } from '../context/data_context';
-import { ROUTES } from '../constants/shared';
+import { ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../constants/shared';
 import RedditTable from '../components/Home/reddit_table';
 import PaginationControls from '../components/Home/pagination_control';
 import useRedditData from '../hooks/Home/use_reddit_data';
+import { RedditPosts } from '../types/shared';
 
 const HomePage: FC = () => {
     const dataContext = useContext(DataContext);
@@ -18,7 +19,7 @@ const HomePage: FC = () => {
 
     // Filtered Data
     const filteredData = Object.entries(data).filter(
-        ([_, { title, selftext, url }]) =>
+        ([id, { title, selftext, url }]) =>
             title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             selftext.toLowerCase().includes(searchTerm.toLowerCase()) ||
             url.toLowerCase().includes(searchTerm.toLowerCase())
@@ -57,7 +58,49 @@ const HomePage: FC = () => {
         setCurrentPage(1); // Reset to the first page when changing items per page
     };
 
-    const isReadyCheck = dataContext.modeInput.length > 0 && Object.keys(data).length > 0;
+    // Toggle individual post selection
+    const togglePostSelection = (id: string) => {
+        const newSelectedPosts = new Set(dataContext.selectedPosts);
+        if (newSelectedPosts.has(id)) {
+            newSelectedPosts.delete(id);
+        } else {
+            newSelectedPosts.add(id);
+        }
+        dataContext.setSelectedPosts(newSelectedPosts);
+    };
+
+    // Select all or deselect all posts
+    const toggleSelectAllPosts = () => {
+        if (
+            dataContext.selectedPosts.size !== filteredData.length &&
+            dataContext.selectedPosts.size === 0
+        ) {
+            dataContext.setSelectedPosts(new Set(filteredData.map(([id]) => id)));
+        } else {
+            dataContext.setSelectedPosts(new Set());
+        }
+    };
+
+    // Function to toggle all posts on the current page
+    const toggleSelectPage = (pageData: [string, RedditPosts[string]][]) => {
+        const newSelectedPosts = new Set(dataContext.selectedPosts);
+        const allSelected = pageData.every(([id]) => newSelectedPosts.has(id));
+
+        if (allSelected) {
+            // If all posts on the page are already selected, deselect them
+            pageData.forEach(([id]) => newSelectedPosts.delete(id));
+        } else {
+            // Otherwise, select all posts on the page
+            pageData.forEach(([id]) => newSelectedPosts.add(id));
+        }
+
+        dataContext.setSelectedPosts(newSelectedPosts);
+    };
+
+    const isReadyCheck =
+        dataContext.modeInput.length > 0 &&
+        Object.keys(data).length > 0 &&
+        dataContext.selectedPosts.size >= SELECTED_POSTS_MIN_THRESHOLD;
 
     return (
         <div className="w-full h-screen flex flex-col p-6">
@@ -112,6 +155,16 @@ const HomePage: FC = () => {
                                     className="p-2 border border-gray-300 rounded w-1/3"
                                 />
 
+                                {/* Select All Posts */}
+                                <button
+                                    onClick={toggleSelectAllPosts}
+                                    className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
+                                    {dataContext.selectedPosts.size !== filteredData.length &&
+                                    dataContext.selectedPosts.size === 0
+                                        ? 'Select All Posts'
+                                        : 'Deselect All Posts'}
+                                </button>
+
                                 {/* Items Per Page */}
                                 <div className="flex items-center">
                                     <label htmlFor="itemsPerPage" className="mr-2">
@@ -150,7 +203,12 @@ const HomePage: FC = () => {
 
                             {/* Table */}
                             <div className="overflow-y-auto max-h-[calc(100vh-17rem)]">
-                                <RedditTable data={displayedData} />
+                                <RedditTable
+                                    data={displayedData}
+                                    selectedPosts={dataContext.selectedPosts}
+                                    togglePostSelection={togglePostSelection}
+                                    toggleSelectPage={toggleSelectPage}
+                                />
                             </div>
 
                             {/* Pagination Controls */}

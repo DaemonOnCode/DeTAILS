@@ -82,7 +82,7 @@ const CodingValidationPage: FC = () => {
         <div className="p-6 flex flex-col justify-between h-full">
             <div>
                 <p>Please validate the following codings done by LLM </p>
-                <div className="max-h-[calc(100vh-20rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
+                <div className="max-h-[calc(100vh-15rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-gray-200">
@@ -161,7 +161,7 @@ const CodingValidationPage: FC = () => {
                 </div>
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.GENERATION}
+                previousPage={ROUTES.INITIAL_CODING}
                 nextPage={ROUTES.FINAL}
                 isReady={isReadyCheck}
             />

@@ -3,16 +3,35 @@ import { RedditPosts } from '../../types/shared';
 import RedditViewModal from '../Shared/reddit_view_modal';
 
 type RedditTableProps = {
-    data: [string, RedditPosts[string]][];
+    data: [string, RedditPosts[string]][]; // Post data as [id, postDetails]
+    selectedPosts: Set<string>; // Set of selected post IDs
+    togglePostSelection: (id: string) => void; // Function to toggle individual post selection
+    toggleSelectPage: (pageData: [string, RedditPosts[string]][]) => void; // Function to toggle all posts on the page
 };
 
-const RedditTable: FC<RedditTableProps> = ({ data }) => {
+const RedditTable: FC<RedditTableProps> = ({
+    data,
+    selectedPosts,
+    togglePostSelection,
+    toggleSelectPage
+}) => {
     const [selectedPost, setSelectedPost] = useState<(typeof data)[number] | null>(null);
+
+    // Check if all posts on the current page are selected
+    const areAllPagePostsSelected = data.every(([id]) => selectedPosts.has(id));
+
     return (
         <div className="overflow-x-auto">
             <table className="max-w-full border border-gray-300">
                 <thead className="bg-gray-100">
                     <tr>
+                        <th className="px-4 py-2 border">
+                            <input
+                                type="checkbox"
+                                onChange={() => toggleSelectPage(data)}
+                                checked={areAllPagePostsSelected}
+                            />
+                        </th>
                         <th className="px-4 py-2 border">URL</th>
                         <th className="px-4 py-2 border">Created UTC</th>
                         <th className="px-4 py-2 border">Title</th>
@@ -22,6 +41,13 @@ const RedditTable: FC<RedditTableProps> = ({ data }) => {
                 <tbody>
                     {data.map((post, index) => (
                         <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 border">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedPosts.has(post[0])}
+                                    onChange={() => togglePostSelection(post[0])}
+                                />
+                            </td>
                             <td className="px-4 py-2 border">
                                 <p
                                     className="text-blue-500 underline cursor-pointer"
