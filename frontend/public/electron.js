@@ -7,7 +7,9 @@ const config = require('./utils/config');
 const registerIpcHandlers = require('./handles');
 
 if (config.isDev) {
-    require('electron-reloader')(module);
+    require('electron-reloader')(module, {
+        ignore: [/\.db$/]
+    });
 }
 
 remote.initialize();

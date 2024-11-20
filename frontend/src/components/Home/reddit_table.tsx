@@ -29,7 +29,9 @@ const RedditTable: FC<RedditTableProps> = ({ data }) => {
                                     {post[0]}
                                 </p>
                             </td>
-                            <td className="px-4 py-2 border">{post[1].created_utc}</td>
+                            <td className="px-4 py-2 border">
+                                {new Date(post[1].created_utc * 1000).toLocaleString()}
+                            </td>
                             <td className="px-4 py-2 border">{post[1].title}</td>
                             <td className="px-4 py-2 border">{post[1].selftext}</td>
                         </tr>

@@ -22,7 +22,6 @@ const createTables = (db) => {
 
     return new Promise((resolve, reject) => {
         db.serialize(() => {
-            // Create `posts` table
             db.run(
                 `CREATE TABLE IF NOT EXISTS posts (
                     id TEXT PRIMARY KEY,
@@ -50,23 +49,12 @@ const createTables = (db) => {
                 }
             );
 
-            // Create `comments` table
             db.run(
                 `CREATE TABLE IF NOT EXISTS comments (
                     id TEXT PRIMARY KEY,
-                    controversiality INTEGER,
-                    score_hidden INTEGER,
                     body TEXT,
-                    score INTEGER,
-                    created_utc INTEGER,
                     author TEXT,
-                    parent_id TEXT,
-                    subreddit_id TEXT,
-                    retrieved_on INTEGER,
-                    gilded INTEGER,
-                    link_id TEXT,
-                    subreddit TEXT,
-                    parent_comment_id TEXT,
+                    created_utc INTEGER,
                     post_id TEXT,
                     FOREIGN KEY(post_id) REFERENCES posts(id)
                 )`,
@@ -78,74 +66,103 @@ const createTables = (db) => {
                 }
             );
 
-            // If no errors, resolve the promise
             resolve();
         });
     });
 };
 
-// Function to insert posts into SQLite
-const insertPost = async (db, postId, post) => {
+// Batch insert posts
+const insertPostsBatch = async (db, posts) => {
     return new Promise((resolve, reject) => {
-        db.run(
-            `INSERT OR REPLACE INTO posts (id, over_18, subreddit, score, thumbnail, permalink, is_self, domain, created_utc, url, num_comments, title, selftext, author, hide_score, subreddit_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                postId,
-                post.over_18,
-                post.subreddit,
-                post.score,
-                post.thumbnail,
-                post.permalink,
-                post.is_self,
-                post.domain,
-                post.created_utc,
-                post.url,
-                post.num_comments,
-                post.title,
-                post.selftext,
-                post.author,
-                post.hide_score,
-                post.subreddit_id
-            ],
-            (err) => {
-                if (err) {
-                    reject(`Failed to insert post: ${err.message}`);
-                } else {
-                    resolve();
-                }
+        const query = `INSERT OR REPLACE INTO posts 
+            (id, over_18, subreddit, score, thumbnail, permalink, is_self, domain, created_utc, url, num_comments, title, selftext, author, hide_score, subreddit_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
+            const stmt = db.prepare(query);
+            for (const post of posts) {
+                stmt.run([
+                    post.id,
+                    post.over_18,
+                    post.subreddit,
+                    post.score,
+                    post.thumbnail,
+                    post.permalink,
+                    post.is_self,
+                    post.domain,
+                    post.created_utc,
+                    post.url,
+                    post.num_comments,
+                    post.title,
+                    post.selftext,
+                    post.author,
+                    post.hide_score,
+                    post.subreddit_id
+                ]);
             }
-        );
+            stmt.finalize((err) => {
+                if (err) {
+                    db.run('ROLLBACK');
+                    reject(`Failed to batch insert posts: ${err.message}`);
+                } else {
+                    db.run('COMMIT', (commitErr) => {
+                        if (commitErr) {
+                            reject(`Commit failed: ${commitErr.message}`);
+                        } else {
+                            resolve();
+                        }
+                    });
+                }
+            });
+        });
     });
 };
 
-// Function to insert comments into SQLite
-const insertComment = async (db, commentId, comment, postId) => {
+// Batch insert comments
+const insertCommentsBatch = async (db, comments) => {
     return new Promise((resolve, reject) => {
-        db.run(
-            `INSERT OR REPLACE INTO comments (id, body, author, created_utc, post_id)
-             VALUES (?, ?, ?, ?, ?)`,
-            [commentId, comment.body, comment.author, comment.created_utc, postId],
-            (err) => {
-                if (err) {
-                    reject(`Failed to insert comment: ${err.message}`);
-                } else {
-                    resolve();
-                }
+        const query = `INSERT OR REPLACE INTO comments 
+            (id, body, author, created_utc, post_id)
+            VALUES (?, ?, ?, ?, ?)`;
+
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
+            const stmt = db.prepare(query);
+            for (const comment of comments) {
+                stmt.run([
+                    comment.id,
+                    comment.body,
+                    comment.author,
+                    comment.created_utc,
+                    comment.link_id.split('_')[1] // Extract post_id from link_id
+                ]);
             }
-        );
+            stmt.finalize((err) => {
+                if (err) {
+                    db.run('ROLLBACK');
+                    reject(`Failed to batch insert comments: ${err.message}`);
+                } else {
+                    db.run('COMMIT', (commitErr) => {
+                        if (commitErr) {
+                            reject(`Commit failed: ${commitErr.message}`);
+                        } else {
+                            resolve();
+                        }
+                    });
+                }
+            });
+        });
     });
 };
 
-// Function to process posts and comments
+// Process posts and comments using batch inserts
 const loadCommentsForPosts = async (folderPath, parsedData, db) => {
     try {
-        console.log('Starting to insert posts...');
-        for (const [postId, post] of Object.entries(parsedData)) {
-            console.log(`Inserting post: ${postId}`);
-            await insertPost(db, postId, post);
-        }
-        console.log('Posts inserted successfully.');
+        console.log('Starting to batch insert posts...');
+        const posts = Object.entries(parsedData).map(([postId, post]) => ({ id: postId, ...post }));
+        await insertPostsBatch(db, posts);
+        console.log('Posts batch inserted successfully.');
 
         console.log('Processing files for comments...');
         const files = fs
@@ -159,17 +176,12 @@ const loadCommentsForPosts = async (folderPath, parsedData, db) => {
             console.log(`Processing file: ${filePath}`);
 
             const content = fs.readFileSync(filePath, 'utf-8');
-            const data = JSON.parse(content);
+            const comments = JSON.parse(content).filter((item) => item.id); // Ensure items have an ID
 
-            const filteredData = data.filter((item) => item.id); // Ensure items have an ID
-
-            for (const comment of filteredData) {
-                const postId = comment.link_id.split('_')[1];
-                console.log(`Inserting comment for post: ${postId}`);
-                await insertComment(db, comment.id, comment, postId);
-            }
+            await insertCommentsBatch(db, comments);
+            console.log(`Batch inserted comments from file: ${file}`);
         }
-        console.log('Comments inserted successfully.');
+        console.log('All comments batch inserted successfully.');
     } catch (err) {
         console.error(err);
         throw err;

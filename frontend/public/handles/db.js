@@ -35,6 +35,8 @@ const dbHandler = () => {
                 console.log('Worker exited:', code);
                 if (code !== 0) {
                     reject(new Error(`Worker stopped with exit code ${code}`));
+                } else {
+                    console.log('Worker exited successfully.');
                 }
             });
         });
