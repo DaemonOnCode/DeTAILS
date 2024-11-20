@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { ROUTES, mockPosts } from '../constants/shared';
-import { IRedditPostData } from '../types/shared';
+import { useEffect, useState } from 'react';
+import { ROUTES } from '../constants/shared';
+import { IReference, PostIdTitle } from '../types/shared';
 import HighlightModal from '../components/InitialCoding/highlight_modal';
 import AddCodeModal from '../components/InitialCoding/add_code_modal';
 import ContentArea from '../components/InitialCoding/content_area';
@@ -8,11 +8,15 @@ import LeftPanel from '../components/InitialCoding/left_panel';
 import TopToolbar from '../components/InitialCoding/top_toolbar';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
 
+const { ipcRenderer } = window.require('electron');
+
 const InitialCodingPage = () => {
-    const [selectedPost, setSelectedPost] = useState<IRedditPostData | null>(null);
-    const [codes, setCodes] = useState<string[]>(['Important', 'Follow-up']);
+    const [posts, setPosts] = useState<PostIdTitle[]>([]);
+
+    const [selectedPost, setSelectedPost] = useState<PostIdTitle | null>(null);
+    const [codes, setCodes] = useState<string[]>([]);
     const [references, setReferences] = useState<{
-        [code: string]: { text: string; postId: number; isComment: boolean }[];
+        [code: string]: IReference[];
     }>({});
     const [isAddCodeModalOpen, setIsAddCodeModalOpen] = useState(false);
     const [isHighlightModalOpen, setIsHighlightModalOpen] = useState(false);
@@ -20,6 +24,18 @@ const InitialCodingPage = () => {
     const [selectedText, setSelectedText] = useState<string | null>(null);
     const [selectedTab, setSelectedTab] = useState<'data' | 'codes'>('data');
     const [selectedCodeForReferences, setSelectedCodeForReferences] = useState<string | null>(null);
+
+    useEffect(() => {
+        ipcRenderer
+            .invoke('get-post-ids-titles', '../test.db')
+            .then((data: { id: string; title: string }[]) => {
+                setPosts(data);
+            });
+    }, []);
+
+    useEffect(() => {
+        console.log('Getting post by id, initial coding', selectedPost);
+    }, [selectedPost]);
 
     // Capture selected text
     const handleTextSelection = () => {
@@ -37,25 +53,25 @@ const InitialCodingPage = () => {
             return;
         }
 
-        const isComment =
-            (selectedPost?.comments ?? []).some((comment) =>
-                comment.body.includes(selectedText || '')
-            ) || false;
-        setReferences((prevRefs) => ({
-            ...prevRefs,
-            [selectedCode]: [
-                ...(prevRefs[selectedCode] || []),
-                { text: selectedText, postId: selectedPost!.id, isComment }
-            ]
-        }));
+        // const isComment =
+        //     (selectedPost?.comments ?? []).some((comment) =>
+        //         comment.body.includes(selectedText || '')
+        //     ) || false;
+        // setReferences((prevRefs) => ({
+        //     ...prevRefs,
+        //     [selectedCode]: [
+        //         ...(prevRefs[selectedCode] || []),
+        //         { text: selectedText, postId: selectedPost!.id, isComment }
+        //     ]
+        // }));
 
         setSelectedText(null);
         setIsHighlightModalOpen(false);
     };
 
     // Handle reference click to switch to data tab and show correct post
-    const handleReferenceClick = (postId: number) => {
-        const post = mockPosts.find((p) => p.id === postId);
+    const handleReferenceClick = (postId: string) => {
+        const post = posts.find((p) => p.id === postId);
         if (post) {
             setSelectedTab('data');
             setSelectedPost(post);
@@ -71,23 +87,29 @@ const InitialCodingPage = () => {
                     setIsAddCodeModalOpen={setIsAddCodeModalOpen}
                     setIsHighlightModalOpen={setIsHighlightModalOpen}
                 />
-                <div className="flex h-full">
+                <div className="flex h-[calc(100vh-9rem)] overflow-hidden">
+                    {/* Left Panel */}
                     <LeftPanel
                         selectedTab={selectedTab}
                         setSelectedTab={setSelectedTab}
-                        mockPosts={mockPosts}
+                        posts={posts}
                         setSelectedPost={setSelectedPost}
                         codes={codes}
                         setSelectedCodeForReferences={setSelectedCodeForReferences}
                     />
-                    <ContentArea
-                        selectedPost={selectedPost}
-                        selectedCodeForReferences={selectedCodeForReferences}
-                        references={references}
-                        handleReferenceClick={handleReferenceClick}
-                        handleTextSelection={handleTextSelection}
-                    />
+
+                    {/* Main Content Area */}
+                    <div className="flex-1 overflow-auto">
+                        <ContentArea
+                            selectedPost={selectedPost}
+                            selectedCodeForReferences={selectedCodeForReferences}
+                            references={references}
+                            handleReferenceClick={handleReferenceClick}
+                            handleTextSelection={handleTextSelection}
+                        />
+                    </div>
                 </div>
+
                 {isAddCodeModalOpen && (
                     <AddCodeModal
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}

@@ -1,6 +1,7 @@
 const { ipcMain } = require('electron');
 const { Worker } = require('worker_threads');
 const path = require('path');
+const { initDatabase, getAllPostIdsAndTitles, getPostById } = require('../utils/db_helpers');
 
 const dbHandler = () => {
     ipcMain.handle('load-data', (event, folderPath, parsedData, dbPath) => {
@@ -40,6 +41,44 @@ const dbHandler = () => {
                 }
             });
         });
+    });
+
+    // ipcMain.handle('get-data', (event, batchSize, offset, dbPath) => {});
+
+    // ipcMain.handle('get-post', (event, postId, dbPath) => {});
+
+    ipcMain.handle('get-post-ids-titles', async (event, dbPath) => {
+        try {
+            const db = initDatabase(dbPath);
+
+            const result = await getAllPostIdsAndTitles(db);
+            db.close();
+            console.log('Post IDs and titles:', result);
+            return result;
+        } catch (err) {
+            console.error('Error getting post IDs and titles:', err.message);
+            return [];
+        }
+    });
+
+    ipcMain.handle('get-post-by-id', async (event, postId, dbPath) => {
+        try {
+            console.log('Getting post by ID:', postId);
+            const db = initDatabase(dbPath);
+            const result = await getPostById(
+                db,
+                postId,
+                ['id', 'title', 'selftext'],
+                ['id', 'body', 'parent_id']
+            );
+
+            db.close();
+            console.log('Post by ID:', result);
+            return result;
+        } catch (err) {
+            console.error('Error getting post by ID:', err.message);
+            return [];
+        }
     });
 };
 

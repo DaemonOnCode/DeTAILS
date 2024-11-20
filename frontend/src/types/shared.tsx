@@ -32,9 +32,9 @@ export interface IRedditPost {
 }
 
 export interface IRedditPostData {
-    id: number;
+    id: string;
     title: string;
-    body: string;
+    selftext: string;
     comments?: IComment[];
 }
 
@@ -43,14 +43,14 @@ export type SetState<T> = Dispatch<SetStateAction<T>>;
 export type ContentAreaTabs = 'data' | 'codes';
 
 export interface IComment {
-    id: number;
+    id: string;
     body: string;
     comments?: IComment[];
 }
 
 export interface IReference {
     text: string;
-    postId: number;
+    postId: string;
     isComment: boolean;
 }
 
@@ -72,6 +72,11 @@ export type RedditPosts = {
         hide_score: boolean;
         subreddit_id: string;
     };
+};
+
+export type PostIdTitle = {
+    id: string;
+    title: string;
 };
 
 export type RedditComments = {

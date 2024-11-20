@@ -1,8 +1,8 @@
 import { FC } from 'react';
-import { IRedditPostData, SetState } from '../../types/shared';
+import { PostIdTitle, SetState } from '../../types/shared';
 
 interface TopToolbarProps {
-    selectedPost: IRedditPostData | null;
+    selectedPost: PostIdTitle | null;
     setIsAddCodeModalOpen: SetState<boolean>;
     setIsHighlightModalOpen: SetState<boolean>;
 }

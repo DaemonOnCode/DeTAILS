@@ -1,4 +1,4 @@
-import { FC, useState, useContext } from 'react';
+import { FC, useState, useContext, useEffect } from 'react';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
 import { DataContext } from '../context/data_context';
 import { ROUTES } from '../constants/shared';
@@ -23,6 +23,12 @@ const HomePage: FC = () => {
             selftext.toLowerCase().includes(searchTerm.toLowerCase()) ||
             url.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    useEffect(() => {
+        if (dataContext.modeInput.length > 0) {
+            loadFolderData();
+        }
+    }, []);
 
     // Pagination Logic
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -83,7 +89,7 @@ const HomePage: FC = () => {
                         // Render folder selection button if no data is loaded
                         <div>
                             <button
-                                onClick={loadFolderData}
+                                onClick={() => loadFolderData(true)}
                                 className="p-2 border border-gray-300 rounded w-96">
                                 Select Folder
                             </button>

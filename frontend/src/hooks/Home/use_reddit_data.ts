@@ -121,17 +121,20 @@ const useRedditData = () => {
                 'load-data',
                 folderPath,
                 parsedData,
-                './test.db'
+                '../test.db'
             );
             console.log(result, 'load-data');
         },
         []
     );
 
-    const loadFolderData = async () => {
+    const loadFolderData = async (addToDb: boolean = false) => {
         try {
-            const folderPath = await ipcRenderer.invoke('select-folder');
-            dataContext.setModeInput(folderPath);
+            let folderPath = dataContext.modeInput;
+            if (!dataContext.modeInput) {
+                folderPath = await ipcRenderer.invoke('select-folder');
+                dataContext.setModeInput(folderPath);
+            }
 
             const files: string[] = fs.readdirSync(folderPath);
             const jsonFiles = files
@@ -177,7 +180,9 @@ const useRedditData = () => {
             setData(parsedData);
             setError(null);
 
-            loadCommentsInBackground(folderPath, parsedData);
+            if (addToDb) {
+                loadCommentsInBackground(folderPath, parsedData);
+            }
         } catch (error) {
             console.error('Failed to load folder:', error);
             // setError('Failed to load folder.');
