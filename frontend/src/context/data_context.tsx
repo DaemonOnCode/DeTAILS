@@ -154,8 +154,10 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
         // '1254667'
     ]);
     const [basisFiles, setBasisFiles] = useState<IFile>({});
-    const [mainCode, setMainCode] = useState<string>('Student life');
-    const [additionalInfo, setAdditionalInfo] = useState<string>('Daily activities of students');
+    const [mainCode, setMainCode] = useState<string>('');
+    // 'Student life';
+    const [additionalInfo, setAdditionalInfo] = useState<string>('');
+    // 'Daily activities of students';
     const [flashcards, setFlashcards] = useState<
         {
             id: number;
@@ -229,6 +231,10 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
             prevFlashcards.filter((flashcardId) => flashcardId !== id)
         );
     }, []);
+
+    useEffect(() => {
+        setSelectedWords([mainCode]);
+    }, [mainCode]);
 
     const value = useMemo(
         () => ({

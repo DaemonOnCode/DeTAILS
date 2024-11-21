@@ -1,5 +1,11 @@
 import { useContext, useEffect, useState } from 'react';
-import { LOADER_ROUTES, ROUTES, codeReferences, codes as _codes } from '../constants/shared';
+import {
+    LOADER_ROUTES,
+    ROUTES,
+    codeReferences,
+    codes as _codes,
+    DB_PATH
+} from '../constants/shared';
 import { IComment, IRedditPostData, IReference, PostIdTitle } from '../types/shared';
 import HighlightModal from '../components/InitialCoding/highlight_modal';
 import AddCodeModal from '../components/InitialCoding/add_code_modal';
@@ -17,7 +23,7 @@ const InitialCodingPage = () => {
     const [posts, setPosts] = useState<PostIdTitle[]>([]);
 
     const [selectedPost, setSelectedPost] = useState<PostIdTitle | null>(null);
-    const [codes, setCodes] = useState<string[]>(_codes);
+    const [codes, setCodes] = useState<string[]>([]);
 
     const [isAddCodeModalOpen, setIsAddCodeModalOpen] = useState(false);
     const [isHighlightModalOpen, setIsHighlightModalOpen] = useState(false);
@@ -31,7 +37,7 @@ const InitialCodingPage = () => {
 
     useEffect(() => {
         ipcRenderer
-            .invoke('get-post-ids-titles', '../test.db')
+            .invoke('get-post-ids-titles', DB_PATH)
             .then((data: { id: string; title: string }[]) => {
                 setPosts(data);
             });
@@ -139,7 +145,7 @@ const InitialCodingPage = () => {
                 }),
                 dataContext.selectedWords,
                 dataContext.selectedPosts,
-                '../test.db'
+                DB_PATH
             );
 
             console.log(results, 'Initial Coding Page');
@@ -155,7 +161,7 @@ const InitialCodingPage = () => {
                     code: string;
                     reasoning: string;
                 }[];
-            }[] = results.map((result: string) => JSON.parse(result));
+            }[] = results;
 
             console.log(parsedResults, 'Parsed Results');
 

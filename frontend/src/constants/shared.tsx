@@ -18,6 +18,8 @@ export enum LOADER_ROUTES {
     FINAL_LOADER = '#/finalloader'
 }
 
+export const DB_PATH = '../executables/test.db';
+
 export const WORD_CLOUD_MIN_THRESHOLD = 10;
 
 export const FLASHCARDS_MIN_THRESHOLD = 10;

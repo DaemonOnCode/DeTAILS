@@ -1,9 +1,9 @@
 #!/bin/sh
+CURRENT_DIR=$(pwd)
 
 # Navigate two directories up
 cd .. || { echo "Failed to navigate two directories up"; exit 1; }
 
-pwd
 
 # Folder to check
 TARGET_FOLDER="chroma"
@@ -25,3 +25,8 @@ else
     echo "Folder 'dist' does not exist. Exiting..."
     exit 1
 fi
+
+cd "$CURRENT_DIR" || { echo "Failed to navigate to folder '$CURRENT_DIR'"; exit 1; }
+
+echo "Deleting chroma-data folder..."
+rm -r ../chroma-data

@@ -1,6 +1,7 @@
 import { useState, useContext, useCallback } from 'react';
 import { DataContext } from '../../context/data_context';
 import { FullRedditData, RedditComments, RedditPosts } from '../../types/shared';
+import { DB_PATH } from '../../constants/shared';
 
 const { ipcRenderer } = window.require('electron');
 const fs = window.require('fs');
@@ -117,12 +118,7 @@ const useRedditData = () => {
             if (!folderPath || Object.keys(parsedData).length === 0) return;
 
             console.log('load-comments called');
-            const result = await ipcRenderer.invoke(
-                'load-data',
-                folderPath,
-                parsedData,
-                '../test.db'
-            );
+            const result = await ipcRenderer.invoke('load-data', folderPath, parsedData, DB_PATH);
             console.log(result, 'load-data');
         },
         []

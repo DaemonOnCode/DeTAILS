@@ -8,3 +8,4 @@ ollama-*
 !ollama-0.4.2
 .vscode
 *.db
+**/chroma_data

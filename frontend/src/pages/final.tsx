@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
-import { ROUTES, exampleData } from '../constants/shared';
+import { DB_PATH, ROUTES, exampleData } from '../constants/shared';
 import { IFinalCodeResponse } from '../types/shared';
 import RedditViewModal from '../components/Shared/reddit_view_modal';
 import { DataContext } from '../context/data_context';
@@ -28,7 +28,7 @@ const FinalPage = () => {
             'get-link-from-post',
             post.postId,
             post.sentence,
-            '../test.db'
+            DB_PATH
         );
 
         setRenderedPost((prevState) => {

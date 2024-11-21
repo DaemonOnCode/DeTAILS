@@ -1,6 +1,7 @@
 import { FC, useEffect, useState } from 'react';
 import { IRedditPostData, IReference, PostIdTitle, SetState } from '../../types/shared';
 import Comment from './comment';
+import { DB_PATH } from '../../constants/shared';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -30,7 +31,7 @@ const ContentArea: FC<ContentAreaProps> = ({
             return;
         }
         ipcRenderer
-            .invoke('get-post-by-id', selectedPost?.id, '../test.db')
+            .invoke('get-post-by-id', selectedPost?.id, DB_PATH)
             .then((data: IRedditPostData) => {
                 console.log('Post data:', data);
                 setSelectedPostData(data);

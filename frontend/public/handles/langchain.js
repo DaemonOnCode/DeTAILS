@@ -716,7 +716,40 @@ Return only the JSON object and ensure it is correctly formatted.
 
                 console.log('results 3', results3);
 
-                finalResults.push(results3);
+                const match = results3.match(
+                    /(?:```json\s*)?\{\s*"unified_codebook":\s*(?<codebook>\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(?<transcript>\[[\s\S]*?\])?\s*\}?/
+                );
+
+                if (!match) {
+                    console.log('No match found.');
+                    console.log(JSON.stringify({ unified_codebook: [], recoded_transcript: [] }));
+                } else {
+                    const { codebook, transcript } = match.groups; // Access named groups
+
+                    let parsedCodebook = [];
+                    let parsedTranscript = [];
+
+                    try {
+                        if (codebook) {
+                            parsedCodebook = JSON.parse(codebook);
+                        }
+                        if (transcript) {
+                            parsedTranscript = JSON.parse(transcript);
+                        }
+                    } catch (error) {
+                        console.error('Error parsing JSON:', error);
+                        console.log(
+                            JSON.stringify({ unified_codebook: [], recoded_transcript: [] })
+                        );
+                    }
+
+                    const result = {
+                        unified_codebook: parsedCodebook,
+                        recoded_transcript: parsedTranscript
+                    };
+
+                    finalResults.push(result);
+                }
             }
 
             return finalResults;
@@ -863,9 +896,41 @@ Return only the JSON object and ensure it is correctly formatted.
 
                 console.log('results 3', results3);
 
-                finalResults.push(results3);
-            }
+                const match = results3.match(
+                    /(?:```json\s*)?\{\s*"unified_codebook":\s*(?<codebook>\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(?<transcript>\[[\s\S]*?\])?\s*\}?/
+                );
 
+                if (!match) {
+                    console.log('No match found.');
+                    console.log(JSON.stringify({ unified_codebook: [], recoded_transcript: [] }));
+                } else {
+                    const { codebook, transcript } = match.groups; // Access named groups
+
+                    let parsedCodebook = [];
+                    let parsedTranscript = [];
+
+                    try {
+                        if (codebook) {
+                            parsedCodebook = JSON.parse(codebook);
+                        }
+                        if (transcript) {
+                            parsedTranscript = JSON.parse(transcript);
+                        }
+                    } catch (error) {
+                        console.error('Error parsing JSON:', error);
+                        console.log(
+                            JSON.stringify({ unified_codebook: [], recoded_transcript: [] })
+                        );
+                    }
+
+                    const result = {
+                        unified_codebook: parsedCodebook,
+                        recoded_transcript: parsedTranscript
+                    };
+
+                    finalResults.push(result);
+                }
+            }
             return finalResults;
         }
     );

@@ -1,5 +1,5 @@
 import { ChangeEvent, FC, useContext, useEffect, useState } from 'react';
-import { LOADER_ROUTES, ROUTES, beforeHumanValidation } from '../constants/shared';
+import { DB_PATH, LOADER_ROUTES, ROUTES, beforeHumanValidation } from '../constants/shared';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
 import { DataContext } from '../context/data_context';
 import RedditViewModal from '../components/Shared/reddit_view_modal';
@@ -65,28 +65,10 @@ const CodingValidationPage: FC = () => {
     //     });
     // }, []);
 
-    const handleRerunCoding = () => {
-        console.log('Re-running coding...');
-
-        const markedIndexes = dataContext.codeResponses
-            .map((response, index) => (response.isMarked !== undefined ? index : null))
-            .filter((index) => index !== null) as number[];
-
-        const newResponses = dataContext.codeResponses.filter(
-            (_, index) => !markedIndexes.includes(index)
-        );
-
-        dataContext.dispatchCodeResponses({
-            type: 'RERUN_CODING',
-            indexes: markedIndexes,
-            newResponses
-        });
-    };
-
     const runWithFeedback = async () => {
         navigate(LOADER_ROUTES.FINAL_LOADER.substring(1));
 
-        const result = await ipcRenderer.invoke(
+        const results = await ipcRenderer.invoke(
             'generate-codes-with-feedback',
             'llama3.2:3b',
             dataContext.references,
@@ -101,10 +83,10 @@ const CodingValidationPage: FC = () => {
             dataContext.selectedWords,
             dataContext.selectedPosts,
             dataContext.codeResponses.filter((response) => response.isMarked === false),
-            '../test.db'
+            DB_PATH
         );
 
-        console.log('Result:', result);
+        console.log('Result:', results);
 
         const parsedResult: {
             unified_codebook: {
@@ -117,28 +99,67 @@ const CodingValidationPage: FC = () => {
                 segment: string;
                 reasoning: string;
             }[];
-        } = JSON.parse(result);
+        }[] = results;
+
+        let totalResponses = dataContext.codeResponses
+            .filter((response) => response.isMarked === true)
+            .map(({ sentence, coded_word, postId, reasoning }) => ({
+                sentence,
+                coded_word,
+                postId,
+                reasoning
+            }));
+
+        // totalResponses = totalResponses.concat(
+        parsedResult.forEach((answer, index) => {
+            for (const recodedTranscript of answer.recoded_transcript) {
+                const sentence = recodedTranscript.segment;
+                const coded_word = recodedTranscript.code;
+                const postId = dataContext.selectedPosts[index];
+                const reasoning = recodedTranscript.reasoning;
+                totalResponses.push({ sentence, coded_word, postId, reasoning });
+            }
+        });
+        // )
 
         dataContext.dispatchFinalCodeResponses({
             type: 'ADD_RESPONSES',
-            responses: parsedResult.recoded_transcript.map((recodedTranscript, index) => ({
-                sentence: recodedTranscript.segment,
-                coded_word: recodedTranscript.code,
-                postId: dataContext.selectedPosts[index],
-                reasoning: recodedTranscript.reasoning
-            }))
+            responses: totalResponses
         });
 
         navigate(ROUTES.FINAL.substring(1));
     };
 
+    const handleRerunCoding = () => {
+        console.log('Re-running coding...');
+
+        // const markedIndexes = dataContext.codeResponses
+        //     .map((response, index) => (response.isMarked !== undefined ? index : null))
+        //     .filter((index) => index !== null) as number[];
+
+        // const newResponses = dataContext.codeResponses.filter(
+        //     (_, index) => !markedIndexes.includes(index)
+        // );
+
+        // dataContext.dispatchCodeResponses({
+        //     type: 'RERUN_CODING',
+        //     indexes: markedIndexes,
+        //     newResponses
+        // });
+
+        dataContext.dispatchFinalCodeResponses({
+            type: 'ADD_RESPONSES',
+            responses: dataContext.codeResponses
+                .filter(({ isMarked }) => isMarked === true)
+                .map(({ comment, isMarked, ...rest }) => ({
+                    ...rest
+                }))
+        });
+
+        runWithFeedback();
+    };
     const handleOpenReddit = async (postId: string, commentSlice: string) => {
-        const link = await ipcRenderer.invoke(
-            'get-link-from-post',
-            postId,
-            commentSlice,
-            '../test.db'
-        );
+        const link = await ipcRenderer.invoke('get-link-from-post', postId, commentSlice, DB_PATH);
 
         setSelectedData({ link, text: commentSlice });
     };

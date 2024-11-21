@@ -12,9 +12,9 @@ const WordCloudPage: FC = () => {
 
     const dataContext = useContext(DataContext);
 
-    useEffect(() => {
-        dataContext.setSelectedWords([dataContext.mainCode]);
-    }, []);
+    // useEffect(() => {
+    //     dataContext.setSelectedWords([dataContext.mainCode]);
+    // }, []);
 
     const toggleWordSelection = (word: string) => {
         if (word === dataContext.mainCode) return;
