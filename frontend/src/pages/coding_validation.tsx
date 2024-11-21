@@ -1,20 +1,27 @@
 import { ChangeEvent, FC, useContext, useEffect, useState } from 'react';
-import { ROUTES, beforeHumanValidation } from '../constants/shared';
+import { LOADER_ROUTES, ROUTES, beforeHumanValidation } from '../constants/shared';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
 import { DataContext } from '../context/data_context';
 import RedditViewModal from '../components/Shared/reddit_view_modal';
+import { useNavigate } from 'react-router-dom';
 
 const { ipcRenderer } = window.require('electron');
 
 const CodingValidationPage: FC = () => {
     const dataContext = useContext(DataContext);
 
+    const navigate = useNavigate();
+
     const handleCommentChange = (index: number, event: ChangeEvent<HTMLTextAreaElement>) => {
-        dataContext.dispatch({ type: 'UPDATE_COMMENT', index, comment: event.target.value });
+        dataContext.dispatchCodeResponses({
+            type: 'UPDATE_COMMENT',
+            index,
+            comment: event.target.value
+        });
     };
 
     const handleMark = (index: number, isMarked?: boolean) => {
-        dataContext.dispatch({ type: 'MARK_RESPONSE', index, isMarked });
+        dataContext.dispatchCodeResponses({ type: 'MARK_RESPONSE', index, isMarked });
     };
 
     const [selectedData, setSelectedData] = useState<{
@@ -25,36 +32,38 @@ const CodingValidationPage: FC = () => {
         text: ''
     });
 
-    useEffect(() => {
-        beforeHumanValidation.forEach((answer, index) => {
-            let parsedAnswer: {
-                unified_codebook: {
-                    code: string;
-                    description: string;
-                    examples: string[];
-                }[];
-                recoded_transcript: {
-                    code: string;
-                    segment: string;
-                }[];
-            } = { unified_codebook: [], recoded_transcript: [] };
-            try {
-                parsedAnswer = JSON.parse(answer);
-            } catch (e) {
-                console.log(e);
-            }
+    // useEffect(() => {
+    //     beforeHumanValidation.forEach((answer, index) => {
+    //         let parsedAnswer: {
+    //             unified_codebook: {
+    //                 code: string;
+    //                 description: string;
+    //                 examples: string[];
+    //             }[];
+    //             recoded_transcript: {
+    //                 code: string;
+    //                 segment: string;
+    //             }[];
+    //         } = { unified_codebook: [], recoded_transcript: [] };
+    //         try {
+    //             parsedAnswer = JSON.parse(answer);
+    //         } catch (e) {
+    //             console.log(e);
+    //         }
 
-            for (const recodedTranscript of parsedAnswer.recoded_transcript) {
-                const sentence = recodedTranscript.segment;
-                const coded_word = recodedTranscript.code;
-                const postId = dataContext.selectedPosts[index];
-                dataContext.dispatch({
-                    type: 'ADD_RESPONSE',
-                    response: { sentence, coded_word, postId }
-                });
-            }
-        });
-    }, [dataContext.selectedPosts]);
+    //         let responses = [];
+    //         for (const recodedTranscript of parsedAnswer.recoded_transcript) {
+    //             const sentence = recodedTranscript.segment;
+    //             const coded_word = recodedTranscript.code;
+    //             const postId = dataContext.selectedPosts[index];
+    //             responses.push({ sentence, coded_word, postId });
+    //         }
+    //         dataContext.dispatchCodeResponses({
+    //             type: 'ADD_RESPONSES',
+    //             responses
+    //         });
+    //     });
+    // }, []);
 
     const handleRerunCoding = () => {
         console.log('Re-running coding...');
@@ -67,11 +76,60 @@ const CodingValidationPage: FC = () => {
             (_, index) => !markedIndexes.includes(index)
         );
 
-        dataContext.dispatch({
+        dataContext.dispatchCodeResponses({
             type: 'RERUN_CODING',
             indexes: markedIndexes,
             newResponses
         });
+    };
+
+    const runWithFeedback = async () => {
+        navigate(LOADER_ROUTES.FINAL_LOADER.substring(1));
+
+        const result = await ipcRenderer.invoke(
+            'generate-codes-with-feedback',
+            'llama3.2:3b',
+            dataContext.references,
+            dataContext.mainCode,
+            dataContext.selectedFlashcards.map((id) => {
+                return {
+                    question: dataContext.flashcards.find((flashcard) => flashcard.id === id)!
+                        .question,
+                    answer: dataContext.flashcards.find((flashcard) => flashcard.id === id)!.answer
+                };
+            }),
+            dataContext.selectedWords,
+            dataContext.selectedPosts,
+            dataContext.codeResponses.filter((response) => response.isMarked === false),
+            '../test.db'
+        );
+
+        console.log('Result:', result);
+
+        const parsedResult: {
+            unified_codebook: {
+                code: string;
+                description: string;
+                examples: string[];
+            }[];
+            recoded_transcript: {
+                code: string;
+                segment: string;
+                reasoning: string;
+            }[];
+        } = JSON.parse(result);
+
+        dataContext.dispatchFinalCodeResponses({
+            type: 'ADD_RESPONSES',
+            responses: parsedResult.recoded_transcript.map((recodedTranscript, index) => ({
+                sentence: recodedTranscript.segment,
+                coded_word: recodedTranscript.code,
+                postId: dataContext.selectedPosts[index],
+                reasoning: recodedTranscript.reasoning
+            }))
+        });
+
+        navigate(ROUTES.FINAL.substring(1));
     };
 
     const handleOpenReddit = async (postId: string, commentSlice: string) => {
@@ -83,6 +141,25 @@ const CodingValidationPage: FC = () => {
         );
 
         setSelectedData({ link, text: commentSlice });
+    };
+
+    const handleAllAccept = () => {
+        const acceptedResponses = dataContext.codeResponses.map(
+            ({ comment, isMarked, ...rest }) => ({
+                ...rest
+            })
+        );
+
+        dataContext.dispatchFinalCodeResponses({
+            type: 'ADD_RESPONSES',
+            responses: acceptedResponses
+        });
+
+        navigate(ROUTES.FINAL.substring(1));
+    };
+
+    const handleRejectAll = () => {
+        runWithFeedback();
     };
 
     const isReadyCheck = dataContext.codeResponses.some(
@@ -171,7 +248,11 @@ const CodingValidationPage: FC = () => {
                     </table>
                 </div>
                 <div className="mt-6 flex justify-center gap-x-6">
-                    <button className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">
+                    <button
+                        className={`bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600
+                        ${dataContext.codeResponses.length !== 0 ? '' : 'cursor-not-allowed opacity-75'}`}
+                        onClick={handleAllAccept}
+                        disabled={dataContext.codeResponses.length === 0}>
                         Accept All
                     </button>
                     <button
@@ -182,7 +263,11 @@ const CodingValidationPage: FC = () => {
                         }`}>
                         Re-run coding with changes
                     </button>
-                    <button className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">
+                    <button
+                        className={`bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600
+                        ${dataContext.codeResponses.length !== 0 ? '' : 'cursor-not-allowed opacity-75'}`}
+                        disabled={dataContext.codeResponses.length === 0}
+                        onClick={handleRejectAll}>
                         Reject All
                     </button>
                 </div>
@@ -191,6 +276,7 @@ const CodingValidationPage: FC = () => {
                 previousPage={ROUTES.INITIAL_CODING}
                 nextPage={ROUTES.FINAL}
                 isReady={isReadyCheck}
+                onNextClick={runWithFeedback}
             />
             {selectedData.link.length > 0 && (
                 <RedditViewModal

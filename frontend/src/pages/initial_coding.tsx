@@ -13,13 +13,12 @@ import { DataContext } from '../context/data_context';
 const { ipcRenderer } = window.require('electron');
 
 const InitialCodingPage = () => {
+    const dataContext = useContext(DataContext);
     const [posts, setPosts] = useState<PostIdTitle[]>([]);
 
     const [selectedPost, setSelectedPost] = useState<PostIdTitle | null>(null);
     const [codes, setCodes] = useState<string[]>(_codes);
-    const [references, setReferences] = useState<{
-        [code: string]: IReference[];
-    }>(codeReferences);
+
     const [isAddCodeModalOpen, setIsAddCodeModalOpen] = useState(false);
     const [isHighlightModalOpen, setIsHighlightModalOpen] = useState(false);
     const [selectedCode, setSelectedCode] = useState<string>('');
@@ -27,8 +26,6 @@ const InitialCodingPage = () => {
     const [selectedTab, setSelectedTab] = useState<'data' | 'codes'>('data');
     const [selectedCodeForReferences, setSelectedCodeForReferences] = useState<string | null>(null);
     const [selectedPostData, setSelectedPostData] = useState<IRedditPostData | null>(null);
-
-    const dataContext = useContext(DataContext);
 
     const navigate = useNavigate();
 
@@ -96,7 +93,7 @@ const InitialCodingPage = () => {
 
         console.log('Final isComment value:', isComment);
 
-        setReferences((prevRefs) => ({
+        dataContext.setReferences((prevRefs) => ({
             ...prevRefs,
             [selectedCode]: [
                 ...(prevRefs[selectedCode] || []),
@@ -121,25 +118,88 @@ const InitialCodingPage = () => {
     const handleNextClick = async (e: any) => {
         e.preventDefault();
         console.log('Next clicked');
-        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER.substring(1));
-        console.log(references, 'references');
 
-        let results = await ipcRenderer.invoke(
-            'generate-codes',
-            'llama3.2:3b',
-            references,
-            dataContext.mainCode,
-            dataContext.selectedFlashcards.map((id) => {
-                return {
-                    question: dataContext.flashcards.find((flashcard) => flashcard.id === id)!
-                        .question,
-                    answer: dataContext.flashcards.find((flashcard) => flashcard.id === id)!.answer
-                };
-            }),
-            dataContext.selectedWords,
-            dataContext.selectedPosts,
-            '../test.db'
-        );
+        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER.substring(1));
+        console.log(dataContext.references, 'dataContext.references');
+
+        let results;
+        try {
+            results = await ipcRenderer.invoke(
+                'generate-codes',
+                'llama3.2:3b',
+                dataContext.references,
+                dataContext.mainCode,
+                dataContext.selectedFlashcards.map((id) => {
+                    return {
+                        question: dataContext.flashcards.find((flashcard) => flashcard.id === id)!
+                            .question,
+                        answer: dataContext.flashcards.find((flashcard) => flashcard.id === id)!
+                            .answer
+                    };
+                }),
+                dataContext.selectedWords,
+                dataContext.selectedPosts,
+                '../test.db'
+            );
+
+            console.log(results, 'Initial Coding Page');
+
+            let parsedResults: {
+                unified_codebook: {
+                    code: string;
+                    definition: string;
+                    examples: string[];
+                }[];
+                recoded_transcript: {
+                    segment: string;
+                    code: string;
+                    reasoning: string;
+                }[];
+            }[] = results.map((result: string) => JSON.parse(result));
+
+            console.log(parsedResults, 'Parsed Results');
+
+            let totalCodes: {
+                sentence: string;
+                coded_word: string;
+                isCorrect?: boolean;
+                comment: string;
+                postId: string;
+                reasoning: string;
+            }[] = [];
+
+            parsedResults.forEach((parsedResult, index) => {
+                parsedResult.recoded_transcript.forEach((recoded) => {
+                    totalCodes.push({
+                        sentence: recoded.segment,
+                        coded_word: recoded.code,
+                        isCorrect: undefined,
+                        comment: '',
+                        postId: dataContext.selectedPosts[index],
+                        reasoning: recoded.reasoning
+                    });
+                });
+            });
+
+            dataContext.dispatchCodeResponses({
+                type: 'ADD_RESPONSES',
+                responses: totalCodes
+                // payload: parsedResults.map((parsedResult, index) => {
+                //     parsedResult.recoded_transcript.forEach((recoded) => {
+
+                //     });
+                //     return {
+                //         sentence: parsedResult.recoded_transcript[0].segment,
+                //         code: parsedResult.recoded_transcript[0].code,
+                //         isCorrect: undefined,
+                //         comment: '',
+                //         postId: dataContext.selectedPosts[index]
+                //     };
+            });
+            // });
+        } catch (e) {
+            console.error(e, 'Error invoking generate-codes');
+        }
 
         console.log(results, 'Initial Coding Page');
     };
@@ -170,7 +230,7 @@ const InitialCodingPage = () => {
                             selectedCodeForReferences={selectedCodeForReferences}
                             selectedPostData={selectedPostData}
                             setSelectedPostData={setSelectedPostData}
-                            references={references}
+                            references={dataContext.references}
                             handleReferenceClick={handleReferenceClick}
                             handleTextSelection={handleTextSelection}
                         />

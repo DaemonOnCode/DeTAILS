@@ -18,10 +18,18 @@ export interface IWordBox {
 
 export interface ISentenceBox {
     sentence: string;
-    comment: string;
+    comment?: string;
     isMarked?: boolean;
     coded_word: string;
     postId: string;
+    reasoning: string;
+}
+
+export interface IFinalCodeResponse {
+    sentence: string;
+    coded_word: string;
+    postId: string;
+    reasoning: string;
 }
 
 export interface IRedditPost {

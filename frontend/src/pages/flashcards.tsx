@@ -13,11 +13,11 @@ const { ipcRenderer } = window.require('electron');
 const FlashcardsPage = () => {
     const dataContext = useContext(DataContext);
 
-    useEffect(() => {
-        initialFlashcards.forEach(({ question, answer }) => {
-            dataContext.addFlashcard(question, answer);
-        });
-    }, []);
+    // useEffect(() => {
+    //     initialFlashcards.forEach(({ question, answer }) => {
+    //         dataContext.addFlashcard(question, answer);
+    //     });
+    // }, []);
 
     const { flashcards, selectedFlashcards, selectFlashcard, deselectFlashcard } = dataContext;
 

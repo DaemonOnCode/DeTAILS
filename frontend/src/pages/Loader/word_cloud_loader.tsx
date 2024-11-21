@@ -17,51 +17,69 @@ const WordCloudLoaderPage = () => {
                 answer: dataContext.flashcards[id].answer
             };
         });
+
         let maxRetries = 5;
-        let result = await ipcRenderer.invoke(
-            'generate-words',
-            'llama3.2:3b',
-            dataContext.mainCode,
-            flashcardData
-        );
+        let result;
+        let parsedResult = { words: [] };
 
-        console.log(result, 'Word Cloud Loader Page');
-
-        let parsedResult: { words: string[] } = { words: [] };
         try {
-            parsedResult = JSON.parse(result);
-        } catch (e) {
-            console.error(e, 'Error parsing result');
-        }
-
-        console.log(parsedResult, 'Parsed Result');
-
-        while (parsedResult.words.length === 0 && maxRetries > 0) {
-            console.log('Retrying word cloud generation', maxRetries);
             result = await ipcRenderer.invoke(
                 'generate-words',
                 'llama3.2:3b',
                 dataContext.mainCode,
-                flashcardData,
-                true
+                flashcardData
             );
-            console.log(result, 'Word Cloud Loader Page');
+            console.log(result, 'Initial result from generate-words');
+            parsedResult = JSON.parse(result);
+        } catch (e) {
+            console.log(e, 'Error invoking generate-words');
+            return;
+        }
 
+        console.log(parsedResult, 'Parsed result from generate-words');
+        while (parsedResult.words.length === 0 && maxRetries > 0) {
+            // try {
+            //     if (!result || result === 'undefined') {
+            //         throw new Error('Result is undefined or invalid');
+            //     }
+
+            //     parsedResult = JSON.parse(result);
+
+            //     if (!Array.isArray(parsedResult.words)) {
+            //         throw new Error('Parsed result does not contain a valid words array');
+            //     }
+            // } catch (e) {
+            // console.log('Error parsing result or validating parsedResult');
+
+            // if (maxRetries > 0) {
+            console.log('Retrying word cloud generation', maxRetries);
             try {
-                parsedResult = JSON.parse(result);
-            } catch (e) {
-                console.error(e, 'Error parsing result');
+                result = await ipcRenderer.invoke(
+                    'generate-words',
+                    'llama3.2:3b',
+                    dataContext.mainCode,
+                    flashcardData,
+                    true
+                );
+            } catch (retryError) {
+                console.log(retryError, 'Error invoking generate-words on retry');
+                // continue;
             }
-
-            console.log(parsedResult, 'Parsed Result');
+            // } else {
+            //     console.error('Max retries reached. Exiting.');
+            //     return;
+            // }
+            // // }
             maxRetries--;
         }
 
-        console.log(result, 'Word Cloud Loader Page');
-
-        dataContext.setSelectedWords(JSON.parse(result.words).words);
-
-        navigate(ROUTES.WORD_CLOUD.substring(1));
+        console.log(parsedResult, 'Final parsed result from generate-words');
+        if (parsedResult.words.length > 0) {
+            dataContext.setWords(parsedResult.words);
+            navigate(ROUTES.WORD_CLOUD.substring(1));
+        } else {
+            console.error('Failed to generate words after retries');
+        }
     };
 
     useEffect(() => {

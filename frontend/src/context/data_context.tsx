@@ -1,13 +1,23 @@
-import { createContext, useState, FC, Dispatch, useCallback, useReducer } from 'react';
+import { createContext, useState, FC, Dispatch, useCallback, useReducer, useEffect } from 'react';
 import { useMemo } from 'react';
-import { IFile, ILayout, ISentenceBox, Mode, SetState } from '../types/shared';
-import { initialFlashcards, initialWords } from '../constants/shared';
+import {
+    IFinalCodeResponse,
+    IFile,
+    ILayout,
+    ISentenceBox,
+    Mode,
+    SetState,
+    IReference
+} from '../types/shared';
+import { codeReferences, initialFlashcards, initialWords } from '../constants/shared';
 
 interface IDataContext {
     currentMode: Mode;
     toggleMode: () => void;
     modeInput: string;
     setModeInput: SetState<string>;
+    subreddit: string;
+    setSubreddit: SetState<string>;
     selectedPosts: string[];
     setSelectedPosts: SetState<string[]>;
     basisFiles: IFile;
@@ -31,8 +41,16 @@ interface IDataContext {
     setWords: SetState<string[]>;
     selectedWords: string[];
     setSelectedWords: SetState<string[]>;
+    references: {
+        [code: string]: IReference[];
+    };
+    setReferences: SetState<{
+        [code: string]: IReference[];
+    }>;
     codeResponses: ISentenceBox[];
-    dispatch: Dispatch<any>;
+    dispatchCodeResponses: Dispatch<any>;
+    finalCodeResponses: IFinalCodeResponse[];
+    dispatchFinalCodeResponses: Dispatch<any>;
 }
 
 // Create the context
@@ -41,6 +59,8 @@ export const DataContext = createContext<IDataContext>({
     modeInput: '',
     toggleMode: () => {},
     setModeInput: () => {},
+    subreddit: '',
+    setSubreddit: () => {},
     selectedPosts: [],
     setSelectedPosts: () => {},
     basisFiles: {},
@@ -60,27 +80,29 @@ export const DataContext = createContext<IDataContext>({
     setWords: () => {},
     selectedWords: [],
     setSelectedWords: () => {},
+    references: {},
+    setReferences: () => {},
     codeResponses: [],
-    dispatch: () => {}
+    dispatchCodeResponses: () => {},
+    finalCodeResponses: [],
+    dispatchFinalCodeResponses: () => {}
 });
 
-type Action =
+type Action<T> =
     | { type: 'SET_CORRECT'; index: number }
     | { type: 'SET_INCORRECT'; index: number }
     | { type: 'UPDATE_COMMENT'; index: number; comment: string }
     | { type: 'MARK_RESPONSE'; index: number; isMarked?: boolean }
-    | { type: 'RERUN_CODING'; indexes: number[]; newResponses: ISentenceBox[] }
+    | { type: 'RERUN_CODING'; indexes: number[]; newResponses: T[] }
     | {
           type: 'ADD_RESPONSE';
-          response: {
-              sentence: string;
-              coded_word: string;
-              postId: string;
-          };
-      };
+          response: T;
+      }
+    | { type: 'ADD_RESPONSES'; responses: T[] };
 
 // Reducer function to manage the state of responses
-const codeResponsesReducer = (state: ISentenceBox[], action: Action): ISentenceBox[] => {
+function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
+    console.log('Action:', action, 'State:', state);
     switch (action.type) {
         case 'SET_CORRECT':
             return state.map((response, index) =>
@@ -104,30 +126,32 @@ const codeResponsesReducer = (state: ISentenceBox[], action: Action): ISentenceB
                 .concat(action.newResponses);
         case 'ADD_RESPONSE':
             return state.concat({
-                ...action.response,
-                isMarked: undefined,
-                comment: ''
+                ...action.response
             });
+        case 'ADD_RESPONSES':
+            return [...state, ...action.responses];
+
         default:
             return state;
     }
-};
+}
 
 // Create a provider component
 export const DataProvider: FC<ILayout> = ({ children }) => {
     const [currentMode, setCurrentMode] = useState<Mode>('folder');
-    const [modeInput, setModeInput] = useState<string>('/Volumes/Crucial X9/uwaterloo');
+    const [modeInput, setModeInput] = useState<string>('');
+    const [subreddit, setSubreddit] = useState<string>('');
     const [selectedPosts, setSelectedPosts] = useState<string[]>([
-        '1019969',
-        '1069046',
-        '1076923',
-        '1093101',
-        '1141939',
-        '1145299',
-        '1193887',
-        '1194945',
-        '1253598',
-        '1254667'
+        // '1019969',
+        // '1069046',
+        // '1076923',
+        // '1093101',
+        // '1141939',
+        // '1145299',
+        // '1193887',
+        // '1194945',
+        // '1253598',
+        // '1254667'
     ]);
     const [basisFiles, setBasisFiles] = useState<IFile>({});
     const [mainCode, setMainCode] = useState<string>('Student life');
@@ -138,14 +162,29 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
             question: string;
             answer: string;
         }[]
-    >(initialFlashcards.map((flashcard, index) => ({ id: index, ...flashcard })));
+    >([]);
+    // initialFlashcards.map((flashcard, index) => ({ id: index, ...flashcard }))
     const [selectedFlashcards, setSelectedFlashcards] = useState<number[]>([
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+        // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
     ]);
-    const [words, setWords] = useState<string[]>(initialWords);
-    const [selectedWords, setSelectedWords] = useState<string[]>(initialWords.slice(0, 10));
+    const [words, setWords] = useState<string[]>([]);
+    // initialWords
+    const [selectedWords, setSelectedWords] = useState<string[]>([]);
+    // initialWords.slice(0, 10)
 
-    const [codeResponses, dispatch] = useReducer(codeResponsesReducer, []);
+    const [references, setReferences] = useState<{
+        [code: string]: IReference[];
+    }>({});
+
+    const [codeResponses, dispatchCodeResponses] = useReducer(
+        codeResponsesReducer<ISentenceBox>,
+        []
+    );
+
+    const [finalCodeResponses, dispatchFinalCodeResponses] = useReducer(
+        codeResponsesReducer<IFinalCodeResponse>,
+        []
+    );
 
     const toggleMode = useCallback(() => {
         setCurrentMode((prevMode: Mode) => {
@@ -197,6 +236,8 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
             toggleMode,
             modeInput,
             setModeInput,
+            subreddit,
+            setSubreddit,
             basisFiles,
             addBasisFile,
             removeBasisFile,
@@ -216,13 +257,18 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
             setWords,
             selectedWords,
             setSelectedWords,
+            references,
+            setReferences,
             codeResponses,
-            dispatch
+            dispatchCodeResponses,
+            finalCodeResponses,
+            dispatchFinalCodeResponses
         }),
         [
             currentMode,
             modeInput,
             selectedPosts,
+            subreddit,
             basisFiles,
             mainCode,
             additionalInfo,
@@ -230,7 +276,9 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
             selectedFlashcards,
             words,
             selectedWords,
-            codeResponses
+            references,
+            codeResponses,
+            finalCodeResponses
         ]
     );
 

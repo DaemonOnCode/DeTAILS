@@ -16,8 +16,8 @@ const redditHandler = () => {
 
     ipcMain.handle('render-reddit-webview', async (event, url, text) => {
         console.log('url', url);
-        // if (!url.startsWith('https://www.reddit.com')) {
-        //     url = 'https://www.reddit.com' + url;
+        // if (url.length === 6) {
+        //     url = 'https://www.reddit.com/r/' + url;
         // }
         // Remove existing BrowserView if it exists
         console.log('sentence', text);
@@ -156,9 +156,9 @@ const redditHandler = () => {
 
     const linkCreator = (id, type, postId, subreddit) => {
         if (type === 'post') {
-            return `https://www.reddit.com/r/${subreddit}/${postId}/`;
+            return `https://www.reddit.com/r/${subreddit}/comments/${postId}/`;
         } else if (type === 'comment') {
-            return `https://www.reddit.com/r/${subreddit}/${postId}/${id}/`;
+            return `https://www.reddit.com/r/${subreddit}/comments/${postId}/${id}/`;
         }
     };
 
@@ -236,7 +236,7 @@ const redditHandler = () => {
         if (link) {
             return link;
         }
-        return '';
+        return linkCreator(postId, 'post', postId, postData.subreddit);
     });
 
     ipcMain.handle('capture-reddit-screenshot', async (event, url) => {

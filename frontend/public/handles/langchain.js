@@ -122,7 +122,14 @@ const generateContext = (references, mainCode, selectedFlashcards, selectedWords
 };
 
 const generateFeedback = (feedback) => {
-    return feedback;
+    let string = ``;
+    for (let f of feedback) {
+        string += `Feedback: The following code was ${!f.isMarked ? 'wrong' : 'correct'} - for "${f.sentence}"\n`;
+        if (f.comment) {
+            string += `Comment: ${f.comment}\n`;
+        }
+    }
+    return string;
 };
 
 const chromaBasisCollection = 'a-test-collection';
@@ -182,7 +189,14 @@ const langchainHandler = () => {
                     model,
                     numCtx: 8192,
                     maxNumTokens: 8192,
-                    temperature: 0.3
+                    temperature: 0.3,
+                    callbacks: [
+                        {
+                            handleLLMNewToken: (token) => {
+                                console.log('token', token);
+                            }
+                        }
+                    ]
                 }),
                 prompt
             });
@@ -214,16 +228,47 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
 
             console.log('results', results);
 
-            const jsonMatch = results.answer.match(
-                /(?<!\S)(?:```(?:json)?\n)?\s*(?<json>\{\s*"flashcards"\s*:\s*\[(?:[^\]]*?)\]\s*\})(?:\n```)?/
+            const combinedMatch = results.answer.match(
+                /(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*"flashcards"\s*:\s*\[(?<flashcards>(?:\{\s*"question"\s*:\s*".*?"\s*,\s*"answer"\s*:\s*".*?"\s*\},?\s*)+)\]\s*\}|\[\s*(?<standalone>(?:\{\s*"question"\s*:\s*".*?"\s*,\s*"answer"\s*:\s*".*?"\s*\},?\s*)+)\s*\])(?:\n```)?/
             );
 
-            console.log('jsonMatch', jsonMatch);
-            if (!jsonMatch) {
+            console.log(1);
+
+            if (!combinedMatch) {
+                // Return an empty flashcards array if no match is found
                 return JSON.stringify({ flashcards: [] });
             }
 
-            return jsonMatch.groups.json;
+            console.log(2);
+
+            // Determine which group matched: `flashcards` or `standalone`
+            let rawEntries;
+            if (combinedMatch.groups.flashcards) {
+                rawEntries = `[${combinedMatch.groups.flashcards}]`; // Wrap entries in square brackets
+            } else if (combinedMatch.groups.standalone) {
+                rawEntries = `[${combinedMatch.groups.standalone}]`; // Standalone array is already valid
+            } else {
+                // If neither matches, return an empty array
+                return JSON.stringify({ flashcards: [] });
+            }
+
+            console.log(3);
+
+            // Parse the matched entries
+            let parsedFlashcards = [];
+            try {
+                parsedFlashcards = JSON.parse(rawEntries);
+            } catch (e) {
+                console.error('Error parsing entries:', e);
+                return JSON.stringify({ flashcards: [] }); // Return empty flashcards array on error
+            }
+
+            console.log(4);
+
+            // Return the reconstructed JSON object with the parsed flashcards
+            return JSON.stringify({
+                flashcards: parsedFlashcards
+            });
         }
     );
 
@@ -259,7 +304,14 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
                     model,
                     numCtx: 8192,
                     maxNumTokens: 8192,
-                    temperature: 0.3
+                    temperature: 0.3,
+                    callbacks: [
+                        {
+                            handleLLMNewToken: (token) => {
+                                console.log('token', token);
+                            }
+                        }
+                    ]
                 }),
                 prompt
             });
@@ -325,15 +377,47 @@ Respond ONLY with the JSON object, nothing else.
 
             // console.log('results', results.answer);
 
-            const jsonMatch = results.answer.match(
-                /(?<!\S)(?:```(?:json)?\n)?\s*(?<json>\{\s*"flashcards"\s*:\s*\[(?:[^\]]*?)\]\s*\})(?:\n```)?/
+            const combinedMatch = results.answer.match(
+                /(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*"flashcards"\s*:\s*\[(?<flashcards>(?:\{\s*"question"\s*:\s*".*?"\s*,\s*"answer"\s*:\s*".*?"\s*\},?\s*)+)\]\s*\}|\[\s*(?<standalone>(?:\{\s*"question"\s*:\s*".*?"\s*,\s*"answer"\s*:\s*".*?"\s*\},?\s*)+)\s*\])(?:\n```)?/
             );
-            // console.log('jsonMatch', jsonMatch);
-            if (!jsonMatch) {
+
+            console.log(1);
+
+            if (!combinedMatch) {
+                // Return an empty flashcards array if no match is found
                 return JSON.stringify({ flashcards: [] });
             }
 
-            return jsonMatch.groups.json;
+            console.log(2);
+
+            // Determine which group matched: `flashcards` or `standalone`
+            let rawEntries;
+            if (combinedMatch.groups.flashcards) {
+                rawEntries = `[${combinedMatch.groups.flashcards}]`; // Wrap entries in square brackets
+            } else if (combinedMatch.groups.standalone) {
+                rawEntries = `[${combinedMatch.groups.standalone}]`; // Standalone array is already valid
+            } else {
+                // If neither matches, return an empty array
+                return JSON.stringify({ flashcards: [] });
+            }
+
+            console.log(3);
+
+            // Parse the matched entries
+            let parsedFlashcards = [];
+            try {
+                parsedFlashcards = JSON.parse(rawEntries);
+            } catch (e) {
+                console.error('Error parsing entries:', e);
+                return JSON.stringify({ flashcards: [] }); // Return empty flashcards array on error
+            }
+
+            console.log(4);
+
+            // Return the reconstructed JSON object with the parsed flashcards
+            return JSON.stringify({
+                flashcards: parsedFlashcards
+            });
         }
     );
 
@@ -392,7 +476,14 @@ Respond ONLY with the JSON object. Avoid any additional text, explanations, or c
                     model,
                     numCtx: 8192,
                     maxNumTokens: 8192,
-                    temperature: 0.3
+                    temperature: 0.3,
+                    callbacks: [
+                        {
+                            handleLLMNewToken: (token) => {
+                                console.log('token', token);
+                            }
+                        }
+                    ]
                 }),
                 prompt
             });
@@ -411,7 +502,7 @@ Approach the task in the following steps:
 3. **Diversity Check**: Ensure the 20 words reflect various dimensions of the topic, avoiding repetitive or overly similar terms.
 4. **Validate Output**: Format the output as a JSON object and verify it adheres to the structure below. The response should ONLY include this JSON:
 
-{{
+{
   "words": [
     "word1",
     "word2",
@@ -419,7 +510,7 @@ Approach the task in the following steps:
     "...",
     "word20"
   ]
-}}
+}
 
 Reference context, selected by user show the context of ${mainCode}.
 - Use the provided selected words to enhance your understanding of the topic and ensure the extracted words are relevant. ${selectedWords.join(', ')}
@@ -454,17 +545,47 @@ Return only the JSON object and ensure it is correctly formatted.
                 input
             });
 
-            const jsonMatch = results.answer.match(
-                /(?<!\S)(?:```(?:json)?\n)?\s*(?<json>\{\s*"words"\s*:\s*\[(?:[^\]]*?)\]\s*\})(?:\n```)?/
+            const wordsMatch = results.answer.match(
+                /(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*"words"\s*:\s*\[(?<words>(?:\s*".*?"\s*,?)*?)\s*\}|\[\s*(?<standalone>(?:\s*".*?"\s*,?)*?)\s*\])(?:\n```)?/
             );
 
-            console.log('results', results, jsonMatch);
+            console.log(1);
 
-            if (!jsonMatch) {
+            if (!wordsMatch) {
+                // Return an empty words array if no match is found
                 return JSON.stringify({ words: [] });
             }
 
-            return jsonMatch.groups.json;
+            console.log(2);
+
+            // Determine which group matched: `words` or `standalone`
+            let rawEntries;
+            if (wordsMatch.groups.words) {
+                rawEntries = `[${wordsMatch.groups.words}]`; // Wrap words entries in square brackets
+            } else if (wordsMatch.groups.standalone) {
+                rawEntries = `[${wordsMatch.groups.standalone}]`; // Standalone array is already valid
+            } else {
+                // If neither matches, return an empty array
+                return JSON.stringify({ words: [] });
+            }
+
+            console.log(3);
+
+            // Parse the matched entries
+            let parsedWords = [];
+            try {
+                parsedWords = JSON.parse(rawEntries);
+            } catch (e) {
+                console.error('Error parsing words entries:', e);
+                return JSON.stringify({ words: [] }); // Return empty words array on error
+            }
+
+            console.log(4);
+
+            // Return the reconstructed JSON object with the parsed words
+            return JSON.stringify({
+                words: parsedWords
+            });
         }
     );
 
@@ -583,7 +704,7 @@ Return only the JSON object and ensure it is correctly formatted.
                     results1,
                     results2,
                     transcript,
-                    context
+                    mainCode
                 );
                 const promptValidator = ChatPromptTemplate.fromMessages([
                     new SystemMessage(codePrompts.systemPrompt),
@@ -612,8 +733,8 @@ Return only the JSON object and ensure it is correctly formatted.
             selectedFlashcards,
             selectedWords,
             selectedPosts,
-            dbPath,
-            feedback
+            feedback,
+            dbPath
         ) => {
             console.log(
                 model,
@@ -729,7 +850,7 @@ Return only the JSON object and ensure it is correctly formatted.
                     results1,
                     results2,
                     transcript,
-                    context,
+                    mainCode,
                     feedbackText
                 );
                 const promptValidator = ChatPromptTemplate.fromMessages([

@@ -170,6 +170,9 @@ const useRedditData = () => {
                     filteredData.forEach((post) => {
                         const postId = post.id;
                         delete post.id;
+                        if (!dataContext.subreddit) {
+                            dataContext.setSubreddit(post.subreddit);
+                        }
                         parsedData[postId] = post as unknown as RedditPosts[string];
                     });
                 } catch (error) {

@@ -1,11 +1,43 @@
-import { useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
 import { ROUTES, exampleData } from '../constants/shared';
-import { IRedditPost } from '../types/shared';
+import { IFinalCodeResponse } from '../types/shared';
 import RedditViewModal from '../components/Shared/reddit_view_modal';
+import { DataContext } from '../context/data_context';
+
+const { ipcRenderer } = window.require('electron');
 
 const FinalPage = () => {
-    const [renderedPost, setRenderedPost] = useState<IRedditPost>();
+    const { finalCodeResponses, subreddit } = useContext(DataContext);
+    const [renderedPost, setRenderedPost] = useState<{
+        id: string;
+        link: string;
+        sentence: string;
+    }>({
+        id: '',
+        link: '',
+        sentence: ''
+    });
+
+    useEffect(() => {
+        console.log('Final Page:', finalCodeResponses);
+    }, [finalCodeResponses]);
+
+    const handleViewPost = async (post: IFinalCodeResponse) => {
+        const link = await ipcRenderer.invoke(
+            'get-link-from-post',
+            post.postId,
+            post.sentence,
+            '../test.db'
+        );
+
+        setRenderedPost((prevState) => {
+            return {
+                ...prevState,
+                link: link ?? `https://www.reddit.com/r/${subreddit}/comments/${post.postId}`
+            };
+        });
+    };
 
     return (
         <div className="p-6 h-full flex justify-between flex-col">
@@ -16,33 +48,39 @@ const FinalPage = () => {
                 </p>
 
                 {/* Table Container */}
-                <div className="overflow-auto max-h-[70vh] border border-gray-300 rounded-lg">
+                <div className="overflow-auto max-h-[calc(100vh-15rem)] border border-gray-300 rounded-lg">
                     <table className="w-full border-collapse">
                         <thead className="bg-gray-200">
                             <tr>
+                                <th className="border border-gray-400 p-2">Link</th>
                                 <th className="border border-gray-400 p-2">Sentence</th>
                                 <th className="border border-gray-400 p-2">Word</th>
-                                <th className="border border-gray-400 p-2">Link</th>
                                 <th className="border border-gray-400 p-2">Reason</th>
-                                <th className="border border-gray-400 p-2">Context</th>
+                                {/* <th className="border border-gray-400 p-2">Context</th> */}
                             </tr>
                         </thead>
                         <tbody>
-                            {exampleData.map((item, index) => (
+                            {finalCodeResponses.map((item, index) => (
                                 <tr key={index} className="text-center">
-                                    <td className="border border-gray-400 p-2">{item.sentence}</td>
-                                    <td className="border border-gray-400 p-2">{item.word}</td>
                                     <td className="border border-gray-400 p-2">
                                         <button
                                             onClick={() => {
-                                                setRenderedPost(item);
+                                                handleViewPost(item);
                                             }}
                                             className="text-blue-500 underline">
                                             View Post
                                         </button>
                                     </td>
-                                    <td className="border border-gray-400 p-2">{item.reason}</td>
-                                    <td className="border border-gray-400 p-2">{item.context}</td>
+                                    <td className="border border-gray-400 p-2 max-w-md">
+                                        {item.sentence}
+                                    </td>
+                                    <td className="border border-gray-400 p-2 max-w-32">
+                                        {item.coded_word}
+                                    </td>
+                                    <td className="border border-gray-400 p-2 min-w-96">
+                                        {item.reasoning}
+                                    </td>
+                                    {/* <td className="border border-gray-400 p-2">{item.context}</td> */}
                                 </tr>
                             ))}
                         </tbody>
@@ -50,14 +88,18 @@ const FinalPage = () => {
                 </div>
             </div>
 
-            {renderedPost !== undefined && (
+            {renderedPost.link !== '' && (
                 <RedditViewModal
-                    isViewOpen={renderedPost !== undefined}
-                    postLink={renderedPost!.link}
+                    isViewOpen={renderedPost.link !== ''}
+                    postLink={renderedPost?.link}
                     postText={renderedPost?.sentence}
                     closeModal={() => {
                         console.log('Closing modal');
-                        setRenderedPost(undefined);
+                        setRenderedPost({
+                            id: '',
+                            link: '',
+                            sentence: ''
+                        });
                     }}
                 />
             )}

@@ -60,10 +60,12 @@ const HomePage: FC = () => {
 
     // Toggle individual post selection
     const togglePostSelection = (id: string) => {
-        let newSelectedPosts = dataContext.selectedPosts;
+        let newSelectedPosts = [...dataContext.selectedPosts];
         if (newSelectedPosts.includes(id)) {
+            // Remove the post if it already exists
             newSelectedPosts = newSelectedPosts.filter((postId) => postId !== id);
         } else {
+            // Add the post if it's not already selected
             newSelectedPosts.push(id);
         }
         dataContext.setSelectedPosts(newSelectedPosts);
@@ -77,24 +79,26 @@ const HomePage: FC = () => {
         ) {
             dataContext.setSelectedPosts(filteredData.map(([id]) => id));
         } else {
+            // Deselect all posts
             dataContext.setSelectedPosts([]);
         }
     };
 
     // Function to toggle all posts on the current page
     const toggleSelectPage = (pageData: [string, RedditPosts[string]][]) => {
-        let newSelectedPosts = dataContext.selectedPosts;
-        const allSelected = pageData.every(([id]) => newSelectedPosts.includes(id));
+        let newSelectedPosts = [...dataContext.selectedPosts];
+        const pageIds = pageData.map(([id]) => id);
+        const allSelected = pageIds.every((id) => newSelectedPosts.includes(id));
 
         if (allSelected) {
-            // If all posts on the page are already selected, deselect them
-            pageData.forEach(([id]) => {
-                newSelectedPosts = newSelectedPosts.filter((postId) => postId !== id);
-            });
+            // If all posts on the page are selected, deselect them
+            newSelectedPosts = newSelectedPosts.filter((id) => !pageIds.includes(id));
         } else {
             // Otherwise, select all posts on the page
-            pageData.forEach(([id]) => {
-                newSelectedPosts.push(id);
+            pageIds.forEach((id) => {
+                if (!newSelectedPosts.includes(id)) {
+                    newSelectedPosts.push(id);
+                }
             });
         }
 

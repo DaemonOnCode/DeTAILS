@@ -22,7 +22,7 @@ export const WORD_CLOUD_MIN_THRESHOLD = 10;
 
 export const FLASHCARDS_MIN_THRESHOLD = 10;
 
-export const SELECTED_POSTS_MIN_THRESHOLD = 10;
+export const SELECTED_POSTS_MIN_THRESHOLD = 3;
 
 export const initialWords = [
     'accommodation',
