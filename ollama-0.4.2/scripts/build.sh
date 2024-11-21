@@ -17,8 +17,8 @@ echo $VERSION
 # build universal MacOS binary
 sh $(dirname $0)/build_darwin.sh
 
-# # # build arm64 and amd64 Linux binaries
-# sh $(dirname $0)/build_linux.sh
+# # build arm64 and amd64 Linux binaries
+sh $(dirname $0)/build_linux.sh
 
-# # # build arm64 and amd64 Docker images
-# sh $(dirname $0)/build_docker.sh
+# # build arm64 and amd64 Docker images
+sh $(dirname $0)/build_docker.sh
