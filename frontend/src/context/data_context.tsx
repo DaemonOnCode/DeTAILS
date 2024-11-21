@@ -9,7 +9,6 @@ import {
     SetState,
     IReference
 } from '../types/shared';
-import { codeReferences, initialFlashcards, initialWords } from '../constants/shared';
 
 interface IDataContext {
     currentMode: Mode;

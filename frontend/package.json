@@ -51,7 +51,7 @@
 	"main": "public/electron.js",
 	"scripts": {
 		"dev": "concurrently \"npm run executables\" \"npm run react:dev\" \"npm run electron:wait\"",
-		"executables": "cd ../executables && concurrently \"./chroma/cli run\" \"./ollama/ollama-darwin serve\"",
+		"executables": "cd ../executables && rm test.db && concurrently \"./chroma/cli run\" \"./ollama/ollama-darwin serve\"",
 		"run:chroma": "./chroma/cli run",
 		"run:ollama": "./ollama/ollama-darwin serve",
 		"electron:wait": "wait-on tcp:3000 && npm run electron:dev",

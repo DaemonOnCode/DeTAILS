@@ -124,10 +124,10 @@ const useRedditData = () => {
         []
     );
 
-    const loadFolderData = async (addToDb: boolean = false) => {
+    const loadFolderData = async (addToDb: boolean = false, changeModeInput = false) => {
         try {
             let folderPath = dataContext.modeInput;
-            if (!dataContext.modeInput) {
+            if (!dataContext.modeInput || changeModeInput) {
                 folderPath = await ipcRenderer.invoke('select-folder');
                 dataContext.setModeInput(folderPath);
             }

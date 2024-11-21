@@ -140,7 +140,7 @@ const HomePage: FC = () => {
                         // Render folder selection button if no data is loaded
                         <div>
                             <button
-                                onClick={() => loadFolderData(true)}
+                                onClick={() => loadFolderData(true, true)}
                                 className="p-2 border border-gray-300 rounded w-96">
                                 Select Folder
                             </button>
