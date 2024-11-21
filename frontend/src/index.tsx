@@ -6,7 +6,7 @@ import './styles/tailwind.css';
 
 import { Router } from './router';
 import { DataProvider } from './context/data_context';
-import { Layout } from './components/Layout';
+import { Layout } from './components/Shared/layout';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 

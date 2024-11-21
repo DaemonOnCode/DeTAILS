@@ -44,13 +44,15 @@ const BasisPage = () => {
     const handleOnNextClick = async (e: any) => {
         e.preventDefault();
         navigate(LOADER_ROUTES.FLASHCARDS_LOADER.substring(1));
-        const result: string = await ipcRenderer.invoke(
+        let result: string = await ipcRenderer.invoke(
             'add-documents-langchain',
             basisFiles,
             'llama3.2:3b',
             mainCode,
-            additionalInfo
+            additionalInfo,
+            false
         );
+        let maxRetries = 5;
         console.log(result);
         let parsedResult: { flashcards: { question: string; answer: any }[] } = { flashcards: [] };
         try {
@@ -60,6 +62,29 @@ const BasisPage = () => {
         }
 
         console.log(parsedResult);
+
+        while (parsedResult.flashcards.length === 0 && maxRetries > 0) {
+            console.log('Retrying', maxRetries);
+            result = await ipcRenderer.invoke(
+                'add-documents-langchain',
+                basisFiles,
+                'llama3.2:3b',
+                mainCode,
+                additionalInfo,
+                true
+            );
+            maxRetries--;
+
+            console.log(result);
+
+            try {
+                parsedResult = JSON.parse(result);
+            } catch (error) {
+                console.error(error, JSON.stringify(result));
+            }
+
+            console.log(parsedResult);
+        }
 
         parsedResult.flashcards.forEach(({ question, answer }) => {
             dataContext.addFlashcard(question, answer);

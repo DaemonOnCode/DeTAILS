@@ -30,8 +30,8 @@ const FlashcardsPage = () => {
             if (selectedFlashcards.includes(flashcard.id)) continue;
             dataContext.removeFlashcard(flashcard.id);
         }
-
-        const result = await ipcRenderer.invoke(
+        let maxRetries = 5;
+        let result = await ipcRenderer.invoke(
             'generate-additional-flashcards',
             'llama3.2:3b',
             dataContext.mainCode,
@@ -47,8 +47,26 @@ const FlashcardsPage = () => {
 
         console.log(result);
 
-        const parsedResult: { flashcards: { question: string; answer: string }[] } =
+        let parsedResult: { flashcards: { question: string; answer: string }[] } =
             JSON.parse(result);
+
+        while (parsedResult.flashcards.length === 0 && maxRetries > 0) {
+            result = await ipcRenderer.invoke(
+                'generate-additional-flashcards',
+                'llama3.2:3b',
+                dataContext.mainCode,
+                dataContext.additionalInfo,
+                selectedFlashcards.map((id) => {
+                    return {
+                        question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+                        answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+                    };
+                }),
+                feedback
+            );
+            parsedResult = JSON.parse(result);
+            maxRetries--;
+        }
         parsedResult.flashcards.forEach(({ question, answer }) => {
             dataContext.addFlashcard(question, answer);
         });

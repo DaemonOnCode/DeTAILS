@@ -1,82 +1,93 @@
-import { FC, useReducer } from 'react';
-import { ROUTES, initialResponses } from '../constants/shared';
+import { ChangeEvent, FC, useContext, useEffect, useState } from 'react';
+import { ROUTES, beforeHumanValidation } from '../constants/shared';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
-import { ISentenceBox } from '../types/shared';
-// import { DataContext } from "../context/data_context";
+import { DataContext } from '../context/data_context';
+import RedditViewModal from '../components/Shared/reddit_view_modal';
 
-// Define action types
-type Action =
-    | { type: 'SET_CORRECT'; index: number }
-    | { type: 'SET_INCORRECT'; index: number }
-    | { type: 'UPDATE_COMMENT'; index: number; comment: string }
-    | { type: 'MARK_RESPONSE'; index: number; isMarked?: boolean }
-    | { type: 'RERUN_CODING'; indexes: number[]; newResponses: ISentenceBox[] };
-
-// Reducer function to manage the state of responses
-const responsesReducer = (state: ISentenceBox[], action: Action): ISentenceBox[] => {
-    switch (action.type) {
-        case 'SET_CORRECT':
-            return state.map((response, index) =>
-                index === action.index ? { ...response, isCorrect: true, comment: '' } : response
-            );
-        case 'SET_INCORRECT':
-            return state.map((response, index) =>
-                index === action.index ? { ...response, isCorrect: false } : response
-            );
-        case 'UPDATE_COMMENT':
-            return state.map((response, index) =>
-                index === action.index ? { ...response, comment: action.comment } : response
-            );
-        case 'MARK_RESPONSE':
-            return state.map((response, index) =>
-                index === action.index ? { ...response, isMarked: action.isMarked } : response
-            );
-        case 'RERUN_CODING':
-            return state
-                .filter((_, index) => !action.indexes.includes(index))
-                .concat(action.newResponses);
-        default:
-            return state;
-    }
-};
+const { ipcRenderer } = window.require('electron');
 
 const CodingValidationPage: FC = () => {
-    // const dataContext = useContext(DataContext);
+    const dataContext = useContext(DataContext);
 
-    const [responses, dispatch] = useReducer(responsesReducer, initialResponses);
-
-    const handleCommentChange = (index: number, event: React.ChangeEvent<HTMLTextAreaElement>) => {
-        dispatch({ type: 'UPDATE_COMMENT', index, comment: event.target.value });
+    const handleCommentChange = (index: number, event: ChangeEvent<HTMLTextAreaElement>) => {
+        dataContext.dispatch({ type: 'UPDATE_COMMENT', index, comment: event.target.value });
     };
 
     const handleMark = (index: number, isMarked?: boolean) => {
-        dispatch({ type: 'MARK_RESPONSE', index, isMarked });
+        dataContext.dispatch({ type: 'MARK_RESPONSE', index, isMarked });
     };
+
+    const [selectedData, setSelectedData] = useState<{
+        link: string;
+        text: string;
+    }>({
+        link: '',
+        text: ''
+    });
+
+    useEffect(() => {
+        beforeHumanValidation.forEach((answer, index) => {
+            let parsedAnswer: {
+                unified_codebook: {
+                    code: string;
+                    description: string;
+                    examples: string[];
+                }[];
+                recoded_transcript: {
+                    code: string;
+                    segment: string;
+                }[];
+            } = { unified_codebook: [], recoded_transcript: [] };
+            try {
+                parsedAnswer = JSON.parse(answer);
+            } catch (e) {
+                console.log(e);
+            }
+
+            for (const recodedTranscript of parsedAnswer.recoded_transcript) {
+                const sentence = recodedTranscript.segment;
+                const coded_word = recodedTranscript.code;
+                const postId = dataContext.selectedPosts[index];
+                dataContext.dispatch({
+                    type: 'ADD_RESPONSE',
+                    response: { sentence, coded_word, postId }
+                });
+            }
+        });
+    }, [dataContext.selectedPosts]);
 
     const handleRerunCoding = () => {
         console.log('Re-running coding...');
 
-        // if responses are marked as correct, remove them from the list
-        const markedIndexes = responses.map((response, index) =>
-            response.isMarked !== undefined ? index : null
-        );
-        const filteredResponseIndexes = markedIndexes.filter(
-            (response_index) => response_index !== null
+        const markedIndexes = dataContext.codeResponses
+            .map((response, index) => (response.isMarked !== undefined ? index : null))
+            .filter((index) => index !== null) as number[];
+
+        const newResponses = dataContext.codeResponses.filter(
+            (_, index) => !markedIndexes.includes(index)
         );
 
-        // Dummy data for new responses
-        const newResponses = responses.filter(
-            (_, index) => !filteredResponseIndexes.includes(index)
-        );
-
-        dispatch({
+        dataContext.dispatch({
             type: 'RERUN_CODING',
-            indexes: filteredResponseIndexes as number[],
+            indexes: markedIndexes,
             newResponses
         });
     };
 
-    const isReadyCheck = responses.some((response) => response.isMarked !== undefined);
+    const handleOpenReddit = async (postId: string, commentSlice: string) => {
+        const link = await ipcRenderer.invoke(
+            'get-link-from-post',
+            postId,
+            commentSlice,
+            '../test.db'
+        );
+
+        setSelectedData({ link, text: commentSlice });
+    };
+
+    const isReadyCheck = dataContext.codeResponses.some(
+        (response) => response.isMarked !== undefined
+    );
 
     return (
         <div className="p-6 flex flex-col justify-between h-full">
@@ -86,6 +97,7 @@ const CodingValidationPage: FC = () => {
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-gray-200">
+                                <th className="border border-gray-400 p-2">Link</th>{' '}
                                 <th className="border border-gray-400 p-2">Sentence</th>
                                 <th className="border border-gray-400 p-2">Word</th>
                                 <th className="border border-gray-400 p-2">Actions</th>
@@ -93,12 +105,22 @@ const CodingValidationPage: FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {responses.map((response, index) => (
+                            {dataContext.codeResponses.map((response, index) => (
                                 <tr key={index} className="text-center">
                                     <td className="border border-gray-400 p-2">
+                                        {' '}
+                                        <button
+                                            className="text-blue-500 underline"
+                                            onClick={() =>
+                                                handleOpenReddit(response.postId, response.sentence)
+                                            }>
+                                            {response.postId}
+                                        </button>
+                                    </td>
+                                    <td className="border border-gray-400 p-2 max-w-md">
                                         {response.sentence}
                                     </td>
-                                    <td className="border border-gray-400 p-2">
+                                    <td className="border border-gray-400 p-2 max-w-32">
                                         {response.coded_word}
                                     </td>
                                     <td className="border border-gray-400 p-2">
@@ -108,13 +130,12 @@ const CodingValidationPage: FC = () => {
                                                     ? 'bg-green-500 text-white'
                                                     : 'bg-gray-300 text-gray-500'
                                             }`}
-                                            onClick={() => {
-                                                console.log(response.isMarked);
+                                            onClick={() =>
                                                 handleMark(
                                                     index,
                                                     response.isMarked !== true ? true : undefined
-                                                );
-                                            }}>
+                                                )
+                                            }>
                                             ✓
                                         </button>
                                         <button
@@ -123,17 +144,16 @@ const CodingValidationPage: FC = () => {
                                                     ? 'bg-red-500 text-white'
                                                     : 'bg-gray-300 text-gray-500'
                                             }`}
-                                            onClick={() => {
-                                                console.log(response.isMarked);
+                                            onClick={() =>
                                                 handleMark(
                                                     index,
                                                     response.isMarked !== false ? false : undefined
-                                                );
-                                            }}>
+                                                )
+                                            }>
                                             ✕
                                         </button>
                                     </td>
-                                    <td className="border border-gray-400 p-2">
+                                    <td className="border border-gray-400 p-2 min-w-72">
                                         {response.isMarked === false && (
                                             <textarea
                                                 className="w-full p-2 border border-gray-300 rounded"
@@ -150,13 +170,20 @@ const CodingValidationPage: FC = () => {
                         </tbody>
                     </table>
                 </div>
-                <div className="mt-6 flex justify-center">
+                <div className="mt-6 flex justify-center gap-x-6">
+                    <button className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">
+                        Accept All
+                    </button>
                     <button
-                        onClick={() => {
-                            handleRerunCoding();
-                        }}
-                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                        Re-run coding
+                        onClick={handleRerunCoding}
+                        disabled={!isReadyCheck}
+                        className={`bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 ${
+                            isReadyCheck ? '' : 'cursor-not-allowed opacity-75'
+                        }`}>
+                        Re-run coding with changes
+                    </button>
+                    <button className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">
+                        Reject All
                     </button>
                 </div>
             </div>
@@ -165,6 +192,14 @@ const CodingValidationPage: FC = () => {
                 nextPage={ROUTES.FINAL}
                 isReady={isReadyCheck}
             />
+            {selectedData.link.length > 0 && (
+                <RedditViewModal
+                    isViewOpen={selectedData.link.length > 0}
+                    postLink={selectedData.link}
+                    postText={selectedData.text}
+                    closeModal={() => setSelectedData({ link: '', text: '' })}
+                />
+            )}
         </div>
     );
 };

@@ -21,6 +21,7 @@ export interface ISentenceBox {
     comment: string;
     isMarked?: boolean;
     coded_word: string;
+    postId: string;
 }
 
 export interface IRedditPost {

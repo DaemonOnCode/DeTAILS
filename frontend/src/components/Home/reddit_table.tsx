@@ -4,7 +4,7 @@ import RedditViewModal from '../Shared/reddit_view_modal';
 
 type RedditTableProps = {
     data: [string, RedditPosts[string]][]; // Post data as [id, postDetails]
-    selectedPosts: Set<string>; // Set of selected post IDs
+    selectedPosts: string[]; // Set of selected post IDs
     togglePostSelection: (id: string) => void; // Function to toggle individual post selection
     toggleSelectPage: (pageData: [string, RedditPosts[string]][]) => void; // Function to toggle all posts on the page
 };
@@ -18,7 +18,7 @@ const RedditTable: FC<RedditTableProps> = ({
     const [selectedPost, setSelectedPost] = useState<(typeof data)[number] | null>(null);
 
     // Check if all posts on the current page are selected
-    const areAllPagePostsSelected = data.every(([id]) => selectedPosts.has(id));
+    const areAllPagePostsSelected = data.every(([id]) => selectedPosts.includes(id));
 
     return (
         <div className="overflow-x-auto">
@@ -44,7 +44,7 @@ const RedditTable: FC<RedditTableProps> = ({
                             <td className="px-4 py-2 border">
                                 <input
                                     type="checkbox"
-                                    checked={selectedPosts.has(post[0])}
+                                    checked={selectedPosts.includes(post[0])}
                                     onChange={() => togglePostSelection(post[0])}
                                 />
                             </td>
@@ -67,7 +67,7 @@ const RedditTable: FC<RedditTableProps> = ({
             {selectedPost && (
                 <RedditViewModal
                     isViewOpen={selectedPost !== null}
-                    postLink={selectedPost[1].url}
+                    postLink={selectedPost[1].url || selectedPost[1].permalink}
                     postText={selectedPost[1].selftext}
                     closeModal={() => setSelectedPost(null)}
                 />

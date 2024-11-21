@@ -1,6 +1,7 @@
 const { ipcMain, BrowserView } = require('electron');
 const puppeteer = require('puppeteer-core');
 const config = require('../utils/config');
+const { initDatabase, getCommentsRecursive, getPostById } = require('../utils/db_helpers');
 
 const redditHandler = () => {
     ipcMain.handle('fetch-reddit-content', async (event, url) => {
@@ -14,6 +15,10 @@ const redditHandler = () => {
     });
 
     ipcMain.handle('render-reddit-webview', async (event, url, text) => {
+        console.log('url', url);
+        // if (!url.startsWith('https://www.reddit.com')) {
+        //     url = 'https://www.reddit.com' + url;
+        // }
         // Remove existing BrowserView if it exists
         console.log('sentence', text);
 
@@ -23,12 +28,11 @@ const redditHandler = () => {
             config.browserView = null;
         }
 
-        // Create a new BrowserView
         const view = new BrowserView({
             webPreferences: {
                 contextIsolation: true,
                 nodeIntegration: false,
-                webSecurity: false // Adjust as needed
+                webSecurity: false
             }
         });
 
@@ -47,6 +51,17 @@ const redditHandler = () => {
         // Set bounds for the BrowserView
         view.setBounds({ x, y, width: viewWidth, height: viewHeight });
         view.setAutoResize({ width: true, height: true, x: true, y: true });
+
+        const handleRedirect = (event, newUrl) => {
+            console.log('Redirect detected to:', newUrl);
+            url = newUrl; // Update the URL to reflect the redirected URL
+        };
+
+        // Listen for redirects and navigation events
+        view.webContents.session.webRequest.onBeforeRedirect((details) => {
+            console.log('Redirect detected via webRequest:', details.redirectURL);
+            url = details.redirectURL; // Update the URL with the redirect destination
+        });
 
         // Load the URL
         view.webContents.loadURL(url);
@@ -124,7 +139,6 @@ const redditHandler = () => {
             });
         }
 
-        // Store the BrowserView reference
         config.browserView = view;
 
         return {
@@ -138,6 +152,91 @@ const redditHandler = () => {
             config.mainWindow.removeBrowserView(config.browserView);
             config.browserView = null;
         }
+    });
+
+    const linkCreator = (id, type, postId, subreddit) => {
+        if (type === 'post') {
+            return `https://www.reddit.com/r/${subreddit}/${postId}/`;
+        } else if (type === 'comment') {
+            return `https://www.reddit.com/r/${subreddit}/${postId}/${id}/`;
+        }
+    };
+
+    ipcMain.handle('get-link-from-post', async (event, postId, commentSlice, dbPath) => {
+        const db = initDatabase(dbPath);
+        const postData = await getPostById(
+            db,
+            postId,
+            ['selftext', 'title', 'subreddit', 'url', 'permalink'],
+            ['parent_id', 'body', 'id']
+        );
+
+        let link = '';
+
+        console.log('Post Data:', postData, commentSlice);
+
+        const normalizeText = (text) => text.toLowerCase().replace(/\s+/g, ' ').trim();
+
+        const normalizedCommentSlice = normalizeText(commentSlice);
+
+        // Corrected the comparison to use normalizedCommentSlice
+        if (
+            normalizeText(postData.title).includes(normalizedCommentSlice) ||
+            normalizeText(postData.selftext).includes(normalizedCommentSlice)
+        ) {
+            console.log('Found in post:', postId);
+            link = linkCreator(postId, 'post', postId, postData.subreddit);
+        } else {
+            // Adjusted searchSlice function to return the commentId
+            const searchSlice = (comment, normalizedCommentSlice) => {
+                if (!normalizedCommentSlice) {
+                    console.error('Selected text is empty or null');
+                    return null;
+                }
+
+                const normalizedBody = normalizeText(comment?.body || '');
+
+                if (normalizedBody.includes(normalizedCommentSlice)) {
+                    console.log('Found in comment:', comment.body);
+                    return comment.id;
+                }
+
+                if (comment?.comments?.length) {
+                    for (const subComment of comment.comments) {
+                        const result = searchSlice(subComment, normalizedCommentSlice);
+                        if (result) {
+                            return result;
+                        }
+                    }
+                }
+
+                return null;
+            };
+
+            // Corrected the way commentId is assigned
+            let commentId = null;
+            if (postData.comments?.length) {
+                for (const comment of postData.comments) {
+                    const result = searchSlice(comment, normalizedCommentSlice);
+                    if (result) {
+                        commentId = result;
+                        break;
+                    }
+                }
+            }
+
+            if (commentId) {
+                console.log('Found in comment:', commentId);
+                link = linkCreator(commentId, 'comment', postId, postData.subreddit);
+            }
+        }
+
+        console.log('Link:', link);
+
+        if (link) {
+            return link;
+        }
+        return '';
     });
 
     ipcMain.handle('capture-reddit-screenshot', async (event, url) => {

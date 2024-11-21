@@ -248,7 +248,7 @@ const getCommentsRecursive = async (db, postId, commentFields = ['*']) => {
             });
         });
 
-        console.log('Comments:', comments);
+        // console.log('Comments:', comments);
 
         // Build recursive comment tree
         const map = {};
@@ -256,7 +256,7 @@ const getCommentsRecursive = async (db, postId, commentFields = ['*']) => {
             map[comment.id] = { ...comment, comments: [] };
         });
 
-        console.log('Comment map:', map);
+        // console.log('Comment map:', map);
 
         comments.forEach((comment) => {
             if (comment.parent_id && map[comment.parent_id]) {
@@ -264,13 +264,13 @@ const getCommentsRecursive = async (db, postId, commentFields = ['*']) => {
             }
         });
 
-        console.log('Comment map with replies:', map);
+        // console.log('Comment map with replies:', map);
 
         const topLevelComments = comments
             .filter((comment) => postId === comment.parent_id)
             .map((comment) => map[comment.id]);
 
-        console.log('Top level comments:', topLevelComments);
+        // console.log('Top level comments:', topLevelComments);
         return topLevelComments;
     } catch (error) {
         throw new Error(error);
@@ -284,5 +284,6 @@ module.exports = {
     insertCommentsBatch,
     loadPostsByBatch,
     getAllPostIdsAndTitles,
-    getPostById
+    getPostById,
+    getCommentsRecursive
 };

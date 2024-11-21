@@ -60,11 +60,11 @@ const HomePage: FC = () => {
 
     // Toggle individual post selection
     const togglePostSelection = (id: string) => {
-        const newSelectedPosts = new Set(dataContext.selectedPosts);
-        if (newSelectedPosts.has(id)) {
-            newSelectedPosts.delete(id);
+        let newSelectedPosts = dataContext.selectedPosts;
+        if (newSelectedPosts.includes(id)) {
+            newSelectedPosts = newSelectedPosts.filter((postId) => postId !== id);
         } else {
-            newSelectedPosts.add(id);
+            newSelectedPosts.push(id);
         }
         dataContext.setSelectedPosts(newSelectedPosts);
     };
@@ -72,26 +72,30 @@ const HomePage: FC = () => {
     // Select all or deselect all posts
     const toggleSelectAllPosts = () => {
         if (
-            dataContext.selectedPosts.size !== filteredData.length &&
-            dataContext.selectedPosts.size === 0
+            dataContext.selectedPosts.length !== filteredData.length &&
+            dataContext.selectedPosts.length === 0
         ) {
-            dataContext.setSelectedPosts(new Set(filteredData.map(([id]) => id)));
+            dataContext.setSelectedPosts(filteredData.map(([id]) => id));
         } else {
-            dataContext.setSelectedPosts(new Set());
+            dataContext.setSelectedPosts([]);
         }
     };
 
     // Function to toggle all posts on the current page
     const toggleSelectPage = (pageData: [string, RedditPosts[string]][]) => {
-        const newSelectedPosts = new Set(dataContext.selectedPosts);
-        const allSelected = pageData.every(([id]) => newSelectedPosts.has(id));
+        let newSelectedPosts = dataContext.selectedPosts;
+        const allSelected = pageData.every(([id]) => newSelectedPosts.includes(id));
 
         if (allSelected) {
             // If all posts on the page are already selected, deselect them
-            pageData.forEach(([id]) => newSelectedPosts.delete(id));
+            pageData.forEach(([id]) => {
+                newSelectedPosts = newSelectedPosts.filter((postId) => postId !== id);
+            });
         } else {
             // Otherwise, select all posts on the page
-            pageData.forEach(([id]) => newSelectedPosts.add(id));
+            pageData.forEach(([id]) => {
+                newSelectedPosts.push(id);
+            });
         }
 
         dataContext.setSelectedPosts(newSelectedPosts);
@@ -100,7 +104,7 @@ const HomePage: FC = () => {
     const isReadyCheck =
         dataContext.modeInput.length > 0 &&
         Object.keys(data).length > 0 &&
-        dataContext.selectedPosts.size >= SELECTED_POSTS_MIN_THRESHOLD;
+        dataContext.selectedPosts.length >= SELECTED_POSTS_MIN_THRESHOLD;
 
     return (
         <div className="w-full h-screen flex flex-col p-6">
@@ -116,7 +120,7 @@ const HomePage: FC = () => {
             {/* Conditionally render based on the current mode and whether data is loaded */}
             {dataContext.currentMode === 'link' ? (
                 // Link Mode Input
-                <div>
+                <div className="h-full">
                     <input
                         type="text"
                         value={dataContext.modeInput}
@@ -159,8 +163,8 @@ const HomePage: FC = () => {
                                 <button
                                     onClick={toggleSelectAllPosts}
                                     className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
-                                    {dataContext.selectedPosts.size !== filteredData.length &&
-                                    dataContext.selectedPosts.size === 0
+                                    {dataContext.selectedPosts.length !== filteredData.length &&
+                                    dataContext.selectedPosts.length === 0
                                         ? 'Select All Posts'
                                         : 'Deselect All Posts'}
                                 </button>

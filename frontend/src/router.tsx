@@ -4,8 +4,7 @@ import HomePage from './pages/home';
 import NotFoundPage from './pages/not_found';
 import BasisPage from './pages/basis';
 import WordCloudPage from './pages/word_cloud';
-import { LOADER_ROUTES, ROUTES } from './constants/shared';
-import GenerationPage from './pages/generation';
+import { LOADER_ROUTES, NOT_FOUND, ROUTES } from './constants/shared';
 import CodingValidationPage from './pages/coding_validation';
 import FinalPage from './pages/final';
 import InitialCodingPage from './pages/initial_coding';
@@ -46,7 +45,7 @@ export const Router: FC = () => {
                     element={<FinalLoaderPage />}
                 />
                 <Route path={ROUTES.FINAL.substring(1)} element={<FinalPage />} />
-                <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />
+                <Route path={NOT_FOUND} element={<NotFoundPage />} />
             </Routes>
         </HashRouter>
     );

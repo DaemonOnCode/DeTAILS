@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { LOADER_ROUTES, ROUTES } from '../constants/shared';
+import { useContext, useEffect, useState } from 'react';
+import { LOADER_ROUTES, ROUTES, codeReferences, codes as _codes } from '../constants/shared';
 import { IComment, IRedditPostData, IReference, PostIdTitle } from '../types/shared';
 import HighlightModal from '../components/InitialCoding/highlight_modal';
 import AddCodeModal from '../components/InitialCoding/add_code_modal';
@@ -8,6 +8,7 @@ import LeftPanel from '../components/InitialCoding/left_panel';
 import TopToolbar from '../components/InitialCoding/top_toolbar';
 import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
 import { useNavigate } from 'react-router-dom';
+import { DataContext } from '../context/data_context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -15,10 +16,10 @@ const InitialCodingPage = () => {
     const [posts, setPosts] = useState<PostIdTitle[]>([]);
 
     const [selectedPost, setSelectedPost] = useState<PostIdTitle | null>(null);
-    const [codes, setCodes] = useState<string[]>([]);
+    const [codes, setCodes] = useState<string[]>(_codes);
     const [references, setReferences] = useState<{
         [code: string]: IReference[];
-    }>({});
+    }>(codeReferences);
     const [isAddCodeModalOpen, setIsAddCodeModalOpen] = useState(false);
     const [isHighlightModalOpen, setIsHighlightModalOpen] = useState(false);
     const [selectedCode, setSelectedCode] = useState<string>('');
@@ -26,6 +27,8 @@ const InitialCodingPage = () => {
     const [selectedTab, setSelectedTab] = useState<'data' | 'codes'>('data');
     const [selectedCodeForReferences, setSelectedCodeForReferences] = useState<string | null>(null);
     const [selectedPostData, setSelectedPostData] = useState<IRedditPostData | null>(null);
+
+    const dataContext = useContext(DataContext);
 
     const navigate = useNavigate();
 
@@ -117,8 +120,28 @@ const InitialCodingPage = () => {
 
     const handleNextClick = async (e: any) => {
         e.preventDefault();
-        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER);
         console.log('Next clicked');
+        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER.substring(1));
+        console.log(references, 'references');
+
+        let results = await ipcRenderer.invoke(
+            'generate-codes',
+            'llama3.2:3b',
+            references,
+            dataContext.mainCode,
+            dataContext.selectedFlashcards.map((id) => {
+                return {
+                    question: dataContext.flashcards.find((flashcard) => flashcard.id === id)!
+                        .question,
+                    answer: dataContext.flashcards.find((flashcard) => flashcard.id === id)!.answer
+                };
+            }),
+            dataContext.selectedWords,
+            dataContext.selectedPosts,
+            '../test.db'
+        );
+
+        console.log(results, 'Initial Coding Page');
     };
 
     return (

@@ -9,6 +9,10 @@ const { OllamaEmbeddings, Ollama } = require('@langchain/ollama');
 const { createRetrievalChain } = require('langchain/chains/retrieval');
 const { createStuffDocumentsChain } = require('langchain/chains/combine_documents');
 const { ChatPromptTemplate } = require('@langchain/core/prompts');
+const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
+
+const { codePrompts } = require('../utils/code_helper');
+const { getPostById, initDatabase } = require('../utils/db_helpers');
 
 const systemTemplateFlashcards = [
     `
@@ -47,17 +51,86 @@ Return only the JSON object in the specified format.
     `{context}\n\n`
 ];
 
+const generateTranscript = (post) => {
+    // Start with the post title and selftext
+    let transcript = `Title: ${post.title}\n\n${post.selftext}\n\n`;
+
+    console.log('post', post);
+
+    // Helper function to recursively process comments
+    const processComments = (comments, depth = 0) => {
+        let result = '';
+        console.log('comments', comments, typeof comments);
+
+        if (!comments) {
+            return '';
+        }
+
+        comments.forEach((comment) => {
+            const indent = '  '.repeat(depth); // Indentation for nested comments
+            result += `${indent}- ${comment.body}\n`;
+            if (comment.comments && comment.comments.length > 0) {
+                result += processComments(comment.comments, depth + 1);
+            }
+        });
+        return result;
+    };
+
+    // If there are comments, process them
+    if (post.comments && post.comments.length > 0) {
+        transcript += `Comments:\n`;
+        transcript += processComments(post.comments);
+    }
+
+    return transcript.trim();
+};
+
+const generateContext = (references, mainCode, selectedFlashcards, selectedWords) => {
+    let context = '';
+
+    // Add the main code
+    context += `Main Code:\n${mainCode}\n\n`;
+
+    // Add selected words
+    if (selectedWords && selectedWords.length > 0) {
+        context += `Selected Words:\n- ${selectedWords.join('\n- ')}\n\n`;
+    }
+
+    // Add selected flashcards
+    if (selectedFlashcards && selectedFlashcards.length > 0) {
+        context += `Flashcards:\n`;
+        selectedFlashcards.forEach((flashcard) => {
+            context += `Q: ${flashcard.question}\nA: ${flashcard.answer}\n\n`;
+        });
+    }
+
+    // Add references
+    if (references && Object.keys(references).length > 0) {
+        context += `References:\n`;
+        console.log('references', references);
+        for (const [code, refList] of Object.entries(references)) {
+            context += `Code: ${code}\n`;
+            console.log('refList', refList, refList.length, typeof refList);
+            refList.forEach((ref) => {
+                context += `- ${ref.text}\n`;
+            });
+            context += '\n';
+        }
+    }
+
+    return context.trim();
+};
+
+const generateFeedback = (feedback) => {
+    return feedback;
+};
+
 const chromaBasisCollection = 'a-test-collection';
 
 const langchainHandler = () => {
     ipcMain.handle(
         'add-documents-langchain',
-        async (event, documents, model, mainCode, additionalInfo) => {
-            console.log('documentPaths', documents);
-            if (!documents || typeof documents !== 'object') {
-                return;
-            }
-
+        async (event, documents, model, mainCode, additionalInfo, regenerate = false) => {
             const textSplitter = new RecursiveCharacterTextSplitter({
                 chunkSize: 1000,
                 chunkOverlap: 200
@@ -71,23 +144,30 @@ const langchainHandler = () => {
                 collectionName: chromaBasisCollection
             });
 
-            for (const key in documents) {
-                console.log('document', documents[key]);
-                const loader = new PDFLoader(key);
+            if (!regenerate) {
+                console.log('documentPaths', documents);
+                if (!documents || typeof documents !== 'object') {
+                    return;
+                }
 
-                const docs = await loader.load();
+                for (const key in documents) {
+                    console.log('document', documents[key]);
+                    const loader = new PDFLoader(key);
 
-                console.log(key, docs.length);
+                    const docs = await loader.load();
 
-                console.log('docs', docs, 'docs.length', docs.length);
+                    console.log(key, docs.length);
 
-                const splits = await textSplitter.splitDocuments(docs);
+                    console.log('docs', docs, 'docs.length', docs.length);
 
-                console.log('splits', splits, 'splits.length', splits.length);
+                    const splits = await textSplitter.splitDocuments(docs);
 
-                const addedDocs = await vectorStore.addDocuments(splits);
+                    console.log('splits', splits, 'splits.length', splits.length);
 
-                console.log('addedDocs', addedDocs, 'addedDocs.length', addedDocs.length);
+                    const addedDocs = await vectorStore.addDocuments(splits);
+
+                    console.log('addedDocs', addedDocs, 'addedDocs.length', addedDocs.length);
+                }
             }
 
             const retriever = vectorStore.asRetriever();
@@ -380,7 +460,292 @@ Return only the JSON object and ensure it is correctly formatted.
 
             console.log('results', results, jsonMatch);
 
+            if (!jsonMatch) {
+                return JSON.stringify({ words: [] });
+            }
+
             return jsonMatch.groups.json;
+        }
+    );
+
+    ipcMain.handle(
+        'generate-codes',
+        async (
+            event,
+            model,
+            references,
+            mainCode,
+            selectedFlashcards,
+            selectedWords,
+            selectedPosts,
+            dbPath
+        ) => {
+            console.log(
+                model,
+                references,
+                mainCode,
+                selectedFlashcards,
+                selectedWords,
+                selectedPosts,
+                dbPath
+            );
+
+            const llm1 = new Ollama({
+                model,
+                numCtx: 16384,
+                maxNumTokens: 16384,
+                temperature: 0.9,
+                callbacks: [
+                    {
+                        handleLLMNewToken: (token) => {
+                            console.log('token', token);
+                        }
+                    }
+                ]
+            });
+
+            const llm2 = new Ollama({
+                model,
+                numCtx: 16384,
+                maxNumTokens: 16384,
+                temperature: 0.2,
+                callbacks: [
+                    {
+                        handleLLMNewToken: (token) => {
+                            console.log('token', token);
+                        }
+                    }
+                ]
+            });
+
+            const judgeLlm = new Ollama({
+                model,
+                numCtx: 16384,
+                maxNumTokens: 16384,
+                temperature: 0.5,
+                callbacks: [
+                    {
+                        handleLLMNewToken: (token) => {
+                            console.log('token', token);
+                        }
+                    }
+                ]
+            });
+
+            const finalResults = [];
+
+            for (const postId of selectedPosts) {
+                console.log('post', postId);
+
+                const db = initDatabase(dbPath);
+                const postData = await getPostById(
+                    db,
+                    postId,
+                    ['id', 'title', 'selftext'],
+                    ['id', 'body', 'parent_id']
+                );
+
+                db.close();
+
+                const transcript = generateTranscript(postData);
+                const context = generateContext(
+                    references,
+                    mainCode,
+                    selectedFlashcards,
+                    selectedWords
+                );
+
+                console.log('transcript', transcript, 'context', context);
+
+                let generationPrompt1 = codePrompts.generate(transcript, context);
+                const promptGenerator1 = ChatPromptTemplate.fromMessages([
+                    new SystemMessage(codePrompts.systemPrompt),
+                    new HumanMessage(generationPrompt1)
+                ]);
+                const chain1 = promptGenerator1.pipe(llm1);
+                const results1 = await chain1.invoke();
+
+                console.log('results 1', results1);
+
+                let generatePrompt2 = codePrompts.generate(transcript, context);
+
+                const promptGenerator2 = ChatPromptTemplate.fromMessages([
+                    new SystemMessage(codePrompts.systemPrompt),
+                    new HumanMessage(generatePrompt2)
+                ]);
+
+                const chain2 = promptGenerator2.pipe(llm2);
+                const results2 = await chain2.invoke();
+
+                console.log('results 2', results2);
+
+                let validatePromptFromResults = codePrompts.judgeValidate(
+                    results1,
+                    results2,
+                    transcript,
+                    context
+                );
+                const promptValidator = ChatPromptTemplate.fromMessages([
+                    new SystemMessage(codePrompts.systemPrompt),
+                    new HumanMessage(validatePromptFromResults)
+                ]);
+
+                const chain3 = promptValidator.pipe(judgeLlm);
+                const results3 = await chain3.invoke();
+
+                console.log('results 3', results3);
+
+                finalResults.push(results3);
+            }
+
+            return finalResults;
+        }
+    );
+
+    ipcMain.handle(
+        'generate-codes-with-feedback',
+        async (
+            event,
+            model,
+            references,
+            mainCode,
+            selectedFlashcards,
+            selectedWords,
+            selectedPosts,
+            dbPath,
+            feedback
+        ) => {
+            console.log(
+                model,
+                references,
+                mainCode,
+                selectedFlashcards,
+                selectedWords,
+                selectedPosts,
+                dbPath,
+                feedback
+            );
+
+            const llm1 = new Ollama({
+                model,
+                numCtx: 16384,
+                maxNumTokens: 16384,
+                temperature: 0.9,
+                callbacks: [
+                    {
+                        handleLLMNewToken: (token) => {
+                            console.log('token', token);
+                        }
+                    }
+                ]
+            });
+
+            const llm2 = new Ollama({
+                model,
+                numCtx: 16384,
+                maxNumTokens: 16384,
+                temperature: 0.2,
+                callbacks: [
+                    {
+                        handleLLMNewToken: (token) => {
+                            console.log('token', token);
+                        }
+                    }
+                ]
+            });
+
+            const judgeLlm = new Ollama({
+                model,
+                numCtx: 16384,
+                maxNumTokens: 16384,
+                temperature: 0.5,
+                callbacks: [
+                    {
+                        handleLLMNewToken: (token) => {
+                            console.log('token', token);
+                        }
+                    }
+                ]
+            });
+
+            const finalResults = [];
+
+            for (const postId of selectedPosts) {
+                console.log('post', postId);
+
+                const db = initDatabase(dbPath);
+                const postData = await getPostById(
+                    db,
+                    postId,
+                    ['id', 'title', 'selftext'],
+                    ['id', 'body', 'parent_id']
+                );
+
+                db.close();
+
+                const transcript = generateTranscript(postData);
+                const context = generateContext(
+                    references,
+                    mainCode,
+                    selectedFlashcards,
+                    selectedWords
+                );
+
+                const feedbackText = generateFeedback(feedback);
+
+                console.log('transcript', transcript, 'context', context);
+
+                let generationPrompt1 = codePrompts.generateWithFeedback(
+                    transcript,
+                    context,
+                    feedbackText
+                );
+                const promptGenerator1 = ChatPromptTemplate.fromMessages([
+                    new SystemMessage(codePrompts.systemPrompt),
+                    new HumanMessage(generationPrompt1)
+                ]);
+                const chain1 = promptGenerator1.pipe(llm1);
+                const results1 = await chain1.invoke();
+
+                console.log('results 1', results1);
+
+                let generatePrompt2 = codePrompts.generateWithFeedback(
+                    transcript,
+                    context,
+                    feedbackText
+                );
+
+                const promptGenerator2 = ChatPromptTemplate.fromMessages([
+                    new SystemMessage(codePrompts.systemPrompt),
+                    new HumanMessage(generatePrompt2)
+                ]);
+
+                const chain2 = promptGenerator2.pipe(llm2);
+                const results2 = await chain2.invoke();
+
+                console.log('results 2', results2);
+
+                let validatePromptFromResults = codePrompts.judgeValidateWithFeedback(
+                    results1,
+                    results2,
+                    transcript,
+                    context,
+                    feedbackText
+                );
+                const promptValidator = ChatPromptTemplate.fromMessages([
+                    new SystemMessage(codePrompts.systemPrompt),
+                    new HumanMessage(validatePromptFromResults)
+                ]);
+
+                const chain3 = promptValidator.pipe(judgeLlm);
+                const results3 = await chain3.invoke();
+
+                console.log('results 3', results3);
+
+                finalResults.push(results3);
+            }
+
+            return finalResults;
         }
     );
 };
