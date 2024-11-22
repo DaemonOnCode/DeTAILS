@@ -13,8 +13,8 @@ const WordCloudLoaderPage = () => {
     const handleGenerateWords = async () => {
         const flashcardData = dataContext.selectedFlashcards.map((id) => {
             return {
-                question: dataContext.flashcards[id].question,
-                answer: dataContext.flashcards[id].answer
+                question: dataContext.flashcards.find((flashcard) => flashcard.id === id)!.question,
+                answer: dataContext.flashcards.find((flashcard) => flashcard.id === id)!.answer
             };
         });
 

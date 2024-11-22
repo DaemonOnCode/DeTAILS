@@ -68,7 +68,7 @@ const FinalPage = () => {
                                                 handleViewPost(item);
                                             }}
                                             className="text-blue-500 underline">
-                                            View Post
+                                            {item.postId}
                                         </button>
                                     </td>
                                     <td className="border border-gray-400 p-2 max-w-md">

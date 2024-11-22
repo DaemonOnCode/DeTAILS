@@ -89,7 +89,9 @@ export const DataContext = createContext<IDataContext>({
 
 type Action<T> =
     | { type: 'SET_CORRECT'; index: number }
+    | { type: 'SET_ALL_CORRECT' }
     | { type: 'SET_INCORRECT'; index: number }
+    | { type: 'SET_ALL_INCORRECT' }
     | { type: 'UPDATE_COMMENT'; index: number; comment: string }
     | { type: 'MARK_RESPONSE'; index: number; isMarked?: boolean }
     | { type: 'RERUN_CODING'; indexes: number[]; newResponses: T[] }
@@ -97,20 +99,32 @@ type Action<T> =
           type: 'ADD_RESPONSE';
           response: T;
       }
-    | { type: 'ADD_RESPONSES'; responses: T[] };
+    | { type: 'ADD_RESPONSES'; responses: T[] }
+    | (
+          | { type: 'REMOVE_RESPONSES'; indexes: number[]; all?: never }
+          | { type: 'REMOVE_RESPONSES'; all: boolean; indexes?: never }
+      )
+    | { type: 'SET_ALL_UNMARKED' }
+    | { type: 'SET_RESPONSES'; responses: T[] };
 
 // Reducer function to manage the state of responses
 function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
-    console.log('Action:', action, 'State:', state);
+    console.log('Action:', action);
     switch (action.type) {
         case 'SET_CORRECT':
             return state.map((response, index) =>
                 index === action.index ? { ...response, isCorrect: true, comment: '' } : response
             );
+        case 'SET_ALL_CORRECT':
+            return [...state.map((response) => ({ ...response, isMarked: true }))];
         case 'SET_INCORRECT':
             return state.map((response, index) =>
                 index === action.index ? { ...response, isCorrect: false } : response
             );
+        case 'SET_ALL_INCORRECT':
+            return [...state.map((response) => ({ ...response, isMarked: false }))];
+        case 'SET_ALL_UNMARKED':
+            return [...state.map((response) => ({ ...response, isMarked: undefined }))];
         case 'UPDATE_COMMENT':
             return state.map((response, index) =>
                 index === action.index ? { ...response, comment: action.comment } : response
@@ -127,9 +141,18 @@ function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
             return state.concat({
                 ...action.response
             });
+        case 'SET_RESPONSES':
+            return [...action.responses];
         case 'ADD_RESPONSES':
             return [...state, ...action.responses];
-
+        case 'REMOVE_RESPONSES':
+            if (action.all) {
+                return [];
+            }
+            if (action.indexes) {
+                return state.filter((_, index) => !action.indexes!.includes(index));
+            }
+            return state;
         default:
             return state;
     }
@@ -234,6 +257,22 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
     useEffect(() => {
         setSelectedWords([mainCode]);
     }, [mainCode]);
+
+    useEffect(() => {
+        dispatchFinalCodeResponses({
+            type: 'SET_RESPONSES',
+            responses: codeResponses
+                .filter((response) => response.isMarked === true)
+                .map((response) => {
+                    return {
+                        postId: response.postId,
+                        sentence: response.sentence,
+                        coded_word: response.coded_word,
+                        reasoning: response.reasoning
+                    };
+                })
+        });
+    }, [codeResponses]);
 
     const value = useMemo(
         () => ({

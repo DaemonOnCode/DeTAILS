@@ -219,6 +219,9 @@ const HomePage: FC = () => {
                                 />
                             </div>
 
+                            <div className="flex items-center justify-start">
+                                <p>{dataContext.selectedPosts.length} posts selected</p>
+                            </div>
                             {/* Pagination Controls */}
                             <PaginationControls
                                 currentPage={currentPage}

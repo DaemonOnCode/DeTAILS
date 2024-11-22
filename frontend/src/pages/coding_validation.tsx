@@ -10,6 +10,8 @@ const { ipcRenderer } = window.require('electron');
 const CodingValidationPage: FC = () => {
     const dataContext = useContext(DataContext);
 
+    // console.count('Coding Validation Page');
+
     const navigate = useNavigate();
 
     const handleCommentChange = (index: number, event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -66,7 +68,23 @@ const CodingValidationPage: FC = () => {
     // }, []);
 
     const runWithFeedback = async () => {
-        navigate(LOADER_ROUTES.FINAL_LOADER.substring(1));
+        const isAllCorrect = dataContext.codeResponses.every((value) => value.isMarked === true);
+        if (isAllCorrect) {
+            // const acceptedResponses = dataContext.codeResponses.map(
+            //     ({ comment, isMarked, ...rest }) => ({
+            //         ...rest
+            //     })
+            // );
+
+            // dataContext.dispatchFinalCodeResponses({
+            //     type: 'ADD_RESPONSES',
+            //     responses: acceptedResponses
+            // });
+            navigate(ROUTES.FINAL.substring(1));
+            return;
+        }
+
+        // navigate(LOADER_ROUTES.FINAL_LOADER.substring(1));
 
         const results = await ipcRenderer.invoke(
             'generate-codes-with-feedback',
@@ -101,14 +119,9 @@ const CodingValidationPage: FC = () => {
             }[];
         }[] = results;
 
-        let totalResponses = dataContext.codeResponses
-            .filter((response) => response.isMarked === true)
-            .map(({ sentence, coded_word, postId, reasoning }) => ({
-                sentence,
-                coded_word,
-                postId,
-                reasoning
-            }));
+        let totalResponses = dataContext.codeResponses.filter(
+            (response) => response.isMarked === true
+        );
 
         // totalResponses = totalResponses.concat(
         parsedResult.forEach((answer, index) => {
@@ -117,21 +130,29 @@ const CodingValidationPage: FC = () => {
                 const coded_word = recodedTranscript.code;
                 const postId = dataContext.selectedPosts[index];
                 const reasoning = recodedTranscript.reasoning;
-                totalResponses.push({ sentence, coded_word, postId, reasoning });
+                totalResponses.push({
+                    sentence,
+                    coded_word,
+                    postId,
+                    reasoning,
+                    isMarked: undefined,
+                    comment: ''
+                });
             }
         });
         // )
 
-        dataContext.dispatchFinalCodeResponses({
-            type: 'ADD_RESPONSES',
+        dataContext.dispatchCodeResponses({
+            type: 'SET_RESPONSES',
             responses: totalResponses
         });
 
-        navigate(ROUTES.FINAL.substring(1));
+        navigate(ROUTES.CODING_VALIDATION.substring(1));
     };
 
     const handleRerunCoding = () => {
         console.log('Re-running coding...');
+        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER.substring(1));
 
         // const markedIndexes = dataContext.codeResponses
         //     .map((response, index) => (response.isMarked !== undefined ? index : null))
@@ -147,45 +168,88 @@ const CodingValidationPage: FC = () => {
         //     newResponses
         // });
 
-        dataContext.dispatchFinalCodeResponses({
-            type: 'ADD_RESPONSES',
-            responses: dataContext.codeResponses
-                .filter(({ isMarked }) => isMarked === true)
-                .map(({ comment, isMarked, ...rest }) => ({
-                    ...rest
-                }))
-        });
+        // dataContext.dispatchCodeResponses({
+        //     type: 'ADD_RESPONSES',
+        //     responses:
+        // });
 
         runWithFeedback();
     };
+
     const handleOpenReddit = async (postId: string, commentSlice: string) => {
         const link = await ipcRenderer.invoke('get-link-from-post', postId, commentSlice, DB_PATH);
 
         setSelectedData({ link, text: commentSlice });
     };
 
-    const handleAllAccept = () => {
-        const acceptedResponses = dataContext.codeResponses.map(
-            ({ comment, isMarked, ...rest }) => ({
-                ...rest
-            })
+    // const handleAllAccept = () => {
+    //     // const acceptedResponses = dataContext.codeResponses.map(
+    //     //     ({ comment, isMarked, ...rest }) => ({
+    //     //         ...rest
+    //     //     })
+    //     // );
+
+    //     // dataContext.dispatchFinalCodeResponses({
+    //     //     type: 'ADD_RESPONSES',
+    //     //     responses: acceptedResponses
+    //     // });
+
+    //     // dataContext.dispatchCodeResponses({
+    //     //     type: 'REMOVE_RESPONSES',
+    //     //     all: true
+    //     // });
+    //     console.log('All accepted');
+    //     dataContext.dispatchCodeResponses({
+    //         type: 'SET_ALL_CORRECT'
+    //     });
+
+    //     // navigate(ROUTES.FINAL.substring(1));
+    // };
+
+    // const handleRejectAll = () => {
+    //     // runWithFeedback();
+    //     console.log('All rejected');
+    //     dataContext.dispatchCodeResponses({
+    //         type: 'SET_ALL_INCORRECT'
+    //     });
+    // };
+
+    const handleToggleAllSelectOrReject = (isSelect: boolean) => {
+        const alreadySetToTarget = dataContext.codeResponses.every(
+            (response) => response.isMarked === (isSelect ? true : false)
         );
 
-        dataContext.dispatchFinalCodeResponses({
-            type: 'ADD_RESPONSES',
-            responses: acceptedResponses
-        });
+        const finalDecision = alreadySetToTarget ? undefined : isSelect;
 
-        navigate(ROUTES.FINAL.substring(1));
+        if (finalDecision === undefined) {
+            dataContext.dispatchCodeResponses({
+                type: 'SET_ALL_UNMARKED'
+            });
+        } else {
+            dataContext.dispatchCodeResponses({
+                type: finalDecision ? 'SET_ALL_CORRECT' : 'SET_ALL_INCORRECT'
+            });
+        }
     };
 
-    const handleRejectAll = () => {
-        runWithFeedback();
+    const handleNextClick = async () => {
+        // dataContext.dispatchFinalCodeResponses({
+        //     type: 'ADD_RESPONSES',
+        //     responses: dataContext.codeResponses
+        //         .filter(({ isMarked }) => isMarked === true)
+        //         .map(({ comment, isMarked, ...rest }) => ({
+        //             ...rest
+        //         }))
+        // });
     };
 
     const isReadyCheck = dataContext.codeResponses.some(
         (response) => response.isMarked !== undefined
     );
+
+    useEffect(() => {
+        console.log('Code Responses:', dataContext.codeResponses);
+    }, [dataContext.codeResponses]);
 
     return (
         <div className="p-6 flex flex-col justify-between h-full">
@@ -198,7 +262,21 @@ const CodingValidationPage: FC = () => {
                                 <th className="border border-gray-400 p-2">Link</th>{' '}
                                 <th className="border border-gray-400 p-2">Sentence</th>
                                 <th className="border border-gray-400 p-2">Word</th>
-                                <th className="border border-gray-400 p-2">Actions</th>
+                                <th className="border border-gray-400 p-2">
+                                    Actions
+                                    <div className="mt-2 flex justify-center gap-x-2">
+                                        <button
+                                            className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 text-sm"
+                                            onClick={() => handleToggleAllSelectOrReject(true)}>
+                                            ✓
+                                        </button>
+                                        <button
+                                            className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
+                                            onClick={() => handleToggleAllSelectOrReject(false)}>
+                                            ✕
+                                        </button>
+                                    </div>
+                                </th>
                                 <th className="border border-gray-400 p-2">Comment</th>
                             </tr>
                         </thead>
@@ -221,7 +299,7 @@ const CodingValidationPage: FC = () => {
                                     <td className="border border-gray-400 p-2 max-w-32">
                                         {response.coded_word}
                                     </td>
-                                    <td className="border border-gray-400 p-2">
+                                    <td className="border border-gray-400 p-2 min-w-24">
                                         <button
                                             className={`px-2 py-1 rounded mr-2 ${
                                                 response.isMarked === true
@@ -269,35 +347,35 @@ const CodingValidationPage: FC = () => {
                     </table>
                 </div>
                 <div className="mt-6 flex justify-center gap-x-6">
-                    <button
-                        className={`bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600
+                    {/* <button
+                        className={`bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 cursor-pointer
                         ${dataContext.codeResponses.length !== 0 ? '' : 'cursor-not-allowed opacity-75'}`}
                         onClick={handleAllAccept}
                         disabled={dataContext.codeResponses.length === 0}>
                         Accept All
-                    </button>
+                    </button> */}
                     <button
                         onClick={handleRerunCoding}
                         disabled={!isReadyCheck}
-                        className={`bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 ${
+                        className={`bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600  cursor-pointer${
                             isReadyCheck ? '' : 'cursor-not-allowed opacity-75'
                         }`}>
                         Re-run coding with changes
                     </button>
-                    <button
+                    {/* <button
                         className={`bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600
                         ${dataContext.codeResponses.length !== 0 ? '' : 'cursor-not-allowed opacity-75'}`}
                         disabled={dataContext.codeResponses.length === 0}
                         onClick={handleRejectAll}>
                         Reject All
-                    </button>
+                    </button> */}
                 </div>
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.INITIAL_CODING}
                 nextPage={ROUTES.FINAL}
                 isReady={isReadyCheck}
-                onNextClick={runWithFeedback}
+                onNextClick={handleNextClick}
             />
             {selectedData.link.length > 0 && (
                 <RedditViewModal
