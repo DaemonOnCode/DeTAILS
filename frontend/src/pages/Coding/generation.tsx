@@ -12,7 +12,7 @@ const GenerationPage = () => {
     }, []);
 
     return (
-        <div className="p-6 h-full flex justify-between flex-col">
+        <div className="flex justify-between flex-col">
             <div className="text-center">
                 {loading ? (
                     <>

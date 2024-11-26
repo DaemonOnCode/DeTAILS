@@ -40,7 +40,7 @@ const FinalPage = () => {
     };
 
     return (
-        <div className="p-6 h-full flex justify-between flex-col">
+        <div className="h-full flex justify-between flex-col">
             <div>
                 <h2 className="text-xl font-bold mb-4">Final Page</h2>
                 <p className="mb-6">

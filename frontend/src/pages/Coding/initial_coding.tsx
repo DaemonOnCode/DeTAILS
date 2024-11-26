@@ -125,7 +125,7 @@ const InitialCodingPage = () => {
         e.preventDefault();
         console.log('Next clicked');
 
-        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER.substring(1));
+        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER);
         console.log(dataContext.references, 'dataContext.references');
 
         let results;
@@ -211,8 +211,8 @@ const InitialCodingPage = () => {
     };
 
     return (
-        <div className="p-6 h-full flex justify-between flex-col">
-            <div className="h-full flex flex-col -m-6">
+        <div className="h-full flex justify-between flex-col">
+            <div className="flex flex-col -m-6">
                 <TopToolbar
                     selectedPost={selectedPost}
                     setIsAddCodeModalOpen={setIsAddCodeModalOpen}

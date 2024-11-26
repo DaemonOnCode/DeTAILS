@@ -82,7 +82,7 @@ const WordCloudPage: FC = () => {
     const checkIfReady = dataContext.selectedWords.length > WORD_CLOUD_MIN_THRESHOLD;
 
     return (
-        <div className="p-6 h-full flex justify-between flex-col">
+        <div className="h-full flex justify-between flex-col">
             <div className="flex justify-center items-center flex-col">
                 <div className="my-6 text-center">
                     <p>Select all of the words which you feel are similar to the main word</p>

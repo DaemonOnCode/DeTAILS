@@ -76,7 +76,7 @@ const WordCloudLoaderPage = () => {
         console.log(parsedResult, 'Final parsed result from generate-words');
         if (parsedResult.words.length > 0) {
             dataContext.setWords(parsedResult.words);
-            navigate(ROUTES.WORD_CLOUD.substring(1));
+            navigate(ROUTES.WORD_CLOUD);
         } else {
             console.error('Failed to generate words after retries');
         }

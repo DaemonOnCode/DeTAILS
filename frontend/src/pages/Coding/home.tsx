@@ -111,7 +111,7 @@ const HomePage: FC = () => {
         dataContext.selectedPosts.length >= SELECTED_POSTS_MIN_THRESHOLD;
 
     return (
-        <div className="w-full h-screen flex flex-col p-6">
+        <div className="w-full h-full flex flex-col">
             {/* Toggle Button for Link/Folder Mode - Hidden when data is loaded */}
             {Object.keys(data).length === 0 && (
                 <button

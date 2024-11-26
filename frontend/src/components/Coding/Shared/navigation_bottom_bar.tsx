@@ -38,7 +38,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             console.log('Next page clicked');
                             onNextClick && (await onNextClick(e));
                             console.log('Navigating to next page');
-                            navigate(nextPage.substring(1));
+                            navigate(nextPage);
                         }
                     }}>
                     Proceed -&gt;

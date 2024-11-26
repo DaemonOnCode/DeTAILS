@@ -82,7 +82,7 @@ const FlashcardsPage = () => {
     const isReadyCheck = selectedFlashcards.length >= FLASHCARDS_MIN_THRESHOLD;
 
     return (
-        <div className="p-6 h-full flex justify-between flex-col">
+        <div className="h-full flex justify-between flex-col">
             <div className="flex flex-col justify-between items-center gap-y-6">
                 <p>Flashcards</p>
                 <div className="flex items-center justify-center max-h-[calc(100vh-20rem)]">

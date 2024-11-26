@@ -43,7 +43,7 @@ const BasisPage = () => {
 
     const handleOnNextClick = async (e: any) => {
         e.preventDefault();
-        navigate(LOADER_ROUTES.FLASHCARDS_LOADER.substring(1));
+        navigate(LOADER_ROUTES.FLASHCARDS_LOADER);
         let result: string = await ipcRenderer.invoke(
             'add-documents-langchain',
             basisFiles,
@@ -95,7 +95,7 @@ const BasisPage = () => {
 
     console.log(dataContext.currentMode, dataContext.modeInput);
     return (
-        <div className="w-full p-6 h-full flex justify-between flex-col">
+        <div className="w-full h-full flex justify-between flex-col">
             <div>
                 <section className="">
                     {Object.keys(basisFiles).length === 0 ? (

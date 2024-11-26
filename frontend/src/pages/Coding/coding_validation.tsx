@@ -85,11 +85,11 @@ const CodingValidationPage: FC = () => {
             //     type: 'ADD_RESPONSES',
             //     responses: acceptedResponses
             // });
-            navigate(ROUTES.FINAL.substring(1));
+            navigate(ROUTES.FINAL);
             return;
         }
 
-        // navigate(LOADER_ROUTES.FINAL_LOADER.substring(1));
+        // navigate(LOADER_ROUTES.FINAL_LOADER);
 
         const results = await ipcRenderer.invoke(
             'generate-codes-with-feedback',
@@ -152,12 +152,12 @@ const CodingValidationPage: FC = () => {
             responses: totalResponses
         });
 
-        navigate(ROUTES.CODING_VALIDATION.substring(1));
+        navigate(ROUTES.CODING_VALIDATION);
     };
 
     const handleRerunCoding = () => {
         console.log('Re-running coding...');
-        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER.substring(1));
+        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER);
 
         // const markedIndexes = dataContext.codeResponses
         //     .map((response, index) => (response.isMarked !== undefined ? index : null))
@@ -208,7 +208,7 @@ const CodingValidationPage: FC = () => {
     //         type: 'SET_ALL_CORRECT'
     //     });
 
-    //     // navigate(ROUTES.FINAL.substring(1));
+    //     // navigate(ROUTES.FINAL);
     // };
 
     // const handleRejectAll = () => {
@@ -257,7 +257,7 @@ const CodingValidationPage: FC = () => {
     }, [dataContext.codeResponses]);
 
     return (
-        <div className="p-6 flex flex-col justify-between h-full">
+        <div className="flex flex-col justify-between h-full">
             <div>
                 <p>Please validate the following codings done by LLM </p>
                 <div className="max-h-[calc(100vh-15rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
