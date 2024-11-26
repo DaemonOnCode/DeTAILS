@@ -1,6 +1,7 @@
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NavigationBottomBarProps } from '../../../types/Coding/props';
+import { Link } from 'react-router-dom';
 
 const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     isReady,
@@ -11,22 +12,23 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
 }) => {
     const navigate = useNavigate();
 
+    console.log('Previous page:', previousPage, '/coding/' + previousPage || '');
     return (
         <div className="flex justify-between mt-6">
-            <a
-                href={previousPage}
+            <Link
+                to={'/coding/' + previousPage || ''}
                 className={`${
-                    !previousPage && 'invisible'
+                    previousPage === undefined && 'invisible'
                 } px-4 py-2 rounded transition duration-200 bg-blue-500 text-white hover:bg-blue-600`}
                 onClick={(e) => {
                     if (!previousPage) e.preventDefault();
                     else onPreviousClick && onPreviousClick();
                 }}>
                 &lt;- Go back
-            </a>
+            </Link>
             {nextPage && (
-                <a
-                    href={nextPage}
+                <Link
+                    to={'/coding/' + nextPage}
                     className={`px-4 py-2 rounded transition duration-200 ${
                         isReady
                             ? 'bg-green-500 text-white hover:bg-green-600'
@@ -38,11 +40,11 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             console.log('Next page clicked');
                             onNextClick && (await onNextClick(e));
                             console.log('Navigating to next page');
-                            navigate(nextPage);
+                            navigate('/coding/' + nextPage);
                         }
                     }}>
                     Proceed -&gt;
-                </a>
+                </Link>
             )}
         </div>
     );

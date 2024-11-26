@@ -7,12 +7,14 @@ import {
     initialFlashcards
 } from '../../constants/Coding/shared';
 import { DataContext } from '../../context/data_context';
+import { useNavigate } from 'react-router-dom';
 
 const { ipcRenderer } = window.require('electron');
 
 const FlashcardsPage = () => {
     const dataContext = useContext(DataContext);
 
+    const navigate = useNavigate();
     // useEffect(() => {
     //     initialFlashcards.forEach(({ question, answer }) => {
     //         dataContext.addFlashcard(question, answer);
@@ -79,6 +81,79 @@ const FlashcardsPage = () => {
         generateFlashcards();
     };
 
+    const handleGenerateWords = async (e: any) => {
+        e.preventDefault();
+        navigate('../loader/' + LOADER_ROUTES.WORD_CLOUD_LOADER);
+        const flashcardData = dataContext.selectedFlashcards.map((id) => {
+            return {
+                question: dataContext.flashcards.find((flashcard) => flashcard.id === id)!.question,
+                answer: dataContext.flashcards.find((flashcard) => flashcard.id === id)!.answer
+            };
+        });
+
+        let maxRetries = 5;
+        let result;
+        let parsedResult = { words: [] };
+
+        try {
+            result = await ipcRenderer.invoke(
+                'generate-words',
+                'llama3.2:3b',
+                dataContext.mainCode,
+                flashcardData
+            );
+            console.log(result, 'Initial result from generate-words');
+            parsedResult = JSON.parse(result);
+        } catch (e) {
+            console.log(e, 'Error invoking generate-words');
+            return;
+        }
+
+        console.log(parsedResult, 'Parsed result from generate-words');
+        while (parsedResult.words.length === 0 && maxRetries > 0) {
+            // try {
+            //     if (!result || result === 'undefined') {
+            //         throw new Error('Result is undefined or invalid');
+            //     }
+
+            //     parsedResult = JSON.parse(result);
+
+            //     if (!Array.isArray(parsedResult.words)) {
+            //         throw new Error('Parsed result does not contain a valid words array');
+            //     }
+            // } catch (e) {
+            // console.log('Error parsing result or validating parsedResult');
+
+            // if (maxRetries > 0) {
+            console.log('Retrying word cloud generation', maxRetries);
+            try {
+                result = await ipcRenderer.invoke(
+                    'generate-words',
+                    'llama3.2:3b',
+                    dataContext.mainCode,
+                    flashcardData,
+                    true
+                );
+            } catch (retryError) {
+                console.log(retryError, 'Error invoking generate-words on retry');
+                // continue;
+            }
+            // } else {
+            //     console.error('Max retries reached. Exiting.');
+            //     return;
+            // }
+            // // }
+            maxRetries--;
+        }
+
+        console.log(parsedResult, 'Final parsed result from generate-words');
+        if (parsedResult.words.length > 0) {
+            dataContext.setWords(parsedResult.words);
+        } else {
+            console.error('Failed to generate words after retries');
+        }
+    };
+
     const isReadyCheck = selectedFlashcards.length >= FLASHCARDS_MIN_THRESHOLD;
 
     return (
@@ -143,8 +218,9 @@ const FlashcardsPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.BASIS}
-                nextPage={LOADER_ROUTES.WORD_CLOUD_LOADER}
+                nextPage={ROUTES.WORD_CLOUD}
                 isReady={isReadyCheck}
+                onNextClick={handleGenerateWords}
             />
             {/* {modalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

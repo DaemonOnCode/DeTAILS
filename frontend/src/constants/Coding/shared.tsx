@@ -1,5 +1,5 @@
 export enum ROUTES {
-    HOME = '',
+    HOME = 'home',
     BASIS = 'basis',
     FLASHCARDS = 'flashcards',
     WORD_CLOUD = 'word-cloud',

@@ -43,7 +43,7 @@ const BasisPage = () => {
 
     const handleOnNextClick = async (e: any) => {
         e.preventDefault();
-        navigate(LOADER_ROUTES.FLASHCARDS_LOADER);
+        navigate('../loader/' + LOADER_ROUTES.FLASHCARDS_LOADER);
         let result: string = await ipcRenderer.invoke(
             'add-documents-langchain',
             basisFiles,

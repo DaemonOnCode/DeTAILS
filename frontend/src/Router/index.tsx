@@ -1,28 +1,34 @@
 import { FC } from 'react';
 import { RouteObject, useRoutes } from 'react-router-dom';
-import { CodingRoutes } from './coding_routes';
-import { SharedRoutes } from './shared_routes';
+import { protectRoutes } from '../utility/shared';
+import { ROUTES } from '../constants/Shared';
+import { SharedRouter } from './shared_router';
+import { CodingRouter } from './coding_router';
 
 export const AppRoutes: RouteObject[] = [
     {
         path: '/',
-        children: SharedRoutes
+        children: SharedRouter
     },
     {
-        path: 'data-sources',
-        element: <div>Data Sources</div>
-    },
-    {
-        path: 'cleaning',
-        element: <div>Cleaning</div>
-    },
-    {
-        path: 'modelling',
-        element: <div>Modelling</div>
-    },
-    {
-        path: 'coding',
-        children: CodingRoutes
+        children: protectRoutes([
+            {
+                path: ROUTES.DATA_SOURCES,
+                element: <div>Data Sources</div>
+            },
+            {
+                path: ROUTES.CLEANING,
+                element: <div>Cleaning</div>
+            },
+            {
+                path: ROUTES.MODELLING,
+                element: <div>Modelling</div>
+            },
+            {
+                path: ROUTES.CODING,
+                children: CodingRouter
+            }
+        ])
     }
 ];
 

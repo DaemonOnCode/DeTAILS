@@ -85,7 +85,7 @@ const CodingValidationPage: FC = () => {
             //     type: 'ADD_RESPONSES',
             //     responses: acceptedResponses
             // });
-            navigate(ROUTES.FINAL);
+            navigate('/coding/' + ROUTES.FINAL);
             return;
         }
 
@@ -152,7 +152,7 @@ const CodingValidationPage: FC = () => {
             responses: totalResponses
         });
 
-        navigate(ROUTES.CODING_VALIDATION);
+        navigate('/coding/' + ROUTES.CODING_VALIDATION);
     };
 
     const handleRerunCoding = () => {

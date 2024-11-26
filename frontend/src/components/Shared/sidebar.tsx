@@ -1,6 +1,6 @@
 import { FC, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AppRoutes } from '../../Router';
+import { AppRoutes } from '../../router';
 import { RouteObject } from 'react-router-dom';
 
 // Format route names for display
@@ -38,11 +38,18 @@ export const Sidebar: FC = () => {
         return IGNORED_KEYWORDS.some((keyword) => path.toLowerCase().includes(keyword));
     };
 
-    const renderRoutes = (routes: RouteObject[], parentPath = '') => {
+    const renderRoutes = (routes: RouteObject[], parentPath = ''): JSX.Element[] => {
         return routes
-            .filter((route) => !shouldIgnoreRoute(route.path))
+            .filter((route) => !shouldIgnoreRoute(route.path)) // Filter ignored routes
             .map((route, idx) => {
+                // Handle protected routes with undefined paths
+                if (route.path === undefined && route.children) {
+                    return <div key={idx}>{renderRoutes(route.children, parentPath)}</div>;
+                }
+
                 const fullPath = `${parentPath}/${route.path || ''}`.replace(/\/+/g, '/');
+
+                console.log(fullPath);
 
                 if (route.children) {
                     return (

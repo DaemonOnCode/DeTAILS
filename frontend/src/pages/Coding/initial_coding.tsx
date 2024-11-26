@@ -125,7 +125,7 @@ const InitialCodingPage = () => {
         e.preventDefault();
         console.log('Next clicked');
 
-        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER);
+        navigate('../loader/' + LOADER_ROUTES.CODING_VALIDATION_LOADER);
         console.log(dataContext.references, 'dataContext.references');
 
         let results;

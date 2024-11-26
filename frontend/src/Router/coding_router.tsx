@@ -11,9 +11,8 @@ import {
 import { CodingValidationPage, FinalPage, InitialCodingPage, WordCloudPage } from '../pages/Coding';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
-import { protectRoutes } from '../utility/shared';
 
-export const CodingRoutes: RouteObject[] = protectRoutes([
+export const CodingRouter: RouteObject[] = [
     { path: ROUTES.HOME, element: <HomePage />, index: true },
     { path: ROUTES.BASIS, element: <BasisPage /> },
     { path: ROUTES.FLASHCARDS, element: <FlashcardsPage /> },
@@ -42,4 +41,4 @@ export const CodingRoutes: RouteObject[] = protectRoutes([
             }
         ]
     }
-]);
+];

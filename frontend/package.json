@@ -24,6 +24,7 @@
 	"type": "commonjs",
 	"dependencies": {
 		"@electron/remote": "^2.0.8",
+		"@getstation/electron-google-oauth2": "^14.0.0",
 		"@langchain/community": "^0.3.15",
 		"@langchain/ollama": "^0.1.2",
 		"auto-launch": "^5.0.5",
