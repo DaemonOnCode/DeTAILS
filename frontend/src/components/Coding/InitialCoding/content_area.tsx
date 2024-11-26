@@ -1,19 +1,10 @@
 import { FC, useEffect, useState } from 'react';
-import { IRedditPostData, IReference, PostIdTitle, SetState } from '../../types/shared';
 import Comment from './comment';
-import { DB_PATH } from '../../constants/shared';
+import { ContentAreaProps } from '../../../types/Coding/props';
+import { DB_PATH } from '../../../constants/Coding/shared';
+import { IRedditPostData } from '../../../types/Coding/shared';
 
 const { ipcRenderer } = window.require('electron');
-
-interface ContentAreaProps {
-    selectedPost: PostIdTitle | null;
-    selectedCodeForReferences: string | null;
-    references: Record<string, IReference[]>;
-    handleReferenceClick: (postId: string) => void;
-    handleTextSelection: () => void;
-    selectedPostData: IRedditPostData | null;
-    setSelectedPostData: SetState<IRedditPostData | null>;
-}
 
 const ContentArea: FC<ContentAreaProps> = ({
     selectedPost,

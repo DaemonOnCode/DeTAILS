@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { Sidebar } from './sidebar';
-import { ILayout } from '../../types/shared';
+import { ILayout } from '../../../types/Coding/shared';
 
 export const Layout: FC<ILayout> = ({ children }) => {
     return (

@@ -1,14 +1,5 @@
 import { FC, useState } from 'react';
-import { ContentAreaTabs, PostIdTitle, SetState } from '../../types/shared';
-
-interface LeftPanelProps {
-    selectedTab: ContentAreaTabs;
-    setSelectedTab: SetState<ContentAreaTabs>;
-    posts: PostIdTitle[];
-    setSelectedPost: SetState<PostIdTitle | null>;
-    codes: string[];
-    setSelectedCodeForReferences: SetState<string | null>;
-}
+import { LeftPanelProps } from '../../../types/Coding/props';
 
 const LeftPanel: FC<LeftPanelProps> = ({
     selectedTab,

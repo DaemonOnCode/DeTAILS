@@ -8,7 +8,7 @@ import {
     Mode,
     SetState,
     IReference
-} from '../types/shared';
+} from '../types/Coding/shared';
 
 interface IDataContext {
     currentMode: Mode;

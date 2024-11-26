@@ -1,11 +1,11 @@
 import { FC, useState, useContext, useEffect } from 'react';
-import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
-import { DataContext } from '../context/data_context';
-import { ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../constants/shared';
-import RedditTable from '../components/Home/reddit_table';
-import PaginationControls from '../components/Home/pagination_control';
-import useRedditData from '../hooks/Home/use_reddit_data';
-import { RedditPosts } from '../types/shared';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import { DataContext } from '../../context/data_context';
+import { ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
+import RedditTable from '../../components/Coding/Home/reddit_table';
+import PaginationControls from '../../components/Coding/Home/pagination_control';
+import useRedditData from '../../hooks/Home/use_reddit_data';
+import { RedditPosts } from '../../types/Coding/shared';
 
 const HomePage: FC = () => {
     const dataContext = useContext(DataContext);

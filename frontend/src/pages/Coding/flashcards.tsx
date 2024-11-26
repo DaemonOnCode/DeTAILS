@@ -1,12 +1,12 @@
 import { useContext, useEffect, useState } from 'react';
-import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import {
     FLASHCARDS_MIN_THRESHOLD,
     LOADER_ROUTES,
     ROUTES,
     initialFlashcards
-} from '../constants/shared';
-import { DataContext } from '../context/data_context';
+} from '../../constants/Coding/shared';
+import { DataContext } from '../../context/data_context';
 
 const { ipcRenderer } = window.require('electron');
 

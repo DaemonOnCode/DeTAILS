@@ -1,13 +1,7 @@
 import { FC, useState } from 'react';
-import { RedditPosts } from '../../types/shared';
+import { RedditPosts } from '../../../types/Coding/shared';
 import RedditViewModal from '../Shared/reddit_view_modal';
-
-type RedditTableProps = {
-    data: [string, RedditPosts[string]][]; // Post data as [id, postDetails]
-    selectedPosts: string[]; // Set of selected post IDs
-    togglePostSelection: (id: string) => void; // Function to toggle individual post selection
-    toggleSelectPage: (pageData: [string, RedditPosts[string]][]) => void; // Function to toggle all posts on the page
-};
+import { RedditTableProps } from '../../../types/Coding/props';
 
 const RedditTable: FC<RedditTableProps> = ({
     data,

@@ -1,7 +1,7 @@
 import { useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../constants/shared';
-import { DataContext } from '../../context/data_context';
+import { ROUTES } from '../../../constants/Coding/shared';
+import { DataContext } from '../../../context/data_context';
 
 const { ipcRenderer } = window.require('electron');
 

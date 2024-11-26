@@ -1,17 +1,8 @@
 import { useEffect, useState } from 'react';
+import { RedditViewModalProps } from '../../../types/Coding/props';
 const { ipcRenderer } = window.require('electron');
 
-const RedditViewModal = ({
-    postLink,
-    isViewOpen,
-    postText,
-    closeModal
-}: {
-    postLink: string;
-    isViewOpen: boolean | null;
-    postText?: string;
-    closeModal?: () => void;
-}) => {
+const RedditViewModal = ({ postLink, isViewOpen, postText, closeModal }: RedditViewModalProps) => {
     const [browserViewBounds, setBrowserViewBounds] = useState({
         x: 0,
         y: 0,

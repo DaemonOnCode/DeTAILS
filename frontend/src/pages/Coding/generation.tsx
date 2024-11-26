@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
-import { ROUTES } from '../constants/shared';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import { ROUTES } from '../../constants/Coding/shared';
 
 const GenerationPage = () => {
     const [loading, setLoading] = useState(true);

@@ -1,13 +1,6 @@
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-type NavigationBottomBarProps = {
-    isReady?: boolean;
-    previousPage?: string;
-    nextPage?: string;
-    onNextClick?: (e: any) => Promise<void>;
-    onPreviousClick?: () => void;
-};
+import { NavigationBottomBarProps } from '../../../types/Coding/props';
 
 const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     isReady,

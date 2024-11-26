@@ -518,12 +518,18 @@ class SegmentAPI(ServerAPI):
         tenant: str = DEFAULT_TENANT,
         database: str = DEFAULT_DATABASE,
     ) -> bool:
+        logger.debug(f"Request details: {collection_id}, {ids}, {embeddings}, {metadatas}, {documents}, {uris}, {tenant}, {database}")
+
+        logger.debug(f"Starting to Upsert api segment segmentapi")
         coll = self._get_collection(collection_id)
+        logger.debug(f"get collection {coll}")
         self._manager.hint_use_collection(collection_id, t.Operation.UPSERT)
+        logger.debug(f"hint use collection")
         validate_batch(
             (ids, embeddings, metadatas, documents, uris),
             {"max_batch_size": self.get_max_batch_size()},
         )
+        logger.debug(f"validate batch")
         records_to_submit = list(
             _records(
                 t.Operation.UPSERT,
@@ -534,8 +540,9 @@ class SegmentAPI(ServerAPI):
                 uris=uris,
             )
         )
+        logger.debug(f"records to submit {records_to_submit}")
         self._validate_embedding_record_set(coll, records_to_submit)
-
+        logger.debug(f"validation complete embedding record set")
         self._quota_enforcer.enforce(
             action=Action.UPSERT,
             tenant=tenant,
@@ -545,9 +552,10 @@ class SegmentAPI(ServerAPI):
             documents=documents,
             uris=uris,
         )
+        logger.debug(f"quota enforcer enforce")
 
         self._producer.submit_embeddings(collection_id, records_to_submit)
-
+        logger.debug(f"producer submit embeddings")
         return True
 
     @trace_method("SegmentAPI._get", OpenTelemetryGranularity.OPERATION)

@@ -1,8 +1,8 @@
 import { useContext, useState, ChangeEvent } from 'react';
-import { DataContext } from '../context/data_context';
-import FileCard from '../components/Shared/file_card';
-import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
-import { LOADER_ROUTES, ROUTES } from '../constants/shared';
+import { DataContext } from '../../context/data_context';
+import FileCard from '../../components/Coding/Shared/file_card';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useNavigate } from 'react-router-dom';
 
 const { ipcRenderer } = window.require('electron');

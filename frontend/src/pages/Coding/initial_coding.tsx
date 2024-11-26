@@ -5,16 +5,16 @@ import {
     codeReferences,
     codes as _codes,
     DB_PATH
-} from '../constants/shared';
-import { IComment, IRedditPostData, IReference, PostIdTitle } from '../types/shared';
-import HighlightModal from '../components/InitialCoding/highlight_modal';
-import AddCodeModal from '../components/InitialCoding/add_code_modal';
-import ContentArea from '../components/InitialCoding/content_area';
-import LeftPanel from '../components/InitialCoding/left_panel';
-import TopToolbar from '../components/InitialCoding/top_toolbar';
-import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
+} from '../../constants/Coding/shared';
+import { IComment, IRedditPostData, IReference, PostIdTitle } from '../../types/Coding/shared';
+import HighlightModal from '../../components/Coding/InitialCoding/highlight_modal';
+import AddCodeModal from '../../components/Coding/InitialCoding/add_code_modal';
+import ContentArea from '../../components/Coding/InitialCoding/content_area';
+import LeftPanel from '../../components/Coding/InitialCoding/left_panel';
+import TopToolbar from '../../components/Coding/InitialCoding/top_toolbar';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { useNavigate } from 'react-router-dom';
-import { DataContext } from '../context/data_context';
+import { DataContext } from '../../context/data_context';
 
 const { ipcRenderer } = window.require('electron');
 

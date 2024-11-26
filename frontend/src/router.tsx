@@ -4,15 +4,15 @@ import HomePage from './pages/home';
 import NotFoundPage from './pages/not_found';
 import BasisPage from './pages/basis';
 import WordCloudPage from './pages/word_cloud';
-import { LOADER_ROUTES, NOT_FOUND, ROUTES } from './constants/shared';
+import { LOADER_ROUTES, NOT_FOUND, ROUTES } from './constants/Coding/shared';
 import CodingValidationPage from './pages/coding_validation';
 import FinalPage from './pages/final';
 import InitialCodingPage from './pages/initial_coding';
 import FlashcardsPage from './pages/flashcards';
-import FlashcardsLoaderPage from './pages/Loader/flashcards_loader';
-import WordCloudLoaderPage from './pages/Loader/word_cloud_loader';
-import CodingValidationLoaderPage from './pages/Loader/coding_validation_loader';
-import FinalLoaderPage from './pages/Loader/final_loader';
+import FlashcardsLoaderPage from './pages/Coding/Loader/flashcards_loader';
+import WordCloudLoaderPage from './pages/Coding/Loader/word_cloud_loader';
+import CodingValidationLoaderPage from './pages/Coding/Loader/coding_validation_loader';
+import FinalLoaderPage from './pages/Coding/Loader/final_loader';
 
 export const Router: FC = () => {
     return (

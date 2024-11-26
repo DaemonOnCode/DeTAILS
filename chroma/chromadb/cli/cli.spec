@@ -12,11 +12,13 @@ a = Analysis(
         ('../log_config.yml', 'log_config.yml'),
     ],
     hiddenimports=[
+        'sqlite3',
         'chromadb.app',
         'importlib_resources.trees',
         'chromadb.utils.embedding_functions',  # Inclxude the entire module
         'chromadb.api.segment',
         'chromadb.db.impl',
+        'chromadb.segment.impl.metadata',
         'chromadb.db.impl.sqlite',
         'chromadb.migrations',
         'chromadb.migrations.embeddings_queue',
@@ -28,6 +30,7 @@ a = Analysis(
         'chromadb.quota.simple_quota_enforcer',
         'chromadb.telemetry.product.posthog',
         'chromadb.rate_limit.simple_rate_limit',
+        'chromadb.segment.impl.metadata.sqlite',
     ],
     hookspath=[],
     hooksconfig={},

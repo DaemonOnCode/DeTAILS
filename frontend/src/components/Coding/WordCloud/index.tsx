@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { IWordBox } from '../../types/shared';
-
-interface WordCloudProps {
-    mainCode: string;
-    words: string[];
-    selectedWords: string[];
-    toggleWordSelection: (word: string) => void;
-}
+import { IWordBox } from '../../../types/Coding/shared';
+import { WordCloudProps } from '../../../types/Coding/props';
 
 const mainCodeFontSize = 20;
 const otherWordFontSize = 14;

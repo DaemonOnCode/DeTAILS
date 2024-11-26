@@ -1,9 +1,9 @@
 import { useContext, useEffect, useState } from 'react';
-import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
-import { DB_PATH, ROUTES, exampleData } from '../constants/shared';
-import { IFinalCodeResponse } from '../types/shared';
-import RedditViewModal from '../components/Shared/reddit_view_modal';
-import { DataContext } from '../context/data_context';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import { DB_PATH, ROUTES, exampleData } from '../../constants/Coding/shared';
+import { IFinalCodeResponse } from '../../types/Coding/shared';
+import RedditViewModal from '../../components/Coding/Shared/reddit_view_modal';
+import { DataContext } from '../../context/data_context';
 
 const { ipcRenderer } = window.require('electron');
 

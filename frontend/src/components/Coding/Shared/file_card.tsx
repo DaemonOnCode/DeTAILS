@@ -1,12 +1,6 @@
-const FileCard = ({
-    filePath,
-    fileName,
-    onRemove
-}: {
-    filePath: string;
-    fileName: string;
-    onRemove: (file: string) => void;
-}) => {
+import { FileCardProps } from '../../../types/Coding/props';
+
+const FileCard = ({ filePath, fileName, onRemove }: FileCardProps) => {
     return (
         <div className="relative flex items-center justify-center h-32 w-32 border rounded shadow-lg bg-white p-4">
             <button

@@ -1,4 +1,4 @@
-import { IComment } from '../../types/shared';
+import { IComment } from '../../../types/Coding/shared';
 
 const Comment = ({ comment, level = 0 }: { comment: IComment; level?: number }) => {
     return (

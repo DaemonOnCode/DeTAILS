@@ -1,11 +1,5 @@
 import { FC } from 'react';
-import { PostIdTitle, SetState } from '../../types/shared';
-
-interface TopToolbarProps {
-    selectedPost: PostIdTitle | null;
-    setIsAddCodeModalOpen: SetState<boolean>;
-    setIsHighlightModalOpen: SetState<boolean>;
-}
+import { TopToolbarProps } from '../../../types/Coding/props';
 
 const TopToolbar: FC<TopToolbarProps> = ({
     selectedPost,

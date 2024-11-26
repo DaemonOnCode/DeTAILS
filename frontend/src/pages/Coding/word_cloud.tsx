@@ -1,8 +1,8 @@
 import { FC, useContext, useEffect, useState } from 'react';
-import { ROUTES, WORD_CLOUD_MIN_THRESHOLD, newWordsPool } from '../constants/shared';
-import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
-import WordCloud from '../components/WordCloud/index';
-import { DataContext } from '../context/data_context';
+import { ROUTES, WORD_CLOUD_MIN_THRESHOLD, newWordsPool } from '../../constants/Coding/shared';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import WordCloud from '../../components/Coding/WordCloud/index';
+import { DataContext } from '../../context/data_context';
 
 const { ipcRenderer } = window.require('electron');
 

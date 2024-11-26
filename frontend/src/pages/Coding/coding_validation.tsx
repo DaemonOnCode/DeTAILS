@@ -1,8 +1,13 @@
 import { ChangeEvent, FC, useContext, useEffect, useState } from 'react';
-import { DB_PATH, LOADER_ROUTES, ROUTES, beforeHumanValidation } from '../constants/shared';
-import NavigationBottomBar from '../components/Shared/navigation_bottom_bar';
-import { DataContext } from '../context/data_context';
-import RedditViewModal from '../components/Shared/reddit_view_modal';
+import {
+    DB_PATH,
+    LOADER_ROUTES,
+    ROUTES,
+    beforeHumanValidation
+} from '../../constants/Coding/shared';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import { DataContext } from '../../context/data_context';
+import RedditViewModal from '../../components/Coding/Shared/reddit_view_modal';
 import { useNavigate } from 'react-router-dom';
 
 const { ipcRenderer } = window.require('electron');

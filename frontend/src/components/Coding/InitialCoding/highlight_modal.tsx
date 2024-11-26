@@ -1,14 +1,5 @@
 import { FC } from 'react';
-import { SetState } from '../../types/shared';
-
-interface HighlightModalProps {
-    codes: string[];
-    selectedCode: string;
-    setSelectedCode: SetState<string>;
-    setIsAddCodeModalOpen: SetState<boolean>;
-    applyCodeToSelection: () => void;
-    setIsHighlightModalOpen: SetState<boolean>;
-}
+import { HighlightModalProps } from '../../../types/Coding/props';
 
 const HighlightModal: FC<HighlightModalProps> = ({
     codes,

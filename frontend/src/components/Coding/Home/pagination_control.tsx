@@ -1,11 +1,5 @@
 import { FC } from 'react';
-
-type PaginationControlsProps = {
-    currentPage: number;
-    totalPages: number;
-    onNext: () => void;
-    onPrevious: () => void;
-};
+import { PaginationControlsProps } from '../../../types/Coding/props';
 
 const PaginationControls: FC<PaginationControlsProps> = ({
     currentPage,

@@ -1,12 +1,5 @@
 import { FC, useState } from 'react';
-import { SetState } from '../../types/shared';
-
-interface AddCodeModalProps {
-    setIsAddCodeModalOpen: SetState<boolean>;
-    setIsHighlightModalOpen: SetState<boolean>;
-    setCodes: SetState<string[]>;
-    setSelectedCode: SetState<string>;
-}
+import { AddCodeModalProps } from '../../../types/Coding/props';
 
 const AddCodeModal: FC<AddCodeModalProps> = ({
     setIsAddCodeModalOpen,
