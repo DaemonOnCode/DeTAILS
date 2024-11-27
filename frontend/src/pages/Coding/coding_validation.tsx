@@ -9,6 +9,9 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation_botto
 import { DataContext } from '../../context/data_context';
 import RedditViewModal from '../../components/Coding/Shared/reddit_view_modal';
 import { useNavigate } from 'react-router-dom';
+import { useLogger } from '../../context/logging_context';
+import { MODEL_LIST } from '../../constants/Shared';
+import { createTimer } from '../../utility/timer';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -18,6 +21,7 @@ const CodingValidationPage: FC = () => {
     // console.count('Coding Validation Page');
 
     const navigate = useNavigate();
+    const logger = useLogger();
 
     const handleCommentChange = (index: number, event: ChangeEvent<HTMLTextAreaElement>) => {
         dataContext.dispatchCodeResponses({
@@ -38,6 +42,17 @@ const CodingValidationPage: FC = () => {
         link: '',
         text: ''
     });
+
+    useEffect(() => {
+        const timer = createTimer();
+        logger.info('Loaded Coding validation Page');
+
+        return () => {
+            logger.info('Unloaded Coding validation Page').then(() => {
+                logger.time('Coding validation Page stay time', { time: timer.end() });
+            });
+        };
+    }, []);
 
     // useEffect(() => {
     //     beforeHumanValidation.forEach((answer, index) => {
@@ -74,6 +89,7 @@ const CodingValidationPage: FC = () => {
 
     const runWithFeedback = async () => {
         const isAllCorrect = dataContext.codeResponses.every((value) => value.isMarked === true);
+        const timer = createTimer();
         if (isAllCorrect) {
             // const acceptedResponses = dataContext.codeResponses.map(
             //     ({ comment, isMarked, ...rest }) => ({
@@ -85,6 +101,7 @@ const CodingValidationPage: FC = () => {
             //     type: 'ADD_RESPONSES',
             //     responses: acceptedResponses
             // });
+            await logger.time('Coding validation with feedback', { time: timer.end() });
             navigate('/coding/' + ROUTES.FINAL);
             return;
         }
@@ -93,7 +110,7 @@ const CodingValidationPage: FC = () => {
 
         const results = await ipcRenderer.invoke(
             'generate-codes-with-feedback',
-            'llama3.2:3b',
+            MODEL_LIST.LLAMA_3_2,
             dataContext.references,
             dataContext.mainCode,
             dataContext.selectedFlashcards.map((id) => {
@@ -108,6 +125,8 @@ const CodingValidationPage: FC = () => {
             dataContext.codeResponses.filter((response) => response.isMarked === false),
             DB_PATH
         );
+
+        await logger.time('Coding validation with feedback', { time: timer.end() });
 
         console.log('Result:', results);
 
@@ -157,7 +176,7 @@ const CodingValidationPage: FC = () => {
 
     const handleRerunCoding = () => {
         console.log('Re-running coding...');
-        navigate(LOADER_ROUTES.CODING_VALIDATION_LOADER);
+        navigate('../loader/' + LOADER_ROUTES.CODING_VALIDATION_LOADER);
 
         // const markedIndexes = dataContext.codeResponses
         //     .map((response, index) => (response.isMarked !== undefined ? index : null))

@@ -1,25 +1,30 @@
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth_context';
+import { useLogger } from '../../context/logging_context';
 
 const { ipcRenderer } = window.require('electron');
 
 const LoginPage = () => {
     const navigate = useNavigate();
 
+    const logger = useLogger();
     const { login } = useAuth();
 
     const handleGoogleLogin = async () => {
         // Trigger Electron's main process for OAuth
         try {
+            await logger.info('Attempting Google OAuth Login');
             const { token, user } = await ipcRenderer.invoke('google-oauth-login');
             console.log('Google OAuth Token:', token);
+            await logger.info('Google OAuth Login Successful', { user });
             // Handle successful login logic here
 
             login(user, token);
 
             navigate('/' + ROUTES.DATA_SOURCES);
         } catch (error) {
+            await logger.error('Google OAuth Login Failed', { error });
             console.error('Google Sign-In Failed:', error);
         }
     };

@@ -6,6 +6,8 @@ import RedditTable from '../../components/Coding/Home/reddit_table';
 import PaginationControls from '../../components/Coding/Home/pagination_control';
 import useRedditData from '../../hooks/Home/use_reddit_data';
 import { RedditPosts } from '../../types/Coding/shared';
+import { useLogger } from '../../context/logging_context';
+import { createTimer } from '../../utility/timer';
 
 const HomePage: FC = () => {
     const dataContext = useContext(DataContext);
@@ -13,6 +15,8 @@ const HomePage: FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
+
+    const logger = useLogger();
 
     console.log('rendered home page');
     console.count('Component Render');
@@ -26,9 +30,17 @@ const HomePage: FC = () => {
     );
 
     useEffect(() => {
+        const timer = createTimer();
+        logger.info('Home Page Loaded');
         if (dataContext.modeInput.length > 0) {
             loadFolderData();
         }
+
+        return () => {
+            logger.info('Home Page Unloaded').then(() => {
+                logger.time('Home Page stay time', { time: timer.end() });
+            });
+        };
     }, []);
 
     // Pagination Logic
@@ -210,7 +222,7 @@ const HomePage: FC = () => {
                             </div>
 
                             {/* Table */}
-                            <div className="overflow-y-auto max-h-[calc(100vh-17rem)]">
+                            <div className="overflow-y-auto max-h-[calc(100vh-18rem)]">
                                 <RedditTable
                                     data={displayedData}
                                     selectedPosts={dataContext.selectedPosts}

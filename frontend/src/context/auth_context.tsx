@@ -1,23 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, FC, ReactNode } from 'react';
-
-interface User {
-    id: string;
-    email: string;
-    verified_email: boolean;
-    name: string;
-    given_name: string;
-    family_name: string;
-    picture: string;
-}
-
-interface Token {
-    access_token: string;
-    refresh_token: string;
-    scope: string;
-    token_type: string;
-    id_token: string;
-    expiry_date: number;
-}
+import { createContext, useContext, useState, useEffect, FC } from 'react';
+import { Token, User } from '../types/Shared';
+import { ILayout } from '../types/Coding/shared';
+import { useLogger } from './logging_context';
 
 interface AuthContextType {
     isAuthenticated: boolean;
@@ -28,7 +12,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: FC<ILayout> = ({ children }) => {
+    const logger = useLogger();
+
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
         return JSON.parse(sessionStorage.getItem('isAuthenticated') || 'false');
     });
@@ -40,7 +26,9 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     });
 
     useEffect(() => {
-        console.log(JSON.parse(sessionStorage.getItem('user') || 'null'));
+        if (isAuthenticated) {
+            logger.setUserEmail(user?.email || '');
+        }
     }, []);
 
     // Persist authentication state to sessionStorage
@@ -54,6 +42,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         setIsAuthenticated(true);
         setUser(user);
         setToken(token);
+        logger.setUserEmail(user.email);
     };
 
     const logout = () => {
@@ -61,6 +50,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         setUser(null);
         sessionStorage.removeItem('isAuthenticated');
         sessionStorage.removeItem('user');
+        logger.setUserEmail('');
     };
 
     return (

@@ -8,6 +8,9 @@ import {
 } from '../../constants/Coding/shared';
 import { DataContext } from '../../context/data_context';
 import { useNavigate } from 'react-router-dom';
+import { useLogger } from '../../context/logging_context';
+import { MODEL_LIST } from '../../constants/Shared';
+import { createTimer } from '../../utility/timer';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -27,15 +30,30 @@ const FlashcardsPage = () => {
     const [feedback, setFeedback] = useState('');
     // const [hovering, setHovering] = useState(false);
 
+    const logger = useLogger();
+
+    useEffect(() => {
+        const timer = createTimer();
+        logger.info('Loaded Flashcards Page');
+
+        return () => {
+            logger.info('Unloaded Flashcards Page').then(() => {
+                logger.time('Flashcards Page stay time', { time: timer.end() });
+            });
+        };
+    }, []);
+
     const generateFlashcards = async () => {
         for (const flashcard of flashcards) {
             if (selectedFlashcards.includes(flashcard.id)) continue;
             dataContext.removeFlashcard(flashcard.id);
         }
         let maxRetries = 5;
+        const timer = createTimer();
+        await logger.info('Generating additional flashcards');
         let result = await ipcRenderer.invoke(
             'generate-additional-flashcards',
-            'llama3.2:3b',
+            MODEL_LIST.LLAMA_3_2,
             dataContext.mainCode,
             dataContext.additionalInfo,
             selectedFlashcards.map((id) => {
@@ -47,15 +65,20 @@ const FlashcardsPage = () => {
             feedback
         );
 
+        await logger.time('Generated additional flashcards: Initial', { time: timer.end() });
+
         console.log(result);
 
         let parsedResult: { flashcards: { question: string; answer: string }[] } =
             JSON.parse(result);
 
         while (parsedResult.flashcards.length === 0 && maxRetries > 0) {
+            await logger.warning('Failed to generate additional flashcards', { maxRetries });
+            await logger.info('Retrying flashcards', { maxRetries });
+            timer.reset();
             result = await ipcRenderer.invoke(
                 'generate-additional-flashcards',
-                'llama3.2:3b',
+                MODEL_LIST.LLAMA_3_2,
                 dataContext.mainCode,
                 dataContext.additionalInfo,
                 selectedFlashcards.map((id) => {
@@ -66,6 +89,9 @@ const FlashcardsPage = () => {
                 }),
                 feedback
             );
+            await logger.time(`Generated additional flashcards: Retry ${maxRetries}`, {
+                time: timer.end()
+            });
             parsedResult = JSON.parse(result);
             maxRetries--;
         }
@@ -95,13 +121,15 @@ const FlashcardsPage = () => {
         let result;
         let parsedResult = { words: [] };
 
+        const timer = createTimer();
         try {
             result = await ipcRenderer.invoke(
                 'generate-words',
-                'llama3.2:3b',
+                MODEL_LIST.LLAMA_3_2,
                 dataContext.mainCode,
                 flashcardData
             );
+            await logger.time('Word cloud generation: Initial', { time: timer.end() });
             console.log(result, 'Initial result from generate-words');
             parsedResult = JSON.parse(result);
         } catch (e) {
@@ -126,14 +154,19 @@ const FlashcardsPage = () => {
 
             // if (maxRetries > 0) {
             console.log('Retrying word cloud generation', maxRetries);
+            await logger.warning('Retrying word cloud generation', { maxRetries });
+            timer.reset();
             try {
                 result = await ipcRenderer.invoke(
                     'generate-words',
-                    'llama3.2:3b',
+                    MODEL_LIST.LLAMA_3_2,
                     dataContext.mainCode,
                     flashcardData,
                     true
                 );
+                await logger.time(`Word cloud generation: Retry ${maxRetries}`, {
+                    time: timer.end()
+                });
             } catch (retryError) {
                 console.log(retryError, 'Error invoking generate-words on retry');
                 // continue;

@@ -3,6 +3,9 @@ import { ROUTES, WORD_CLOUD_MIN_THRESHOLD, newWordsPool } from '../../constants/
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import WordCloud from '../../components/Coding/WordCloud/index';
 import { DataContext } from '../../context/data_context';
+import { useLogger } from '../../context/logging_context';
+import { MODEL_LIST } from '../../constants/Shared';
+import { createTimer } from '../../utility/timer';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -10,11 +13,23 @@ const WordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
 
+    const logger = useLogger();
     const dataContext = useContext(DataContext);
 
     // useEffect(() => {
     //     dataContext.setSelectedWords([dataContext.mainCode]);
     // }, []);
+
+    useEffect(() => {
+        const timer = createTimer();
+        logger.info('Loaded Word cloud Page');
+
+        return () => {
+            logger.info('Unloaded Word cloud Page').then(() => {
+                logger.time('Word cloud Page stay time', { time: timer.end() });
+            });
+        };
+    }, []);
 
     const toggleWordSelection = (word: string) => {
         if (word === dataContext.mainCode) return;
@@ -39,9 +54,10 @@ const WordCloudPage: FC = () => {
     };
 
     const refreshWordCloud = async () => {
+        const timer = createTimer();
         const results = await ipcRenderer.invoke(
             'generate-words',
-            'llama3.2:3b',
+            MODEL_LIST.LLAMA_3_2,
             dataContext.mainCode,
             newWordsPool,
             null,
@@ -49,6 +65,7 @@ const WordCloudPage: FC = () => {
             dataContext.selectedWords,
             feedback
         );
+        await logger.info('Word Cloud Refreshed', { time: timer.end() });
 
         console.log(results, 'Word Cloud Page');
 

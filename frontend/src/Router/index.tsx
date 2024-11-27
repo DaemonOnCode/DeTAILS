@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { RouteObject, useRoutes } from 'react-router-dom';
-import { protectRoutes } from '../utility/shared';
+import { protectRoutes } from '../utility/protect_routes';
 import { ROUTES } from '../constants/Shared';
 import { SharedRouter } from './shared_router';
 import { CodingRouter } from './coding_router';

@@ -1,9 +1,12 @@
-import { useContext, useState, ChangeEvent } from 'react';
+import { useContext, useEffect } from 'react';
 import { DataContext } from '../../context/data_context';
 import FileCard from '../../components/Coding/Shared/file_card';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useNavigate } from 'react-router-dom';
+import { useLogger } from '../../context/logging_context';
+import { MODEL_LIST } from '../../constants/Shared';
+import { createTimer } from '../../utility/timer';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -12,11 +15,23 @@ const validExtensions = ['.pdf', '.doc', '.docx', '.txt'];
 const BasisPage = () => {
     const dataContext = useContext(DataContext);
     const navigate = useNavigate();
+    const logger = useLogger();
 
     const { basisFiles, addBasisFile, mainCode, additionalInfo, setAdditionalInfo, setMainCode } =
         dataContext;
 
     const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
+
+    useEffect(() => {
+        const timer = createTimer();
+        logger.info('Loaded Basis Page');
+
+        return () => {
+            logger.info('Unloaded Basis Page').then(() => {
+                logger.time('Basis Page stay time', { time: timer.end() });
+            });
+        };
+    }, []);
 
     const handleSelectFiles = async () => {
         const files: {
@@ -44,14 +59,16 @@ const BasisPage = () => {
     const handleOnNextClick = async (e: any) => {
         e.preventDefault();
         navigate('../loader/' + LOADER_ROUTES.FLASHCARDS_LOADER);
+        const timer = createTimer();
         let result: string = await ipcRenderer.invoke(
             'add-documents-langchain',
             basisFiles,
-            'llama3.2:3b',
+            MODEL_LIST.LLAMA_3_2,
             mainCode,
             additionalInfo,
             false
         );
+        await logger.time('Flashcards generation: Initial', { time: timer.end() });
         let maxRetries = 5;
         console.log(result);
         let parsedResult: { flashcards: { question: string; answer: any }[] } = { flashcards: [] };
@@ -65,16 +82,20 @@ const BasisPage = () => {
 
         while (parsedResult.flashcards.length === 0 && maxRetries > 0) {
             console.log('Retrying', maxRetries);
+            await logger.warning('Retrying flashcards', { maxRetries });
+            timer.reset();
             result = await ipcRenderer.invoke(
                 'add-documents-langchain',
                 basisFiles,
-                'llama3.2:3b',
+                MODEL_LIST.LLAMA_3_2,
                 mainCode,
                 additionalInfo,
                 true
             );
             maxRetries--;
-
+            await logger.time(`Flashcards generation: Retry ${maxRetries}`, {
+                time: timer.end()
+            });
             console.log(result);
 
             try {

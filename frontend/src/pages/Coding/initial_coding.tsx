@@ -15,6 +15,9 @@ import TopToolbar from '../../components/Coding/InitialCoding/top_toolbar';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { useNavigate } from 'react-router-dom';
 import { DataContext } from '../../context/data_context';
+import { useLogger } from '../../context/logging_context';
+import { MODEL_LIST } from '../../constants/Shared';
+import { createTimer } from '../../utility/timer';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -33,6 +36,7 @@ const InitialCodingPage = () => {
     const [selectedCodeForReferences, setSelectedCodeForReferences] = useState<string | null>(null);
     const [selectedPostData, setSelectedPostData] = useState<IRedditPostData | null>(null);
 
+    const logger = useLogger();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -41,6 +45,17 @@ const InitialCodingPage = () => {
             .then((data: { id: string; title: string }[]) => {
                 setPosts(data);
             });
+    }, []);
+
+    useEffect(() => {
+        const timer = createTimer();
+        logger.info('Loaded initial coding Page');
+
+        return () => {
+            logger.info('Unloaded initial coding Page').then(() => {
+                logger.time('Initial coding Page stay time', { time: timer.end() });
+            });
+        };
     }, []);
 
     useEffect(() => {
@@ -128,11 +143,12 @@ const InitialCodingPage = () => {
         navigate('../loader/' + LOADER_ROUTES.CODING_VALIDATION_LOADER);
         console.log(dataContext.references, 'dataContext.references');
 
+        const timer = createTimer();
         let results;
         try {
             results = await ipcRenderer.invoke(
                 'generate-codes',
-                'llama3.2:3b',
+                MODEL_LIST.LLAMA_3_2,
                 dataContext.references,
                 dataContext.mainCode,
                 dataContext.selectedFlashcards.map((id) => {
@@ -147,6 +163,8 @@ const InitialCodingPage = () => {
                 dataContext.selectedPosts,
                 DB_PATH
             );
+
+            await logger.time('Initial Coding: Code generation', { time: timer.end() });
 
             console.log(results, 'Initial Coding Page');
 

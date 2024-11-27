@@ -4,6 +4,8 @@ import { DB_PATH, ROUTES, exampleData } from '../../constants/Coding/shared';
 import { IFinalCodeResponse } from '../../types/Coding/shared';
 import RedditViewModal from '../../components/Coding/Shared/reddit_view_modal';
 import { DataContext } from '../../context/data_context';
+import { useLogger } from '../../context/logging_context';
+import { createTimer } from '../../utility/timer';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -19,9 +21,22 @@ const FinalPage = () => {
         sentence: ''
     });
 
+    const logger = useLogger();
+
     useEffect(() => {
         console.log('Final Page:', finalCodeResponses);
     }, [finalCodeResponses]);
+
+    useEffect(() => {
+        const timer = createTimer();
+        logger.info('Loaded Final Page');
+
+        return () => {
+            logger.info('Unloaded Final Page').then(() => {
+                logger.time('Final Page stay time', { time: timer.end() });
+            });
+        };
+    }, []);
 
     const handleViewPost = async (post: IFinalCodeResponse) => {
         const link = await ipcRenderer.invoke(
