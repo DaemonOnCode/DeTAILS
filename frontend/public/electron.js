@@ -1,19 +1,23 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { createMainWindow } = require('./utils/createMainWindow');
 const AutoLaunch = require('auto-launch');
 const remote = require('@electron/remote/main');
 const config = require('./utils/config');
 const registerIpcHandlers = require('./handles');
+const logger = require('./utils/logger');
 
+// Enable auto-reloading in development mode
 if (config.isDev) {
     require('electron-reloader')(module, {
         ignore: [/\.db$/]
     });
 }
 
+// Initialize Electron remote
 remote.initialize();
 
+// Configure auto-launch for production mode
 if (!config.isDev) {
     const autoStart = new AutoLaunch({
         name: config.appName
@@ -21,34 +25,69 @@ if (!config.isDev) {
     autoStart.enable();
 }
 
-app.on('ready', async () => {
+// Function to clean up and gracefully exit
+const cleanupAndExit = async (signal) => {
+    console.log(`Received signal: ${signal}`);
+    await logger.info('Process exited', { signal });
+    // Perform cleanup tasks here if needed
+    app.quit();
+};
+
+// Wait for the app to be ready
+app.whenReady().then(async () => {
+    logger.info('Electron app is ready');
+
+    // Create the main application window
     config.mainWindow = await createMainWindow();
 
-    // await Promise.allSettled([executeOllama(app), executeChromadb(app)]);
+    // Log system and process metrics
+    logger.logSystemAndProcessMetrics();
+
+    // Register signal handlers for SIGINT, SIGTERM, and SIGABRT
+    ['SIGINT', 'SIGTERM', 'SIGABRT', 'SIGHUP'].forEach((signal) => {
+        console.log(`Registering handler for signal: ${signal}`);
+        process.on(signal, () => {
+            console.log(`Handler triggered for signal: ${signal}`);
+            cleanupAndExit(signal);
+        });
+    });
+
+    // Handle app activation (specific to macOS)
+    app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+            config.mainWindow = createMainWindow();
+        }
+    });
+
+    // IPC listener for app version
+    ipcMain.on('app_version', (event) => {
+        event.sender.send('app_version', { version: app.getVersion() });
+    });
+
+    // AutoUpdater events
+    autoUpdater.on('update-available', () => {
+        logger.info('Update available');
+        config.mainWindow.webContents.send('update_available');
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+        logger.info('Update downloaded');
+        config.mainWindow.webContents.send('update_downloaded');
+    });
+
+    // IPC listener for restarting the app to install updates
+    ipcMain.on('restart_app', () => {
+        logger.info('Restarting app to install updates');
+        autoUpdater.quitAndInstall();
+    });
+
+    // Register other IPC handlers
+    registerIpcHandlers();
 });
 
+// Handle all windows being closed
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
 });
-
-app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) config.mainWindow = createMainWindow();
-});
-
-ipcMain.on('app_version', (event) => {
-    event.sender.send('app_version', { version: app.getVersion() });
-});
-
-autoUpdater.on('update-available', () => {
-    config.mainWindow.webContents.send('update_available');
-});
-
-autoUpdater.on('update-downloaded', () => {
-    config.mainWindow.webContents.send('update_downloaded');
-});
-
-ipcMain.on('restart_app', () => {
-    autoUpdater.quitAndInstall();
-});
-
-registerIpcHandlers();

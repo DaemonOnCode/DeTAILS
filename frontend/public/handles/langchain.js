@@ -13,6 +13,8 @@ const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 
 const { codePrompts } = require('../utils/code_helper');
 const { getPostById, initDatabase } = require('../utils/db_helpers');
+const logger = require('../utils/logger');
+const { createTimer } = require('../utils/timer');
 
 const systemTemplateFlashcards = [
     `
@@ -151,7 +153,10 @@ const langchainHandler = () => {
                 collectionName: chromaBasisCollection
             });
 
+            const timer = createTimer();
+
             if (!regenerate) {
+                await logger.info('Adding documents to vector store:', { documents });
                 console.log('documentPaths', documents);
                 if (!documents || typeof documents !== 'object') {
                     return;
@@ -175,6 +180,8 @@ const langchainHandler = () => {
 
                     console.log('addedDocs', addedDocs, 'addedDocs.length', addedDocs.length);
                 }
+                await logger.info('Documents added to vector store.');
+                await logger.time('Adding all documents to vector store', { time: timer.end() });
             }
 
             const retriever = vectorStore.asRetriever();
@@ -205,6 +212,10 @@ const langchainHandler = () => {
                 combineDocsChain: questionAnswerChain
             });
 
+            await logger.info('Documents loaded and chains created.');
+
+            await logger.info('Invoking chain for flashcards generation.');
+            timer.reset();
             const results = await ragChain.invoke({
                 input: `Using the context provided, generate 20 flashcards related to ${mainCode} and ${additionalInfo}. Provide the output as a JSON object in the following format:
 
@@ -226,7 +237,9 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
 `
             });
 
+            await logger.time('Flashcards generated', { time: timer.end() });
             console.log('results', results);
+            await logger.info('Flashcards generated:', { results });
 
             const combinedMatch = results.answer.match(
                 /(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*"flashcards"\s*:\s*\[(?<flashcards>(?:\{\s*"question"\s*:\s*".*?"\s*,\s*"answer"\s*:\s*".*?"\s*\},?\s*)+)\]\s*\}|\[\s*(?<standalone>(?:\{\s*"question"\s*:\s*".*?"\s*,\s*"answer"\s*:\s*".*?"\s*\},?\s*)+)\s*\])(?:\n```)?/
@@ -260,6 +273,7 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
                 parsedFlashcards = JSON.parse(rawEntries);
             } catch (e) {
                 console.error('Error parsing entries:', e);
+                await logger.error('Error parsing flashcards:', { error: e });
                 return JSON.stringify({ flashcards: [] }); // Return empty flashcards array on error
             }
 
@@ -284,6 +298,7 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
                 feedback
             );
 
+            await logger.info('Generating additional flashcards:', { selectedFlashcards });
             const embeddings = new OllamaEmbeddings({
                 model
             });
@@ -320,6 +335,11 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
                 combineDocsChain: questionAnswerChain
             });
 
+            await logger.info('Chains created for additional flashcards generation.');
+
+            await logger.info('Invoking chain for additional flashcards generation.');
+
+            const timer = createTimer();
             const results = await ragChain.invoke({
                 input: `
 Using the provided context and correctly generated flashcards as references, generate 20 new flashcards relevant to ${mainCode} and ${additionalInfo}. 
@@ -365,6 +385,8 @@ ${feedback && `- Incorporate the feedback provided on the selected flashcards an
 Respond ONLY with the JSON object, nothing else.
 `
             });
+            await logger.time('Additional flashcards generated', { time: timer.end() });
+
             console.log(
                 'results all',
                 results,
@@ -374,6 +396,8 @@ Respond ONLY with the JSON object, nothing else.
                 feedback,
                 selectedFlashcards
             );
+
+            await logger.info('Additional flashcards generated:', { results });
 
             // console.log('results', results.answer);
 
@@ -409,6 +433,7 @@ Respond ONLY with the JSON object, nothing else.
                 parsedFlashcards = JSON.parse(rawEntries);
             } catch (e) {
                 console.error('Error parsing entries:', e);
+                await logger.error('Error parsing regenerated flashcards:', { error: e });
                 return JSON.stringify({ flashcards: [] }); // Return empty flashcards array on error
             }
 
@@ -432,6 +457,7 @@ Respond ONLY with the JSON object, nothing else.
             selectedWords = [],
             feedback = ''
         ) => {
+            await logger.info('Generating words:', { model, mainCode, flashcards, regenerate });
             const embeddings = new OllamaEmbeddings({
                 model
             });
@@ -541,9 +567,14 @@ Reference context, selected by user show the context of ${mainCode}.
 Return only the JSON object and ensure it is correctly formatted.
 `;
 
+            await logger.info('Invoking chain for words generation.');
+            const timer = createTimer();
             const results = await ragChain.invoke({
                 input
             });
+            await logger.time('Words generated', { time: timer.end() });
+
+            await logger.info('Words generated:', { results });
 
             const wordsMatch = results.answer.match(
                 /(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*"words"\s*:\s*\[(?<words>(?:\s*".*?"\s*,?)*?)\s*\}|\[\s*(?<standalone>(?:\s*".*?"\s*,?)*?)\s*\])(?:\n```)?/
@@ -577,6 +608,7 @@ Return only the JSON object and ensure it is correctly formatted.
                 parsedWords = JSON.parse(rawEntries);
             } catch (e) {
                 console.error('Error parsing words entries:', e);
+                await logger.error('Error parsing words entries:', { error: e });
                 return JSON.stringify({ words: [] }); // Return empty words array on error
             }
 
@@ -611,6 +643,7 @@ Return only the JSON object and ensure it is correctly formatted.
                 dbPath
             );
 
+            await logger.info('Generating codes:', { model, mainCode, selectedPosts, dbPath });
             const llm1 = new Ollama({
                 model,
                 numCtx: 16384,
@@ -655,10 +688,13 @@ Return only the JSON object and ensure it is correctly formatted.
 
             const finalResults = [];
 
+            const totalTimer = createTimer();
             for (const postId of selectedPosts) {
+                await logger.info('Generating codes for post:', { postId });
                 console.log('post', postId);
+                const timer = createTimer();
 
-                const db = initDatabase(dbPath);
+                const db = await initDatabase(dbPath);
                 const postData = await getPostById(
                     db,
                     postId,
@@ -684,7 +720,13 @@ Return only the JSON object and ensure it is correctly formatted.
                     new HumanMessage(generationPrompt1)
                 ]);
                 const chain1 = promptGenerator1.pipe(llm1);
+                await logger.info('Invoking chain 1 for code generation.', { postId });
+                timer.reset();
                 const results1 = await chain1.invoke();
+                await logger.time('Generating codes for post from LLM 1', {
+                    postId,
+                    time: timer.end()
+                });
 
                 console.log('results 1', results1);
 
@@ -696,7 +738,13 @@ Return only the JSON object and ensure it is correctly formatted.
                 ]);
 
                 const chain2 = promptGenerator2.pipe(llm2);
+                await logger.info('Invoking chain 2 for code generation.', { postId });
+                timer.reset();
                 const results2 = await chain2.invoke();
+                await logger.time('Generating codes for post from LLM 2', {
+                    postId,
+                    time: timer.end()
+                });
 
                 console.log('results 2', results2);
 
@@ -712,7 +760,13 @@ Return only the JSON object and ensure it is correctly formatted.
                 ]);
 
                 const chain3 = promptValidator.pipe(judgeLlm);
+                await logger.info('Invoking chain 3 for code validation.', { postId });
+                timer.reset();
                 const results3 = await chain3.invoke();
+                await logger.time('Validating codes for post from LLM Judge', {
+                    postId,
+                    time: timer.end()
+                });
 
                 console.log('results 3', results3);
 
@@ -738,6 +792,7 @@ Return only the JSON object and ensure it is correctly formatted.
                         }
                     } catch (error) {
                         console.error('Error parsing JSON:', error);
+                        await logger.error('Error parsing JSON in coding:', { error, postId });
                         console.log(
                             JSON.stringify({ unified_codebook: [], recoded_transcript: [] })
                         );
@@ -751,7 +806,7 @@ Return only the JSON object and ensure it is correctly formatted.
                     finalResults.push(result);
                 }
             }
-
+            await logger.time('Generating codes for all posts', { time: totalTimer.end() });
             return finalResults;
         }
     );
@@ -780,6 +835,12 @@ Return only the JSON object and ensure it is correctly formatted.
                 feedback
             );
 
+            await logger.info('Generating codes with feedback:', {
+                model,
+                mainCode,
+                selectedPosts,
+                dbPath
+            });
             const llm1 = new Ollama({
                 model,
                 numCtx: 16384,
@@ -824,10 +885,13 @@ Return only the JSON object and ensure it is correctly formatted.
 
             const finalResults = [];
 
+            const totalTimer = createTimer();
             for (const postId of selectedPosts) {
+                const timer = createTimer();
+                await logger.info('Generating codes with feedback for post:', { postId });
                 console.log('post', postId);
 
-                const db = initDatabase(dbPath);
+                const db = await initDatabase(dbPath);
                 const postData = await getPostById(
                     db,
                     postId,
@@ -859,7 +923,15 @@ Return only the JSON object and ensure it is correctly formatted.
                     new HumanMessage(generationPrompt1)
                 ]);
                 const chain1 = promptGenerator1.pipe(llm1);
+                await logger.info('Invoking chain 1 for code generation with feedback.', {
+                    postId
+                });
+                timer.reset();
                 const results1 = await chain1.invoke();
+                await logger.time('Regenerating codes for post from LLM 1', {
+                    postId,
+                    time: timer.end()
+                });
 
                 console.log('results 1', results1);
 
@@ -875,7 +947,15 @@ Return only the JSON object and ensure it is correctly formatted.
                 ]);
 
                 const chain2 = promptGenerator2.pipe(llm2);
+                await logger.info('Invoking chain 2 for code generation with feedback.', {
+                    postId
+                });
+                timer.reset();
                 const results2 = await chain2.invoke();
+                await logger.time('Regenerating codes for post from LLM 2', {
+                    postId,
+                    time: timer.end()
+                });
 
                 console.log('results 2', results2);
 
@@ -892,7 +972,15 @@ Return only the JSON object and ensure it is correctly formatted.
                 ]);
 
                 const chain3 = promptValidator.pipe(judgeLlm);
+                await logger.info('Invoking chain 3 for code validation with feedback.', {
+                    postId
+                });
+                timer.reset();
                 const results3 = await chain3.invoke();
+                await logger.time('Validating codes for post from LLM Judge', {
+                    postId,
+                    time: timer.end()
+                });
 
                 console.log('results 3', results3);
 
@@ -918,6 +1006,7 @@ Return only the JSON object and ensure it is correctly formatted.
                         }
                     } catch (error) {
                         console.error('Error parsing JSON:', error);
+                        await logger.error('Error parsing JSON in recoding:', { error, postId });
                         console.log(
                             JSON.stringify({ unified_codebook: [], recoded_transcript: [] })
                         );
@@ -931,6 +1020,9 @@ Return only the JSON object and ensure it is correctly formatted.
                     finalResults.push(result);
                 }
             }
+            await logger.time('Generating codes with feedback for all posts', {
+                time: totalTimer.end()
+            });
             return finalResults;
         }
     );

@@ -2,13 +2,16 @@ const { ipcMain, BrowserView } = require('electron');
 const puppeteer = require('puppeteer-core');
 const config = require('../utils/config');
 const { initDatabase, getCommentsRecursive, getPostById } = require('../utils/db_helpers');
+const logger = require('../utils/logger');
 
 const redditHandler = () => {
     ipcMain.handle('fetch-reddit-content', async (event, url) => {
         try {
+            await logger.info('Fetching Reddit content:', url);
             const content = await fetchRedditContent(url);
             return content;
         } catch (error) {
+            await logger.error('Error fetching Reddit content:', error);
             console.error('Error fetching Reddit content:', error);
             return { error: 'Failed to fetch content' };
         }
@@ -64,6 +67,7 @@ const redditHandler = () => {
         });
 
         // Load the URL
+        await logger.info('Loading Reddit content:', url);
         view.webContents.loadURL(url);
 
         if (text) {
@@ -133,7 +137,8 @@ const redditHandler = () => {
           })();
         `
                     )
-                    .catch((error) => {
+                    .catch(async (error) => {
+                        await logger.error('Error executing injected script:', error);
                         console.error('Error executing injected script:', error);
                     });
             });
@@ -149,6 +154,7 @@ const redditHandler = () => {
 
     ipcMain.handle('close-reddit-webview', async (event) => {
         if (config.browserView) {
+            await logger.info('Closing Reddit BrowserView');
             config.mainWindow.removeBrowserView(config.browserView);
             config.browserView = null;
         }
@@ -173,6 +179,7 @@ const redditHandler = () => {
 
         let link = '';
 
+        await logger.info('Getting link from post:', postId);
         console.log('Post Data:', postData, commentSlice);
 
         const normalizeText = (text) => text.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -185,6 +192,7 @@ const redditHandler = () => {
             normalizeText(postData.selftext).includes(normalizedCommentSlice)
         ) {
             console.log('Found in post:', postId);
+            await logger.info('Link found (post):', postId);
             link = linkCreator(postId, 'post', postId, postData.subreddit);
         } else {
             // Adjusted searchSlice function to return the commentId
@@ -234,8 +242,11 @@ const redditHandler = () => {
         console.log('Link:', link);
 
         if (link) {
+            await logger.info('Link found (Comment):-', link);
             return link;
         }
+
+        await logger.info('Link not found for:', postId);
         return linkCreator(postId, 'post', postId, postData.subreddit);
     });
 

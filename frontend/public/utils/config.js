@@ -12,11 +12,12 @@ let config = {
     isQuiting: true,
     mainWindow: null,
     // popupWindow: null,
-   get isDev() {
+    get isDev() {
         return getIsDev();
     },
     browserView: null,
-    backendServer: null
+    backendServer: null,
+    userEmail: 'Anonymous'
 };
 
 module.exports = config;

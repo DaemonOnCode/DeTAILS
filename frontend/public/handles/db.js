@@ -2,44 +2,76 @@ const { ipcMain } = require('electron');
 const { Worker } = require('worker_threads');
 const path = require('path');
 const { initDatabase, getAllPostIdsAndTitles, getPostById } = require('../utils/db_helpers');
+const logger = require('../utils/logger');
+const config = require('../utils/config');
 
 const dbHandler = () => {
-    ipcMain.handle('load-data', (event, folderPath, parsedData, dbPath) => {
-        console.log('Loading data into database:', folderPath, dbPath, 'here????');
+    ipcMain.handle('load-data', async (event, folderPath, parsedData, dbPath) => {
+        await logger.info('Loading data into database:', { folderPath, dbPath });
+        console.log('Loading data into database:', folderPath, dbPath);
 
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
+            await logger.info('Loading data into database worker:', { folderPath, dbPath });
             console.log('Loading data into database worker:', folderPath, dbPath);
             const workerPath = path.join(__dirname, '../workers/db_worker.js');
+            // In your main process
             const worker = new Worker(workerPath, {
-                workerData: { folderPath, parsedData, dbPath }
+                workerData: {
+                    folderPath,
+                    parsedData,
+                    dbPath,
+                    basePath: path.resolve(__dirname, '..'),
+                    loggerContext: {
+                        userEmail: config.userEmail
+                    }
+                },
+                stdout: true,
+                stderr: true
             });
 
-            console.log('Worker created:', workerPath);
+            worker.stdout.on('data', (data) => {
+                console.log(`[Worker] ${data}`);
+            });
 
-            worker.on('message', (message) => {
+            worker.stderr.on('data', (data) => {
+                console.error(`[Worker ERROR] ${data}`);
+            });
+
+            worker.on('message', async (message) => {
                 console.log('Message from worker:', message);
                 if (message.success) {
+                    await logger.info('Data loaded successfully:', { message });
                     console.log('Data loaded successfully:', message);
                     resolve(message);
                 } else {
+                    await logger.error('Error loading data:', { err: message.error });
                     console.error('Error loading data:', message.error);
                     reject(new Error(message.error));
                 }
             });
 
-            worker.on('error', (err) => {
+            worker.on('error', async (err) => {
+                await logger.error('Error in worker:', { err: err.message });
                 console.error('Error in worker:', err.message);
                 reject(err);
             });
 
-            worker.on('exit', (code) => {
+            worker.on('exit', async (code) => {
                 console.log('Worker exited:', code);
                 if (code !== 0) {
+                    await logger.error(`Worker stopped with exit code ${code}`);
                     reject(new Error(`Worker stopped with exit code ${code}`));
                 } else {
+                    await logger.info('Worker exited successfully.');
                     console.log('Worker exited successfully.');
                 }
             });
+
+            await logger.info('Worker created:', { workerPath });
+            console.log('Worker created:', workerPath);
+        }).catch((err) => {
+            console.error('Error in promise:', err.message);
+            return { success: false, error: err.message };
         });
     });
 
@@ -49,13 +81,15 @@ const dbHandler = () => {
 
     ipcMain.handle('get-post-ids-titles', async (event, dbPath) => {
         try {
-            const db = initDatabase(dbPath);
-
+            await logger.info('Getting post IDs and titles:', { dbPath });
+            const db = await initDatabase(dbPath);
             const result = await getAllPostIdsAndTitles(db);
             db.close();
-            console.log('Post IDs and titles:', result);
+            await logger.info('Post IDs and titles:', { result });
+            console.log('Post IDs and titles:', { result });
             return result;
         } catch (err) {
+            await logger.error('Error getting post IDs and titles:', { err });
             console.error('Error getting post IDs and titles:', err.message);
             return [];
         }
@@ -63,8 +97,9 @@ const dbHandler = () => {
 
     ipcMain.handle('get-post-by-id', async (event, postId, dbPath) => {
         try {
+            await logger.info('Getting post by ID:', { postId });
             console.log('Getting post by ID:', postId);
-            const db = initDatabase(dbPath);
+            const db = await initDatabase(dbPath);
             const result = await getPostById(
                 db,
                 postId,
@@ -73,9 +108,11 @@ const dbHandler = () => {
             );
 
             db.close();
+            await logger.info('Post by ID:', { result });
             console.log('Post by ID:', result);
             return result;
         } catch (err) {
+            await logger.error('Error getting post by ID:', { err });
             console.error('Error getting post by ID:', err.message);
             return [];
         }

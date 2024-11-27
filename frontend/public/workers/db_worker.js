@@ -1,22 +1,36 @@
+// worker.js
+
 const { parentPort, workerData } = require('worker_threads');
-const {
-    insertPostsBatch,
-    insertCommentsBatch,
-    createTables,
-    initDatabase
-} = require('../utils/db_helpers');
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
+
+const {
+    initDatabase,
+    createTables,
+    insertPostsBatch,
+    insertCommentsBatch
+} = require('../utils/db_helpers');
+
+const logger = require('../utils/logger');
+const { createTimer } = require('../utils/timer');
+
+const loggerContext = workerData?.loggerContext;
 
 // Process posts and comments using batch inserts
 const loadCommentsForPosts = async (folderPath, parsedData, db) => {
     try {
+        await logger.info('Starting to batch insert posts and comments...', {}, loggerContext);
         console.log('Starting to batch insert posts...');
+
         const posts = Object.entries(parsedData).map(([postId, post]) => ({ id: postId, ...post }));
         await insertPostsBatch(db, posts);
+
+        await logger.info('Posts batch inserted successfully.', {}, loggerContext);
         console.log('Posts batch inserted successfully.');
 
+        await logger.info('Processing files for comments...', {}, loggerContext);
         console.log('Processing files for comments...');
+
         const files = fs
             .readdirSync(folderPath)
             .filter(
@@ -31,41 +45,83 @@ const loadCommentsForPosts = async (folderPath, parsedData, db) => {
             const comments = JSON.parse(content).filter((item) => item.id); // Ensure items have an ID
 
             await insertCommentsBatch(db, comments);
+            await logger.info(`Batch inserted comments from file: ${file}`, {}, loggerContext);
             console.log(`Batch inserted comments from file: ${file}`);
         }
+
+        await logger.info('All comments batch inserted successfully.', {}, loggerContext);
         console.log('All comments batch inserted successfully.');
     } catch (err) {
+        await logger.error(
+            'Error during batch insert of posts and comments.',
+            { err },
+            loggerContext
+        );
         console.error(err);
         throw err;
     }
 };
 
-if (workerData) {
-    const db = initDatabase(workerData.dbPath);
+const main = async () => {
+    if (workerData) {
+        const timer = createTimer();
+        console.log('Worker data');
 
-    createTables(db)
-        .then(() => {
+        let db;
+        try {
+            db = await initDatabase(workerData.dbPath);
+            console.log('Database initialized.');
+
+            await createTables(db);
+            await logger.info('Tables created or already exist.', {}, loggerContext);
             console.log('Tables created or already exist.');
-            return loadCommentsForPosts(workerData.folderPath, workerData.parsedData, db);
-        })
-        .then(() => {
+
+            await loadCommentsForPosts(workerData.folderPath, workerData.parsedData, db);
+
+            await logger.info('All data loaded successfully.', {}, loggerContext);
             console.log('All data loaded successfully.');
+        } catch (err) {
+            await logger.error('Error during data load.', { err }, loggerContext);
+            console.error(`Error: ${err.message}`);
+            parentPort.postMessage({ success: false, error: err.message });
+            if (db) {
+                db.close();
+            }
+            return;
+        }
+
+        try {
             db.close((err) => {
                 if (err) {
+                    logger
+                        .error(`Failed to close database: ${err.message}`, { err }, loggerContext)
+                        .catch(console.error);
                     console.error(`Failed to close database: ${err.message}`);
                     parentPort.postMessage({
                         success: false,
                         error: `Failed to close database: ${err.message}`
                     });
                 } else {
+                    logger.info('Database closed.', {}, loggerContext).catch(console.error);
                     console.log('Database closed.');
-                    parentPort.postMessage({ success: true, message: 'Data loaded successfully.' });
+                    parentPort.postMessage({
+                        success: true,
+                        message: 'Data loaded successfully.'
+                    });
                 }
             });
-        })
-        .catch((err) => {
-            db.close();
-            console.error(`Error: ${err.message}`);
+        } catch (err) {
+            await logger.error('Error closing database.', { err }, loggerContext);
+            console.error(`Error closing database: ${err.message}`);
             parentPort.postMessage({ success: false, error: err.message });
-        });
-}
+        }
+
+        await logger.time(`Worker processing all data`, { time: timer.end() }, loggerContext);
+    }
+};
+
+// Run the main function
+main().catch((err) => {
+    console.error(`Unhandled error: ${err.message}`);
+    parentPort.postMessage({ success: false, error: err.message });
+});
