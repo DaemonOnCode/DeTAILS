@@ -158,9 +158,11 @@ let config;
 //     console.log('Error loading config: ', e);
 // }
 
+const LOGGING = false;
+
 const LOGGING_SERVER_URL = 'http://localhost:9000/api/log';
 // Define log levels
-const LOG_LEVELS = ['info', 'warning', 'error', 'debug'];
+const LOG_LEVELS = ['info', 'warning', 'error', 'debug', 'health', 'time'];
 
 const sendLog = async (level, message, context, loggerContext) => {
     if (!LOG_LEVELS.includes(level)) {
@@ -187,6 +189,10 @@ const sendLog = async (level, message, context, loggerContext) => {
     };
 
     try {
+        console.log(`[${level.toUpperCase()}]: ${message}`);
+        if (!LOGGING) {
+            return;
+        }
         const response = await fetch(LOGGING_SERVER_URL, {
             method: 'POST',
             body: JSON.stringify(logEntry),
@@ -195,7 +201,6 @@ const sendLog = async (level, message, context, loggerContext) => {
         if (!response.ok) {
             throw new Error(`Failed to send log: ${response.statusText}`);
         }
-        console.log(`[${level.toUpperCase()}]: ${message}`);
     } catch (error) {
         console.error(`Failed to send log to server: ${error.message}`);
     }

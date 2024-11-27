@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, FC, useState } from 'react';
-import { LOGGING_API_URL } from '../constants/Shared';
+import { LOGGING, LOGGING_API_URL } from '../constants/Shared';
 import { ILayout } from '../types/Coding/shared';
 
 // Define the Logger type
@@ -34,6 +34,8 @@ export const LoggingProvider: FC<ILayout> = ({ children }) => {
     const logger = useMemo<Logger>(() => {
         const log = async (level: string, message: string, context: Record<string, any> = {}) => {
             try {
+                console.log(`[${level.toUpperCase()}]: ${message}`);
+                if (!LOGGING) return;
                 await fetch(LOGGING_API_URL, {
                     method: 'POST',
                     headers: {
@@ -48,7 +50,6 @@ export const LoggingProvider: FC<ILayout> = ({ children }) => {
                         timestamp: new Date().toISOString()
                     })
                 });
-                console.log(`[${level.toUpperCase()}]: ${message}`);
             } catch (error) {
                 console.error('Failed to send log:', error);
             }

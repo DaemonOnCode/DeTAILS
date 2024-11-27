@@ -17,3 +17,5 @@ export enum MODEL_LIST {
     LLAMA_3 = 'llama3',
     NU_EXTRACT_1_5 = 'hf.co/DevQuasar/numind.NuExtract-v1.5-GGUF:Q4_K_M'
 }
+
+export const LOGGING = false;
