@@ -1,24 +1,24 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Literal, Optional, List
 from datetime import datetime
 
 class LogCreate(BaseModel):
+    sender: Literal["ELECTRON", "REACT"]
     email: str
     level: str
     message: str
-    cpu_usage: Optional[float] = None
-    ram_usage: Optional[float] = None
+    timestamp: datetime
     context: Optional[dict] = None
 
 class LogResponse(BaseModel):
     id: int
+    sender: Literal["ELECTRON", "REACT"]
     email: str
     level: str
     message: str
-    cpu_usage: Optional[float] = None
-    ram_usage: Optional[float] = None
     context: Optional[dict] = None
     timestamp: datetime
+    current_timestamp: datetime
 
     class Config:
         from_attributes = True

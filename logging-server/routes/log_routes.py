@@ -14,13 +14,16 @@ def create_log(log: LogCreate, db: Session = Depends(get_db)):
     """
     Save log messages to the database.
     """
+    print(log)
+
     db_log = Log(
         email=log.email,
         level=log.level.upper(),
         message=log.message,
-        cpu_usage=log.cpu_usage,
-        ram_usage=log.ram_usage,
         context=log.context,
+        timestamp=log.timestamp,
+        sender=log.sender,
+        current_timestamp=datetime.now()
     )
     db.add(db_log)
     db.commit()
