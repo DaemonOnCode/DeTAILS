@@ -9,3 +9,4 @@ ollama-*
 .vscode
 *.db
 **/chroma_data
+**/.env
