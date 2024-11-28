@@ -4,6 +4,8 @@ import { protectRoutes } from '../utility/protect_routes';
 import { ROUTES } from '../constants/Shared';
 import { SharedRouter } from './shared_router';
 import { CodingRouter } from './coding_router';
+import { DataCollectionRouter } from './data_collection_router';
+import { DataModelingRouter } from './data_modeling_router';
 
 export const AppRoutes: RouteObject[] = [
     {
@@ -13,16 +15,16 @@ export const AppRoutes: RouteObject[] = [
     {
         children: protectRoutes([
             {
-                path: ROUTES.DATA_SOURCES,
-                element: <div>Data Sources</div>
+                path: ROUTES.DATA_COLLECTION,
+                children: DataCollectionRouter
             },
             {
                 path: ROUTES.CLEANING,
                 element: <div>Cleaning</div>
             },
             {
-                path: ROUTES.MODELLING,
-                element: <div>Modelling</div>
+                path: ROUTES.DATA_MODELING,
+                children: DataModelingRouter
             },
             {
                 path: ROUTES.CODING,

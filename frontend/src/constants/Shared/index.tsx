@@ -5,9 +5,9 @@ export enum ROUTES {
     LANDING = '',
     UNAUTHORIZED = 'unauthorized',
     CODING = 'coding',
-    DATA_SOURCES = 'data-sources',
+    DATA_COLLECTION = 'data-collection',
     CLEANING = 'cleaning',
-    MODELLING = 'modelling'
+    DATA_MODELING = 'modeling'
 }
 
 export const LOGGING_API_URL = 'http://localhost:9000/api/log';

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth_context';
 import { useLogger } from '../../context/logging_context';
+import { ROUTES as DATA_COLLECTION_ROUTES } from '../../constants/DataCollection/shared';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -22,7 +23,7 @@ const LoginPage = () => {
 
             login(user, token);
 
-            navigate('/' + ROUTES.DATA_SOURCES);
+            navigate(`/${ROUTES.DATA_COLLECTION}/${DATA_COLLECTION_ROUTES.HOME}`);
         } catch (error) {
             await logger.error('Google OAuth Login Failed', { error });
             console.error('Google Sign-In Failed:', error);

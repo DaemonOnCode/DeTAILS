@@ -274,6 +274,10 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
         });
     }, [codeResponses]);
 
+    useEffect(() => {
+        console.log('In dc', currentMode, modeInput);
+    }, [currentMode, modeInput]);
+
     const value = useMemo(
         () => ({
             currentMode,

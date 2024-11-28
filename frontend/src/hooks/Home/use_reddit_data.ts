@@ -1,6 +1,6 @@
 import { useState, useContext, useCallback } from 'react';
 import { DataContext } from '../../context/data_context';
-import { FullRedditData, RedditComments, RedditPosts } from '../../types/Coding/shared';
+import { RedditPosts } from '../../types/Coding/shared';
 import { DB_PATH } from '../../constants/Coding/shared';
 
 const { ipcRenderer } = window.require('electron');
