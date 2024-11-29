@@ -23,7 +23,7 @@ const loadCommentsForPosts = async (folderPath, parsedData, db) => {
         console.log('Starting to batch insert posts...');
 
         const posts = Object.entries(parsedData).map(([postId, post]) => ({ id: postId, ...post }));
-        await insertPostsBatch(db, posts);
+        await insertPostsBatch(db, posts, loggerContext);
 
         await logger.info('Posts batch inserted successfully.', {}, loggerContext);
         console.log('Posts batch inserted successfully.');
@@ -44,7 +44,7 @@ const loadCommentsForPosts = async (folderPath, parsedData, db) => {
             const content = fs.readFileSync(filePath, 'utf-8');
             const comments = JSON.parse(content).filter((item) => item.id); // Ensure items have an ID
 
-            await insertCommentsBatch(db, comments);
+            await insertCommentsBatch(db, comments, loggerContext);
             await logger.info(`Batch inserted comments from file: ${file}`, {}, loggerContext);
             console.log(`Batch inserted comments from file: ${file}`);
         }
@@ -69,10 +69,10 @@ const main = async () => {
 
         let db;
         try {
-            db = await initDatabase(workerData.dbPath);
+            db = await initDatabase(workerData.dbPath, loggerContext);
             console.log('Database initialized.');
 
-            await createTables(db);
+            await createTables(db, loggerContext);
             await logger.info('Tables created or already exist.', {}, loggerContext);
             console.log('Tables created or already exist.');
 
