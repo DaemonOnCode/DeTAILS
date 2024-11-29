@@ -184,19 +184,23 @@ func (c *Context) Model() *Model {
 }
 
 func (c *Context) KvCacheSeqAdd(seqId int, p0 int, p1 int, delta int) {
+	fmt.Println("KvCacheSeqAdd", seqId, p0, p1, delta)
 	C.llama_kv_cache_seq_add(c.c, C.int(seqId), C.int(p0), C.int(p1), C.int(delta))
 }
 
 func (c *Context) KvCacheSeqRm(seqId int, p0 int, p1 int) bool {
+	fmt.Println("KvCacheSeqRm", seqId, p0, p1)
 	return bool(C.llama_kv_cache_seq_rm(c.c, C.int(seqId), C.int(p0), C.int(p1)))
 }
 
 func (c *Context) KvCacheSeqCp(srcSeqId int, dstSeqId int, p0 int, p1 int) {
+	fmt.Println("KvCacheSeqCp", srcSeqId, dstSeqId, p0, p1)
 	C.llama_kv_cache_seq_cp(c.c, C.int(srcSeqId), C.int(dstSeqId), C.int(p0), C.int(p1))
 }
 
 // Get the embeddings for a sequence id
 func (c *Context) GetEmbeddingsSeq(seqId int) []float32 {
+	fmt.Println("Get embeddings seq", seqId)
 	embeddings := unsafe.Pointer(C.llama_get_embeddings_seq(c.c, C.int(seqId)))
 	if embeddings == nil {
 		return nil
@@ -206,7 +210,9 @@ func (c *Context) GetEmbeddingsSeq(seqId int) []float32 {
 }
 
 func (c *Context) GetEmbeddingsIth(i int) []float32 {
+	fmt.Println("Get embeddings ith", i)
 	embeddings := unsafe.Pointer(C.llama_get_embeddings_ith(c.c, C.int32_t(i)))
+	fmt.Println("Embeddings in llama go", embeddings)
 	if embeddings == nil {
 		return nil
 	}
@@ -233,6 +239,10 @@ func llamaProgressCallback(progress C.float, userData unsafe.Pointer) C.bool {
 }
 
 func LoadModelFromFile(modelPath string, params ModelParams) (*Model, error) {
+	fmt.Println("Loading model from file:", modelPath)
+	fmt.Println("Params:", params)
+
+
 	cparams := C.llama_model_default_params()
 	cparams.n_gpu_layers = C.int(params.NumGpuLayers)
 	cparams.main_gpu = C.int32_t(params.MainGpu)
@@ -262,13 +272,72 @@ func LoadModelFromFile(modelPath string, params ModelParams) (*Model, error) {
 		cparams.progress_callback_user_data = unsafe.Pointer(&handle)
 	}
 
+
+	fmt.Println("C params", cparams)
+
 	m := Model{c: C.llama_load_model_from_file(C.CString(modelPath), cparams)}
+
+	fmt.Println("Model loaded", m.c)
+
+	vocab := C.llama_get_all_vocab(&m)
+
+	fmt.Println("Vocab", vocab)
+
 	if m.c == nil {
 		return nil, fmt.Errorf("unable to load model: %s", modelPath)
 	}
 
 	return &m, nil
 }
+
+
+// func LoadModelFromFileNew(modelPath string, params ModelParams) (*Model, error) {
+// 	fmt.Println("Loading model from file:", modelPath)
+// 	fmt.Println("Params:", params)
+
+
+// 	cparams := C.llama_model_default_params()
+// 	cparams.n_gpu_layers = C.int(params.NumGpuLayers)
+// 	cparams.main_gpu = C.int32_t(params.MainGpu)
+// 	cparams.use_mmap = C.bool(params.UseMmap)
+// 	cparams.use_mlock = C.bool(params.UseMlock)
+// 	cparams.vocab_only = C.bool(params.VocabOnly)
+
+// 	if len(params.TensorSplit) > 0 {
+// 		tensorSplitData := &params.TensorSplit[0]
+
+// 		var tensorSplitPin runtime.Pinner
+// 		tensorSplitPin.Pin(tensorSplitData)
+// 		defer tensorSplitPin.Unpin()
+
+// 		cparams.tensor_split = (*C.float)(unsafe.Pointer(tensorSplitData))
+// 	}
+
+// 	if params.Progress != nil {
+// 		handle := cgo.NewHandle(params.Progress)
+// 		defer handle.Delete()
+
+// 		var handlePin runtime.Pinner
+// 		handlePin.Pin(&handle)
+// 		defer handlePin.Unpin()
+
+// 		cparams.progress_callback = C.llama_progress_callback(C.llamaProgressCallback)
+// 		cparams.progress_callback_user_data = unsafe.Pointer(&handle)
+// 	}
+
+
+// 	fmt.Println("C params", cparams)
+
+// 	m := Model{c: C.llama_load_model_from_file(C.CString(modelPath), cparams)}
+
+// 	fmt.Println("Model loaded", m.c)
+
+// 	if m.c == nil {
+// 		return nil, fmt.Errorf("unable to load model: %s", modelPath)
+// 	}
+
+// 	return &m, nil
+// }
 
 func FreeModel(model *Model) {
 	C.llama_free_model(model.c)
@@ -287,18 +356,23 @@ func NewContextWithModel(model *Model, params ContextParams) (*Context, error) {
 }
 
 func (m *Model) NumVocab() int {
+	fmt.Println("NumVocab")
 	return int(C.llama_n_vocab(m.c))
 }
 
 func (m *Model) TokenIsEog(token int) bool {
+	fmt.Println("TokenIsEog")
 	return bool(C.llama_token_is_eog(m.c, C.llama_token(token)))
 }
 
 func (m *Model) AddBOSToken() bool {
+
+	fmt.Println("AddBOSToken")
 	return bool(C.llama_add_bos_token(m.c))
 }
 
 func (m *Model) ApplyLoraFromFile(context *Context, loraPath string, scale float32, threads int) error {
+	fmt.Println("ApplyLoraFromFile")
 	cLoraPath := C.CString(loraPath)
 	defer C.free(unsafe.Pointer(cLoraPath))
 
@@ -329,6 +403,7 @@ type Batch struct {
 // Batches cannot contain both types at the same time. batchSize is the maximum number of entries
 // that can be added per sequence
 func NewBatch(batchSize int, maxSeq int, embedSize int) (*Batch, error) {
+	fmt.Println("NewBatch", batchSize, maxSeq, embedSize)
 	b := Batch{
 		c:         C.llama_batch_init(C.int(batchSize*maxSeq), C.int(embedSize), C.int(maxSeq)),
 		batchSize: batchSize,
@@ -370,6 +445,7 @@ func (b *Batch) IsEmbedding() bool {
 // batch with the given position for the given sequence ids, and optionally instructs
 // to include logits.
 func (b *Batch) Add(token int, embed []float32, pos int, logits bool, seqIds ...int) {
+	fmt.Println("Adding to batch", token, embed, pos, logits, seqIds)
 	if !b.IsEmbedding() {
 		unsafe.Slice(b.c.token, b.allocSize())[b.c.n_tokens] = C.llama_token(token)
 	} else {
@@ -403,6 +479,7 @@ type Model struct {
 }
 
 func (m *Model) TokenToPiece(token int) string {
+	fmt.Println("TokenToPiece")
 	tokenLen := 12
 	buf := make([]byte, tokenLen)
 	tokenLen = int(C.llama_token_to_piece(
@@ -435,6 +512,8 @@ func (m *Model) Tokenize(text string, addSpecial bool, parseSpecial bool) ([]int
 	cText := C.CString(text)
 	defer C.free(unsafe.Pointer(cText))
 
+	fmt.Println("Tokenizing??", text, addSpecial, parseSpecial)
+
 	result := C.llama_tokenize(
 		m.c,
 		cText,
@@ -444,6 +523,8 @@ func (m *Model) Tokenize(text string, addSpecial bool, parseSpecial bool) ([]int
 		C.bool(addSpecial),
 		C.bool(parseSpecial),
 	)
+
+	fmt.Println("Result", result)
 
 	// if the result is negative, reallocate and retry with the correct buffer size
 	if result < 0 {
@@ -472,10 +553,12 @@ func (m *Model) Tokenize(text string, addSpecial bool, parseSpecial bool) ([]int
 }
 
 func (m *Model) NEmbd() int {
+	fmt.Println("NEmbd")
 	return int(C.llama_n_embd(m.c))
 }
 
 func Quantize(infile, outfile string, ftype uint32) error {
+	fmt.Println("Quantize")
 	cinfile := C.CString(infile)
 	defer C.free(unsafe.Pointer(cinfile))
 
@@ -630,6 +713,7 @@ type SamplingParams struct {
 }
 
 func NewSamplingContext(model *Model, params SamplingParams) (*SamplingContext, error) {
+	fmt.Println("NewSamplingContext")
 	var cparams C.struct_gpt_sampler_cparams
 	cparams.top_k = C.int32_t(params.TopK)
 	cparams.top_p = C.float(params.TopP)
@@ -666,9 +750,11 @@ func (s *SamplingContext) Reset() {
 }
 
 func (s *SamplingContext) Sample(llamaContext *Context, idx int) int {
+	fmt.Println("Sampling", idx)
 	return int(C.gpt_sampler_csample(s.c, llamaContext.c, C.int(idx)))
 }
 
 func (s *SamplingContext) Accept(id int, applyGrammar bool) {
+	fmt.Println("Accepting", id, applyGrammar)
 	C.gpt_sampler_caccept(s.c, C.llama_token(id), C.bool(applyGrammar))
 }

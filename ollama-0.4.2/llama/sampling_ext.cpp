@@ -5,7 +5,9 @@
 struct gpt_sampler *gpt_sampler_cinit(
     const struct llama_model *model, struct gpt_sampler_cparams *params)
 {
-    try {
+    try
+    {
+        logMessage("gpt_sampler_cinit");
         gpt_sampler_params sparams;
         sparams.top_k = params->top_k;
         sparams.top_p = params->top_p;
@@ -24,7 +26,9 @@ struct gpt_sampler *gpt_sampler_cinit(
         sparams.seed = params->seed;
         sparams.grammar = params->grammar;
         return gpt_sampler_init(model, sparams);
-    } catch (const std::exception & err) {
+    }
+    catch (const std::exception &err)
+    {
         return nullptr;
     }
 }

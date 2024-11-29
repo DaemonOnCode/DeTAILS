@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"syscall"
@@ -25,6 +26,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
+	"gonum.org/v1/gonum/mat"
 
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/build"
@@ -348,10 +350,215 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 	streamResponse(c, ch)
 }
 
+
+func saveEmbeddingsToFile(path string, cache map[string][]float32) error {
+    file, err := os.Create(path)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+
+    encoder := json.NewEncoder(file)
+    return encoder.Encode(cache)
+}
+
+func loadEmbeddingsFromFile(path string) (map[string][]float32, error) {
+    file, err := os.Open(path)
+    if err != nil {
+        return nil, err
+    }
+    defer file.Close()
+
+    var cache map[string][]float32
+    decoder := json.NewDecoder(file)
+    err = decoder.Decode(&cache)
+    return cache, err
+}
+
+
+func (s *Server) FastEmbedHandler(c *gin.Context) {
+    checkpointStart := time.Now()
+    var req api.EmbedRequest
+    err := c.ShouldBindJSON(&req)
+    if err != nil {
+        if errors.Is(err, io.EOF) {
+            c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
+        } else {
+            c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        }
+        return
+    }
+
+    truncate := req.Truncate == nil || *req.Truncate
+    var input []string
+
+    switch i := req.Input.(type) {
+    case string:
+        if len(i) > 0 {
+            input = append(input, i)
+        }
+    case []any:
+        for _, v := range i {
+            if str, ok := v.(string); ok {
+                input = append(input, str)
+            } else {
+                c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid input type"})
+                return
+            }
+        }
+    default:
+        if req.Input != nil {
+            c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid input type"})
+            return
+        }
+    }
+
+    if len(input) == 0 {
+        c.JSON(http.StatusOK, api.EmbedResponse{Model: req.Model, Embeddings: [][]float32{}})
+        return
+    }
+
+    r, m, opts, err := s.scheduleRunner(c.Request.Context(), req.Model, []Capability{}, req.Options, req.KeepAlive)
+    if err != nil {
+        handleScheduleError(c, req.Model, err)
+        return
+    }
+
+    checkpointLoaded := time.Now()
+
+    kvData, err := getKVData(m.ModelPath, false)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    var count int
+
+    for i, s := range input {
+        tokens, err := r.Tokenize(c.Request.Context(), s)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+
+        ctxLen := min(opts.NumCtx, int(kvData.ContextLength()))
+        if len(tokens) > ctxLen {
+            if !truncate {
+                c.JSON(http.StatusBadRequest, gin.H{"error": "input length exceeds maximum context length"})
+                return
+            }
+
+            tokens = tokens[:ctxLen]
+            s, err = r.Detokenize(c.Request.Context(), tokens)
+            if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+            }
+        }
+
+        count += len(tokens)
+        input[i] = s
+    }
+
+    var g errgroup.Group
+	embeddings := make([][]float32, len(input))
+	for i, text := range input {
+		g.Go(func() error {
+			fmt.Println("Embedding")
+			embedding, err := r.Embedding(c.Request.Context(), text)
+			// fmt.Println("embedding received?", embedding)
+			if err != nil {
+				return err
+			}
+			embeddings[i] = normalize(embedding)
+			return nil
+		})
+	}
+
+
+    // Apply PCA
+	embeddings = applyPCA(embeddings)
+
+    // Apply SIF weighting
+	embeddings = applySIF(embeddings, map[string]float32{})
+    resp := api.EmbedResponse{
+        Model:           req.Model,
+        Embeddings:      embeddings,
+        TotalDuration:   time.Since(checkpointStart),
+        LoadDuration:    checkpointLoaded.Sub(checkpointStart),
+        PromptEvalCount: count,
+    }
+
+    c.JSON(http.StatusOK, resp)
+}
+
+// Example for PCA Application
+func applyPCA(embeddings [][]float32, opts ...int) [][]float32 {
+	numComponents := 10
+	if len(opts) == 0 {
+		numComponents = opts[0]
+	}
+
+    // Flatten the embeddings into a 2D matrix for PCA
+    data := flattenFloat32Slice(embeddings)
+    rows := len(embeddings)
+    cols := len(embeddings[0])
+    matData := mat.NewDense(rows, cols, data)
+
+    var svd mat.SVD
+    if ok := svd.Factorize(matData, mat.SVDThin); !ok {
+        panic("SVD factorization failed")
+    }
+
+    var reduced mat.Dense
+    svd.VTo(&reduced)
+    reducedData := reduced.RawMatrix().Data[:rows*numComponents]
+    return reshapeFloat32Slice(reducedData, rows, numComponents)
+}
+
+// Example for SIF Application
+func applySIF(embeddings [][]float32, tokenProbs map[string]float32) [][]float32 {
+    weight := func(prob float32) float32 {
+        return 1e-3 / (1e-3 + prob)
+    }
+
+    for i, emb := range embeddings {
+        tokenWeight := weight(tokenProbs["<token-key>"]) // Replace with actual token logic
+        for j := range emb {
+            emb[j] *= tokenWeight
+        }
+        embeddings[i] = emb
+    }
+    return embeddings
+}
+
+// Utility functions for PCA matrix operations
+func flattenFloat32Slice(data [][]float32) []float64 {
+    var flat []float64
+    for _, row := range data {
+        for _, val := range row {
+            flat = append(flat, float64(val))
+        }
+    }
+    return flat
+}
+
+func reshapeFloat32Slice(data []float64, rows, cols int) [][]float32 {
+    reshaped := make([][]float32, rows)
+    for i := 0; i < rows; i++ {
+        reshaped[i] = make([]float32, cols)
+        for j := 0; j < cols; j++ {
+            reshaped[i][j] = float32(data[i*cols+j])
+        }
+    }
+    return reshaped
+}
+
 func (s *Server) EmbedHandler(c *gin.Context) {
 	checkpointStart := time.Now()
 	var req api.EmbedRequest
 	err := c.ShouldBindJSON(&req)
+	fmt.Println("req", req.Input)
 	switch {
 	case errors.Is(err, io.EOF):
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
@@ -389,6 +596,7 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 		}
 	}
 
+	fmt.Println("Scheduling runner")
 	r, m, opts, err := s.scheduleRunner(c.Request.Context(), req.Model, []Capability{}, req.Options, req.KeepAlive)
 	if err != nil {
 		handleScheduleError(c, req.Model, err)
@@ -403,14 +611,19 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 	}
 
 	kvData, err := getKVData(m.ModelPath, false)
+	fmt.Println("kvData", kvData)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	var count int
+
+	fmt.Println("input length", len(input))
+
 	for i, s := range input {
 		tokens, err := r.Tokenize(c.Request.Context(), s)
+		fmt.Println("tokens", tokens)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -424,6 +637,7 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 			}
 
 			tokens = tokens[:ctxLen]
+			fmt.Println("Detokenizing")
 			s, err = r.Detokenize(c.Request.Context(), tokens)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -440,7 +654,9 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 	embeddings := make([][]float32, len(input))
 	for i, text := range input {
 		g.Go(func() error {
+			fmt.Println("Embedding")
 			embedding, err := r.Embedding(c.Request.Context(), text)
+			// fmt.Println("embedding received?", embedding)
 			if err != nil {
 				return err
 			}
@@ -449,11 +665,15 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 		})
 	}
 
+	fmt.Println("Waiting for embeddings")
+
 	if err := g.Wait(); err != nil {
 		slog.Error("embedding generation failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Errorf("failed to generate embeddings: %v", err)})
 		return
 	}
+
+	// fmt.Println("Embeddings", embeddings)
 
 	resp := api.EmbedResponse{
 		Model:           req.Model,
@@ -880,12 +1100,27 @@ func getKVData(digest string, verbose bool) (llm.KV, error) {
 		return nil, err
 	}
 
+
+	fmt.Println("kvData", kvData)
+
 	kv := kvData.KV()
 
+	fmt.Println("kv", kv)
 	if !verbose {
 		for k := range kv {
 			if t, ok := kv[k].([]any); len(t) > 5 && ok {
 				kv[k] = []any{}
+			}
+		}
+	}
+
+	for k,v := range kv {
+		if strings.HasPrefix(k,"tokenizer") {
+			fmt.Println("k", k, "v", v, "type", reflect.TypeOf(v))
+			if reflect.TypeOf(v).String() == "*llm.array" {
+				vv := llm.ConvertToArray(v)
+				fmt.Println("v size", vv.Size)
+				fmt.Println("v data", vv.Values)
 			}
 		}
 	}
@@ -1149,6 +1384,7 @@ func (s *Server) GenerateRoutes() http.Handler {
 	r.POST("/api/generate", s.GenerateHandler)
 	r.POST("/api/chat", s.ChatHandler)
 	r.POST("/api/embed", s.EmbedHandler)
+	r.POST("/api/fast-embed", s.FastEmbedHandler)
 	r.POST("/api/embeddings", s.EmbeddingsHandler)
 	r.POST("/api/create", s.CreateHandler)
 	r.POST("/api/push", s.PushHandler)

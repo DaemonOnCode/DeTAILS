@@ -26,6 +26,24 @@ import (
 	"github.com/ollama/ollama/llama"
 )
 
+func LogToFile(message string) error {
+	// Open the file in append mode, create it if it doesn't exist, and set appropriate permissions
+	file, err := os.OpenFile("/Volumes/Crucial X9/abc/ollama-0.4.2/log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Create a new logger that writes to the file
+	logger := log.New(file, "", log.LstdFlags)
+	
+	// Write the log message
+	logger.Println(message)
+
+	return nil
+}
+
+
 // input is an element of the prompt to process, either
 // a token or an image embedding (generated from a vision projector)
 type input struct {
@@ -711,10 +729,14 @@ type EmbeddingResponse struct {
 
 func (s *Server) embeddings(w http.ResponseWriter, r *http.Request) {
 	var req EmbeddingRequest
+
+	LogToFile("embedding request in llama runner")
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, fmt.Sprintf("bad request: %s", err), http.StatusBadRequest)
 		return
 	}
+
+	LogToFile("embedding request in llama runner"+req.Content)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -733,10 +755,12 @@ func (s *Server) embeddings(w http.ResponseWriter, r *http.Request) {
 	}
 	defer s.seqsSem.Release(1)
 
+	LogToFile("Acquired semaphore")
 	s.mu.Lock()
 	for i, sq := range s.seqs {
 		if sq == nil {
 			seq.cache, seq.inputs, err = s.cache.LoadCacheSlot(seq.inputs, req.CachePrompt)
+			LogToFile("Loaded cache"+fmt.Sprintf("%v", seq.inputs))
 			if err != nil {
 				s.mu.Unlock()
 				http.Error(w, fmt.Sprintf("Failed to load cache: %v", err), http.StatusInternalServerError)
@@ -749,8 +773,11 @@ func (s *Server) embeddings(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 
+	LogToFile("Wait for embeddings in runner")
+
 	embedding := <-seq.embedding
 
+	LogToFile("Got embeddings in runner"+ fmt.Sprintf("%v", embedding))
 	if err := json.NewEncoder(w).Encode(&EmbeddingResponse{
 		Embedding: embedding,
 	}); err != nil {
@@ -924,7 +951,7 @@ func main() {
 	addr := "127.0.0.1:" + strconv.Itoa(*port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		fmt.Println("Listen error:", err)
+		slog.Info("Listen error:", err)
 		return
 	}
 	defer listener.Close()

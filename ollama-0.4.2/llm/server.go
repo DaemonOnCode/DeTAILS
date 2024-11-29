@@ -33,6 +33,23 @@ import (
 	"github.com/ollama/ollama/runners"
 )
 
+func LogToFile(message string) error {
+	// Open the file in append mode, create it if it doesn't exist, and set appropriate permissions
+	file, err := os.OpenFile("/Volumes/Crucial X9/abc/ollama-0.4.2/log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Create a new logger that writes to the file
+	logger := log.New(file, "", log.LstdFlags)
+	
+	// Write the log message
+	logger.Println(message)
+
+	return nil
+}
+
 type LlamaServer interface {
 	Ping(ctx context.Context) error
 	WaitUntilRunning(ctx context.Context) error
@@ -864,6 +881,8 @@ type EmbeddingResponse struct {
 }
 
 func (s *llmServer) Embedding(ctx context.Context, input string) ([]float32, error) {
+
+	LogToFile("In Embedding: "+input)
 	if err := s.sem.Acquire(ctx, 1); err != nil {
 		slog.Error("Failed to acquire semaphore", "error", err)
 		return nil, err
@@ -878,10 +897,14 @@ func (s *llmServer) Embedding(ctx context.Context, input string) ([]float32, err
 		return nil, fmt.Errorf("unexpected server status: %s", status.ToString())
 	}
 
+	LogToFile("Server is ready")
+
 	data, err := json.Marshal(EmbeddingRequest{Content: input})
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling embed data: %w", err)
 	}
+
+	LogToFile("Data is marshaled")
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://127.0.0.1:%d/embedding", s.port), bytes.NewBuffer(data))
 	if err != nil {
@@ -889,26 +912,36 @@ func (s *llmServer) Embedding(ctx context.Context, input string) ([]float32, err
 	}
 	r.Header.Set("Content-Type", "application/json")
 
+	LogToFile("Request is created for port "+fmt.Sprintf("%d", s.port))
+
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
 		return nil, fmt.Errorf("do embedding request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	LogToFile("Response is received")
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading embed response: %w", err)
 	}
+
+	LogToFile("Body is read"+string(body))
 
 	if resp.StatusCode >= 400 {
 		log.Printf("llm embedding error: %s", body)
 		return nil, fmt.Errorf("%s", body)
 	}
 
+	LogToFile("Status code is OK")
+
 	var e EmbeddingResponse
 	if err := json.Unmarshal(body, &e); err != nil {
 		return nil, fmt.Errorf("unmarshal tokenize response: %w", err)
 	}
+
+	LogToFile("Embedding is unmarshaled: "+fmt.Sprintf("%v", e.Embedding))
 
 	return e.Embedding, nil
 }

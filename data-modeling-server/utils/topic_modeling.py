@@ -56,6 +56,14 @@ def bert_topic_modeling(documents, num_topics):
 
 # LLM
 def llm_topic_modeling(documents, num_topics):
+    
+    # Data preprocessing / tokenization
+    # Text embedding generation
+    # Dimensionality reduction
+    # Clustering to identify topics
+    # Topic representation
+    # Visualization
+
     summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
     full_text = " ".join(documents)
     summary = summarizer(full_text, max_length=100, min_length=10, do_sample=False)

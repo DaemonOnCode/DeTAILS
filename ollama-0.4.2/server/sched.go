@@ -79,6 +79,8 @@ func InitScheduler(ctx context.Context) *Scheduler {
 
 // context must be canceled to decrement ref count and release the runner
 func (s *Scheduler) GetRunner(c context.Context, model *Model, opts api.Options, sessionDuration *api.Duration) (chan *runnerRef, chan error) {
+	fmt.Println("GetRunner")
+	
 	if opts.NumCtx < 4 {
 		opts.NumCtx = 4
 	}
@@ -97,6 +99,7 @@ func (s *Scheduler) GetRunner(c context.Context, model *Model, opts api.Options,
 	default:
 		req.errCh <- ErrMaxQueue
 	}
+	fmt.Println("GetRunner finished")
 	return req.successCh, req.errCh
 }
 

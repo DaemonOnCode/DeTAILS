@@ -16834,6 +16834,7 @@ static void ggml_compute_forward_map_custom2_f32(
         struct ggml_tensor * dst,
         const ggml_custom2_op_f32_t fun) {
 
+// fprintf(stderr, "%s: in ggml.c\n", __func__);
     const struct ggml_tensor * a = dst->src[0];
     const struct ggml_tensor * b = dst->src[1];
 
@@ -16851,6 +16852,7 @@ static void ggml_compute_forward_map_custom3_f32(
         struct ggml_tensor * dst,
         const ggml_custom3_op_f32_t fun) {
 
+// fprintf(stderr, "%s: in ggml.c\n", __func__);
     const struct ggml_tensor * a = dst->src[0];
     const struct ggml_tensor * b = dst->src[1];
     const struct ggml_tensor * c = dst->src[1];
@@ -16867,6 +16869,7 @@ static void ggml_compute_forward_map_custom3_f32(
 static void ggml_compute_forward_map_custom1(
         const struct ggml_compute_params * params,
               struct ggml_tensor * dst) {
+                // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     const struct ggml_tensor * a = dst->src[0];
 
@@ -16881,6 +16884,7 @@ static void ggml_compute_forward_map_custom1(
 static void ggml_compute_forward_map_custom2(
         const struct ggml_compute_params * params,
               struct ggml_tensor * dst) {
+                // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     const struct ggml_tensor * a = dst->src[0];
     const struct ggml_tensor * b = dst->src[1];
@@ -16896,6 +16900,7 @@ static void ggml_compute_forward_map_custom2(
 static void ggml_compute_forward_map_custom3(
         const struct ggml_compute_params * params,
               struct ggml_tensor * dst) {
+                // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     const struct ggml_tensor * a = dst->src[0];
     const struct ggml_tensor * b = dst->src[1];
@@ -16912,6 +16917,7 @@ static void ggml_compute_forward_map_custom3(
 static void ggml_compute_forward_cross_entropy_loss_f32(
         const struct ggml_compute_params * params,
         struct ggml_tensor * dst) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     const struct ggml_tensor * src0 = dst->src[0];
     const struct ggml_tensor * src1 = dst->src[1];
@@ -16988,6 +16994,7 @@ static void ggml_compute_forward_cross_entropy_loss_f32(
 static void ggml_compute_forward_cross_entropy_loss(
         const struct ggml_compute_params * params,
         struct ggml_tensor * dst) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     const struct ggml_tensor * src0 = dst->src[0];
 
@@ -17008,6 +17015,7 @@ static void ggml_compute_forward_cross_entropy_loss(
 static void ggml_compute_forward_cross_entropy_loss_back_f32(
         const struct ggml_compute_params * params,
         struct ggml_tensor * dst) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     const struct ggml_tensor * src0 = dst->src[0];
     const struct ggml_tensor * src1 = dst->src[1];
@@ -17071,6 +17079,7 @@ static void ggml_compute_forward_cross_entropy_loss_back_f32(
 static void ggml_compute_forward_cross_entropy_loss_back(
         const struct ggml_compute_params * params,
         struct ggml_tensor * dst) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     const struct ggml_tensor * src0 = dst->src[0];
 
@@ -17089,6 +17098,7 @@ static void ggml_compute_forward_cross_entropy_loss_back(
 static void ggml_compute_forward_opt_step_adamw_f32(
         const struct ggml_compute_params * params,
         struct ggml_tensor * dst) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     const struct ggml_tensor * src0        = dst->src[0];
     const struct ggml_tensor * src0_grad   = dst->src[1];
@@ -17177,6 +17187,7 @@ static void ggml_compute_forward_opt_step_adamw(
 /////////////////////////////////
 
 static void ggml_compute_forward(struct ggml_compute_params * params, struct ggml_tensor * tensor) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     GGML_ASSERT(params);
 
     if (tensor->op == GGML_OP_NONE || ggml_is_empty(tensor)) {
@@ -17560,6 +17571,7 @@ void ggml_hash_set_free(struct ggml_hash_set * hash_set) {
 }
 
 size_t ggml_hash_size(size_t min_sz) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     // next primes after powers of two
     static const size_t primes[] = {
         2, 3, 5, 11, 17, 37, 67, 131, 257, 521, 1031,
@@ -17610,6 +17622,7 @@ static struct ggml_tensor * ggml_recompute_graph_node(
         struct ggml_cgraph  * graph,
         struct hash_map     * replacements,
         struct ggml_tensor  * node) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     if (node == NULL) {
         return NULL;
@@ -17681,6 +17694,7 @@ void ggml_build_backward_gradient_checkpointing(
         struct ggml_cgraph    * gb_tmp,
         struct ggml_tensor  * * checkpoints,
         int                     n_checkpoints) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
     ggml_graph_cpy(gf, gb_tmp);
     ggml_build_backward_expand(ctx, gf, gb_tmp, false);
 
@@ -17807,6 +17821,7 @@ static struct ggml_tensor * ggml_sub_or_set(
 }
 
 static void ggml_compute_backward(struct ggml_context * ctx, struct ggml_tensor * tensor, struct ggml_hash_set * zero_table, struct ggml_hash_set * acc_table) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct ggml_tensor * src0 = tensor->src[0];
     struct ggml_tensor * src1 = tensor->src[1];
     struct ggml_tensor * src2 = tensor->src[2];
@@ -18704,6 +18719,7 @@ static void ggml_compute_backward(struct ggml_context * ctx, struct ggml_tensor 
 }
 
 static void ggml_visit_parents(struct ggml_cgraph * cgraph, struct ggml_tensor * node) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (node->grad == NULL) {
         // this usually happens when we generate intermediate nodes from constants in the backward pass
         // it can also happen during forward pass, if the user performs computations with constants
@@ -18750,6 +18766,7 @@ static void ggml_visit_parents(struct ggml_cgraph * cgraph, struct ggml_tensor *
 }
 
 static void ggml_build_forward_impl(struct ggml_cgraph * cgraph, struct ggml_tensor * tensor, bool expand) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (!expand) {
         // TODO: this branch isn't accessible anymore, maybe move this to ggml_build_forward_expand
         ggml_graph_clear(cgraph);
@@ -18773,6 +18790,7 @@ void ggml_build_forward_expand(struct ggml_cgraph * cgraph, struct ggml_tensor *
 }
 
 void ggml_build_backward_expand(struct ggml_context * ctx, struct ggml_cgraph * gf, struct ggml_cgraph * gb, bool accumulate) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     GGML_ASSERT(gf->n_nodes > 0);
     GGML_ASSERT(gf->grads);
 
@@ -18900,6 +18918,7 @@ static void * incr_ptr_aligned(void ** p, size_t size, size_t align) {
 }
 
 static size_t ggml_graph_nbytes(size_t size, bool grads) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     size_t hash_size = ggml_hash_size(size * 2);
     void * p = 0;
     incr_ptr_aligned(&p, sizeof(struct ggml_cgraph), 1);
@@ -18924,6 +18943,7 @@ size_t ggml_graph_overhead(void) {
 }
 
 struct ggml_cgraph * ggml_new_graph_custom(struct ggml_context * ctx, size_t size, bool grads) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const size_t obj_size = ggml_graph_nbytes(size, grads);
     struct ggml_object * obj = ggml_new_object(ctx, GGML_OBJECT_TYPE_GRAPH, obj_size);
     struct ggml_cgraph * cgraph = (struct ggml_cgraph *) ((char *) ctx->mem_buffer + obj->offs);
@@ -18978,6 +18998,7 @@ struct ggml_cgraph ggml_graph_view(struct ggml_cgraph * cgraph0, int i0, int i1)
 }
 
 void ggml_graph_cpy(struct ggml_cgraph * src, struct ggml_cgraph * dst) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     GGML_ASSERT(dst->size >= src->n_leafs);
     GGML_ASSERT(dst->size >= src->n_nodes);
     GGML_ASSERT(dst->visited_hash_set.size >= src->visited_hash_set.size);
@@ -19016,6 +19037,7 @@ struct ggml_cgraph * ggml_graph_dup(struct ggml_context * ctx, struct ggml_cgrap
 }
 
 void ggml_graph_reset(struct ggml_cgraph * cgraph) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     GGML_ASSERT(cgraph->grads != NULL);
 
     for (int i = 0; i < cgraph->n_nodes; i++) {
@@ -19154,6 +19176,7 @@ static void clear_numa_thread_affinity(void) {}
 #endif
 
 static int ggml_get_n_tasks(struct ggml_tensor * node, int n_threads) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     int n_tasks = 0;
 
     if (ggml_is_empty(node)) {
@@ -19438,6 +19461,7 @@ static bool ggml_thread_apply_affinity(const bool * mask) {
 }
 
 static bool ggml_thread_apply_priority(int32_t prio) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct sched_param p;
     int32_t policy = SCHED_OTHER;
     switch (prio) {
@@ -19539,6 +19563,7 @@ static bool ggml_thread_cpumask_is_valid(const bool * mask) {
 }
 
 static void ggml_thread_cpumask_next(const bool * global_mask, bool * local_mask, bool strict, int32_t* iter) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (!strict) {
         memcpy(local_mask, global_mask, GGML_MAX_N_THREADS);
         return;
@@ -19561,6 +19586,7 @@ static void ggml_thread_cpumask_next(const bool * global_mask, bool * local_mask
 }
 
 void ggml_threadpool_free(struct ggml_threadpool* threadpool) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (!threadpool) return;
 
 #ifndef GGML_USE_OPENMP
@@ -19633,6 +19659,7 @@ struct ggml_cplan ggml_graph_plan(
                                int   n_threads,
             struct ggml_threadpool * threadpool) {
 
+// fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (threadpool == NULL) {
         GGML_PRINT_DEBUG("Threadpool is not specified. Will create a disposable threadpool : n_threads %d\n", n_threads);
     }
@@ -19805,6 +19832,7 @@ struct ggml_cplan ggml_graph_plan(
 }
 
 static thread_ret_t ggml_graph_compute_thread(void * data) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct ggml_compute_state * state = (struct ggml_compute_state *) data;
     struct ggml_threadpool    * tp    = state->threadpool;
 
@@ -19849,6 +19877,7 @@ static inline bool ggml_graph_compute_thread_active(struct ggml_compute_state * 
 
 // check if thread is ready to proceed (exit from polling or sleeping)
 static inline bool ggml_graph_compute_thread_ready(struct ggml_compute_state * state) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct ggml_threadpool * threadpool = state->threadpool;
 
     if (state->pending || threadpool->stop || threadpool->pause) { return true; }
@@ -19875,6 +19904,7 @@ static inline void ggml_graph_compute_thread_sync(struct ggml_compute_state * st
 }
 
 static inline bool ggml_graph_compute_poll_for_work(struct ggml_compute_state * state) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct ggml_threadpool * threadpool = state->threadpool;
 
     // Skip polling for unused threads
@@ -19895,6 +19925,7 @@ static inline bool ggml_graph_compute_poll_for_work(struct ggml_compute_state * 
 }
 
 static inline bool ggml_graph_compute_check_for_work(struct ggml_compute_state * state) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct ggml_threadpool * threadpool = state->threadpool;
 
     if (ggml_graph_compute_poll_for_work(state)) {
@@ -19914,6 +19945,7 @@ static inline bool ggml_graph_compute_check_for_work(struct ggml_compute_state *
 }
 
 static thread_ret_t ggml_graph_compute_secondary_thread(void* data) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct ggml_compute_state * state = (struct ggml_compute_state *) data;
     struct ggml_threadpool * threadpool = state->threadpool;
 
@@ -19954,6 +19986,7 @@ static thread_ret_t ggml_graph_compute_secondary_thread(void* data) {
 // Start processing new graph
 static void ggml_graph_compute_kickoff(struct ggml_threadpool * threadpool, int n_threads)
 {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     // Always take the mutex here because the worker threads are doing hybrid poll/wait
 
     ggml_mutex_lock(&threadpool->mutex);
@@ -20012,6 +20045,7 @@ static struct ggml_threadpool * ggml_threadpool_new_impl(
     struct ggml_threadpool_params * tpp,
                struct ggml_cgraph * cgraph,
                 struct ggml_cplan * cplan) {
+                    // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     struct ggml_threadpool * threadpool =
         GGML_ALIGNED_MALLOC(sizeof(struct ggml_threadpool));
@@ -20080,6 +20114,7 @@ struct ggml_threadpool * ggml_threadpool_new(struct ggml_threadpool_params * tpp
 }
 
 enum ggml_status ggml_graph_compute(struct ggml_cgraph * cgraph, struct ggml_cplan * cplan) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     GGML_ASSERT(cplan);
     GGML_ASSERT(cplan->n_threads > 0);
     GGML_ASSERT(cplan->work_size == 0 || cplan->work_data != NULL);
@@ -20148,6 +20183,7 @@ enum ggml_status ggml_graph_compute(struct ggml_cgraph * cgraph, struct ggml_cpl
 }
 
 enum ggml_status ggml_graph_compute_with_ctx(struct ggml_context * ctx, struct ggml_cgraph * cgraph, int n_threads) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct ggml_cplan cplan = ggml_graph_plan(cgraph, n_threads, NULL);
 
     struct ggml_object * obj = ggml_new_object(ctx, GGML_OBJECT_TYPE_WORK_BUFFER, cplan.work_size);
@@ -20158,6 +20194,7 @@ enum ggml_status ggml_graph_compute_with_ctx(struct ggml_context * ctx, struct g
 }
 
 struct ggml_tensor * ggml_graph_get_tensor(struct ggml_cgraph * cgraph, const char * name) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     for (int i = 0; i < cgraph->n_leafs; i++) {
         struct ggml_tensor * leaf = cgraph->leafs[i];
 
@@ -20178,6 +20215,7 @@ struct ggml_tensor * ggml_graph_get_tensor(struct ggml_cgraph * cgraph, const ch
 }
 
 static void ggml_graph_export_leaf(const struct ggml_tensor * tensor, FILE * fout) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int64_t * ne = tensor->ne;
     const size_t  * nb = tensor->nb;
 
@@ -20192,6 +20230,7 @@ static void ggml_graph_export_leaf(const struct ggml_tensor * tensor, FILE * fou
 }
 
 static void ggml_graph_export_node(const struct ggml_tensor * tensor, const char * arg, FILE * fout) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int64_t * ne = tensor->ne;
     const size_t  * nb = tensor->nb;
 
@@ -20207,6 +20246,7 @@ static void ggml_graph_export_node(const struct ggml_tensor * tensor, const char
 }
 
 void ggml_graph_export(const struct ggml_cgraph * cgraph, const char * fname) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     uint64_t size_eval = 0;
 
     // compute size of intermediate results
@@ -20402,6 +20442,7 @@ void ggml_graph_export(const struct ggml_cgraph * cgraph, const char * fname) {
 }
 
 struct ggml_cgraph * ggml_graph_import(const char * fname, struct ggml_context ** ctx_data, struct ggml_context ** ctx_eval) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     assert(*ctx_data == NULL);
     assert(*ctx_eval == NULL);
 
@@ -20663,6 +20704,7 @@ struct ggml_cgraph * ggml_graph_import(const char * fname, struct ggml_context *
 }
 
 void ggml_graph_print(const struct ggml_cgraph * cgraph) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     GGML_PRINT("=== GRAPH ===\n");
 
     GGML_PRINT("n_nodes = %d\n", cgraph->n_nodes);
@@ -20691,6 +20733,7 @@ void ggml_graph_print(const struct ggml_cgraph * cgraph) {
 
 // check if node is part of the graph
 static bool ggml_graph_find(const struct ggml_cgraph * cgraph, const struct ggml_tensor * node) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (cgraph == NULL) {
         return true;
     }
@@ -20705,6 +20748,7 @@ static bool ggml_graph_find(const struct ggml_cgraph * cgraph, const struct ggml
 }
 
 static struct ggml_tensor * ggml_graph_get_parent(const struct ggml_cgraph * cgraph, const struct ggml_tensor * node) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     for (int i = 0; i < cgraph->n_nodes; i++) {
         struct ggml_tensor * parent = cgraph->nodes[i];
 
@@ -20737,6 +20781,7 @@ static void ggml_graph_dump_dot_leaf_edge(FILE * fp, struct ggml_tensor * node, 
 }
 
 void ggml_graph_dump_dot(const struct ggml_cgraph * gb, const struct ggml_cgraph * gf, const char * filename) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     char color[16];
 
     FILE * fp = ggml_fopen(filename, "w");
@@ -20863,6 +20908,7 @@ void ggml_graph_dump_dot(const struct ggml_cgraph * gb, const struct ggml_cgraph
 ////////////////////////////////////////////////////////////////////////////////
 
 static void ggml_opt_set_params(int np, struct ggml_tensor * const ps[], const float * x) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     int i = 0;
     for (int p = 0; p < np; ++p) {
         const int64_t ne = ggml_nelements(ps[p]) ;
@@ -20874,6 +20920,7 @@ static void ggml_opt_set_params(int np, struct ggml_tensor * const ps[], const f
 }
 
 static void ggml_opt_get_params(int np, struct ggml_tensor * const ps[], float * x) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     int i = 0;
     for (int p = 0; p < np; ++p) {
         const int64_t ne = ggml_nelements(ps[p]) ;
@@ -20885,6 +20932,7 @@ static void ggml_opt_get_params(int np, struct ggml_tensor * const ps[], float *
 }
 
 static void ggml_opt_get_grad(int np, struct ggml_tensor * const ps[], float * g) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     int64_t i = 0;
     for (int p = 0; p < np; ++p) {
         const int64_t ne = ggml_nelements(ps[p]) ;
@@ -20896,6 +20944,7 @@ static void ggml_opt_get_grad(int np, struct ggml_tensor * const ps[], float * g
 }
 
 static void ggml_opt_acc_grad(int np, struct ggml_tensor * const ps[], float * g, float scale) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     int64_t i = 0;
     for (int p = 0; p < np; ++p) {
         const int64_t ne = ggml_nelements(ps[p]) ;
@@ -20921,6 +20970,7 @@ static enum ggml_opt_result ggml_opt_adam(
         struct ggml_cgraph * gb,
         ggml_opt_callback callback,
         void * callback_data) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
     GGML_ASSERT(ggml_is_scalar(f));
     GGML_ASSERT(f->type == GGML_TYPE_F32);
 
@@ -21164,6 +21214,7 @@ static enum ggml_opt_result linesearch_backtracking(
         bool * cancel,
         ggml_opt_callback callback,
         void * callback_data) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
     int count = 0;
 
     float width  = 0.0f;
@@ -21280,6 +21331,7 @@ static enum ggml_opt_result ggml_opt_lbfgs(
         struct ggml_cgraph * gb,
         ggml_opt_callback callback,
         void * callback_data) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (params.lbfgs.linesearch == GGML_LINESEARCH_BACKTRACKING_WOLFE ||
         params.lbfgs.linesearch == GGML_LINESEARCH_BACKTRACKING_STRONG_WOLFE) {
         if (params.lbfgs.wolfe <= params.lbfgs.ftol || 1.f <= params.lbfgs.wolfe) {
@@ -21542,6 +21594,7 @@ static enum ggml_opt_result ggml_opt_lbfgs(
 }
 
 struct ggml_opt_params ggml_opt_default_params(enum ggml_opt_type type) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct ggml_opt_params result;
 
     switch (type) {
@@ -21617,6 +21670,7 @@ GGML_API void ggml_opt_init(
         struct ggml_opt_context * opt,
         struct ggml_opt_params params,
         int64_t nx) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
     opt->ctx = ctx;
     opt->params = params;
     opt->iter = 0;
@@ -21689,6 +21743,7 @@ enum ggml_opt_result ggml_opt(
         struct ggml_context * ctx,
         struct ggml_opt_params params,
         struct ggml_tensor * f) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
     bool free_ctx = false;
     if (ctx == NULL) {
         struct ggml_init_params params_ctx = {
@@ -21723,6 +21778,7 @@ enum ggml_opt_result ggml_opt_resume(
         struct ggml_context * ctx,
         struct ggml_opt_context * opt,
         struct ggml_tensor * f) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     // build forward + backward compute graphs
     struct ggml_cgraph * gf = ggml_new_graph_custom(ctx, opt->params.graph_size, true);
@@ -21742,6 +21798,7 @@ enum ggml_opt_result ggml_opt_resume_g(
         struct ggml_cgraph * gb,
         ggml_opt_callback callback,
         void * callback_data) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
 
     GGML_ASSERT(f->grad && "ggml_set_param must be called for at least one ancestor");
 
@@ -21840,6 +21897,7 @@ size_t ggml_quantize_chunk(
                int64_t   nrows,
                int64_t   n_per_row,
            const float * imatrix) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int64_t n = (int64_t) nrows * n_per_row;
 
     if (ggml_quantize_requires_imatrix(type)) {
@@ -22022,6 +22080,7 @@ static size_t gguf_type_size(enum gguf_type type) {
 }
 
 static void gguf_tensor_info_sanitize(struct gguf_tensor_info * info) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     GGML_ASSERT(info->n_dims <= GGML_MAX_DIMS);
     GGML_ASSERT(0 <= info->type && info->type < GGML_TYPE_COUNT);
 
@@ -22036,12 +22095,14 @@ static void gguf_tensor_info_sanitize(struct gguf_tensor_info * info) {
 }
 
 static bool gguf_fread_el(FILE * file, void * dst, size_t size, size_t * offset) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const size_t n = fread(dst, 1, size, file);
     *offset += n;
     return n == size;
 }
 
 static bool gguf_fread_str(FILE * file, struct gguf_str * p, size_t * offset) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     p->n    = 0;
     p->data = NULL;
 
@@ -22063,6 +22124,7 @@ static bool gguf_fread_str(FILE * file, struct gguf_str * p, size_t * offset) {
 }
 
 static void gguf_free_kv(struct gguf_kv * kv) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (kv->key.data) {
         GGML_FREE(kv->key.data);
     }
@@ -22089,6 +22151,7 @@ static void gguf_free_kv(struct gguf_kv * kv) {
 }
 
 struct gguf_context * gguf_init_empty(void) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct gguf_context * ctx = GGML_CALLOC(1, sizeof(struct gguf_context));
 
     memcpy(ctx->header.magic, GGUF_MAGIC, sizeof(ctx->header.magic));
@@ -22109,6 +22172,7 @@ struct gguf_context * gguf_init_empty(void) {
 }
 
 struct gguf_context * gguf_init_from_file(const char * fname, struct gguf_init_params params) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     FILE * file = ggml_fopen(fname, "rb");
     if (!file) {
         fprintf(stderr, "%s: failed to open '%s': '%s'\n", __func__, fname, strerror(errno));
@@ -22181,12 +22245,12 @@ struct gguf_context * gguf_init_from_file(const char * fname, struct gguf_init_p
         for (uint64_t i = 0; i < n_kv; ++i) {
             struct gguf_kv * kv = &ctx->kv[i];
 
-            //fprintf(stderr, "%s: reading kv %d\n", __func__, i);
+            fprintf(stderr, "%s: reading kv %d\n", __func__, i);
 
             ok = ok && gguf_fread_str(file, &kv->key,                    &offset);
             ok = ok && gguf_fread_el (file, &kv->type, sizeof(kv->type), &offset);
 
-            //fprintf(stderr, "%s: reading kv with key %s\n", __func__, kv->key.data);
+            fprintf(stderr, "%s: reading kv with key %s\n", __func__, kv->key.data);
 
             switch (kv->type) {
                 case GGUF_TYPE_UINT8:   ok = ok && gguf_fread_el (file, &kv->value.uint8,   sizeof(kv->value.uint8),   &offset); break;
@@ -22452,6 +22516,7 @@ struct gguf_context * gguf_init_from_file(const char * fname, struct gguf_init_p
 }
 
 void gguf_free(struct gguf_context * ctx) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (ctx == NULL) {
         return;
     }
@@ -22505,6 +22570,7 @@ int gguf_get_n_kv(const struct gguf_context * ctx) {
 }
 
 int gguf_find_key(const struct gguf_context * ctx, const char * key) {
+    fprintf(stderr, "%s: in ggml.c, %s\n", __func__, key);
     // return -1 if key not found
     int keyfound = -1;
 
@@ -22640,6 +22706,7 @@ int gguf_get_n_tensors(const struct gguf_context * ctx) {
 }
 
 int gguf_find_tensor(const struct gguf_context * ctx, const char * name) {
+    fprintf(stderr, "%s: in ggml.c, %s\n", __func__, name);
     // return -1 if tensor not found
     int tensorfound = -1;
 
@@ -22669,6 +22736,7 @@ enum ggml_type gguf_get_tensor_type(const struct gguf_context * ctx, int i) {
 
 // returns the index
 static int gguf_get_or_add_key(struct gguf_context * ctx, const char * key) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_find_key(ctx, key);
     if (idx >= 0) {
         return idx;
@@ -22685,6 +22753,7 @@ static int gguf_get_or_add_key(struct gguf_context * ctx, const char * key) {
 }
 
 void gguf_remove_key(struct gguf_context * ctx, const char * key) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_find_key(ctx, key);
     if (idx >= 0) {
         const int n_kv = gguf_get_n_kv(ctx);
@@ -22698,6 +22767,7 @@ void gguf_remove_key(struct gguf_context * ctx, const char * key) {
 }
 
 void gguf_set_val_u8(struct gguf_context * ctx, const char * key, uint8_t val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type        = GGUF_TYPE_UINT8;
@@ -22705,6 +22775,7 @@ void gguf_set_val_u8(struct gguf_context * ctx, const char * key, uint8_t val) {
 }
 
 void gguf_set_val_i8(struct gguf_context * ctx, const char * key, int8_t val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type       = GGUF_TYPE_INT8;
@@ -22712,6 +22783,7 @@ void gguf_set_val_i8(struct gguf_context * ctx, const char * key, int8_t val) {
 }
 
 void gguf_set_val_u16(struct gguf_context * ctx, const char * key, uint16_t val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type         = GGUF_TYPE_UINT16;
@@ -22719,6 +22791,7 @@ void gguf_set_val_u16(struct gguf_context * ctx, const char * key, uint16_t val)
 }
 
 void gguf_set_val_i16(struct gguf_context * ctx, const char * key, int16_t val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type        = GGUF_TYPE_INT16;
@@ -22726,6 +22799,7 @@ void gguf_set_val_i16(struct gguf_context * ctx, const char * key, int16_t val) 
 }
 
 void gguf_set_val_u32(struct gguf_context * ctx, const char * key, uint32_t val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type         = GGUF_TYPE_UINT32;
@@ -22733,6 +22807,7 @@ void gguf_set_val_u32(struct gguf_context * ctx, const char * key, uint32_t val)
 }
 
 void gguf_set_val_i32(struct gguf_context * ctx, const char * key, int32_t val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type        = GGUF_TYPE_INT32;
@@ -22740,6 +22815,7 @@ void gguf_set_val_i32(struct gguf_context * ctx, const char * key, int32_t val) 
 }
 
 void gguf_set_val_f32(struct gguf_context * ctx, const char * key, float val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type          = GGUF_TYPE_FLOAT32;
@@ -22747,6 +22823,7 @@ void gguf_set_val_f32(struct gguf_context * ctx, const char * key, float val) {
 }
 
 void gguf_set_val_u64(struct gguf_context * ctx, const char * key, uint64_t val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type         = GGUF_TYPE_UINT64;
@@ -22754,6 +22831,7 @@ void gguf_set_val_u64(struct gguf_context * ctx, const char * key, uint64_t val)
 }
 
 void gguf_set_val_i64(struct gguf_context * ctx, const char * key, int64_t val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type        = GGUF_TYPE_INT64;
@@ -22761,6 +22839,7 @@ void gguf_set_val_i64(struct gguf_context * ctx, const char * key, int64_t val) 
 }
 
 void gguf_set_val_f64(struct gguf_context * ctx, const char * key, double val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type          = GGUF_TYPE_FLOAT64;
@@ -22768,6 +22847,7 @@ void gguf_set_val_f64(struct gguf_context * ctx, const char * key, double val) {
 }
 
 void gguf_set_val_bool(struct gguf_context * ctx, const char * key, bool val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type        = GGUF_TYPE_BOOL;
@@ -22775,6 +22855,7 @@ void gguf_set_val_bool(struct gguf_context * ctx, const char * key, bool val) {
 }
 
 void gguf_set_val_str(struct gguf_context * ctx, const char * key, const char * val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type           = GGUF_TYPE_STRING;
@@ -22783,6 +22864,7 @@ void gguf_set_val_str(struct gguf_context * ctx, const char * key, const char * 
 }
 
 void gguf_set_arr_data(struct gguf_context * ctx, const char * key, enum gguf_type type, const void * data, int n) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type           = GGUF_TYPE_ARRAY;
@@ -22793,6 +22875,7 @@ void gguf_set_arr_data(struct gguf_context * ctx, const char * key, enum gguf_ty
 }
 
 void gguf_set_arr_str(struct gguf_context * ctx, const char * key, const char ** data, int n) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_get_or_add_key(ctx, key);
 
     ctx->kv[idx].type           = GGUF_TYPE_ARRAY;
@@ -22808,6 +22891,7 @@ void gguf_set_arr_str(struct gguf_context * ctx, const char * key, const char **
 
 // set or add KV pairs from another context
 void gguf_set_kv(struct gguf_context * ctx, struct gguf_context * src) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     for (uint32_t i = 0; i < src->header.n_kv; i++) {
         switch (src->kv[i].type) {
             case GGUF_TYPE_UINT8:   gguf_set_val_u8  (ctx, src->kv[i].key.data, src->kv[i].value.uint8);    break;
@@ -22845,6 +22929,7 @@ void gguf_set_kv(struct gguf_context * ctx, struct gguf_context * src) {
 void gguf_add_tensor(
              struct gguf_context * ctx,
         const struct ggml_tensor * tensor) {
+            // fprintf(stderr, "%s: in ggml.c\n", __func__);
     GGML_ASSERT(tensor);
     if (gguf_find_tensor(ctx, tensor->name) != -1) {
         GGML_ABORT("duplicated tensor name");
@@ -22878,6 +22963,7 @@ void gguf_add_tensor(
 }
 
 void gguf_set_tensor_type(struct gguf_context * ctx, const char * name, enum ggml_type type) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_find_tensor(ctx, name);
     if (idx < 0) {
         GGML_ABORT("tensor not found");
@@ -22887,6 +22973,7 @@ void gguf_set_tensor_type(struct gguf_context * ctx, const char * name, enum ggm
 }
 
 void gguf_set_tensor_data(struct gguf_context * ctx, const char * name, const void * data, size_t size) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     const int idx = gguf_find_tensor(ctx, name);
     if (idx < 0) {
         GGML_ABORT("tensor not found");
@@ -22917,6 +23004,7 @@ struct gguf_buf {
 };
 
 static struct gguf_buf gguf_buf_init(size_t size) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     struct gguf_buf buf = {
         /*buf.data   =*/ size == 0 ? NULL : GGML_CALLOC(1, size),
         /*buf.size   =*/ size,
@@ -22927,12 +23015,14 @@ static struct gguf_buf gguf_buf_init(size_t size) {
 }
 
 static void gguf_buf_free(struct gguf_buf buf) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (buf.data) {
         GGML_FREE(buf.data);
     }
 }
 
 static void gguf_buf_grow(struct gguf_buf * buf, size_t size) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     if (buf->offset + size > buf->size) {
         buf->size = 1.5*(buf->offset + size);
         if (buf->data) {
@@ -22942,6 +23032,7 @@ static void gguf_buf_grow(struct gguf_buf * buf, size_t size) {
 }
 
 static void gguf_bwrite_str(struct gguf_buf * buf, const struct gguf_str * val) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     gguf_buf_grow(buf, sizeof(val->n) + val->n);
 
     if (buf->data) {
@@ -22956,6 +23047,7 @@ static void gguf_bwrite_str(struct gguf_buf * buf, const struct gguf_str * val) 
 }
 
 static void gguf_bwrite_el(struct gguf_buf * buf, const void * val, size_t el_size) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     gguf_buf_grow(buf, el_size);
 
     if (buf->data) {
@@ -22965,6 +23057,7 @@ static void gguf_bwrite_el(struct gguf_buf * buf, const void * val, size_t el_si
 }
 
 static void gguf_write_to_buf(const struct gguf_context * ctx, struct gguf_buf * buf, bool only_meta) {
+    // fprintf(stderr, "%s: in ggml.c\n", __func__);
     // write header
     gguf_bwrite_el(buf, &ctx->header.magic,     sizeof(ctx->header.magic));
     gguf_bwrite_el(buf, &ctx->header.version,   sizeof(ctx->header.version));

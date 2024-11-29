@@ -158,7 +158,7 @@ let config;
 //     console.log('Error loading config: ', e);
 // }
 
-const LOGGING = false;
+const LOGGING = true;
 
 const LOGGING_SERVER_URL = 'http://localhost:9000/api/log';
 // Define log levels

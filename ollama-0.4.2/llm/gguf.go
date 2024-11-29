@@ -361,6 +361,16 @@ type array struct {
 	values []any
 }
 
+type Array struct {
+	Size int
+	Values []any
+}
+
+func ConvertToArray(arr any) Array {
+	a, _ := arr.(*array)
+	return Array{Size: a.size, Values: a.values}
+}
+
 func (a *array) MarshalJSON() ([]byte, error) {
 	return json.Marshal(a.values)
 }
