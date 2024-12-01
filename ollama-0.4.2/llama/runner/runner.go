@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+	"io"
 
 	"golang.org/x/sync/semaphore"
 
@@ -114,6 +115,7 @@ type NewSequenceParams struct {
 }
 
 func (s *Server) NewSequence(prompt string, images []ImageData, params NewSequenceParams) (*Sequence, error) {
+	slog.Info("new sequence", "prompt", prompt, "images", len(images))
 	s.ready.Wait()
 
 	startTime := time.Now()
@@ -124,6 +126,7 @@ func (s *Server) NewSequence(prompt string, images []ImageData, params NewSequen
 	} else if len(inputs) == 0 {
 		return nil, errors.New("no input provided")
 	}
+	slog.Info("inputs processed", "inputs", len(inputs))
 
 	if params.numKeep < 0 {
 		params.numKeep = len(inputs)
@@ -143,11 +146,13 @@ func (s *Server) NewSequence(prompt string, images []ImageData, params NewSequen
 	var sc *llama.SamplingContext
 	if params.samplingParams != nil {
 		sc, err = llama.NewSamplingContext(s.model, *params.samplingParams)
+		slog.Info("sampling context", "params", params.samplingParams, "context", sc)
 		if err != nil {
 			return nil, err
 		}
 		for _, input := range inputs {
 			if input.embed == nil {
+				slog.Info("sampling context accept", "token", input.token)
 				sc.Accept(input.token, false)
 			}
 		}
@@ -173,6 +178,7 @@ func (s *Server) NewSequence(prompt string, images []ImageData, params NewSequen
 // by splitting the prompt on [img-<n>] tags, tokenizing text and
 // generating image embeddings for each image
 func (s *Server) inputs(prompt string, images []ImageData) ([]input, error) {
+	slog.Info("processing inputs", "prompt", prompt, "images", len(images))
 	var inputs []input
 
 	re := regexp.MustCompile(`\[img-(\d+)\]`)
@@ -181,6 +187,7 @@ func (s *Server) inputs(prompt string, images []ImageData) ([]input, error) {
 
 	for i, part := range parts {
 		// text - tokenize
+		slog.Info("processing part", "part", part, "index", i, "matches", matches)
 		tokens, err := s.lc.Model().Tokenize(part, i == 0, true)
 		if err != nil {
 			return nil, err
@@ -217,6 +224,7 @@ func (s *Server) inputs(prompt string, images []ImageData) ([]input, error) {
 		}
 	}
 
+	slog.Info("inputs processed", "inputs", len(inputs), inputs)
 	return inputs, nil
 }
 
@@ -278,6 +286,7 @@ func (s *Server) allNil() bool {
 }
 
 func flushPending(seq *Sequence) bool {
+	slog.Info("flushing pending responses", "pending", seq.pendingResponses)
 	joined := strings.Join(seq.pendingResponses, "")
 	seq.pendingResponses = []string{}
 
@@ -304,6 +313,7 @@ func flushPending(seq *Sequence) bool {
 }
 
 func (s *Server) removeSequence(seqIndex int, reason string) {
+	slog.Info("removing sequence", "index", seqIndex, "reason", reason)
 	seq := s.seqs[seqIndex]
 
 	flushPending(seq)
@@ -315,11 +325,14 @@ func (s *Server) removeSequence(seqIndex int, reason string) {
 }
 
 func (s *Server) run(ctx context.Context) {
+	slog.Info("starting runner")
 	s.ready.Wait()
 
 	// Logically these batches are used only within the context of processBatch
 	// but it is better for performance to allocate them once here
+	slog.Info("allocating batches", "batch_size", s.batchSize, "num_seqs", len(s.seqs))
 	tokenBatch, err := llama.NewBatch(s.batchSize, len(s.seqs), 0)
+	slog.Info("allocated token batch", "size", tokenBatch.Size(), tokenBatch)
 	if err != nil {
 		panic(err)
 	}
@@ -357,6 +370,7 @@ func (s *Server) run(ctx context.Context) {
 // it should only be responsible for accepting tokens or embeddings and
 // processing batches as fast as possible
 func (s *Server) processBatch(tokenBatch *llama.Batch, embedBatch *llama.Batch) {
+	slog.Info("processing batch")
 	s.mu.Lock()
 	for s.allNil() {
 		s.cond.Wait() // Wait until an item is added
@@ -425,6 +439,7 @@ func (s *Server) processBatch(tokenBatch *llama.Batch, embedBatch *llama.Batch) 
 			}
 
 			crossAttention = seq.crossAttention
+			slog.Info("adding input to batch", "token", input.token, "embed", input.embed, "num_inputs", len(seq.cache.Inputs), "last", i+1 == len(seq.inputs), "cache_id", seq.cache.Id)
 			batch.Add(input.token, input.embed, len(seq.cache.Inputs), i+1 == len(seq.inputs), seq.cache.Id)
 			seq.cache.Inputs = append(seq.cache.Inputs, input)
 			numInputsProcessed++
@@ -470,10 +485,13 @@ func (s *Server) processBatch(tokenBatch *llama.Batch, embedBatch *llama.Batch) 
 			seq.startGenerationTime = time.Now()
 		}
 
+
 		// if done processing the prompt, generate an embedding and return
 		if seq.embeddingOnly {
+			slog.Info("embedding only", "index", i)
 			embed := s.lc.GetEmbeddingsSeq(i)
 			if embed == nil {
+				slog.Error("failed to get embeddings", "index", i, seq.iBatch)
 				embed = s.lc.GetEmbeddingsIth(seq.iBatch)
 			}
 
@@ -483,9 +501,13 @@ func (s *Server) processBatch(tokenBatch *llama.Batch, embedBatch *llama.Batch) 
 		}
 
 		// sample a token
+		slog.Info("sampling token", "index", i, "batch", seq.iBatch)
 		token := seq.samplingCtx.Sample(s.lc, seq.iBatch)
+		slog.Info("sampled token", "token", token)
 		seq.samplingCtx.Accept(token, true)
+		slog.Info("accepted token", "token", token)
 		piece := s.model.TokenToPiece(token)
+		slog.Info("token to piece", "token", token, "piece", piece)
 
 		seq.numPredicted++
 
@@ -505,11 +527,12 @@ func (s *Server) processBatch(tokenBatch *llama.Batch, embedBatch *llama.Batch) 
 		sequence := strings.Join(seq.pendingResponses, "")
 
 		if ok, stop := findStop(sequence, seq.stop); ok {
-			slog.Debug("hit stop token", "pending", seq.pendingResponses, "stop", stop)
+			slog.Info("hit stop token", "pending", seq.pendingResponses, "stop", stop)
 
 			var tokenTruncated bool
 			origLen := len(seq.pendingResponses)
 			seq.pendingResponses, tokenTruncated = truncateStop(seq.pendingResponses, stop)
+			slog.Info("truncated stop token", "pending", seq.pendingResponses, "truncated", tokenTruncated)
 			newLen := len(seq.pendingResponses)
 
 			// Update the cache based on the tokens that will be returned:
@@ -608,6 +631,7 @@ type CompletionResponse struct {
 }
 
 func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
+	slog.Info("completion request")
 	var req CompletionRequest
 	req.Options = Options(api.DefaultOptions())
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -650,6 +674,7 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 		samplingParams: &samplingParams,
 		embedding:      false,
 	})
+	slog.Info("new sequence", "sequence", seq, "error", err)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create new sequence: %v", err), http.StatusInternalServerError)
 		return
@@ -666,6 +691,7 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 	for i, sq := range s.seqs {
 		if sq == nil {
 			seq.cache, seq.inputs, err = s.cache.LoadCacheSlot(seq.inputs, req.CachePrompt)
+			slog.Info("Loaded cache", "inputs", seq.inputs, "cache", seq.cache)
 			if err != nil {
 				s.mu.Unlock()
 				http.Error(w, fmt.Sprintf("Failed to load cache: %v", err), http.StatusInternalServerError)
@@ -728,6 +754,7 @@ type EmbeddingResponse struct {
 }
 
 func (s *Server) embeddings(w http.ResponseWriter, r *http.Request) {
+	slog.Info("embedding request")
 	var req EmbeddingRequest
 
 	LogToFile("embedding request in llama runner")
@@ -740,13 +767,14 @@ func (s *Server) embeddings(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	slog.Debug("embedding request", "content", req.Content)
+	slog.Info("embedding request", "content", req.Content)
 
 	seq, err := s.NewSequence(req.Content, nil, NewSequenceParams{embedding: true})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create new sequence: %v", err), http.StatusInternalServerError)
 		return
 	}
+	slog.Info("new sequence", "sequence", seq)
 
 	// Ensure that a place to put the sequence is available
 	if err := s.seqsSem.Acquire(r.Context(), 1); err != nil {
@@ -760,6 +788,7 @@ func (s *Server) embeddings(w http.ResponseWriter, r *http.Request) {
 	for i, sq := range s.seqs {
 		if sq == nil {
 			seq.cache, seq.inputs, err = s.cache.LoadCacheSlot(seq.inputs, req.CachePrompt)
+			slog.Info("Loaded cache", "inputs", seq.inputs, "cache", seq.cache)
 			LogToFile("Loaded cache"+fmt.Sprintf("%v", seq.inputs))
 			if err != nil {
 				s.mu.Unlock()
@@ -810,6 +839,7 @@ func (s ServerStatus) ToString() string {
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
+	slog.Info("health check")
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(&HealthResponse{
 		Status:   s.status.ToString(),
@@ -829,6 +859,8 @@ func (s *Server) loadModel(
 	threads int,
 	multiUserCache bool,
 ) {
+
+	slog.Info("loading model", "path", mpath)
 	llama.BackendInit()
 
 	var err error
@@ -837,8 +869,11 @@ func (s *Server) loadModel(
 		panic(err)
 	}
 
+	slog.Info("model loaded", "model", s.model)
 	ctxParams := llama.NewContextParams(kvSize, s.batchSize*s.parallel, s.parallel, threads, flashAttention)
+	slog.Info("context params", "params", ctxParams)
 	s.lc, err = llama.NewContextWithModel(s.model, ctxParams)
+	slog.Info("context created", "context", s.lc)
 	if err != nil {
 		panic(err)
 	}
@@ -868,6 +903,7 @@ func (s *Server) loadModel(
 }
 
 func main() {
+	// os.Exit(1)
 	mpath := flag.String("model", "", "Path to model binary file")
 	ppath := flag.String("mmproj", "", "Path to projector binary file")
 	parallel := flag.Int("parallel", 1, "Number of sequences to handle simultaneously")
@@ -895,7 +931,19 @@ func main() {
 	if *verbose {
 		level = slog.LevelDebug
 	}
-	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+	filePath := "/Volumes/Crucial X9/abc/ollama-0.4.2/runner_server.log"
+	fmt.Printf("Attempting to open log file at: %s\n", filePath)
+
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	defer file.Close()
+	fmt.Println("Log file successfully opened.")
+
+	multiWriter := io.MultiWriter(os.Stderr, file)
+
+	handler := slog.NewTextHandler(multiWriter, &slog.HandlerOptions{
 		Level:     level,
 		AddSource: true,
 		ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
@@ -907,6 +955,7 @@ func main() {
 		},
 	})
 	slog.SetDefault(slog.New(handler))
+	slog.Info("Starting some runner")
 	slog.Info("starting go runner")
 	slog.Info("system", "info", llama.PrintSystemInfo(), "threads", *threads)
 

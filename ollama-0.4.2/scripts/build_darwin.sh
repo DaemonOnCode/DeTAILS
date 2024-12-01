@@ -14,9 +14,12 @@ export CGO_CFLAGS=-mmacosx-version-min=11.3
 export CGO_CXXFLAGS=-mmacosx-version-min=11.3
 export CGO_LDFLAGS=-mmacosx-version-min=11.3
 
-for TARGETARCH in amd64 arm64; do
+
+for TARGETARCH in arm64; do
     echo "Building Go runner darwin $TARGETARCH"
     rm -rf llama/build
+    rm -rf llama/make/build
+    rm -rf llama/make/dist
     echo "Building llama darwin $TARGETARCH"
     GOOS=darwin ARCH=$TARGETARCH GOARCH=$TARGETARCH make -C llama -j 8
     echo "Building ollama darwin $TARGETARCH"
@@ -26,8 +29,8 @@ for TARGETARCH in amd64 arm64; do
     echo "end $TARGETARCH"
 done
 
-lipo -create -output dist/ollama dist/ollama-darwin-arm64 dist/ollama-darwin-amd64
-rm -f dist/ollama-darwin-arm64 dist/ollama-darwin-amd64
+lipo -create -output dist/ollama dist/ollama-darwin-arm64
+rm -f dist/ollama-darwin-arm64
 # if [ -n "$APPLE_IDENTITY" ]; then
 #     codesign --deep --force --options=runtime --sign "$APPLE_IDENTITY" --timestamp dist/ollama
 # else

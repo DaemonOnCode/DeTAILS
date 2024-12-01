@@ -137,6 +137,7 @@
 // trim whitespace from the beginning and end of a string
 static std::string trim(const std::string &str)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     size_t start = 0;
     size_t end = str.size();
     while (start < end && isspace(str[start]))
@@ -152,6 +153,7 @@ static std::string trim(const std::string &str)
 
 static bool is_float_close(float a, float b, float abs_tol)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     // Check for non-negative tolerance
     if (abs_tol < 0.0)
     {
@@ -176,6 +178,7 @@ static bool is_float_close(float a, float b, float abs_tol)
 
 static void zeros(std::ofstream &file, size_t n)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     char zero = 0;
     for (size_t i = 0; i < n; ++i)
     {
@@ -186,6 +189,7 @@ static void zeros(std::ofstream &file, size_t n)
 LLAMA_ATTRIBUTE_FORMAT(1, 2)
 static std::string format(const char *fmt, ...)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     va_list ap;
     va_list ap2;
     va_start(ap, fmt);
@@ -1652,6 +1656,7 @@ static const std::map<llm_arch, std::map<llm_tensor, std::string>> LLM_TENSOR_NA
 
 static llm_arch llm_arch_from_string(const std::string &name)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     for (const auto &kv : LLM_ARCH_NAMES)
     { // NOLINT
         if (kv.second == name)
@@ -1736,6 +1741,7 @@ static const std::map<llama_rope_scaling_type, const char *> LLAMA_ROPE_SCALING_
 
 static llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string &name)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     for (const auto &kv : LLAMA_ROPE_SCALING_TYPES)
     {
         if (kv.second == name)
@@ -1749,6 +1755,7 @@ static llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::st
 
 static std::string gguf_data_to_str(enum gguf_type type, const void *data, int i)
 {
+    // logMessage("Calling from %s, llama.cpp", __func__);
     switch (type)
     {
     case GGUF_TYPE_UINT8:
@@ -1780,6 +1787,7 @@ static std::string gguf_data_to_str(enum gguf_type type, const void *data, int i
 
 static std::string gguf_kv_to_str(const struct gguf_context *ctx_gguf, int i)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const enum gguf_type type = gguf_get_kv_type(ctx_gguf, i);
 
     switch (type)
@@ -4126,6 +4134,7 @@ static bool llama_kv_cache_init(
     uint32_t kv_size,
     bool offload)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const llama_model &model = ctx->model;
     const llama_cparams &cparams = ctx->cparams;
 
@@ -4239,6 +4248,7 @@ static bool llama_kv_cache_find_slot(
     struct llama_kv_cache &cache,
     const struct llama_ubatch &batch)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const uint32_t n_tokens = batch.n_tokens;
     const uint32_t n_seqs = batch.n_seqs;
     const uint32_t n_seq_tokens = batch.n_seq_tokens;
@@ -4515,6 +4525,7 @@ static bool llama_kv_cache_find_slot(
 // find how many cells are currently in use
 static uint32_t llama_kv_cache_cell_max(const struct llama_kv_cache &cache)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     for (uint32_t i = cache.size; i > 0; --i)
     {
         const llama_kv_cell &cell = cache.cells[i - 1];
@@ -4530,6 +4541,7 @@ static uint32_t llama_kv_cache_cell_max(const struct llama_kv_cache &cache)
 
 static void llama_kv_cache_clear(struct llama_kv_cache &cache)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     for (int32_t i = 0; i < (int32_t)cache.size; ++i)
     {
         cache.cells[i].pos = -1;
@@ -4552,6 +4564,7 @@ static bool llama_kv_cache_seq_rm(
     llama_pos p0,
     llama_pos p1)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     uint32_t new_head = cache.size;
 
     if (p0 < 0)
@@ -4639,6 +4652,7 @@ static void llama_kv_cache_seq_cp(
     llama_pos p0,
     llama_pos p1)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (p0 < 0)
         p0 = 0;
     if (p1 < 0)
@@ -4691,6 +4705,7 @@ static void llama_kv_cache_seq_cp(
 
 static void llama_kv_cache_seq_keep(struct llama_kv_cache &cache, llama_seq_id seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     uint32_t new_head = cache.size;
 
     for (uint32_t i = 0; i < cache.size; ++i)
@@ -4728,6 +4743,7 @@ static void llama_kv_cache_seq_add(
     llama_pos p1,
     llama_pos delta)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     uint32_t new_head = cache.size;
 
     if (p0 < 0)
@@ -4792,6 +4808,7 @@ static void llama_kv_cache_seq_div(
     llama_pos p1,
     int d)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (p0 < 0)
         p0 = 0;
     if (p1 < 0)
@@ -4835,6 +4852,7 @@ static void llama_kv_cache_seq_div(
 
 static llama_pos llama_kv_cache_seq_pos_max(struct llama_kv_cache &cache, llama_seq_id seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_pos result = 0;
 
     for (uint32_t i = 0; i < cache.size; ++i)
@@ -4850,6 +4868,7 @@ static llama_pos llama_kv_cache_seq_pos_max(struct llama_kv_cache &cache, llama_
 
 static void llama_kv_cache_defrag(struct llama_kv_cache &cache)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (!cache.recurrent)
     {
         cache.do_defrag = true;
@@ -4890,6 +4909,7 @@ static const char *llama_file_version_name(llama_fver version)
 
 static std::string llama_format_tensor_shape(const std::vector<int64_t> &ne)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     char buf[256];
     snprintf(buf, sizeof(buf), "%5" PRId64, ne.at(0));
     for (size_t i = 1; i < ne.size(); i++)
@@ -4901,6 +4921,7 @@ static std::string llama_format_tensor_shape(const std::vector<int64_t> &ne)
 
 static std::string llama_format_tensor_shape(const struct ggml_tensor *t)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     char buf[256];
     snprintf(buf, sizeof(buf), "%5" PRId64, t->ne[0]);
     for (int i = 1; i < GGML_MAX_DIMS; i++)
@@ -6222,6 +6243,7 @@ struct llama_model_loader
 template <>
 bool llama_model_loader::get_key(const enum llm_kv kid, enum llama_pooling_type &result, const bool required)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     uint32_t tmp;
     const bool found = get_key(kid, tmp, required);
     if (found)
@@ -6241,6 +6263,7 @@ bool llama_model_loader::get_key(const enum llm_kv kid, enum llama_pooling_type 
 
 static const char *llama_model_arch_name(llm_arch arch)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     auto it = LLM_ARCH_NAMES.find(arch);
     if (it == LLM_ARCH_NAMES.end())
     {
@@ -6251,6 +6274,7 @@ static const char *llama_model_arch_name(llm_arch arch)
 
 static std::string llama_model_ftype_name(llama_ftype ftype)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (ftype & LLAMA_FTYPE_GUESSED)
     {
         return llama_model_ftype_name((enum llama_ftype)(ftype & ~LLAMA_FTYPE_GUESSED)) + " (guessed)";
@@ -6336,6 +6360,7 @@ static std::string llama_model_ftype_name(llama_ftype ftype)
 
 static const char *llama_model_type_name(e_model type)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     switch (type)
     {
     case MODEL_14M:
@@ -6484,6 +6509,7 @@ static const char *llama_model_vocab_type_name(enum llama_vocab_type type)
 
 static void llm_load_arch(llama_model_loader &ml, llama_model &model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     model.arch = ml.get_arch();
     if (model.arch == LLM_ARCH_UNKNOWN)
     {
@@ -6495,6 +6521,7 @@ static void llm_load_hparams(
     llama_model_loader &ml,
     llama_model &model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     auto &hparams = model.hparams;
     const gguf_context *ctx = ml.meta;
 
@@ -8503,10 +8530,10 @@ static void llm_load_vocab(
         }
     }
 
-    for (auto &it : vocab.token_to_id)
-    {
-        LLAMA_LOG_INFO("%s: token_to_id[%s] = %d\n", __func__, it.first.c_str(), it.second);
-    }
+    // for (auto &it : vocab.token_to_id)
+    // {
+    //     LLAMA_LOG_INFO("%s: token_to_id[%s] = %d\n", __func__, it.first.c_str(), it.second);
+    // }
 }
 
 static void llm_load_print_meta(llama_model_loader &ml, llama_model &model)
@@ -8739,6 +8766,7 @@ static bool llm_load_tensors(
     llama_progress_callback progress_callback,
     void *progress_callback_user_data)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     auto &hparams = model.hparams;
 
     model.split_mode = split_mode;
@@ -11081,6 +11109,7 @@ static bool llm_load_tensors(
 // Returns 0 on success, -1 on error, and -2 on cancellation via llama_progress_callback
 static int llama_model_load(const std::string &fname, llama_model &model, llama_model_params &params)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     model.t_start_us = ggml_time_us();
 
     try
@@ -11197,6 +11226,7 @@ static struct ggml_tensor *llm_build_inp_embd(
     struct ggml_tensor *tok_embd,
     const llm_build_cb &cb)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const int64_t n_embd = hparams.n_embd;
 
     struct ggml_tensor *inpL;
@@ -11233,6 +11263,7 @@ static struct ggml_tensor *llm_build_inp_cross_attn_state(
     const llama_hparams &hparams,
     const llm_build_cb &cb)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const int64_t n_embd = hparams.n_embd;
 
     struct ggml_tensor *inpCAS = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, n_embd, 1601, 4);
@@ -11256,6 +11287,7 @@ static void llm_build_kv_store(
     const llm_build_cb &cb,
     int64_t il)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const int64_t n_ctx = cparams.n_ctx;
 
     const int64_t n_embd_k_gqa = hparams.n_embd_k_gqa(il);
@@ -11293,6 +11325,7 @@ static void llm_build_kv_store(
 
 const struct llama_vocab *llama_get_all_vocab(const struct llama_model *model)
 {
+    LLAMA_LOG_INFO("%s: returning vocab\n", __func__);
     return &model->vocab;
 }
 
@@ -11303,6 +11336,7 @@ static struct ggml_tensor *llm_build_lora_mm(
     struct ggml_tensor *w,
     struct ggml_tensor *cur)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     struct ggml_tensor *res = ggml_mul_mat(ctx0, w, cur);
     for (auto &it : lctx.lora_adapters)
     {
@@ -11331,6 +11365,7 @@ static struct ggml_tensor *llm_build_lora_mm_id(
     struct ggml_tensor *cur, // struct ggml_tensor * b
     struct ggml_tensor *ids)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     struct ggml_tensor *res = ggml_mul_mat_id(ctx0, w, cur, ids);
     for (auto &it : lctx.lora_adapters)
     {
@@ -11362,6 +11397,7 @@ static struct ggml_tensor *llm_build_norm(
     const llm_build_cb &cb,
     int il)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     switch (type)
     {
     case LLM_NORM:
@@ -11413,6 +11449,7 @@ static struct ggml_tensor *llm_build_ffn(
     const llm_build_cb &cb,
     int il)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     struct ggml_tensor *tmp = up ? llm_build_lora_mm(lctx, ctx, up, cur) : cur;
     cb(tmp, "ffn_up", il);
 
@@ -11560,6 +11597,7 @@ static struct ggml_tensor *llm_build_moe_ffn(
     const llm_build_cb &cb,
     int il)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     int64_t n_embd = cur->ne[0];
     int64_t n_tokens = cur->ne[1];
 
@@ -11670,6 +11708,7 @@ static struct ggml_tensor *llm_build_kqv(
     const llm_build_cb &cb,
     int il)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const llama_model &model = lctx.model;
     const llama_hparams &hparams = lctx.model.hparams;
     const llama_cparams &cparams = lctx.cparams;
@@ -11815,6 +11854,7 @@ static struct ggml_tensor *llm_build_kv(
     const llm_build_cb &cb,
     int il)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const llama_hparams &hparams = lctx.model.hparams;
     const llama_cparams &cparams = lctx.cparams;
 
@@ -11846,6 +11886,7 @@ static struct ggml_tensor *llm_build_copy_mask_state(
     int32_t n_kv,
     int32_t n_seqs)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     struct ggml_tensor *states = ggml_reshape_2d(ctx, s, n_state, kv_size);
 
     // copy states
@@ -11881,6 +11922,7 @@ static struct ggml_tensor *llm_build_mamba(
     const llm_build_cb &cb,
     int il)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const llama_model &model = lctx.model;
     const llama_hparams &hparams = model.hparams;
     const llama_kv_cache &kv = lctx.kv_self;
@@ -12013,6 +12055,7 @@ static struct ggml_tensor *llm_build_rwkv6_time_mix(
     struct ggml_tensor *x_prev,
     struct ggml_tensor **wkv_state)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     size_t n_embd = cur->ne[0];
     size_t n_seq_tokens = cur->ne[1];
     size_t n_seqs = cur->ne[2];
@@ -12139,6 +12182,7 @@ static struct ggml_tensor *llm_build_rwkv6_channel_mix(
     struct ggml_tensor *cur,
     struct ggml_tensor *x_prev)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     struct ggml_tensor *sx = ggml_sub(ctx, x_prev, cur);
     struct ggml_tensor *xk = ggml_add(ctx, ggml_mul(ctx, sx, layer->channel_mix_lerp_k), cur);
     struct ggml_tensor *xr = ggml_add(ctx, ggml_mul(ctx, sx, layer->channel_mix_lerp_r), cur);
@@ -18987,6 +19031,7 @@ struct llm_build_context
 
 static struct ggml_cgraph *llama_build_graph_defrag(llama_context &lctx, const std::vector<uint32_t> &ids)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_ubatch dummy = {};
     dummy.equal_seqs = true;
 
@@ -19005,6 +19050,7 @@ static struct ggml_cgraph *llama_build_graph_defrag(llama_context &lctx, const s
 
 static struct ggml_cgraph *llama_build_graph_k_shift(llama_context &lctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_ubatch dummy = {};
     dummy.equal_seqs = true;
 
@@ -19026,6 +19072,7 @@ static struct ggml_cgraph *llama_build_graph(
     const llama_ubatch &batch,
     bool worst_case)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const auto &model = lctx.model;
 
     // this callback allows us to apply custom logic to each tensor (e.g. ggml-alloc, offloading, etc.)
@@ -19335,6 +19382,7 @@ static struct ggml_cgraph *llama_build_graph(
 
 static void llama_set_k_shift(llama_context &lctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const int64_t kv_size = lctx.kv_self.size;
 
     assert(ggml_backend_buffer_is_host(lctx.inp_K_shift->buffer));
@@ -19349,6 +19397,7 @@ static void llama_set_k_shift(llama_context &lctx)
 
 static void llama_set_s_copy(llama_context &lctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const int64_t kv_size = lctx.kv_self.size;
 
     assert(ggml_backend_buffer_is_host(lctx.inp_s_copy->buffer));
@@ -19363,6 +19412,7 @@ static void llama_set_s_copy(llama_context &lctx)
 
 static int32_t llama_relative_position_bucket(llama_pos x, llama_pos y, uint64_t n_buckets, bool bidirectional)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     // TODO move to hparams if a T5 variant appears that uses a different value
     const int64_t max_distance = 128;
 
@@ -19392,6 +19442,7 @@ static int32_t llama_relative_position_bucket(llama_pos x, llama_pos y, uint64_t
 
 static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     //
     // set input data
     //
@@ -19900,6 +19951,7 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
 // Returns max number of outputs for which space was reserved.
 static size_t llama_output_reserve(llama_context &lctx, size_t n_outputs)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const auto &cparams = lctx.cparams;
     const auto &hparams = lctx.model.hparams;
 
@@ -19971,6 +20023,7 @@ static size_t llama_output_reserve(llama_context &lctx, size_t n_outputs)
 // make the outputs have the same order they had in the user-provided batch
 static void llama_output_reorder(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     std::vector<size_t> &out_ids = ctx->sbatch.out_ids;
     if (!out_ids.empty())
     {
@@ -20025,6 +20078,7 @@ static void llama_graph_compute(
     int n_threads,
     ggml_threadpool *threadpool)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (lctx.backend_cpu != nullptr)
     {
         ggml_backend_cpu_set_n_threads(lctx.backend_cpu, n_threads);
@@ -20056,7 +20110,7 @@ static int llama_decode_internal(
     llama_context &lctx,
     llama_batch batch_all)
 { // TODO: rename back to batch
-
+    logMessage("Calling from %s, llama.cpp", __func__);
     lctx.is_encoding = false;
     const uint32_t n_tokens_all = batch_all.n_tokens;
 
@@ -20426,7 +20480,7 @@ static int llama_encode_internal(
     llama_context &lctx,
     llama_batch batch)
 {
-
+    logMessage("Calling from %s, llama.cpp", __func__);
     lctx.is_encoding = true;
 
     const uint32_t n_tokens = batch.n_tokens;
@@ -20615,6 +20669,7 @@ static int llama_encode_internal(
 // find holes from the beginning of the KV cache and fill them by moving data from the end of the cache
 static void llama_kv_cache_defrag_internal(struct llama_context &lctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     auto &kv_self = lctx.kv_self;
 
     const auto &hparams = lctx.model.hparams;
@@ -20849,6 +20904,7 @@ static void llama_kv_cache_defrag_internal(struct llama_context &lctx)
 
 static void llama_kv_cache_update_internal(struct llama_context &lctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     bool need_reserve = false;
 
     // apply K-shift if needed
@@ -20951,6 +21007,7 @@ static void llama_tensor_dequantize_internal(
     struct ggml_tensor *tensor, std::vector<no_init<float>> &output, std::vector<std::thread> &workers,
     const size_t nelements, const int nthread)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (output.size() < nelements)
     {
         output.resize(nelements);
@@ -21048,6 +21105,7 @@ static void llama_tensor_dequantize_internal(
 
 static ggml_type llama_tensor_get_type(quantize_state_internal &qs, ggml_type new_type, const ggml_tensor *tensor, llama_ftype ftype)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const std::string name = ggml_get_name(tensor);
 
     // TODO: avoid hardcoded tensor names - use the TN_* constants
@@ -21461,6 +21519,7 @@ static ggml_type llama_tensor_get_type(quantize_state_internal &qs, ggml_type ne
 
 static size_t llama_tensor_quantize_internal(enum ggml_type new_type, const float *f32_data, void *new_data, const int64_t chunk_size, int64_t nrows, int64_t n_per_row, const float *imatrix, std::vector<std::thread> &workers, const int nthread)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (nthread < 2)
     {
         // single-thread
@@ -21529,6 +21588,7 @@ static size_t llama_tensor_quantize_internal(enum ggml_type new_type, const floa
 
 static void llama_model_quantize_internal(const std::string &fname_inp, const std::string &fname_out, const llama_model_quantize_params *params)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ggml_type default_type;
     llama_ftype ftype = params->ftype;
 
@@ -22090,6 +22150,7 @@ static void llama_model_quantize_internal(const std::string &fname_inp, const st
 
 static void llama_lora_adapter_init_internal(struct llama_model *model, const char *path_lora, struct llama_lora_adapter &adapter)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     LLAMA_LOG_INFO("%s: loading lora adapter from '%s' ...\n", __func__, path_lora);
 
     ggml_context *ctx = nullptr;
@@ -22303,6 +22364,7 @@ int32_t llama_lora_adapter_set(
     struct llama_lora_adapter *adapter,
     float scale)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (ctx->cparams.flash_attn)
     {
         LLAMA_LOG_ERROR("%s: flash_attn is not compatible with LoRA\n", __func__);
@@ -22316,6 +22378,7 @@ int32_t llama_lora_adapter_remove(
     struct llama_context *ctx,
     struct llama_lora_adapter *adapter)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     auto pos = ctx->lora_adapters.find(adapter);
     if (pos != ctx->lora_adapters.end())
     {
@@ -22327,11 +22390,13 @@ int32_t llama_lora_adapter_remove(
 
 void llama_lora_adapter_clear(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ctx->lora_adapters.clear();
 }
 
 void llama_lora_adapter_free(struct llama_lora_adapter *adapter)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     delete adapter;
 }
 
@@ -22492,12 +22557,14 @@ void llama_attach_threadpool(
     ggml_threadpool_t threadpool,
     ggml_threadpool_t threadpool_batch)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ctx->threadpool = threadpool;
     ctx->threadpool_batch = threadpool_batch ? threadpool_batch : threadpool;
 }
 
 void llama_detach_threadpool(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ctx->threadpool = nullptr;
     ctx->threadpool_batch = nullptr;
 }
@@ -22516,6 +22583,7 @@ struct llama_model *llama_load_model_from_file(
     const char *path_model,
     struct llama_model_params params)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ggml_time_init();
 
     llama_model *model = new llama_model;
@@ -22574,6 +22642,7 @@ struct llama_model *llama_load_model_from_file(
 
 void llama_free_model(struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     delete model;
 }
 
@@ -22581,7 +22650,7 @@ struct llama_context *llama_new_context_with_model(
     struct llama_model *model,
     struct llama_context_params params)
 {
-
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (!model)
     {
         LLAMA_LOG_ERROR("%s: model cannot be NULL\n", __func__);
@@ -23042,66 +23111,79 @@ struct llama_context *llama_new_context_with_model(
 
 void llama_free(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     delete ctx;
 }
 
 uint32_t llama_n_ctx(const struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return ctx->cparams.n_ctx;
 }
 
 uint32_t llama_n_batch(const struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return ctx->cparams.n_batch;
 }
 
 uint32_t llama_n_ubatch(const struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return ctx->cparams.n_ubatch;
 }
 
 uint32_t llama_n_seq_max(const struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return ctx->kv_self.size;
 }
 
 enum llama_vocab_type llama_vocab_type(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return model->vocab.type;
 }
 
 int32_t llama_n_vocab(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return model->hparams.n_vocab;
 }
 
 int32_t llama_n_ctx_train(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return model->hparams.n_ctx_train;
 }
 
 int32_t llama_n_embd(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return model->hparams.n_embd;
 }
 
 int32_t llama_n_layer(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return model->hparams.n_layer;
 }
 
 int32_t llama_n_head(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return model->hparams.n_head();
 }
 
 const struct llama_model *llama_get_model(const struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return &ctx->model;
 }
 
 enum llama_pooling_type llama_pooling_type(const struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return ctx->cparams.pooling_type;
 }
 
@@ -23179,11 +23261,13 @@ enum llama_rope_type llama_rope_type(const struct llama_model *model)
 
 float llama_rope_freq_scale_train(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return model->hparams.rope_freq_scale_train;
 }
 
 int32_t llama_model_meta_val_str(const struct llama_model *model, const char *key, char *buf, size_t buf_size)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const auto &it = model->gguf_kv.find(key);
     if (it == model->gguf_kv.end())
     {
@@ -23198,11 +23282,13 @@ int32_t llama_model_meta_val_str(const struct llama_model *model, const char *ke
 
 int32_t llama_model_meta_count(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return (int)model->gguf_kv.size();
 }
 
 int32_t llama_model_meta_key_by_index(const struct llama_model *model, int i, char *buf, size_t buf_size)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (i < 0 || i >= (int)model->gguf_kv.size())
     {
         if (buf_size > 0)
@@ -23218,6 +23304,7 @@ int32_t llama_model_meta_key_by_index(const struct llama_model *model, int i, ch
 
 int32_t llama_model_meta_val_str_by_index(const struct llama_model *model, int32_t i, char *buf, size_t buf_size)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (i < 0 || i >= (int)model->gguf_kv.size())
     {
         if (buf_size > 0)
@@ -23233,6 +23320,7 @@ int32_t llama_model_meta_val_str_by_index(const struct llama_model *model, int32
 
 int32_t llama_model_desc(const struct llama_model *model, char *buf, size_t buf_size)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return snprintf(buf, buf_size, "%s %s %s",
                     llama_model_arch_name(model->arch),
                     llama_model_type_name(model->type),
@@ -23241,6 +23329,7 @@ int32_t llama_model_desc(const struct llama_model *model, char *buf, size_t buf_
 
 uint64_t llama_model_size(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     uint64_t size = 0;
     for (const auto &it : model->tensors_by_name)
     {
@@ -23251,6 +23340,7 @@ uint64_t llama_model_size(const struct llama_model *model)
 
 uint64_t llama_model_n_params(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     uint64_t nparams = 0;
     for (const auto &it : model->tensors_by_name)
     {
@@ -23261,6 +23351,7 @@ uint64_t llama_model_n_params(const struct llama_model *model)
 
 struct ggml_tensor *llama_get_model_tensor(struct llama_model *model, const char *name)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     auto it = std::find_if(model->tensors_by_name.begin(), model->tensors_by_name.end(),
                            [name](const std::pair<std::string, struct ggml_tensor *> &it)
                            {
@@ -23275,6 +23366,7 @@ struct ggml_tensor *llama_get_model_tensor(struct llama_model *model, const char
 
 bool llama_model_has_encoder(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     switch (model->arch)
     {
     case LLM_ARCH_T5:
@@ -23288,6 +23380,7 @@ bool llama_model_has_encoder(const struct llama_model *model)
 
 bool llama_model_has_decoder(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     switch (model->arch)
     {
     case LLM_ARCH_T5ENCODER:
@@ -23299,11 +23392,13 @@ bool llama_model_has_decoder(const struct llama_model *model)
 
 llama_token llama_model_decoder_start_token(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return model->hparams.dec_start_token_id;
 }
 
 bool llama_model_is_recurrent(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     switch (model->arch)
     {
     case LLM_ARCH_MAMBA:
@@ -23320,6 +23415,7 @@ uint32_t llama_model_quantize(
     const char *fname_out,
     const llama_model_quantize_params *params)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     try
     {
         llama_model_quantize_internal(fname_inp, fname_out, params);
@@ -23334,6 +23430,7 @@ uint32_t llama_model_quantize(
 
 struct llama_lora_adapter *llama_lora_adapter_init(struct llama_model *model, const char *path_lora)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     try
     {
         struct llama_lora_adapter *adapter = new llama_lora_adapter(model);
@@ -23349,6 +23446,7 @@ struct llama_lora_adapter *llama_lora_adapter_init(struct llama_model *model, co
 
 static bool llama_control_vector_init(struct llama_control_vector &cvec, const llama_model &model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     GGML_ASSERT(cvec.tensors.empty());
     GGML_ASSERT(cvec.ctxs.empty());
     GGML_ASSERT(cvec.bufs.empty());
@@ -23412,6 +23510,7 @@ static bool llama_control_vector_init(struct llama_control_vector &cvec, const l
 
 int32_t llama_control_vector_apply(struct llama_context *lctx, const float *data, size_t len, int32_t n_embd, int32_t il_start, int32_t il_end)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const llama_model &model = lctx->model;
     llama_control_vector &cvec = lctx->cvec;
 
@@ -23471,6 +23570,7 @@ struct llama_kv_cache_view llama_kv_cache_view_init(const struct llama_context *
 
 void llama_kv_cache_view_free(struct llama_kv_cache_view *view)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (view->cells != nullptr)
     {
         free(view->cells);
@@ -23485,6 +23585,7 @@ void llama_kv_cache_view_free(struct llama_kv_cache_view *view)
 
 void llama_kv_cache_view_update(const struct llama_context *ctx, struct llama_kv_cache_view *view)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (uint32_t(view->n_cells) < ctx->kv_self.size || view->cells == nullptr)
     {
         view->n_cells = int32_t(ctx->kv_self.size);
@@ -23562,6 +23663,7 @@ void llama_kv_cache_view_update(const struct llama_context *ctx, struct llama_kv
 
 int32_t llama_get_kv_cache_token_count(const struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     int result = 0;
 
     for (uint32_t i = 0; i < ctx->kv_self.size; i++)
@@ -23574,21 +23676,25 @@ int32_t llama_get_kv_cache_token_count(const struct llama_context *ctx)
 
 int32_t llama_get_kv_cache_used_cells(const struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return ctx->kv_self.used;
 }
 
 void llama_kv_cache_clear(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_kv_cache_clear(ctx->kv_self);
 }
 
 bool llama_kv_cache_seq_rm(struct llama_context *ctx, llama_seq_id seq_id, llama_pos p0, llama_pos p1)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_kv_cache_seq_rm(ctx->kv_self, seq_id, p0, p1);
 }
 
 void llama_kv_cache_seq_cp(struct llama_context *ctx, llama_seq_id seq_id_src, llama_seq_id seq_id_dst, llama_pos p0, llama_pos p1)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (seq_id_src == seq_id_dst)
     {
         return;
@@ -23598,11 +23704,13 @@ void llama_kv_cache_seq_cp(struct llama_context *ctx, llama_seq_id seq_id_src, l
 
 void llama_kv_cache_seq_keep(struct llama_context *ctx, llama_seq_id seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_kv_cache_seq_keep(ctx->kv_self, seq_id);
 }
 
 void llama_kv_cache_seq_add(struct llama_context *ctx, llama_seq_id seq_id, llama_pos p0, llama_pos p1, llama_pos delta)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (delta == 0)
     {
         return;
@@ -23613,6 +23721,7 @@ void llama_kv_cache_seq_add(struct llama_context *ctx, llama_seq_id seq_id, llam
 
 void llama_kv_cache_seq_div(struct llama_context *ctx, llama_seq_id seq_id, llama_pos p0, llama_pos p1, int d)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (d == 1)
     {
         return;
@@ -23623,46 +23732,54 @@ void llama_kv_cache_seq_div(struct llama_context *ctx, llama_seq_id seq_id, llam
 
 llama_pos llama_kv_cache_seq_pos_max(struct llama_context *ctx, llama_seq_id seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_kv_cache_seq_pos_max(ctx->kv_self, seq_id);
 }
 
 void llama_kv_cache_defrag(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_kv_cache_defrag(ctx->kv_self);
 }
 
 void llama_kv_cache_update(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_kv_cache_update_internal(*ctx);
 }
 
 // deprecated
 size_t llama_get_state_size(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_state_get_size(ctx);
 }
 
 // deprecated
 size_t llama_copy_state_data(struct llama_context *ctx, uint8_t *dst)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_state_get_data(ctx, dst, -1);
 }
 
 // deprecated
 size_t llama_set_state_data(struct llama_context *ctx, const uint8_t *src)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_state_set_data(ctx, src, -1);
 }
 
 // deprecated
 bool llama_load_session_file(struct llama_context *ctx, const char *path_session, llama_token *tokens_out, size_t n_token_capacity, size_t *n_token_count_out)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_state_load_file(ctx, path_session, tokens_out, n_token_capacity, n_token_count_out);
 }
 
 // deprecated
 bool llama_save_session_file(struct llama_context *ctx, const char *path_session, const llama_token *tokens, size_t n_token_count)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_state_save_file(ctx, path_session, tokens, n_token_count);
 }
 
@@ -23934,6 +24051,7 @@ struct llama_data_read
 
     void read_string(std::string &str)
     {
+        logMessage("Calling from %s, llama.cpp", __func__);
         uint32_t str_size;
         read_to(&str_size, sizeof(str_size));
 
@@ -23943,6 +24061,7 @@ struct llama_data_read
     // validate model information
     void read_model_info(const struct llama_context *ctx)
     {
+        logMessage("Calling from %s, llama.cpp", __func__);
         std::string cur_arch_str = LLM_ARCH_NAMES.at(ctx->model.arch);
         std::string arch_str;
         read_string(arch_str);
@@ -23967,6 +24086,7 @@ struct llama_data_read
 
     void read_output_ids(struct llama_context *ctx)
     {
+        logMessage("Calling from %s, llama.cpp", __func__);
         std::vector<int32_t> output_pos;
 
         uint32_t n_outputs;
@@ -23998,6 +24118,7 @@ struct llama_data_read
 
     void read_logits(struct llama_context *ctx)
     {
+        logMessage("Calling from %s, llama.cpp", __func__);
         uint64_t logits_size;
         read_to(&logits_size, sizeof(logits_size));
 
@@ -24014,6 +24135,7 @@ struct llama_data_read
 
     void read_embeddings(struct llama_context *ctx)
     {
+        logMessage("Calling from %s, llama.cpp", __func__);
         uint64_t embeddings_size;
         read_to(&embeddings_size, sizeof(embeddings_size));
 
@@ -24030,6 +24152,7 @@ struct llama_data_read
 
     bool read_kv_cache_meta(struct llama_context *ctx, uint32_t cell_count, llama_seq_id dest_seq_id = -1)
     {
+        logMessage("Calling from %s, llama.cpp", __func__);
         struct llama_kv_cache &kv_self = ctx->kv_self;
 
         if (dest_seq_id != -1)
@@ -24144,6 +24267,7 @@ struct llama_data_read
 
     bool read_kv_cache_data(struct llama_context *ctx, uint32_t cell_count)
     {
+        logMessage("Calling from %s, llama.cpp", __func__);
         const struct llama_hparams &hparams = ctx->model.hparams;
         struct llama_kv_cache &kv_self = ctx->kv_self;
         uint32_t v_trans;
@@ -24284,6 +24408,7 @@ struct llama_data_read
 
     void read_kv_cache(struct llama_context *ctx, llama_seq_id seq_id = -1)
     {
+        logMessage("Calling from %s, llama.cpp", __func__);
         uint32_t cell_count;
         read_to(&cell_count, sizeof(cell_count));
 
@@ -24465,6 +24590,7 @@ struct llama_data_read_file : llama_data_read
  */
 static size_t llama_state_get_data_internal(struct llama_context *ctx, llama_data_write &data_ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_synchronize(ctx);
 
     data_ctx.write_model_info(ctx);
@@ -24481,6 +24607,7 @@ static size_t llama_state_get_data_internal(struct llama_context *ctx, llama_dat
 
 size_t llama_state_get_data(struct llama_context *ctx, uint8_t *dst, size_t size)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_data_write_buffer data_ctx(dst, size);
     try
     {
@@ -24497,6 +24624,7 @@ size_t llama_state_get_data(struct llama_context *ctx, uint8_t *dst, size_t size
 // Intended to be used when saving to state to a buffer.
 size_t llama_state_get_size(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_data_write_dummy data_ctx;
     try
     {
@@ -24511,6 +24639,7 @@ size_t llama_state_get_size(struct llama_context *ctx)
 
 static size_t llama_state_set_data_internal(struct llama_context *ctx, llama_data_read &data_ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_synchronize(ctx);
 
     data_ctx.read_model_info(ctx);
@@ -24528,6 +24657,7 @@ static size_t llama_state_set_data_internal(struct llama_context *ctx, llama_dat
 // Sets the state reading from the specified source address
 size_t llama_state_set_data(struct llama_context *ctx, const uint8_t *src, size_t size)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_data_read_buffer data_ctx(src, size);
     try
     {
@@ -24542,6 +24672,7 @@ size_t llama_state_set_data(struct llama_context *ctx, const uint8_t *src, size_
 
 static bool llama_state_load_file_internal(struct llama_context *ctx, const char *path_session, llama_token *tokens_out, size_t n_token_capacity, size_t *n_token_count_out)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_file file(path_session, "rb");
 
     // sanity checks
@@ -24588,6 +24719,7 @@ static bool llama_state_load_file_internal(struct llama_context *ctx, const char
 
 bool llama_state_load_file(struct llama_context *ctx, const char *path_session, llama_token *tokens_out, size_t n_token_capacity, size_t *n_token_count_out)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     try
     {
         return llama_state_load_file_internal(ctx, path_session, tokens_out, n_token_capacity, n_token_count_out);
@@ -24601,6 +24733,7 @@ bool llama_state_load_file(struct llama_context *ctx, const char *path_session, 
 
 static bool llama_state_save_file_internal(struct llama_context *ctx, const char *path_session, const llama_token *tokens, size_t n_token_count)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_file file(path_session, "wb");
 
     file.write_u32(LLAMA_SESSION_MAGIC);
@@ -24619,6 +24752,7 @@ static bool llama_state_save_file_internal(struct llama_context *ctx, const char
 
 bool llama_state_save_file(struct llama_context *ctx, const char *path_session, const llama_token *tokens, size_t n_token_count)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     try
     {
         return llama_state_save_file_internal(ctx, path_session, tokens, n_token_count);
@@ -24632,6 +24766,7 @@ bool llama_state_save_file(struct llama_context *ctx, const char *path_session, 
 
 static size_t llama_state_seq_get_data_internal(struct llama_context *ctx, llama_data_write &data_ctx, llama_seq_id seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_synchronize(ctx);
 
     data_ctx.write_kv_cache(ctx, seq_id);
@@ -24641,12 +24776,14 @@ static size_t llama_state_seq_get_data_internal(struct llama_context *ctx, llama
 
 size_t llama_state_seq_get_size(struct llama_context *ctx, llama_seq_id seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_data_write_dummy data_ctx;
     return llama_state_seq_get_data_internal(ctx, data_ctx, seq_id);
 }
 
 size_t llama_state_seq_get_data(struct llama_context *ctx, uint8_t *dst, size_t size, llama_seq_id seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_data_write_buffer data_ctx(dst, size);
     try
     {
@@ -24661,6 +24798,7 @@ size_t llama_state_seq_get_data(struct llama_context *ctx, uint8_t *dst, size_t 
 
 static size_t llama_state_seq_set_data_internal(struct llama_context *ctx, llama_data_read &data_ctx, llama_seq_id dest_seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_synchronize(ctx);
 
     data_ctx.read_kv_cache(ctx, dest_seq_id);
@@ -24670,6 +24808,7 @@ static size_t llama_state_seq_set_data_internal(struct llama_context *ctx, llama
 
 size_t llama_state_seq_set_data(struct llama_context *ctx, const uint8_t *src, size_t size, llama_seq_id dest_seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_data_read_buffer data_ctx(src, size);
     try
     {
@@ -24684,6 +24823,7 @@ size_t llama_state_seq_set_data(struct llama_context *ctx, const uint8_t *src, s
 
 static size_t llama_state_seq_save_file_internal(struct llama_context *ctx, const char *filepath, llama_seq_id seq_id, const llama_token *tokens, size_t n_token_count)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_file file(filepath, "wb");
 
     file.write_u32(LLAMA_STATE_SEQ_MAGIC);
@@ -24704,6 +24844,7 @@ static size_t llama_state_seq_save_file_internal(struct llama_context *ctx, cons
 
 static size_t llama_state_seq_load_file_internal(struct llama_context *ctx, const char *filepath, llama_seq_id dest_seq_id, llama_token *tokens_out, size_t n_token_capacity, size_t *n_token_count_out)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_file file(filepath, "rb");
 
     // version checks
@@ -24751,6 +24892,7 @@ static size_t llama_state_seq_load_file_internal(struct llama_context *ctx, cons
 
 size_t llama_state_seq_save_file(struct llama_context *ctx, const char *filepath, llama_seq_id seq_id, const llama_token *tokens, size_t n_token_count)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     try
     {
         return llama_state_seq_save_file_internal(ctx, filepath, seq_id, tokens, n_token_count);
@@ -24764,6 +24906,7 @@ size_t llama_state_seq_save_file(struct llama_context *ctx, const char *filepath
 
 size_t llama_state_seq_load_file(struct llama_context *ctx, const char *filepath, llama_seq_id dest_seq_id, llama_token *tokens_out, size_t n_token_capacity, size_t *n_token_count_out)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     try
     {
         return llama_state_seq_load_file_internal(ctx, filepath, dest_seq_id, tokens_out, n_token_capacity, n_token_count_out);
@@ -24777,38 +24920,45 @@ size_t llama_state_seq_load_file(struct llama_context *ctx, const char *filepath
 
 void llama_set_n_threads(struct llama_context *ctx, int32_t n_threads, int32_t n_threads_batch)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ctx->cparams.n_threads = n_threads;
     ctx->cparams.n_threads_batch = n_threads_batch;
 }
 
 int32_t llama_n_threads(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return ctx->cparams.n_threads;
 }
 
 int32_t llama_n_threads_batch(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return ctx->cparams.n_threads_batch;
 }
 
 void llama_set_abort_callback(struct llama_context *ctx, bool (*abort_callback)(void *data), void *abort_callback_data)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ctx->abort_callback = abort_callback;
     ctx->abort_callback_data = abort_callback_data;
 }
 
 void llama_set_embeddings(struct llama_context *ctx, bool embeddings)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ctx->cparams.embeddings = embeddings;
 }
 
 void llama_set_causal_attn(struct llama_context *ctx, bool causal_attn)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ctx->cparams.causal_attn = causal_attn;
 }
 
 void llama_set_cross_attention(struct llama_context *ctx, bool cross_attention)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ctx->cparams.cross_attn = cross_attention;
 }
 
@@ -24818,6 +24968,7 @@ struct llama_batch llama_batch_get_one(
     llama_pos pos_0,
     llama_seq_id seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return {
         /*n_tokens       =*/n_tokens,
         /*tokens         =*/tokens,
@@ -24835,6 +24986,7 @@ struct llama_batch llama_batch_get_one(
 
 struct llama_batch llama_batch_init(int32_t n_tokens_alloc, int32_t embd, int32_t n_seq_max)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_batch batch = {
         /*n_tokens       =*/0,
         /*tokens         =*/nullptr,
@@ -24875,6 +25027,7 @@ struct llama_batch llama_batch_init(int32_t n_tokens_alloc, int32_t embd, int32_
 
 void llama_batch_free(struct llama_batch batch)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     if (batch.token)
         free(batch.token);
     if (batch.embd)
@@ -24899,6 +25052,7 @@ int32_t llama_encode(
     struct llama_context *ctx,
     struct llama_batch batch)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const int ret = llama_encode_internal(*ctx, batch);
     if (ret < 0)
     {
@@ -24912,6 +25066,7 @@ int32_t llama_decode(
     struct llama_context *ctx,
     struct llama_batch batch)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const int ret = llama_decode_internal(*ctx, batch);
     if (ret < 0)
     {
@@ -24923,6 +25078,7 @@ int32_t llama_decode(
 
 void llama_synchronize(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ggml_backend_sched_synchronize(ctx->sched);
 
     // FIXME: if multiple single tokens are evaluated without a synchronization,
@@ -24960,6 +25116,7 @@ void llama_synchronize(struct llama_context *ctx)
 
 float *llama_get_logits(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_synchronize(ctx);
 
     // reorder logits for backward compatibility
@@ -24971,6 +25128,7 @@ float *llama_get_logits(struct llama_context *ctx)
 
 float *llama_get_logits_ith(struct llama_context *ctx, int32_t i)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     int32_t j = -1;
     llama_synchronize(ctx);
 
@@ -25023,6 +25181,7 @@ float *llama_get_logits_ith(struct llama_context *ctx, int32_t i)
 
 float *llama_get_embeddings(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_synchronize(ctx);
 
     // reorder embeddings for backward compatibility
@@ -25034,6 +25193,7 @@ float *llama_get_embeddings(struct llama_context *ctx)
 
 float *llama_get_token_embeddding_weights(struct llama_context *ctx, struct llama_model_params params)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_synchronize(ctx);
 
     llama_model_loader ml(ctx->model.name, params.use_mmap, params.check_tensors, params.kv_overrides);
@@ -25046,6 +25206,7 @@ float *llama_get_token_embeddding_weights(struct llama_context *ctx, struct llam
 
 float *llama_get_embeddings_ith(struct llama_context *ctx, int32_t i)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     int32_t j = -1;
 
     llama_synchronize(ctx);
@@ -25099,6 +25260,7 @@ float *llama_get_embeddings_ith(struct llama_context *ctx, int32_t i)
 
 float *llama_get_embeddings_seq(struct llama_context *ctx, llama_seq_id seq_id)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     llama_synchronize(ctx);
 
     auto it = ctx->embd_seq.find(seq_id);
@@ -25116,86 +25278,103 @@ float *llama_get_embeddings_seq(struct llama_context *ctx, llama_seq_id seq_id)
 
 const char *llama_token_get_text(const struct llama_model *model, llama_token token)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_get_text_impl(model->vocab, token);
 }
 
 float llama_token_get_score(const struct llama_model *model, llama_token token)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_get_score_impl(model->vocab, token);
 }
 
 enum llama_token_attr llama_token_get_attr(const struct llama_model *model, llama_token token)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_get_attr_impl(model->vocab, token);
 }
 
 bool llama_token_is_eog(const struct llama_model *model, llama_token token)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_is_eog_impl(model->vocab, token);
 }
 
 bool llama_token_is_control(const struct llama_model *model, llama_token token)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_is_control_impl(model->vocab, token);
 }
 
 llama_token llama_token_bos(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_bos_impl(model->vocab);
 }
 
 llama_token llama_token_eos(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_eos_impl(model->vocab);
 }
 
 llama_token llama_token_cls(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_cls_impl(model->vocab);
 }
 
 llama_token llama_token_sep(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_sep_impl(model->vocab);
 }
 
 llama_token llama_token_nl(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_nl_impl(model->vocab);
 }
 
 llama_token llama_token_pad(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_pad_impl(model->vocab);
 }
 
 bool llama_add_bos_token(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_add_bos_token_impl(model->vocab);
 }
 
 bool llama_add_eos_token(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_add_eos_token_impl(model->vocab);
 }
 
 llama_token llama_token_prefix(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_prefix_impl(model->vocab);
 }
 
 llama_token llama_token_middle(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_middle_impl(model->vocab);
 }
 
 llama_token llama_token_suffix(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_suffix_impl(model->vocab);
 }
 
 llama_token llama_token_eot(const struct llama_model *model)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_token_eot_impl(model->vocab);
 }
 
@@ -25212,6 +25391,7 @@ int32_t llama_tokenize(
     bool add_special,
     bool parse_special)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_tokenize_impl(model->vocab, text, text_len, tokens, n_tokens_max, add_special, parse_special);
 }
 
@@ -25235,6 +25415,7 @@ int32_t llama_detokenize(
     bool remove_special,
     bool unparse_special)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_detokenize_impl(model->vocab, tokens, n_tokens, text, text_len_max, remove_special, unparse_special);
 }
 
@@ -25249,6 +25430,8 @@ static int32_t llama_chat_apply_template_internal(
     const std::vector<const llama_chat_message *> &chat,
     std::string &dest, bool add_ass)
 {
+
+    logMessage("Calling from %s, llama.cpp", __func__);
     // Taken from the research: https://github.com/ggerganov/llama.cpp/issues/5527
     std::stringstream ss;
     auto tmpl_contains = [&tmpl](std::string haystack) -> bool
@@ -25644,6 +25827,7 @@ int32_t llama_chat_apply_template(
     char *buf,
     int32_t length)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     std::string curr_tmpl(tmpl == nullptr ? "" : tmpl);
     if (tmpl == nullptr)
     {
@@ -25691,6 +25875,7 @@ int32_t llama_chat_apply_template(
 // TODO: remove indirection when vocab becomes accesible in llama-sampling.cpp
 struct llama_sampler *llama_sampler_init_grammar(const struct llama_model *model, const char *grammar_str, const char *grammar_root)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return llama_sampler_init_grammar_impl(model->vocab, grammar_str, grammar_root);
 }
 
@@ -25700,6 +25885,7 @@ struct llama_sampler *llama_sampler_init_grammar(const struct llama_model *model
 
 int llama_split_path(char *split_path, size_t maxlen, const char *path_prefix, int split_no, int split_count)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     static const char *const SPLIT_PATH_FORMAT = "%s-%05d-of-%05d.gguf";
     if (snprintf(split_path, maxlen, SPLIT_PATH_FORMAT, path_prefix, split_no + 1, split_count))
     {
@@ -25710,6 +25896,7 @@ int llama_split_path(char *split_path, size_t maxlen, const char *path_prefix, i
 
 int llama_split_prefix(char *dest, size_t maxlen, const char *split_path, int split_no, int split_count)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     std::string str_split_path(split_path);
     char postfix[32];
     snprintf(postfix, 32, "-%05d-of-%05d.gguf", split_no + 1, split_count);
@@ -25728,6 +25915,7 @@ int llama_split_prefix(char *dest, size_t maxlen, const char *split_path, int sp
 
 const char *llama_print_system_info(void)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     static std::string s;
 
     s = "";
@@ -25758,6 +25946,7 @@ const char *llama_print_system_info(void)
 
 struct llama_perf_context_data llama_perf_context(const struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     struct llama_perf_context_data data = {};
 
     if (ctx == nullptr)
@@ -25777,6 +25966,7 @@ struct llama_perf_context_data llama_perf_context(const struct llama_context *ct
 
 void llama_perf_context_print(const struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     const auto data = llama_perf_context(ctx);
 
     const double t_end_ms = 1e-3 * ggml_time_us();
@@ -25791,6 +25981,7 @@ void llama_perf_context_print(const struct llama_context *ctx)
 
 void llama_perf_context_reset(struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     ctx->t_start_us = ggml_time_us();
     ctx->t_eval_us = ctx->n_eval = 0;
     ctx->t_p_eval_us = ctx->n_p_eval = 0;
@@ -25798,6 +25989,7 @@ void llama_perf_context_reset(struct llama_context *ctx)
 
 void llama_perf_dump_yaml(FILE *stream, const llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     fprintf(stream, "\n");
     fprintf(stream, "###########\n");
     fprintf(stream, "# Timings #\n");
@@ -25823,11 +26015,13 @@ void llama_perf_dump_yaml(FILE *stream, const llama_context *ctx)
 const std::vector<std::pair<std::string, struct ggml_tensor *>> &llama_internal_get_tensor_map(
     struct llama_context *ctx)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     return ctx->model.tensors_by_name;
 }
 
 void llama_log_set(ggml_log_callback log_callback, void *user_data)
 {
+    logMessage("Calling from %s, llama.cpp", __func__);
     g_state.log_callback = log_callback ? log_callback : llama_log_callback_default;
     g_state.log_callback_user_data = user_data;
 #ifdef GGML_USE_METAL
@@ -25841,6 +26035,7 @@ void llama_log_set(ggml_log_callback log_callback, void *user_data)
 
 static void llama_log_internal_v(ggml_log_level level, const char *format, va_list args)
 {
+    // logMessage("Calling from %s, llama.cpp", __func__);
     va_list args_copy;
     va_copy(args_copy, args);
     char buffer[128];
@@ -25862,6 +26057,7 @@ static void llama_log_internal_v(ggml_log_level level, const char *format, va_li
 
 void llama_log_internal(ggml_log_level level, const char *format, ...)
 {
+    // logMessage("Calling from %s, llama.cpp", __func__);
     va_list args;
     va_start(args, format);
     llama_log_internal_v(level, format, args);
@@ -25870,6 +26066,7 @@ void llama_log_internal(ggml_log_level level, const char *format, ...)
 
 void llama_log_callback_default(ggml_log_level level, const char *text, void *user_data)
 {
+    // logMessage("Calling from %s, llama.cpp", __func__);
     (void)level;
     (void)user_data;
     fputs(text, stderr);

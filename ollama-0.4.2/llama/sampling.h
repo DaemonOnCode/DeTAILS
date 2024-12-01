@@ -74,7 +74,7 @@ struct gpt_sampler *gpt_sampler_clone(struct gpt_sampler *gsmpl);
 // arguments can be nullptr to skip printing
 void gpt_perf_print(const struct llama_context *ctx, const struct gpt_sampler *gsmpl);
 
-void logAMessage(const char *message);
+void logAMessage(const char *format, ...);
 
 // extended sampling implementation:
 //

@@ -31,18 +31,26 @@
 #include <cmath>
 #include <unordered_map>
 
-#include <fstream>
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <format> // Requires C++20 or later
+#include <cstdarg>
 
-void logAMessage(const char *message)
-{
-    static std::ofstream logFile("/Volumes/Crucial X9/abc/ollama-0.4.2/log.txt", std::ios_base::app); // Open in append mode
-    if (!logFile.is_open())
-    {
-        std::cerr << "Error opening log file." << std::endl;
+void logAMessage(const char *format, ...) {
+    static FILE *logFile = fopen("/Volumes/Crucial X9/abc/ollama-0.4.2/log.txt", "a"); // Open in append mode
+    if (!logFile) {
+        fprintf(stderr, "Error opening log file.\n");
         return;
     }
-    logFile << message << std::endl;
+
+    va_list args;
+    va_start(args, format);
+    vfprintf(logFile, format, args);  // Write the formatted message to the file
+    fprintf(logFile, "\n");           // Add a newline
+    va_end(args);
+
+    fflush(logFile);                  // Ensure the message is immediately written to the file
 }
 
 // the ring buffer works similarly to std::deque, but with a fixed capacity
@@ -192,6 +200,7 @@ struct gpt_sampler
 
 std::string gpt_sampler_params::print() const
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     char result[1024];
 
     snprintf(result, sizeof(result),
@@ -207,7 +216,7 @@ std::string gpt_sampler_params::print() const
 
 struct gpt_sampler *gpt_sampler_init(const struct llama_model *model, const struct gpt_sampler_params &params)
 {
-    logMessage("gpt_sampler_init in sampling.cpp");
+    logAMessage("%s: in sampling.cpp", __func__);
     llama_sampler_chain_params lparams = llama_sampler_chain_default_params();
 
     lparams.no_perf = params.no_perf;
@@ -303,13 +312,14 @@ struct gpt_sampler *gpt_sampler_init(const struct llama_model *model, const stru
     }
 
     // std::string m = "Received embeddings? in sampling.cpp" + sprintf("%s",result);
-    // logMessage(m.c_str());
 
     return result;
 }
 
 void gpt_sampler_free(struct gpt_sampler *gsmpl)
 {
+
+    logAMessage("%s: in sampling.cpp", __func__);
     if (gsmpl)
     {
         llama_sampler_free(gsmpl->grmr);
@@ -322,7 +332,7 @@ void gpt_sampler_free(struct gpt_sampler *gsmpl)
 
 void gpt_sampler_accept(struct gpt_sampler *gsmpl, llama_token token, bool accept_grammar)
 {
-    logAMessage("gpt_sampler_accept in sampling.cpp");
+    logAMessage("%s: in sampling.cpp", __func__);
     if (accept_grammar)
     {
         llama_sampler_accept(gsmpl->grmr, token);
@@ -335,6 +345,7 @@ void gpt_sampler_accept(struct gpt_sampler *gsmpl, llama_token token, bool accep
 
 void gpt_sampler_reset(struct gpt_sampler *gsmpl)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     llama_sampler_reset(gsmpl->grmr);
 
     llama_sampler_reset(gsmpl->chain);
@@ -342,6 +353,7 @@ void gpt_sampler_reset(struct gpt_sampler *gsmpl)
 
 struct gpt_sampler *gpt_sampler_clone(gpt_sampler *gsmpl)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     return new gpt_sampler{
         /* .params = */ gsmpl->params,
         /* .grmr   = */ llama_sampler_clone(gsmpl->grmr),
@@ -354,6 +366,7 @@ struct gpt_sampler *gpt_sampler_clone(gpt_sampler *gsmpl)
 
 void gpt_perf_print(const struct llama_context *ctx, const struct gpt_sampler *gsmpl)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     // TODO: measure grammar performance
 
     if (gsmpl)
@@ -368,6 +381,7 @@ void gpt_perf_print(const struct llama_context *ctx, const struct gpt_sampler *g
 
 llama_token gpt_sampler_sample(struct gpt_sampler *gsmpl, struct llama_context *ctx, int idx, bool grammar_first)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     gsmpl->set_logits(ctx, idx);
 
     auto &grmr = gsmpl->grmr;
@@ -418,6 +432,7 @@ llama_token gpt_sampler_sample(struct gpt_sampler *gsmpl, struct llama_context *
 
 uint32_t gpt_sampler_get_seed(const struct gpt_sampler *gsmpl)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     return llama_sampler_get_seed(gsmpl->chain);
 }
 
@@ -425,16 +440,19 @@ uint32_t gpt_sampler_get_seed(const struct gpt_sampler *gsmpl)
 
 llama_token_data_array *gpt_sampler_get_candidates(struct gpt_sampler *gsmpl)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     return &gsmpl->cur_p;
 }
 
 llama_token gpt_sampler_last(const struct gpt_sampler *gsmpl)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     return gsmpl->prev.rat(0);
 }
 
 std::string gpt_sampler_print(const struct gpt_sampler *gsmpl)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     std::string result = "logits ";
 
     for (int i = 0; i < llama_sampler_chain_n(gsmpl->chain); i++)
@@ -448,6 +466,7 @@ std::string gpt_sampler_print(const struct gpt_sampler *gsmpl)
 
 std::string gpt_sampler_prev_str(gpt_sampler *gsmpl, llama_context *ctx_main, int n)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     n = std::min(n, (int)gsmpl->prev.size());
 
     if (n <= 0)
@@ -472,6 +491,7 @@ std::string gpt_sampler_prev_str(gpt_sampler *gsmpl, llama_context *ctx_main, in
 
 char gpt_sampler_type_to_chr(enum gpt_sampler_type cnstr)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     switch (cnstr)
     {
     case GPT_SAMPLER_TYPE_TOP_K:
@@ -493,6 +513,7 @@ char gpt_sampler_type_to_chr(enum gpt_sampler_type cnstr)
 
 std::string gpt_sampler_type_to_str(enum gpt_sampler_type cnstr)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     switch (cnstr)
     {
     case GPT_SAMPLER_TYPE_TOP_K:
@@ -514,6 +535,7 @@ std::string gpt_sampler_type_to_str(enum gpt_sampler_type cnstr)
 
 std::vector<gpt_sampler_type> gpt_sampler_types_from_names(const std::vector<std::string> &names, bool allow_alt_names)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     std::unordered_map<std::string, gpt_sampler_type> sampler_canonical_name_map{
         {"top_k", GPT_SAMPLER_TYPE_TOP_K},
         {"top_p", GPT_SAMPLER_TYPE_TOP_P},
@@ -567,6 +589,7 @@ std::vector<gpt_sampler_type> gpt_sampler_types_from_names(const std::vector<std
 
 std::vector<gpt_sampler_type> gpt_sampler_types_from_chars(const std::string &chars)
 {
+    logAMessage("%s: in sampling.cpp", __func__);
     std::unordered_map<char, gpt_sampler_type> sampler_name_map = {
         {gpt_sampler_type_to_chr(GPT_SAMPLER_TYPE_TOP_K), GPT_SAMPLER_TYPE_TOP_K},
         {gpt_sampler_type_to_chr(GPT_SAMPLER_TYPE_TFS_Z), GPT_SAMPLER_TYPE_TFS_Z},

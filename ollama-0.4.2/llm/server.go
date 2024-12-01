@@ -346,11 +346,19 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, ggml *GGML, adapter
 			}
 		}
 
+		// Define the log file path for the other server
+		logFilePath := "/Volumes/Crucial X9/abc/ollama-0.4.2/server_runner.log"
+		logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open log file: %v", err)
+		}
+
+
 		// TODO - once fully switched to the Go runner, load the model here for tokenize/detokenize cgo access
 		s := &llmServer{
 			port:        port,
 			cmd:         exec.Command(server, finalParams...),
-			status:      NewStatusWriter(os.Stderr),
+			status:      NewStatusWriter(logFile),
 			options:     opts,
 			modelPath:   model,
 			estimate:    estimate,
@@ -399,7 +407,12 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, ggml *GGML, adapter
 			s.cmd.Env = append(s.cmd.Env, visibleDevicesEnv+"="+visibleDevicesEnvVal)
 		}
 
-		slog.Info("starting llama server", "cmd", s.cmd.String())
+		// Set the server's stdout and stderr to write to the log file
+		s.cmd.Stdout = logFile
+		s.cmd.Stderr = logFile
+
+		// Logging the start of the server
+		slog.Info("starting llama server", "cmd", s.cmd.String(), "logFile", logFilePath)
 		if envconfig.Debug() {
 			filteredEnv := []string{}
 			for _, ev := range s.cmd.Env {
@@ -419,20 +432,36 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, ggml *GGML, adapter
 			slog.Debug("subprocess", "environment", filteredEnv)
 		}
 
+		// Start the command
 		if err = s.cmd.Start(); err != nil {
 			// Detect permission denied and augment the message about noexec
 			if errors.Is(err, os.ErrPermission) {
 				finalErr = fmt.Errorf("unable to start server %w.  %s may have noexec set.  Set OLLAMA_TMPDIR for server to a writable executable directory", err, dir)
-				continue
+				return nil, finalErr
 			}
 			msg := ""
 			if s.status != nil && s.status.LastErrMsg != "" {
 				msg = s.status.LastErrMsg
 			}
 			err = fmt.Errorf("error starting the external llama server: %v %s", err, msg)
-			finalErr = err
-			continue
+			return nil, err
 		}
+
+
+		// if err = s.cmd.Start(); err != nil {
+		// 	// Detect permission denied and augment the message about noexec
+		// 	if errors.Is(err, os.ErrPermission) {
+		// 		finalErr = fmt.Errorf("unable to start server %w.  %s may have noexec set.  Set OLLAMA_TMPDIR for server to a writable executable directory", err, dir)
+		// 		continue
+		// 	}
+		// 	msg := ""
+		// 	if s.status != nil && s.status.LastErrMsg != "" {
+		// 		msg = s.status.LastErrMsg
+		// 	}
+		// 	err = fmt.Errorf("error starting the external llama server: %v %s", err, msg)
+		// 	finalErr = err
+		// 	continue
+		// }
 
 		// reap subprocess when it exits
 		go func() {
@@ -882,7 +911,7 @@ type EmbeddingResponse struct {
 
 func (s *llmServer) Embedding(ctx context.Context, input string) ([]float32, error) {
 
-	LogToFile("In Embedding: "+input)
+	// LogToFile("In Embedding: "+input)
 	if err := s.sem.Acquire(ctx, 1); err != nil {
 		slog.Error("Failed to acquire semaphore", "error", err)
 		return nil, err
@@ -897,14 +926,14 @@ func (s *llmServer) Embedding(ctx context.Context, input string) ([]float32, err
 		return nil, fmt.Errorf("unexpected server status: %s", status.ToString())
 	}
 
-	LogToFile("Server is ready")
+	// LogToFile("Server is ready")
 
 	data, err := json.Marshal(EmbeddingRequest{Content: input})
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling embed data: %w", err)
 	}
 
-	LogToFile("Data is marshaled")
+	// LogToFile("Data is marshaled")
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://127.0.0.1:%d/embedding", s.port), bytes.NewBuffer(data))
 	if err != nil {
@@ -912,7 +941,7 @@ func (s *llmServer) Embedding(ctx context.Context, input string) ([]float32, err
 	}
 	r.Header.Set("Content-Type", "application/json")
 
-	LogToFile("Request is created for port "+fmt.Sprintf("%d", s.port))
+	// LogToFile("Request is created for port "+fmt.Sprintf("%d", s.port))
 
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
@@ -920,28 +949,28 @@ func (s *llmServer) Embedding(ctx context.Context, input string) ([]float32, err
 	}
 	defer resp.Body.Close()
 
-	LogToFile("Response is received")
+	// LogToFile("Response is received")
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading embed response: %w", err)
 	}
 
-	LogToFile("Body is read"+string(body))
+	// LogToFile("Body is read"+string(body))
 
 	if resp.StatusCode >= 400 {
 		log.Printf("llm embedding error: %s", body)
 		return nil, fmt.Errorf("%s", body)
 	}
 
-	LogToFile("Status code is OK")
+	// LogToFile("Status code is OK")
 
 	var e EmbeddingResponse
 	if err := json.Unmarshal(body, &e); err != nil {
 		return nil, fmt.Errorf("unmarshal tokenize response: %w", err)
 	}
 
-	LogToFile("Embedding is unmarshaled: "+fmt.Sprintf("%v", e.Embedding))
+	// LogToFile("Embedding is unmarshaled: "+fmt.Sprintf("%v", e.Embedding))
 
 	return e.Embedding, nil
 }

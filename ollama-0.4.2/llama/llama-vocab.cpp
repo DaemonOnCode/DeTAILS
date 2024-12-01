@@ -33,6 +33,7 @@
 #include <cassert>
 #include <cfloat>
 #include <climits>
+#include <cstdio>
 #include <cstdarg>
 #include <cstring>
 #include <forward_list>
@@ -132,6 +133,7 @@ llama_vocab::~llama_vocab()
 
 int llama_vocab::find_bpe_rank(const std::string &token_left, const std::string &token_right) const
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(token_left.find(' ') == std::string::npos);
     GGML_ASSERT(token_left.find('\n') == std::string::npos);
     GGML_ASSERT(token_right.find(' ') == std::string::npos);
@@ -148,47 +150,55 @@ int llama_vocab::find_bpe_rank(const std::string &token_left, const std::string 
 
 static enum llama_vocab_type llama_vocab_get_type(const llama_vocab &vocab)
 {
+    // logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.type;
 }
 
 static bool llama_is_normal_token(const llama_vocab &vocab, llama_token id)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(vocab.type != LLAMA_VOCAB_TYPE_NONE);
     return vocab.id_to_token[id].attr & LLAMA_TOKEN_ATTR_NORMAL;
 }
 
 static bool llama_is_unknown_token(const llama_vocab &vocab, llama_token id)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(vocab.type != LLAMA_VOCAB_TYPE_NONE);
     return vocab.id_to_token[id].attr & LLAMA_TOKEN_ATTR_UNKNOWN;
 }
 
 static bool llama_is_control_token(const llama_vocab &vocab, llama_token id)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(vocab.type != LLAMA_VOCAB_TYPE_NONE);
     return vocab.id_to_token[id].attr & LLAMA_TOKEN_ATTR_CONTROL;
 }
 
 static bool llama_is_byte_token(const llama_vocab &vocab, llama_token id)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(vocab.type != LLAMA_VOCAB_TYPE_NONE);
     return vocab.id_to_token[id].attr & LLAMA_TOKEN_ATTR_BYTE;
 }
 
 static bool llama_is_user_defined_token(const llama_vocab &vocab, llama_token id)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(vocab.type != LLAMA_VOCAB_TYPE_NONE);
     return vocab.id_to_token[id].attr & LLAMA_TOKEN_ATTR_USER_DEFINED;
 }
 
 static bool llama_is_unused_token(const llama_vocab &vocab, llama_token id)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(vocab.type != LLAMA_VOCAB_TYPE_NONE);
     return vocab.id_to_token[id].attr & LLAMA_TOKEN_ATTR_UNUSED;
 }
 
 static uint8_t llama_token_to_byte(const llama_vocab &vocab, llama_token id)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(llama_vocab_get_type(vocab) != LLAMA_VOCAB_TYPE_NONE);
     GGML_ASSERT(llama_is_byte_token(vocab, id));
     const auto &token_data = vocab.id_to_token.at(id);
@@ -216,11 +226,13 @@ static uint8_t llama_token_to_byte(const llama_vocab &vocab, llama_token id)
 
 static void llama_escape_whitespace(std::string &text)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     replace_all(text, " ", "\xe2\x96\x81");
 }
 
 static void llama_unescape_whitespace(std::string &word)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     replace_all(word, "\xe2\x96\x81", " ");
 }
 
@@ -1371,6 +1383,7 @@ private:
 
 static std::vector<uint8_t> llama_unescape_rwkv_token(const std::string &escaped)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     std::vector<uint8_t> output;
     output.reserve(escaped.size());
 
@@ -1569,6 +1582,7 @@ struct fragment_buffer_variant
 
 static void tokenizer_st_partition(const llama_vocab &vocab, std::forward_list<fragment_buffer_variant> &buffer, bool parse_special)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     LLAMA_LOG_INFO("Running %s, llama-vocab.cpp\n", __func__);
     LLAMA_LOG_INFO("tokenizer st partition, llama vocab\n");
     // for each special token
@@ -1713,15 +1727,22 @@ static void tokenizer_st_partition(const llama_vocab &vocab, std::forward_list<f
     }
 }
 
-void logMessage(const char *message)
+void logMessage(const char *format, ...)
 {
     static FILE *logFile = fopen("/Volumes/Crucial X9/abc/ollama-0.4.2/log.txt", "a"); // Open in append mode
     if (!logFile)
     {
         fprintf(stderr, "Error opening log file.\n");
+        return;
     }
-    fprintf(logFile, "%s\n", message); // Write the message followed by a newline
-    fflush(logFile);                   // Ensure the message is immediately written to the file
+
+    va_list args;
+    va_start(args, format);
+    vfprintf(logFile, format, args); // Write the formatted message to the file
+    fprintf(logFile, "\n");          // Add a newline
+    va_end(args);
+
+    fflush(logFile); // Ensure the message is immediately written to the file
 }
 
 std::vector<llama_vocab::id> llama_tokenize_internal(
@@ -1730,6 +1751,7 @@ std::vector<llama_vocab::id> llama_tokenize_internal(
     bool add_special,
     bool parse_special)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     LLAMA_LOG_INFO("Running %s, llama-vocab.cpp\n", __func__);
     GGML_ASSERT(vocab.tokenizer && "Tokenizer not initialized. Call llama_vocab::init_tokenizer() first.");
 
@@ -1958,6 +1980,7 @@ std::vector<llama_vocab::id> llama_tokenize_internal(
 
 llama_token llama_byte_to_token_impl(const llama_vocab &vocab, uint8_t ch)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     LLAMA_LOG_INFO("Running %s, llama-vocab.cpp\n", __func__);
     LLAMA_LOG_INFO("Byte to token impl, llama vocab\n");
     GGML_ASSERT(llama_vocab_get_type(vocab) != LLAMA_VOCAB_TYPE_NONE);
@@ -1989,94 +2012,112 @@ llama_token llama_byte_to_token_impl(const llama_vocab &vocab, uint8_t ch)
 
 const char *llama_token_get_text_impl(const struct llama_vocab &vocab, llama_token token)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(vocab.type != LLAMA_VOCAB_TYPE_NONE);
     return vocab.id_to_token[token].text.c_str();
 }
 
 float llama_token_get_score_impl(const struct llama_vocab &vocab, llama_token token)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(vocab.type != LLAMA_VOCAB_TYPE_NONE);
     return vocab.id_to_token[token].score;
 }
 
 llama_token_attr llama_token_get_attr_impl(const struct llama_vocab &vocab, llama_token token)
 {
+    // logMessage("Calling from %s, llama-vocab.cpp", __func__);
     GGML_ASSERT(vocab.type != LLAMA_VOCAB_TYPE_NONE);
     return vocab.id_to_token[token].attr;
 }
 
 bool llama_token_is_eog_impl(const struct llama_vocab &vocab, llama_token token)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return token != -1 && vocab.special_eog_ids.count(token) > 0;
 }
 
 bool llama_token_is_control_impl(const struct llama_vocab &vocab, llama_token token)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return llama_is_control_token(vocab, token);
 }
 
 llama_token llama_token_bos_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.special_bos_id;
 }
 
 llama_token llama_token_eos_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.special_eos_id;
 }
 
 llama_token llama_token_cls_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.special_cls_id;
 }
 
 llama_token llama_token_sep_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.special_sep_id;
 }
 
 llama_token llama_token_nl_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.linefeed_id;
 }
 
 llama_token llama_token_pad_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.special_pad_id;
 }
 
 bool llama_add_bos_token_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.tokenizer_add_bos;
 }
 
 bool llama_add_eos_token_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.tokenizer_add_eos;
 }
 
 llama_token llama_token_prefix_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.special_prefix_id;
 }
 
 llama_token llama_token_middle_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.special_middle_id;
 }
 
 llama_token llama_token_suffix_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.special_suffix_id;
 }
 
 llama_token llama_token_eot_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.special_eot_id;
 }
 
 llama_token llama_token_eom_impl(const struct llama_vocab &vocab)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     return vocab.special_eom_id;
 }
 
@@ -2089,6 +2130,7 @@ int32_t llama_tokenize_impl(
     bool add_special,
     bool parse_special)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     LLAMA_LOG_INFO("Running %s, llama-vocab.cpp\n", __func__);
     fprintf(stderr, "Logging initialized\n, in token impl\n");
 
@@ -2115,6 +2157,7 @@ int32_t llama_tokenize_impl(
 
 static std::string llama_decode_text(const std::string &text)
 {
+    logMessage("Calling from %s: %s, llama-vocab.cpp", __func__, text.c_str());
     // LLAMA_LOG_INFO("Running %s, llama-vocab.cpp\n", __func__);
     std::string decoded_text;
 
@@ -2146,6 +2189,7 @@ static std::string llama_decode_text(const std::string &text)
 // does not write null-terminator to buf
 int32_t llama_token_to_piece_impl(const struct llama_vocab &vocab, llama_token token, char *buf, int32_t length, int32_t lstrip, bool special)
 {
+    logMessage("Calling from %s: %d, %d, %d, %d, llama-vocab.cpp, ", __func__, token, length, lstrip, special);
     // LLAMA_LOG_INFO("Running %s, llama-vocab.cpp\n", __func__);
     // LLAMA_LOG_INFO("Token to piece impl, llama vocab");
     // ref: https://github.com/ggerganov/llama.cpp/pull/7587#discussion_r1620983843
@@ -2259,6 +2303,7 @@ int32_t llama_detokenize_impl(
     bool remove_special,
     bool unparse_special)
 {
+    logMessage("Calling from %s, llama-vocab.cpp", __func__);
     LLAMA_LOG_INFO("Running %s, llama-vocab.cpp\n", __func__);
     GGML_ASSERT(vocab.tokenizer && "Tokenizer not initialized. Call llama_vocab::init_tokenizer() first.");
 

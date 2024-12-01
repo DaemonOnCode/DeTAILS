@@ -90,6 +90,7 @@ import (
 	"fmt"
 	"runtime"
 	"runtime/cgo"
+	"log/slog"
 	"slices"
 	"strings"
 	"unsafe"
@@ -97,11 +98,15 @@ import (
 
 var CpuFeatures = ""
 
+
+
 func BackendInit() {
+	slog.Info("BackendInit")
 	C.llama_backend_init()
 }
 
 func PrintSystemInfo() string {
+	slog.Info("PrintSystemInfo")
 	var compiler string
 	switch C.get_compiler() {
 	case C.COMP_UNKNOWN:
@@ -115,6 +120,7 @@ func PrintSystemInfo() string {
 }
 
 func GetModelArch(modelPath string) (string, error) {
+	slog.Info("GetModelArch")
 	mp := C.CString(modelPath)
 	defer C.free(unsafe.Pointer(mp))
 
@@ -141,6 +147,7 @@ type ContextParams struct {
 }
 
 func NewContextParams(numCtx int, batchSize int, numSeqMax int, threads int, flashAttention bool) ContextParams {
+	slog.Info("NewContextParams")
 	params := C.llama_context_default_params()
 	params.n_ctx = C.uint(numCtx)
 	params.n_batch = C.uint(batchSize)
@@ -158,14 +165,17 @@ type Context struct {
 }
 
 func (c *Context) KvCacheClear() {
+	slog.Info("KvCacheClear")
 	C.llama_kv_cache_clear(c.c)
 }
 
 func (c *Context) Decode(batch *Batch) error {
+	slog.Info("Decode")
 	// Positive return values does not mean a fatal error, but rather a warning.
 	//   0 - success
 	//   1 - could not find a KV slot for the batch (try reducing the size of the batch or increase the context)
 	// < 0 - error
+	fmt.Println("Decoding")
 	code := int(C.llama_decode(c.c, batch.c))
 
 	if code < 0 {
@@ -180,26 +190,32 @@ func (c *Context) Decode(batch *Batch) error {
 }
 
 func (c *Context) Model() *Model {
+	slog.Info("Model")
+	fmt.Println("Model")
 	return &Model{c: C.llama_get_model(c.c)}
 }
 
 func (c *Context) KvCacheSeqAdd(seqId int, p0 int, p1 int, delta int) {
+	slog.Info("KvCacheSeqAdd")
 	fmt.Println("KvCacheSeqAdd", seqId, p0, p1, delta)
 	C.llama_kv_cache_seq_add(c.c, C.int(seqId), C.int(p0), C.int(p1), C.int(delta))
 }
 
 func (c *Context) KvCacheSeqRm(seqId int, p0 int, p1 int) bool {
+	slog.Info("KvCacheSeqRm")
 	fmt.Println("KvCacheSeqRm", seqId, p0, p1)
 	return bool(C.llama_kv_cache_seq_rm(c.c, C.int(seqId), C.int(p0), C.int(p1)))
 }
 
 func (c *Context) KvCacheSeqCp(srcSeqId int, dstSeqId int, p0 int, p1 int) {
+	slog.Info("KvCacheSeqCp")
 	fmt.Println("KvCacheSeqCp", srcSeqId, dstSeqId, p0, p1)
 	C.llama_kv_cache_seq_cp(c.c, C.int(srcSeqId), C.int(dstSeqId), C.int(p0), C.int(p1))
 }
 
 // Get the embeddings for a sequence id
 func (c *Context) GetEmbeddingsSeq(seqId int) []float32 {
+	slog.Info("GetEmbeddingsSeq")
 	fmt.Println("Get embeddings seq", seqId)
 	embeddings := unsafe.Pointer(C.llama_get_embeddings_seq(c.c, C.int(seqId)))
 	if embeddings == nil {
@@ -210,12 +226,14 @@ func (c *Context) GetEmbeddingsSeq(seqId int) []float32 {
 }
 
 func (c *Context) GetEmbeddingsIth(i int) []float32 {
+	slog.Info("GetEmbeddingsIth")
 	fmt.Println("Get embeddings ith", i)
 	embeddings := unsafe.Pointer(C.llama_get_embeddings_ith(c.c, C.int32_t(i)))
 	fmt.Println("Embeddings in llama go", embeddings)
 	if embeddings == nil {
 		return nil
 	}
+	fmt.Println("Embeddings in llama go", embeddings)
 
 	return unsafe.Slice((*float32)(embeddings), c.Model().NEmbd())
 }
@@ -279,9 +297,10 @@ func LoadModelFromFile(modelPath string, params ModelParams) (*Model, error) {
 
 	fmt.Println("Model loaded", m.c)
 
-	vocab := C.llama_get_all_vocab(&m)
+	vocab := getAllVocab(&m)
 
 	fmt.Println("Vocab", vocab)
+	fmt.Println("VocabC", vocab.c)
 
 	if m.c == nil {
 		return nil, fmt.Errorf("unable to load model: %s", modelPath)
@@ -290,6 +309,28 @@ func LoadModelFromFile(modelPath string, params ModelParams) (*Model, error) {
 	return &m, nil
 }
 
+type Vocab struct {
+	c *C.struct_llama_vocab
+}
+
+
+func getAllVocab(model *Model) *Vocab {
+	if model == nil || model.c == nil {
+		return nil
+	}
+
+	// Call the C function to get the vocab.
+	vocabC := C.llama_get_all_vocab(model.c)
+
+	// If necessary, convert the C vocab to a Go-friendly format.
+	if vocabC == nil {
+		return nil
+	}
+
+	fmt.Println("VocabC", vocabC)
+
+	return &Vocab{c: vocabC}
+}
 
 // func LoadModelFromFileNew(modelPath string, params ModelParams) (*Model, error) {
 // 	fmt.Println("Loading model from file:", modelPath)
@@ -447,21 +488,26 @@ func (b *Batch) IsEmbedding() bool {
 func (b *Batch) Add(token int, embed []float32, pos int, logits bool, seqIds ...int) {
 	fmt.Println("Adding to batch", token, embed, pos, logits, seqIds)
 	if !b.IsEmbedding() {
+		fmt.Println("Adding token", token, !b.IsEmbedding())
 		unsafe.Slice(b.c.token, b.allocSize())[b.c.n_tokens] = C.llama_token(token)
 	} else {
+		fmt.Println("Adding embed", embed, !b.IsEmbedding())
 		copy(unsafe.Slice((*float32)(b.c.embd), b.allocSize()*b.embedSize)[int(b.c.n_tokens)*b.embedSize:], embed)
 	}
+	fmt.Println("Adding pos", pos)
 	unsafe.Slice(b.c.pos, b.allocSize())[b.c.n_tokens] = C.llama_pos(pos)
+	fmt.Println("Adding seqIds", seqIds)
 	unsafe.Slice(b.c.n_seq_id, b.allocSize())[b.c.n_tokens] = C.int(len(seqIds))
 
+	fmt.Println("Adding seqIds", seqIds)
 	for i, s := range seqIds {
 		unsafe.Slice((unsafe.Slice(b.c.seq_id, b.allocSize())[b.c.n_tokens]), C.int(len(seqIds)))[i] = C.int32_t(s)
 	}
 
+	fmt.Println("Adding logits", logits)
 	if logits {
 		unsafe.Slice(b.c.logits, b.allocSize())[b.c.n_tokens] = 1
 	}
-
 	b.c.n_tokens += 1
 }
 
