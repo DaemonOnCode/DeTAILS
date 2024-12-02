@@ -1778,7 +1778,7 @@ std::vector<llama_token> llama_tokenize(
 
 void logMessage(const std::string &message)
 {
-    static std::ofstream logFile("/Volumes/Crucial X9/abc/ollama-0.4.2/log.txt", std::ios_base::app); // Open in append mode
+    static std::ofstream logFile("./log.txt", std::ios_base::app); // Open in append mode
     if (!logFile.is_open())
     {
         std::cerr << "Error opening log file." << std::endl;

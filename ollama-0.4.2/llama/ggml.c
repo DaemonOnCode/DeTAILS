@@ -19078,6 +19078,7 @@ int ggml_graph_size(struct ggml_cgraph * cgraph) {
 }
 
 struct ggml_tensor * ggml_graph_node(struct ggml_cgraph * cgraph, int i) {
+    //! Getting embeedings happens through here
     if (i < 0) {
         GGML_ASSERT(cgraph->n_nodes + i >= 0);
         return cgraph->nodes[cgraph->n_nodes + i];
@@ -22245,7 +22246,7 @@ struct gguf_context * gguf_init_from_file(const char * fname, struct gguf_init_p
         for (uint64_t i = 0; i < n_kv; ++i) {
             struct gguf_kv * kv = &ctx->kv[i];
 
-            fprintf(stderr, "%s: reading kv %d\n", __func__, i);
+            fprintf(stderr, "%s: reading kv %lu\n", __func__, i);
 
             ok = ok && gguf_fread_str(file, &kv->key,                    &offset);
             ok = ok && gguf_fread_el (file, &kv->type, sizeof(kv->type), &offset);

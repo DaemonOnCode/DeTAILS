@@ -33,6 +33,7 @@
 #include "ggml.h"
 #include "ggml-alloc.h"
 #include "ggml-backend.h"
+#include "model2vec.h"
 
 #ifdef GGML_USE_RPC
 #include "ggml-rpc.h"
@@ -125,6 +126,7 @@
 #if defined(_MSC_VER)
 #pragma warning(disable : 4244 4267) // possible loss of data
 #endif
+#include "model2vec.h"
 
 // bump if necessary
 #define LLAMA_MAX_LAYERS 512
@@ -133,6 +135,8 @@
 //
 // helpers
 //
+
+std::vector<std::string> load_tokens(struct llama_context *ctx);
 
 // trim whitespace from the beginning and end of a string
 static std::string trim(const std::string &str)
@@ -8952,7 +8956,12 @@ static bool llm_load_tensors(
         case LLM_ARCH_GRANITE:
         case LLM_ARCH_GRANITE_MOE:
         {
+            logMessage("Calling from %s, llama.cpp", __func__);
             model.tok_embd = ml.create_tensor(ctx_input, tn(LLM_TENSOR_TOKEN_EMBD, "weight"), {n_embd, n_vocab});
+
+            logMessage("Nembd: %d, Nvocab: %d", n_embd, n_vocab);
+
+            logMessage("%s -  checking return?, llama.cpp", tn(LLM_TENSOR_TOKEN_EMBD, "weight").c_str());
 
             // output
             {
@@ -11226,15 +11235,38 @@ static struct ggml_tensor *llm_build_inp_embd(
     struct ggml_tensor *tok_embd,
     const llm_build_cb &cb)
 {
-    logMessage("Calling from %s, llama.cpp", __func__);
+    //! embeddings are built here somehow??
+    logMessage("Calling from %s, llama.cpp\n", __func__);
     const int64_t n_embd = hparams.n_embd;
 
     struct ggml_tensor *inpL;
+
+    // Starting pointer to token tensor
+    logMessage("batch.token: %d, llama.cpp\n", batch.token);
 
     if (batch.token)
     {
         lctx.inp_tokens = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, batch.n_tokens);
         cb(lctx.inp_tokens, "inp_tokens", -1);
+
+        // print all input tokens?
+        for (int i = 0; i < batch.n_tokens; i++)
+        {
+            logMessage("batch.tokens[%d]: %d, llama.cpp\n", i, batch.token[i]);
+        }
+
+        logMessage("Total inp_tokens dims: %d, %d, %d, %d, %s, llama.cpp\n", lctx.inp_tokens->ne[0], lctx.inp_tokens->ne[1], lctx.inp_tokens->ne[2], lctx.inp_tokens->ne[3], lctx.inp_tokens->name);
+
+        // for (int i = 0; i < lctx.inp_tokens->ne[0]; i++)
+        // {
+        //     logMessage("lctx.inp_tokens[%d]: %d, llama.cpp\n", i, ((int32_t *)lctx.inp_tokens->data)[i]);
+        // }
+
+        // for(int i = 0; i < batch.n_tokens; i++)
+        // // {
+        //     logMessage("lctx.inp_tokens[%d]: %d, llama.cpp\n", i, ());
+        // }
+
         ggml_set_input(lctx.inp_tokens);
 
         inpL = ggml_get_rows(ctx, tok_embd, lctx.inp_tokens);
@@ -12689,13 +12721,22 @@ struct llm_build_context
         // mutable variable, needed during the last layer of the computation to skip unused tokens
         int32_t n_tokens = this->n_tokens;
 
+        logMessage("Building Llama model with %d layers, llama.cpp\n", n_layer);
+
+        logMessage("N tokens: %d, llama.cpp\n", n_tokens);
+
+        logMessage("Building input embeddings, llama.cpp\n");
+
         const int64_t n_embd_head = hparams.n_embd_head_v;
+
+        logMessage("N embd head: %d, llama.cpp\n", n_embd_head);
         GGML_ASSERT(n_embd_head == hparams.n_embd_head_k);
         GGML_ASSERT(n_embd_head == hparams.n_rot);
 
         struct ggml_tensor *cur;
         struct ggml_tensor *inpL;
 
+        // ggml context, llama context, hparams, batch, ggml tensor, cb -> ggml tensor
         inpL = llm_build_inp_embd(ctx0, lctx, hparams, batch, model.tok_embd, cb);
 
         // inp_pos - contains the positions
@@ -19072,6 +19113,8 @@ static struct ggml_cgraph *llama_build_graph(
     const llama_ubatch &batch,
     bool worst_case)
 {
+
+    //!! check if embeddings are created here?
     logMessage("Calling from %s, llama.cpp", __func__);
     const auto &model = lctx.model;
 
@@ -19442,7 +19485,7 @@ static int32_t llama_relative_position_bucket(llama_pos x, llama_pos y, uint64_t
 
 static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
 {
-    logMessage("Calling from %s, llama.cpp", __func__);
+    logMessage("Calling from %s,  %u, %u, llama.cpp", __func__, batch.n_tokens, batch.n_seqs);
     //
     // set input data
     //
@@ -20097,6 +20140,42 @@ static void llama_graph_compute(
     // fprintf(stderr, "splits: %d\n", ggml_backend_sched_get_n_splits(lctx.sched));
 }
 
+// std::vector<std::string> load_tokens_from_llm(llama_context lctx)
+// {
+//     logMessage("Calling from %s, llama.cpp", __func__);
+//     std::vector<std::string> tokens;
+//     for (int i = 0; i < lctx.n_outputs; i++)
+//     {
+//         int32_t token_id = lctx.output_ids[i];
+//         if (token_id >= 0)
+//         {
+//             logMessage("Token id: %d, %s, ltfl,in llama.cpp\n", token_id, lctx.model.vocab.id_to_token[token_id].text);
+//             tokens.push_back(lctx.model.vocab.id_to_token[token_id].text);
+//         }
+//     }
+//     return tokens;
+// }
+
+// std::vector<vectorf> extract_embeddings_from_llm(llama_context &lctx)
+// {
+//     logMessage("Calling from %s, llama.cpp", __func__);
+//     std::vector<vectorf> embeddings;
+//     for (int i = 0; i < lctx.n_outputs; i++)
+//     {
+//         int32_t token_id = lctx.output_ids[i];
+//         if (token_id >= 0)
+//         {
+//             vectorf embd;
+//             for (int j = 0; j < lctx.model.hparams.n_embd; j++)
+//             {
+//                 embd.push_back(lctx.embd[i * lctx.model.hparams.n_embd + j]);
+//             }
+//             embeddings.push_back(embd);
+//         }
+//     }
+//     return embeddings;
+// }
+
 // decode a batch of tokens by evaluating the transformer
 //
 //   - lctx:      llama context
@@ -20289,11 +20368,14 @@ static int llama_decode_internal(
 
         if (cparams.embeddings)
         {
+            logMessage("Embeddings are enabled, totalNodes: %d", ggml_graph_n_nodes(gf));
             for (int i = ggml_graph_n_nodes(gf) - 1; i >= 0; --i)
             {
+                //! Here we are looking for the embeddings tensor
                 embd = ggml_graph_node(gf, i);
                 if (strcmp(ggml_graph_node(gf, i)->name, "result_embd_pooled") == 0)
                 {
+                    logMessage("Found the embeddings tensor, breaking at i: %d", i);
                     break;
                 }
             }
@@ -20355,6 +20437,23 @@ static int llama_decode_internal(
         {
             ggml_backend_t backend_embd = ggml_backend_sched_get_tensor_backend(lctx.sched, embd);
             GGML_ASSERT(backend_embd != nullptr);
+
+            // model2Vec m2vec(n_embd, true, 256); // Example: embedding dim, apply Zipf, PCA components
+
+            // // Initialize Model2Vec if not already initialized
+            // static bool initialized = false;
+            // if (!initialized)
+            // {
+            //     std::vector<std::string> tokens = load_tokens_from_llm(lctx);                    // Implement token loading
+            //     std::vector<vectorf> precomputed_embeddings = extract_embeddings_from_llm(lctx); // Implement this
+
+            //     if (!m2vec.initialize(precomputed_embeddings, tokens))
+            //     {
+            //         LLAMA_LOG_ERROR("Failed to initialize Model2Vec.\n");
+            //         return -3;
+            //     }
+            //     initialized = true;
+            // }
 
             switch (cparams.pooling_type)
             {
@@ -23159,6 +23258,24 @@ int32_t llama_n_ctx_train(const struct llama_model *model)
 
 int32_t llama_n_embd(const struct llama_model *model)
 {
+    // logMessage("Calling from %s, llama.cpp", __func__);
+
+    // static model2Vec m2vec(300, true, 100); // Example parameters
+    // static bool initialized = false;
+
+    // if (!initialized)
+    // {
+    //     std::vector<std::string> tokens = load_tokens(ctx);
+    //     std::vector<std::vector<float>> embeddings = load_embeddings(ctx);
+    //     if (!m2vec.initialize(embeddings, tokens))
+    //     {
+    //         fprintf(stderr, "Failed to initialize Model2Vec.\n");
+    //         return 0;
+    //     }
+    //     initialized = true;
+    // }
+
+    // return m2vec.get_embedding_dim(); // Return the Model2Vec embedding dimension
     logMessage("Calling from %s, llama.cpp", __func__);
     return model->hparams.n_embd;
 }
@@ -25204,8 +25321,90 @@ float *llama_get_token_embeddding_weights(struct llama_context *ctx, struct llam
     return nullptr;
 }
 
+std::vector<std::string> load_tokens(struct llama_context *ctx)
+{
+    logMessage("Calling from %s, llama.cpp", __func__);
+
+    std::vector<std::string> tokens;
+    for (const auto &it : ctx->model.vocab.id_to_token)
+    {
+        tokens.push_back(it.text);
+    }
+
+    return tokens;
+}
+
+std::vector<std::vector<float>> load_embeddings(struct llama_context *ctx)
+{
+    logMessage("Calling from %s, llama.cpp", __func__);
+    std::vector<std::vector<float>> embeddings;
+
+    return embeddings;
+}
+
 float *llama_get_embeddings_ith(struct llama_context *ctx, int32_t i)
 {
+    //     logMessage("Calling from %s, llama.cpp", __func__);
+    //     int32_t j = -1;
+
+    //     llama_synchronize(ctx);
+
+    //     try
+    //     {
+    //         if (ctx->embd == nullptr)
+    //         {
+    //             throw std::runtime_error("no embeddings");
+    //         }
+
+    //         if (i < 0)
+    //         {
+    //             j = ctx->n_outputs + i;
+    //             if (j < 0)
+    //             {
+    //                 throw std::runtime_error(format("negative index out of range [0, %d)", ctx->n_outputs));
+    //             }
+    //         }
+    //         else if ((size_t)i >= ctx->output_ids.size())
+    //         {
+    //             throw std::runtime_error(format("out of range [0, %lu)", ctx->output_ids.size()));
+    //         }
+    //         else
+    //         {
+    //             j = ctx->output_ids[i];
+    //         }
+
+    //         if (j < 0 || j >= ctx->n_outputs)
+    //         {
+    //             throw std::runtime_error(format("invalid output buffer (j=%d, n_outputs=%d)", j, ctx->n_outputs));
+    //         }
+
+    //         // Generate Model2Vec embeddings if required
+    //         static model2Vec m2vec(300, true, 100); // Example dimensions
+    //         static bool initialized = false;
+
+    //         if (!initialized)
+    //         {
+    //             std::vector<std::string> tokens = load_tokens(ctx);
+    //             std::vector<std::vector<float>> embeddings = load_embeddings(ctx);
+    //             if (!m2vec.initialize(embeddings, tokens))
+    //             {
+    //                 fprintf(stderr, "Failed to initialize Model2Vec.\n");
+    //                 return nullptr;
+    //             }
+    //             initialized = true;
+    //         }
+
+    //         return ctx->embd + j * m2vec.get_embedding_dim(); // Adjusted to Model2Vec embedding dimensions
+    //     }
+    //     catch (const std::exception &err)
+    //     {
+    //         LLAMA_LOG_ERROR("%s: invalid embeddings id %d, reason: %s\n", __func__, i, err.what());
+    // #ifndef NDEBUG
+    //         GGML_ABORT("fatal error");
+    // #else
+    //         return nullptr;
+    // #endif
+    //     }
     logMessage("Calling from %s, llama.cpp", __func__);
     int32_t j = -1;
 
@@ -25245,6 +25444,8 @@ float *llama_get_embeddings_ith(struct llama_context *ctx, int32_t i)
             throw std::runtime_error(format("corrupt output buffer (j=%d, n_outputs=%d)", j, ctx->n_outputs));
         }
 
+        logMessage("Calling from %s, This is ith, %d, llama.cpp", __func__, ctx->embd + j * ctx->model.hparams.n_embd);
+
         return ctx->embd + j * ctx->model.hparams.n_embd;
     }
     catch (const std::exception &err)
@@ -25260,6 +25461,37 @@ float *llama_get_embeddings_ith(struct llama_context *ctx, int32_t i)
 
 float *llama_get_embeddings_seq(struct llama_context *ctx, llama_seq_id seq_id)
 {
+    // logMessage("Calling from %s, llama.cpp", __func__);
+
+    // llama_synchronize(ctx);
+
+    // // Check if Model2Vec embeddings are available
+    // auto it = ctx->embd_seq.find(seq_id);
+    // if (it == ctx->embd_seq.end())
+    // {
+    //     // If embeddings are not found, generate them using Model2Vec
+    //     static model2Vec m2vec(300, true, 100); // Example dimensions
+    //     static bool initialized = false;
+
+    //     if (!initialized)
+    //     {
+    //         // Load tokens and embeddings if needed
+    //         std::vector<std::string> tokens = load_tokens(ctx);                // Load tokens
+    //         std::vector<std::vector<float>> embeddings = load_embeddings(ctx); // Load precomputed embeddings
+    //         if (!m2vec.initialize(embeddings, tokens))
+    //         {
+    //             fprintf(stderr, "Failed to initialize Model2Vec.\n");
+    //             return nullptr;
+    //         }
+    //         initialized = true;
+    //     }
+
+    //     std::vector<float> embedding = m2vec.embed("dummy"); // Replace "dummy" with a sequence-specific token
+    //     ctx->embd_seq[seq_id] = embedding;
+    //     return ctx->embd_seq[seq_id].data();
+    // }
+
+    // return it->second.data();
     logMessage("Calling from %s, llama.cpp", __func__);
     llama_synchronize(ctx);
 
@@ -26071,4 +26303,524 @@ void llama_log_callback_default(ggml_log_level level, const char *text, void *us
     (void)user_data;
     fputs(text, stderr);
     fflush(stderr);
+}
+
+class Model2VecManager
+{
+private:
+    model2Vec *instance;
+    std::vector<std::string> tokens;
+    std::vector<vectorf> embeddings;
+
+public:
+    // Constructor
+    Model2VecManager(int embedding_dim, bool apply_zipf, int pca_components)
+    {
+        instance = model2vec_create(embedding_dim, apply_zipf, pca_components);
+        if (!instance)
+        {
+            throw std::runtime_error("Failed to create model2Vec instance");
+        }
+    }
+
+    ~Model2VecManager()
+    {
+        if (instance)
+        {
+            instance = nullptr;
+            // Free embeddings data
+            for (auto &embedding : embeddings)
+            {
+                delete[] embedding.data;
+            }
+
+            model2vec_destroy(instance);
+        }
+    }
+
+    Model2VecManager(const Model2VecManager &) = delete;
+    Model2VecManager &operator=(const Model2VecManager &) = delete;
+
+    // Initialize with precomputed embeddings
+    bool initialize(const std::vector<vectorf> &precomputed_embeddings, const std::vector<std::string> &tokens)
+    {
+        if (precomputed_embeddings.size() != tokens.size())
+        {
+            return false;
+        }
+
+        // Convert std::vector to C-style structures
+        matrix precomputed_matrix = matrix_create(precomputed_embeddings.size(), precomputed_embeddings[0].size);
+        for (size_t i = 0; i < precomputed_embeddings.size(); ++i)
+        {
+            memcpy(precomputed_matrix.rows[i].data, precomputed_embeddings[i].data, precomputed_embeddings[i].size * sizeof(float));
+        }
+
+        const char **token_array = new const char *[tokens.size()];
+        for (size_t i = 0; i < tokens.size(); ++i)
+        {
+            token_array[i] = tokens[i].c_str();
+        }
+
+        bool success = model2vec_initialize(instance, &precomputed_matrix, token_array, tokens.size());
+
+        // Clean up
+        delete[] token_array;
+        matrix_destroy(&precomputed_matrix);
+
+        if (success)
+        {
+            // Store tokens and embeddings in the manager
+            this->tokens = tokens;
+            this->embeddings = precomputed_embeddings;
+        }
+
+        return success;
+    }
+
+    // Distill embeddings
+    // Distill embeddings
+    bool distill(const matrix &raw_embeddings, const std::vector<std::string> &tokens)
+    {
+        const char **token_array = new const char *[tokens.size()];
+        for (size_t i = 0; i < tokens.size(); ++i)
+        {
+            token_array[i] = tokens[i].c_str();
+        }
+
+        bool success = model2vec_distill(instance, &raw_embeddings, token_array, tokens.size());
+
+        delete[] token_array;
+        return success;
+    }
+
+    vectorf applyPCA(const vectorf &embedding)
+    {
+        // Call the model2vec_apply_pca function and return its result directly
+        return model2vec_apply_pca(instance, &embedding);
+    }
+
+    // Apply Zipf weighting
+    vectorf applyZipfWeighting(const vectorf &embedding, int rank)
+    {
+        // Call the model2vec_apply_zipf_weighting function and return its result directly
+        return model2vec_apply_zipf_weighting(instance, &embedding, rank);
+    }
+
+    // Additional helpers
+    vectorf computeMean(const matrix &data)
+    {
+        vectorf mean_vector = vector_create(data.col_count);
+        for (size_t i = 0; i < data.row_count; ++i)
+        {
+            for (size_t j = 0; j < data.col_count; ++j)
+            {
+                mean_vector.data[j] += data.rows[i].data[j];
+            }
+        }
+
+        for (size_t j = 0; j < data.col_count; ++j)
+        {
+            mean_vector.data[j] /= data.row_count;
+        }
+
+        return mean_vector;
+    }
+
+    matrix centerData(const matrix &data, const vectorf &mean)
+    {
+        matrix centered = matrix_create(data.row_count, data.col_count);
+        for (size_t i = 0; i < data.row_count; ++i)
+        {
+            for (size_t j = 0; j < data.col_count; ++j)
+            {
+                centered.rows[i].data[j] = data.rows[i].data[j] - mean.data[j];
+            }
+        }
+        return centered;
+    }
+
+    matrix computeCovariance(const matrix &data)
+    {
+        matrix covariance = matrix_create(data.col_count, data.col_count);
+        for (size_t i = 0; i < data.col_count; ++i)
+        {
+            for (size_t j = 0; j < data.col_count; ++j)
+            {
+                for (size_t k = 0; k < data.row_count; ++k)
+                {
+                    covariance.rows[i].data[j] += data.rows[k].data[i] * data.rows[k].data[j];
+                }
+                covariance.rows[i].data[j] /= (data.row_count - 1);
+            }
+        }
+        return covariance;
+    }
+
+    std::pair<vectorf, matrix> computeEigen(const matrix &cov, int max_iter = 1000, float tol = 1e-6)
+    {
+        vectorf eigenvalues;
+        matrix eigenvectors;
+        compute_eigen(&cov, &eigenvalues, &eigenvectors);
+        return {eigenvalues, eigenvectors};
+    }
+
+    matrix multiply(const matrix &mat1, const matrix &mat2)
+    {
+        matrix result = matrix_create(mat1.row_count, mat2.col_count);
+        for (size_t i = 0; i < mat1.row_count; ++i)
+        {
+            for (size_t j = 0; j < mat2.col_count; ++j)
+            {
+                result.rows[i].data[j] = 0.0f;
+                for (size_t k = 0; k < mat1.col_count; ++k)
+                {
+                    result.rows[i].data[j] += mat1.rows[i].data[k] * mat2.rows[k].data[j];
+                }
+            }
+        }
+        return result;
+    }
+
+    matrix transpose(const matrix &mat)
+    {
+        matrix result = matrix_create(mat.col_count, mat.row_count);
+        for (size_t i = 0; i < mat.row_count; ++i)
+        {
+            for (size_t j = 0; j < mat.col_count; ++j)
+            {
+                result.rows[j].data[i] = mat.rows[i].data[j];
+            }
+        }
+        return result;
+    }
+
+    bool saveToFile(const std::string &filepath)
+    {
+        // Check if the instance is initialized and tokens/embeddings are available
+        if (!instance || tokens.empty() || embeddings.empty())
+        {
+            // Instance is not initialized or tokens/embeddings are missing
+            return false;
+        }
+
+        // Open a binary file for writing
+        std::ofstream outFile(filepath, std::ios::binary);
+        if (!outFile.is_open())
+        {
+            // Failed to open file
+            return false;
+        }
+
+        // Write embedding_dim
+        outFile.write(reinterpret_cast<char *>(instance->embedding_dim), sizeof(instance->embedding_dim));
+
+        // Write pca_components
+        outFile.write(reinterpret_cast<char *>(instance->pca_components), sizeof(instance->pca_components));
+
+        // Write apply_zipf
+        outFile.write(reinterpret_cast<char *>(instance->apply_zipf), sizeof(instance->apply_zipf));
+
+        // Write the number of tokens
+        size_t token_count = tokens.size();
+        outFile.write(reinterpret_cast<char *>(&token_count), sizeof(token_count));
+
+        // Write each token and its associated embedding
+        for (size_t i = 0; i < token_count; ++i)
+        {
+            // Write token length and token string
+            const std::string &token = tokens[i];
+            size_t token_length = token.length();
+            outFile.write(reinterpret_cast<char *>(&token_length), sizeof(token_length));
+            outFile.write(token.data(), token_length);
+
+            // Write embedding data
+            vectorf embedding = embeddings[i];
+            outFile.write(reinterpret_cast<char *>(embedding.data), embedding.size * sizeof(float));
+        }
+
+        // Close the file
+        outFile.close();
+
+        return true;
+    }
+};
+
+model2Vec *llama_model2vec_init(int embedding_dim, bool apply_zipf, int pca_components)
+{
+    return model2vec_create(embedding_dim, apply_zipf, pca_components);
+}
+
+// Free the model2Vec instance
+void llama_model2vec_free(model2Vec *instance)
+{
+    if (instance)
+    {
+        model2vec_destroy(instance);
+    }
+}
+
+// Initialize the model with precomputed embeddings
+bool llama_model2vec_initialize(model2Vec *instance, const float **embeddings, const char **tokens, size_t count)
+{
+    if (!instance || !embeddings || !tokens || count == 0)
+    {
+        return false;
+    }
+
+    size_t embedding_dim = instance->embedding_dim;
+
+    // Create a matrix from embeddings
+    matrix precomputed_matrix = matrix_create(count, embedding_dim);
+    for (size_t i = 0; i < count; ++i)
+    {
+        memcpy(precomputed_matrix.rows[i].data, embeddings[i], embedding_dim * sizeof(float));
+    }
+
+    // Initialize the model
+    bool success = model2vec_initialize(instance, &precomputed_matrix, tokens, count);
+
+    // Clean up
+    matrix_destroy(&precomputed_matrix);
+
+    return success;
+}
+
+// Distill the raw embeddings
+bool llama_model2vec_distill(model2Vec *instance, const float **raw_embeddings, const char **tokens, size_t count)
+{
+    if (!instance || !raw_embeddings || !tokens || count == 0)
+    {
+        return false;
+    }
+
+    size_t embedding_dim = instance->embedding_dim;
+
+    // Create a matrix from raw embeddings
+    matrix raw_embeddings_matrix = matrix_create(count, embedding_dim);
+    for (size_t i = 0; i < count; ++i)
+    {
+        memcpy(raw_embeddings_matrix.rows[i].data, raw_embeddings[i], embedding_dim * sizeof(float));
+    }
+
+    // Distill the embeddings
+    bool success = model2vec_distill(instance, &raw_embeddings_matrix, tokens, count);
+
+    // Clean up
+    matrix_destroy(&raw_embeddings_matrix);
+
+    return success;
+}
+
+// Apply PCA to an embedding
+bool llama_model2vec_apply_pca(model2Vec *instance, const float *embedding, float *result)
+{
+    if (!instance || !embedding || !result)
+    {
+        return false;
+    }
+
+    size_t embedding_dim = instance->embedding_dim;
+
+    // Create vector from embedding
+    vectorf embedding_vector = vector_create(embedding_dim);
+    memcpy(embedding_vector.data, embedding, embedding_dim * sizeof(float));
+
+    // Apply PCA
+    vectorf result_vector = model2vec_apply_pca(instance, &embedding_vector);
+
+    // Copy the result
+    memcpy(result, result_vector.data, result_vector.size * sizeof(float));
+
+    // Clean up
+    vector_free(&embedding_vector);
+    vector_free(&result_vector);
+
+    return true;
+}
+
+// Apply Zipf weighting to an embedding
+bool llama_model2vec_apply_zipf(model2Vec *instance, const float *embedding, int rank, float *result)
+{
+    if (!instance || !embedding || !result)
+    {
+        return false;
+    }
+
+    size_t embedding_dim = instance->embedding_dim;
+
+    // Create vector from embedding
+    vectorf embedding_vector = vector_create(embedding_dim);
+    memcpy(embedding_vector.data, embedding, embedding_dim * sizeof(float));
+
+    // Apply Zipf weighting
+    vectorf result_vector = model2vec_apply_zipf_weighting(instance, &embedding_vector, rank);
+
+    // Copy the result
+    memcpy(result, result_vector.data, result_vector.size * sizeof(float));
+
+    // Clean up
+    vector_free(&embedding_vector);
+    vector_free(&result_vector);
+
+    return true;
+}
+
+// Get the embedding dimension
+size_t llama_model2vec_embedding_dim(const model2Vec *instance)
+{
+    if (!instance)
+    {
+        return 0;
+    }
+    return instance->embedding_dim;
+}
+
+// llama.cpp
+
+int llama_vocab_size(const llama_vocab *vocab)
+{
+    return vocab->id_to_token.size();
+}
+
+llama_vocab_token llama_get_vocab_token(const llama_vocab *vocab, int index)
+{
+    llama_vocab_token token;
+    const auto &t = vocab->id_to_token.at(index);
+    token.text = t.text.c_str();
+    token.score = t.score;
+    return token;
+}
+
+bool llama_model2vec_initialize_and_save(
+    struct llama_model *model,
+    const char *save_filepath,
+    int embedding_dim,
+    bool apply_zipf,
+    int pca_components)
+{
+    logMessage("Calling from %s, llama.cpp", __func__);
+    if (!model || !save_filepath)
+    {
+        return false;
+    }
+
+    // Create Model2VecManager instance
+    Model2VecManager manager(embedding_dim, apply_zipf, pca_components);
+    logMessage("Model2VecManager instance created");
+
+    // Get the vocabulary
+    const llama_vocab *vocab = llama_get_all_vocab(model);
+    if (!vocab)
+    {
+        return false;
+    }
+    logMessage("Got vocabulary");
+
+    int vocab_size = llama_vocab_size(vocab);
+
+    logMessage("Vocab size got");
+
+    // Prepare embeddings and tokens
+    std::vector<std::vector<float>> embeddings;
+    std::vector<std::string> tokens;
+
+    embeddings.reserve(vocab_size);
+    tokens.reserve(vocab_size);
+
+    // Create a minimal context for processing
+    llama_context_params params = llama_context_default_params();
+    params.n_ctx = 1;     // Minimal context size
+    params.n_threads = 1; // Adjust as needed
+    params.embeddings = true;
+
+    llama_context *ctx = llama_new_context_with_model(model, params);
+    if (!ctx)
+    {
+        return false;
+    }
+    logMessage("Context created");
+
+    for (int i = 0; i < vocab_size; ++i)
+    {
+        logMessage("Processing token %d", i);
+        // Get the token from the vocabulary
+        llama_vocab_token vocab_token = llama_get_vocab_token(vocab, i);
+        tokens.push_back(vocab_token.text);
+
+        // Get the token ID (assuming token IDs are 0-based indices)
+        llama_token token_id = static_cast<llama_token>(i);
+
+        // Create a batch with the single token
+        llama_batch batch = llama_batch_init(1, 0, 1);
+        batch.token[0] = token_id;
+        batch.pos[0] = 0;
+        batch.n_seq_id[0] = 1;
+        batch.seq_id[0][0] = 0; // Sequence ID 0
+        batch.n_tokens = 1;
+
+        logMessage("Initialize batch");
+
+        // Decode the batch to get the embedding
+        int code = llama_decode(ctx, batch);
+        logMessage("Decoded batch: %d", code);
+        llama_batch_free(batch);
+        if (code != 0)
+        {
+            logMessage("Batch wa not freed");
+            llama_free(ctx);
+            return false;
+        }
+
+        // Get the embedding from the context
+        const float *embedding = llama_get_embeddings_seq(ctx, 0);
+        logMessage("Got embedding");
+        if (!embedding)
+        {
+            logMessage("Embedding is null");
+            llama_free(ctx);
+            return false;
+        }
+
+        int embedding_size = llama_n_embd(model);
+        std::vector<float> embedding_vec(embedding, embedding + embedding_size);
+        embeddings.push_back(embedding_vec);
+    }
+    logMessage("Embeddings and tokens prepared");
+
+    // Free the context after processing
+    // llama_free(ctx);
+
+    std::vector<vectorf> embeddings_vectorf;
+    embeddings_vectorf.reserve(embeddings.size());
+
+    for (size_t i = 0; i < embeddings.size(); ++i)
+    {
+        vectorf vf;
+        vf.data = embeddings[i].data();
+        vf.size = embeddings[i].size();
+        embeddings_vectorf.push_back(vf);
+    }
+
+    logMessage("Embeddings converted to vectorf");
+
+    // Now call initialize with embeddings_vectorf
+    bool success = manager.initialize(embeddings_vectorf, tokens);
+    if (!success)
+    {
+        return false;
+    }
+
+    logMessage("Model2VecManager initialized");
+
+    // Save to file
+    success = manager.saveToFile(save_filepath);
+    if (!success)
+    {
+        return false;
+    }
+
+    logMessage("Model2VecManager saved to file");
+
+    return true;
 }

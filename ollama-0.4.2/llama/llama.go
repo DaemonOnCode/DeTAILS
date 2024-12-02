@@ -69,6 +69,7 @@ package llama
 #include "mllama.h"
 #include "sampling_ext.h"
 
+
 bool llamaProgressCallback(float progress, void *user_data);
 
 typedef enum {COMP_UNKNOWN,COMP_GCC,COMP_CLANG} COMPILER;
@@ -88,17 +89,35 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"log"
+	"log/slog"
+	"os"
 	"runtime"
 	"runtime/cgo"
-	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 	"unsafe"
 )
 
 var CpuFeatures = ""
 
+func logToFile(message string) error {
+	// Open the file in append mode, create it if it doesn't exist, and set appropriate permissions
+	file, err := os.OpenFile("./runner_server.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
+	// Create a new logger that writes to the file
+	logger := log.New(file, "", log.LstdFlags)
+
+	// Write the log message
+	logger.Println(message)
+
+	return nil
+}
 
 func BackendInit() {
 	slog.Info("BackendInit")
@@ -148,6 +167,7 @@ type ContextParams struct {
 
 func NewContextParams(numCtx int, batchSize int, numSeqMax int, threads int, flashAttention bool) ContextParams {
 	slog.Info("NewContextParams")
+	logToFile("NewContextParams")
 	params := C.llama_context_default_params()
 	params.n_ctx = C.uint(numCtx)
 	params.n_batch = C.uint(batchSize)
@@ -160,30 +180,157 @@ func NewContextParams(numCtx int, batchSize int, numSeqMax int, threads int, fla
 }
 
 type Context struct {
-	c          *C.struct_llama_context
-	numThreads int
+	c            *C.struct_llama_context
+	numThreads   int
+	useModel2Vec bool
+	model2Vec    *C.struct_model2Vec // Add a model2Vec pointer to the context
 }
 
 func (c *Context) KvCacheClear() {
 	slog.Info("KvCacheClear")
+	logToFile("KvCacheClear")
 	C.llama_kv_cache_clear(c.c)
 }
 
-func (c *Context) Decode(batch *Batch) error {
-	slog.Info("Decode")
-	// Positive return values does not mean a fatal error, but rather a warning.
-	//   0 - success
-	//   1 - could not find a KV slot for the batch (try reducing the size of the batch or increase the context)
-	// < 0 - error
-	fmt.Println("Decoding")
-	code := int(C.llama_decode(c.c, batch.c))
+type VocabToken struct {
+	Text  string
+	Score float32
+}
 
+func (v *Vocab) Size() int {
+	return int(C.llama_vocab_size(v.c))
+}
+
+func (v *Vocab) GetToken(index int) VocabToken {
+	token := C.llama_get_vocab_token(v.c, C.int(index))
+	return VocabToken{
+		Text:  C.GoString(token.text),
+		Score: float32(token.score),
+	}
+}
+
+// Initialize model2Vec in the context
+func (c *Context) InitializeModel2Vec(embeddingDim int, applyZipf bool, pcaComponents int) error {
+	if !c.useModel2Vec {
+		return nil
+	}
+
+	// Create a new model2Vec instance
+	c.model2Vec = C.llama_model2vec_init(C.int(embeddingDim), C.bool(applyZipf), C.int(pcaComponents))
+	if c.model2Vec == nil {
+		return errors.New("failed to initialize model2Vec")
+	}
+
+	return nil
+}
+
+func (m *Model) InitializeModel2VecAndSave(
+	saveFilePath string,
+	embeddingDim int,
+	applyZipf bool,
+	pcaComponents int,
+) error {
+	cSaveFilePath := C.CString(saveFilePath)
+	defer C.free(unsafe.Pointer(cSaveFilePath))
+
+	success := C.llama_model2vec_initialize_and_save(
+		m.c,
+		cSaveFilePath,
+		C.int(embeddingDim),
+		C.bool(applyZipf),
+		C.int(pcaComponents),
+	)
+	if !bool(success) {
+		return errors.New("failed to initialize model2Vec and save to file")
+	}
+	return nil
+}
+
+// Free model2Vec resources
+func (c *Context) FreeModel2Vec() {
+	if c.model2Vec != nil {
+		C.llama_model2vec_free(c.model2Vec)
+		c.model2Vec = nil
+	}
+}
+
+// Get embeddings using model2Vec
+func (c *Context) GetFastEmbeddings(seqId int) ([]float32, error) {
+	if c.useModel2Vec {
+		return c.getModel2VecEmbeddings(seqId)
+	}
+	return c.getLLMEmbeddings(seqId)
+}
+
+func (c *Context) getModel2VecEmbeddings(seqId int) ([]float32, error) {
+	// Retrieve the embedding associated with seqId
+	embedding, err := c.getLLMEmbeddings(seqId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prepare a result slice for the PCA-transformed embedding
+	result := make([]float32, len(embedding))
+
+	// Call the C function with the correct embedding pointer
+	success := C.llama_model2vec_apply_pca(
+		c.model2Vec,
+		(*C.float)(unsafe.Pointer(&embedding[0])),
+		(*C.float)(unsafe.Pointer(&result[0])),
+	)
+	if !success {
+		return nil, errors.New("failed to apply PCA to embedding")
+	}
+	return result, nil
+}
+
+func (c *Context) Decode(batch *Batch) error {
+	logToFile("Decoding")
+	slog.Info("Decode")
+
+	if c.useModel2Vec {
+		numTokens := batch.NumTokens()
+		allocSize := batch.allocSize()
+
+		// Create slices over the C arrays
+		nSeqIdSlice := unsafe.Slice((*C.int)(unsafe.Pointer(batch.c.n_seq_id)), allocSize)
+		seqIdPtrSlice := unsafe.Slice((**C.llama_seq_id)(unsafe.Pointer(batch.c.seq_id)), allocSize)
+
+		for i := 0; i < numTokens; i++ {
+			// Get the number of sequence IDs for the current token
+			nSeqId := int(nSeqIdSlice[i])
+
+			// Get the pointer to the seq_ids for this token
+			seqIdsPtr := seqIdPtrSlice[i]
+
+			// Create a slice over the seq_ids for this token
+			seqIdsC := unsafe.Slice(seqIdsPtr, nSeqId)
+
+			for _, seqIdC := range seqIdsC {
+				seqId := int(seqIdC)
+
+				// Get embeddings for this sequence ID
+				embeddings, err := c.GetFastEmbeddings(seqId)
+				if err != nil {
+					return fmt.Errorf("failed to decode with model2Vec for seqId %d: %w", seqId, err)
+				}
+
+				// Log or process the embeddings as needed
+				logToFile(fmt.Sprintf("Decoded embeddings for seqId %d: %v", seqId, embeddings))
+
+				// Perform additional processing here if needed
+			}
+		}
+		return nil
+	}
+
+	// Fall back to standard decoding
+	code := int(C.llama_decode(c.c, batch.c))
 	if code < 0 {
 		return fmt.Errorf("llama_decode failed with code %d", code)
 	}
-
 	if code > 0 {
-		return fmt.Errorf("could not find a KV slot for the batch - try reducing the size of the batch or increase the context. code: %d", code)
+		return fmt.Errorf("could not find a KV slot for the batch: code %d", code)
 	}
 
 	return nil
@@ -191,30 +338,35 @@ func (c *Context) Decode(batch *Batch) error {
 
 func (c *Context) Model() *Model {
 	slog.Info("Model")
+	logToFile("Model")
 	fmt.Println("Model")
 	return &Model{c: C.llama_get_model(c.c)}
 }
 
 func (c *Context) KvCacheSeqAdd(seqId int, p0 int, p1 int, delta int) {
 	slog.Info("KvCacheSeqAdd")
+	logToFile(fmt.Sprintf("KvCacheSeqAdd: seqId = %d, p0 = %d, p1 = %d, delta = %d", seqId, p0, p1, delta))
 	fmt.Println("KvCacheSeqAdd", seqId, p0, p1, delta)
 	C.llama_kv_cache_seq_add(c.c, C.int(seqId), C.int(p0), C.int(p1), C.int(delta))
 }
 
 func (c *Context) KvCacheSeqRm(seqId int, p0 int, p1 int) bool {
 	slog.Info("KvCacheSeqRm")
+	logToFile(fmt.Sprintf("KvCacheSeqRm: seqId = %d, p0 = %d, p1 = %d", seqId, p0, p1))
 	fmt.Println("KvCacheSeqRm", seqId, p0, p1)
 	return bool(C.llama_kv_cache_seq_rm(c.c, C.int(seqId), C.int(p0), C.int(p1)))
 }
 
 func (c *Context) KvCacheSeqCp(srcSeqId int, dstSeqId int, p0 int, p1 int) {
 	slog.Info("KvCacheSeqCp")
+	logToFile(fmt.Sprintf("KvCacheSeqCp: srcSeqId = %d, dstSeqId = %d, p0 = %d, p1 = %d", srcSeqId, dstSeqId, p0, p1))
 	fmt.Println("KvCacheSeqCp", srcSeqId, dstSeqId, p0, p1)
 	C.llama_kv_cache_seq_cp(c.c, C.int(srcSeqId), C.int(dstSeqId), C.int(p0), C.int(p1))
 }
 
 // Get the embeddings for a sequence id
 func (c *Context) GetEmbeddingsSeq(seqId int) []float32 {
+	logToFile(fmt.Sprintf("GetEmbeddingsSeq: seqId = %d", seqId))
 	slog.Info("GetEmbeddingsSeq")
 	fmt.Println("Get embeddings seq", seqId)
 	embeddings := unsafe.Pointer(C.llama_get_embeddings_seq(c.c, C.int(seqId)))
@@ -226,6 +378,7 @@ func (c *Context) GetEmbeddingsSeq(seqId int) []float32 {
 }
 
 func (c *Context) GetEmbeddingsIth(i int) []float32 {
+	logToFile(fmt.Sprintf("GetEmbeddingsIth: i = %d", i))
 	slog.Info("GetEmbeddingsIth")
 	fmt.Println("Get embeddings ith", i)
 	embeddings := unsafe.Pointer(C.llama_get_embeddings_ith(c.c, C.int32_t(i)))
@@ -236,6 +389,33 @@ func (c *Context) GetEmbeddingsIth(i int) []float32 {
 	fmt.Println("Embeddings in llama go", embeddings)
 
 	return unsafe.Slice((*float32)(embeddings), c.Model().NEmbd())
+}
+
+// func (c *Context) GetFastEmbeddings(seqId int) ([]float32, error) {
+// 	if c.useModel2Vec {
+// 		return c.getModel2VecEmbeddings(seqId)
+// 	}
+// 	return c.getLLMEmbeddings(seqId)
+// }
+
+// // Fetch embeddings using model2vec
+// func (c *Context) getModel2VecEmbeddings(seqId int) ([]float32, error) {
+// 	logToFile(fmt.Sprintf("Fetching model2vec embeddings for seqId = %d", seqId))
+// 	embeddings := unsafe.Pointer(C.model2Vec_embed(c.c, C.int(seqId)))
+// 	if embeddings == nil {
+// 		return nil, errors.New("failed to fetch model2vec embeddings")
+// 	}
+// 	return unsafe.Slice((*float32)(embeddings), c.Model().NEmbd()), nil
+// }
+
+// Fetch embeddings directly from LLM
+func (c *Context) getLLMEmbeddings(seqId int) ([]float32, error) {
+	logToFile(fmt.Sprintf("Fetching LLM embeddings for seqId = %d", seqId))
+	embeddings := unsafe.Pointer(C.llama_get_embeddings_seq(c.c, C.int(seqId)))
+	if embeddings == nil {
+		return nil, errors.New("failed to fetch LLM embeddings")
+	}
+	return unsafe.Slice((*float32)(embeddings), c.Model().NEmbd()), nil
 }
 
 type ModelParams struct {
@@ -257,9 +437,9 @@ func llamaProgressCallback(progress C.float, userData unsafe.Pointer) C.bool {
 }
 
 func LoadModelFromFile(modelPath string, params ModelParams) (*Model, error) {
+	logToFile(fmt.Sprintf("Loading model from file: %s", modelPath))
 	fmt.Println("Loading model from file:", modelPath)
 	fmt.Println("Params:", params)
-
 
 	cparams := C.llama_model_default_params()
 	cparams.n_gpu_layers = C.int(params.NumGpuLayers)
@@ -290,7 +470,6 @@ func LoadModelFromFile(modelPath string, params ModelParams) (*Model, error) {
 		cparams.progress_callback_user_data = unsafe.Pointer(&handle)
 	}
 
-
 	fmt.Println("C params", cparams)
 
 	m := Model{c: C.llama_load_model_from_file(C.CString(modelPath), cparams)}
@@ -313,7 +492,6 @@ type Vocab struct {
 	c *C.struct_llama_vocab
 }
 
-
 func getAllVocab(model *Model) *Vocab {
 	if model == nil || model.c == nil {
 		return nil
@@ -335,7 +513,6 @@ func getAllVocab(model *Model) *Vocab {
 // func LoadModelFromFileNew(modelPath string, params ModelParams) (*Model, error) {
 // 	fmt.Println("Loading model from file:", modelPath)
 // 	fmt.Println("Params:", params)
-
 
 // 	cparams := C.llama_model_default_params()
 // 	cparams.n_gpu_layers = C.int(params.NumGpuLayers)
@@ -366,7 +543,6 @@ func getAllVocab(model *Model) *Vocab {
 // 		cparams.progress_callback_user_data = unsafe.Pointer(&handle)
 // 	}
 
-
 // 	fmt.Println("C params", cparams)
 
 // 	m := Model{c: C.llama_load_model_from_file(C.CString(modelPath), cparams)}
@@ -381,39 +557,60 @@ func getAllVocab(model *Model) *Vocab {
 // }
 
 func FreeModel(model *Model) {
+	if model == nil {
+		return
+	}
+
 	C.llama_free_model(model.c)
 }
 
 func NewContextWithModel(model *Model, params ContextParams) (*Context, error) {
-	c := Context{
-		c:          C.llama_new_context_with_model(model.c, params.c),
-		numThreads: int(params.c.n_threads),
+	logToFile("Creating context with model")
+	useModel2Vec := os.Getenv("USE_MODEL2VEC") == "1"
+
+	c := &Context{
+		c:            C.llama_new_context_with_model(model.c, params.c),
+		numThreads:   int(params.c.n_threads),
+		useModel2Vec: useModel2Vec,
 	}
 	if c.c == nil {
 		return nil, errors.New("unable to create llama context")
 	}
 
-	return &c, nil
+	if useModel2Vec {
+		embeddingDims, _ := strconv.Atoi(os.Getenv("MODEL2VEC_EMBEDDING_DIMS"))
+		pcaDims, _ := strconv.Atoi(os.Getenv("MODEL2VEC_PCA_DIMS"))
+		slog.Info("Initializing model2vec as per environment variable", embeddingDims, pcaDims)
+		err := c.Model().InitializeModel2VecAndSave("model.bin", embeddingDims, true, pcaDims)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return c, nil
 }
 
 func (m *Model) NumVocab() int {
 	fmt.Println("NumVocab")
+	logToFile("NumVocab")
 	return int(C.llama_n_vocab(m.c))
 }
 
 func (m *Model) TokenIsEog(token int) bool {
 	fmt.Println("TokenIsEog")
+	logToFile(fmt.Sprintf("TokenIsEog: token = %d", token))
 	return bool(C.llama_token_is_eog(m.c, C.llama_token(token)))
 }
 
 func (m *Model) AddBOSToken() bool {
-
+	logToFile("AddBOSToken")
 	fmt.Println("AddBOSToken")
 	return bool(C.llama_add_bos_token(m.c))
 }
 
 func (m *Model) ApplyLoraFromFile(context *Context, loraPath string, scale float32, threads int) error {
 	fmt.Println("ApplyLoraFromFile")
+	logToFile(fmt.Sprintf("ApplyLoraFromFile: loraPath = %s, scale = %f, threads = %d", loraPath, scale, threads))
 	cLoraPath := C.CString(loraPath)
 	defer C.free(unsafe.Pointer(cLoraPath))
 
@@ -444,6 +641,7 @@ type Batch struct {
 // Batches cannot contain both types at the same time. batchSize is the maximum number of entries
 // that can be added per sequence
 func NewBatch(batchSize int, maxSeq int, embedSize int) (*Batch, error) {
+	logToFile(fmt.Sprintf("NewBatch: batchSize = %d, maxSeq = %d, embedSize = %d", batchSize, maxSeq, embedSize))
 	fmt.Println("NewBatch", batchSize, maxSeq, embedSize)
 	b := Batch{
 		c:         C.llama_batch_init(C.int(batchSize*maxSeq), C.int(embedSize), C.int(maxSeq)),
@@ -487,24 +685,36 @@ func (b *Batch) IsEmbedding() bool {
 // to include logits.
 func (b *Batch) Add(token int, embed []float32, pos int, logits bool, seqIds ...int) {
 	fmt.Println("Adding to batch", token, embed, pos, logits, seqIds)
+	logToFile(fmt.Sprintf("Adding to batch: token = %d, embed = %v, pos = %d, logits = %v, seqIds = %v", token, embed, pos, logits, seqIds))
 	if !b.IsEmbedding() {
 		fmt.Println("Adding token", token, !b.IsEmbedding())
+		logToFile(fmt.Sprintf("Adding token: token = %d", token))
 		unsafe.Slice(b.c.token, b.allocSize())[b.c.n_tokens] = C.llama_token(token)
+		logToFile(fmt.Sprintf("added token: %v", C.llama_token(token)))
 	} else {
 		fmt.Println("Adding embed", embed, !b.IsEmbedding())
+		logToFile(fmt.Sprintf("Adding embed: embed = %v", embed))
 		copy(unsafe.Slice((*float32)(b.c.embd), b.allocSize()*b.embedSize)[int(b.c.n_tokens)*b.embedSize:], embed)
+		logToFile(fmt.Sprintf("added embed: %v", embed))
 	}
 	fmt.Println("Adding pos", pos)
+	logToFile(fmt.Sprintf("Adding pos: pos = %d", pos))
 	unsafe.Slice(b.c.pos, b.allocSize())[b.c.n_tokens] = C.llama_pos(pos)
+	logToFile(fmt.Sprintf("added pos: %v", C.llama_pos(pos)))
 	fmt.Println("Adding seqIds", seqIds)
+	logToFile(fmt.Sprintf("Adding seqIds: seqIds = %v", seqIds))
 	unsafe.Slice(b.c.n_seq_id, b.allocSize())[b.c.n_tokens] = C.int(len(seqIds))
+	logToFile(fmt.Sprintf("added n_seq_id: %v", len(seqIds)))
 
 	fmt.Println("Adding seqIds", seqIds)
+	logToFile(fmt.Sprintf("Adding seqIds: seqIds = %v", seqIds))
 	for i, s := range seqIds {
 		unsafe.Slice((unsafe.Slice(b.c.seq_id, b.allocSize())[b.c.n_tokens]), C.int(len(seqIds)))[i] = C.int32_t(s)
+		logToFile(fmt.Sprintf("added seqId: %v", C.int32_t(s)))
 	}
 
 	fmt.Println("Adding logits", logits)
+	logToFile(fmt.Sprintf("Adding logits: logits = %v", logits))
 	if logits {
 		unsafe.Slice(b.c.logits, b.allocSize())[b.c.n_tokens] = 1
 	}
@@ -558,8 +768,6 @@ func (m *Model) Tokenize(text string, addSpecial bool, parseSpecial bool) ([]int
 	cText := C.CString(text)
 	defer C.free(unsafe.Pointer(cText))
 
-	fmt.Println("Tokenizing??", text, addSpecial, parseSpecial)
-
 	result := C.llama_tokenize(
 		m.c,
 		cText,
@@ -570,9 +778,6 @@ func (m *Model) Tokenize(text string, addSpecial bool, parseSpecial bool) ([]int
 		C.bool(parseSpecial),
 	)
 
-	fmt.Println("Result", result)
-
-	// if the result is negative, reallocate and retry with the correct buffer size
 	if result < 0 {
 		maxTokens = int(-result)
 		cTokens = make([]C.llama_token, maxTokens)
@@ -591,11 +796,74 @@ func (m *Model) Tokenize(text string, addSpecial bool, parseSpecial bool) ([]int
 	}
 
 	tokens := make([]int, result)
-	for i := range result {
+	for i := 0; i < int(result); i++ {
 		tokens[i] = int(cTokens[i])
 	}
 
 	return tokens, nil
+}
+
+func (c *Context) GetEmbeddingsForTokens(tokens []int) ([][]float32, error) {
+	embeddings := make([][]float32, len(tokens))
+
+	for i, token := range tokens {
+		// Create a batch with a single token
+		batch, err := NewBatch(1, 1, 0)
+		if err != nil {
+			return nil, err
+		}
+		defer batch.Free()
+
+		// Add the token to the batch
+		batch.Add(token, nil, 0, false, 0)
+
+		// Decode the batch to get the embeddings
+		err = c.Decode(batch)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get the embeddings from the context
+		embedding := c.GetEmbeddingsSeq(0)
+		embeddings[i] = make([]float32, len(embedding))
+		copy(embeddings[i], embedding)
+	}
+
+	return embeddings, nil
+}
+
+func (c *Context) InitializeModel2VecWithEmbeddings(embeddings [][]float32, tokens []string) error {
+	if !c.useModel2Vec {
+		return nil
+	}
+
+	count := len(tokens)
+	if len(embeddings) != count {
+		return errors.New("number of embeddings does not match number of tokens")
+	}
+
+	// Prepare C arrays
+	embeddingPtrs := make([]*C.float, count)
+	tokenPtrs := make([]*C.char, count)
+
+	for i := 0; i < count; i++ {
+		embeddingPtrs[i] = (*C.float)(unsafe.Pointer(&embeddings[i][0]))
+		tokenPtrs[i] = C.CString(tokens[i])
+		defer C.free(unsafe.Pointer(tokenPtrs[i]))
+	}
+
+	success := C.llama_model2vec_initialize(
+		c.model2Vec,
+		(**C.float)(unsafe.Pointer(&embeddingPtrs[0])),
+		(**C.char)(unsafe.Pointer(&tokenPtrs[0])),
+		C.size_t(count),
+	)
+
+	if !bool(success) {
+		return errors.New("failed to initialize model2vec with embeddings")
+	}
+
+	return nil
 }
 
 func (m *Model) NEmbd() int {
@@ -726,10 +994,12 @@ func (m *MllamaContext) EmbedSize(llamaContext *Context) int {
 }
 
 func (c *Context) SetCrossAttention(state bool) {
+	logToFile(fmt.Sprintf("SetCrossAttention: state = %v", state))
 	C.llama_set_cross_attention(c.c, C.bool(state))
 }
 
 func (c *Context) Synchronize() {
+	logToFile("Synchronize")
 	C.llama_synchronize(c.c)
 }
 
@@ -781,6 +1051,7 @@ func NewSamplingContext(model *Model, params SamplingParams) (*SamplingContext, 
 	defer C.free(unsafe.Pointer(grammar))
 
 	cparams.grammar = grammar
+	logToFile(fmt.Sprintf("NewSamplingContext: params = %v", params))
 	context := &SamplingContext{c: C.gpt_sampler_cinit(model.c, &cparams)}
 	if context.c == nil {
 		return nil, errors.New("unable to create sampling context")
@@ -797,10 +1068,12 @@ func (s *SamplingContext) Reset() {
 
 func (s *SamplingContext) Sample(llamaContext *Context, idx int) int {
 	fmt.Println("Sampling", idx)
+	logToFile(fmt.Sprintf("Sampling: idx = %d", idx))
 	return int(C.gpt_sampler_csample(s.c, llamaContext.c, C.int(idx)))
 }
 
 func (s *SamplingContext) Accept(id int, applyGrammar bool) {
 	fmt.Println("Accepting", id, applyGrammar)
+	logToFile(fmt.Sprintf("Accepting: id = %d, applyGrammar = %v", id, applyGrammar))
 	C.gpt_sampler_caccept(s.c, C.llama_token(id), C.bool(applyGrammar))
 }

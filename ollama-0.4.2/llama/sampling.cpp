@@ -38,7 +38,7 @@
 #include <cstdarg>
 
 void logAMessage(const char *format, ...) {
-    static FILE *logFile = fopen("/Volumes/Crucial X9/abc/ollama-0.4.2/log.txt", "a"); // Open in append mode
+    static FILE *logFile = fopen("./log.txt", "a"); // Open in append mode
     if (!logFile) {
         fprintf(stderr, "Error opening log file.\n");
         return;

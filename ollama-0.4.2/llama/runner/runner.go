@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net"
@@ -19,7 +20,6 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
-	"io"
 
 	"golang.org/x/sync/semaphore"
 
@@ -29,7 +29,7 @@ import (
 
 func LogToFile(message string) error {
 	// Open the file in append mode, create it if it doesn't exist, and set appropriate permissions
-	file, err := os.OpenFile("/Volumes/Crucial X9/abc/ollama-0.4.2/log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("./log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -37,13 +37,12 @@ func LogToFile(message string) error {
 
 	// Create a new logger that writes to the file
 	logger := log.New(file, "", log.LstdFlags)
-	
+
 	// Write the log message
 	logger.Println(message)
 
 	return nil
 }
-
 
 // input is an element of the prompt to process, either
 // a token or an image embedding (generated from a vision projector)
@@ -154,6 +153,9 @@ func (s *Server) NewSequence(prompt string, images []ImageData, params NewSequen
 			if input.embed == nil {
 				slog.Info("sampling context accept", "token", input.token)
 				sc.Accept(input.token, false)
+			} else {
+				slog.Info("sampling context not accept", "token", input.embed)
+				// sc.Accept(input.embed, false)
 			}
 		}
 	}
@@ -485,14 +487,15 @@ func (s *Server) processBatch(tokenBatch *llama.Batch, embedBatch *llama.Batch) 
 			seq.startGenerationTime = time.Now()
 		}
 
-
 		// if done processing the prompt, generate an embedding and return
 		if seq.embeddingOnly {
 			slog.Info("embedding only", "index", i)
 			embed := s.lc.GetEmbeddingsSeq(i)
+			LogToFile(fmt.Sprintf("Embed seq: %v", embed))
 			if embed == nil {
 				slog.Error("failed to get embeddings", "index", i, seq.iBatch)
 				embed = s.lc.GetEmbeddingsIth(seq.iBatch)
+				LogToFile(fmt.Sprintf("Embed ith: %v", embed))
 			}
 
 			seq.embedding <- embed
@@ -502,11 +505,16 @@ func (s *Server) processBatch(tokenBatch *llama.Batch, embedBatch *llama.Batch) 
 
 		// sample a token
 		slog.Info("sampling token", "index", i, "batch", seq.iBatch)
+		LogToFile(fmt.Sprintf("Sampling token: %v", seq.iBatch))
 		token := seq.samplingCtx.Sample(s.lc, seq.iBatch)
+		LogToFile(fmt.Sprintf("Sampled token: %v", token))
 		slog.Info("sampled token", "token", token)
+		LogToFile(fmt.Sprintf("Sampled token: %v", token))
 		seq.samplingCtx.Accept(token, true)
+		LogToFile(fmt.Sprintf("Accepted token: %v", token))
 		slog.Info("accepted token", "token", token)
 		piece := s.model.TokenToPiece(token)
+		LogToFile(fmt.Sprintf("Token to piece: %v", piece))
 		slog.Info("token to piece", "token", token, "piece", piece)
 
 		seq.numPredicted++
@@ -763,7 +771,7 @@ func (s *Server) embeddings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LogToFile("embedding request in llama runner"+req.Content)
+	LogToFile("embedding request in llama runner" + req.Content)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -789,7 +797,7 @@ func (s *Server) embeddings(w http.ResponseWriter, r *http.Request) {
 		if sq == nil {
 			seq.cache, seq.inputs, err = s.cache.LoadCacheSlot(seq.inputs, req.CachePrompt)
 			slog.Info("Loaded cache", "inputs", seq.inputs, "cache", seq.cache)
-			LogToFile("Loaded cache"+fmt.Sprintf("%v", seq.inputs))
+			LogToFile("Loaded cache" + fmt.Sprintf("%v", seq.inputs))
 			if err != nil {
 				s.mu.Unlock()
 				http.Error(w, fmt.Sprintf("Failed to load cache: %v", err), http.StatusInternalServerError)
@@ -806,7 +814,7 @@ func (s *Server) embeddings(w http.ResponseWriter, r *http.Request) {
 
 	embedding := <-seq.embedding
 
-	LogToFile("Got embeddings in runner"+ fmt.Sprintf("%v", embedding))
+	LogToFile("Got embeddings in runner" + fmt.Sprintf("%v", embedding))
 	if err := json.NewEncoder(w).Encode(&EmbeddingResponse{
 		Embedding: embedding,
 	}); err != nil {
@@ -931,7 +939,7 @@ func main() {
 	if *verbose {
 		level = slog.LevelDebug
 	}
-	filePath := "/Volumes/Crucial X9/abc/ollama-0.4.2/runner_server.log"
+	filePath := "./runner_server.log"
 	fmt.Printf("Attempting to open log file at: %s\n", filePath)
 
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

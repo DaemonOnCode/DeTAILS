@@ -2,17 +2,16 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
-	"fmt"
-	"io"
-
-	"github.com/spf13/cobra"
-
-	"github.com/ollama/ollama/cmd"
+	"runtime"
 
 	"github.com/joho/godotenv"
+	"github.com/ollama/ollama/cmd"
+	"github.com/spf13/cobra"
 )
 
 // copyFile copies a file from src to dst.
@@ -64,7 +63,6 @@ func copyFolder(src, dst string) error {
 	})
 }
 
-
 // ResolvePath resolves a relative path to an absolute path based on the current working directory.
 func ResolvePath(relativePath string) string {
 	// Get the current working directory
@@ -78,20 +76,58 @@ func ResolvePath(relativePath string) string {
 	return absolutePath
 }
 
+// locateSourceFolder dynamically locates a suitable source folder based on OS and architecture.
+func locateSourceFolder(cwd string) (string, error) {
+	// Detect OS and architecture
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
+
+	// Priority list of source folder patterns
+	searchPatterns := []string{
+		filepath.Join(cwd, "llama", "make", "build", fmt.Sprintf("%s-%s*", goos, goarch)), // Pattern for the current OS and architecture
+		filepath.Join(cwd, "llama", "make", "build", "*"),                                 // Fallback for any build folder
+	}
+
+	// Search for matching source folders
+	for _, pattern := range searchPatterns {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return "", fmt.Errorf("error searching with pattern %s: %w", pattern, err)
+		}
+		if len(matches) > 0 {
+			// Return the first matching folder
+			return matches[0], nil
+		}
+	}
+
+	return "", fmt.Errorf("no matching source folder found")
+}
 
 func main() {
-
+	// Load environment variables
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
-	cwd, err := os.Getwd()
 
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("Error getting current working directory: %v", err)
+	}
 	fmt.Println("Cwd: ", cwd)
 
-	sourceFolder := filepath.Join(cwd, "llama", "make", "build", "darwin-arm64")
+	// Locate the source folder dynamically
+	sourceFolder, err := locateSourceFolder(cwd)
+	if err != nil {
+		log.Fatalf("Error locating source folder: %v", err)
+	}
+	fmt.Printf("Located source folder: %s\n", sourceFolder)
+
+	// Set the destination folder
 	destinationFolder := filepath.Join(cwd, "lib", "ollama")
 
+	// Copy the source folder to the destination folder
 	err = copyFolder(sourceFolder, destinationFolder)
 	if err != nil {
 		fmt.Printf("Error copying folder: %v\n", err)
@@ -99,9 +135,11 @@ func main() {
 		fmt.Println("Folder copied successfully.")
 	}
 
+	// Debugging resolved paths
 	fmt.Println("Starting Ollama CLI")
 	fmt.Println(ResolvePath(os.Getenv("OLLAMA_TMPDIR")))
 	fmt.Println(ResolvePath(os.Getenv("OLLAMA_LLM_LIBRARY")))
 
+	// Execute the CLI command
 	cobra.CheckErr(cmd.NewCLI().ExecuteContext(context.Background()))
 }

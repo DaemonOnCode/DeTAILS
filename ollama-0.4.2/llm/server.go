@@ -35,7 +35,7 @@ import (
 
 func LogToFile(message string) error {
 	// Open the file in append mode, create it if it doesn't exist, and set appropriate permissions
-	file, err := os.OpenFile("/Volumes/Crucial X9/abc/ollama-0.4.2/log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("./log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func LogToFile(message string) error {
 
 	// Create a new logger that writes to the file
 	logger := log.New(file, "", log.LstdFlags)
-	
+
 	// Write the log message
 	logger.Println(message)
 
@@ -347,12 +347,11 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, ggml *GGML, adapter
 		}
 
 		// Define the log file path for the other server
-		logFilePath := "/Volumes/Crucial X9/abc/ollama-0.4.2/server_runner.log"
+		logFilePath := "./server_runner.log"
 		logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open log file: %v", err)
 		}
-
 
 		// TODO - once fully switched to the Go runner, load the model here for tokenize/detokenize cgo access
 		s := &llmServer{
@@ -446,7 +445,6 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, ggml *GGML, adapter
 			err = fmt.Errorf("error starting the external llama server: %v %s", err, msg)
 			return nil, err
 		}
-
 
 		// if err = s.cmd.Start(); err != nil {
 		// 	// Detect permission denied and augment the message about noexec

@@ -2,7 +2,7 @@
 include make/common-defs.make
 
 # Compiler flags
-CPU_GOFLAGS = -ldflags="-X=github.com/ollama/ollama/version.Version=$(VERSION) -X=github.com/ollama/ollama/llama.CpuFeatures=$(subst $(space),$(comma),$(TARGET_CPU_FLAGS)) $(TARGET_LDFLAGS)"
+CPU_GOFLAGS = -ldflags="-w -s -X=github.com/ollama/ollama/version.Version=$(VERSION) -X=github.com/ollama/ollama/llama.CpuFeatures=$(subst $(space),$(comma),$(TARGET_CPU_FLAGS)) $(TARGET_LDFLAGS)"
 DEFAULT_RUNNER := $(if $(and $(filter darwin,$(OS)),$(filter arm64,$(ARCH))),metal,cpu)
 RUNNERS := $(DEFAULT_RUNNER)
 
@@ -11,7 +11,7 @@ $(info CUSTOM_CPU_FLAGS: $(CUSTOM_CPU_FLAGS), $(ARCH), $(TARGET_LDFLAGS))
 
 ifeq ($(ARCH),amd64)
 ifeq ($(CUSTOM_CPU_FLAGS),)
-	RUNNERS += cpu_avx cpu_avx2
+    RUNNERS += cpu_avx cpu_avx2
 endif
 endif
 
@@ -31,11 +31,11 @@ $(subst $(SPACE_PLACEHOLDER),$(space),$1)
 endef
 
 # Escaped definitions
-DIST_RUNNERS = $(addprefix $(RUNNERS_DIST_DIR)/,$(addsuffix /ollama_llama_server$(EXE_EXT),$(RUNNERS)))
+DIST_RUNNERS = $(foreach runner,$(RUNNERS),$(call ESCAPE,$(RUNNERS_DIST_DIR)/$(runner)/ollama_llama_server$(EXE_EXT)))
 ifneq ($(OS),windows)
-PAYLOAD_RUNNERS = $(addprefix $(RUNNERS_PAYLOAD_DIR)/,$(addsuffix /ollama_llama_server$(EXE_EXT).gz,$(RUNNERS)))
+PAYLOAD_RUNNERS = $(foreach runner,$(RUNNERS),$(call ESCAPE,$(RUNNERS_PAYLOAD_DIR)/$(runner)/ollama_llama_server$(EXE_EXT).gz))
 endif
-BUILD_RUNNERS = $(addprefix $(RUNNERS_BUILD_DIR)/,$(addsuffix /ollama_llama_server$(EXE_EXT),$(RUNNERS)))
+BUILD_RUNNERS = $(foreach runner,$(RUNNERS),$(call ESCAPE,$(RUNNERS_BUILD_DIR)/$(runner)/ollama_llama_server$(EXE_EXT)))
 
 # Debugging logs
 $(info RUNNERS=$(RUNNERS))
@@ -47,7 +47,7 @@ $(info RUNNERS_BUILD_DIR=$(RUNNERS_BUILD_DIR))
 $(info RUNNERS_PAYLOAD_DIR=$(RUNNERS_PAYLOAD_DIR))
 
 # Build targets
-all: $(call ESCAPE,$(BUILD_RUNNERS)) $(call ESCAPE,$(DIST_RUNNERS)) $(call ESCAPE,$(PAYLOAD_RUNNERS))
+all: $(BUILD_RUNNERS) $(DIST_RUNNERS) $(PAYLOAD_RUNNERS)
 
 # Default runner build rule
 $(call ESCAPE,$(RUNNERS_BUILD_DIR))/$(DEFAULT_RUNNER)/ollama_llama_server$(EXE_EXT): TARGET_CPU_FLAGS=$(CUSTOM_CPU_FLAGS)

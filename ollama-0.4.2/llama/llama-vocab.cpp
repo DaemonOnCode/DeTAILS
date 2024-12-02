@@ -356,7 +356,7 @@ struct llm_tokenizer_spm_session
             LLAMA_LOG_INFO("Output: %d, in spm session\n", var);
         }
 
-        LLAMA_LOG_INFO("Output size: %d\n", output.size());
+        LLAMA_LOG_INFO("Output size: %ld\n", output.size());
     }
 
 private:
@@ -1729,7 +1729,7 @@ static void tokenizer_st_partition(const llama_vocab &vocab, std::forward_list<f
 
 void logMessage(const char *format, ...)
 {
-    static FILE *logFile = fopen("/Volumes/Crucial X9/abc/ollama-0.4.2/log.txt", "a"); // Open in append mode
+    static FILE *logFile = fopen("./log.txt", "a"); // Open in append mode
     if (!logFile)
     {
         fprintf(stderr, "Error opening log file.\n");
