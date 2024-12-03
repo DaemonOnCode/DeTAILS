@@ -11358,6 +11358,10 @@ static void llm_build_kv_store(
 const struct llama_vocab *llama_get_all_vocab(const struct llama_model *model)
 {
     LLAMA_LOG_INFO("%s: returning vocab\n", __func__);
+    for (auto &it : model->vocab.id_to_token)
+    {
+        logMessage("id: %s, token\n", it.text.c_str());
+    }
     return &model->vocab;
 }
 
@@ -25496,6 +25500,7 @@ float *llama_get_embeddings_seq(struct llama_context *ctx, llama_seq_id seq_id)
     llama_synchronize(ctx);
 
     auto it = ctx->embd_seq.find(seq_id);
+    logMessage("Finding embd_seq");
     if (it == ctx->embd_seq.end())
     {
         return nullptr;
@@ -26699,97 +26704,91 @@ bool llama_model2vec_initialize_and_save(
     bool apply_zipf,
     int pca_components)
 {
-    logMessage("Calling from %s, llama.cpp", __func__);
+    logMessage("Starting llama_model2vec_initialize_and_save");
+
     if (!model || !save_filepath)
     {
+        logMessage("Invalid model or save_filepath");
         return false;
     }
 
-    // Create Model2VecManager instance
+    // Step 1: Initialize Model2VecManager
     Model2VecManager manager(embedding_dim, apply_zipf, pca_components);
     logMessage("Model2VecManager instance created");
 
-    // Get the vocabulary
+    // Step 2: Get vocabulary
     const llama_vocab *vocab = llama_get_all_vocab(model);
     if (!vocab)
     {
+        logMessage("Failed to get vocabulary");
         return false;
     }
-    logMessage("Got vocabulary");
+    logMessage("Vocabulary retrieved successfully");
 
     int vocab_size = llama_vocab_size(vocab);
+    logMessage("Vocabulary size: %d", vocab_size);
 
-    logMessage("Vocab size got");
-
-    // Prepare embeddings and tokens
+    // Step 3: Prepare embeddings and tokens
     std::vector<std::vector<float>> embeddings;
     std::vector<std::string> tokens;
 
     embeddings.reserve(vocab_size);
     tokens.reserve(vocab_size);
 
-    // Create a minimal context for processing
     llama_context_params params = llama_context_default_params();
-    params.n_ctx = 1;     // Minimal context size
-    params.n_threads = 1; // Adjust as needed
+    params.n_ctx = 1;
+    params.n_threads = 1;
     params.embeddings = true;
 
     llama_context *ctx = llama_new_context_with_model(model, params);
     if (!ctx)
     {
+        logMessage("Failed to create context");
         return false;
     }
-    logMessage("Context created");
+    logMessage("Context created successfully");
 
+    // Simplified Batch Initialization
     for (int i = 0; i < vocab_size; ++i)
     {
-        logMessage("Processing token %d", i);
-        // Get the token from the vocabulary
         llama_vocab_token vocab_token = llama_get_vocab_token(vocab, i);
         tokens.push_back(vocab_token.text);
 
-        // Get the token ID (assuming token IDs are 0-based indices)
         llama_token token_id = static_cast<llama_token>(i);
 
-        // Create a batch with the single token
-        llama_batch batch = llama_batch_init(1, 0, 1);
+        // Create batch dynamically
+        llama_batch batch;
+        memset(&batch, 0, sizeof(batch)); // Clear structure
+        batch.n_tokens = 1;
         batch.token[0] = token_id;
         batch.pos[0] = 0;
         batch.n_seq_id[0] = 1;
-        batch.seq_id[0][0] = 0; // Sequence ID 0
-        batch.n_tokens = 1;
+        batch.seq_id[0][0] = 0;
 
-        logMessage("Initialize batch");
+        logMessage("Processing token: %s", vocab_token.text);
 
-        // Decode the batch to get the embedding
+        // Decode the batch
         int code = llama_decode(ctx, batch);
-        logMessage("Decoded batch: %d", code);
-        llama_batch_free(batch);
         if (code != 0)
         {
-            logMessage("Batch wa not freed");
+            logMessage("Failed to decode batch for token: %s", vocab_token.text);
             llama_free(ctx);
             return false;
         }
 
-        // Get the embedding from the context
+        // Retrieve embedding
         const float *embedding = llama_get_embeddings_seq(ctx, 0);
-        logMessage("Got embedding");
         if (!embedding)
         {
-            logMessage("Embedding is null");
+            logMessage("Failed to retrieve embedding for token: %s", vocab_token.text);
             llama_free(ctx);
             return false;
         }
 
         int embedding_size = llama_n_embd(model);
-        std::vector<float> embedding_vec(embedding, embedding + embedding_size);
-        embeddings.push_back(embedding_vec);
+        embeddings.emplace_back(embedding, embedding + embedding_size);
     }
-    logMessage("Embeddings and tokens prepared");
-
-    // Free the context after processing
-    // llama_free(ctx);
+    logMessage("Embeddings and tokens prepared successfully");
 
     std::vector<vectorf> embeddings_vectorf;
     embeddings_vectorf.reserve(embeddings.size());
@@ -26804,23 +26803,25 @@ bool llama_model2vec_initialize_and_save(
 
     logMessage("Embeddings converted to vectorf");
 
-    // Now call initialize with embeddings_vectorf
-    bool success = manager.initialize(embeddings_vectorf, tokens);
-    if (!success)
+    // Step 4: Initialize Model2VecManager with embeddings and tokens
+    if (!manager.initialize(embeddings_vectorf, tokens))
     {
+        logMessage("Failed to initialize Model2VecManager");
+        llama_free(ctx);
+        return false;
+    }
+    logMessage("Model2VecManager initialized successfully");
+
+    // Step 5: Save Model2Vec data to the specified file
+    if (!manager.saveToFile(save_filepath))
+    {
+        logMessage("Failed to save Model2Vec data to file");
+        llama_free(ctx);
         return false;
     }
 
-    logMessage("Model2VecManager initialized");
+    logMessage("Model2Vec data saved successfully");
 
-    // Save to file
-    success = manager.saveToFile(save_filepath);
-    if (!success)
-    {
-        return false;
-    }
-
-    logMessage("Model2VecManager saved to file");
-
+    llama_free(ctx);
     return true;
 }

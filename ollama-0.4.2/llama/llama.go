@@ -95,7 +95,7 @@ import (
 	"runtime"
 	"runtime/cgo"
 	"slices"
-	"strconv"
+	// "strconv"
 	"strings"
 	"unsafe"
 )
@@ -224,27 +224,16 @@ func (c *Context) InitializeModel2Vec(embeddingDim int, applyZipf bool, pcaCompo
 	return nil
 }
 
-func (m *Model) InitializeModel2VecAndSave(
+func (c *Context) InitializeModel2VecAndSave(
 	saveFilePath string,
 	embeddingDim int,
 	applyZipf bool,
 	pcaComponents int,
 ) error {
-	cSaveFilePath := C.CString(saveFilePath)
-	defer C.free(unsafe.Pointer(cSaveFilePath))
-
-	success := C.llama_model2vec_initialize_and_save(
-		m.c,
-		cSaveFilePath,
-		C.int(embeddingDim),
-		C.bool(applyZipf),
-		C.int(pcaComponents),
-	)
-	if !bool(success) {
-		return errors.New("failed to initialize model2Vec and save to file")
-	}
 	return nil
 }
+
+
 
 // Free model2Vec resources
 func (c *Context) FreeModel2Vec() {
@@ -577,15 +566,15 @@ func NewContextWithModel(model *Model, params ContextParams) (*Context, error) {
 		return nil, errors.New("unable to create llama context")
 	}
 
-	if useModel2Vec {
-		embeddingDims, _ := strconv.Atoi(os.Getenv("MODEL2VEC_EMBEDDING_DIMS"))
-		pcaDims, _ := strconv.Atoi(os.Getenv("MODEL2VEC_PCA_DIMS"))
-		slog.Info("Initializing model2vec as per environment variable", embeddingDims, pcaDims)
-		err := c.Model().InitializeModel2VecAndSave("model.bin", embeddingDims, true, pcaDims)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// if useModel2Vec {
+	// 	embeddingDims, _ := strconv.Atoi(os.Getenv("MODEL2VEC_EMBEDDING_DIMS"))
+	// 	pcaDims, _ := strconv.Atoi(os.Getenv("MODEL2VEC_PCA_DIMS"))
+	// 	slog.Info("Initializing model2vec as per environment variable", embeddingDims, pcaDims)
+	// 	err := c.Model().InitializeModel2VecAndSave("model.bin", embeddingDims, true, pcaDims, c)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	return c, nil
 }
