@@ -1,8 +1,8 @@
-import { FC, useContext, useEffect, useState } from 'react';
+import { FC, useState } from 'react';
 import PaginationControls from './pagination_control';
-import { DataContext } from '../../context/data_context';
 import RedditTable from './reddit_table';
 import { RedditPosts } from '../../types/Coding/shared';
+import { useCollectionContext } from '../../context/collection_context';
 
 type RedditTableRendererProps = {
     data: RedditPosts;
@@ -10,11 +10,13 @@ type RedditTableRendererProps = {
 };
 
 const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeightClass }) => {
-    const dataContext = useContext(DataContext);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
+
+    const { selectedPosts, setSelectedPosts } = useCollectionContext();
+
     // Filtered Data
     const filteredData = Object.entries(data).filter(
         ([, { title, selftext, url }]) =>
@@ -50,28 +52,28 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeigh
     };
 
     const togglePostSelection = (id: string) => {
-        let newSelectedPosts = [...dataContext.selectedPosts];
+        let newSelectedPosts = [...selectedPosts];
         if (newSelectedPosts.includes(id)) {
             newSelectedPosts = newSelectedPosts.filter((postId) => postId !== id);
         } else {
             newSelectedPosts.push(id);
         }
-        dataContext.setSelectedPosts(newSelectedPosts);
+        setSelectedPosts(newSelectedPosts);
     };
 
     const toggleSelectAllPosts = () => {
         if (
-            dataContext.selectedPosts.length !== filteredData.length &&
-            dataContext.selectedPosts.length === 0
+            selectedPosts.length !== filteredData.length &&
+            selectedPosts.length === 0
         ) {
-            dataContext.setSelectedPosts(filteredData.map(([id]) => id));
+            setSelectedPosts(filteredData.map(([id]) => id));
         } else {
-            dataContext.setSelectedPosts([]);
+            setSelectedPosts([]);
         }
     };
 
     const toggleSelectPage = (pageData: [string, RedditPosts[string]][]) => {
-        let newSelectedPosts = [...dataContext.selectedPosts];
+        let newSelectedPosts = [...selectedPosts];
         const pageIds = pageData.map(([id]) => id);
         const allSelected = pageIds.every((id) => newSelectedPosts.includes(id));
 
@@ -85,7 +87,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeigh
             });
         }
 
-        dataContext.setSelectedPosts(newSelectedPosts);
+        setSelectedPosts(newSelectedPosts);
     };
 
     return (
@@ -105,8 +107,8 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeigh
                 <button
                     onClick={toggleSelectAllPosts}
                     className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
-                    {dataContext.selectedPosts.length !== filteredData.length &&
-                    dataContext.selectedPosts.length === 0
+                    {selectedPosts.length !== filteredData.length &&
+                    selectedPosts.length === 0
                         ? 'Select All Posts'
                         : 'Deselect All Posts'}
                 </button>
@@ -152,14 +154,14 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeigh
                 className={`overflow-y-auto ${maxTableHeightClass ? maxTableHeightClass : 'max-h-[calc(100vh-14rem)]'}`}>
                 <RedditTable
                     data={displayedData}
-                    selectedPosts={dataContext.selectedPosts}
+                    selectedPosts={selectedPosts}
                     togglePostSelection={togglePostSelection}
                     toggleSelectPage={toggleSelectPage}
                 />
             </div>
 
             <div className="flex items-center justify-start">
-                <p>{dataContext.selectedPosts.length} posts selected</p>
+                <p>{selectedPosts.length} posts selected</p>
             </div>
 
             {/* Pagination Controls */}

@@ -6,6 +6,7 @@ import { SharedRouter } from './shared_router';
 import { CodingRouter } from './coding_router';
 import { DataCollectionRouter } from './data_collection_router';
 import { DataModelingRouter } from './data_modeling_router';
+import { DataCleaningRouter } from './data_cleaning_router';
 
 export const AppRoutes: RouteObject[] = [
     {
@@ -20,7 +21,7 @@ export const AppRoutes: RouteObject[] = [
             },
             {
                 path: ROUTES.CLEANING,
-                element: <div>Cleaning</div>
+                children: DataCleaningRouter
             },
             {
                 path: ROUTES.DATA_MODELING,

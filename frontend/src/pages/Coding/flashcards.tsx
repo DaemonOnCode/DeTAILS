@@ -11,20 +11,20 @@ import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
 import { MODEL_LIST } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
+import { useCodingContext } from '../../context/coding_context';
 
 const { ipcRenderer } = window.require('electron');
 
 const FlashcardsPage = () => {
-    const dataContext = useContext(DataContext);
 
     const navigate = useNavigate();
     // useEffect(() => {
     //     initialFlashcards.forEach(({ question, answer }) => {
-    //         dataContext.addFlashcard(question, answer);
+    //         addFlashcard(question, answer);
     //     });
     // }, []);
 
-    const { flashcards, selectedFlashcards, selectFlashcard, deselectFlashcard } = dataContext;
+    const { flashcards, removeFlashcard, selectedFlashcards, mainCode, additionalInfo, addFlashcard, setWords, deselectFlashcard, selectFlashcard } = useCodingContext();
 
     // const [modalOpen, setModalOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
@@ -46,7 +46,7 @@ const FlashcardsPage = () => {
     const generateFlashcards = async () => {
         for (const flashcard of flashcards) {
             if (selectedFlashcards.includes(flashcard.id)) continue;
-            dataContext.removeFlashcard(flashcard.id);
+            removeFlashcard(flashcard.id);
         }
         let maxRetries = 5;
         const timer = createTimer();
@@ -54,8 +54,8 @@ const FlashcardsPage = () => {
         let result = await ipcRenderer.invoke(
             'generate-additional-flashcards',
             MODEL_LIST.LLAMA_3_2,
-            dataContext.mainCode,
-            dataContext.additionalInfo,
+            mainCode,
+            additionalInfo,
             selectedFlashcards.map((id) => {
                 return {
                     question: flashcards.find((flashcard) => flashcard.id === id)!.question,
@@ -79,8 +79,8 @@ const FlashcardsPage = () => {
             result = await ipcRenderer.invoke(
                 'generate-additional-flashcards',
                 MODEL_LIST.LLAMA_3_2,
-                dataContext.mainCode,
-                dataContext.additionalInfo,
+                mainCode,
+                additionalInfo,
                 selectedFlashcards.map((id) => {
                     return {
                         question: flashcards.find((flashcard) => flashcard.id === id)!.question,
@@ -96,7 +96,7 @@ const FlashcardsPage = () => {
             maxRetries--;
         }
         parsedResult.flashcards.forEach(({ question, answer }) => {
-            dataContext.addFlashcard(question, answer);
+            addFlashcard(question, answer);
         });
 
         console.log('Flashcards regenerated', parsedResult);
@@ -110,10 +110,10 @@ const FlashcardsPage = () => {
     const handleGenerateWords = async (e: any) => {
         e.preventDefault();
         navigate('../loader/' + LOADER_ROUTES.WORD_CLOUD_LOADER);
-        const flashcardData = dataContext.selectedFlashcards.map((id) => {
+        const flashcardData = selectedFlashcards.map((id) => {
             return {
-                question: dataContext.flashcards.find((flashcard) => flashcard.id === id)!.question,
-                answer: dataContext.flashcards.find((flashcard) => flashcard.id === id)!.answer
+                question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+                answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
             };
         });
 
@@ -126,7 +126,7 @@ const FlashcardsPage = () => {
             result = await ipcRenderer.invoke(
                 'generate-words',
                 MODEL_LIST.LLAMA_3_2,
-                dataContext.mainCode,
+                mainCode,
                 flashcardData
             );
             await logger.time('Word cloud generation: Initial', { time: timer.end() });
@@ -160,7 +160,7 @@ const FlashcardsPage = () => {
                 result = await ipcRenderer.invoke(
                     'generate-words',
                     MODEL_LIST.LLAMA_3_2,
-                    dataContext.mainCode,
+                    mainCode,
                     flashcardData,
                     true
                 );
@@ -181,7 +181,7 @@ const FlashcardsPage = () => {
 
         console.log(parsedResult, 'Final parsed result from generate-words');
         if (parsedResult.words.length > 0) {
-            dataContext.setWords(parsedResult.words);
+            setWords(parsedResult.words);
         } else {
             console.error('Failed to generate words after retries');
         }

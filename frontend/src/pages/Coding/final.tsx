@@ -6,11 +6,15 @@ import RedditViewModal from '../../components/Coding/Shared/reddit_view_modal';
 import { DataContext } from '../../context/data_context';
 import { useLogger } from '../../context/logging_context';
 import { createTimer } from '../../utility/timer';
+import { useCodingContext } from '../../context/coding_context';
+import { useCollectionContext } from '../../context/collection_context';
 
 const { ipcRenderer } = window.require('electron');
 
 const FinalPage = () => {
-    const { finalCodeResponses, subreddit } = useContext(DataContext);
+    const { subreddit } = useCollectionContext();
+    const { finalCodeResponses } = useCodingContext();
+
     const [renderedPost, setRenderedPost] = useState<{
         id: string;
         link: string;

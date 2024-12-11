@@ -2,11 +2,12 @@ import { FC, useContext, useEffect } from 'react';
 import useRedditData from '../../hooks/Home/use_reddit_data';
 import { DataContext } from '../../context/data_context';
 import RedditTableRenderer from '../../components/Shared/reddit_table_renderer';
+import { useCollectionContext } from '../../context/collection_context';
 
 const LoadReddit: FC = () => {
     const dataContext = useContext(DataContext);
     const { data, loadFolderData, error } = useRedditData();
-    const { toggleMode, currentMode, modeInput, setModeInput } = dataContext;
+    const { toggleMode, currentMode, modeInput, setModeInput } = useCollectionContext();
 
     useEffect(() => {
         if (modeInput) {

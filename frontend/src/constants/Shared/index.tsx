@@ -19,3 +19,21 @@ export enum MODEL_LIST {
 }
 
 export const LOGGING = true;
+
+export const USE_LOCAL_SERVER = true;
+
+export const REMOTE_SERVER_BASE_URL = 'http://localhost:8080/api';
+
+export enum SERVER_ROUTES {
+    PROCESS_DATA = 'process-reddit-data',
+}
+
+export const SERVER_ROUTE_MAP: Record<
+  SERVER_ROUTES,
+  { local: string; server: string }
+> = {
+  [SERVER_ROUTES.PROCESS_DATA]: {
+    local: "local-processing", 
+    server: "process-data"
+  },
+};

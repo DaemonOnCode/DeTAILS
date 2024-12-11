@@ -2182,7 +2182,7 @@ static std::string llama_decode_text(const std::string &text)
         }
     }
 
-    // LLAMA_LOG_INFO("Decoded text of length %ld, llama vocab\n", decoded_text.length());
+    logMessage("Decoded text of length %ld, llama vocab\n", decoded_text.length());
     return decoded_text;
 }
 

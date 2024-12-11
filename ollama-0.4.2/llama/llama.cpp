@@ -33,7 +33,7 @@
 #include "ggml.h"
 #include "ggml-alloc.h"
 #include "ggml-backend.h"
-#include "model2vec.h"
+#include "model2vec_manager.h"
 
 #ifdef GGML_USE_RPC
 #include "ggml-rpc.h"
@@ -126,7 +126,6 @@
 #if defined(_MSC_VER)
 #pragma warning(disable : 4244 4267) // possible loss of data
 #endif
-#include "model2vec.h"
 
 // bump if necessary
 #define LLAMA_MAX_LAYERS 512
@@ -1657,6 +1656,8 @@ static const std::map<llm_arch, std::map<llm_tensor, std::string>> LLM_TENSOR_NA
         },
     },
 };
+
+
 
 static llm_arch llm_arch_from_string(const std::string &name)
 {
@@ -3900,6 +3901,8 @@ struct llama_context
     // populated only when pooling_type == LLAMA_POOLING_TYPE_NONE
     size_t embd_size = 0; // capacity (of floats) for embeddings
     float *embd = nullptr;
+
+    bool model2vec = false;
 
     // sequence embeddings output (map of [n_embd] vectors)
     // populated only when pooling_type != LLAMA_POOLING_TYPE_NONE
@@ -11227,6 +11230,140 @@ enum llm_norm_type
     LLM_NORM_RMS,
 };
 
+
+
+const char* ggml_type_to_string(enum ggml_type type) {
+    switch (type) {
+        case GGML_TYPE_F32:      return "F32 (32-bit float)";
+        case GGML_TYPE_F16:      return "F16 (16-bit float)";
+        case GGML_TYPE_Q4_0:     return "Q4_0 (Quantized 4-bit)";
+        case GGML_TYPE_Q4_1:     return "Q4_1 (Quantized 4-bit)";
+        case GGML_TYPE_Q5_0:     return "Q5_0 (Quantized 5-bit)";
+        case GGML_TYPE_Q5_1:     return "Q5_1 (Quantized 5-bit)";
+        case GGML_TYPE_Q8_0:     return "Q8_0 (Quantized 8-bit)";
+        case GGML_TYPE_Q8_1:     return "Q8_1 (Quantized 8-bit)";
+        case GGML_TYPE_Q2_K:     return "Q2_K (Quantized 2-bit)";
+        case GGML_TYPE_Q3_K:     return "Q3_K (Quantized 3-bit)";
+        case GGML_TYPE_Q4_K:     return "Q4_K (Quantized 4-bit)";
+        case GGML_TYPE_Q5_K:     return "Q5_K (Quantized 5-bit)";
+        case GGML_TYPE_Q6_K:     return "Q6_K (Quantized 6-bit)";
+        case GGML_TYPE_Q8_K:     return "Q8_K (Quantized 8-bit)";
+        case GGML_TYPE_IQ2_XXS:  return "IQ2_XXS (Quantized)";
+        case GGML_TYPE_IQ2_XS:   return "IQ2_XS (Quantized)";
+        case GGML_TYPE_IQ3_XXS:  return "IQ3_XXS (Quantized)";
+        case GGML_TYPE_IQ1_S:    return "IQ1_S (Quantized)";
+        case GGML_TYPE_IQ4_NL:   return "IQ4_NL (Quantized)";
+        case GGML_TYPE_IQ3_S:    return "IQ3_S (Quantized)";
+        case GGML_TYPE_IQ2_S:    return "IQ2_S (Quantized)";
+        case GGML_TYPE_IQ4_XS:   return "IQ4_XS (Quantized)";
+        case GGML_TYPE_I8:       return "I8 (8-bit integer)";
+        case GGML_TYPE_I16:      return "I16 (16-bit integer)";
+        case GGML_TYPE_I32:      return "I32 (32-bit integer)";
+        case GGML_TYPE_I64:      return "I64 (64-bit integer)";
+        case GGML_TYPE_F64:      return "F64 (64-bit float)";
+        case GGML_TYPE_IQ1_M:    return "IQ1_M (Quantized)";
+        case GGML_TYPE_BF16:     return "BF16 (Brain Float 16-bit)";
+        case GGML_TYPE_Q4_0_4_4: return "Q4_0_4_4 (Mixed Quantized 4-bit)";
+        case GGML_TYPE_Q4_0_4_8: return "Q4_0_4_8 (Mixed Quantized)";
+        case GGML_TYPE_Q4_0_8_8: return "Q4_0_8_8 (Mixed Quantized)";
+        case GGML_TYPE_TQ1_0:    return "TQ1_0 (Special Quantized)";
+        case GGML_TYPE_TQ2_0:    return "TQ2_0 (Special Quantized)";
+        default:                 return "Unknown Type";
+    }
+}
+
+
+void log_tensor_details(struct ggml_tensor *tensor, struct llama_context& ctx, const char *context = nullptr) {
+    if (!tensor) {
+        logMessage("Tensor is NULL, skipping log.\n");
+        return;
+    }
+
+    if (context) {
+        logMessage("[%s] ", context);
+    }
+
+    logMessage("Tensor Name: %s\n", tensor->name);
+    logMessage("Tensor Type: %s\n", ggml_type_to_string(tensor->type));
+    logMessage("Tensor Flags: %d\n", tensor->flags);
+    logMessage("Tensor Operation: %d\n", tensor->op);
+
+    // Log dimensions and strides
+    logMessage("Tensor Dimensions:\n");
+    for (int i = 0; i < GGML_MAX_DIMS; i++) {
+        logMessage(" - Dim %d (ne): %lld, (nb): %zu bytes\n", i, tensor->ne[i], tensor->nb[i]);
+    }
+
+    // Check if the tensor is a view
+    if (tensor->view_src) {
+        logMessage("Tensor is a view. Source Tensor: %s, Offset: %zu bytes\n",
+                   tensor->view_src->name, tensor->view_offs);
+    }
+
+    // Handle backend buffer
+    if (tensor->buffer) {
+        logMessage("Tensor is backend-managed. Backend Buffer Pointer: %p\n", (void *)tensor->buffer);
+
+        // Fetch data from the backend
+        if (!tensor->data) {
+            logMessage("Tensor data is not directly available. Fetching from backend...\n");
+
+            // Get backend handle for the tensor
+            ggml_backend_t backend = ggml_backend_sched_get_tensor_backend(ctx.sched, tensor);
+            if (!backend) {
+                logMessage("Failed to get backend for tensor.\n");
+                return;
+            }
+
+            // Allocate temporary memory to fetch the data
+            const int64_t total_elements = tensor->ne[0] * (tensor->nb[1] / tensor->nb[0]);
+            size_t data_size = total_elements * ggml_type_size(tensor->type);
+
+            void *fetched_data = malloc(data_size);
+            if (!fetched_data) {
+                logMessage("Failed to allocate memory for backend data fetch.\n");
+                return;
+            }
+
+            // Perform the async fetch
+            ggml_backend_tensor_get_async(backend, tensor, fetched_data, 0, data_size);
+
+            // Log the fetched data (assuming float type for demonstration)
+            logMessage("Fetched Tensor Data (First 10 Elements):\n");
+            for (int64_t i = 0; i < total_elements && i < 10; i++) {
+                logMessage(" - Element[%lld]: %f\n", i, ((float *)fetched_data)[i]);
+            }
+
+            free(fetched_data);
+        } else {
+            logMessage("Tensor data is directly available.\n");
+        }
+    } else {
+        logMessage("Tensor does not use a backend buffer.\n");
+    }
+
+    // Log data if directly available
+    if (tensor->data) {
+        float *data = (float *)tensor->data;
+
+        // Calculate total elements (ne[0] * ne[1] * ...)
+        int64_t total_elements = 1;
+        for (int i = 0; i < GGML_MAX_DIMS; i++) {
+            if (tensor->ne[i] > 0) {
+                total_elements *= tensor->ne[i];
+            }
+        }
+
+        logMessage("Tensor Data (First 10 Elements):\n");
+        for (int64_t i = 0; i < total_elements && i < 10; i++) {
+            logMessage(" - Element[%lld]: %f\n", i, data[i]);
+        }
+    } else if (!tensor->buffer) {
+        logMessage("Tensor data is NULL and not managed by a backend.\n");
+    }
+}
+
+
 static struct ggml_tensor *llm_build_inp_embd(
     struct ggml_context *ctx,
     struct llama_context &lctx,
@@ -11286,6 +11423,8 @@ static struct ggml_tensor *llm_build_inp_embd(
 
     cb(inpL, "inp_embd", -1);
 
+    // log_tensor_details(inpL, lctx);
+
     return inpL;
 }
 
@@ -11295,7 +11434,7 @@ static struct ggml_tensor *llm_build_inp_cross_attn_state(
     const llama_hparams &hparams,
     const llm_build_cb &cb)
 {
-    logMessage("Calling from %s, llama.cpp", __func__);
+    // logMessage("Calling from %s, llama.cpp", __func__);
     const int64_t n_embd = hparams.n_embd;
 
     struct ggml_tensor *inpCAS = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, n_embd, 1601, 4);
@@ -11319,7 +11458,7 @@ static void llm_build_kv_store(
     const llm_build_cb &cb,
     int64_t il)
 {
-    logMessage("Calling from %s, llama.cpp", __func__);
+    // logMessage("Calling from %s, llama.cpp", __func__);
     const int64_t n_ctx = cparams.n_ctx;
 
     const int64_t n_embd_k_gqa = hparams.n_embd_k_gqa(il);
@@ -11358,10 +11497,10 @@ static void llm_build_kv_store(
 const struct llama_vocab *llama_get_all_vocab(const struct llama_model *model)
 {
     LLAMA_LOG_INFO("%s: returning vocab\n", __func__);
-    for (auto &it : model->vocab.id_to_token)
-    {
-        logMessage("id: %s, token\n", it.text.c_str());
-    }
+    // for (auto &it : model->vocab.id_to_token)
+    // {
+    //     logMessage("id: %s, token\n", it.text.c_str());
+    // }
     return &model->vocab;
 }
 
@@ -11372,7 +11511,7 @@ static struct ggml_tensor *llm_build_lora_mm(
     struct ggml_tensor *w,
     struct ggml_tensor *cur)
 {
-    logMessage("Calling from %s, llama.cpp", __func__);
+    // logMessage("Calling from %s, llama.cpp", __func__);
     struct ggml_tensor *res = ggml_mul_mat(ctx0, w, cur);
     for (auto &it : lctx.lora_adapters)
     {
@@ -11433,7 +11572,7 @@ static struct ggml_tensor *llm_build_norm(
     const llm_build_cb &cb,
     int il)
 {
-    logMessage("Calling from %s, llama.cpp", __func__);
+    // logMessage("Calling from %s, llama.cpp", __func__);
     switch (type)
     {
     case LLM_NORM:
@@ -11485,7 +11624,7 @@ static struct ggml_tensor *llm_build_ffn(
     const llm_build_cb &cb,
     int il)
 {
-    logMessage("Calling from %s, llama.cpp", __func__);
+    // logMessage("Calling from %s, llama.cpp", __func__);
     struct ggml_tensor *tmp = up ? llm_build_lora_mm(lctx, ctx, up, cur) : cur;
     cb(tmp, "ffn_up", il);
 
@@ -11744,7 +11883,7 @@ static struct ggml_tensor *llm_build_kqv(
     const llm_build_cb &cb,
     int il)
 {
-    logMessage("Calling from %s, llama.cpp", __func__);
+    // logMessage("Calling from %s, llama.cpp", __func__);
     const llama_model &model = lctx.model;
     const llama_hparams &hparams = lctx.model.hparams;
     const llama_cparams &cparams = lctx.cparams;
@@ -11890,7 +12029,7 @@ static struct ggml_tensor *llm_build_kv(
     const llm_build_cb &cb,
     int il)
 {
-    logMessage("Calling from %s, llama.cpp", __func__);
+    // logMessage("Calling from %s, llama.cpp", __func__);
     const llama_hparams &hparams = lctx.model.hparams;
     const llama_cparams &cparams = lctx.cparams;
 
@@ -12742,6 +12881,7 @@ struct llm_build_context
 
         // ggml context, llama context, hparams, batch, ggml tensor, cb -> ggml tensor
         inpL = llm_build_inp_embd(ctx0, lctx, hparams, batch, model.tok_embd, cb);
+        // log_tensor_details(inpL, lctx, "inpL after input embedding");
 
         // inp_pos - contains the positions
         struct ggml_tensor *inp_pos = build_inp_pos();
@@ -12750,150 +12890,160 @@ struct llm_build_context
         struct ggml_tensor *KQ_mask = build_inp_KQ_mask();
 
         const float kq_scale = hparams.f_attention_scale == 0.0f ? 1.0f / sqrtf(float(n_embd_head)) : hparams.f_attention_scale;
-        for (int il = 0; il < n_layer; ++il)
-        {
-            struct ggml_tensor *inpSA = inpL;
+        int total_layers = n_layer;
+        if(lctx.model2vec)
+        total_layers = 1;
 
-            // norm
-            cur = llm_build_norm(ctx0, inpL, hparams,
-                                 model.layers[il].attn_norm, NULL,
-                                 LLM_NORM_RMS, cb, il);
-            cb(cur, "attn_norm", il);
-
-            // self-attention
+        logMessage("Building Llama model with %d layers, llama.cpp\n",total_layers);
+            for (int il = 0; il < total_layers; ++il)
             {
-                // rope freq factors for llama3; may return nullptr for llama2 and other models
-                struct ggml_tensor *rope_factors = build_rope_factors(il);
+                struct ggml_tensor *inpSA = inpL;
 
-                // compute Q and K and RoPE them
-                struct ggml_tensor *Qcur = llm_build_lora_mm(lctx, ctx0, model.layers[il].wq, cur);
-                cb(Qcur, "Qcur", il);
-                if (model.layers[il].bq)
+                // norm
+                cur = llm_build_norm(ctx0, inpL, hparams,
+                                    model.layers[il].attn_norm, NULL,
+                                    LLM_NORM_RMS, cb, il);
+                cb(cur, "attn_norm", il);
+
+                // self-attention
                 {
-                    Qcur = ggml_add(ctx0, Qcur, model.layers[il].bq);
+                    // rope freq factors for llama3; may return nullptr for llama2 and other models
+                    struct ggml_tensor *rope_factors = build_rope_factors(il);
+
+                    // compute Q and K and RoPE them
+                    struct ggml_tensor *Qcur = llm_build_lora_mm(lctx, ctx0, model.layers[il].wq, cur);
                     cb(Qcur, "Qcur", il);
-                }
+                    if (model.layers[il].bq)
+                    {
+                        Qcur = ggml_add(ctx0, Qcur, model.layers[il].bq);
+                        cb(Qcur, "Qcur", il);
+                    }
 
-                struct ggml_tensor *Kcur = llm_build_lora_mm(lctx, ctx0, model.layers[il].wk, cur);
-                cb(Kcur, "Kcur", il);
-                if (model.layers[il].bk)
-                {
-                    Kcur = ggml_add(ctx0, Kcur, model.layers[il].bk);
+                    struct ggml_tensor *Kcur = llm_build_lora_mm(lctx, ctx0, model.layers[il].wk, cur);
                     cb(Kcur, "Kcur", il);
-                }
+                    if (model.layers[il].bk)
+                    {
+                        Kcur = ggml_add(ctx0, Kcur, model.layers[il].bk);
+                        cb(Kcur, "Kcur", il);
+                    }
 
-                struct ggml_tensor *Vcur = llm_build_lora_mm(lctx, ctx0, model.layers[il].wv, cur);
-                cb(Vcur, "Vcur", il);
-                if (model.layers[il].bv)
-                {
-                    Vcur = ggml_add(ctx0, Vcur, model.layers[il].bv);
+                    struct ggml_tensor *Vcur = llm_build_lora_mm(lctx, ctx0, model.layers[il].wv, cur);
                     cb(Vcur, "Vcur", il);
+                    if (model.layers[il].bv)
+                    {
+                        Vcur = ggml_add(ctx0, Vcur, model.layers[il].bv);
+                        cb(Vcur, "Vcur", il);
+                    }
+
+                    Qcur = ggml_rope_ext(
+                        ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, rope_factors,
+                        n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
+                        ext_factor, attn_factor, beta_fast, beta_slow);
+                    cb(Qcur, "Qcur", il);
+
+                    Kcur = ggml_rope_ext(
+                        ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, rope_factors,
+                        n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
+                        ext_factor, attn_factor, beta_fast, beta_slow);
+                    cb(Kcur, "Kcur", il);
+
+                    cur = llm_build_kv(ctx0, lctx, kv_self, gf,
+                                    model.layers[il].wo, model.layers[il].bo,
+                                    Kcur, Vcur, Qcur, KQ_mask, n_tokens, kv_head, n_kv, kq_scale, cb, il);
                 }
 
-                Qcur = ggml_rope_ext(
-                    ctx0, ggml_reshape_3d(ctx0, Qcur, n_embd_head, n_head, n_tokens), inp_pos, rope_factors,
-                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
-                    ext_factor, attn_factor, beta_fast, beta_slow);
-                cb(Qcur, "Qcur", il);
+                if (il == total_layers - 1)
+                {
+                    // skip computing output for unused tokens
+                    struct ggml_tensor *inp_out_ids = build_inp_out_ids();
+                    n_tokens = n_outputs;
+                    cur = ggml_get_rows(ctx0, cur, inp_out_ids);
+                    inpSA = ggml_get_rows(ctx0, inpSA, inp_out_ids);
+                }
 
-                Kcur = ggml_rope_ext(
-                    ctx0, ggml_reshape_3d(ctx0, Kcur, n_embd_head, n_head_kv, n_tokens), inp_pos, rope_factors,
-                    n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
-                    ext_factor, attn_factor, beta_fast, beta_slow);
-                cb(Kcur, "Kcur", il);
+                // For Granite architecture
+                if (hparams.f_residual_scale)
+                {
+                    cur = ggml_scale(ctx0, cur, hparams.f_residual_scale);
+                }
 
-                cur = llm_build_kv(ctx0, lctx, kv_self, gf,
-                                   model.layers[il].wo, model.layers[il].bo,
-                                   Kcur, Vcur, Qcur, KQ_mask, n_tokens, kv_head, n_kv, kq_scale, cb, il);
-            }
+                struct ggml_tensor *ffn_inp = ggml_add(ctx0, cur, inpSA);
+                cb(ffn_inp, "ffn_inp", il);
 
-            if (il == n_layer - 1)
-            {
-                // skip computing output for unused tokens
-                struct ggml_tensor *inp_out_ids = build_inp_out_ids();
-                n_tokens = n_outputs;
-                cur = ggml_get_rows(ctx0, cur, inp_out_ids);
-                inpSA = ggml_get_rows(ctx0, inpSA, inp_out_ids);
-            }
+                // feed-forward network
+                if (model.layers[il].ffn_gate_inp == nullptr)
+                {
+                    cur = llm_build_norm(ctx0, ffn_inp, hparams,
+                                        model.layers[il].ffn_norm, NULL,
+                                        LLM_NORM_RMS, cb, il);
+                    cb(cur, "ffn_norm", il);
 
-            // For Granite architecture
-            if (hparams.f_residual_scale)
-            {
-                cur = ggml_scale(ctx0, cur, hparams.f_residual_scale);
-            }
+                    cur = llm_build_ffn(ctx0, lctx, cur,
+                                        model.layers[il].ffn_up, model.layers[il].ffn_up_b, NULL,
+                                        model.layers[il].ffn_gate, model.layers[il].ffn_gate_b, NULL,
+                                        model.layers[il].ffn_down, model.layers[il].ffn_down_b, NULL,
+                                        NULL,
+                                        LLM_FFN_SILU, LLM_FFN_PAR, cb, il);
+                    cb(cur, "ffn_out", il);
+                }
+                else
+                {
+                    // MoE branch
+                    cur = llm_build_norm(ctx0, ffn_inp, hparams,
+                                        model.layers[il].ffn_norm, NULL,
+                                        LLM_NORM_RMS, cb, il);
+                    cb(cur, "ffn_norm", il);
 
-            struct ggml_tensor *ffn_inp = ggml_add(ctx0, cur, inpSA);
-            cb(ffn_inp, "ffn_inp", il);
+                    cur = llm_build_moe_ffn(ctx0, lctx, cur,
+                                            model.layers[il].ffn_gate_inp,
+                                            model.layers[il].ffn_up_exps,
+                                            model.layers[il].ffn_gate_exps,
+                                            model.layers[il].ffn_down_exps,
+                                            n_expert, n_expert_used,
+                                            LLM_FFN_SILU, true,
+                                            false, 0.0,
+                                            cb, il);
+                    cb(cur, "ffn_moe_out", il);
+                }
 
-            // feed-forward network
-            if (model.layers[il].ffn_gate_inp == nullptr)
-            {
-                cur = llm_build_norm(ctx0, ffn_inp, hparams,
-                                     model.layers[il].ffn_norm, NULL,
-                                     LLM_NORM_RMS, cb, il);
-                cb(cur, "ffn_norm", il);
+                // For Granite architecture
+                if (hparams.f_residual_scale)
+                {
+                    cur = ggml_scale(ctx0, cur, hparams.f_residual_scale);
+                }
 
-                cur = llm_build_ffn(ctx0, lctx, cur,
-                                    model.layers[il].ffn_up, model.layers[il].ffn_up_b, NULL,
-                                    model.layers[il].ffn_gate, model.layers[il].ffn_gate_b, NULL,
-                                    model.layers[il].ffn_down, model.layers[il].ffn_down_b, NULL,
-                                    NULL,
-                                    LLM_FFN_SILU, LLM_FFN_PAR, cb, il);
+                cur = ggml_add(ctx0, cur, ffn_inp);
                 cb(cur, "ffn_out", il);
-            }
-            else
-            {
-                // MoE branch
-                cur = llm_build_norm(ctx0, ffn_inp, hparams,
-                                     model.layers[il].ffn_norm, NULL,
-                                     LLM_NORM_RMS, cb, il);
-                cb(cur, "ffn_norm", il);
 
-                cur = llm_build_moe_ffn(ctx0, lctx, cur,
-                                        model.layers[il].ffn_gate_inp,
-                                        model.layers[il].ffn_up_exps,
-                                        model.layers[il].ffn_gate_exps,
-                                        model.layers[il].ffn_down_exps,
-                                        n_expert, n_expert_used,
-                                        LLM_FFN_SILU, true,
-                                        false, 0.0,
-                                        cb, il);
-                cb(cur, "ffn_moe_out", il);
+                cur = lctx.cvec.apply_to(ctx0, cur, il);
+                cb(cur, "l_out", il);
+
+                // input for next layer
+                inpL = cur;
             }
+            cur = inpL;
+            cur = llm_build_norm(ctx0, cur, hparams,
+                                model.output_norm, NULL,
+                                LLM_NORM_RMS, cb, -1);
+            cb(cur, "result_norm", -1);
+
+            // lm_head
+            cur = llm_build_lora_mm(lctx, ctx0, model.output, cur);
 
             // For Granite architecture
-            if (hparams.f_residual_scale)
+            if (hparams.f_logit_scale)
             {
-                cur = ggml_scale(ctx0, cur, hparams.f_residual_scale);
+                cur = ggml_scale(ctx0, cur, 1.0f / hparams.f_logit_scale);
             }
 
-            cur = ggml_add(ctx0, cur, ffn_inp);
-            cb(cur, "ffn_out", il);
+            cb(cur, "result_output", -1);
 
-            cur = lctx.cvec.apply_to(ctx0, cur, il);
-            cb(cur, "l_out", il);
+        // }else{
+        //     cur = inpL;
+        // }
 
-            // input for next layer
-            inpL = cur;
-        }
 
-        cur = inpL;
 
-        cur = llm_build_norm(ctx0, cur, hparams,
-                             model.output_norm, NULL,
-                             LLM_NORM_RMS, cb, -1);
-        cb(cur, "result_norm", -1);
-
-        // lm_head
-        cur = llm_build_lora_mm(lctx, ctx0, model.output, cur);
-
-        // For Granite architecture
-        if (hparams.f_logit_scale)
-        {
-            cur = ggml_scale(ctx0, cur, 1.0f / hparams.f_logit_scale);
-        }
-
-        cb(cur, "result_output", -1);
 
         ggml_build_forward_expand(gf, cur);
 
@@ -19501,7 +19651,7 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
     if (batch.token)
     {
         const int64_t n_tokens = batch.n_tokens;
-
+        logMessage("n_tokens: %d", n_tokens);
         ggml_backend_tensor_set(lctx.inp_tokens, batch.token, 0, n_tokens * ggml_element_size(lctx.inp_tokens));
     }
 
@@ -19509,6 +19659,7 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
     {
         if (lctx.inp_cross_attn_state && lctx.inp_cross_attn_state->buffer)
         {
+            logMessage("inp_cross_attn_state: %d", 1);
             ggml_backend_tensor_set(lctx.inp_cross_attn_state, batch.embd, 0, ggml_nbytes(lctx.inp_cross_attn_state));
             // zero out inp_embd since it's not used
             float *inp_embd_data = (float *)lctx.inp_embd->data;
@@ -19519,6 +19670,7 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
         }
         else
         {
+            logMessage("inp_embd: %d", 1);
             const int64_t n_embd = hparams.n_embd;
             const int64_t n_tokens = batch.n_tokens;
 
@@ -19529,12 +19681,16 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
     if (batch.pos && lctx.inp_pos)
     {
         const int64_t n_tokens = batch.n_tokens;
+        logMessage("inp_pos: %d", 1);
 
         ggml_backend_tensor_set(lctx.inp_pos, batch.pos, 0, n_tokens * ggml_element_size(lctx.inp_pos));
     }
 
+    logMessage("1");
+
     if (hparams.causal_attn || cparams.pooling_type == LLAMA_POOLING_TYPE_NONE)
     {
+        logMessage("causal_attn: %d", 1);
         GGML_ASSERT(lctx.inp_out_ids && "every model that can must skip unused outputs");
         const int64_t n_tokens = batch.n_tokens;
 
@@ -19559,6 +19715,7 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
                 }
             }
             // the graph needs to have been passed the correct number of outputs
+            logMessage("n_outputs: %d, lctx_noutputs: %d", n_outputs, lctx.n_outputs);
             GGML_ASSERT(lctx.n_outputs == n_outputs);
         }
         else if (lctx.n_outputs == 1)
@@ -19571,6 +19728,8 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
             GGML_ASSERT(lctx.n_outputs == 0);
         }
     }
+
+    logMessage("2");
 
     GGML_ASSERT(
         // (!a || b) is a logical implication (a -> b)
@@ -19735,8 +19894,11 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
         }
     }
 
+    logMessage("3");
+
     if (cparams.embeddings && cparams.pooling_type == LLAMA_POOLING_TYPE_MEAN)
     {
+        logMessage("pooling_type: %d", LLAMA_POOLING_TYPE_MEAN);
         const int64_t n_tokens = batch.n_tokens;
         const int64_t n_seq_tokens = batch.n_seq_tokens;
         const int64_t n_seqs = batch.n_seqs;
@@ -19780,9 +19942,12 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
         }
     }
 
+    logMessage("4");
+
     if (cparams.embeddings && (cparams.pooling_type == LLAMA_POOLING_TYPE_CLS ||
                                cparams.pooling_type == LLAMA_POOLING_TYPE_RANK))
     {
+        logMessage("pooling_type: %d", cparams.pooling_type);
         const int64_t n_tokens = batch.n_tokens;
         const int64_t n_seq_tokens = batch.n_seq_tokens;
         const int64_t n_seqs = batch.n_seqs;
@@ -19812,8 +19977,11 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
         }
     }
 
+    logMessage("5");
+
     if (cparams.embeddings && cparams.pooling_type == LLAMA_POOLING_TYPE_LAST)
     {
+        logMessage("pooling_type: %d", cparams.pooling_type);
         const int64_t n_tokens = batch.n_tokens;
         const int64_t n_seq_tokens = batch.n_seq_tokens;
         const int64_t n_seqs = batch.n_seqs;
@@ -19908,8 +20076,11 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
         }
     }
 
+    logMessage("6");
+
     if (lctx.inp_pos_bucket)
     {
+        logMessage("inp_pos_bucket: %d", 1);
         const int64_t n_tokens = batch.n_tokens;
 
         GGML_ASSERT(ggml_backend_buffer_is_host(lctx.inp_pos_bucket->buffer));
@@ -19946,6 +20117,8 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
         }
     }
 
+    logMessage("7");
+
     if (!lctx.is_encoding && lctx.inp_embd_enc)
     {
         assert(lctx.inp_embd_enc->type == GGML_TYPE_F32);
@@ -19953,6 +20126,8 @@ static void llama_set_inputs(llama_context &lctx, const llama_ubatch &batch)
 
         ggml_backend_tensor_set(lctx.inp_embd_enc, lctx.embd_enc.data(), 0, ggml_nbytes(lctx.inp_embd_enc));
     }
+
+    logMessage("8");
 
     if (!lctx.is_encoding && lctx.inp_KQ_mask_cross)
     {
@@ -20132,13 +20307,14 @@ static void llama_graph_compute(
         ggml_backend_cpu_set_threadpool(lctx.backend_cpu, threadpool);
         ggml_backend_cpu_set_abort_callback(lctx.backend_cpu, lctx.abort_callback, lctx.abort_callback_data);
     }
+    logMessage("Set backend cpu");
 #ifdef GGML_USE_BLAS
     if (lctx.backend_blas != nullptr)
     {
         ggml_backend_blas_set_n_threads(lctx.backend_blas, n_threads);
     }
 #endif
-
+    logMessage("Start graph compute async");
     ggml_backend_sched_graph_compute_async(lctx.sched, gf);
 
     // fprintf(stderr, "splits: %d\n", ggml_backend_sched_get_n_splits(lctx.sched));
@@ -26310,518 +26486,571 @@ void llama_log_callback_default(ggml_log_level level, const char *text, void *us
     fflush(stderr);
 }
 
-class Model2VecManager
-{
-private:
-    model2Vec *instance;
-    std::vector<std::string> tokens;
-    std::vector<vectorf> embeddings;
-
-public:
-    // Constructor
-    Model2VecManager(int embedding_dim, bool apply_zipf, int pca_components)
-    {
-        instance = model2vec_create(embedding_dim, apply_zipf, pca_components);
-        if (!instance)
-        {
-            throw std::runtime_error("Failed to create model2Vec instance");
-        }
-    }
-
-    ~Model2VecManager()
-    {
-        if (instance)
-        {
-            instance = nullptr;
-            // Free embeddings data
-            for (auto &embedding : embeddings)
-            {
-                delete[] embedding.data;
-            }
-
-            model2vec_destroy(instance);
-        }
-    }
-
-    Model2VecManager(const Model2VecManager &) = delete;
-    Model2VecManager &operator=(const Model2VecManager &) = delete;
-
-    // Initialize with precomputed embeddings
-    bool initialize(const std::vector<vectorf> &precomputed_embeddings, const std::vector<std::string> &tokens)
-    {
-        if (precomputed_embeddings.size() != tokens.size())
-        {
-            return false;
-        }
-
-        // Convert std::vector to C-style structures
-        matrix precomputed_matrix = matrix_create(precomputed_embeddings.size(), precomputed_embeddings[0].size);
-        for (size_t i = 0; i < precomputed_embeddings.size(); ++i)
-        {
-            memcpy(precomputed_matrix.rows[i].data, precomputed_embeddings[i].data, precomputed_embeddings[i].size * sizeof(float));
-        }
-
-        const char **token_array = new const char *[tokens.size()];
-        for (size_t i = 0; i < tokens.size(); ++i)
-        {
-            token_array[i] = tokens[i].c_str();
-        }
-
-        bool success = model2vec_initialize(instance, &precomputed_matrix, token_array, tokens.size());
-
-        // Clean up
-        delete[] token_array;
-        matrix_destroy(&precomputed_matrix);
-
-        if (success)
-        {
-            // Store tokens and embeddings in the manager
-            this->tokens = tokens;
-            this->embeddings = precomputed_embeddings;
-        }
-
-        return success;
-    }
-
-    // Distill embeddings
-    // Distill embeddings
-    bool distill(const matrix &raw_embeddings, const std::vector<std::string> &tokens)
-    {
-        const char **token_array = new const char *[tokens.size()];
-        for (size_t i = 0; i < tokens.size(); ++i)
-        {
-            token_array[i] = tokens[i].c_str();
-        }
-
-        bool success = model2vec_distill(instance, &raw_embeddings, token_array, tokens.size());
-
-        delete[] token_array;
-        return success;
-    }
-
-    vectorf applyPCA(const vectorf &embedding)
-    {
-        // Call the model2vec_apply_pca function and return its result directly
-        return model2vec_apply_pca(instance, &embedding);
-    }
-
-    // Apply Zipf weighting
-    vectorf applyZipfWeighting(const vectorf &embedding, int rank)
-    {
-        // Call the model2vec_apply_zipf_weighting function and return its result directly
-        return model2vec_apply_zipf_weighting(instance, &embedding, rank);
-    }
-
-    // Additional helpers
-    vectorf computeMean(const matrix &data)
-    {
-        vectorf mean_vector = vector_create(data.col_count);
-        for (size_t i = 0; i < data.row_count; ++i)
-        {
-            for (size_t j = 0; j < data.col_count; ++j)
-            {
-                mean_vector.data[j] += data.rows[i].data[j];
-            }
-        }
-
-        for (size_t j = 0; j < data.col_count; ++j)
-        {
-            mean_vector.data[j] /= data.row_count;
-        }
-
-        return mean_vector;
-    }
-
-    matrix centerData(const matrix &data, const vectorf &mean)
-    {
-        matrix centered = matrix_create(data.row_count, data.col_count);
-        for (size_t i = 0; i < data.row_count; ++i)
-        {
-            for (size_t j = 0; j < data.col_count; ++j)
-            {
-                centered.rows[i].data[j] = data.rows[i].data[j] - mean.data[j];
-            }
-        }
-        return centered;
-    }
-
-    matrix computeCovariance(const matrix &data)
-    {
-        matrix covariance = matrix_create(data.col_count, data.col_count);
-        for (size_t i = 0; i < data.col_count; ++i)
-        {
-            for (size_t j = 0; j < data.col_count; ++j)
-            {
-                for (size_t k = 0; k < data.row_count; ++k)
-                {
-                    covariance.rows[i].data[j] += data.rows[k].data[i] * data.rows[k].data[j];
-                }
-                covariance.rows[i].data[j] /= (data.row_count - 1);
-            }
-        }
-        return covariance;
-    }
-
-    std::pair<vectorf, matrix> computeEigen(const matrix &cov, int max_iter = 1000, float tol = 1e-6)
-    {
-        vectorf eigenvalues;
-        matrix eigenvectors;
-        compute_eigen(&cov, &eigenvalues, &eigenvectors);
-        return {eigenvalues, eigenvectors};
-    }
-
-    matrix multiply(const matrix &mat1, const matrix &mat2)
-    {
-        matrix result = matrix_create(mat1.row_count, mat2.col_count);
-        for (size_t i = 0; i < mat1.row_count; ++i)
-        {
-            for (size_t j = 0; j < mat2.col_count; ++j)
-            {
-                result.rows[i].data[j] = 0.0f;
-                for (size_t k = 0; k < mat1.col_count; ++k)
-                {
-                    result.rows[i].data[j] += mat1.rows[i].data[k] * mat2.rows[k].data[j];
-                }
-            }
-        }
-        return result;
-    }
-
-    matrix transpose(const matrix &mat)
-    {
-        matrix result = matrix_create(mat.col_count, mat.row_count);
-        for (size_t i = 0; i < mat.row_count; ++i)
-        {
-            for (size_t j = 0; j < mat.col_count; ++j)
-            {
-                result.rows[j].data[i] = mat.rows[i].data[j];
-            }
-        }
-        return result;
-    }
-
-    bool saveToFile(const std::string &filepath)
-    {
-        // Check if the instance is initialized and tokens/embeddings are available
-        if (!instance || tokens.empty() || embeddings.empty())
-        {
-            // Instance is not initialized or tokens/embeddings are missing
-            return false;
-        }
-
-        // Open a binary file for writing
-        std::ofstream outFile(filepath, std::ios::binary);
-        if (!outFile.is_open())
-        {
-            // Failed to open file
-            return false;
-        }
-
-        // Write embedding_dim
-        outFile.write(reinterpret_cast<char *>(instance->embedding_dim), sizeof(instance->embedding_dim));
-
-        // Write pca_components
-        outFile.write(reinterpret_cast<char *>(instance->pca_components), sizeof(instance->pca_components));
-
-        // Write apply_zipf
-        outFile.write(reinterpret_cast<char *>(instance->apply_zipf), sizeof(instance->apply_zipf));
-
-        // Write the number of tokens
-        size_t token_count = tokens.size();
-        outFile.write(reinterpret_cast<char *>(&token_count), sizeof(token_count));
-
-        // Write each token and its associated embedding
-        for (size_t i = 0; i < token_count; ++i)
-        {
-            // Write token length and token string
-            const std::string &token = tokens[i];
-            size_t token_length = token.length();
-            outFile.write(reinterpret_cast<char *>(&token_length), sizeof(token_length));
-            outFile.write(token.data(), token_length);
-
-            // Write embedding data
-            vectorf embedding = embeddings[i];
-            outFile.write(reinterpret_cast<char *>(embedding.data), embedding.size * sizeof(float));
-        }
-
-        // Close the file
-        outFile.close();
-
-        return true;
-    }
-};
-
-model2Vec *llama_model2vec_init(int embedding_dim, bool apply_zipf, int pca_components)
-{
-    return model2vec_create(embedding_dim, apply_zipf, pca_components);
-}
-
-// Free the model2Vec instance
-void llama_model2vec_free(model2Vec *instance)
-{
-    if (instance)
-    {
-        model2vec_destroy(instance);
-    }
-}
-
-// Initialize the model with precomputed embeddings
-bool llama_model2vec_initialize(model2Vec *instance, const float **embeddings, const char **tokens, size_t count)
-{
-    if (!instance || !embeddings || !tokens || count == 0)
-    {
-        return false;
-    }
-
-    size_t embedding_dim = instance->embedding_dim;
-
-    // Create a matrix from embeddings
-    matrix precomputed_matrix = matrix_create(count, embedding_dim);
-    for (size_t i = 0; i < count; ++i)
-    {
-        memcpy(precomputed_matrix.rows[i].data, embeddings[i], embedding_dim * sizeof(float));
-    }
-
-    // Initialize the model
-    bool success = model2vec_initialize(instance, &precomputed_matrix, tokens, count);
-
-    // Clean up
-    matrix_destroy(&precomputed_matrix);
-
-    return success;
-}
-
-// Distill the raw embeddings
-bool llama_model2vec_distill(model2Vec *instance, const float **raw_embeddings, const char **tokens, size_t count)
-{
-    if (!instance || !raw_embeddings || !tokens || count == 0)
-    {
-        return false;
-    }
-
-    size_t embedding_dim = instance->embedding_dim;
-
-    // Create a matrix from raw embeddings
-    matrix raw_embeddings_matrix = matrix_create(count, embedding_dim);
-    for (size_t i = 0; i < count; ++i)
-    {
-        memcpy(raw_embeddings_matrix.rows[i].data, raw_embeddings[i], embedding_dim * sizeof(float));
-    }
-
-    // Distill the embeddings
-    bool success = model2vec_distill(instance, &raw_embeddings_matrix, tokens, count);
-
-    // Clean up
-    matrix_destroy(&raw_embeddings_matrix);
-
-    return success;
-}
-
-// Apply PCA to an embedding
-bool llama_model2vec_apply_pca(model2Vec *instance, const float *embedding, float *result)
-{
-    if (!instance || !embedding || !result)
-    {
-        return false;
-    }
-
-    size_t embedding_dim = instance->embedding_dim;
-
-    // Create vector from embedding
-    vectorf embedding_vector = vector_create(embedding_dim);
-    memcpy(embedding_vector.data, embedding, embedding_dim * sizeof(float));
-
-    // Apply PCA
-    vectorf result_vector = model2vec_apply_pca(instance, &embedding_vector);
-
-    // Copy the result
-    memcpy(result, result_vector.data, result_vector.size * sizeof(float));
-
-    // Clean up
-    vector_free(&embedding_vector);
-    vector_free(&result_vector);
-
-    return true;
-}
-
-// Apply Zipf weighting to an embedding
-bool llama_model2vec_apply_zipf(model2Vec *instance, const float *embedding, int rank, float *result)
-{
-    if (!instance || !embedding || !result)
-    {
-        return false;
-    }
-
-    size_t embedding_dim = instance->embedding_dim;
-
-    // Create vector from embedding
-    vectorf embedding_vector = vector_create(embedding_dim);
-    memcpy(embedding_vector.data, embedding, embedding_dim * sizeof(float));
-
-    // Apply Zipf weighting
-    vectorf result_vector = model2vec_apply_zipf_weighting(instance, &embedding_vector, rank);
-
-    // Copy the result
-    memcpy(result, result_vector.data, result_vector.size * sizeof(float));
-
-    // Clean up
-    vector_free(&embedding_vector);
-    vector_free(&result_vector);
-
-    return true;
-}
-
-// Get the embedding dimension
-size_t llama_model2vec_embedding_dim(const model2Vec *instance)
-{
-    if (!instance)
-    {
-        return 0;
-    }
-    return instance->embedding_dim;
-}
-
-// llama.cpp
-
 int llama_vocab_size(const llama_vocab *vocab)
 {
-    return vocab->id_to_token.size();
+    return vocab->n_vocab;
+    // return 0;
+    // return llama_vocab_size_impl(vocab);
 }
 
-llama_vocab_token llama_get_vocab_token(const llama_vocab *vocab, int index)
+llama_vocab::token_data llama_get_vocab_token(const llama_vocab *vocab, int index) {
+    if (index < 0 || index >= vocab->n_vocab) {
+        logMessage("Invalid index: %d", index);
+        return {};
+    }
+
+    char buf[vocab->max_token_len]; // Adjust size based on expected token length
+    int32_t length = llama_token_to_piece_impl(*vocab, index, buf, sizeof(buf), 0, true);
+
+    if (length <= 0) {
+        logMessage("Failed to retrieve token for index: %d", index);
+        return {};
+    }
+
+    logMessage("Retrieved token: %s", std::string(buf, length).c_str());
+
+    // Create a new token_data with the retrieved piece
+    llama_vocab::token_data token_data;
+    token_data.text = std::string(buf, length);
+
+    // logMessage("Token data: %s", token_data.text);
+    return token_data;
+}
+
+static const char **convert_tokens_to_carray(const std::vector<std::string> &tokens)
 {
-    llama_vocab_token token;
-    const auto &t = vocab->id_to_token.at(index);
-    token.text = t.text.c_str();
-    token.score = t.score;
-    return token;
+    const char **c_array = new const char *[tokens.size()];
+    for (size_t i = 0; i < tokens.size(); ++i)
+    {
+        c_array[i] = tokens[i].c_str();
+    }
+    return c_array;
 }
 
-bool llama_model2vec_initialize_and_save(
-    struct llama_model *model,
+static const float **convert_embeddings_to_carray(const std::vector<float *> &embeddings)
+{
+    const float **c_array = new const float *[embeddings.size()];
+    for (size_t i = 0; i < embeddings.size(); ++i)
+    {
+        c_array[i] = embeddings[i];
+    }
+    return c_array;
+}
+
+model2Vec *llama_model2vec_initialize_and_save(
+    llama_context *ctx,
+    llama_model *model,
     const char *save_filepath,
     int embedding_dim,
     bool apply_zipf,
     int pca_components)
 {
-    logMessage("Starting llama_model2vec_initialize_and_save");
+    ctx->model2vec = true;
+    logMessage("Starting llama_model2vec_initialize_and_save: %p", model);
 
     if (!model || !save_filepath)
     {
         logMessage("Invalid model or save_filepath");
-        return false;
+        return nullptr;
     }
 
-    // Step 1: Initialize Model2VecManager
-    Model2VecManager manager(embedding_dim, apply_zipf, pca_components);
-    logMessage("Model2VecManager instance created");
-
-    // Step 2: Get vocabulary
-    const llama_vocab *vocab = llama_get_all_vocab(model);
-    if (!vocab)
+    // Step 1: Create a new model2Vec instance
+    model2Vec *instance = model2vec_create(embedding_dim, apply_zipf, pca_components);
+    if (!instance)
     {
-        logMessage("Failed to get vocabulary");
-        return false;
+        logMessage("Failed to create model2Vec instance");
+        return nullptr;
     }
-    logMessage("Vocabulary retrieved successfully");
 
-    int vocab_size = llama_vocab_size(vocab);
-    logMessage("Vocabulary size: %d", vocab_size);
-
-    // Step 3: Prepare embeddings and tokens
-    std::vector<std::vector<float>> embeddings;
-    std::vector<std::string> tokens;
-
-    embeddings.reserve(vocab_size);
-    tokens.reserve(vocab_size);
-
-    llama_context_params params = llama_context_default_params();
-    params.n_ctx = 1;
-    params.n_threads = 1;
-    params.embeddings = true;
-
-    llama_context *ctx = llama_new_context_with_model(model, params);
-    if (!ctx)
+    try
     {
-        logMessage("Failed to create context");
-        return false;
-    }
-    logMessage("Context created successfully");
+        logMessage("Instance created, start tokenizing");
 
-    // Simplified Batch Initialization
-    for (int i = 0; i < vocab_size; ++i)
-    {
-        llama_vocab_token vocab_token = llama_get_vocab_token(vocab, i);
-        tokens.push_back(vocab_token.text);
-
-        llama_token token_id = static_cast<llama_token>(i);
-
-        // Create batch dynamically
-        llama_batch batch;
-        memset(&batch, 0, sizeof(batch)); // Clear structure
-        batch.n_tokens = 1;
-        batch.token[0] = token_id;
-        batch.pos[0] = 0;
-        batch.n_seq_id[0] = 1;
-        batch.seq_id[0][0] = 0;
-
-        logMessage("Processing token: %s", vocab_token.text);
-
-        // Decode the batch
-        int code = llama_decode(ctx, batch);
-        if (code != 0)
+        // Step 2: Retrieve vocabulary from the llama model
+        const llama_vocab *vocab = &model->vocab;
+        if (!vocab)
         {
-            logMessage("Failed to decode batch for token: %s", vocab_token.text);
-            llama_free(ctx);
-            return false;
+            logMessage("Failed to retrieve vocabulary");
+            model2vec_destroy(instance);
+            return nullptr;
         }
 
-        // Retrieve embedding
-        const float *embedding = llama_get_embeddings_seq(ctx, 0);
-        if (!embedding)
+        int vocab_size = llama_vocab_size(&model->vocab);
+        logMessage("Vocabulary size: %d", vocab_size);
+
+        // // Step 3: Prepare tokens and embeddings
+        std::vector<std::string> tokens;
+
+        logMessage("This much floats in an embed: %u", ctx->model.hparams.n_embd);
+        std::vector<float *> embeddings(vocab_size);
+
+        tokens.reserve(vocab_size);
+
+        // llama_context_params params = llama_context_default_params();
+        // params.n_ctx = 1;
+        // params.n_threads = 1;
+        // params.embeddings = true;
+
+        // llama_context *ctx = llama_new_context_with_model(model, params);
+        // if (!ctx)
+        // {
+        //     logMessage("Failed to create llama context");
+        //     model2vec_destroy(instance);
+        //     return false;
+        // }
+
+        ggml_cgraph *gf = nullptr;
+
+        logMessage("Starting for loop for vocab size: %d", vocab_size);
+
+        for (int i = 0; i < vocab_size; ++i)
         {
-            logMessage("Failed to retrieve embedding for token: %s", vocab_token.text);
-            llama_free(ctx);
-            return false;
+
+            llama_vocab::token_data vocab_token = llama_get_vocab_token(vocab, i);
+
+            // logMessage("Starting for token, %s", vocab_token.text);
+            tokens.push_back(vocab_token.text);
+
+            llama_token token_id = static_cast<llama_token>(i);
+
+            // Decode the batch
+            llama_batch batch = llama_batch_init(512, 0, 1);
+            batch.token = &token_id;
+            batch.n_tokens = 1;
+            batch.n_embd = ctx->model.hparams.n_embd;
+            batch.pos = 0;
+            int8_t logits = 1;
+            batch.logits = &logits;
+            batch.seq_id = 0;
+
+            ctx->n_outputs = 1;
+
+            ctx->sbatch.from_batch(batch, batch.n_embd, /* simple_split */ true, /* logits_all */ true);
+
+            logMessage("Created sbatch");
+
+            const llama_ubatch ubatch = ctx->sbatch.split_simple(batch.n_tokens);
+
+            logMessage("Batch split");
+            gf = llama_build_graph(*ctx, ubatch, false);
+            struct ggml_tensor *embd = ggml_graph_node(gf, -2);
+
+            logMessage("Graph created");
+
+            logMessage("Embeddings are enabled, totalNodes: %d", ggml_graph_n_nodes(gf));
+
+
+            embd = ggml_graph_node(gf, 0);
+            // for (int i = ggml_graph_n_nodes(gf) - 1; i >= 0; --i)
+            // {
+
+            //     embd = ggml_graph_node(gf, i);
+            //     logMessage("Node: %s", embd->name);
+            //     if (strcmp(ggml_graph_node(gf, i)->name, "result_embd_pooled") == 0)
+            //     {
+            //         logMessage("Found the embeddings tensor, breaking at i: %d", i);
+            //         // break;
+            //     }
+            // }
+
+            logMessage("Embd: %p", embd);
+
+            if (embd == nullptr)
+            {
+                logMessage("Failed to retrieve embeddings tensor");
+                // llama_batch_free(batch);
+                // model2vec_destroy(instance);
+                // return nullptr;
+            }
+
+
+            // log_tensor_details(embd, *ctx);
+            // embeddings[i] = embd;
+
+            logMessage("Embeddings tensor: %s", embd->name);
+
+            // logMessage("Backend reset");
+            // free(gf);
+
+            // llama_batch_free(batch);
+            // ggml_backend_sched_reset(ctx->sched);
+            // if (llama_decode(ctx, batch) != 0)
+            // {
+            //     logMessage("Failed to decode batch for token: %s", vocab_token.text);
+            //     llama_free(ctx);
+            //     model2vec_destroy(instance);
+            //     return nullptr;
+            // }
+
+            // Retrieve the embedding
+            // const float *embedding = llama_get_embeddings_seq(ctx, 0);
+            // if (!embedding)
+            // {
+            //     logMessage("Failed to retrieve embedding for token: %s", vocab_token.text);
+            //     llama_free(ctx);
+            //     model2vec_destroy(instance);
+            //     return nullptr;
+            // }
+
+            logMessage("Allocating graph");
+
+            ggml_backend_sched_alloc_graph(ctx->sched, gf);
+
+            logMessage("Setting Input");
+
+            llama_set_inputs(*ctx, ubatch);
+
+            logMessage("Computing graph");
+
+            llama_graph_compute(*ctx, gf, ctx->cparams.n_threads, ctx->threadpool);
+
+            logMessage("Graph computed");
+
+            // ggml_backend_sched_alloc_graph(ctx->sched, gf);
+            // llama_graph_compute(*ctx, gf, ctx->cparams.n_threads, ctx->threadpool);
+
+            if (embd->data == NULL)
+            {
+                logMessage("Tensor '%s' data is not allocated. Attempting manual allocation.", embd->name);
+                size_t tensor_size = embd->nb[0] * embd->ne[0];
+                for (int i = 1; i < GGML_MAX_DIMS; ++i)
+                {
+                    if (embd->ne[i] == 0)
+                        break;
+                    tensor_size *= embd->ne[i];
+                }
+
+                embd->data = malloc(tensor_size);
+                if (!embd->data)
+                {
+                    logMessage("Failed to manually allocate memory for tensor '%s'.", embd->name);
+                    return NULL;
+                }
+                logMessage("Successfully allocated memory for tensor '%s'.", embd->name);
+            }
+
+            logMessage("Reached after embd data, is not null");
+
+            ggml_backend_t backend_embd = ggml_backend_sched_get_tensor_backend(ctx->sched, embd);
+            GGML_ASSERT(backend_embd != nullptr);
+
+            logMessage("Created backend for embd");
+            // model2Vec m2vec(n_embd, true, 256); // Example: embedding dim, apply Zipf, PCA components
+
+            // // Initialize Model2Vec if not already initialized
+            // static bool initialized = false;
+            // if (!initialized)
+            // {
+            //     std::vector<std::string> tokens = load_tokens_from_llm(lctx);                    // Implement token loading
+            //     std::vector<vectorf> precomputed_embeddings = extract_embeddings_from_llm(lctx); // Implement this
+
+            //     if (!m2vec.initialize(precomputed_embeddings, tokens))
+            //     {
+            //         LLAMA_LOG_ERROR("Failed to initialize Model2Vec.\n");
+            //         return -3;
+            //     }
+            //     initialized = true;
+            // }
+
+            int n_outputs_prev = 0, n_outputs = 1;
+            int n_embd = ctx->model.hparams.n_embd;
+
+            logMessage("Starting switch, %d", ctx->cparams.pooling_type);
+
+            switch (ctx->cparams.pooling_type)
+            {
+            case LLAMA_POOLING_TYPE_NONE:
+            {
+                // extract token embeddings
+                GGML_ASSERT(ctx->embd != nullptr);
+                logMessage("Calculate embd_out");
+                float *embd_out = ctx->embd + n_outputs_prev * n_embd;
+                const int32_t n_outputs_new = ctx->n_outputs;
+
+                logMessage("Calculated");
+
+
+                if (n_outputs_new)
+                {
+                    logMessage("noutputs new, %d, ", n_outputs_new);
+                    logMessage("%d+%d <= %d", n_outputs_prev, n_outputs_new, n_outputs);
+                    GGML_ASSERT(n_outputs_prev + n_outputs_new <= n_outputs);
+                    logMessage("n_outputs_prev:%d + n_outputs_new:%d  *n_embd: %d, ctc->embd list: %d<= n_outputs:%d", n_outputs_prev, n_outputs_new, n_embd, n_outputs_prev + n_outputs_new * n_embd, ctx->embd_size);
+                    GGML_ASSERT((n_outputs_prev + n_outputs_new) * n_embd <= (int64_t)ctx->embd_size);
+                    logMessage("Asserting");
+                    ggml_backend_tensor_get_async(backend_embd, embd, embd_out, 0, n_outputs_new * n_embd * sizeof(float));
+                }
+            }
+            break;
+            case LLAMA_POOLING_TYPE_MEAN:
+            case LLAMA_POOLING_TYPE_CLS:
+            case LLAMA_POOLING_TYPE_LAST:
+            {
+                // extract sequence embeddings (cleared before processing each batch)
+                auto &embd_seq_out = ctx->embd_seq;
+
+                for (uint32_t s = 0; s < ubatch.n_seqs; ++s)
+                {
+                    const llama_seq_id seq_id = ubatch.seq_id[s][0];
+                    if (embd_seq_out.find(seq_id) != embd_seq_out.end())
+                    {
+                        continue;
+                    }
+                    embd_seq_out[seq_id].resize(n_embd);
+                    ggml_backend_tensor_get_async(backend_embd, embd, embd_seq_out[seq_id].data(), (n_embd * seq_id) * sizeof(float), n_embd * sizeof(float));
+                }
+            }
+            break;
+            case LLAMA_POOLING_TYPE_RANK:
+            {
+                // extract the rerank score - a single float per sequence
+                auto &embd_seq_out = ctx->embd_seq;
+
+                for (uint32_t s = 0; s < ubatch.n_seqs; ++s)
+                {
+                    const llama_seq_id seq_id = ubatch.seq_id[s][0];
+                    if (embd_seq_out.find(seq_id) != embd_seq_out.end())
+                    {
+                        continue;
+                    }
+                    embd_seq_out[seq_id].resize(1);
+                    ggml_backend_tensor_get_async(backend_embd, embd, embd_seq_out[seq_id].data(), (seq_id) * sizeof(float), sizeof(float));
+                }
+            }
+            break;
+            case LLAMA_POOLING_TYPE_UNSPECIFIED:
+            {
+                GGML_ABORT("unknown pooling type");
+            }
+            }
+
+            logMessage("Switch end");
+
+            // Retrieve embeddings data
+            std::vector<float> embedding(ctx->model.hparams.n_embd, 0.0f);
+            if (embd->data)
+            {
+                logMessage("Found data in embd");
+                memcpy(embedding.data(), embd->data, ctx->model.hparams.n_embd * sizeof(float));
+                logMessage("Memcpy succedded");
+            }
+            else
+            {
+                logMessage("Tensor '%s' still has null data after allocation attempt.", embd->name);
+                return NULL;
+            }
+
+            for(int i = 0; i < 10; i++){
+                logMessage("Embedding %d: %f", i, embedding.data()[i]);
+            }
+            // logMessage("Pushing to embeddings");
+            embeddings[i] = embedding.data();
+
+            // ggml_backend_t backend_embd = ggml_backend_sched_get_tensor_backend(ctx->sched, embd);
+
+            // std::vector<float> embedding(ctx->model.hparams.n_embd, 0.0f);
+            // ggml_backend_tensor_get_async(backend_embd, embd, embedding.data(), 0, embedding_dim * sizeof(float));
+            // embeddings.push_back(embedding.data());
+            // Copy embedding into std::vector
+            // std::copy(embedding, embedding + embedding_dim, embeddings[i].begin());
+            // break;
         }
 
-        int embedding_size = llama_n_embd(model);
-        embeddings.emplace_back(embedding, embedding + embedding_size);
+        logMessage("Add tokens");
+        model2vec_add_tokens(instance, static_cast<void *>(&tokens), vocab_size);
+
+        logMessage("Add embeddings");
+        model2vec_add_embeddings(instance, embeddings.data(), vocab_size, ctx->model.hparams.n_embd);
+
+
+        // for(int i = 0; i < 10; i++){
+        //     logMessage("Embedding %d: %f", i, embeddings[i][i]);
+        // }
+        logMessage("Generated embeddings");
+
+
+        // model2vec_distill(instance);
+
+        model2vec_save_to_file(instance, save_filepath);
+
+        // llama_free(ctx);
+        // logMessage("Embeddings and tokens prepared successfully");
+
+        // // Convert embeddings and tokens for initialization
+        // const float *embedding_ptrs[vocab_size];
+        // const char *token_ptrs[vocab_size];
+
+        // for (int i = 0; i < vocab_size; ++i)
+        // {
+        //     embedding_ptrs[i] = embeddings[i].data();
+        //     token_ptrs[i] = tokens[i].c_str();
+        // }
+
+        // // Step 4: Initialize the model with embeddings and tokens
+        // if (!model2vec_initialize(instance, embedding_ptrs, token_ptrs, vocab_size))
+        // {
+        //     logMessage("Failed to initialize model2Vec instance");
+        //     model2vec_destroy(instance);
+        //     return false;
+        // }
+        // logMessage("Model2Vec instance initialized successfully");
+
+        // // Step 5: Save the model data to the specified file
+        // if (!model2vec_save_to_file(instance, save_filepath))
+        // {
+        //     logMessage("Failed to save model2Vec data to file");
+        //     model2vec_destroy(instance);
+        //     return false;
+        // }
+
+        // logMessage("Model2Vec data saved successfully");
+        // model2vec_destroy(instance);
+        // return true;
+        return instance;
     }
-    logMessage("Embeddings and tokens prepared successfully");
-
-    std::vector<vectorf> embeddings_vectorf;
-    embeddings_vectorf.reserve(embeddings.size());
-
-    for (size_t i = 0; i < embeddings.size(); ++i)
+    catch (const std::exception &e)
     {
-        vectorf vf;
-        vf.data = embeddings[i].data();
-        vf.size = embeddings[i].size();
-        embeddings_vectorf.push_back(vf);
+        logMessage("Error in llama_model2vec_initialize_and_save: %s", e.what());
+        model2vec_destroy(instance);
+        return nullptr;
     }
 
-    logMessage("Embeddings converted to vectorf");
+    ctx->model2vec = false;
+    return nullptr;
+}
 
-    // Step 4: Initialize Model2VecManager with embeddings and tokens
-    if (!manager.initialize(embeddings_vectorf, tokens))
+
+model2Vec *llama_model2vec_initialize(
+    const char *saved_filepath){
+    logMessage("Starting llama_model2vec_initialize");
+
+    model2Vec *instance = model2vec_load_from_file(saved_filepath);
+    if (!instance)
     {
-        logMessage("Failed to initialize Model2VecManager");
-        llama_free(ctx);
-        return false;
+        logMessage("Failed to initialize model2Vec instance");
+        return nullptr;
     }
-    logMessage("Model2VecManager initialized successfully");
 
-    // Step 5: Save Model2Vec data to the specified file
-    if (!manager.saveToFile(save_filepath))
+    return instance;
+}
+
+float *llama_model2vec_get_embedding(
+    model2Vec *instance,
+    int *tokens,
+    int numTokens,
+    struct llama_context *ctx,
+    const char *filepath)
+{
+    ctx->model2vec = true;
+    logMessage("Starting llama_model2vec_get_embedding");
+    logMessage("Num tokens: %d, %p", numTokens, instance);
+    if (!instance)
     {
-        logMessage("Failed to save Model2Vec data to file");
-        llama_free(ctx);
-        return false;
+        logMessage("Invalid instance");
+        return nullptr;
     }
 
-    logMessage("Model2Vec data saved successfully");
+    int embeddingDim = ctx->model.hparams.n_embd; // Dimensionality of embeddings
+    std::vector<float> pooledEmbedding(embeddingDim, 0.0f); // Initialize pooled embedding
 
-    llama_free(ctx);
-    return true;
+    try {
+    switch (ctx->cparams.pooling_type) {
+    case LLAMA_POOLING_TYPE_NONE: {
+        // Return embeddings for each token without pooling
+        logMessage("Pooling type: NONE");
+        float *resultEmbedding = static_cast<float *>(malloc(numTokens * embeddingDim * sizeof(float)));
+        if (!resultEmbedding) {
+            logMessage("Failed to allocate memory for resultEmbedding");
+            return nullptr;
+        }
+        for (int i = 0; i < numTokens-2; i++) {
+            float embedding[embeddingDim]; // Temporary buffer for single embedding
+            if (!model2vec_get_embedding_from_file(filepath, tokens[i], embedding)) {
+                logMessage("Failed to get embedding for token: %d", tokens[i]);
+                // continue; // Handle gracefully if embedding fails
+            }
+            if(tokens[i]!=0){
+
+            std::memcpy(resultEmbedding + i * embeddingDim, embedding, embeddingDim * sizeof(float));
+            }
+        }
+        logMessage("Returning embeddings for each token");
+        return resultEmbedding; // Return concatenated embeddings
+    }
+    case LLAMA_POOLING_TYPE_MEAN: {
+        // Mean pooling
+        logMessage("Pooling type: MEAN");
+        for (int i = 0; i < numTokens; i++) {
+            float embedding[embeddingDim]; // Temporary buffer for single embedding
+            if (!model2vec_get_embedding_from_file(filepath, tokens[i], embedding)) {
+                logMessage("Failed to get embedding for token: %d", tokens[i]);
+                return nullptr;
+            }
+            for (int j = 0; j < embeddingDim; j++) {
+                pooledEmbedding[j] += embedding[j];
+            }
+        }
+        for (int j = 0; j < embeddingDim; j++) {
+            pooledEmbedding[j] /= numTokens;
+        }
+        break;
+    }
+    case LLAMA_POOLING_TYPE_CLS: {
+        // CLS pooling (use first token embedding as representation)
+        logMessage("Pooling type: CLS");
+        float clsEmbedding[embeddingDim]; // Temporary buffer for single embedding
+        if (!model2vec_get_embedding_from_file(filepath, tokens[0], clsEmbedding)) {
+            logMessage("Failed to get embedding for CLS token");
+            return nullptr;
+        }
+        std::memcpy(pooledEmbedding.data(), clsEmbedding, embeddingDim * sizeof(float));
+        break;
+    }
+    case LLAMA_POOLING_TYPE_LAST: {
+        // LAST pooling (use last token embedding as representation)
+        logMessage("Pooling type: LAST");
+        float lastEmbedding[embeddingDim]; // Temporary buffer for single embedding
+        if (!model2vec_get_embedding_from_file(filepath, tokens[numTokens - 1], lastEmbedding)) {
+            logMessage("Failed to get embedding for LAST token");
+            return nullptr;
+        }
+        std::memcpy(pooledEmbedding.data(), lastEmbedding, embeddingDim * sizeof(float));
+        break;
+    }
+    case LLAMA_POOLING_TYPE_RANK: {
+        // RANK pooling (e.g., take the embedding of the highest-ranked token)
+        logMessage("Pooling type: RANK");
+        int highestRankIndex = 1; 
+        float rankEmbedding[embeddingDim]; // Temporary buffer for single embedding
+        if (!model2vec_get_embedding_from_file(filepath, tokens[highestRankIndex], rankEmbedding)) {
+            logMessage("Failed to get embedding for RANK token");
+            return nullptr;
+        }
+        std::memcpy(pooledEmbedding.data(), rankEmbedding, embeddingDim * sizeof(float));
+        break;
+    }
+    default: {
+        logMessage("Unknown pooling type: %d", -1);
+        return nullptr;
+    }
+    }
+} catch (const std::exception &e) {
+    logMessage("Error in llama_model2vec_get_embedding: %s", e.what());
+    return nullptr;
+}
+
+    // Allocate memory for the pooled embedding
+    float *resultEmbedding = static_cast<float *>(malloc(embeddingDim * sizeof(float)));
+    if (!resultEmbedding)
+    {
+        logMessage("Failed to allocate memory for resultEmbedding");
+        return nullptr;
+    }
+
+    // Copy the pooled embedding data
+    std::memcpy(resultEmbedding, pooledEmbedding.data(), embeddingDim * sizeof(float));
+
+
+    ctx->model2vec = false;
+    return resultEmbedding;
 }

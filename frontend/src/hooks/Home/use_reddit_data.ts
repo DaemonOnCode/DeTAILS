@@ -1,17 +1,19 @@
-import { useState, useContext, useCallback } from 'react';
-import { DataContext } from '../../context/data_context';
+import { useState, useCallback } from 'react';
 import { RedditPosts } from '../../types/Coding/shared';
 import { DB_PATH } from '../../constants/Coding/shared';
+import { useCollectionContext } from '../../context/collection_context';
 
 const { ipcRenderer } = window.require('electron');
+const FormData = require("form-data");
 const fs = window.require('fs');
 const path = window.require('path');
 
 const useRedditData = () => {
-    const dataContext = useContext(DataContext);
     const [data, setData] = useState<RedditPosts>({});
     // const [fullData, setFullData] = useState<FullRedditData>();
     const [error, setError] = useState<string | null>(null);
+
+    const { modeInput, setModeInput, subreddit, setSubreddit } = useCollectionContext();
 
     const omitFirstIfMatchesStructure = (data: any[]) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -113,6 +115,57 @@ const useRedditData = () => {
     //     return parsedFullData;
     // };
 
+    const sendFolderToBackendServer = async (files: string[], folderPath: string) => {
+    const url = "http://localhost:8080/api/collections/datasets";
+
+    let dataset_id: string = "";
+    for (const file of files) {
+        const filePath = path.join(folderPath, file);
+
+        // Ensure it is a file (not a subdirectory)
+        if (fs.lstatSync(filePath).isFile()) {
+            try {
+                const fileContent = fs.readFileSync(filePath); // Read file content
+                const blob = new Blob([fileContent]); // Create a Blob for compatibility with FormData
+                const formData = new FormData();
+
+                formData.append("file", blob, file); // Append the file to the form data
+                formData.append("name", subreddit); // Add metadata if required
+                formData.append("description", "Dataset Description");
+                formData.append("dataset_id", dataset_id);
+
+                const response = await fetch(url, {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    console.error(`Failed to upload file ${file}: ${response.statusText}`);
+                } else {
+                    const result = await response.json();
+                    dataset_id = result.dataset_id;
+                    console.log(`File ${file} uploaded successfully`, result);
+                }
+            } catch (error) {
+                console.error(`Error uploading file ${file}:`, error);
+            }
+
+        }
+    }
+    await fetch("http://localhost:8080/api/collections/parse-reddit-dataset", {
+        method: "POST",
+        body: JSON.stringify({
+            dataset_id
+        }),
+        headers: {
+            "Content-Type": "application/json"
+        }
+    })
+};
+
+
+
+
     const loadCommentsInBackground = useCallback(
         async (folderPath: string, parsedData: RedditPosts) => {
             if (!folderPath || Object.keys(parsedData).length === 0) return;
@@ -126,10 +179,10 @@ const useRedditData = () => {
 
     const loadFolderData = async (addToDb: boolean = false, changeModeInput = false) => {
         try {
-            let folderPath = dataContext.modeInput;
-            if (!dataContext.modeInput || changeModeInput) {
+            let folderPath = modeInput;
+            if (!modeInput || changeModeInput) {
                 folderPath = await ipcRenderer.invoke('select-folder');
-                dataContext.setModeInput(folderPath);
+                setModeInput(folderPath);
             }
 
             const files: string[] = fs.readdirSync(folderPath);
@@ -166,8 +219,8 @@ const useRedditData = () => {
                     filteredData.forEach((post) => {
                         const postId = post.id;
                         delete post.id;
-                        if (!dataContext.subreddit) {
-                            dataContext.setSubreddit(post.subreddit);
+                        if (!subreddit) {
+                            setSubreddit(post.subreddit);
                         }
                         parsedData[postId] = post as unknown as RedditPosts[string];
                     });
@@ -181,6 +234,7 @@ const useRedditData = () => {
 
             if (addToDb) {
                 loadCommentsInBackground(folderPath, parsedData);
+                sendFolderToBackendServer(files, folderPath);
             }
         } catch (error) {
             console.error('Failed to load folder:', error);

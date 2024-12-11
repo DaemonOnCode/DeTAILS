@@ -1,5 +1,4 @@
-import { useContext, useEffect } from 'react';
-import { DataContext } from '../../context/data_context';
+import { useEffect } from 'react';
 import FileCard from '../../components/Coding/Shared/file_card';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
@@ -7,18 +6,18 @@ import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
 import { MODEL_LIST } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
+import { useCodingContext } from '../../context/coding_context';
 
 const { ipcRenderer } = window.require('electron');
 
 const validExtensions = ['.pdf', '.doc', '.docx', '.txt'];
 
 const BasisPage = () => {
-    const dataContext = useContext(DataContext);
     const navigate = useNavigate();
     const logger = useLogger();
 
-    const { basisFiles, addBasisFile, mainCode, additionalInfo, setAdditionalInfo, setMainCode } =
-        dataContext;
+    const { basisFiles, addBasisFile, mainCode, additionalInfo, setAdditionalInfo, setMainCode, removeBasisFile, addFlashcard } =
+        useCodingContext();
 
     const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
 
@@ -108,13 +107,12 @@ const BasisPage = () => {
         }
 
         parsedResult.flashcards.forEach(({ question, answer }) => {
-            dataContext.addFlashcard(question, answer);
+            addFlashcard(question, answer);
         });
 
         console.log('Ending function');
     };
 
-    console.log(dataContext.currentMode, dataContext.modeInput);
     return (
         <div className="w-full h-full flex justify-between flex-col">
             <div>
@@ -137,7 +135,7 @@ const BasisPage = () => {
                                         key={index}
                                         filePath={filePath}
                                         fileName={basisFiles[filePath]}
-                                        onRemove={dataContext.removeBasisFile}
+                                        onRemove={removeBasisFile}
                                     />
                                 ))}
                                 <label

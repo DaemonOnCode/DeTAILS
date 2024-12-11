@@ -10,3 +10,6 @@ ollama-*
 *.db
 **/chroma_data
 **/.env
+**/*.txt
+**/*.log
+!**/requirements.txt

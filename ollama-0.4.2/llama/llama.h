@@ -102,7 +102,7 @@ extern "C"
         LLAMA_VOCAB_TYPE_RWKV = 5, // RWKV tokenizer based on greedy tokenization
     };
 
-    typedef struct model2Vec m2Vec; // Forward declaration
+    // typedef struct model2Vec m2Vec; // Forward declaration
 
     // pre-tokenization types
     enum llama_vocab_pre_type
@@ -454,29 +454,46 @@ extern "C"
     typedef struct model2Vec model2Vec;
 
     // model2Vec API
-    LLAMA_API model2Vec *llama_model2vec_init(int embedding_dim, bool apply_zipf, int pca_components);
-    LLAMA_API void llama_model2vec_free(model2Vec *instance);
+    // LLAMA_API model2Vec *llama_model2vec_init(int embedding_dim, bool apply_zipf, int pca_components);
+    // LLAMA_API void llama_model2vec_free(model2Vec *instance);
 
-    LLAMA_API bool llama_model2vec_initialize(model2Vec *instance, const float **embeddings, const char **tokens, size_t count);
-    LLAMA_API bool llama_model2vec_distill(model2Vec *instance, const float **raw_embeddings, const char **tokens, size_t count);
+    // LLAMA_API bool llama_model2vec_initialize(model2Vec *instance, const float **embeddings, const char **tokens, size_t count);
+    // LLAMA_API bool llama_model2vec_distill(model2Vec *instance, const float **raw_embeddings, const char **tokens, size_t count);
 
-    LLAMA_API bool llama_model2vec_apply_pca(model2Vec *instance, const float *embedding, float *result);
-    LLAMA_API bool llama_model2vec_apply_zipf(model2Vec *instance, const float *embedding, int rank, float *result);
+    // LLAMA_API bool llama_model2vec_apply_pca(model2Vec *instance, const float *embedding, float *result);
+    // LLAMA_API bool llama_model2vec_apply_zipf(model2Vec *instance, const float *embedding, int rank, float *result);
 
-    LLAMA_API size_t llama_model2vec_embedding_dim(const model2Vec *instance);
+    // LLAMA_API size_t llama_model2vec_embedding_dim(const model2Vec *instance);
 
-    LLAMA_API bool llama_model2vec_initialize_and_save(
+    // LLAMA_API bool llama_model2vec_initialize_and_save(
+    //     struct llama_model *model,
+    //     const char *save_filepath,
+    //     int embedding_dim,
+    //     bool apply_zipf,
+    //     int pca_components);
+
+    LLAMA_API struct model2Vec *llama_model2vec_initialize(
+        const char *saved_filepath);
+
+    LLAMA_API struct model2Vec *llama_model2vec_initialize_and_save(
+        struct llama_context *ctx,
         struct llama_model *model,
         const char *save_filepath,
         int embedding_dim,
         bool apply_zipf,
         int pca_components);
 
+    LLAMA_API float* llama_model2vec_get_embedding(model2Vec *instance,
+    int *tokens,
+    int numTokens,
+    struct llama_context *ctx,
+    const char *saved_filepath);
+
     // Forward declaration of llama_vocab
     struct llama_vocab;
 
-    LLAMA_API int llama_vocab_size(const struct llama_vocab *vocab);
-    LLAMA_API struct llama_vocab_token llama_get_vocab_token(const struct llama_vocab *vocab, int index);
+    // LLAMA_API int llama_vocab_size(const struct llama_vocab *vocab);
+    // LLAMA_API struct llama_vocab_token llama_get_vocab_token(const struct llama_vocab *vocab, int index);
 
     // Initialize the model with embeddings and tokens
     // bool llama_model2vec_initialize(void *instance, const float **embeddings, const char **tokens, size_t count);

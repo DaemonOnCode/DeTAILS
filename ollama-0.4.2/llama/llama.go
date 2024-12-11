@@ -95,6 +95,8 @@ import (
 	"runtime"
 	"runtime/cgo"
 	"slices"
+	"strconv"
+
 	// "strconv"
 	"strings"
 	"unsafe"
@@ -192,126 +194,195 @@ func (c *Context) KvCacheClear() {
 	C.llama_kv_cache_clear(c.c)
 }
 
-type VocabToken struct {
-	Text  string
-	Score float32
-}
+// type VocabToken struct {
+// 	Text  string
+// 	Score float32
+// }
 
-func (v *Vocab) Size() int {
-	return int(C.llama_vocab_size(v.c))
-}
+// func (v *Vocab) Size() int {
+// 	return int(C.llama_vocab_size(v.c))
+// }
 
-func (v *Vocab) GetToken(index int) VocabToken {
-	token := C.llama_get_vocab_token(v.c, C.int(index))
-	return VocabToken{
-		Text:  C.GoString(token.text),
-		Score: float32(token.score),
-	}
-}
+// func (v *Vocab) GetToken(index int) VocabToken {
+// 	token := C.llama_get_vocab_token(v.c, C.int(index))
+// 	return VocabToken{
+// 		Text:  C.GoString(token.text),
+// 		Score: float32(token.score),
+// 	}
+// }
 
 // Initialize model2Vec in the context
-func (c *Context) InitializeModel2Vec(embeddingDim int, applyZipf bool, pcaComponents int) error {
-	if !c.useModel2Vec {
-		return nil
-	}
+// func (c *Context) InitializeModel2Vec(embeddingDim int, applyZipf bool, pcaComponents int) error {
+// 	if !c.useModel2Vec {
+// 		return nil
+// 	}
 
-	// Create a new model2Vec instance
-	c.model2Vec = C.llama_model2vec_init(C.int(embeddingDim), C.bool(applyZipf), C.int(pcaComponents))
-	if c.model2Vec == nil {
-		return errors.New("failed to initialize model2Vec")
-	}
+// 	// Create a new model2Vec instance
+// 	c.model2Vec = C.llama_model2vec_init(C.int(embeddingDim), C.bool(applyZipf), C.int(pcaComponents))
+// 	if c.model2Vec == nil {
+// 		return errors.New("failed to initialize model2Vec")
+// 	}
 
-	return nil
+// 	return nil
+// }
+
+type Model2Vec struct {
+	c *C.struct_model2Vec
 }
 
 func (c *Context) InitializeModel2VecAndSave(
+	modelPath string,
 	saveFilePath string,
-	embeddingDim int,
-	applyZipf bool,
-	pcaComponents int,
-) error {
-	return nil
+) (*Model2Vec, error) {
+	// Set default saveFilePath if not provided
+	if saveFilePath == "" {
+		saveFilePath = modelPath + ".json"
+	}
+
+	logToFile(fmt.Sprintf("Initializing model2Vec with modelPath = %s, saveFilePath = %s", modelPath, saveFilePath))
+
+	// Check if the file exists
+	if _, err := os.Stat(saveFilePath); err == nil {
+		fmt.Printf("Using existing file: %s\n", saveFilePath)
+		cSaveFilePath := C.CString(saveFilePath)
+		defer C.free(unsafe.Pointer(cSaveFilePath))
+		// File exists, initialize Model2Vec with existing data (simulate here)
+		return &Model2Vec{
+			c: C.llama_model2vec_initialize(cSaveFilePath),
+		}, nil
+	} else if os.IsNotExist(err) {
+		fmt.Printf("File does not exist. Generating new model and saving to: %s\n", saveFilePath)
+
+		// File doesn't exist, generate and save the model
+		// Simulate model generation and saving here
+		// You would typically perform operations like initializing a C struct, processing, etc.
+		pcaComponents := 0
+		if os.Getenv("MODEL2VEC_PCA_DIMS") != "" {
+			pcaComponents, _ = strconv.Atoi(os.Getenv("MODEL2VEC_PCA_DIMS"))
+		}
+
+		embeddingDim := 0
+		if os.Getenv("MODEL2VEC_EMBEDDING_DIMS") != "" {
+			embeddingDim, _ = strconv.Atoi(os.Getenv("MODEL2VEC_EMBEDDING_DIMS"))
+		}
+
+		model := C.llama_model2vec_initialize_and_save(c.c, c.Model().c, C.CString(saveFilePath), C.int(embeddingDim), C.bool(true), C.int(pcaComponents))
+
+		if model == nil {
+			logToFile(fmt.Sprintf("Failed to initialize model2Vec with embeddingDim = %d, pcaComponents = %d", embeddingDim, pcaComponents))
+		}
+		// For now, simulate save operation
+
+		// Return new Model2Vec
+		return &Model2Vec{
+			c: model, // Simulated: Initialize the new model if needed
+		}, nil
+	} else {
+		// Other file errors
+		return nil, fmt.Errorf("error checking file: %w", err)
+	}
 }
-
-
 
 // Free model2Vec resources
 func (c *Context) FreeModel2Vec() {
 	if c.model2Vec != nil {
-		C.llama_model2vec_free(c.model2Vec)
+		// C.llama_model2vec_free(c.model2Vec)
 		c.model2Vec = nil
 	}
 }
 
+func (c *Context) GetModel2VecEmbeddings(modelPath string, prompt string) ([]float32, error) {
+	// Call the C function to get the embeddings
+
+	cSaveFilePath := C.CString(modelPath + ".json")
+	tokens, _ := c.Model().Tokenize(prompt, true, true)
+
+	slog.Info("Tokens received", tokens)
+
+	instance, _ := c.InitializeModel2VecAndSave(modelPath, modelPath)
+
+	cTokens := (*C.int)(unsafe.Pointer(&tokens[0]))
+
+	embeddings := C.llama_model2vec_get_embedding(instance.c, cTokens, C.int(len(tokens)), c.c, cSaveFilePath)
+	if embeddings == nil {
+		return nil, errors.New("failed to get model2Vec embeddings")
+	}
+	return unsafe.Slice((*float32)(embeddings), c.Model().NEmbd()), nil
+}
+
 // Get embeddings using model2Vec
 func (c *Context) GetFastEmbeddings(seqId int) ([]float32, error) {
-	if c.useModel2Vec {
-		return c.getModel2VecEmbeddings(seqId)
-	}
+	// if c.useModel2Vec {
+	// 	return c.GetModel2VecEmbeddings(seqId)
+
+	// 	// return make([]float32, 0), nil
+	// }
 	return c.getLLMEmbeddings(seqId)
 }
 
-func (c *Context) getModel2VecEmbeddings(seqId int) ([]float32, error) {
-	// Retrieve the embedding associated with seqId
-	embedding, err := c.getLLMEmbeddings(seqId)
-	if err != nil {
-		return nil, err
-	}
+// func (c *Context) getModel2VecEmbeddings(seqId int) ([]float32, error) {
+// 	// Retrieve the embedding associated with seqId
+// 	embedding, err := c.getLLMEmbeddings(seqId)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	// Prepare a result slice for the PCA-transformed embedding
-	result := make([]float32, len(embedding))
+// 	// Prepare a result slice for the PCA-transformed embedding
+// 	result := make([]float32, len(embedding))
 
-	// Call the C function with the correct embedding pointer
-	success := C.llama_model2vec_apply_pca(
-		c.model2Vec,
-		(*C.float)(unsafe.Pointer(&embedding[0])),
-		(*C.float)(unsafe.Pointer(&result[0])),
-	)
-	if !success {
-		return nil, errors.New("failed to apply PCA to embedding")
-	}
-	return result, nil
-}
+// 	// Call the C function with the correct embedding pointer
+// 	success := C.llama_model2vec_apply_pca(
+// 		c.model2Vec,
+// 		(*C.float)(unsafe.Pointer(&embedding[0])),
+// 		(*C.float)(unsafe.Pointer(&result[0])),
+// 	)
+// 	if !success {
+// 		return nil, errors.New("failed to apply PCA to embedding")
+// 	}
+// 	return result, nil
+// }
 
 func (c *Context) Decode(batch *Batch) error {
 	logToFile("Decoding")
 	slog.Info("Decode")
 
-	if c.useModel2Vec {
-		numTokens := batch.NumTokens()
-		allocSize := batch.allocSize()
+	// if c.useModel2Vec {
+	// 	numTokens := batch.NumTokens()
+	// 	allocSize := batch.allocSize()
 
-		// Create slices over the C arrays
-		nSeqIdSlice := unsafe.Slice((*C.int)(unsafe.Pointer(batch.c.n_seq_id)), allocSize)
-		seqIdPtrSlice := unsafe.Slice((**C.llama_seq_id)(unsafe.Pointer(batch.c.seq_id)), allocSize)
+	// 	embeddings, err := c.GetFastEmbeddings()
 
-		for i := 0; i < numTokens; i++ {
-			// Get the number of sequence IDs for the current token
-			nSeqId := int(nSeqIdSlice[i])
+	// Create slices over the C arrays
+	// nSeqIdSlice := unsafe.Slice((*C.int)(unsafe.Pointer(batch.c.n_seq_id)), allocSize)
+	// seqIdPtrSlice := unsafe.Slice((**C.llama_seq_id)(unsafe.Pointer(batch.c.seq_id)), allocSize)
 
-			// Get the pointer to the seq_ids for this token
-			seqIdsPtr := seqIdPtrSlice[i]
+	// for i := 0; i < numTokens; i++ {
+	// 	// Get the number of sequence IDs for the current token
+	// 	nSeqId := int(nSeqIdSlice[i])
 
-			// Create a slice over the seq_ids for this token
-			seqIdsC := unsafe.Slice(seqIdsPtr, nSeqId)
+	// 	// Get the pointer to the seq_ids for this token
+	// 	seqIdsPtr := seqIdPtrSlice[i]
 
-			for _, seqIdC := range seqIdsC {
-				seqId := int(seqIdC)
+	// 	// Create a slice over the seq_ids for this token
+	// 	seqIdsC := unsafe.Slice(seqIdsPtr, nSeqId)
 
-				// Get embeddings for this sequence ID
-				embeddings, err := c.GetFastEmbeddings(seqId)
-				if err != nil {
-					return fmt.Errorf("failed to decode with model2Vec for seqId %d: %w", seqId, err)
-				}
+	// 	for _, seqIdC := range seqIdsC {
+	// 		seqId := int(seqIdC)
 
-				// Log or process the embeddings as needed
-				logToFile(fmt.Sprintf("Decoded embeddings for seqId %d: %v", seqId, embeddings))
+	// 		// Get embeddings for this sequence ID
+	// 		embeddings, err := c.GetFastEmbeddings(seqId)
+	// 		if err != nil {
+	// 			return fmt.Errorf("failed to decode with model2Vec for seqId %d: %w", seqId, err)
+	// 		}
 
-				// Perform additional processing here if needed
-			}
-		}
-		return nil
-	}
+	// 		// Log or process the embeddings as needed
+	// 		logToFile(fmt.Sprintf("Decoded embeddings for seqId %d: %v", seqId, embeddings))
+
+	// 		// Perform additional processing here if needed
+	// 	}
+	// }
+	// 	return nil
+	// }
 
 	// Fall back to standard decoding
 	code := int(C.llama_decode(c.c, batch.c))
@@ -821,39 +892,39 @@ func (c *Context) GetEmbeddingsForTokens(tokens []int) ([][]float32, error) {
 	return embeddings, nil
 }
 
-func (c *Context) InitializeModel2VecWithEmbeddings(embeddings [][]float32, tokens []string) error {
-	if !c.useModel2Vec {
-		return nil
-	}
+// func (c *Context) InitializeModel2VecWithEmbeddings(embeddings [][]float32, tokens []string) error {
+// 	if !c.useModel2Vec {
+// 		return nil
+// 	}
 
-	count := len(tokens)
-	if len(embeddings) != count {
-		return errors.New("number of embeddings does not match number of tokens")
-	}
+// 	count := len(tokens)
+// 	if len(embeddings) != count {
+// 		return errors.New("number of embeddings does not match number of tokens")
+// 	}
 
-	// Prepare C arrays
-	embeddingPtrs := make([]*C.float, count)
-	tokenPtrs := make([]*C.char, count)
+// 	// Prepare C arrays
+// 	embeddingPtrs := make([]*C.float, count)
+// 	tokenPtrs := make([]*C.char, count)
 
-	for i := 0; i < count; i++ {
-		embeddingPtrs[i] = (*C.float)(unsafe.Pointer(&embeddings[i][0]))
-		tokenPtrs[i] = C.CString(tokens[i])
-		defer C.free(unsafe.Pointer(tokenPtrs[i]))
-	}
+// 	for i := 0; i < count; i++ {
+// 		embeddingPtrs[i] = (*C.float)(unsafe.Pointer(&embeddings[i][0]))
+// 		tokenPtrs[i] = C.CString(tokens[i])
+// 		defer C.free(unsafe.Pointer(tokenPtrs[i]))
+// 	}
 
-	success := C.llama_model2vec_initialize(
-		c.model2Vec,
-		(**C.float)(unsafe.Pointer(&embeddingPtrs[0])),
-		(**C.char)(unsafe.Pointer(&tokenPtrs[0])),
-		C.size_t(count),
-	)
+// 	success := C.llama_model2vec_initialize(
+// 		c.model2Vec,
+// 		(**C.float)(unsafe.Pointer(&embeddingPtrs[0])),
+// 		(**C.char)(unsafe.Pointer(&tokenPtrs[0])),
+// 		C.size_t(count),
+// 	)
 
-	if !bool(success) {
-		return errors.New("failed to initialize model2vec with embeddings")
-	}
+// 	if !bool(success) {
+// 		return errors.New("failed to initialize model2vec with embeddings")
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (m *Model) NEmbd() int {
 	fmt.Println("NEmbd")

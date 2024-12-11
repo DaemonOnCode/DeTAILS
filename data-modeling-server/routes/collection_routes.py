@@ -1,0 +1,480 @@
+from fastapi import APIRouter, HTTPException, File, UploadFile, Form, Body
+import sqlite3
+import os
+import json
+from typing import Dict, Any, List
+from uuid import uuid4
+from aiofiles import open as async_open
+from pydantic import BaseModel
+from constants import DATABASE_PATH
+from utils.db_helpers import  batch_insert_posts, batch_insert_comments
+
+# Initialize the router
+router = APIRouter()
+
+# Constants
+UPLOAD_DIR = "uploaded_jsons"
+DATASETS_DIR = "datasets"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(DATASETS_DIR, exist_ok=True)
+
+# Initialize the SQLite database
+def initialize_database():
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        # Create datasets table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS datasets (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            file_path TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+
+        # Create posts table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS posts (
+                id TEXT PRIMARY KEY,
+                dataset_id TEXT NOT NULL,  -- Add dataset_id as a column
+                over_18 INTEGER,
+                subreddit TEXT,
+                score INTEGER,
+                thumbnail TEXT,
+                permalink TEXT,
+                is_self INTEGER,
+                domain TEXT,
+                created_utc INTEGER,
+                url TEXT,
+                num_comments INTEGER,
+                title TEXT,
+                selftext TEXT,
+                author TEXT,
+                hide_score INTEGER,
+                subreddit_id TEXT,
+                FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+            )
+        """)
+
+        # Create comments table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS comments (
+                id TEXT PRIMARY KEY,
+                dataset_id TEXT NOT NULL,  -- Add dataset_id as a column
+                body TEXT,
+                author TEXT,
+                created_utc INTEGER,
+                post_id TEXT,
+                parent_id TEXT,
+                controversiality INTEGER,
+                score_hidden INTEGER,
+                score INTEGER,
+                subreddit_id TEXT,
+                retrieved_on INTEGER,
+                gilded INTEGER,
+                FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE,
+                FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+            )
+        """)
+
+        conn.commit()
+
+initialize_database()
+
+# Helper Functions
+def run_query(query: str, params: tuple = ()) -> list:
+    """
+    Run a SQLite query and return the result.
+    """
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        conn.commit()
+        return cursor.fetchall()
+
+def save_temp_file(file: UploadFile, prefix: str) -> str:
+    """
+    Save an uploaded file temporarily and return the file path.
+    """
+    file_path = os.path.join(UPLOAD_DIR, f"{prefix}_{uuid4().hex}.json")
+    with open(file_path, "wb") as f:
+        f.write(file.file.read())
+    return file_path
+
+def omit_first_if_matches_structure(data: list) -> list:
+    """
+    Omit the first element in a list if it doesn't match the expected structure.
+    """
+    if data and isinstance(data[0], dict) and "id" not in data[0]:
+        return data[1:]
+    return data
+
+def parse_submissions_and_comments(files: List[Dict[str,str]], dataset_id: str):
+    """
+    Parse submissions and comments from provided files and build a hierarchical structure.
+    """
+    posts = {}
+    comments = {}
+
+    for file in files:
+        file_type = file.get("type")
+        file_path = file.get("path")
+        with open(file_path, "r") as f:
+            raw_data = json.load(f)
+        
+        filtered_data = omit_first_if_matches_structure(raw_data)
+
+        parsed_data = []
+        if file_type == "submissions":
+            for post in filtered_data:
+                post_id = post.get("id")
+                if post_id:
+                    posts[post_id] = {**post, "comments": {}}
+                parsed_data.append((
+                    post.get("id"),
+                    post.get("over_18", 0),
+                    post.get("subreddit", ""),
+                    post.get("score", 0),
+                    post.get("thumbnail", ""),
+                    post.get("permalink", ""),
+                    post.get("is_self", 0),
+                    post.get("domain", ""),
+                    post.get("created_utc", 0),
+                    post.get("url", ""),
+                    post.get("num_comments", 0),
+                    post.get("title", ""),
+                    post.get("selftext", ""),
+                    post.get("author", ""),
+                    post.get("hide_score", 0),
+                    post.get("subreddit_id", ""),
+                    dataset_id
+                ))
+            batch_insert_posts(parsed_data)
+        elif file_type == "comments":
+            for comment in filtered_data:
+                comment_id = comment.get("id")
+                parent_id = comment.get("parent_id", "").split("_")[1] if "parent_id" in comment else None
+                post_id = comment.get("link_id", "").split("_")[1] if "link_id" in comment else None
+
+                if comment_id and post_id:
+                    comments[comment_id] = {
+                        **comment,
+                        "parent_id": parent_id,
+                        "link_id": post_id,
+                        "comments": {},
+                        "dataset_id": dataset_id
+                    }
+                
+                parsed_data.append((
+                    comment.get("id"),
+                    comment.get("body", ""),
+                    comment.get("author", ""),
+                    comment.get("created_utc", 0),
+                    comment.get("link_id", "").split("_")[1] if "link_id" in comment else None,
+                    comment.get("parent_id", "").split("_")[1] if "parent_id" in comment else None,
+                    comment.get("controversiality", 0),
+                    comment.get("score_hidden", 0),
+                    comment.get("score", 0),
+                    comment.get("subreddit_id", ""),
+                    comment.get("retrieved_on", 0),
+                    comment.get("gilded", 0),
+                    dataset_id
+                ))
+            batch_insert_comments(parsed_data)
+    # Build hierarchical comments
+    for comment_id, comment in comments.items():
+        parent_id = comment["parent_id"]
+        post_id = comment["link_id"]
+
+        if parent_id and parent_id in comments:
+            comments[parent_id]["comments"][comment_id] = comment
+        elif post_id and post_id in posts:
+            posts[post_id]["comments"][comment_id] = comment
+
+    return {"messages": "Data parsed successfully"}
+
+async def parse_json_file(file_path: str):
+    """
+    Parse a JSON file and process its data.
+    """
+    try:
+        async with async_open(file_path, "r") as f:
+            data = json.loads(await f.read())
+
+        # Example of processing: extracting "id" and "title" fields if present
+        parsed_data = []
+        for item in data:
+            if isinstance(item, dict):
+                parsed_data.append({
+                    "id": item.get("id"),
+                    "title": item.get("title"),
+                })
+
+        return {"file": file_path, "parsed_data": parsed_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error parsing file {file_path}: {str(e)}")
+
+
+# Routes
+# @router.post("/datasets")
+# async def add_dataset(
+#     name: str = Form(...), description: str = Form(...), files: UploadFile = File(...)
+# ): 
+#     """
+#     Add a new dataset and save its metadata in the database.
+#     """
+#     try:
+#         file_paths = []
+#         parsed_results = []
+#         for file in files:
+#             file_path = os.path.join(DATASETS_DIR, name, file.filename)
+#             os.makedirs(DATASETS_DIR, exist_ok=True)
+
+#             # Save the uploaded file
+#             with open(file_path, "wb") as f:
+#                 f.write(await file.read())
+
+#             parsed_data = await parse_json_file(file_path)
+#             parsed_results.append(parsed_data)
+
+#         # Store metadata in the database
+#         run_query(
+#             """
+#             INSERT INTO datasets (name, description, file_path)
+#             VALUES (?, ?, ?)
+#             """,
+#             (name, description, ";".join(file_paths)),
+#         )
+#         return {
+#             "message": "Files uploaded and parsed successfully!",
+#             "file_paths": file_paths,
+#             "parsed_results": parsed_results,
+#         }
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+
+def insert_dataset(dataset_id: str, name: str, description: str):
+    try:
+        with sqlite3.connect(DATABASE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO datasets (id, name, description)
+                VALUES (?, ?, ?)
+            """, (dataset_id, name, description))
+            conn.commit()
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@router.post("/datasets")
+async def upload_dataset(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    description: str = Form(...),
+    dataset_id: str = Form(...),
+):
+    """
+    Endpoint to upload a dataset file and its metadata.
+    """
+    try:
+        if not dataset_id:
+            dataset_id = str(uuid4())
+            insert_dataset(dataset_id, name, description)
+        print(dataset_id)
+        file_location = f"datasets/{dataset_id}/{file.filename}"
+        os.makedirs(os.path.dirname(file_location), exist_ok=True)
+
+        with open(file_location, "wb") as f:
+            f.write(await file.read())
+
+
+        # if file.filename.endswith(".json"):
+            
+
+        return {"message": f"File {file.filename} uploaded successfully", "dataset_id": dataset_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ParseDatasetRequest(BaseModel):
+    dataset_id: str
+
+
+@router.post("/parse-reddit-dataset")
+async def parse_reddit_dataset(
+    request: ParseDatasetRequest = Body(...)
+):
+    """
+    Parse a Reddit dataset and return the structured data.
+    """
+
+    dataset_id = request.dataset_id
+    # try:
+    posts_path = list(filter(lambda x: x.endswith(".json") and x.startswith("RS"), os.listdir(f"datasets/{dataset_id}")))
+    comments_path = list(filter(lambda x: x.endswith(".json") and x.startswith("RC"), os.listdir(f"datasets/{dataset_id}")))
+
+    all_files = []
+    for file in posts_path:
+        all_files.append({"type": "submissions", "path": f"datasets/{dataset_id}/{file}"})
+    for file in comments_path:
+        all_files.append({"type": "comments", "path": f"datasets/{dataset_id}/{file}"})
+    
+    structured_data = parse_submissions_and_comments(all_files, dataset_id)
+
+    return {"message": "Reddit dataset parsed successfully"}
+    # except Exception as e:
+    #     print(e)
+    #     raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/process-reddit-json")
+async def process_reddit_json(
+    posts: UploadFile = File(...), comments: UploadFile = File(...)
+):
+    try:
+        # Save files locally
+        posts_path = os.path.join(UPLOAD_DIR, f"{uuid4().hex}_posts.json")
+        comments_path = os.path.join(UPLOAD_DIR, f"{uuid4().hex}_comments.json")
+
+        async with open(posts_path, "wb") as f:
+            content = await posts.read()
+            await f.write(content)
+
+        async with open(comments_path, "wb") as f:
+            content = await comments.read()
+            await f.write(content)
+
+        # # Call Node.js script to process and insert data
+        # result = run(
+        #     ["node", "scripts/process_json.js", posts_path, comments_path],
+        #     capture_output=True,
+        #     text=True,
+        # )
+        # if result.returncode != 0:
+        #     raise HTTPException(
+        #         status_code=500,
+        #         detail=f"Error processing files: {result.stderr}",
+        #     )
+
+        return {"message": "Files processed and inserted successfully!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing JSON: {str(e)}")
+
+
+
+@router.post("/datasets/multiple/streaming")
+async def add_multiple_files_streaming(
+    name: str = Form(...),
+    description: str = Form(...),
+    files: List[UploadFile] = File(...),
+):
+    """
+    Handle multiple file uploads as streams and save metadata in the database.
+    """
+    try:
+        file_paths = []
+        for file in files:
+            # Generate a unique filename
+            unique_filename = f"{uuid4().hex}_{file.filename}"
+            file_path = os.path.join(DATASETS_DIR, unique_filename)
+            file_paths.append(file_path)
+
+            # Save the file as a stream
+            async with async_open(file_path, "wb") as f:
+                async for chunk in file.stream(1024 * 1024):  # Read in chunks of 1MB
+                    await f.write(chunk)
+
+        # Store metadata in the database
+        run_query(
+            """
+            INSERT INTO datasets (name, description, file_path)
+            VALUES (?, ?, ?)
+            """,
+            (name, description, ";".join(file_paths)),
+        )
+
+        return {
+            "message": "Files uploaded successfully!",
+            "file_paths": file_paths,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload files: {str(e)}")
+
+
+@router.post("/stream-upload")
+async def stream_upload(file: UploadFile = File(...)):
+    """
+    Stream and save an uploaded file in chunks.
+    """
+    try:
+        # Generate a unique filename for storage
+        filename = f"{uuid4().hex}_{file.filename}"
+        file_path = os.path.join(UPLOAD_DIR, filename)
+
+        # Stream and save file data to disk
+        async with open(file_path, "wb") as out_file:
+            while chunk := await file.read(1024 * 1024):  # Read 1MB chunks
+                await out_file.write(chunk)
+
+        return {"message": f"File {file.filename} uploaded successfully.", "path": file_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
+
+
+@router.get("/datasets")
+def list_datasets():
+    """
+    List all datasets stored in the database.
+    """
+    try:
+        datasets = run_query("SELECT * FROM datasets")
+        return {"datasets": datasets}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/datasets/export")
+def export_datasets():
+    """
+    Export all dataset metadata to a JSON file.
+    """
+    try:
+        datasets = run_query("SELECT * FROM datasets")
+        json_path = os.path.join(DATASETS_DIR, "datasets_metadata.json")
+        with open(json_path, "w") as json_file:
+            json.dump(datasets, json_file, indent=4)
+        return {"message": "Datasets exported successfully!", "json_path": json_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/datasets/{dataset_id}")
+def delete_dataset(dataset_id: int):
+    """
+    Delete a dataset by its ID.
+    """
+    try:
+        run_query("DELETE FROM datasets WHERE id = ?", (dataset_id,))
+        return {"message": "Dataset deleted successfully!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# @router.post("/process-reddit-json")
+# async def process_json_files(
+#     submissions: UploadFile = File(...),
+#     comments: UploadFile = File(...)
+# ):
+#     """
+#     Handle JSON file uploads for submissions and comments and return structured data.
+#     """
+#     try:
+#         submissions_path = save_temp_file(submissions, "submissions")
+#         comments_path = save_temp_file(comments, "comments")
+
+#         structured_data = parse_submissions_and_comments({
+#             "submissions": submissions_path,
+#             "comments": comments_path
+#         })
+
+#         os.remove(submissions_path)
+#         os.remove(comments_path)
+
+#         return {"message": "Files processed successfully", "data": structured_data}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error processing files: {str(e)}")

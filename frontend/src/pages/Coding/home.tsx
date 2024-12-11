@@ -1,14 +1,14 @@
 import { FC, useContext, useEffect } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
-import { DataContext } from '../../context/data_context';
 import { ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
 import { useLogger } from '../../context/logging_context';
 import { createTimer } from '../../utility/timer';
 import useRedditData from '../../hooks/Home/use_reddit_data';
 import RedditTableRenderer from '../../components/Shared/reddit_table_renderer';
+import { useCollectionContext } from '../../context/collection_context';
 
 const HomePage: FC = () => {
-    const dataContext = useContext(DataContext);
+    const { selectedPosts } = useCollectionContext();
     const { data, loadFolderData } = useRedditData();
 
     const logger = useLogger();
@@ -32,7 +32,7 @@ const HomePage: FC = () => {
     // Pagination Logic
     const isReadyCheck =
         Object.keys(data).length > 0 &&
-        dataContext.selectedPosts.length >= SELECTED_POSTS_MIN_THRESHOLD;
+        selectedPosts.length >= SELECTED_POSTS_MIN_THRESHOLD;
 
     return (
         <div className="w-full h-full flex flex-col">

@@ -120,7 +120,7 @@ func main() {
 	// Locate the source folder dynamically
 	sourceFolder, err := locateSourceFolder(cwd)
 	if err != nil {
-		log.Fatalf("Error locating source folder: %v", err)
+		fmt.Printf("Error locating source folder: %v", err)
 	}
 	fmt.Printf("Located source folder: %s\n", sourceFolder)
 

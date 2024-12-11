@@ -6,6 +6,7 @@ import { DataContext } from '../../context/data_context';
 import { useLogger } from '../../context/logging_context';
 import { MODEL_LIST } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
+import { useCodingContext } from '../../context/coding_context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -14,10 +15,11 @@ const WordCloudPage: FC = () => {
     const [feedback, setFeedback] = useState('');
 
     const logger = useLogger();
-    const dataContext = useContext(DataContext);
+
+    const {mainCode, selectedWords, setSelectedWords, setWords, words} = useCodingContext();
 
     // useEffect(() => {
-    //     dataContext.setSelectedWords([dataContext.mainCode]);
+    //     setSelectedWords([mainCode]);
     // }, []);
 
     useEffect(() => {
@@ -32,9 +34,9 @@ const WordCloudPage: FC = () => {
     }, []);
 
     const toggleWordSelection = (word: string) => {
-        if (word === dataContext.mainCode) return;
+        if (word === mainCode) return;
 
-        dataContext.setSelectedWords((prevSelected) =>
+        setSelectedWords((prevSelected) =>
             prevSelected.includes(word)
                 ? prevSelected.filter((w) => w !== word)
                 : [...prevSelected, word]
@@ -58,11 +60,11 @@ const WordCloudPage: FC = () => {
         const results = await ipcRenderer.invoke(
             'generate-words',
             MODEL_LIST.LLAMA_3_2,
-            dataContext.mainCode,
+            mainCode,
             newWordsPool,
             null,
             true,
-            dataContext.selectedWords,
+            selectedWords,
             feedback
         );
         await logger.info('Word Cloud Refreshed', { time: timer.end() });
@@ -78,9 +80,9 @@ const WordCloudPage: FC = () => {
             console.log(e, 'Error parsing results');
         }
 
-        dataContext.setWords((prevWords) => {
+        setWords((prevWords) => {
             const filteredPrevWords = prevWords.filter((word) =>
-                dataContext.selectedWords.includes(word)
+                selectedWords.includes(word)
             );
             const filteredNewWords = newWords
                 .filter((word) => !filteredPrevWords.includes(word))
@@ -96,7 +98,7 @@ const WordCloudPage: FC = () => {
         setIsFeedbackOpen(true);
     };
 
-    const checkIfReady = dataContext.selectedWords.length > WORD_CLOUD_MIN_THRESHOLD;
+    const checkIfReady = selectedWords.length > WORD_CLOUD_MIN_THRESHOLD;
 
     return (
         <div className="h-full flex justify-between flex-col">
@@ -111,9 +113,9 @@ const WordCloudPage: FC = () => {
                 </div>
 
                 <WordCloud
-                    mainCode={dataContext.mainCode}
-                    words={dataContext.words}
-                    selectedWords={dataContext.selectedWords}
+                    mainCode={mainCode}
+                    words={words}
+                    selectedWords={selectedWords}
                     toggleWordSelection={toggleWordSelection}
                 />
             </div>
@@ -132,8 +134,8 @@ const WordCloudPage: FC = () => {
                         </h2>
                         <p className=" mb-3">
                             Word list:{' '}
-                            {dataContext.words
-                                .filter((word) => !dataContext.selectedWords.includes(word))
+                            {words
+                                .filter((word) => !selectedWords.includes(word))
                                 .join(', ')}
                         </p>
                         <textarea

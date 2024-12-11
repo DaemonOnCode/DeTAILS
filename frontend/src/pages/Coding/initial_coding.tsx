@@ -18,6 +18,8 @@ import { DataContext } from '../../context/data_context';
 import { useLogger } from '../../context/logging_context';
 import { MODEL_LIST } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
+import { useCodingContext } from '../../context/coding_context';
+import { useCollectionContext } from '../../context/collection_context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -35,6 +37,9 @@ const InitialCodingPage = () => {
     const [selectedTab, setSelectedTab] = useState<'data' | 'codes'>('data');
     const [selectedCodeForReferences, setSelectedCodeForReferences] = useState<string | null>(null);
     const [selectedPostData, setSelectedPostData] = useState<IRedditPostData | null>(null);
+
+    const { references, setReferences, mainCode, selectedFlashcards, flashcards, selectedWords, dispatchCodeResponses} = useCodingContext();
+    const { selectedPosts } = useCollectionContext();
 
     const logger = useLogger();
     const navigate = useNavigate();
@@ -114,7 +119,7 @@ const InitialCodingPage = () => {
 
         console.log('Final isComment value:', isComment);
 
-        dataContext.setReferences((prevRefs) => ({
+        setReferences((prevRefs) => ({
             ...prevRefs,
             [selectedCode]: [
                 ...(prevRefs[selectedCode] || []),
@@ -141,7 +146,7 @@ const InitialCodingPage = () => {
         console.log('Next clicked');
 
         navigate('../loader/' + LOADER_ROUTES.CODING_VALIDATION_LOADER);
-        console.log(dataContext.references, 'dataContext.references');
+        console.log(references, 'references');
 
         const timer = createTimer();
         let results;
@@ -149,18 +154,18 @@ const InitialCodingPage = () => {
             results = await ipcRenderer.invoke(
                 'generate-codes',
                 MODEL_LIST.LLAMA_3_2,
-                dataContext.references,
-                dataContext.mainCode,
-                dataContext.selectedFlashcards.map((id) => {
+                references,
+                mainCode,
+                selectedFlashcards.map((id) => {
                     return {
-                        question: dataContext.flashcards.find((flashcard) => flashcard.id === id)!
+                        question: flashcards.find((flashcard) => flashcard.id === id)!
                             .question,
-                        answer: dataContext.flashcards.find((flashcard) => flashcard.id === id)!
+                        answer: flashcards.find((flashcard) => flashcard.id === id)!
                             .answer
                     };
                 }),
-                dataContext.selectedWords,
-                dataContext.selectedPosts,
+                selectedWords,
+                selectedPosts,
                 DB_PATH
             );
 
@@ -199,13 +204,13 @@ const InitialCodingPage = () => {
                         coded_word: recoded.code,
                         isCorrect: undefined,
                         comment: '',
-                        postId: dataContext.selectedPosts[index],
+                        postId: selectedPosts[index],
                         reasoning: recoded.reasoning
                     });
                 });
             });
 
-            dataContext.dispatchCodeResponses({
+            dispatchCodeResponses({
                 type: 'ADD_RESPONSES',
                 responses: totalCodes
                 // payload: parsedResults.map((parsedResult, index) => {
@@ -217,7 +222,7 @@ const InitialCodingPage = () => {
                 //         code: parsedResult.recoded_transcript[0].code,
                 //         isCorrect: undefined,
                 //         comment: '',
-                //         postId: dataContext.selectedPosts[index]
+                //         postId: selectedPosts[index]
                 //     };
             });
             // });
@@ -254,7 +259,7 @@ const InitialCodingPage = () => {
                             selectedCodeForReferences={selectedCodeForReferences}
                             selectedPostData={selectedPostData}
                             setSelectedPostData={setSelectedPostData}
-                            references={dataContext.references}
+                            references={references}
                             handleReferenceClick={handleReferenceClick}
                             handleTextSelection={handleTextSelection}
                         />

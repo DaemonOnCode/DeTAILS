@@ -1,68 +1,96 @@
 #ifndef MODEL2VEC_H
 #define MODEL2VEC_H
-#pragma once
 
-#ifdef __cplusplus
-extern "C"
+#include <vector>
+#include <string>
+#include <stdexcept>
+
+// Struct representing a vector
+struct vectorf
 {
-#endif
+    std::vector<float> data;
 
-#include <stddef.h> // For size_t
+    explicit vectorf(size_t size);
+    vectorf(): data() {}
+    //  vectorf(size_t size, float value = 0.0f) : data(size, value) {}
 
-    // Data structures for C
-    typedef struct
-    {
-        float *data;
-        size_t size;
-    } vectorf;
+    void normalize();
 
-    typedef struct
-    {
-        vectorf *rows;
-        size_t row_count;
-        size_t col_count; // For convenience
-    } matrix;
+    vectorf(size_t size, float default_value) : data(size, default_value) {}
 
-    struct model2Vec
-    {
-        int embedding_dim;
-        int apply_zipf; // Use int as C does not have bool
-        int pca_components;
-        matrix pca_matrix;
-        char **tokens; // Array of strings (C strings)
-        size_t token_count;
-        vectorf *embeddings; // Parallel to tokens
-    };
+    template <typename InputIt>
+    vectorf(InputIt first, InputIt last) : data(first, last) {}
 
-    // Functions for model2Vec
-    model2Vec *model2vec_create(int embedding_dim, int apply_zipf, int pca_components);
-    void model2vec_destroy(model2Vec *model);
+    float &operator[](size_t idx) { return data[idx]; }
+    const float &operator[](size_t idx) const { return data[idx]; }
+};
 
-    int model2vec_initialize(model2Vec *model, const matrix *precomputed_embeddings, const char **tokens, size_t token_count);
-    int model2vec_distill(model2Vec *model, const matrix *raw_embeddings, const char **tokens, size_t token_count);
+// Struct representing a matrix
+struct matrix
+{
+    size_t row_count;
+    size_t col_count;
+    std::vector<vectorf> rows;
 
-    vectorf model2vec_apply_pca(const model2Vec *model, const vectorf *embedding);
-    vectorf model2vec_apply_zipf_weighting(const model2Vec *model, const vectorf *embedding, int rank);
+    matrix(size_t rows, size_t cols);
+    matrix(const std::vector<vectorf> &vectors);
 
-    // matrix helper functions
-    matrix matrix_create(size_t rows, size_t cols);
-    void matrix_destroy(matrix *matrix);
-    vectorf vector_create(size_t size);
-    void vector_free(vectorf *vector);
+    matrix transpose() const;
+    matrix multiply(const matrix &other) const;
+};
 
-    // Helper functions
-    void vector_normalize(vectorf *vector);
-    void compute_eigen(const matrix *covariance_matrix, vectorf *eigenvalues, matrix *eigenvectors);
-    void power_iteration(const matrix *matrix, vectorf *eigenvector, float *eigenvalue, int max_iter, float tol);
+// Struct representing the Model2Vec
+// model2Vec class
+struct model2Vec {
+    int embedding_dim;
+    bool apply_zipf;
+    int pca_components;
+    std::vector<std::string> tokens;
+    std::vector<vectorf> embeddings;
+    std::vector<vectorf> distilledEmbeddings;
+    matrix pca_matrix;
 
-    matrix matrix_multiply(const matrix *mat1, const matrix *mat2);
-    matrix matrix_transpose(const matrix *mat);
-    vectorf compute_mean(const matrix *data);
-    matrix center_data(const matrix *data, const vectorf *mean);
-    matrix compute_covariance(const matrix *data);
+    model2Vec(int dim, bool zipf, int pca)
+        : embedding_dim(dim), apply_zipf(zipf), pca_components(pca), pca_matrix(0, 0) {}
 
-#ifdef __cplusplus
-}
-#endif
+    void initialize(const matrix &precomputed_embeddings, const std::vector<std::string> &token_list);
+    void distill(model2Vec *model);
+    matrix applyPCA(const matrix &covariance);
+    void applyZipfWeighting();
+    void save_to_file(const std::string &filepath) const;
+    static model2Vec *load_from_file(const std::string &filepath);
+    vectorf apply_zipf_weighting(const vectorf&, int) const;
+    vectorf apply_pca(const vectorf&) const;
+    static vectorf *get_embedding_by_token_id(const std::string &filepath, int token_id);
+    bool load_token_by_id(const std::string &filepath, int token_id, std::string &token, vectorf &embedding);
 
+private:
+    vectorf computeMean(const std::vector<vectorf> &embeddings);
+    matrix centerData(const std::vector<vectorf> &embeddings, const vectorf &mean);
+    matrix computeCovariance(const matrix &centered_data);
+};
+
+// struct model2Vec
+// {
+//     int embedding_dim;
+//     bool apply_zipf;
+//     int pca_components;
+//     matrix pca_matrix;
+//     std::vector<std::string> tokens;
+//     std::vector<vectorf> embeddings;
+//     std::vector<vectorf> distilledEmbeddings;
+
+//     model2Vec(int dim, bool zipf, int pca);
+
+//     void initialize(const matrix &precomputed_embeddings, const std::vector<std::string> &token_list);
+//     void distill(model2Vec *model);
+//     vectorf apply_pca(const vectorf &embedding) const;
+//     vectorf apply_zipf_weighting(const vectorf &embedding, int rank) const;
+//     void save_to_file(const std::string &filepath) const;
+//     static model2Vec *load_from_file(const std::string &filepath);
+//     // matrix apply_pca(const matrix &embeddings, int pca_dims);
+//     // matrix post_process_embeddings(const matrix &embeddings, int pca_dims, bool apply_zipf);
+// };
+
+void logBMessage(const char *format, ...);
 #endif // MODEL2VEC_H

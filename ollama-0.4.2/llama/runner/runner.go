@@ -231,6 +231,7 @@ func (s *Server) inputs(prompt string, images []ImageData) ([]input, error) {
 }
 
 type Server struct {
+	modelPath string
 	// is the server ready to process requests?
 	// protects access to model and image
 	ready sync.WaitGroup
@@ -777,6 +778,26 @@ func (s *Server) embeddings(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("embedding request", "content", req.Content)
 
+	if os.Getenv("USE_MODEL2VEC") == "1" {
+		// model2vec
+		s.lc.InitializeModel2VecAndSave(s.modelPath, "")
+
+		embedding, err := s.lc.GetModel2VecEmbeddings(s.modelPath, req.Content)
+
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to get model2vec embedding: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(&EmbeddingResponse{
+			Embedding: embedding,
+		}); err != nil {
+			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		}
+
+		s.lc.FreeModel2Vec()
+		return
+	}
+
 	seq, err := s.NewSequence(req.Content, nil, NewSequenceParams{embedding: true})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create new sequence: %v", err), http.StatusInternalServerError)
@@ -968,6 +989,7 @@ func main() {
 	slog.Info("system", "info", llama.PrintSystemInfo(), "threads", *threads)
 
 	server := &Server{
+		modelPath: *mpath,
 		batchSize: *batchSize,
 		parallel:  *parallel,
 		seqs:      make([]*Sequence, *parallel),

@@ -1,3 +1,5 @@
+import { SERVER_ROUTES } from "../../constants/Shared";
+
 export interface User {
     id: string;
     email: string;
@@ -16,3 +18,13 @@ export interface Token {
     id_token: string;
     expiry_date: number;
 }
+
+// Define arguments for each route
+export type RouteArgs = {
+  [SERVER_ROUTES.PROCESS_DATA]: { input: string }; // Args for PROCESS_DATA
+};
+
+// Define responses for each route
+export type RouteResponse = {
+  [SERVER_ROUTES.PROCESS_DATA]: { success: boolean; processedData: any }; // Response for PROCESS_DATA
+};
