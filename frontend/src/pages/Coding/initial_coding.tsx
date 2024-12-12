@@ -16,7 +16,7 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation_botto
 import { useNavigate } from 'react-router-dom';
 import { DataContext } from '../../context/data_context';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST } from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
@@ -24,7 +24,6 @@ import { useCollectionContext } from '../../context/collection_context';
 const { ipcRenderer } = window.require('electron');
 
 const InitialCodingPage = () => {
-    const dataContext = useContext(DataContext);
     const [posts, setPosts] = useState<PostIdTitle[]>([]);
 
     const [selectedPost, setSelectedPost] = useState<PostIdTitle | null>(null);
@@ -39,12 +38,30 @@ const InitialCodingPage = () => {
     const [selectedPostData, setSelectedPostData] = useState<IRedditPostData | null>(null);
 
     const { references, setReferences, mainCode, selectedFlashcards, flashcards, selectedWords, dispatchCodeResponses} = useCodingContext();
-    const { selectedPosts } = useCollectionContext();
+    const { selectedPosts, datasetId } = useCollectionContext();
 
     const logger = useLogger();
     const navigate = useNavigate();
 
     useEffect(() => {
+        if(!USE_LOCAL_SERVER){
+            fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_TITLES}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    dbPath: DB_PATH,
+                    dataset_id: datasetId
+                })
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    console.log(data, 'Reddit posts'); 
+                    setPosts(data);
+                });
+            return;
+        }
         ipcRenderer
             .invoke('get-post-ids-titles', DB_PATH)
             .then((data: { id: string; title: string }[]) => {
@@ -147,6 +164,76 @@ const InitialCodingPage = () => {
 
         navigate('../loader/' + LOADER_ROUTES.CODING_VALIDATION_LOADER);
         console.log(references, 'references');
+
+
+        if(!USE_LOCAL_SERVER){
+            const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: MODEL_LIST.LLAMA_3_2,
+                    references,
+                    mainCode,
+                    flashcards: selectedFlashcards.map((id) => {
+                        return {
+                            question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+                            answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+                        };
+                    }),
+                    selectedWords,
+                    selectedPosts,
+                    datasetId
+                })
+            });
+
+            const results = await res.json();
+            console.log(results, 'Initial Coding Page');
+
+            let parsedResults: {
+                unified_codebook: {
+                    code: string;
+                    definition: string;
+                    examples: string[];
+                }[];
+                recoded_transcript: {
+                    segment: string;
+                    code: string;
+                    reasoning: string;
+                }[];
+            }[] = results;
+
+            console.log(parsedResults, 'Parsed Results');
+
+            let totalCodes: {
+                sentence: string;
+                coded_word: string;
+                isCorrect?: boolean;
+                comment: string;
+                postId: string;
+                reasoning: string;
+            }[] = [];
+
+            parsedResults.forEach((parsedResult, index) => {
+                parsedResult.recoded_transcript.forEach((recoded) => {
+                    totalCodes.push({
+                        sentence: recoded.segment,
+                        coded_word: recoded.code,
+                        isCorrect: undefined,
+                        comment: '',
+                        postId: selectedPosts[index],
+                        reasoning: recoded.reasoning
+                    });
+                });
+            });
+
+            dispatchCodeResponses({
+                type: 'ADD_RESPONSES',
+                responses: totalCodes
+            });
+            return;
+        }
 
         const timer = createTimer();
         let results;

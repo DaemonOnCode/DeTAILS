@@ -20,7 +20,7 @@ export enum MODEL_LIST {
 
 export const LOGGING = true;
 
-export const USE_LOCAL_SERVER = true;
+export const USE_LOCAL_SERVER = false;
 
 export const REMOTE_SERVER_BASE_URL = 'http://localhost:8080/api';
 
@@ -37,3 +37,18 @@ export const SERVER_ROUTE_MAP: Record<
     server: "process-data"
   },
 };
+
+export enum REMOTE_SERVER_ROUTES {
+    UPLOAD_REDDIT_DATA = "collections/datasets",
+    PARSE_REDDIT_DATA = "collections/parse-reddit-dataset",
+    GET_REDDIT_POSTS_BY_BATCH = "collections/reddit-posts-by-batch",
+    ADD_DOCUMENTS_LANGCHAIN = "coding/add-documents-langchain",
+    REGENERATE_FLASHCARDS = "coding/generate-additional-flashcards",
+    GENERATE_WORDS = "coding/generate-words",
+    REGENERATE_WORDS = "coding/regenerate-words",
+    GET_REDDIT_POSTS_TITLES = "collections/reddit-posts-titles",
+    GET_REDDIT_POST_BY_ID = "collections/reddit-post-by-id",
+    GENERATE_CODES = "coding/generate-codes",
+    GENERATE_CODES_WITH_FEEDBACK = "coding/generate-codes-with-feedback",
+    FINALIZE_CODES = "coding/finalize-codes",
+}

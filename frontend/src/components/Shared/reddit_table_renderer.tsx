@@ -10,7 +10,6 @@ type RedditTableRendererProps = {
 };
 
 const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeightClass }) => {
-
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
@@ -90,6 +89,8 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeigh
         setSelectedPosts(newSelectedPosts);
     };
 
+    const isLoading = Object.keys(data).length === 0;
+
     return (
         <div className="flex-grow overflow-hidden h-full">
             {/* Top Bar with Filter and Controls */}
@@ -154,6 +155,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeigh
                 className={`overflow-y-auto ${maxTableHeightClass ? maxTableHeightClass : 'max-h-[calc(100vh-14rem)]'}`}>
                 <RedditTable
                     data={displayedData}
+                    isLoading={isLoading} // Pass loading state to the table
                     selectedPosts={selectedPosts}
                     togglePostSelection={togglePostSelection}
                     toggleSelectPage={toggleSelectPage}

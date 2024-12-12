@@ -15,6 +15,8 @@ interface ICollectionContext {
     setSubreddit: SetState<string>;
     selectedPosts: string[];
     setSelectedPosts: SetState<string[]>;
+    datasetId: string;
+    setDatasetId: SetState<string>;
 }
 
 // Create the context
@@ -27,6 +29,8 @@ export const CollectionContext = createContext<ICollectionContext>({
     setSubreddit: () => {},
     selectedPosts: [],
     setSelectedPosts: () => {},
+    datasetId: '',
+    setDatasetId: () => {}
 });
 
 // Create a provider component
@@ -47,6 +51,8 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         // '1254667'
     ]);
 
+    const [datasetId, setDatasetId] = useState<string>('');
+
     const toggleMode = useCallback(() => {
         setCurrentMode((prevMode: Mode) => {
             setModeInput('');
@@ -55,8 +61,8 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
     }, []);
 
     useEffect(() => {
-        console.log('In dc', currentMode, modeInput);
-    }, [currentMode, modeInput]);
+        console.log('In dc', datasetId);
+    }, [datasetId]);
 
     const value = useMemo(
         () => ({
@@ -68,12 +74,15 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
             setSubreddit,
             selectedPosts,
             setSelectedPosts,
+            datasetId,
+            setDatasetId
         }),
         [
             currentMode,
             modeInput,
             selectedPosts,
             subreddit,
+            datasetId
         ]
     );
 

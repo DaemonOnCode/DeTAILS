@@ -9,7 +9,7 @@ import {
 import { DataContext } from '../../context/data_context';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST } from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 
@@ -48,6 +48,41 @@ const FlashcardsPage = () => {
             if (selectedFlashcards.includes(flashcard.id)) continue;
             removeFlashcard(flashcard.id);
         }
+
+
+        if(!USE_LOCAL_SERVER){
+            console.log('Generating additional flashcards', selectedFlashcards, mainCode, additionalInfo, feedback);
+            let res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.REGENERATE_FLASHCARDS}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: MODEL_LIST.LLAMA_3_2,
+                    mainCode,
+                    additionalInfo,
+                    flashcards: selectedFlashcards.map((id) => {
+                        return {
+                            question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+                            answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+                        };
+                    }),
+                    feedback
+                }),
+            });
+            let result: {
+                flashcards: { question: string; answer: string }[];
+            } = await res.json();
+            console.log(result);
+
+            if (result.flashcards){
+                result.flashcards.forEach(({ question, answer }) => {
+                    addFlashcard(question, answer);
+                });
+            }
+            return;
+        }
+
         let maxRetries = 5;
         const timer = createTimer();
         await logger.info('Generating additional flashcards');
@@ -120,6 +155,32 @@ const FlashcardsPage = () => {
         let maxRetries = 5;
         let result;
         let parsedResult = { words: [] };
+
+
+        if(!USE_LOCAL_SERVER){
+            console.log('Generating word cloud', mainCode, flashcardData);
+            let res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_WORDS}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: MODEL_LIST.LLAMA_3_2,
+                    mainCode,
+                    flashcards: flashcardData
+                }),
+            });
+            result = await res.json();
+            console.log(result, 'Initial result from generate-words');
+            // parsedResult = JSON.parse(result);
+            if (result.words.length > 0) {
+                setWords(result.words);
+            } else {
+                console.error('Failed to generate words after retries');
+            }
+            return;
+        }
+
 
         const timer = createTimer();
         try {

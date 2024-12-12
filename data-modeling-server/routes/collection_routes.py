@@ -92,6 +92,18 @@ def run_query(query: str, params: tuple = ()) -> list:
         cursor.execute(query, params)
         conn.commit()
         return cursor.fetchall()
+    
+def run_query_with_columns(query: str, params: tuple = ()) -> List[Dict[str, Any]]:
+    """
+    Run a SQLite query and return the result as a list of dictionaries with column names as keys.
+    """
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        conn.row_factory = sqlite3.Row  # Set row factory to get column names
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        result = cursor.fetchall()
+        # Convert each row to a dictionary
+        return [dict(row) for row in result]
 
 def save_temp_file(file: UploadFile, prefix: str) -> str:
     """
@@ -299,6 +311,12 @@ class ParseDatasetRequest(BaseModel):
     dataset_id: str
 
 
+class ParseRedditPostsRequest(BaseModel):
+    dataset_id: str
+    batch: int = 10
+    offset: int = 0
+    all: bool = True
+
 @router.post("/parse-reddit-dataset")
 async def parse_reddit_dataset(
     request: ParseDatasetRequest = Body(...)
@@ -454,6 +472,85 @@ def delete_dataset(dataset_id: int):
         return {"message": "Dataset deleted successfully!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/reddit-posts-by-batch")
+def get_reddit_posts(request: ParseRedditPostsRequest = Body(...)):
+    """
+    Get a dataset by its ID.
+    """
+    try:
+        dataset_id = request.dataset_id
+        offset = request.offset
+        batch = request.batch
+        all = request.all
+        if all:
+            posts = run_query_with_columns("SELECT * FROM posts WHERE dataset_id = ?", (dataset_id,))
+        else:
+            posts = run_query_with_columns("SELECT * FROM posts WHERE dataset_id = ? LIMIT ? OFFSET ?", (dataset_id, batch, offset))
+        return {post["id"]: post for post in posts}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ParseRedditPostsRequest(BaseModel):
+    dataset_id: str
+
+@router.post("/reddit-posts-titles")
+def get_reddit_posts(request: ParseRedditPostsRequest = Body(...)):
+    """
+    Get a dataset by its ID.
+    """
+    try:
+        dataset_id = request.dataset_id
+        posts = run_query_with_columns("SELECT id, title FROM posts WHERE dataset_id = ?", (dataset_id,))
+        return posts
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+def get_comments_recursive(post_id: str, dataset_id: str):
+    """
+    Get comments recursively for a post.
+    """
+    comments = run_query_with_columns("SELECT * FROM comments WHERE post_id = ? AND dataset_id = ?", (post_id, dataset_id))
+
+    print(comments, "from get_comments_recursive")
+    comment_map = {comment["id"]: comment for comment in comments}
+    for comment in comments:
+        if comment["parent_id"] and comment["parent_id"] in comment_map:
+            parent = comment_map[comment["parent_id"]]
+            parent.setdefault("comments", []).append(comment)
+
+    top_level_comments = [comment for comment in comments if not comment["parent_id"] or comment["parent_id"] == post_id]
+
+    return top_level_comments
+
+class ParseRedditPostByIdRequest(BaseModel):
+    datasetId: str
+    postId: str
+
+@router.post("/reddit-post-by-id")
+def get_reddit_post_by_id(request: ParseRedditPostByIdRequest = Body(...)):
+    """
+    Get a dataset by its ID.
+    """
+    try:
+        dataset_id = request.datasetId
+        post_id = request.postId
+        posts = run_query_with_columns("SELECT * FROM posts WHERE dataset_id = ? AND id = ?", (dataset_id, post_id))
+
+        comments = get_comments_recursive(post_id, dataset_id)
+
+        return {**posts[0], "comments": comments} if posts else {}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+
+
+
+
 
 # @router.post("/process-reddit-json")
 # async def process_json_files(

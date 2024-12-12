@@ -21,7 +21,14 @@ export interface Token {
 
 // Define arguments for each route
 export type RouteArgs = {
-  [SERVER_ROUTES.PROCESS_DATA]: { input: string }; // Args for PROCESS_DATA
+  [SERVER_ROUTES.PROCESS_DATA]: { 
+        server: {
+            input: string
+        } ,
+        local: {
+            input: string
+        }
+    }; // Args for PROCESS_DATA
 };
 
 // Define responses for each route

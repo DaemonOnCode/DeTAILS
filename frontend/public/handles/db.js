@@ -1,7 +1,12 @@
 const { ipcMain } = require('electron');
 const { Worker } = require('worker_threads');
 const path = require('path');
-const { initDatabase, getAllPostIdsAndTitles, getPostById } = require('../utils/db_helpers');
+const {
+    initDatabase,
+    getAllPostIdsAndTitles,
+    getPostById,
+    loadPostsByBatch
+} = require('../utils/db_helpers');
 const logger = require('../utils/logger');
 const config = require('../utils/config');
 
@@ -91,6 +96,23 @@ const dbHandler = () => {
         } catch (err) {
             await logger.error('Error getting post IDs and titles:', { err });
             console.error('Error getting post IDs and titles:', err.message);
+            return [];
+        }
+    });
+
+    ipcMain.handle('get-reddit-posts-by-batch', async (event, dbPath, batchSize, offset) => {
+        try {
+            await logger.info('Getting posts by batch:', { batchSize, offset });
+            console.log('Getting posts by batch:', batchSize, offset);
+            const db = await initDatabase(dbPath);
+            const result = await loadPostsByBatch(db, batchSize, offset);
+            db.close();
+            await logger.info('Posts by batch:', { result });
+            console.log('Posts by batch:', result);
+            return result;
+        } catch (err) {
+            await logger.error('Error getting posts by batch:', { err });
+            console.error('Error getting posts by batch:', err.message);
             return [];
         }
     });

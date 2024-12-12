@@ -12,7 +12,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
 }) => {
     const navigate = useNavigate();
 
-    console.log('Previous page:', previousPage, '/coding/' + previousPage || '');
+    // console.log('Previous page:', previousPage, '/coding/' + previousPage || '');
     return (
         <div className="flex justify-between mt-6">
             <Link

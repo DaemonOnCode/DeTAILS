@@ -243,8 +243,23 @@ const insertCommentsBatch = async (db, comments, loggerContext = {}) => {
     }
 };
 
-// Load posts by batch with their comments
 const loadPostsByBatch = async (db, batchSize, offset, loggerContext = {}) => {
+    try {
+        const posts = await allAsync(db, `SELECT *  FROM posts LIMIT ? OFFSET ?`, [
+            batchSize,
+            offset
+        ]);
+
+        await logger.info('Posts loaded by batch', {}, loggerContext);
+        return posts;
+    } catch (err) {
+        await logger.error(`Error fetching posts: ${err.message}`, { err }, loggerContext);
+        throw err;
+    }
+};
+
+// Load posts by batch with their comments
+const loadPostsWithCommentsByBatch = async (db, batchSize, offset, loggerContext = {}) => {
     try {
         const posts = await allAsync(db, `SELECT * FROM posts LIMIT ? OFFSET ?`, [
             batchSize,
@@ -366,5 +381,6 @@ module.exports = {
     loadPostsByBatch,
     getAllPostIdsAndTitles,
     getPostById,
-    getCommentsRecursive
+    getCommentsRecursive,
+    loadPostsWithCommentsByBatch
 };

@@ -3,19 +3,38 @@ import { FC, useState } from "react";
 interface WordPanelProps {
   title: string;
   words: string[];
+  onDropWord: (word: string) => void;
 }
 
-const WordPanel: FC<WordPanelProps> = ({ title, words }) => {
+const WordPanel: FC<WordPanelProps> = ({ title, words, onDropWord }) => {
   const [searchValue, setSearchValue] = useState<string>("");
 
-  // Filtered words based on the search value
   const filteredWords = words.filter((word) =>
     word.toLowerCase().includes(searchValue.toLowerCase())
   );
 
+  const handleDragStart = (e: React.DragEvent, word: string) => {
+    e.dataTransfer.setData("text/plain", word);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const word = e.dataTransfer.getData("text/plain");
+    if (word) {
+      onDropWord(word);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
   return (
-    <div className="flex-1 p-4 bg-white border-b border-gray-300">
-      {/* Search Field */}
+    <div
+      className="flex-1 p-4 bg-white border-b border-gray-300"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       <div className="mb-4">
         <input
           type="text"
@@ -25,13 +44,14 @@ const WordPanel: FC<WordPanelProps> = ({ title, words }) => {
           className="w-full border rounded p-2"
         />
       </div>
-      {/* Filtered Word List */}
       <div className="h-60 overflow-auto bg-gray-100 border rounded p-2">
         {filteredWords.length > 0 ? (
           filteredWords.map((word, index) => (
             <div
               key={index}
-              className="py-1 px-2 bg-white rounded mb-1"
+              className="py-1 px-2 bg-white rounded mb-1 cursor-move"
+              draggable
+              onDragStart={(e) => handleDragStart(e, word)}
             >
               {word}
             </div>

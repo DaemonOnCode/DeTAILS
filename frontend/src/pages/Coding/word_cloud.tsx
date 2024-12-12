@@ -4,7 +4,7 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation_botto
 import WordCloud from '../../components/Coding/WordCloud/index';
 import { DataContext } from '../../context/data_context';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST } from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 
@@ -56,12 +56,46 @@ const WordCloudPage: FC = () => {
     };
 
     const refreshWordCloud = async () => {
-        const timer = createTimer();
+        if(!USE_LOCAL_SERVER){
+            const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_WORDS}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: MODEL_LIST.LLAMA_3_2,
+                    mainCode,
+                    flashcards: null,
+                    regenerate: true,
+                    selectedWords,
+                    feedback
+                })
+            })
+
+            const results = await res.json();
+            console.log(results, 'Word Cloud Page');
+
+            // const parsedResults = JSON.parse(results);
+            const newWords: string[] = results.words;
+
+            setWords((prevWords) => {
+                const filteredPrevWords = prevWords.filter((word) =>
+                    selectedWords.includes(word)
+                );
+                const filteredNewWords = newWords
+                    .filter((word) => !filteredPrevWords.includes(word))
+                    .slice(0, 20 - filteredPrevWords.length);
+                return [...filteredPrevWords, ...filteredNewWords];
+            });
+            return;
+        }
+
+
+        const timer = createTimer();        
         const results = await ipcRenderer.invoke(
             'generate-words',
             MODEL_LIST.LLAMA_3_2,
             mainCode,
-            newWordsPool,
             null,
             true,
             selectedWords,

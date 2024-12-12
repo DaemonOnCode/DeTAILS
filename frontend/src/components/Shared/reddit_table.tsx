@@ -7,7 +7,8 @@ const RedditTable: FC<RedditTableProps> = ({
     data,
     selectedPosts,
     togglePostSelection,
-    toggleSelectPage
+    toggleSelectPage,
+    isLoading, // Add isLoading prop
 }) => {
     const [selectedPost, setSelectedPost] = useState<(typeof data)[number] | null>(null);
 
@@ -15,47 +16,71 @@ const RedditTable: FC<RedditTableProps> = ({
     const areAllPagePostsSelected = data.every(([id]) => selectedPosts.includes(id));
 
     return (
-        <div className="overflow-x-auto">
-            <table className="max-w-full border border-gray-300">
+        <div className="overflow-x-auto w-full">
+            <table className="table-auto w-full border border-gray-300">
                 <thead className="bg-gray-100">
                     <tr>
-                        <th className="px-4 py-2 border">
-                            <input
-                                type="checkbox"
-                                onChange={() => toggleSelectPage(data)}
-                                checked={areAllPagePostsSelected}
-                            />
+                        <th className="px-4 py-4 border">
+                            {!isLoading && (
+                                <input
+                                    type="checkbox"
+                                    onChange={() => toggleSelectPage(data)}
+                                    checked={areAllPagePostsSelected}
+                                />
+                            )}
                         </th>
-                        <th className="px-4 py-2 border">URL</th>
-                        <th className="px-4 py-2 border">Created UTC</th>
-                        <th className="px-4 py-2 border">Title</th>
-                        <th className="px-4 py-2 border">Text</th>
+                        <th className="px-4 py-4 border">URL</th>
+                        <th className="px-4 py-4 border">Created UTC</th>
+                        <th className="px-4 py-4 border">Title</th>
+                        <th className="px-4 py-4 border">Text</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {data.map((post, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-4 py-2 border">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedPosts.includes(post[0])}
-                                    onChange={() => togglePostSelection(post[0])}
-                                />
-                            </td>
-                            <td className="px-4 py-2 border">
-                                <p
-                                    className="text-blue-500 underline cursor-pointer"
-                                    onClick={() => setSelectedPost(post)}>
-                                    {post[0]}
-                                </p>
-                            </td>
-                            <td className="px-4 py-2 border">
-                                {new Date(post[1].created_utc * 1000).toLocaleString()}
-                            </td>
-                            <td className="px-4 py-2 border">{post[1].title}</td>
-                            <td className="px-4 py-2 border">{post[1].selftext}</td>
-                        </tr>
-                    ))}
+                    {isLoading
+                        ? // Render skeleton rows if loading
+                          [...Array(10)].map((_, index) => (
+                              <tr key={index} className="hover:bg-gray-50">
+                                  <td className="px-4 py-6 border">
+                                      <div className="h-6 w-6 bg-gray-200 rounded-full animate-pulse"></div>
+                                  </td>
+                                  <td className="px-4 py-6 border">
+                                      <div className="h-6 w-full bg-gray-200 rounded animate-pulse"></div>
+                                  </td>
+                                  <td className="px-4 py-6 border">
+                                      <div className="h-6 w-full bg-gray-200 rounded animate-pulse"></div>
+                                  </td>
+                                  <td className="px-4 py-6 border">
+                                      <div className="h-6 w-full bg-gray-200 rounded animate-pulse"></div>
+                                  </td>
+                                  <td className="px-4 py-6 border">
+                                      <div className="h-6 w-full bg-gray-200 rounded animate-pulse"></div>
+                                  </td>
+                              </tr>
+                          ))
+                        : // Render actual data rows when not loading
+                          data.map((post, index) => (
+                              <tr key={index} className="hover:bg-gray-50">
+                                  <td className="px-4 py-6 border">
+                                      <input
+                                          type="checkbox"
+                                          checked={selectedPosts.includes(post[0])}
+                                          onChange={() => togglePostSelection(post[0])}
+                                      />
+                                  </td>
+                                  <td className="px-4 py-6 border">
+                                      <p
+                                          className="text-blue-500 underline cursor-pointer"
+                                          onClick={() => setSelectedPost(post)}>
+                                          {post[0]}
+                                      </p>
+                                  </td>
+                                  <td className="px-4 py-6 border">
+                                      {new Date(post[1].created_utc * 1000).toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-6 border">{post[1].title}</td>
+                                  <td className="px-4 py-6 border">{post[1].selftext}</td>
+                              </tr>
+                          ))}
                 </tbody>
             </table>
             {selectedPost && (

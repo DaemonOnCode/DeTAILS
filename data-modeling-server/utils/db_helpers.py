@@ -155,3 +155,31 @@ def batch_insert_comments(comments):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, comments)
         conn.commit()
+
+def get_post_with_comments(dataset_id, post_id):
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        print("connected")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        post = cursor.execute("SELECT id, title, selftext FROM posts WHERE id = ? AND dataset_id = ?", (post_id, dataset_id)).fetchone()
+
+        post = dict(post) if post else {}
+        print(post, "post check")
+        if not post:
+            raise ValueError(f"Post with ID {post_id} not found")
+
+        comments = cursor.execute("SELECT id, body, parent_id FROM comments WHERE post_id = ?", (post_id,)).fetchall()
+
+        comments = [dict(comment) for comment in comments]
+
+        print(comments, "comments check")
+        # Build a recursive tree structure for comments
+        comment_map = {comment["id"]: comment for comment in comments}
+        for comment in comments:
+            if comment["parent_id"] and comment["parent_id"] in comment_map:
+                parent = comment_map[comment["parent_id"]]
+                parent.setdefault("comments", []).append(comment)
+
+        top_level_comments = [comment for comment in comments if not comment["parent_id"]]
+    print(post, "post check")
+    return {} if not post else {**post, "comments": top_level_comments}

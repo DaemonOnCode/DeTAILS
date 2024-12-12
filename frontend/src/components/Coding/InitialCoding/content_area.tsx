@@ -3,6 +3,8 @@ import Comment from './comment';
 import { ContentAreaProps } from '../../../types/Coding/props';
 import { DB_PATH } from '../../../constants/Coding/shared';
 import { IRedditPostData } from '../../../types/Coding/shared';
+import { REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../../constants/Shared';
+import { useCollectionContext } from '../../../context/collection_context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -15,10 +17,30 @@ const ContentArea: FC<ContentAreaProps> = ({
     selectedPostData,
     setSelectedPostData
 }) => {
+    const { datasetId } = useCollectionContext();
+
     useEffect(() => {
         console.log('Getting post by id, content area', selectedPost);
 
         if (!selectedPost) {
+            return;
+        }
+        if(!USE_LOCAL_SERVER){
+            fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    postId: selectedPost.id,
+                    datasetId: datasetId
+                })
+            })
+                .then((response) => response.json())
+                .then((data: IRedditPostData) => {
+                    console.log('Post data:', data);
+                    setSelectedPostData(data);
+                });
             return;
         }
         ipcRenderer

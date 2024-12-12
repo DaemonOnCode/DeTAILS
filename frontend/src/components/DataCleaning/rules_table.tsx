@@ -1,32 +1,38 @@
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 import { Rule } from "../../types/DataCleaning/shared";
-import CreateRuleModal from "./rule_modal";
 
 interface RulesTableProps {
   rules: Rule[];
-  addRule: (rule:Rule) => void;
-  deleteRule: (ruleId: number | null, deleteAll?: boolean) => void;
+  addRule: (rule: Rule) => Promise<void>;
+  deleteRule: (ruleId: number | null, deleteAll?: boolean) => Promise<void>;
+  reorderRules: (updatedRules: Rule[]) => Promise<void>;
 }
 
-const RulesTable: FC<RulesTableProps> = ({ rules, addRule, deleteRule }) => {
-  return(
+
+const RulesTable: FC<RulesTableProps> = ({ rules, addRule, deleteRule, reorderRules }) => {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDrop = (targetIndex: number) => {
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    const updatedRules = [...rules];
+    const [draggedRule] = updatedRules.splice(draggedIndex, 1);
+    updatedRules.splice(targetIndex, 0, draggedRule);
+
+    reorderRules(updatedRules);
+    setDraggedIndex(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  return (
     <div className="w-full max-h-[450px] p-4 bg-white border-gray-300">
-      {/* Action Buttons
-      <div className="flex items-center gap-4 mb-4">
-        <button
-          onClick={addRule}
-          className="bg-green-500 text-white px-4 py-2 rounded"
-        >
-          Create Rule
-        </button>
-        <button
-          onClick={() => deleteRule(null, true)} // Delete all rules
-          className="bg-red-500 text-white px-4 py-2 rounded"
-        >
-          Delete All Rules
-        </button>
-      </div> */}
-      {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white border border-gray-300 rounded">
           <thead>
@@ -40,8 +46,15 @@ const RulesTable: FC<RulesTableProps> = ({ rules, addRule, deleteRule }) => {
             </tr>
           </thead>
           <tbody>
-            {rules.map((rule) => (
-              <tr key={rule.id} className="text-gray-700">
+            {rules.map((rule, index) => (
+              <tr
+                key={rule.id}
+                className="text-gray-700"
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(index)}
+              >
                 <td className="py-2 px-4">{rule.step}</td>
                 <td className="py-2 px-4">{rule.fields}</td>
                 <td className="py-2 px-4">{rule.words}</td>

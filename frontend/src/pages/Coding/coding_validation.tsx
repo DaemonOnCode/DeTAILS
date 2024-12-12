@@ -10,7 +10,7 @@ import { DataContext } from '../../context/data_context';
 import RedditViewModal from '../../components/Coding/Shared/reddit_view_modal';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST } from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
@@ -19,7 +19,7 @@ const { ipcRenderer } = window.require('electron');
 
 const CodingValidationPage: FC = () => {
     const { dispatchCodeResponses, codeResponses, references, mainCode, selectedFlashcards, flashcards, selectedWords } = useCodingContext();
-    const { selectedPosts } = useCollectionContext();
+    const { selectedPosts, datasetId } = useCollectionContext();
 
     // console.count('Coding Validation Page');
 
@@ -110,6 +110,78 @@ const CodingValidationPage: FC = () => {
         }
 
         // navigate(LOADER_ROUTES.FINAL_LOADER);
+
+
+
+        if(!USE_LOCAL_SERVER){
+            const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_FEEDBACK}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: MODEL_LIST.LLAMA_3_2,
+                    references,
+                    mainCode,
+                    flashcards: selectedFlashcards.map((id) => {
+                        return {
+                            question: flashcards.find((flashcard) => flashcard.id === id)!
+                                .question,
+                            answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+                        };
+                    }),
+                    selectedWords,
+                    selectedPosts,
+                    feedback: codeResponses.filter((response) => response.isMarked === false),
+                    datasetId
+                })
+            });
+
+            const results = await res.json();
+            console.log('Result:', results);
+
+            const parsedResult: {
+                unified_codebook: {
+                    code: string;
+                    description: string;
+                    examples: string[];
+                }[];
+                recoded_transcript: {
+                    code: string;
+                    segment: string;
+                    reasoning: string;
+                }[];
+            }[] = results;
+
+            let totalResponses = codeResponses.filter(
+                (response) => response.isMarked === true
+            );
+            parsedResult.forEach((answer, index) => {
+                for (const recodedTranscript of answer.recoded_transcript) {
+                    const sentence = recodedTranscript.segment;
+                    const coded_word = recodedTranscript.code;
+                    const postId = selectedPosts[index];
+                    const reasoning = recodedTranscript.reasoning;
+                    totalResponses.push({
+                        sentence,
+                        coded_word,
+                        postId,
+                        reasoning,
+                        isMarked: undefined,
+                        comment: ''
+                    });
+                }
+            });
+
+            dispatchCodeResponses({
+                type: 'SET_RESPONSES',
+                responses: totalResponses
+            });
+
+            navigate('/coding/' + ROUTES.CODING_VALIDATION);
+
+            return;
+        }
 
         const results = await ipcRenderer.invoke(
             'generate-codes-with-feedback',

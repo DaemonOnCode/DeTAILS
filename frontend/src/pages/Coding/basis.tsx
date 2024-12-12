@@ -4,10 +4,12 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation_botto
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST } from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
+import { useCollectionContext } from '../../context/collection_context';
 
+const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
 
 const validExtensions = ['.pdf', '.doc', '.docx', '.txt'];
@@ -18,6 +20,8 @@ const BasisPage = () => {
 
     const { basisFiles, addBasisFile, mainCode, additionalInfo, setAdditionalInfo, setMainCode, removeBasisFile, addFlashcard } =
         useCodingContext();
+
+    const { datasetId } = useCollectionContext();
 
     const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
 
@@ -59,6 +63,41 @@ const BasisPage = () => {
         e.preventDefault();
         navigate('../loader/' + LOADER_ROUTES.FLASHCARDS_LOADER);
         const timer = createTimer();
+
+        
+        console.log('Sending request to server');
+        if (!USE_LOCAL_SERVER){
+            console.log('Sending request to remote server');
+            const formData = new FormData();
+            Object.keys(basisFiles).forEach((filePath) => {
+                const fileContent = fs.readFileSync(filePath);
+                const blob = new Blob([fileContent]);
+                formData.append('basisFiles', blob, basisFiles[filePath]);
+            });
+            formData.append('model', MODEL_LIST.LLAMA_3_2);
+            formData.append('mainCode', mainCode);
+            formData.append('additionalInfo', additionalInfo ?? "");
+            formData.append('retry', 'false');
+
+
+            let res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.ADD_DOCUMENTS_LANGCHAIN}`, {
+                method: 'POST',
+                body: formData
+            });
+            let result: {
+                flashcards: { question: string; answer: string }[];
+            } = await res.json();
+            console.log(result);
+
+            if (result.flashcards){
+                result.flashcards.forEach(({ question, answer }) => {
+                    addFlashcard(question, answer);
+                });
+            }
+            return;
+        }
+
+
         let result: string = await ipcRenderer.invoke(
             'add-documents-langchain',
             basisFiles,
