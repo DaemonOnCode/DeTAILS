@@ -17,7 +17,8 @@ let config = {
     },
     browserView: null,
     backendServer: null,
-    userEmail: 'Anonymous'
+    userEmail: 'Anonymous',
+    websocket: null
 };
 
 module.exports = config;

@@ -8,11 +8,10 @@ interface CreateRuleModalProps {
 }
 
 const CreateRuleModal: React.FC<CreateRuleModalProps> = ({ isOpen, onClose, onSave }) => {
-  const [field, setField] = useState('<ANY>');
-  const [word, setWord] = useState('');
-  const [partOfSpeech, setPartOfSpeech] = useState('');
-  const [action, setAction] = useState('Remove');
-  const [advancedFilters, setAdvancedFilters] = useState('');
+  const [field, setField] = useState("<ANY>");
+  const [word, setWord] = useState("");
+  const [partOfSpeech, setPartOfSpeech] = useState("");
+  const [action, setAction] = useState("Remove");
   const [errors, setErrors] = useState<string[]>([]);
 
   const validateForm = () => {
@@ -30,7 +29,7 @@ const CreateRuleModal: React.FC<CreateRuleModalProps> = ({ isOpen, onClose, onSa
     }
 
     const rule = {
-      id: -1, // Temporary ID, replace with backend-generated ID
+      id: -1, // Temporary ID
       step: 1,
       fields: field,
       words: word,
@@ -59,7 +58,6 @@ const CreateRuleModal: React.FC<CreateRuleModalProps> = ({ isOpen, onClose, onSa
           </div>
         )}
 
-        {/* Field Dropdown */}
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1">Field</label>
           <select
@@ -73,7 +71,6 @@ const CreateRuleModal: React.FC<CreateRuleModalProps> = ({ isOpen, onClose, onSa
           </select>
         </div>
 
-        {/* Word Input */}
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1">Word</label>
           <input
@@ -85,7 +82,6 @@ const CreateRuleModal: React.FC<CreateRuleModalProps> = ({ isOpen, onClose, onSa
           />
         </div>
 
-        {/* Part-of-Speech Input */}
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1">Part-of-Speech</label>
           <input
@@ -97,7 +93,6 @@ const CreateRuleModal: React.FC<CreateRuleModalProps> = ({ isOpen, onClose, onSa
           />
         </div>
 
-        {/* Action Dropdown */}
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1">Action</label>
           <select
@@ -110,19 +105,6 @@ const CreateRuleModal: React.FC<CreateRuleModalProps> = ({ isOpen, onClose, onSa
           </select>
         </div>
 
-        {/* Advanced Filters Input */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1">Advanced Filters</label>
-          <input
-            type="text"
-            value={advancedFilters}
-            onChange={(e) => setAdvancedFilters(e.target.value)}
-            placeholder="Enter advanced filters"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          />
-        </div>
-
-        {/* Buttons */}
         <div className="flex justify-end space-x-3">
           <button
             onClick={onClose}

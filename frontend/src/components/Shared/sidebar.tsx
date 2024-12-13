@@ -25,7 +25,7 @@ const Sidebar: FC = () => {
 
     // Toggle dropdown visibility
     const toggleDropdown = (path: string) => {
-        console.log('Toggling dropdown:', path);
+        // console.log('Toggling dropdown:', path);
         setOpenDropdowns((prev) => {
             const newSet = new Set(prev);
             if (newSet.has(path)) {
@@ -55,10 +55,10 @@ const Sidebar: FC = () => {
         return null;
     };
 
-    useEffect(() => {
-        console.log('Current location:', location.pathname);
-        console.log('Open dropdowns:', openDropdowns);
-    }, [location]);
+    // useEffect(() => {
+    //     console.log('Current location:', location.pathname);
+    //     console.log('Open dropdowns:', openDropdowns);
+    // }, [location]);
 
     // Render the routes
     const renderRoutes = (routes: RouteObject[], parentPath = ''): JSX.Element[] => {
@@ -70,7 +70,7 @@ const Sidebar: FC = () => {
                 }
 
                 const fullPath = `${parentPath}/${route.path || ''}`.replace(/\/+/g, '/');
-                console.log('Full path:', fullPath);
+                // console.log('Full path:', fullPath);
 
                 // Skip "Home" from dropdown and display it as a standalone link
                 if (formatRouteName(route.path || '') === 'Home') {

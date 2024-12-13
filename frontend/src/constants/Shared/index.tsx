@@ -10,7 +10,7 @@ export enum ROUTES {
     DATA_MODELING = 'modeling'
 }
 
-export const LOGGING_API_URL = 'http://localhost:9000/api/log';
+export const LOGGING_API_URL = 'http://20.51.212.222/logging/api/log';
 
 export enum MODEL_LIST {
     LLAMA_3_2 = 'llama3.2:3b',
@@ -22,7 +22,7 @@ export const LOGGING = true;
 
 export const USE_LOCAL_SERVER = false;
 
-export const REMOTE_SERVER_BASE_URL = 'http://localhost:8080/api';
+export const REMOTE_SERVER_BASE_URL = 'http://20.51.212.222/backend/api';
 
 export enum SERVER_ROUTES {
     PROCESS_DATA = 'process-reddit-data',

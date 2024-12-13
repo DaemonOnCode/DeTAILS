@@ -8,8 +8,7 @@ interface RulesTableProps {
   reorderRules: (updatedRules: Rule[]) => Promise<void>;
 }
 
-
-const RulesTable: FC<RulesTableProps> = ({ rules, addRule, deleteRule, reorderRules }) => {
+const RulesTable: FC<RulesTableProps> = ({ rules, deleteRule, reorderRules }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const handleDragStart = (index: number) => {

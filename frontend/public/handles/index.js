@@ -3,6 +3,7 @@ const { redditHandler } = require('./reddit');
 const { langchainHandler } = require('./langchain');
 const { dbHandler } = require('./db');
 const { googleOAuthHandler } = require('./google-oauth');
+const { websocketHandler } = require('./websocket');
 // const { workerHandler } = require('./worker');
 
 const registerIpcHandlers = () => {
@@ -12,6 +13,7 @@ const registerIpcHandlers = () => {
     langchainHandler();
     // workerHandler();
     dbHandler();
+    websocketHandler();
 };
 
 module.exports = registerIpcHandlers;

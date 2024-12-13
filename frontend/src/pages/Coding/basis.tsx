@@ -64,7 +64,7 @@ const BasisPage = () => {
         navigate('../loader/' + LOADER_ROUTES.FLASHCARDS_LOADER);
         const timer = createTimer();
 
-        
+
         console.log('Sending request to server');
         if (!USE_LOCAL_SERVER){
             console.log('Sending request to remote server');
@@ -78,8 +78,9 @@ const BasisPage = () => {
             formData.append('mainCode', mainCode);
             formData.append('additionalInfo', additionalInfo ?? "");
             formData.append('retry', 'false');
+            formData.append('dataset_id', datasetId);
 
-
+            await ipcRenderer.invoke("connect-ws", datasetId);
             let res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.ADD_DOCUMENTS_LANGCHAIN}`, {
                 method: 'POST',
                 body: formData
@@ -94,6 +95,7 @@ const BasisPage = () => {
                     addFlashcard(question, answer);
                 });
             }
+            await ipcRenderer.invoke("disconnect-ws", datasetId);
             return;
         }
 

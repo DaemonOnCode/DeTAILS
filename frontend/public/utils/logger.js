@@ -160,7 +160,7 @@ let config;
 
 const LOGGING = true;
 
-const LOGGING_SERVER_URL = 'http://localhost:9000/api/log';
+const LOGGING_SERVER_URL = 'http://20.51.212.222/logging/api/log';
 // Define log levels
 const LOG_LEVELS = ['info', 'warning', 'error', 'debug', 'health', 'time'];
 

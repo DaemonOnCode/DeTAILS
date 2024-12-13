@@ -1,26 +1,37 @@
 import { FC, useState } from "react";
 
+export interface WordDetail {
+  token: string;
+  pos: string;
+  count_words: number;
+  count_docs: number;
+  tfidf_min: number;
+  tfidf_max: number;
+}
+
 interface WordPanelProps {
   title: string;
-  words: string[];
-  onDropWord: (word: string) => void;
+  words: WordDetail[]; // Updated to accept detailed word data
+  onDropWord: (word: WordDetail) => void;
 }
 
 const WordPanel: FC<WordPanelProps> = ({ title, words, onDropWord }) => {
   const [searchValue, setSearchValue] = useState<string>("");
 
+  // Filter words based on the search input
   const filteredWords = words.filter((word) =>
-    word.toLowerCase().includes(searchValue.toLowerCase())
+    word.token.toLowerCase().includes(searchValue.toLowerCase())
   );
 
-  const handleDragStart = (e: React.DragEvent, word: string) => {
-    e.dataTransfer.setData("text/plain", word);
+  const handleDragStart = (e: React.DragEvent, word: WordDetail) => {
+    e.dataTransfer.setData("application/json", JSON.stringify(word));
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const word = e.dataTransfer.getData("text/plain");
-    if (word) {
+    const wordData = e.dataTransfer.getData("application/json");
+    if (wordData) {
+      const word = JSON.parse(wordData) as WordDetail;
       onDropWord(word);
     }
   };
@@ -49,11 +60,28 @@ const WordPanel: FC<WordPanelProps> = ({ title, words, onDropWord }) => {
           filteredWords.map((word, index) => (
             <div
               key={index}
-              className="py-1 px-2 bg-white rounded mb-1 cursor-move"
+              className="py-2 px-3 bg-white rounded mb-2 shadow-sm cursor-move border hover:shadow-md"
               draggable
               onDragStart={(e) => handleDragStart(e, word)}
             >
-              {word}
+              <div className="font-semibold">{word.token}</div>
+              <div className="text-sm text-gray-600">
+                <p>
+                  <strong>POS:</strong> {word.pos}
+                </p>
+                <p>
+                  <strong># of Words:</strong> {word.count_words}
+                </p>
+                <p>
+                  <strong># of Docs:</strong> {word.count_docs}
+                </p>
+                <p>
+                  <strong>TF-IDF Min:</strong> {word.tfidf_min.toFixed(4)}
+                </p>
+                <p>
+                  <strong>TF-IDF Max:</strong> {word.tfidf_max.toFixed(4)}
+                </p>
+              </div>
             </div>
           ))
         ) : (

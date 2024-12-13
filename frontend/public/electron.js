@@ -6,6 +6,7 @@ const remote = require('@electron/remote/main');
 const config = require('./utils/config');
 const registerIpcHandlers = require('./handles');
 const logger = require('./utils/logger');
+const WebSocket = require('ws');
 
 // Enable auto-reloading in development mode
 if (config.isDev) {
@@ -43,6 +44,13 @@ app.whenReady().then(async () => {
     // Log system and process metrics
     logger.logSystemAndProcessMetrics();
 
+    // // Listen for renderer events to send messages via WebSocket
+    // ipcMain.on('send-ws-message', (event, message) => {
+    //     if (ws.readyState === WebSocket.OPEN) {
+    //         ws.send(message);
+    //     }
+    // });
+
     // Register signal handlers for SIGINT, SIGTERM, and SIGABRT
     ['SIGINT', 'SIGTERM', 'SIGABRT', 'SIGHUP'].forEach((signal) => {
         console.log(`Registering handler for signal: ${signal}`);
@@ -73,6 +81,17 @@ app.whenReady().then(async () => {
     autoUpdater.on('update-downloaded', () => {
         logger.info('Update downloaded');
         config.mainWindow.webContents.send('update_downloaded');
+    });
+
+    app.on('web-contents-created', (event, contents) => {
+        contents.session.webRequest.onHeadersReceived((details, callback) => {
+            callback({
+                responseHeaders: {
+                    ...details.responseHeaders,
+                    'Content-Security-Policy': ["default-src 'self' ws://localhost:8080"]
+                }
+            });
+        });
     });
 
     // IPC listener for restarting the app to install updates

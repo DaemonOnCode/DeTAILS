@@ -1,3 +1,4 @@
+import asyncio
 import time
 from typing import Dict, List
 from fastapi import APIRouter, HTTPException, UploadFile, Form
@@ -21,6 +22,7 @@ import utils.prompts as prompts
 from utils.prompts import CodePrompts
 from utils.db_helpers import get_post_with_comments
 from utils.coding_helpers import generate_context, generate_feedback, generate_transcript
+from routes.websocket_routes import manager
 
 router = APIRouter()
 
@@ -36,100 +38,84 @@ async def add_documents_langchain(
     model: str = Form(...),  # Model as a form field
     mainCode: str = Form(...),  # Main code as a form field
     additionalInfo: str = Form(""),  # Optional additional info
-    retry: bool = Form(False)  # Retry flag
+    retry: bool = Form(False),  # Retry flag
+    dataset_id: str = Form(...)  # Dataset ID for identifying notifications
 ):
     try:
+        # Notify clients that processing has started
+        await manager.broadcast(f"Dataset {dataset_id}: Processing started.")
+        await asyncio.sleep(0)
+
         # Initialize embeddings and vector store
         print("Model: ", model)
         embeddings = OllamaEmbeddings(model=model)
-        chroma_client = HttpClient(host = "localhost",
-               port= 8000)
+        chroma_client = HttpClient(host="localhost", port=8000)
         vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+
+        # Notify clients that file upload is starting
+        await manager.broadcast(f"Dataset {dataset_id}: Uploading files...")
+        await asyncio.sleep(0)
 
         # Process uploaded files
         for file in basisFiles:
             print(f"Processing file: {file.filename}")
-            # Read the file content
             file_content = await file.read()
             file_name = file.filename
 
-            # Save the file locally (optional)
             temp_file_path = f"./temp_files/{time.time()}_{file_name}"
             os.makedirs("./temp_files", exist_ok=True)
             with open(temp_file_path, "wb") as temp_file:
                 temp_file.write(file_content)
 
-            # Load the document using PyPDFLoader (or adjust for other file types)
+            # Load and process the document
             loader = PyPDFLoader(temp_file_path)
             docs = loader.load()
-
-            # Split documents into chunks and add them to the vector store
             chunks = text_splitter.split_documents(docs)
             vector_store.add_documents(chunks)
-
-            # Remove the temporary file after processing (optional)
             os.remove(temp_file_path)
 
-        print("Documents added successfully to Chroma vector store.")
-        # return {
-        #     "message": "Documents added successfully to Chroma vector store.",
-        #     "model": model,
-        #     "mainCode": mainCode,
-        #     "additionalInfo": additionalInfo,
-        #     "retry": retry
-        # }
+        # Notify clients that upload is complete
+        await manager.broadcast(f"Dataset {dataset_id}: Files uploaded successfully.")
+        await asyncio.sleep(0)
+
+        # Notify clients that retriever creation is starting
+        await manager.broadcast(f"Dataset {dataset_id}: Creating retriever...")
+        await asyncio.sleep(0)
 
         retriever = vector_store.as_retriever()
-
-        print("Retriever created")
 
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", "\n".join(prompts.systemTemplateFlashcards)),
             ("human", "{input}")
         ])
 
-        print("Prompt template created")
+        # Notify clients that flashcard generation is starting
+        await manager.broadcast(f"Dataset {dataset_id}: Generating flashcards...")
+        await asyncio.sleep(0)
 
         llm = OllamaLLM(
-                model=model,
-                num_ctx=8192,
-                num_predict=8192,
-                temperature=0.3,
-                callbacks=[
-                    StreamingStdOutCallbackHandler()
-                ]
-            )
-        print("Prompt template created")
-        # Create the question-answer chain
-        question_answer_chain = create_stuff_documents_chain(
-            llm=llm,
-            prompt=prompt_template,
+            model=model,
+            num_ctx=8192,
+            num_predict=8192,
+            temperature=0.3,
+            callbacks=[StreamingStdOutCallbackHandler()]
         )
+        question_answer_chain = create_stuff_documents_chain(llm=llm, prompt=prompt_template)
+        rag_chain = create_retrieval_chain(retriever=retriever, combine_docs_chain=question_answer_chain)
 
-        print("Question-answer chain created")
-
-        # Create the RAG chain
-        rag_chain = create_retrieval_chain(
-            retriever=retriever, combine_docs_chain=question_answer_chain
-        )
-
-        print("RAG chain created")
-        # Generate flashcards
         input_text = prompts.flashcardTemplate(mainCode, additionalInfo)
-
-        print("Generating flashcards...")
         results = rag_chain.invoke({"input": input_text})
 
-        print("Flashcards generated")
+        # Notify clients that flashcards are being parsed
+        await manager.broadcast(f"Dataset {dataset_id}: Parsing generated flashcards...")
+        await asyncio.sleep(0)
 
-        print("Results: ", results)
-
-        # Parse the results to extract flashcards
         regex = r"(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*\"flashcards\"\s*:\s*\[(?P<flashcards>(?:\{\s*\"question\"\s*:\s*\".*?\"\s*,\s*\"answer\"\s*:\s*\".*?\"\s*\},?\s*)+)\]\s*\}|\[\s*(?P<standalone>(?:\{\s*\"question\"\s*:\s*\".*?\"\s*,\s*\"answer\"\s*:\s*\".*?\"\s*\},?\s*)+)\s*\])(?:\n```)?"
 
         flashcards_match = re.search(regex, results["answer"], re.DOTALL)
         if not flashcards_match:
+            await manager.broadcast(f"Dataset {dataset_id}: No flashcards found.")
             return {"flashcards": []}
 
         if flashcards_match.group("flashcards"):
@@ -138,14 +124,138 @@ async def add_documents_langchain(
         else:
             flashcards = flashcards_match.group("standalone")
             parsed_flashcards = json.loads(f'{{"flashcards": [{flashcards}]}}')["flashcards"]
+
+        # Notify clients that processing is complete
+        await manager.broadcast(f"Dataset {dataset_id}: Processing complete.")
+        await asyncio.sleep(0)
+
         return {
             "message": "Documents processed and flashcards generated successfully.",
             "flashcards": parsed_flashcards,
         }
 
     except Exception as e:
+        await manager.broadcast(f"Dataset {dataset_id}: Error encountered - {str(e)}")
         print(e)
         raise HTTPException(status_code=500, detail=f"Error processing documents: {str(e)}")
+
+
+# @router.post("/add-documents-langchain")
+# async def add_documents_langchain(
+#     basisFiles: List[UploadFile],  # List of uploaded files
+#     model: str = Form(...),  # Model as a form field
+#     mainCode: str = Form(...),  # Main code as a form field
+#     additionalInfo: str = Form(""),  # Optional additional info
+#     retry: bool = Form(False)  # Retry flag
+# ):
+#     try:
+#         # Initialize embeddings and vector store
+#         print("Model: ", model)
+#         embeddings = OllamaEmbeddings(model=model)
+#         chroma_client = HttpClient(host = "localhost",
+#                port= 8000)
+#         vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
+#         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+
+#         # Process uploaded files
+#         for file in basisFiles:
+#             print(f"Processing file: {file.filename}")
+#             # Read the file content
+#             file_content = await file.read()
+#             file_name = file.filename
+
+#             # Save the file locally (optional)
+#             temp_file_path = f"./temp_files/{time.time()}_{file_name}"
+#             os.makedirs("./temp_files", exist_ok=True)
+#             with open(temp_file_path, "wb") as temp_file:
+#                 temp_file.write(file_content)
+
+#             # Load the document using PyPDFLoader (or adjust for other file types)
+#             loader = PyPDFLoader(temp_file_path)
+#             docs = loader.load()
+
+#             # Split documents into chunks and add them to the vector store
+#             chunks = text_splitter.split_documents(docs)
+#             vector_store.add_documents(chunks)
+
+#             # Remove the temporary file after processing (optional)
+#             os.remove(temp_file_path)
+
+#         print("Documents added successfully to Chroma vector store.")
+#         # return {
+#         #     "message": "Documents added successfully to Chroma vector store.",
+#         #     "model": model,
+#         #     "mainCode": mainCode,
+#         #     "additionalInfo": additionalInfo,
+#         #     "retry": retry
+#         # }
+
+#         retriever = vector_store.as_retriever()
+
+#         print("Retriever created")
+
+#         prompt_template = ChatPromptTemplate.from_messages([
+#             ("system", "\n".join(prompts.systemTemplateFlashcards)),
+#             ("human", "{input}")
+#         ])
+
+#         print("Prompt template created")
+
+#         llm = OllamaLLM(
+#                 model=model,
+#                 num_ctx=8192,
+#                 num_predict=8192,
+#                 temperature=0.3,
+#                 callbacks=[
+#                     StreamingStdOutCallbackHandler()
+#                 ]
+#             )
+#         print("Prompt template created")
+#         # Create the question-answer chain
+#         question_answer_chain = create_stuff_documents_chain(
+#             llm=llm,
+#             prompt=prompt_template,
+#         )
+
+#         print("Question-answer chain created")
+
+#         # Create the RAG chain
+#         rag_chain = create_retrieval_chain(
+#             retriever=retriever, combine_docs_chain=question_answer_chain
+#         )
+
+#         print("RAG chain created")
+#         # Generate flashcards
+#         input_text = prompts.flashcardTemplate(mainCode, additionalInfo)
+
+#         print("Generating flashcards...")
+#         results = rag_chain.invoke({"input": input_text})
+
+#         print("Flashcards generated")
+
+#         print("Results: ", results)
+
+#         # Parse the results to extract flashcards
+#         regex = r"(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*\"flashcards\"\s*:\s*\[(?P<flashcards>(?:\{\s*\"question\"\s*:\s*\".*?\"\s*,\s*\"answer\"\s*:\s*\".*?\"\s*\},?\s*)+)\]\s*\}|\[\s*(?P<standalone>(?:\{\s*\"question\"\s*:\s*\".*?\"\s*,\s*\"answer\"\s*:\s*\".*?\"\s*\},?\s*)+)\s*\])(?:\n```)?"
+
+#         flashcards_match = re.search(regex, results["answer"], re.DOTALL)
+#         if not flashcards_match:
+#             return {"flashcards": []}
+
+#         if flashcards_match.group("flashcards"):
+#             flashcards = flashcards_match.group("flashcards")
+#             parsed_flashcards = json.loads(f'{flashcards}')['flashcards']
+#         else:
+#             flashcards = flashcards_match.group("standalone")
+#             parsed_flashcards = json.loads(f'{{"flashcards": [{flashcards}]}}')["flashcards"]
+#         return {
+#             "message": "Documents processed and flashcards generated successfully.",
+#             "flashcards": parsed_flashcards,
+#         }
+
+#     except Exception as e:
+#         print(e)
+#         raise HTTPException(status_code=500, detail=f"Error processing documents: {str(e)}")
 
 from langchain_ollama import OllamaLLM
 
