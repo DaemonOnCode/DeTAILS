@@ -119,7 +119,7 @@ const FlashcardsLoaderPage = () => {
               {flashcards.map((card, index) => (
                 <motion.div
                   key={index}
-                  className={`w-24 h-32 ${cardColors[Math.floor(Math.random() * cardColors.length)]} text-white rounded-lg shadow-lg flex items-center justify-center`}
+                  className={`w-24 h-32 ${cardColors[index%cardColors.length]} text-white rounded-lg shadow-lg flex items-center justify-center`}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ duration: 1.2 }}
