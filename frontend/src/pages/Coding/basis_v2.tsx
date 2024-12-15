@@ -18,7 +18,7 @@ const BasisPage = () => {
     const navigate = useNavigate();
     const logger = useLogger();
 
-    const { basisFiles, addBasisFile, mainCode, additionalInfo, setAdditionalInfo, setMainCode, removeBasisFile, addFlashcard } =
+    const { basisFiles, addBasisFile, mainCode, additionalInfo, setAdditionalInfo, setMainCode, removeBasisFile, setThemes} =
         useCodingContext();
 
     const { datasetId } = useCollectionContext();
@@ -61,9 +61,7 @@ const BasisPage = () => {
 
     const handleOnNextClick = async (e: any) => {
         e.preventDefault();
-        navigate('../loader/' + LOADER_ROUTES.FLASHCARDS_LOADER);
-        const timer = createTimer();
-
+        navigate('../loader/' + LOADER_ROUTES.THEME_LOADER);
 
         console.log('Sending request to server');
         if (!USE_LOCAL_SERVER){
@@ -81,75 +79,25 @@ const BasisPage = () => {
             formData.append('dataset_id', datasetId);
 
             // await ipcRenderer.invoke("connect-ws", datasetId);
-            let res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.ADD_DOCUMENTS_LANGCHAIN}`, {
+            let res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.ADD_DOCUMENTS_AND_GET_THEMES}`, {
                 method: 'POST',
                 body: formData
             });
-            let result: {
-                flashcards: { question: string; answer: string }[];
+            let results:{
+                message: string;
+                themes: string[];
             } = await res.json();
-            console.log(result);
+            console.log('Response from remote server', results);
 
-            if (result.flashcards){
-                result.flashcards.forEach(({ question, answer }) => {
-                    addFlashcard(question, answer);
-                });
+            if(results.themes.length > 0){
+                setThemes(Array.from(new Set(results.themes)));
             }
+
             // await ipcRenderer.invoke("disconnect-ws", datasetId);
             return;
         }
 
 
-        let result: string = await ipcRenderer.invoke(
-            'add-documents-langchain',
-            basisFiles,
-            MODEL_LIST.LLAMA_3_2,
-            mainCode,
-            additionalInfo,
-            false
-        );
-        await logger.time('Flashcards generation: Initial', { time: timer.end() });
-        let maxRetries = 5;
-        console.log(result);
-        let parsedResult: { flashcards: { question: string; answer: any }[] } = { flashcards: [] };
-        try {
-            parsedResult = JSON.parse(result);
-        } catch (error) {
-            console.error(error, JSON.stringify(result));
-        }
-
-        console.log(parsedResult);
-
-        while (parsedResult.flashcards.length === 0 && maxRetries > 0) {
-            console.log('Retrying', maxRetries);
-            await logger.warning('Retrying flashcards', { maxRetries });
-            timer.reset();
-            result = await ipcRenderer.invoke(
-                'add-documents-langchain',
-                basisFiles,
-                MODEL_LIST.LLAMA_3_2,
-                mainCode,
-                additionalInfo,
-                true
-            );
-            maxRetries--;
-            await logger.time(`Flashcards generation: Retry ${maxRetries}`, {
-                time: timer.end()
-            });
-            console.log(result);
-
-            try {
-                parsedResult = JSON.parse(result);
-            } catch (error) {
-                console.error(error, JSON.stringify(result));
-            }
-
-            console.log(parsedResult);
-        }
-
-        parsedResult.flashcards.forEach(({ question, answer }) => {
-            addFlashcard(question, answer);
-        });
 
         console.log('Ending function');
     };
@@ -213,7 +161,7 @@ const BasisPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.HOME}
-                nextPage={ROUTES.FLASHCARDS}
+                nextPage={ROUTES.THEME_CLOUD}
                 isReady={checkIfReady}
                 onNextClick={handleOnNextClick}
             />

@@ -56,6 +56,33 @@ def generate_context(references, main_code, selected_flashcards, selected_words)
 
     return context.strip()
 
+def generate_context_with_codebook(references, main_code, codebook):
+    context = ""
+
+    # Add the main code
+    context += f"Main Code:\n{main_code}\n\n"
+
+    # Add codebook
+    if codebook:
+        context += "Codebook:\n"
+        for code_data in codebook:
+            context += f'Word: {code_data["word"]}\n'
+            context += f'Description: {code_data["description"]}\n'
+            context += f'Inclusion criteria: {", ".join(code_data["inclusion_criteria"])}\n\n'
+            context += f'Exclusion criteria: {", ".join(code_data["exclusion_criteria"])}\n\n'
+
+    # Add references
+    if references:
+        context += "References:\n"
+        for code, ref_list in references.items():
+            context += f"Code: {code}\n"
+            for ref in ref_list:
+                context += f"- {ref['text']}\n"
+            context += "\n"
+
+    return context.strip()
+
+
 
 def generate_feedback(feedback):
     result = ""

@@ -12,7 +12,7 @@ import { useCollectionContext } from '../../context/collection_context';
 const { ipcRenderer } = window.require('electron');
 
 const FinalPage = () => {
-    const { subreddit } = useCollectionContext();
+    const { subreddit, datasetId } = useCollectionContext();
     const { finalCodeResponses } = useCodingContext();
 
     const [renderedPost, setRenderedPost] = useState<{
@@ -47,6 +47,7 @@ const FinalPage = () => {
             'get-link-from-post',
             post.postId,
             post.sentence,
+            datasetId,
             DB_PATH
         );
 

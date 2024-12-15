@@ -83,16 +83,16 @@ app.whenReady().then(async () => {
         config.mainWindow.webContents.send('update_downloaded');
     });
 
-    app.on('web-contents-created', (event, contents) => {
-        contents.session.webRequest.onHeadersReceived((details, callback) => {
-            callback({
-                responseHeaders: {
-                    ...details.responseHeaders,
-                    'Content-Security-Policy': ["default-src 'self' ws://localhost:8080"]
-                }
-            });
-        });
-    });
+    // app.on('web-contents-created', (event, contents) => {
+    //     contents.session.webRequest.onHeadersReceived((details, callback) => {
+    //         callback({
+    //             responseHeaders: {
+    //                 ...details.responseHeaders,
+    //                 'Content-Security-Policy': ["default-src 'self' ws://localhost:8080"]
+    //             }
+    //         });
+    //     });
+    // });
 
     // IPC listener for restarting the app to install updates
     ipcMain.on('restart_app', () => {

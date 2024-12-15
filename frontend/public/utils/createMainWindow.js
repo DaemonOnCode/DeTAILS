@@ -14,8 +14,8 @@ exports.createMainWindow = async () => {
             devTools: config.isDev,
             contextIsolation: false,
             webSecurity: false,
-            nodeIntegrationInWorker: true,
-            sandbox: false
+            nodeIntegrationInWorker: true
+            // sandbox: false
         },
         icon: config.icon,
         title: config.appName

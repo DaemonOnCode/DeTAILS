@@ -51,4 +51,11 @@ export enum REMOTE_SERVER_ROUTES {
     GENERATE_CODES = "coding/generate-codes",
     GENERATE_CODES_WITH_FEEDBACK = "coding/generate-codes-with-feedback",
     FINALIZE_CODES = "coding/finalize-codes",
+    ADD_DOCUMENTS_AND_GET_THEMES = "coding/add-documents-and-get-themes",
+    GENERATE_THEMES = "coding/generate-themes",
+    GENERATE_CODEBOOK = "coding/generate-codebook",
+    GENERATE_CODES_WITH_THEMES = "coding/generate-codes-with-themes",
+    GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = "coding/generate-codes-with-themes-and-feedback",
 }
+
+export const USE_NEW_FLOW = true;

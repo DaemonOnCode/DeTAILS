@@ -1,19 +1,25 @@
 export enum ROUTES {
     HOME = 'home',
     BASIS = 'basis',
+    BASIS_V2 = 'basis-v2',
     FLASHCARDS = 'flashcards',
+    THEME_CLOUD = 'theme-cloud',
     WORD_CLOUD = 'word-cloud',
+    CODEBOOK = 'codebook',
     //  GENERATION = 'generation',
     INITIAL_CODING = 'initial-coding',
     CODING_VALIDATION = 'coding-validation',
+    CODING_VALIDATION_V2 = 'coding-validation-v2',
     FINAL = 'final'
 }
 
 export enum LOADER_ROUTES {
     FLASHCARDS_LOADER = 'flashcards-loader',
     WORD_CLOUD_LOADER = 'word-cloud-loader',
+    CODEBOOK_LOADER = 'codebook-loader',
     CODING_VALIDATION_LOADER = 'coding-validation-loader',
-    FINAL_LOADER = 'final-loader'
+    FINAL_LOADER = 'final-loader',
+    THEME_LOADER = 'theme-loader'
 }
 
 export const DB_PATH = '../executables/test.db';

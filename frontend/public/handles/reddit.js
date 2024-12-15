@@ -19,6 +19,9 @@ const redditHandler = () => {
 
     ipcMain.handle('render-reddit-webview', async (event, url, text) => {
         console.log('url', url);
+        if (url.startsWith('/r/')) {
+            url = 'https://www.reddit.com' + url;
+        }
         // if (url.length === 6) {
         //     url = 'https://www.reddit.com/r/' + url;
         // }
@@ -67,7 +70,7 @@ const redditHandler = () => {
         });
 
         // Load the URL
-        await logger.info('Loading Reddit content:', url);
+        await logger.info(`Loading Reddit content:, ${url}`);
         view.webContents.loadURL(url);
 
         if (text) {
@@ -168,7 +171,22 @@ const redditHandler = () => {
         }
     };
 
-    ipcMain.handle('get-link-from-post', async (event, postId, commentSlice, dbPath) => {
+    ipcMain.handle('get-link-from-post', async (event, postId, commentSlice, datasetId, dbPath) => {
+        if (config.backendServer) {
+            const res = await fetch(
+                `${config.backendServer}/api/miscellaneous/get-link-from-post`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ postId, commentSlice, datasetId })
+                }
+            );
+            const data = await res.json();
+            return data.link;
+        }
+
         const db = initDatabase(dbPath);
         const postData = await getPostById(
             db,

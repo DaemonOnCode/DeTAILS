@@ -6,6 +6,7 @@ import { createTimer } from '../../utility/timer';
 import useRedditData from '../../hooks/Home/use_reddit_data';
 import RedditTableRenderer from '../../components/Shared/reddit_table_renderer';
 import { useCollectionContext } from '../../context/collection_context';
+import { USE_NEW_FLOW } from '../../constants/Shared';
 
 const HomePage: FC = () => {
     const { selectedPosts } = useCollectionContext();
@@ -37,7 +38,7 @@ const HomePage: FC = () => {
     return (
         <div className="w-full h-full flex flex-col">
             <RedditTableRenderer data={data} maxTableHeightClass="max-h-[calc(100vh-18rem)]" />
-            <NavigationBottomBar nextPage={ROUTES.BASIS} isReady={isReadyCheck} />
+            <NavigationBottomBar nextPage={USE_NEW_FLOW?ROUTES.BASIS_V2: ROUTES.BASIS} isReady={isReadyCheck} />
         </div>
     );
 };

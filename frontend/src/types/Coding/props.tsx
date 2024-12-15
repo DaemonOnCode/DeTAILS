@@ -90,3 +90,11 @@ export type WordCloudProps = {
     selectedWords: string[];
     toggleWordSelection: (word: string) => void;
 };
+
+export type ThemeCloudProps = {
+    mainCode: string;
+    themes: string[];
+    selectedThemes: string[];
+    toggleThemeSelection: (theme: string) => void;
+    setThemes: SetState<string[]>;
+};

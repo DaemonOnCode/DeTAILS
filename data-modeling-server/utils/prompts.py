@@ -208,6 +208,8 @@ Provide the updated codes in **strict JSON format** adhering to the following st
 - **Do not include any output other than the JSON object.**
 
 **Return only the JSON object in the specified format.**
+
+{context}
 """
 
     @staticmethod
@@ -449,4 +451,112 @@ Provide the following in **strict JSON format**:
 - **Do not include any output other than the JSON object.**
 
 **Return only the JSON object in the specified format.**
+"""
+
+
+systemTemplateThemes = ["""
+You are a highly skilled qualitative researcher specializing in thematic analysis. Your role is to analyze data and use the given main concept and additional context to generate related themes. Your responses must be concise, diverse, and inclusive, reflecting nuanced patterns within the data.
+                        
+### Provided context:
+{context}
+""", """\n\n{context}\n\n"""]
+
+themesTemplate = lambda mainCode, additionalInfo: f"""
+Using the following inputs:
+
+Main Code: {mainCode}
+{f"Additional Info: {additionalInfo}" if additionalInfo else ""}
+
+Generate 20 related themes. Each theme must be:
+- A single descriptive word that aligns with the given main concept and additional context.
+- Diverse, inclusive, and reflective of the input.
+
+Provide the output as a JSON object in the following format:
+{{
+  "themes": [
+    "Theme1",
+    "Theme2",
+    "Theme3",
+    ...
+    "Theme20"
+  ]
+}}
+Respond with only the JSON object.
+"""
+
+themesRegenerationTemplate = lambda mainCode, additionalInfo, feedback, selectedThemes: f"""
+Using the following inputs:
+
+Main Code: {mainCode}
+{f"Additional Info: {additionalInfo}" if additionalInfo else ""}
+Feedback: {feedback}
+Correct or User-Selected Themes: {selectedThemes}
+
+Regenerate and refine the themes based on the feedback. Ensure:
+- Themes align closely with the main concept ({mainCode}) and optional additional context.
+- Themes address the specific issues outlined in the feedback.
+- The new themes are diverse, inclusive, and more satisfactory than the original.
+
+Provide the refined output as a JSON object in the following format:
+{{
+  "themes": [
+    "Theme1",
+    "Theme2",
+    "Theme3",
+    ...
+    "Theme20"
+  ]
+}}
+Respond with only the JSON object.
+"""
+
+systemTemplateCodebook = ["""
+You are an advanced qualitative researcher and coding expert specializing in thematic analysis and codebook development. Your task is to generate a comprehensive codebook from user-provided themes. You will first receive a set of themes, and then you will create multiple related codes derived from those themes. Each code should clearly reflect an aspect of its originating theme, while providing a distinct definition, inclusion criteria, and exclusion criteria.
+
+Follow these instructions for each code you produce:
+1. The code should be a unique concept related to the originating theme.
+2. Provide a clear, concise description of the code and how it relates back to the theme.
+3. Specify inclusion criteria detailing the types of textual evidence or instances that should be coded under this code.
+4. Specify exclusion criteria detailing what should not be included to avoid confusion or overlap with other codes.
+
+### Provided context:
+{context}                          
+
+The output must be formatted as a JSON object, following this structure:
+{{
+  "codebook": [
+    {{
+      "word": "Word",
+      "description": "Description of the word and its related codes.",
+      "inclusion_criteria": ["Criteria 1", "Criteria 2", ...],
+      "exclusion_criteria": ["Criteria 1", "Criteria 2", ...]
+    }},
+    ...
+  ]
+}}
+""","""\n\n{context}\n\n"""]
+
+
+codebookTemplate = lambda mainCode, additionalInfo, selectedThemes: f"""
+Below are the themes I want you to work with: {selectedThemes}
+
+Use Main Code: {mainCode} and Additional Info: {additionalInfo} to generate a codebook. 
+
+Please generate a codebook using the instructions from the system prompt. For each provided theme, create multiple codes derived from that theme. Do not treat the themes as codes directly; instead, create codes that reflect different facets or dimensions of each theme. Make sure to include a clear description, inclusion criteria, and exclusion criteria for each code.
+
+Return the codebook as a JSON object in the following structure:
+
+{{
+  "codebook": [
+    {{
+      "word": "CodeName",
+      "description": "Description of the code and its relation to the originating theme.",
+      "inclusion_criteria": ["Example inclusion", "..."],
+      "exclusion_criteria": ["Example exclusion", "..."]
+    }},
+    ...
+  ]
+}}
+
+Respond with only the JSON object.
 """

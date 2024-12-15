@@ -16,6 +16,14 @@ export interface IWordBox {
     height: number;
 }
 
+export interface IThemeBox {
+    text: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
 export interface ISentenceBox {
     sentence: string;
     comment?: string;
@@ -109,3 +117,13 @@ export type RedditComments = {
 export type FullRedditData = {
     [id: string]: RedditPosts[string] & { comments: RedditComments };
 };
+
+
+export interface CodebookEntry {
+    word: string;
+    description: string;
+    codes?: string[];
+    inclusion_criteria: string[];
+    exclusion_criteria: string[];
+    isMarked?: boolean;
+}

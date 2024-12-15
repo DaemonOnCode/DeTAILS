@@ -1,29 +1,270 @@
-import { useEffect } from 'react';
-import { createTimer } from '../../../utility/timer';
-import { useLogger } from '../../../context/logging_context';
+import React, { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { useWebSocket } from "../../../context/websocket_context";
 
-const CodingValidationLoaderPage = () => {
-    const logger = useLogger();
+const { ipcRenderer } = window.require("electron");
 
-    useEffect(() => {
-        const timer = createTimer();
-        logger.info('Loaded Coding validation loader Page');
+const Workflow = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const llm1Ref = useRef<HTMLDivElement>(null);
+  const llm2Ref = useRef<HTMLDivElement>(null);
+  const llm3Ref = useRef<HTMLDivElement>(null);
 
-        return () => {
-            logger.info('Unloaded Coding validation loader Page').then(() => {
-                logger.time('Coding validation loader Page stay time', { time: timer.end() });
-            });
+  const { registerCallback, unregisterCallback } = useWebSocket();
+
+  const [lines, setLines] = useState<
+    { fromX: number; fromY: number; toX: number; toY: number }[]
+  >([]);
+  const [statuses, setStatuses] = useState({
+    LLM1: "not_started", // not_started | processing | success | failed
+    LLM2: "not_started",
+    LLM3: "not_started",
+    LLM3Parsing: "not_started", // parsing-specific statuses
+  });
+  const [generatedText, setGeneratedText] = useState({
+    LLM1: "",
+    LLM2: "",
+    LLM3: "",
+    LLM3Parsing: "",
+  });
+
+  const [progress, setProgress] = useState({ currentPost: 0, totalPosts: 10 });
+
+  const calculateArrowToBoxEdge = (from: DOMRect, to: DOMRect, containerRect: DOMRect) => {
+    const fromCenter = {
+      x: from.left + from.width / 2 - containerRect.left,
+      y: from.top + from.height / 2 - containerRect.top,
+    };
+
+    const toBox = {
+      top: to.top - containerRect.top,
+      bottom: to.bottom - containerRect.top,
+      left: to.left - containerRect.left,
+      right: to.right - containerRect.left,
+      centerX: to.left + to.width / 2 - containerRect.left,
+      centerY: to.top + to.height / 2 - containerRect.top,
+    };
+
+    const slope = (toBox.centerY - fromCenter.y) / (toBox.centerX - fromCenter.x);
+
+    if (Math.abs(slope) <= to.height / to.width) {
+      if (fromCenter.x < toBox.centerX) {
+        return {
+          x: toBox.left,
+          y: fromCenter.y + slope * (toBox.left - fromCenter.x),
         };
-    }, []);
+      } else {
+        return {
+          x: toBox.right,
+          y: fromCenter.y + slope * (toBox.right - fromCenter.x),
+        };
+      }
+    } else {
+      if (fromCenter.y < toBox.centerY) {
+        return {
+          x: fromCenter.x + (toBox.top - fromCenter.y) / slope,
+          y: toBox.top,
+        };
+      } else {
+        return {
+          x: fromCenter.x + (toBox.bottom - fromCenter.y) / slope,
+          y: toBox.bottom,
+        };
+      }
+    }
+  };
 
-    return (
-        <div className="h-full w-full flex flex-col gap-6 items-center justify-center">
-            <h1>Generating Codes...</h1>
-            <div className="flex justify-center mt-4">
-                <div className="loader animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
-            </div>
-        </div>
-    );
+  const updateLines = () => {
+    if (!llm1Ref.current || !llm2Ref.current || !llm3Ref.current || !containerRef.current) return;
+
+    const llm1Rect = llm1Ref.current.getBoundingClientRect();
+    const llm2Rect = llm2Ref.current.getBoundingClientRect();
+    const llm3Rect = llm3Ref.current.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
+
+    const arrow1End = calculateArrowToBoxEdge(llm1Rect, llm3Rect, containerRect);
+    const arrow2End = calculateArrowToBoxEdge(llm2Rect, llm3Rect, containerRect);
+
+    setLines([
+      { fromX: llm1Rect.left + llm1Rect.width / 2 - containerRect.left, fromY: llm1Rect.top + llm1Rect.height / 2 - containerRect.top, toX: arrow1End.x, toY: arrow1End.y },
+      { fromX: llm2Rect.left + llm2Rect.width / 2 - containerRect.left, fromY: llm2Rect.top + llm2Rect.height / 2 - containerRect.top, toX: arrow2End.x, toY: arrow2End.y },
+    ]);
+  };
+
+  useEffect(() => {
+    updateLines();
+    window.addEventListener("resize", updateLines);
+    return () => window.removeEventListener("resize", updateLines);
+  }, []);
+
+  const handleWebSocketMessage = (message: string) => {
+    console.log("Received WebSocket message:", message);
+  if (message.includes("Code generation process started")) {
+    toast.info("Code generation process has started.");
+  } else if (message.includes("Processing post")) {
+    const postId = message.match(/post (\d+)/)?.[1];
+    setStatuses({ LLM1: "not_started", LLM2: "not_started", LLM3: "not_started", LLM3Parsing: "not_started" });
+    setGeneratedText({ LLM1: "", LLM2: "", LLM3: "", LLM3Parsing: "" });
+    toast.info(`Processing started for post ${postId}`);
+  } else if (message.includes("Generating with LLM1")) {
+    setStatuses((prev) => ({ ...prev, LLM1: "processing" }));
+    setGeneratedText((prev) => ({ ...prev, LLM1: "Processing with LLM1..." }));
+  } else if (message.includes("LLM1 completed generation")) {
+    setStatuses((prev) => ({ ...prev, LLM1: "success" }));
+    setGeneratedText((prev) => ({ ...prev, LLM1: "Generated by LLM1" }));
+    toast.success("LLM1 successfully completed!");
+  } else if (message.includes("Generating with LLM2")) {
+    setStatuses((prev) => ({ ...prev, LLM2: "processing" }));
+    setGeneratedText((prev) => ({ ...prev, LLM2: "Processing with LLM2..." }));
+  } else if (message.includes("LLM2 completed generation")) {
+    setStatuses((prev) => ({ ...prev, LLM2: "success" }));
+    setGeneratedText((prev) => ({ ...prev, LLM2: "Generated by LLM2" }));
+    toast.success("LLM2 successfully completed!");
+  } else if (message.includes("Generating with LLM3")) {
+    setStatuses((prev) => ({ ...prev, LLM3: "processing" }));
+    setGeneratedText((prev) => ({ ...prev, LLM3: "Processing with LLM3..." }));
+  } else if (message.includes("Validation completed")) {
+    setStatuses((prev) => ({ ...prev, LLM3: "success", LLM3Parsing: "processing" }));
+    setGeneratedText((prev) => ({ ...prev, LLM3: "Generated by LLM3" }));
+    toast.success("Validation successfully completed!");
+  } else if (message.includes("Parsing success")) {
+    setStatuses((prev) => ({ ...prev, LLM3Parsing: "success" }));
+    setGeneratedText((prev) => ({ ...prev, LLM3Parsing: "Parsing Completed" }));
+    setProgress((prev) => ({ ...prev, currentPost: prev.currentPost + 1 }));
+    toast.success("Parsing successfully completed!");
+  } else if (message.includes("Parsing failed")) {
+    setStatuses((prev) => ({ ...prev, LLM3Parsing: "failed" }));
+    setGeneratedText((prev) => ({ ...prev, LLM3Parsing: "Parsing Failed" }));
+    toast.error("Parsing failed. Please check the logs.");
+  } else if (message.includes("ERROR:")) {
+    const errorMsg = message.split("ERROR:")[1]?.trim();
+    toast.error(`Error: ${errorMsg}`);
+  } else if (message.includes("WARNING:")) {
+    const warningMsg = message.split("WARNING:")[1]?.trim();
+    toast.warning(`Warning: ${warningMsg}`);
+  } else if (message.includes("ping")) {
+    console.log("Ping message received.");
+  }
 };
 
-export default CodingValidationLoaderPage;
+
+  useEffect(() => {
+    // Listen to messages from the main process via ipcRenderer
+    registerCallback(handleWebSocketMessage);
+    return () => {
+      // Clean up the listener when the component unmounts
+        unregisterCallback(handleWebSocketMessage);
+    };
+  }, []);
+
+  const getBorderColor = (status: string) => {
+    switch (status) {
+      case "not_started":
+        return "border-gray-400";
+      case "processing":
+        return "border-blue-500";
+      case "success":
+        return "border-green-500";
+      case "failed":
+        return "border-yellow-500"; // Yellow for parsing failure
+      default:
+        return "border-gray-300";
+    }
+  };
+
+  return (
+    <div className="w-full h-screen flex justify-center items-center bg-gray-100">
+      <div ref={containerRef} className="relative w-[600px] h-[500px]">
+        {/* Progress Bar */}
+        <div className="absolute top-[-40px] left-1/2 transform -translate-x-1/2 text-lg font-medium bg-white px-4 py-2 shadow rounded">
+          {`${progress.currentPost}/${progress.totalPosts} Posts Processed`}
+        </div>
+
+        {/* Toast Notifications */}
+        <ToastContainer />
+
+        {/* Arrows */}
+        <svg className="absolute top-0 left-0 w-full h-full">
+          {statuses.LLM1 === "success" && (
+            <motion.line
+              x1={lines[0]?.fromX}
+              y1={lines[0]?.fromY}
+              x2={lines[0]?.toX}
+              y2={lines[0]?.toY}
+              stroke="black"
+              strokeWidth="2"
+              markerEnd="url(#arrowhead)"
+              initial={{ strokeDasharray: "100%", strokeDashoffset: "100%" }}
+              animate={{ strokeDashoffset: "0%" }}
+              transition={{ duration: 1 }}
+            />
+          )}
+          {statuses.LLM2 === "success" && (
+            <motion.line
+              x1={lines[1]?.fromX}
+              y1={lines[1]?.fromY}
+              x2={lines[1]?.toX}
+              y2={lines[1]?.toY}
+              stroke="black"
+              strokeWidth="2"
+              markerEnd="url(#arrowhead)"
+              initial={{ strokeDasharray: "100%", strokeDashoffset: "100%" }}
+              animate={{ strokeDashoffset: "0%" }}
+              transition={{ duration: 1 }}
+            />
+          )}
+          <defs>
+            <marker
+              id="arrowhead"
+              markerWidth="10"
+              markerHeight="7"
+              refX="10"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="black" />
+            </marker>
+          </defs>
+        </svg>
+
+        {/* Nodes */}
+        <motion.div
+          ref={llm1Ref}
+          className={`absolute top-[10%] left-[10%] w-48 h-32 bg-white border rounded-lg shadow-md flex flex-col justify-center items-center p-4 text-center ${getBorderColor(
+            statuses.LLM1
+          )}`}
+        >
+          <p className="font-bold text-lg">LLM 1</p>
+          <p>Model: GPT-3.5</p>
+          <p>{generatedText.LLM1 || "Waiting..."}</p>
+        </motion.div>
+
+        <motion.div
+          ref={llm2Ref}
+          className={`absolute top-[10%] right-[10%] w-48 h-32 bg-white border rounded-lg shadow-md flex flex-col justify-center items-center p-4 text-center ${getBorderColor(
+            statuses.LLM2
+          )}`}
+        >
+          <p className="font-bold text-lg">LLM 2</p>
+          <p>Model: GPT-4</p>
+          <p>{generatedText.LLM2 || "Waiting..."}</p>
+        </motion.div>
+
+        <motion.div
+          ref={llm3Ref}
+          className={`absolute bottom-[10%] left-[50%] transform -translate-x-1/2 w-48 h-32 bg-white border rounded-lg shadow-md flex flex-col justify-center items-center p-4 text-center ${getBorderColor(
+            statuses.LLM3Parsing
+          )}`}
+        >
+          <p className="font-bold text-lg">LLM 3</p>
+          <p>Model: GPT-4 Fusion</p>
+          <p>{generatedText.LLM3Parsing || "Waiting..."}</p>
+        </motion.div>
+      </div>
+    </div>
+  );
+};
+
+export default Workflow;

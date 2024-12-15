@@ -16,7 +16,7 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation_botto
 import { useNavigate } from 'react-router-dom';
 import { DataContext } from '../../context/data_context';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER, USE_NEW_FLOW } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
@@ -37,7 +37,7 @@ const InitialCodingPage = () => {
     const [selectedCodeForReferences, setSelectedCodeForReferences] = useState<string | null>(null);
     const [selectedPostData, setSelectedPostData] = useState<IRedditPostData | null>(null);
 
-    const { references, setReferences, mainCode, selectedFlashcards, flashcards, selectedWords, dispatchCodeResponses} = useCodingContext();
+    const { references, setReferences, mainCode, selectedFlashcards, flashcards, selectedWords, dispatchCodeResponses, codeBook} = useCodingContext();
     const { selectedPosts, datasetId } = useCollectionContext();
 
     const logger = useLogger();
@@ -167,29 +167,54 @@ const InitialCodingPage = () => {
 
 
         if(!USE_LOCAL_SERVER){
-            const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: MODEL_LIST.LLAMA_3_2,
-                    references,
-                    mainCode,
-                    flashcards: selectedFlashcards.map((id) => {
-                        return {
-                            question: flashcards.find((flashcard) => flashcard.id === id)!.question,
-                            answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
-                        };
-                    }),
-                    selectedWords,
-                    selectedPosts,
-                    datasetId
-                })
-            });
+            let results;
+            // await ipcRenderer.invoke("connect-ws", datasetId);
 
-            const results = await res.json();
-            console.log(results, 'Initial Coding Page');
+            if(USE_NEW_FLOW){
+                const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_THEMES}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: MODEL_LIST.LLAMA_3_2,
+                        references,
+                        mainCode,
+                        codeBook,
+                        selectedPosts,
+                        datasetId
+                    })
+                });
+    
+                results = await res.json();
+                console.log(results, 'Initial Coding Page');
+            }
+            else{
+
+                const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: MODEL_LIST.LLAMA_3_2,
+                        references,
+                        mainCode,
+                        flashcards: selectedFlashcards.map((id) => {
+                            return {
+                                question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+                                answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+                            };
+                        }),
+                        selectedWords,
+                        selectedPosts,
+                        datasetId
+                    })
+                });
+    
+                results = await res.json();
+                console.log(results, 'Initial Coding Page');
+            }
 
             let parsedResults: {
                 unified_codebook: {
@@ -232,6 +257,7 @@ const InitialCodingPage = () => {
                 type: 'ADD_RESPONSES',
                 responses: totalCodes
             });
+            // await ipcRenderer.invoke("disconnect-ws", datasetId);
             return;
         }
 
@@ -374,7 +400,7 @@ const InitialCodingPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.WORD_CLOUD}
-                nextPage={ROUTES.CODING_VALIDATION}
+                nextPage={USE_NEW_FLOW ? ROUTES.CODING_VALIDATION_V2: ROUTES.CODING_VALIDATION}
                 isReady={true}
                 onNextClick={handleNextClick}
             />

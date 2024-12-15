@@ -174,7 +174,8 @@ const FlashcardsPage = () => {
             console.log(result, 'Initial result from generate-words');
             // parsedResult = JSON.parse(result);
             if (result.words.length > 0) {
-                setWords(result.words);
+                // setWords(result.words);
+                setWords(Array.from(new Set(result.words)));
             } else {
                 console.error('Failed to generate words after retries');
             }

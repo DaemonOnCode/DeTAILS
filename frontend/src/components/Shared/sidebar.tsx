@@ -16,7 +16,7 @@ const formatRouteName = (path: string) => {
 };
 
 // Define keywords to filter out paths
-const IGNORED_KEYWORDS = ['*', '/', 'loader'];
+const IGNORED_KEYWORDS = ['*', '/', 'cleaning', 'modeling', 'basis', 'flashcards', 'word-cloud', 'coding-validation'];
 
 const Sidebar: FC = () => {
     const location = useLocation();
@@ -40,7 +40,7 @@ const Sidebar: FC = () => {
     // Check if a route should be ignored
     const shouldIgnoreRoute = (path: string | undefined) => {
         if (!path) return false;
-        return IGNORED_KEYWORDS.some((keyword) => path.toLowerCase().includes(keyword));
+        return IGNORED_KEYWORDS.some((keyword) => path.toLowerCase() === keyword);
     };
 
     // Highlight current route
