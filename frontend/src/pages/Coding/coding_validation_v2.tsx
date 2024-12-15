@@ -292,7 +292,7 @@ const CodingValidationV2Page: FC = () => {
                                     <td className="border border-gray-400 p-2 max-w-md">
                                         {response.sentence}
                                     </td>
-                                    <td className="border border-gray-400 p-2 max-w-32 break-all">
+                                    <td className="border border-gray-400 p-2 max-w-32 break-words">
                                         {response.coded_word}
                                     </td>
                                     <td className="border border-gray-400 p-2 min-w-24">

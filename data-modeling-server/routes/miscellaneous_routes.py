@@ -36,11 +36,11 @@ def search_slice(comment, normalized_comment_slice):
 
 def link_creator(id, type, postId, subreddit):
     if (type == 'post') :
-        return f"https://www.reddit.com/r/${subreddit}/comments/${postId}/"
+        return f"https://www.reddit.com/r/{subreddit}/comments/{postId}/"
     elif (type == 'comment') :
-        return f"https://www.reddit.com/r/${subreddit}/comments/${postId}/${id}/"
+        return f"https://www.reddit.com/r/{subreddit}/comments/{postId}/{id}/"
 
-@router.get("/get-link-from-post", response_model=dict)
+@router.post("/get-link-from-post", response_model=dict)
 async def get_reddit_post_link(
     request: RedditPostLinkRequest
 ):
@@ -52,13 +52,14 @@ async def get_reddit_post_link(
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT selftext, title, subreddit, url, permalink
+            SELECT id, selftext, title, subreddit, url, permalink
             FROM posts
             WHERE id = ? AND dataset_id = ?
             """,
             (post_id, dataset_id)
         )
         post_data = cursor.fetchone()
+        post_data = dict(post_data)
 
         comment_data = cursor.execute(
             """
@@ -68,6 +69,7 @@ async def get_reddit_post_link(
             """,
             (post_id, dataset_id)
         ).fetchall()
+        comment_data = [dict(row) for row in comment_data]
 
     print(f"Post data: {post_data}", f"Comment data: {comment_data}")
 
@@ -79,6 +81,7 @@ async def get_reddit_post_link(
         normalized_comment_slice in normalize_text(post_data.get('selftext', ''))
     ):
         print(f"Found in post: {post_data.get('id')}")
+        print(f"Link: {link_creator(post_data.get('id'), 'post', post_data.get('id'), post_data.get('subreddit'))}")
         return {"link":link_creator(post_data.get('id'), 'post', post_data.get('id'), post_data.get('subreddit'))}
     
     comment_id = None
@@ -90,7 +93,9 @@ async def get_reddit_post_link(
 
     if comment_id:
         print(f"Found in comment: {comment_id}")
+        print(f"Link: {link_creator(comment_id, 'comment', post_data.get('id'), post_data.get('subreddit'))}")
         return {"link":link_creator(comment_id, 'comment', post_data.get('id'), post_data.get('subreddit'))}
 
     print(f"Link not found, returning post link: {post_data.get('id')}")
+    print(f"Link: {link_creator(post_data.get('id'), 'post', post_data.get('id'), post_data.get('subreddit'))}")
     return {"link":link_creator(post_data.get('id'), 'post', post_data.get('id'), post_data.get('subreddit'))}

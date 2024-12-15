@@ -26,6 +26,48 @@ from routes.websocket_routes import manager
 
 router = APIRouter()
 
+from concurrent.futures import ThreadPoolExecutor
+from typing import Callable, Any, Optional
+import asyncio
+
+# Create a thread pool executor for offloading blocking tasks
+executor = ThreadPoolExecutor()
+
+async def run_in_threadpool(func: Callable, *args: Any, timeout: Optional[float] = None, **kwargs: Any) -> Any:
+    """
+    Run a function in a thread pool with optional timeout.
+
+    Args:
+        func (Callable): The function to execute in the thread pool.
+        *args (Any): Positional arguments for the function.
+        timeout (Optional[float]): Maximum time to wait for the function to complete (in seconds).
+        **kwargs (Any): Keyword arguments for the function.
+
+    Returns:
+        Any: The result of the function.
+
+    Raises:
+        asyncio.TimeoutError: If the function execution exceeds the specified timeout.
+        Exception: If the function raises an exception during execution.
+    """
+    loop = asyncio.get_event_loop()
+
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(executor, func, *args, **kwargs),
+            timeout=timeout
+        )
+    except asyncio.TimeoutError:
+        raise asyncio.TimeoutError(f"Function '{func.__name__}' timed out after {timeout} seconds.")
+
+# Example of wrapping Chroma and Ollama calls
+def add_documents_to_vector_store(vector_store: Chroma, chunks):
+    vector_store.add_documents(chunks)
+
+def run_llm_chain(rag_chain, input_text):
+    return rag_chain.invoke({"input": input_text})
+
+
 # Request model
 class AddDocumentsRequest(BaseModel):
     documents: dict  # {file_path: content}
@@ -34,28 +76,23 @@ class AddDocumentsRequest(BaseModel):
 
 @router.post("/add-documents-langchain")
 async def add_documents_langchain(
-    basisFiles: List[UploadFile],  # List of uploaded files
-    model: str = Form(...),  # Model as a form field
-    mainCode: str = Form(...),  # Main code as a form field
-    additionalInfo: str = Form(""),  # Optional additional info
-    retry: bool = Form(False),  # Retry flag
-    dataset_id: str = Form(...)  # Dataset ID for identifying notifications
+    basisFiles: List[UploadFile],
+    model: str = Form(...),
+    mainCode: str = Form(...),
+    additionalInfo: str = Form(""),
+    retry: bool = Form(False),
+    dataset_id: str = Form(...)
 ):
     try:
-        # Notify clients that processing has started
         await manager.broadcast(f"Dataset {dataset_id}: Processing started.")
-        await asyncio.sleep(0)
 
         # Initialize embeddings and vector store
-        print("Model: ", model)
         embeddings = OllamaEmbeddings(model=model)
         chroma_client = HttpClient(host="localhost", port=8000)
         vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
-        # Notify clients that file upload is starting
         await manager.broadcast(f"Dataset {dataset_id}: Uploading files...")
-        await asyncio.sleep(0)
 
         # Process uploaded files with retry logic
         for file in basisFiles:
@@ -76,7 +113,10 @@ async def add_documents_langchain(
                     loader = PyPDFLoader(temp_file_path)
                     docs = loader.load()
                     chunks = text_splitter.split_documents(docs)
-                    vector_store.add_documents(chunks)
+
+                    # Offload Chroma vector store operation to thread pool
+                    await run_in_threadpool(add_documents_to_vector_store, vector_store, chunks)
+
                     os.remove(temp_file_path)
                     success = True
                     await manager.broadcast(f"Dataset {dataset_id}: Successfully processed file {file_name}.")
@@ -87,14 +127,10 @@ async def add_documents_langchain(
                         await manager.broadcast(f"ERROR: Dataset {dataset_id}: Failed to process file {file.filename} after multiple attempts.")
                         raise e
 
-        # Notify clients that upload is complete
         await manager.broadcast(f"Dataset {dataset_id}: Files uploaded successfully.")
-        await asyncio.sleep(0)
 
         # Notify clients that retriever creation is starting
         await manager.broadcast(f"Dataset {dataset_id}: Creating retriever...")
-        await asyncio.sleep(0)
-
         retriever = vector_store.as_retriever()
 
         prompt_template = ChatPromptTemplate.from_messages([
@@ -102,13 +138,12 @@ async def add_documents_langchain(
             ("human", "{input}")
         ])
 
-        # Notify clients that flashcard generation is starting
         await manager.broadcast(f"Dataset {dataset_id}: Generating flashcards...")
-        await asyncio.sleep(0)
 
         # Generate flashcards with retry logic
         retries = 3
         success = False
+        parsed_flashcards = []
         while retries > 0 and not success:
             try:
                 llm = OllamaLLM(
@@ -122,11 +157,11 @@ async def add_documents_langchain(
                 rag_chain = create_retrieval_chain(retriever=retriever, combine_docs_chain=question_answer_chain)
 
                 input_text = prompts.flashcardTemplate(mainCode, additionalInfo)
-                results = rag_chain.invoke({"input": input_text})
 
-                # Notify clients that flashcards are being parsed
+                # Offload LLM chain invocation to thread pool
+                results = await run_in_threadpool(run_llm_chain, rag_chain, input_text, timeout=180)
+
                 await manager.broadcast(f"Dataset {dataset_id}: Parsing generated flashcards...")
-                await asyncio.sleep(0)
 
                 regex = r"(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*\"flashcards\"\s*:\s*\[(?P<flashcards>(?:\{\s*\"question\"\s*:\s*\".*?\"\s*,\s*\"answer\"\s*:\s*\".*?\"\s*\},?\s*)+)\]\s*\}|\[\s*(?P<standalone>(?:\{\s*\"question\"\s*:\s*\".*?\"\s*,\s*\"answer\"\s*:\s*\".*?\"\s*\},?\s*)+)\s*\])(?:\n```)?"
 
@@ -151,9 +186,7 @@ async def add_documents_langchain(
                     await manager.broadcast(f"ERROR: Dataset {dataset_id}: Failed to generate flashcards after multiple attempts.")
                     raise e
 
-        # Notify clients that processing is complete
         await manager.broadcast(f"Dataset {dataset_id}: Processing complete.")
-        await asyncio.sleep(0)
 
         return {
             "message": "Documents processed and flashcards generated successfully.",
@@ -180,18 +213,14 @@ async def add_documents_and_get_themes(
     try:
         # Notify clients that processing has started
         await manager.broadcast(f"Dataset {dataset_id}: Processing started.")
-        await asyncio.sleep(0)
 
         # Initialize embeddings and vector store
-        print("Model: ", model)
         embeddings = OllamaEmbeddings(model=model)
         chroma_client = HttpClient(host="localhost", port=8000)
         vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
-        # Notify clients that file upload is starting
         await manager.broadcast(f"Dataset {dataset_id}: Uploading files...")
-        await asyncio.sleep(0)
 
         # Process uploaded files with retry logic
         for file in basisFiles:
@@ -212,7 +241,10 @@ async def add_documents_and_get_themes(
                     loader = PyPDFLoader(temp_file_path)
                     docs = loader.load()
                     chunks = text_splitter.split_documents(docs)
-                    vector_store.add_documents(chunks)
+
+                    # Offload Chroma vector store operation to thread pool
+                    await run_in_threadpool(vector_store.add_documents, chunks)
+
                     os.remove(temp_file_path)
                     success = True
                     await manager.broadcast(f"Dataset {dataset_id}: Successfully processed file {file_name}.")
@@ -223,13 +255,10 @@ async def add_documents_and_get_themes(
                         await manager.broadcast(f"ERROR: Dataset {dataset_id}: Failed to process file {file.filename} after multiple attempts.")
                         raise e
 
-        # Notify clients that upload is complete
         await manager.broadcast(f"Dataset {dataset_id}: Files uploaded successfully.")
-        await asyncio.sleep(0)
 
         # Notify clients that retriever creation is starting
         await manager.broadcast(f"Dataset {dataset_id}: Creating retriever...")
-        await asyncio.sleep(0)
 
         retriever = vector_store.as_retriever()
 
@@ -238,13 +267,12 @@ async def add_documents_and_get_themes(
             ("human", "{input}")
         ])
 
-        # Notify clients that theme generation is starting
         await manager.broadcast(f"Dataset {dataset_id}: Generating Themes...")
-        await asyncio.sleep(0)
 
         # Generate themes with retry logic
         retries = 3
         success = False
+        parsed_themes = []
         while retries > 0 and not success:
             try:
                 llm = OllamaLLM(
@@ -258,11 +286,11 @@ async def add_documents_and_get_themes(
                 rag_chain = create_retrieval_chain(retriever=retriever, combine_docs_chain=question_answer_chain)
 
                 input_text = prompts.themesTemplate(mainCode, additionalInfo)
-                results = rag_chain.invoke({"input": input_text})
 
-                # Notify clients that themes are being parsed
+                # Offload LLM chain invocation to thread pool
+                results = await run_in_threadpool(rag_chain.invoke, {"input": input_text}, timeout=180)
+
                 await manager.broadcast(f"Dataset {dataset_id}: Parsing generated themes...")
-                await asyncio.sleep(0)
 
                 regex = r"(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*\"themes\"\s*:\s*\[(?P<themes>(?:\s*\".*?\"\s*,?)*?)\s*\}|\[\s*(?P<standalone>(?:\s*\".*?\"\s*,?)*?)\s*\])(?:\n```)?"
 
@@ -287,9 +315,7 @@ async def add_documents_and_get_themes(
                     await manager.broadcast(f"ERROR: Dataset {dataset_id}: Failed to generate themes after multiple attempts.")
                     raise e
 
-        # Notify clients that processing is complete
         await manager.broadcast(f"Dataset {dataset_id}: Processing complete.")
-        await asyncio.sleep(0)
 
         return {
             "message": "Documents processed and themes generated successfully.",
@@ -300,7 +326,6 @@ async def add_documents_and_get_themes(
         await manager.broadcast(f"ERROR: Dataset {dataset_id}: Error encountered - {str(e)}")
         print(e)
         raise HTTPException(status_code=500, detail=f"Error processing documents: {str(e)}")
-
 
 
 # @router.post("/add-documents-langchain")
@@ -454,7 +479,6 @@ async def generate_additional_flashcards(request: GenerateFlashcardsRequest):
     try:
         # Notify clients that flashcard generation has started
         await manager.broadcast(f"Dataset {request.dataset_id}: Additional flashcard generation started.")
-        await asyncio.sleep(0)
 
         # Initialize retriever with retry logic
         retries = 3
@@ -464,7 +488,9 @@ async def generate_additional_flashcards(request: GenerateFlashcardsRequest):
                 embeddings = OllamaEmbeddings(model=request.model)
                 chroma_client = HttpClient(host="localhost", port=8000)
                 vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
-                retriever = vector_store.as_retriever()
+
+                # Offload retriever creation to thread pool
+                retriever = await run_in_threadpool(vector_store.as_retriever)
                 success = True
                 await manager.broadcast(f"Dataset {request.dataset_id}: Retriever created successfully.")
             except Exception as e:
@@ -514,9 +540,10 @@ async def generate_additional_flashcards(request: GenerateFlashcardsRequest):
                     request.mainCode, request.additionalInfo, request.feedback, request.flashcards
                 )
                 await manager.broadcast(f"Dataset {request.dataset_id}: Generating additional flashcards...")
-                results = rag_chain.invoke({"input": input_text})
 
-                print("Flashcards generated")
+                # Offload flashcard generation to thread pool
+                results = await run_in_threadpool(rag_chain.invoke, {"input": input_text}, timeout=180)
+
                 await manager.broadcast(f"Dataset {request.dataset_id}: Flashcards generated successfully.")
 
                 # Parse the results to extract flashcards
@@ -544,7 +571,6 @@ async def generate_additional_flashcards(request: GenerateFlashcardsRequest):
 
         # Notify clients that the process is complete
         await manager.broadcast(f"Dataset {request.dataset_id}: Additional flashcard generation process complete.")
-        await asyncio.sleep(0)
 
         return {
             "message": "Additional flashcards generated successfully.",
@@ -555,7 +581,6 @@ async def generate_additional_flashcards(request: GenerateFlashcardsRequest):
         await manager.broadcast(f"ERROR: Dataset {request.dataset_id}: Error encountered - {str(e)}")
         print(e)
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
 
 class GenerateThemesRequest(BaseModel):
     model: str
@@ -570,17 +595,19 @@ async def generate_themes(request: GenerateThemesRequest):
     try:
         # Notify clients that processing has started
         await manager.broadcast(f"Dataset {request.dataset_id}: Theme generation started.")
-        await asyncio.sleep(0)
 
         # Initialize retriever with retry logic
         retries = 3
         success = False
+        retriever = None
         while retries > 0 and not success:
             try:
                 embeddings = OllamaEmbeddings(model=request.model)
                 chroma_client = HttpClient(host="localhost", port=8000)
                 vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
-                retriever = vector_store.as_retriever()
+
+                # Offload retriever creation to thread pool
+                retriever = await run_in_threadpool(vector_store.as_retriever)
                 success = True
                 await manager.broadcast(f"Dataset {request.dataset_id}: Retriever created successfully.")
             except Exception as e:
@@ -616,20 +643,22 @@ async def generate_themes(request: GenerateThemesRequest):
 
         print("RAG chain created")
         await manager.broadcast(f"Dataset {request.dataset_id}: RAG chain created successfully.")
-        await asyncio.sleep(0)
 
         # Generate themes with retry logic
         retries = 3
         success = False
+        parsed_themes = []
         while retries > 0 and not success:
             try:
                 input_text = prompts.themesRegenerationTemplate(
                     request.mainCode, request.additionalInfo, request.selectedThemes, request.feedback
                 )
-                
+
                 print("Regenerating themes...")
                 await manager.broadcast(f"Dataset {request.dataset_id}: Regenerating themes...")
-                results = rag_chain.invoke({"input": input_text})
+
+                # Offload theme generation to thread pool
+                results = await run_in_threadpool(rag_chain.invoke, {"input": input_text}, timeout=180)
 
                 print("Themes regenerated")
                 await manager.broadcast(f"Dataset {request.dataset_id}: Themes regenerated successfully.")
@@ -659,18 +688,16 @@ async def generate_themes(request: GenerateThemesRequest):
 
         # Notify clients that processing is complete
         await manager.broadcast(f"Dataset {request.dataset_id}: Theme generation complete.")
-        await asyncio.sleep(0)
 
         return {
             "message": "Themes generated successfully.",
             "themes": parsed_themes,
         }
+
     except Exception as e:
         await manager.broadcast(f"ERROR: Dataset {request.dataset_id}: Error encountered - {str(e)}")
         print(e)
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
 
 class GenerateCodeBookRequest(BaseModel):
     model: str
@@ -685,17 +712,19 @@ async def generate_codebook(request: GenerateCodeBookRequest):
     try:
         # Notify clients that the codebook generation process has started
         await manager.broadcast(f"Dataset {request.dataset_id}: Codebook generation started.")
-        await asyncio.sleep(0)
 
         # Initialize retriever with retry logic
         retries = 3
         success = False
+        retriever = None
         while retries > 0 and not success:
             try:
                 embeddings = OllamaEmbeddings(model=request.model)
                 chroma_client = HttpClient(host="localhost", port=8000)
                 vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
-                retriever = vector_store.as_retriever()
+
+                # Offload retriever creation to thread pool
+                retriever = await run_in_threadpool(vector_store.as_retriever)
                 success = True
                 await manager.broadcast(f"Dataset {request.dataset_id}: Retriever created successfully.")
             except Exception as e:
@@ -731,18 +760,20 @@ async def generate_codebook(request: GenerateCodeBookRequest):
 
         print("RAG chain created")
         await manager.broadcast(f"Dataset {request.dataset_id}: RAG chain created successfully.")
-        await asyncio.sleep(0)
 
         # Generate codebook with retry logic
         retries = 3
         success = False
+        parsed_codebook = []
         while retries > 0 and not success:
             try:
                 input_text = prompts.codebookTemplate(request.mainCode, request.additionalInfo, request.selectedThemes)
 
                 print("Generating codebook...")
                 await manager.broadcast(f"Dataset {request.dataset_id}: Generating codebook...")
-                results = rag_chain.invoke({"input": input_text})
+
+                # Offload codebook generation to thread pool
+                results = await run_in_threadpool(rag_chain.invoke, {"input": input_text}, timeout=180)
 
                 print("Codebook generated")
                 await manager.broadcast(f"Dataset {request.dataset_id}: Codebook generated successfully.")
@@ -773,7 +804,6 @@ async def generate_codebook(request: GenerateCodeBookRequest):
 
         # Notify clients that processing is complete
         await manager.broadcast(f"Dataset {request.dataset_id}: Codebook generation process complete.")
-        await asyncio.sleep(0)
 
         return {
             "message": "Codebook generated successfully.",
@@ -784,7 +814,6 @@ async def generate_codebook(request: GenerateCodeBookRequest):
         await manager.broadcast(f"ERROR: Dataset {request.dataset_id}: Error encountered - {str(e)}")
         print(e)
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
 
 
 class GenerateWordsRequest(BaseModel):
@@ -801,24 +830,26 @@ async def generate_words(request: GenerateWordsRequest):
     try:
         # Notify clients that the word generation process has started
         await manager.broadcast(f"Dataset {request.datasetId}: Word generation process started.")
-        await asyncio.sleep(0)
 
         # Initialize retriever with retry logic
         retries = 3
         success = False
+        retriever = None
         while retries > 0 and not success:
             try:
                 embeddings = OllamaEmbeddings(model=request.model)
                 chroma_client = HttpClient(host="localhost", port=8000)
                 vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
-                retriever = vector_store.as_retriever()
+
+                # Offload retriever creation to thread pool
+                retriever = await run_in_threadpool(vector_store.as_retriever)
                 success = True
                 await manager.broadcast(f"Dataset {request.datasetId}: Retriever created successfully.")
             except Exception as e:
                 retries -= 1
-                await manager.broadcast(f"Dataset {request.datasetId}: Error creating retriever - {str(e)}. Retrying... ({3 - retries}/3)")
+                await manager.broadcast(f"WARNING: Dataset {request.datasetId}: Error creating retriever - {str(e)}. Retrying... ({3 - retries}/3)")
                 if retries == 0:
-                    await manager.broadcast(f"Dataset {request.datasetId}: Failed to create retriever after multiple attempts.")
+                    await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Failed to create retriever after multiple attempts.")
                     raise e
 
         # Create LLM chain
@@ -847,18 +878,24 @@ async def generate_words(request: GenerateWordsRequest):
 
         print("RAG chain created")
         await manager.broadcast(f"Dataset {request.datasetId}: RAG chain created successfully.")
-        await asyncio.sleep(0)
 
         # Generate words with retry logic
         retries = 3
         success = False
+        parsed_words = []
         while retries > 0 and not success:
             try:
-                input_text = prompts.wordCloudTemplate(request.mainCode, request.flashcards) if not request.regenerate else prompts.wordCloudRegenerationTemplate(request.mainCode, request.selectedWords, request.feedback)
-                
+                input_text = prompts.wordCloudTemplate(
+                    request.mainCode, request.flashcards
+                ) if not request.regenerate else prompts.wordCloudRegenerationTemplate(
+                    request.mainCode, request.selectedWords, request.feedback
+                )
+
                 print("Generating words...")
                 await manager.broadcast(f"Dataset {request.datasetId}: Generating words...")
-                results = rag_chain.invoke({"input": input_text})
+
+                # Offload word generation to thread pool
+                results = await run_in_threadpool(rag_chain.invoke, {"input": input_text}, timeout=180)
 
                 print("Words generated")
                 await manager.broadcast(f"Dataset {request.datasetId}: Words generated successfully.")
@@ -881,14 +918,13 @@ async def generate_words(request: GenerateWordsRequest):
                 success = True
             except Exception as e:
                 retries -= 1
-                await manager.broadcast(f"Dataset {request.datasetId}: Error generating words - {str(e)}. Retrying... ({3 - retries}/3)")
+                await manager.broadcast(f"WARNING: Dataset {request.datasetId}: Error generating words - {str(e)}. Retrying... ({3 - retries}/3)")
                 if retries == 0:
-                    await manager.broadcast(f"Dataset {request.datasetId}: Failed to generate words after multiple attempts.")
+                    await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Failed to generate words after multiple attempts.")
                     raise e
 
         # Notify clients that processing is complete
         await manager.broadcast(f"Dataset {request.datasetId}: Word generation process complete.")
-        await asyncio.sleep(0)
 
         return {
             "message": "Words generated successfully.",
@@ -896,10 +932,9 @@ async def generate_words(request: GenerateWordsRequest):
         }
 
     except Exception as e:
-        await manager.broadcast(f"Dataset {request.datasetId}: Error encountered - {str(e)}")
+        await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Error encountered - {str(e)}")
         print(e)
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
 
 class GenerateCodesRequest(BaseModel):
     model: str
@@ -914,6 +949,10 @@ class GenerateCodesRequest(BaseModel):
 @router.post("/generate-codes")
 async def generate_codes_with_feedback(request: GenerateCodesRequest):
     try:
+        # Notify clients that the code generation process has started
+        await manager.broadcast(f"Dataset {request.datasetId}: Code generation process started.")
+
+        # Initialize LLMs
         llm1 = OllamaLLM(
             model=request.model,
             num_ctx=16384,
@@ -941,130 +980,138 @@ async def generate_codes_with_feedback(request: GenerateCodesRequest):
 
         while len(posts) > 0:
             post_id = posts[0]
-            await manager.broadcast(f"Processing post {post_id}...")
+            await manager.broadcast(f"Dataset {request.datasetId}: Processing post {post_id}...")
 
-            # Fetch post and comments
-            post_data = get_post_with_comments(request.datasetId, post_id)
-            await manager.broadcast(f"Post {post_id}: Generating transcript...")
+            try:
+                # Fetch post and comments
+                await manager.broadcast(f"Dataset {request.datasetId}: Fetching data for post {post_id}...")
+                post_data = await run_in_threadpool(get_post_with_comments, request.datasetId, post_id)
 
-            transcript = generate_transcript(post_data)
-            context = generate_context(
-                request.references,
-                request.mainCode,
-                request.flashcards,
-                request.selectedWords,
-            )
-            # feedback_text = generate_feedback(request.feedback)
+                # Generate transcript and context
+                await manager.broadcast(f"Dataset {request.datasetId}: Generating transcript for post {post_id}...")
+                transcript = await run_in_threadpool(generate_transcript, post_data)
+                context = await run_in_threadpool(
+                    generate_context,
+                    request.references,
+                    request.mainCode,
+                    request.flashcards,
+                    request.selectedWords,
+                )
 
-            # Retry logic for LLM1
-            retries = 0
-            max_retries = 3
-            result1 = None
-            while retries < max_retries:
-                try:
+                # Retry logic for LLM1
+                retries = 3
+                success = False
+                result1 = None
+                while retries > 0 and not success:
+                    try:
+                        await manager.broadcast(f"Dataset {request.datasetId}: Generating with LLM1 for post {post_id}...")
+                        generation_prompt_1 = CodePrompts.generate(transcript, context)
+                        result1 = await run_in_threadpool(llm1.invoke, generation_prompt_1, timeout=180)
+                        success = True
+                        await manager.broadcast(f"Dataset {request.datasetId}: LLM1 completed generation for post {post_id}.")
+                    except Exception as e:
+                        retries -= 1
+                        await manager.broadcast(
+                            f"WARNING: Dataset {request.datasetId}: Error generating with LLM1 for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)"
+                        )
+                        if retries == 0:
+                            await manager.broadcast(
+                                f"ERROR: Dataset {request.datasetId}: LLM1 failed for post {post_id} after multiple attempts."
+                            )
+                            raise e
+
+                # Retry logic for LLM2
+                retries = 3
+                success = False
+                result2 = None
+                while retries > 0 and not success:
+                    try:
+                        await manager.broadcast(f"Dataset {request.datasetId}: Generating with LLM2 for post {post_id}...")
+                        generation_prompt_2 = CodePrompts.generate(transcript, context)
+                        result2 = await run_in_threadpool(llm2.invoke, generation_prompt_2, timeout=180)
+                        success = True
+                        await manager.broadcast(f"Dataset {request.datasetId}: LLM2 completed generation for post {post_id}.")
+                    except Exception as e:
+                        retries -= 1
+                        await manager.broadcast(
+                            f"WARNING: Dataset {request.datasetId}: Error generating with LLM2 for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)"
+                        )
+                        if retries == 0:
+                            await manager.broadcast(
+                                f"ERROR: Dataset {request.datasetId}: LLM2 failed for post {post_id} after multiple attempts."
+                            )
+                            raise e
+
+                # Retry logic for Validation (judge_llm)
+                retries = 3
+                success = False
+                validation_result = None
+                while retries > 0 and not success:
+                    try:
+                        await manager.broadcast(f"Dataset {request.datasetId}: Validating results with judge LLM for post {post_id}...")
+                        validate_prompt = CodePrompts.judge_validate(
+                            result1, result2, transcript, request.mainCode
+                        )
+                        validation_result = await run_in_threadpool(judge_llm.invoke, validate_prompt, timeout=180)
+                        success = True
+                        await manager.broadcast(f"Dataset {request.datasetId}: Validation completed for post {post_id}.")
+                    except Exception as e:
+                        retries -= 1
+                        await manager.broadcast(
+                            f"WARNING: Dataset {request.datasetId}: Validation failed for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)"
+                        )
+                        if retries == 0:
+                            await manager.broadcast(
+                                f"ERROR: Dataset {request.datasetId}: Validation failed for post {post_id} after multiple attempts."
+                            )
+                            raise e
+
+                # Parse validation results
+                match = re.search(
+                    r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
+                    validation_result,
+                )
+
+                if not match:
                     await manager.broadcast(
-                        f"Post {post_id}: Generating code with LLM1 (Attempt {retries + 1})..."
+                        f"WARNING: Dataset {request.datasetId}: Validation result parsing failed for post {post_id}."
                     )
-                    generation_prompt_1 = CodePrompts.generate(transcript, context)
-                    result1 = llm1.invoke(generation_prompt_1)
-                    await manager.broadcast(f"Post {post_id}: LLM1 completed successfully.")
-                    break
-                except Exception as e:
-                    retries += 1
-                    await manager.broadcast(f"WARNING: Post {post_id}: LLM1 failed on attempt {retries}. Retrying...")
+                    final_results.append({"unified_codebook": [], "recoded_transcript": []})
+                else:
+                    try:
+                        unified_codebook = json.loads(match.group(1))
+                        recoded_transcript = (
+                            json.loads(match.group(2)) if match.group(2) else []
+                        )
+                        final_results.append(
+                            {
+                                "unified_codebook": unified_codebook,
+                                "recoded_transcript": recoded_transcript,
+                            }
+                        )
+                        await manager.broadcast(
+                            f"Dataset {request.datasetId}: Post {post_id} processed successfully."
+                        )
+                    except json.JSONDecodeError as e:
+                        await manager.broadcast(
+                            f"ERROR: Dataset {request.datasetId}: Error parsing JSON validation results for post {post_id}."
+                        )
+                        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-            if result1 is None:
-                await manager.broadcast(f"WARNING: Post {post_id}: LLM1 failed after {max_retries} retries.")
-                final_results.append({"unified_codebook": [], "recoded_transcript": []})
+                # Remove processed post from the queue
                 posts.pop(0)
-                continue
 
-            # Retry logic for LLM2
-            retries = 0
-            result2 = None
-            while retries < max_retries:
-                try:
-                    await manager.broadcast(
-                        f"Post {post_id}: Generating code with LLM2 (Attempt {retries + 1})..."
-                    )
-                    generation_prompt_2 = CodePrompts.generate(transcript, context)
-                    result2 = llm2.invoke(generation_prompt_2)
-                    await manager.broadcast(f"Post {post_id}: LLM2 completed successfully.")
-                    break
-                except Exception as e:
-                    retries += 1
-                    await manager.broadcast(f"WARNING: Post {post_id}: LLM2 failed on attempt {retries}. Retrying...")
-
-            if result2 is None:
-                await manager.broadcast(f"ERROR: Post {post_id}: LLM2 failed after {max_retries} retries.")
-                final_results.append({"unified_codebook": [], "recoded_transcript": []})
+            except Exception as e:
+                await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Error processing post {post_id} - {str(e)}.")
                 posts.pop(0)
-                continue
 
-            # Retry logic for Validation (judge_llm)
-            retries = 0
-            validation_result = None
-            while retries < max_retries:
-                try:
-                    await manager.broadcast(
-                        f"Post {post_id}: Validating results with judge LLM (Attempt {retries + 1})..."
-                    )
-                    validate_prompt = CodePrompts.judge_validate(
-                        result1, result2, transcript, request.mainCode
-                    )
-                    validation_result = judge_llm.invoke(validate_prompt)
-                    await manager.broadcast(f"Post {post_id}: Validation completed successfully.")
-                    break
-                except Exception as e:
-                    retries += 1
-                    await manager.broadcast(
-                        f"WARNING: Post {post_id}: Validation failed on attempt {retries}. Retrying..."
-                    )
-
-            if validation_result is None:
-                await manager.broadcast(f"ERROR: Post {post_id}: Validation failed after {max_retries} retries.")
-                final_results.append({"unified_codebook": [], "recoded_transcript": []})
-                raise HTTPException(status_code=500, detail=f"Error: Validation failed after {max_retries} retries.")
-                continue
-
-            # Parse validation results
-            match = re.search(
-                r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
-                validation_result,
-            )
-
-            if not match:
-                await manager.broadcast(f"WARNING: Post {post_id}: Validation result parsing failed.")
-                final_results.append({"unified_codebook": [], "recoded_transcript": []})
-            else:
-                try:
-                    unified_codebook = json.loads(match.group(1))
-                    recoded_transcript = (
-                        json.loads(match.group(2)) if match.group(2) else []
-                    )
-                    final_results.append(
-                        {
-                            "unified_codebook": unified_codebook,
-                            "recoded_transcript": recoded_transcript,
-                        }
-                    )
-                    await manager.broadcast(f"Post {post_id}: Post processing completed successfully.")
-                except json.JSONDecodeError as e:
-                    await manager.broadcast(f"ERROR: Post {post_id}: Error parsing JSON validation results.")
-                    raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-            # Remove processed post from queue
-            posts.pop(0)
-
-        await manager.broadcast("All posts processed.")
+        # Notify clients that all posts have been processed
+        await manager.broadcast(f"Dataset {request.datasetId}: All posts processed successfully.")
         return final_results if len(final_results) else []
 
     except Exception as e:
-        print("Inside Exception", e)
-        await manager.broadcast("ERROR: Error encountered during processing.")
+        await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Unexpected error encountered - {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
 
 class GenerateCodesWithFeedbackRequest(GenerateCodesRequest):
     feedback : list
@@ -1072,6 +1119,10 @@ class GenerateCodesWithFeedbackRequest(GenerateCodesRequest):
 @router.post("/generate-codes-with-feedback")
 async def generate_codes_with_feedback(request: GenerateCodesWithFeedbackRequest):
     try:
+        # Notify clients that the process has started
+        await manager.broadcast(f"Dataset {request.datasetId}: Code generation with feedback process started.")
+
+        # Initialize LLMs
         llm1 = OllamaLLM(
             model=request.model,
             num_ctx=16384,
@@ -1099,129 +1150,140 @@ async def generate_codes_with_feedback(request: GenerateCodesWithFeedbackRequest
 
         while len(posts) > 0:
             post_id = posts[0]
-            await manager.broadcast(f"Processing post {post_id}...")
+            await manager.broadcast(f"Dataset {request.datasetId}: Processing post {post_id}...")
 
-            # Fetch post and comments
-            post_data = get_post_with_comments(request.datasetId, post_id)
-            await manager.broadcast(f"Post {post_id}: Generating transcript...")
+            try:
+                # Fetch post and comments
+                await manager.broadcast(f"Dataset {request.datasetId}: Fetching data for post {post_id}...")
+                post_data = await run_in_threadpool(get_post_with_comments, request.datasetId, post_id)
 
-            transcript = generate_transcript(post_data)
-            context = generate_context(
-                request.references,
-                request.mainCode,
-                request.flashcards,
-                request.selectedWords,
-            )
-            feedback_text = generate_feedback(request.feedback)
+                # Generate transcript and context
+                await manager.broadcast(f"Dataset {request.datasetId}: Generating transcript for post {post_id}...")
+                transcript = await run_in_threadpool(generate_transcript, post_data)
+                context = await run_in_threadpool(
+                    generate_context,
+                    request.references,
+                    request.mainCode,
+                    request.flashcards,
+                    request.selectedWords,
+                )
+                feedback_text = await run_in_threadpool(generate_feedback, request.feedback)
 
-            # Retry logic for LLM1
-            retries = 0
-            max_retries = 3
-            result1 = None
-            while retries < max_retries:
-                try:
+                # Retry logic for LLM1
+                retries = 3
+                success = False
+                result1 = None
+                while retries > 0 and not success:
+                    try:
+                        await manager.broadcast(f"Dataset {request.datasetId}: Generating with LLM1 for post {post_id}...")
+                        generation_prompt_1 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
+                        result1 = await run_in_threadpool(llm1.invoke, generation_prompt_1, timeout=180)
+                        success = True
+                        await manager.broadcast(f"Dataset {request.datasetId}: LLM1 completed successfully for post {post_id}.")
+                    except Exception as e:
+                        retries -= 1
+                        await manager.broadcast(
+                            f"WARNING: Dataset {request.datasetId}: Error generating with LLM1 for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)"
+                        )
+                        if retries == 0:
+                            await manager.broadcast(
+                                f"ERROR: Dataset {request.datasetId}: LLM1 failed for post {post_id} after multiple attempts."
+                            )
+                            raise e
+
+                # Retry logic for LLM2
+                retries = 3
+                success = False
+                result2 = None
+                while retries > 0 and not success:
+                    try:
+                        await manager.broadcast(f"Dataset {request.datasetId}: Generating with LLM2 for post {post_id}...")
+                        generation_prompt_2 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
+                        result2 = await run_in_threadpool(llm2.invoke, generation_prompt_2, timeout=180)
+                        success = True
+                        await manager.broadcast(f"Dataset {request.datasetId}: LLM2 completed successfully for post {post_id}.")
+                    except Exception as e:
+                        retries -= 1
+                        await manager.broadcast(
+                            f"WARNING: Dataset {request.datasetId}: Error generating with LLM2 for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)"
+                        )
+                        if retries == 0:
+                            await manager.broadcast(
+                                f"ERROR: Dataset {request.datasetId}: LLM2 failed for post {post_id} after multiple attempts."
+                            )
+                            raise e
+
+                # Retry logic for Validation (judge_llm)
+                retries = 3
+                success = False
+                validation_result = None
+                while retries > 0 and not success:
+                    try:
+                        await manager.broadcast(f"Dataset {request.datasetId}: Validating results for post {post_id}...")
+                        validate_prompt = CodePrompts.judge_validate_with_feedback(
+                            result1, result2, transcript, request.mainCode, feedback_text
+                        )
+                        validation_result = await run_in_threadpool(judge_llm.invoke, validate_prompt, timeout=180)
+                        success = True
+                        await manager.broadcast(f"Dataset {request.datasetId}: Validation completed for post {post_id}.")
+                    except Exception as e:
+                        retries -= 1
+                        await manager.broadcast(
+                            f"WARNING: Dataset {request.datasetId}: Validation failed for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)"
+                        )
+                        if retries == 0:
+                            await manager.broadcast(
+                                f"ERROR: Dataset {request.datasetId}: Validation failed for post {post_id} after multiple attempts."
+                            )
+                            raise e
+
+                # Parse validation results
+                match = re.search(
+                    r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
+                    validation_result,
+                )
+
+                if not match:
                     await manager.broadcast(
-                        f"Post {post_id}: Generating code with LLM1 (Attempt {retries + 1})..."
+                        f"WARNING: Dataset {request.datasetId}: Validation result parsing failed for post {post_id}."
                     )
-                    generation_prompt_1 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
-                    result1 = llm1.invoke(generation_prompt_1)
-                    await manager.broadcast(f"Post {post_id}: LLM1 completed successfully.")
-                    break
-                except Exception as e:
-                    retries += 1
-                    await manager.broadcast(f"Post {post_id}: LLM1 failed on attempt {retries}. Retrying...")
+                    final_results.append({"unified_codebook": [], "recoded_transcript": []})
+                else:
+                    try:
+                        unified_codebook = json.loads(match.group(1))
+                        recoded_transcript = (
+                            json.loads(match.group(2)) if match.group(2) else []
+                        )
+                        final_results.append(
+                            {
+                                "unified_codebook": unified_codebook,
+                                "recoded_transcript": recoded_transcript,
+                            }
+                        )
+                        await manager.broadcast(
+                            f"Dataset {request.datasetId}: Post {post_id} processed successfully."
+                        )
+                    except json.JSONDecodeError as e:
+                        await manager.broadcast(
+                            f"ERROR: Dataset {request.datasetId}: Error parsing JSON validation results for post {post_id}."
+                        )
+                        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-            if result1 is None:
-                await manager.broadcast(f"Post {post_id}: LLM1 failed after {max_retries} retries.")
-                final_results.append({"unified_codebook": [], "recoded_transcript": []})
+                # Remove processed post from the queue
                 posts.pop(0)
-                continue
 
-            # Retry logic for LLM2
-            retries = 0
-            result2 = None
-            while retries < max_retries:
-                try:
-                    await manager.broadcast(
-                        f"Post {post_id}: Generating code with LLM2 (Attempt {retries + 1})..."
-                    )
-                    generation_prompt_2 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
-                    result2 = llm2.invoke(generation_prompt_2)
-                    await manager.broadcast(f"Post {post_id}: LLM2 completed successfully.")
-                    break
-                except Exception as e:
-                    retries += 1
-                    await manager.broadcast(f"Post {post_id}: LLM2 failed on attempt {retries}. Retrying...")
-
-            if result2 is None:
-                await manager.broadcast(f"Post {post_id}: LLM2 failed after {max_retries} retries.")
-                final_results.append({"unified_codebook": [], "recoded_transcript": []})
+            except Exception as e:
+                await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Error processing post {post_id} - {str(e)}.")
                 posts.pop(0)
-                continue
 
-            # Retry logic for Validation (judge_llm)
-            retries = 0
-            validation_result = None
-            while retries < max_retries:
-                try:
-                    await manager.broadcast(
-                        f"Post {post_id}: Validating results with judge LLM (Attempt {retries + 1})..."
-                    )
-                    validate_prompt = CodePrompts.judge_validate_with_feedback(
-                        result1, result2, transcript, request.mainCode, feedback_text
-                    )
-                    validation_result = judge_llm.invoke(validate_prompt)
-                    await manager.broadcast(f"Post {post_id}: Validation completed successfully.")
-                    break
-                except Exception as e:
-                    retries += 1
-                    await manager.broadcast(
-                        f"Post {post_id}: Validation failed on attempt {retries}. Retrying..."
-                    )
-
-            if validation_result is None:
-                await manager.broadcast(f"Post {post_id}: Validation failed after {max_retries} retries.")
-                final_results.append({"unified_codebook": [], "recoded_transcript": []})
-                posts.pop(0)
-                continue
-
-            # Parse validation results
-            match = re.search(
-                r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
-                validation_result,
-            )
-
-            if not match:
-                await manager.broadcast(f"Post {post_id}: Validation result parsing failed.")
-                final_results.append({"unified_codebook": [], "recoded_transcript": []})
-            else:
-                try:
-                    unified_codebook = json.loads(match.group(1))
-                    recoded_transcript = (
-                        json.loads(match.group(2)) if match.group(2) else []
-                    )
-                    final_results.append(
-                        {
-                            "unified_codebook": unified_codebook,
-                            "recoded_transcript": recoded_transcript,
-                        }
-                    )
-                    await manager.broadcast(f"Post {post_id}: Post processing completed successfully.")
-                except json.JSONDecodeError as e:
-                    await manager.broadcast(f"Post {post_id}: Error parsing JSON validation results.")
-
-            # Remove processed post from queue
-            posts.pop(0)
-
-        await manager.broadcast("All posts processed.")
+        # Notify clients that all posts have been processed
+        await manager.broadcast(f"Dataset {request.datasetId}: All posts processed successfully.")
         return final_results if len(final_results) else []
 
     except Exception as e:
-        print("Inside Exception", e)
-        await manager.broadcast("Error encountered during processing.")
+        await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Unexpected error encountered - {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
+    
 # @router.post("/generate-codes-with-feedback")
 # async def generate_codes_with_feedback(request: GenerateCodesWithFeedbackRequest):
 #     try:
@@ -1319,7 +1381,6 @@ async def generate_codes_with_themes(request: GenerateCodesWithThemesRequest):
     try:
         # Notify clients that processing has started
         await manager.broadcast(f"Dataset {request.datasetId}: Code generation process started.")
-        await asyncio.sleep(0)
 
         # Initialize LLMs
         llm1 = OllamaLLM(
@@ -1352,13 +1413,17 @@ async def generate_codes_with_themes(request: GenerateCodesWithThemesRequest):
 
             # Notify clients about the current post
             await manager.broadcast(f"Dataset {request.datasetId}: Processing post {post_id}...")
-            await asyncio.sleep(0)
 
             try:
                 # Fetch post and comments
-                post_data = get_post_with_comments(request.datasetId, post_id)
-                transcript = generate_transcript(post_data)
-                context = generate_context_with_codebook(
+                await manager.broadcast(f"Dataset {request.datasetId}: Fetching data for post {post_id}...")
+                post_data = await run_in_threadpool(get_post_with_comments, request.datasetId, post_id)
+
+                # Generate transcript and context
+                await manager.broadcast(f"Dataset {request.datasetId}: Generating transcript for post {post_id}...")
+                transcript = await run_in_threadpool(generate_transcript, post_data)
+                context = await run_in_threadpool(
+                    generate_context_with_codebook,
                     request.references,
                     request.mainCode,
                     request.codeBook
@@ -1369,14 +1434,14 @@ async def generate_codes_with_themes(request: GenerateCodesWithThemesRequest):
                 result2 = None
                 validation_result = None
 
-                # Generate code with LLM1
+                # Retry logic for LLM1
                 retries = 3
                 success = False
                 while retries > 0 and not success:
                     try:
                         await manager.broadcast(f"Dataset {request.datasetId}: Generating with LLM1 for post {post_id}...")
                         generation_prompt_1 = CodePrompts.generate(transcript, context)
-                        result1 = llm1.invoke(generation_prompt_1)
+                        result1 = await run_in_threadpool(llm1.invoke, generation_prompt_1, timeout=180)
                         success = True
                         await manager.broadcast(f"Dataset {request.datasetId}: LLM1 completed generation for post {post_id}.")
                     except Exception as e:
@@ -1390,14 +1455,14 @@ async def generate_codes_with_themes(request: GenerateCodesWithThemesRequest):
                             )
                             raise e
 
-                # Generate code with LLM2
+                # Retry logic for LLM2
                 retries = 3
                 success = False
                 while retries > 0 and not success:
                     try:
                         await manager.broadcast(f"Dataset {request.datasetId}: Generating with LLM2 for post {post_id}...")
                         generation_prompt_2 = CodePrompts.generate(transcript, context)
-                        result2 = llm2.invoke(generation_prompt_2)
+                        result2 = await run_in_threadpool(llm2.invoke, generation_prompt_2, timeout=180)
                         success = True
                         await manager.broadcast(f"Dataset {request.datasetId}: LLM2 completed generation for post {post_id}.")
                     except Exception as e:
@@ -1411,14 +1476,14 @@ async def generate_codes_with_themes(request: GenerateCodesWithThemesRequest):
                             )
                             raise e
 
-                # Validate results using judge LLM
+                # Retry logic for Validation (judge_llm)
                 retries = 3
                 success = False
                 while retries > 0 and not success:
                     try:
-                        await manager.broadcast(f"Dataset {request.datasetId}: Generating with LLM3 for post {post_id}...")
+                        await manager.broadcast(f"Dataset {request.datasetId}: Validating results with judge LLM for post {post_id}...")
                         validate_prompt = CodePrompts.judge_validate(result1, result2, transcript, request.mainCode)
-                        validation_result = judge_llm.invoke(validate_prompt)
+                        validation_result = await run_in_threadpool(judge_llm.invoke, validate_prompt, timeout=180)
                         success = True
                         await manager.broadcast(f"Dataset {request.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
@@ -1466,16 +1531,12 @@ async def generate_codes_with_themes(request: GenerateCodesWithThemesRequest):
                 posts.pop(0)
 
         # Notify clients that all posts are processed
-        await manager.broadcast(f"Parsing success. Dataset {request.datasetId}: All posts processed successfully.")
-        await asyncio.sleep(0)
-
+        await manager.broadcast(f"Dataset {request.datasetId}: All posts processed successfully.")
         return final_results if len(final_results) else []
 
     except Exception as e:
         await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Error encountered - {str(e)}")
-        print("Inside Exception", e)
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
 
 class GenerateCodesWithThemesAndFeedbackRequest(GenerateCodesWithThemesRequest):
     feedback : list
@@ -1485,7 +1546,6 @@ async def generate_codes_with_themes_feedback(request: GenerateCodesWithThemesAn
     try:
         # Notify clients that processing has started
         await manager.broadcast(f"Dataset {request.datasetId}: Code generation with feedback process started.")
-        await asyncio.sleep(0)
 
         # Initialize LLMs
         llm1 = OllamaLLM(
@@ -1518,18 +1578,24 @@ async def generate_codes_with_themes_feedback(request: GenerateCodesWithThemesAn
 
             # Notify clients about the current post
             await manager.broadcast(f"Dataset {request.datasetId}: Processing post {post_id}...")
-            await asyncio.sleep(0)
 
             try:
                 # Fetch post and comments
-                post_data = get_post_with_comments(request.datasetId, post_id)
-                transcript = generate_transcript(post_data)
-                context = generate_context_with_codebook(
+                await manager.broadcast(f"Dataset {request.datasetId}: Fetching data for post {post_id}...")
+                post_data = await run_in_threadpool(get_post_with_comments, request.datasetId, post_id)
+
+                # Generate transcript, context, and feedback
+                await manager.broadcast(f"Dataset {request.datasetId}: Generating transcript for post {post_id}...")
+                transcript = await run_in_threadpool(generate_transcript, post_data)
+
+                context = await run_in_threadpool(
+                    generate_context_with_codebook,
                     request.references,
                     request.mainCode,
                     request.codeBook
                 )
-                feedback_text = generate_feedback(request.feedback)
+
+                feedback_text = await run_in_threadpool(generate_feedback, request.feedback)
 
                 # Generate code with LLM1
                 retries = 3
@@ -1539,17 +1605,14 @@ async def generate_codes_with_themes_feedback(request: GenerateCodesWithThemesAn
                     try:
                         await manager.broadcast(f"Dataset {request.datasetId}: Generating with LLM1 for post {post_id}...")
                         generation_prompt_1 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
-                        result1 = llm1.invoke(generation_prompt_1)
+                        result1 = await run_in_threadpool(llm1.invoke, generation_prompt_1, timeout=180)
                         success = True
                         await manager.broadcast(f"Dataset {request.datasetId}: LLM1 completed generation for post {post_id}.")
-                        await asyncio.sleep(0)
                     except Exception as e:
                         retries -= 1
                         await manager.broadcast(f"WARNING: Dataset {request.datasetId}: Error generating code with LLM1 for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)")
-                        await asyncio.sleep(0)
                         if retries == 0:
                             await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Failed to generate code with LLM1 for post {post_id} after multiple attempts.")
-                            await asyncio.sleep(0)
                             raise e
 
                 # Generate code with LLM2
@@ -1559,19 +1622,15 @@ async def generate_codes_with_themes_feedback(request: GenerateCodesWithThemesAn
                 while retries > 0 and not success:
                     try:
                         await manager.broadcast(f"Dataset {request.datasetId}: Generating with LLM2 for post {post_id}...")
-                        await asyncio.sleep(0)
                         generation_prompt_2 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
-                        result2 = llm2.invoke(generation_prompt_2)
+                        result2 = await run_in_threadpool(llm2.invoke, generation_prompt_2, timeout=180)
                         success = True
                         await manager.broadcast(f"Dataset {request.datasetId}: LLM2 completed generation for post {post_id}.")
-                        await asyncio.sleep(0)
                     except Exception as e:
                         retries -= 1
                         await manager.broadcast(f"WARNING: Dataset {request.datasetId}: Error generating code with LLM2 for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)")
-                        await asyncio.sleep(0)
                         if retries == 0:
                             await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Failed to generate code with LLM2 for post {post_id} after multiple attempts.")
-                            await asyncio.sleep(0)
                             raise e
 
                 # Validate results using judge LLM
@@ -1580,22 +1639,18 @@ async def generate_codes_with_themes_feedback(request: GenerateCodesWithThemesAn
                 validation_result = None
                 while retries > 0 and not success:
                     try:
-                        await manager.broadcast(f"Dataset {request.datasetId}: Generating with LLM3 for post {post_id}...")
-                        await asyncio.sleep(0)
+                        await manager.broadcast(f"Dataset {request.datasetId}: Validating results with judge LLM for post {post_id}...")
                         validate_prompt = CodePrompts.judge_validate_with_feedback(
                             result1, result2, transcript, request.mainCode, feedback_text
                         )
-                        validation_result = judge_llm.invoke(validate_prompt)
+                        validation_result = await run_in_threadpool(judge_llm.invoke, validate_prompt, timeout=180)
                         success = True
                         await manager.broadcast(f"Dataset {request.datasetId}: Validation completed for post {post_id}.")
-                        await asyncio.sleep(0)
                     except Exception as e:
                         retries -= 1
                         await manager.broadcast(f"WARNING: Dataset {request.datasetId}: Error validating results for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)")
-                        await asyncio.sleep(0)
                         if retries == 0:
                             await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Failed to validate results for post {post_id} after multiple attempts.")
-                            await asyncio.sleep(0)
                             raise e
 
                 # Parse the validation results
@@ -1607,7 +1662,6 @@ async def generate_codes_with_themes_feedback(request: GenerateCodesWithThemesAn
                 if not match:
                     final_results.append({"unified_codebook": [], "recoded_transcript": []})
                     await manager.broadcast(f"WARNING: Dataset {request.datasetId}: No valid results found for post {post_id}.")
-                    await asyncio.sleep(0)
                 else:
                     try:
                         unified_codebook = json.loads(match.group(1))
@@ -1616,32 +1670,24 @@ async def generate_codes_with_themes_feedback(request: GenerateCodesWithThemesAn
                             "unified_codebook": unified_codebook,
                             "recoded_transcript": recoded_transcript
                         })
-                        await manager.broadcast(f"Parsing success. Dataset {request.datasetId}: Successfully processed post {post_id}.")
-                        await asyncio.sleep(0)
+                        await manager.broadcast(f"Dataset {request.datasetId}: Successfully processed post {post_id}.")
                     except json.JSONDecodeError as e:
                         await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Error parsing validation results for post {post_id} - {str(e)}.")
-                        await asyncio.sleep(0)
                         raise e
 
                 posts.pop(0)
 
             except Exception as e:
                 await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Error processing post {post_id} - {str(e)}.")
-                await asyncio.sleep(0)
                 posts.pop(0)
 
         # Notify clients that all posts are processed
-        await manager.broadcast(f"ERROR: Dataset {request.datasetId}: All posts processed successfully.")
-        await asyncio.sleep(0)
-
+        await manager.broadcast(f"Dataset {request.datasetId}: All posts processed successfully.")
         return final_results if len(final_results) else []
 
     except Exception as e:
-        await manager.broadcast(f"Dataset {request.datasetId}: Error encountered - {str(e)}")
-        await asyncio.sleep(0)
-        print("Inside Exception", e)
+        await manager.broadcast(f"ERROR: Dataset {request.datasetId}: Error encountered - {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
 
 # @router.post("/generate-codes")
 # async def generate_codes(request: GenerateCodesRequest):

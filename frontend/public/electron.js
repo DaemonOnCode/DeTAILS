@@ -30,6 +30,11 @@ if (!config.isDev) {
 const cleanupAndExit = async (signal) => {
     console.log(`Received signal: ${signal}`);
     await logger.info('Process exited', { signal });
+    try {
+        config.websocket.close();
+    } catch (e) {
+        console.log('Error closing websocket');
+    }
     // Perform cleanup tasks here if needed
     app.quit();
 };

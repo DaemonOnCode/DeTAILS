@@ -1,78 +1,140 @@
-import { FC, createContext, useContext, useEffect, useRef, useState } from 'react';
-import { ILayout } from '../types/Coding/shared';
-import { ToastContainer, toast } from 'react-toastify';
-const { ipcRenderer } = window.require('electron');
+import { FC, createContext, useContext, useEffect, useRef, useState } from "react";
+import { ILayout } from "../types/Coding/shared";
+import { toast } from "react-toastify";
+
+const { ipcRenderer } = window.require("electron");
 
 type CallbackFn = (message: string) => void;
 
-
-// Create the WebSocket context
 const WebSocketContext = createContext({
-    registerCallback: (callback: CallbackFn) => {},
-    unregisterCallback: (callback: CallbackFn) => {},
+  registerCallback: (event: string, callback: CallbackFn) => {},
+  unregisterCallback: (event: string) => {},
 });
 
-
-// WebSocket Provider Component
 export const WebSocketProvider: FC<ILayout> = ({ children }) => {
-    const [messageCallbacks, setMessageCallbacks] = useState<CallbackFn[]>([])
+  const messageCallbacks = useRef<{ [key: string]: CallbackFn }>({});
+  const [networkOnline, setNetworkOnline] = useState<boolean>(navigator.onLine);
+  const lastPingRef = useRef<Date | null>(null);
+  const pingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Register a callback
-    const registerCallback = (callback: CallbackFn) => {
-        messageCallbacks.push(callback);
+  const retryCountRef = useRef<number>(0); // Track retry attempts
+  const maxRetries = 3; // Max retries allowed
+
+  const registerCallback = (event: string, callback: CallbackFn) => {
+    console.log(`Registering callback for event: ${event}`);
+    if (!messageCallbacks.current[event]) {
+      messageCallbacks.current[event] = callback;
+    }
+    console.log("Current registered callbacks:", messageCallbacks.current);
+  };
+
+  const unregisterCallback = (event: string) => {
+    console.log(`Unregistering callback for event: ${event}`);
+    delete messageCallbacks.current[event];
+    console.log("Current registered callbacks after removal:", messageCallbacks.current);
+  };
+
+  const handleMessage = (event: any, message: string) => {
+    console.log("Received WebSocket message:", message);
+
+    if (message === "ping") {
+      lastPingRef.current = new Date();
+      resetPingTimeout();
+      return;
+    }
+
+    if (message.startsWith("ERROR:")) {
+      console.log("ERROR message:", message);
+      toast.error(message);
+    //   return;
+    }
+    if (message.startsWith("WARNING:")) {
+      console.log("WARNING message:", message);
+      toast.warning(message);
+    //   return;
+    }
+
+    console.log("Registered callbacks before triggering:", messageCallbacks.current);
+    Object.values(messageCallbacks.current).forEach((value) => value(message));
+  };
+
+  const checkPingTimeout = () => {
+    const now = new Date();
+    if (lastPingRef.current && now.getTime() - lastPingRef.current.getTime() > 60000) {
+      toast.error("No response from backend in the last 60 seconds. Attempting to reconnect...");
+      reconnectWebSocket();
+    }
+  };
+
+  const resetPingTimeout = () => {
+    if (pingTimeoutRef.current) {
+      clearTimeout(pingTimeoutRef.current);
+    }
+    pingTimeoutRef.current = setTimeout(checkPingTimeout, 60000);
+  };
+
+  const reconnectWebSocket = () => {
+    if (retryCountRef.current >= maxRetries) {
+      toast.error("Network issue detected. Please restart the app.");
+      return;
+    }
+
+    retryCountRef.current += 1;
+    console.log(`Reconnecting WebSocket... Attempt ${retryCountRef.current}`);
+    ipcRenderer.invoke("disconnect-ws", "").then(() => {
+      ipcRenderer.invoke("connect-ws", "").then(() => {
+        // Reset retry count on successful connection
+        retryCountRef.current = 0;
+        toast.success("Reconnected to WebSocket successfully.");
+        lastPingRef.current = new Date();
+        resetPingTimeout();
+      }).catch(() => {
+        console.error("Failed to reconnect WebSocket.");
+        reconnectWebSocket(); // Retry connection
+      });
+    });
+  };
+
+  useEffect(() => {
+    ipcRenderer.invoke("connect-ws", "").then(() => {
+      ipcRenderer.on("ws-message", handleMessage);
+
+      ipcRenderer.on("ws-closed", () => {
+        toast.warning("WebSocket connection closed. Attempting to reconnect...");
+        reconnectWebSocket();
+      });
+
+      lastPingRef.current = new Date();
+      resetPingTimeout();
+    }).catch(() => {
+      console.error("Initial WebSocket connection failed.");
+      reconnectWebSocket();
+    });
+
+    return () => {
+      ipcRenderer.removeListener("ws-message", handleMessage);
+      ipcRenderer.invoke("disconnect-ws", "").then(() => {
+        console.log("Disconnected from WebSocket");
+      });
+
+      if (pingTimeoutRef.current) {
+        clearTimeout(pingTimeoutRef.current);
+      }
     };
+  }, []);
 
-    // Unregister a callback
-    const unregisterCallback = (callback: CallbackFn) => {
-        setMessageCallbacks((prev)=>prev.filter((cb) => cb !== callback));
-    };
-    const handleMessage = (event: any, message: string) => {
-        // console.log('Received WebSocket message:', message, event);
-        // Notify all registered callbacks
-        if(message.startsWith("ERROR:")){
-            toast.error(message);
-            return;
-        }
-        if(message.startsWith("WARNING:")){
-            toast.warning(message);
-            return;
-        }
-        messageCallbacks.forEach((callback) => callback(message));
-    };
-    
-    useEffect(() => {
-        // Listen for WebSocket messages
-        ipcRenderer.invoke('connect-ws', "").then(() => {
-            ipcRenderer.on('ws-message', handleMessage);
-            ipcRenderer.on('ws-close', () => {
-                toast.warning("WebSocket connection closed. Reconnecting.");
-                ipcRenderer.invoke('connect-ws', "");
-            });
-        });
-
-        // Cleanup on unmount
-        return () => {
-            ipcRenderer.removeListener('ws-message', handleMessage);
-            ipcRenderer.invoke('disconnect-ws', "").then(() => {
-                console.log('Disconnected from WebSocket');
-            });
-        };
-    }, []);
-
-    return (
-        <WebSocketContext.Provider
-            value={{
-                registerCallback,
-                unregisterCallback,
-            }}
-        >
-            <ToastContainer />
-            {children}
-        </WebSocketContext.Provider>
-    );
+  return (
+    <WebSocketContext.Provider
+      value={{
+        registerCallback,
+        unregisterCallback,
+      }}
+    >
+      {children}
+    </WebSocketContext.Provider>
+  );
 };
 
-// Custom hook to use WebSocket context
 export const useWebSocket = () => {
-    return useContext(WebSocketContext);
+  return useContext(WebSocketContext);
 };

@@ -1,10 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { FaBrain, FaExclamationTriangle, FaTimesCircle } from "react-icons/fa";
 import { useWebSocket } from "../../../context/websocket_context";
-
-const { ipcRenderer } = window.require("electron");
+import { useCollectionContext } from "../../../context/collection_context";
+import { MODEL_LIST } from "../../../constants/Shared";
 
 const Workflow = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -12,25 +11,30 @@ const Workflow = () => {
   const llm2Ref = useRef<HTMLDivElement>(null);
   const llm3Ref = useRef<HTMLDivElement>(null);
 
-  const { registerCallback, unregisterCallback } = useWebSocket();
+  const modelName = MODEL_LIST.LLAMA_3_2;
 
-  const [lines, setLines] = useState<
-    { fromX: number; fromY: number; toX: number; toY: number }[]
-  >([]);
+  const { registerCallback, unregisterCallback } = useWebSocket();
+  const { selectedPosts } = useCollectionContext();
+
+  const [lines, setLines] = useState<{
+    fromX: number;
+    fromY: number;
+    toX: number;
+    toY: number;
+  }[]>([]);
   const [statuses, setStatuses] = useState({
-    LLM1: "not_started", // not_started | processing | success | failed
+    LLM1: "not_started",
     LLM2: "not_started",
     LLM3: "not_started",
-    LLM3Parsing: "not_started", // parsing-specific statuses
   });
   const [generatedText, setGeneratedText] = useState({
     LLM1: "",
     LLM2: "",
     LLM3: "",
-    LLM3Parsing: "",
   });
 
-  const [progress, setProgress] = useState({ currentPost: 0, totalPosts: 10 });
+  const [processedPosts, setProcessedPosts] = useState<Set<string>>(new Set()); // Tracks unique completed posts
+  const TOTAL_POSTS = selectedPosts.length || 5; // Use a default if `selectedPosts` is empty.
 
   const calculateArrowToBoxEdge = (from: DOMRect, to: DOMRect, containerRect: DOMRect) => {
     const fromCenter = {
@@ -88,10 +92,70 @@ const Workflow = () => {
     const arrow2End = calculateArrowToBoxEdge(llm2Rect, llm3Rect, containerRect);
 
     setLines([
-      { fromX: llm1Rect.left + llm1Rect.width / 2 - containerRect.left, fromY: llm1Rect.top + llm1Rect.height / 2 - containerRect.top, toX: arrow1End.x, toY: arrow1End.y },
-      { fromX: llm2Rect.left + llm2Rect.width / 2 - containerRect.left, fromY: llm2Rect.top + llm2Rect.height / 2 - containerRect.top, toX: arrow2End.x, toY: arrow2End.y },
+      {
+        fromX: llm1Rect.left + llm1Rect.width / 2 - containerRect.left,
+        fromY: llm1Rect.top + llm1Rect.height / 2 - containerRect.top,
+        toX: arrow1End.x,
+        toY: arrow1End.y,
+      },
+      {
+        fromX: llm2Rect.left + llm2Rect.width / 2 - containerRect.left,
+        fromY: llm2Rect.top + llm2Rect.height / 2 - containerRect.top,
+        toX: arrow2End.x,
+        toY: arrow2End.y,
+      },
     ]);
   };
+
+  const extractPostId = (message: string): string | null => {
+    const match = message.match(/post (\d+)/);
+    return match ? match[1] : null;
+  };
+
+  const handleWebSocketMessage = (message: string) => {
+    console.log("Received WebSocket message:", message);
+
+    const postId = extractPostId(message);
+    if (message.includes("WARNING:")) {
+      const warningLLM = message.includes("LLM1") ? "LLM1" : message.includes("LLM2") ? "LLM2" : "LLM3";
+      setStatuses((prev) => ({ ...prev, [warningLLM]: "warning" }));
+      setGeneratedText((prev) => ({ ...prev, [warningLLM]: message }));
+    } else if (message.includes("ERROR:")) {
+      const errorLLM = message.includes("LLM1") ? "LLM1" : message.includes("LLM2") ? "LLM2" : "LLM3";
+      setStatuses((prev) => ({ ...prev, [errorLLM]: "error" }));
+      setGeneratedText((prev) => ({ ...prev, [errorLLM]: message }));
+    } else if (message.includes("Fetching data")) {
+      setStatuses({ LLM1: "fetching", LLM2: "not_started", LLM3: "not_started" });
+      setGeneratedText({ LLM1: "Fetching data...", LLM2: "", LLM3: "" });
+    } else if (message.includes("Generating with LLM1")) {
+      setStatuses((prev) => ({ ...prev, LLM1: "generating" }));
+      setGeneratedText((prev) => ({ ...prev, LLM1: "Generating..." }));
+    } else if (message.includes("LLM1 completed generation")) {
+      setStatuses((prev) => ({ ...prev, LLM1: "success" }));
+      setGeneratedText((prev) => ({ ...prev, LLM1: "Completed by LLM1" }));
+    } else if (message.includes("Generating with LLM2")) {
+      setStatuses((prev) => ({ ...prev, LLM2: "generating" }));
+      setGeneratedText((prev) => ({ ...prev, LLM2: "Generating..." }));
+    } else if (message.includes("LLM2 completed generation")) {
+      setStatuses((prev) => ({ ...prev, LLM2: "success" }));
+      setGeneratedText((prev) => ({ ...prev, LLM2: "Completed by LLM2" }));
+    } else if (message.includes("Validating results")) {
+      setStatuses((prev) => ({ ...prev, LLM3: "validating" }));
+      setGeneratedText((prev) => ({ ...prev, LLM3: "Validating..." }));
+    } else if (message.includes("Validation completed")) {
+      setStatuses((prev) => ({ ...prev, LLM3: "success" }));
+      setGeneratedText((prev) => ({ ...prev, LLM3: "Validated Successfully" }));
+
+      if (postId) {
+        setProcessedPosts((prev) => new Set(prev).add(postId)); // Add postId to Set
+      }
+    }
+  };
+
+  useEffect(() => {
+    registerCallback("coding-validation-loader", handleWebSocketMessage);
+    return () => unregisterCallback("coding-validation-loader");
+  }, []);
 
   useEffect(() => {
     updateLines();
@@ -99,93 +163,58 @@ const Workflow = () => {
     return () => window.removeEventListener("resize", updateLines);
   }, []);
 
-  const handleWebSocketMessage = (message: string) => {
-    console.log("Received WebSocket message:", message);
-  if (message.includes("Code generation process started")) {
-    toast.info("Code generation process has started.");
-  } else if (message.includes("Processing post")) {
-    const postId = message.match(/post (\d+)/)?.[1];
-    setStatuses({ LLM1: "not_started", LLM2: "not_started", LLM3: "not_started", LLM3Parsing: "not_started" });
-    setGeneratedText({ LLM1: "", LLM2: "", LLM3: "", LLM3Parsing: "" });
-    toast.info(`Processing started for post ${postId}`);
-  } else if (message.includes("Generating with LLM1")) {
-    setStatuses((prev) => ({ ...prev, LLM1: "processing" }));
-    setGeneratedText((prev) => ({ ...prev, LLM1: "Processing with LLM1..." }));
-  } else if (message.includes("LLM1 completed generation")) {
-    setStatuses((prev) => ({ ...prev, LLM1: "success" }));
-    setGeneratedText((prev) => ({ ...prev, LLM1: "Generated by LLM1" }));
-    toast.success("LLM1 successfully completed!");
-  } else if (message.includes("Generating with LLM2")) {
-    setStatuses((prev) => ({ ...prev, LLM2: "processing" }));
-    setGeneratedText((prev) => ({ ...prev, LLM2: "Processing with LLM2..." }));
-  } else if (message.includes("LLM2 completed generation")) {
-    setStatuses((prev) => ({ ...prev, LLM2: "success" }));
-    setGeneratedText((prev) => ({ ...prev, LLM2: "Generated by LLM2" }));
-    toast.success("LLM2 successfully completed!");
-  } else if (message.includes("Generating with LLM3")) {
-    setStatuses((prev) => ({ ...prev, LLM3: "processing" }));
-    setGeneratedText((prev) => ({ ...prev, LLM3: "Processing with LLM3..." }));
-  } else if (message.includes("Validation completed")) {
-    setStatuses((prev) => ({ ...prev, LLM3: "success", LLM3Parsing: "processing" }));
-    setGeneratedText((prev) => ({ ...prev, LLM3: "Generated by LLM3" }));
-    toast.success("Validation successfully completed!");
-  } else if (message.includes("Parsing success")) {
-    setStatuses((prev) => ({ ...prev, LLM3Parsing: "success" }));
-    setGeneratedText((prev) => ({ ...prev, LLM3Parsing: "Parsing Completed" }));
-    setProgress((prev) => ({ ...prev, currentPost: prev.currentPost + 1 }));
-    toast.success("Parsing successfully completed!");
-  } else if (message.includes("Parsing failed")) {
-    setStatuses((prev) => ({ ...prev, LLM3Parsing: "failed" }));
-    setGeneratedText((prev) => ({ ...prev, LLM3Parsing: "Parsing Failed" }));
-    toast.error("Parsing failed. Please check the logs.");
-  } else if (message.includes("ERROR:")) {
-    const errorMsg = message.split("ERROR:")[1]?.trim();
-    toast.error(`Error: ${errorMsg}`);
-  } else if (message.includes("WARNING:")) {
-    const warningMsg = message.split("WARNING:")[1]?.trim();
-    toast.warning(`Warning: ${warningMsg}`);
-  } else if (message.includes("ping")) {
-    console.log("Ping message received.");
-  }
-};
+  const getBoxClass = (status: string) => {
+    const baseClass = "rounded-lg p-6 text-center border-2 flex flex-col justify-center items-center";
 
-
-  useEffect(() => {
-    // Listen to messages from the main process via ipcRenderer
-    registerCallback(handleWebSocketMessage);
-    return () => {
-      // Clean up the listener when the component unmounts
-        unregisterCallback(handleWebSocketMessage);
-    };
-  }, []);
-
-  const getBorderColor = (status: string) => {
     switch (status) {
-      case "not_started":
-        return "border-gray-400";
-      case "processing":
-        return "border-blue-500";
       case "success":
-        return "border-green-500";
-      case "failed":
-        return "border-yellow-500"; // Yellow for parsing failure
+        return `${baseClass} bg-white border-green-500 shadow-[0_10px_30px_0_rgba(72,187,120,0.6)]`;
+      case "fetching":
+      case "generating":
+      case "validating":
+        return `${baseClass} bg-white border-blue-500 animate-shadowPulse`;
+      case "warning":
+        return `${baseClass} bg-white border-yellow-500 shadow-[0_10px_30px_0_rgba(255,193,7,0.6)]`;
+      case "error":
+        return `${baseClass} bg-white border-red-500 shadow-[0_10px_30px_0_rgba(220,53,69,0.6)]`;
       default:
-        return "border-gray-300";
+        return `${baseClass} bg-white border-gray-300 shadow-[0_10px_30px_0_rgba(0,0,0,0.2)]`;
+    }
+  };
+
+  const getIcon = (status: string) => {
+    switch (status) {
+      case "success":
+        return <FaBrain className="text-green-500 text-4xl mb-2" />;
+      case "warning":
+        return <FaExclamationTriangle className="text-yellow-500 text-4xl mb-2" />;
+      case "error":
+        return <FaTimesCircle className="text-red-500 text-4xl mb-2" />;
+      default:
+        return <FaBrain className="text-gray-500 text-4xl mb-2" />;
     }
   };
 
   return (
-    <div className="w-full h-screen flex justify-center items-center bg-gray-100">
-      <div ref={containerRef} className="relative w-[600px] h-[500px]">
-        {/* Progress Bar */}
-        <div className="absolute top-[-40px] left-1/2 transform -translate-x-1/2 text-lg font-medium bg-white px-4 py-2 shadow rounded">
-          {`${progress.currentPost}/${progress.totalPosts} Posts Processed`}
+    <div className="w-full h-[calc(100vh-48px)] flex flex-col items-center justify-center">
+      {/* Progress Bar */}
+      <div className="w-3/4 mb-6">
+        <div className="relative w-full h-6 bg-gray-200 rounded-full overflow-hidden">
+          <motion.div
+            className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-green-500"
+            initial={{ width: "0%" }}
+            animate={{ width: `${(processedPosts.size / TOTAL_POSTS) * 100}%` }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          ></motion.div>
         </div>
+        <div className="text-center mt-2 text-sm font-medium text-gray-700">
+          {`${processedPosts.size}/${TOTAL_POSTS} Posts Processed`}
+        </div>
+      </div>
 
-        {/* Toast Notifications */}
-        <ToastContainer />
-
-        {/* Arrows */}
+      {/* Workflow */}
+      <div ref={containerRef} className="relative w-[800px] h-[600px]">
+        {/* SVG for Arrows */}
         <svg className="absolute top-0 left-0 w-full h-full">
           {statuses.LLM1 === "success" && (
             <motion.line
@@ -216,51 +245,41 @@ const Workflow = () => {
             />
           )}
           <defs>
-            <marker
-              id="arrowhead"
-              markerWidth="10"
-              markerHeight="7"
-              refX="10"
-              refY="3.5"
-              orient="auto"
-            >
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
               <polygon points="0 0, 10 3.5, 0 7" fill="black" />
             </marker>
           </defs>
         </svg>
 
-        {/* Nodes */}
+        {/* Cards */}
         <motion.div
           ref={llm1Ref}
-          className={`absolute top-[10%] left-[10%] w-48 h-32 bg-white border rounded-lg shadow-md flex flex-col justify-center items-center p-4 text-center ${getBorderColor(
-            statuses.LLM1
-          )}`}
+          className={`absolute top-[10%] left-[10%] w-64 h-48 ${getBoxClass(statuses.LLM1)}`}
         >
+          {getIcon(statuses.LLM1)}
           <p className="font-bold text-lg">LLM 1</p>
-          <p>Model: GPT-3.5</p>
-          <p>{generatedText.LLM1 || "Waiting..."}</p>
+          <p className="text-sm text-gray-600 capitalize">{modelName.replace(":", " ")}</p>
+          <p className="text-sm mt-2">{generatedText.LLM1 || "Waiting..."}</p>
         </motion.div>
 
         <motion.div
           ref={llm2Ref}
-          className={`absolute top-[10%] right-[10%] w-48 h-32 bg-white border rounded-lg shadow-md flex flex-col justify-center items-center p-4 text-center ${getBorderColor(
-            statuses.LLM2
-          )}`}
+          className={`absolute top-[10%] right-[10%] w-64 h-48 ${getBoxClass(statuses.LLM2)}`}
         >
+          {getIcon(statuses.LLM2)}
           <p className="font-bold text-lg">LLM 2</p>
-          <p>Model: GPT-4</p>
-          <p>{generatedText.LLM2 || "Waiting..."}</p>
+          <p className="text-sm text-gray-600 capitalize">{modelName.replace(":", " ")}</p>
+          <p className="text-sm mt-2">{generatedText.LLM2 || "Waiting..."}</p>
         </motion.div>
 
         <motion.div
           ref={llm3Ref}
-          className={`absolute bottom-[10%] left-[50%] transform -translate-x-1/2 w-48 h-32 bg-white border rounded-lg shadow-md flex flex-col justify-center items-center p-4 text-center ${getBorderColor(
-            statuses.LLM3Parsing
-          )}`}
+          className={`absolute bottom-[10%] left-[50%] transform -translate-x-1/2 w-64 h-48 ${getBoxClass(statuses.LLM3)}`}
         >
+          {getIcon(statuses.LLM3)}
           <p className="font-bold text-lg">LLM 3</p>
-          <p>Model: GPT-4 Fusion</p>
-          <p>{generatedText.LLM3Parsing || "Waiting..."}</p>
+          <p className="text-sm text-gray-600 capitalize">{modelName.replace(":", " ")}</p>
+          <p className="text-sm mt-2">{generatedText.LLM3 || "Waiting..."}</p>
         </motion.div>
       </div>
     </div>
