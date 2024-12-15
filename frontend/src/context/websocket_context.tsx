@@ -96,23 +96,36 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
   };
 
   useEffect(() => {
-    ipcRenderer.invoke("connect-ws", "").then(() => {
-      ipcRenderer.on("ws-message", handleMessage);
+    const connectWebSocket = async () => {
+      try {
+        // First, clean up any previous listeners
+        ipcRenderer.removeAllListeners("ws-message");
 
-      ipcRenderer.on("ws-closed", () => {
-        toast.warning("WebSocket connection closed. Attempting to reconnect...");
+        // Establish WebSocket connection
+        await ipcRenderer.invoke("connect-ws", "");
+
+        // Attach the message handler
+        ipcRenderer.on("ws-message", handleMessage);
+
+        // Attach a listener for WebSocket closure
+        ipcRenderer.once("ws-closed", () => {
+          toast.warning("WebSocket connection closed. Attempting to reconnect...");
+          reconnectWebSocket();
+        });
+
+        // Set initial ping state
+        lastPingRef.current = new Date();
+        resetPingTimeout();
+      } catch (error) {
+        console.error("Initial WebSocket connection failed.");
         reconnectWebSocket();
-      });
+      }
+    };
 
-      lastPingRef.current = new Date();
-      resetPingTimeout();
-    }).catch(() => {
-      console.error("Initial WebSocket connection failed.");
-      reconnectWebSocket();
-    });
+    connectWebSocket();
 
     return () => {
-      ipcRenderer.removeListener("ws-message", handleMessage);
+      ipcRenderer.removeListener("ws-message", handleMessage); // Cleanup specific listener
       ipcRenderer.invoke("disconnect-ws", "").then(() => {
         console.log("Disconnected from WebSocket");
       });
@@ -122,6 +135,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
       }
     };
   }, []);
+
 
   return (
     <WebSocketContext.Provider

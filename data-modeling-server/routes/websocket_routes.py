@@ -104,3 +104,17 @@ async def websocket_endpoint(websocket: WebSocket, app: str = Query(...)):
         print(f"Error in WebSocket for app {app_name}: {e}")
     finally:
         manager.remove_connection(app_name)
+
+
+@router.websocket("/notify")
+async def notify_endpoint(websocket: WebSocket):
+    """Send a message to all connected apps."""
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await manager.broadcast(data)
+            # break
+    except WebSocketDisconnect:
+        print("WebSocket disconnected")
+    # await websocket.send_text("Message sent to all connected apps.")

@@ -5,6 +5,8 @@ import { useWebSocket } from "../../../context/websocket_context";
 import { useCollectionContext } from "../../../context/collection_context";
 import { MODEL_LIST } from "../../../constants/Shared";
 
+const { ipcRenderer } = window.require("electron");
+
 const Workflow = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const llm1Ref = useRef<HTMLDivElement>(null);
@@ -113,6 +115,7 @@ const Workflow = () => {
   };
 
   const handleWebSocketMessage = (message: string) => {
+    console.log("Total listeners: ",ipcRenderer.listeners("ws-message"));
     console.log("Received WebSocket message:", message);
 
     const postId = extractPostId(message);
@@ -190,6 +193,10 @@ const Workflow = () => {
         return <FaExclamationTriangle className="text-yellow-500 text-4xl mb-2" />;
       case "error":
         return <FaTimesCircle className="text-red-500 text-4xl mb-2" />;
+      case "fetching":
+      case "generating":
+      case "validating":
+        return <FaBrain className="text-blue-500 text-4xl mb-2" />;
       default:
         return <FaBrain className="text-gray-500 text-4xl mb-2" />;
     }
@@ -227,7 +234,7 @@ const Workflow = () => {
               markerEnd="url(#arrowhead)"
               initial={{ strokeDasharray: "100%", strokeDashoffset: "100%" }}
               animate={{ strokeDashoffset: "0%" }}
-              transition={{ duration: 1 }}
+              transition={{ duration: 2 }}
             />
           )}
           {statuses.LLM2 === "success" && (
@@ -241,7 +248,7 @@ const Workflow = () => {
               markerEnd="url(#arrowhead)"
               initial={{ strokeDasharray: "100%", strokeDashoffset: "100%" }}
               animate={{ strokeDashoffset: "0%" }}
-              transition={{ duration: 1 }}
+              transition={{ duration: 2 }}
             />
           )}
           <defs>

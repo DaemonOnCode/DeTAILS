@@ -54,6 +54,7 @@ export enum REMOTE_SERVER_ROUTES {
     ADD_DOCUMENTS_AND_GET_THEMES = "coding/add-documents-and-get-themes",
     GENERATE_THEMES = "coding/generate-themes",
     GENERATE_CODEBOOK = "coding/generate-codebook",
+    GENERATE_MORE_CODES = "coding/generate-additional-codes-for-codebook",
     GENERATE_CODES_WITH_THEMES = "coding/generate-codes-with-themes",
     GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = "coding/generate-codes-with-themes-and-feedback",
 }

@@ -1,7 +1,7 @@
 import json
 
-
-systemTemplateFlashcards = [
+class FlashcardPrompts:
+    systemTemplateFlashcards = [
     """
 You are a helpful assistant specializing in generating structured data for flashcards.
 Your task is to generate exactly 20 flashcards in **strict JSON format**, adhering to the following structure:
@@ -37,8 +37,9 @@ Return only the JSON object in the specified format.
 """,
     """{context}\n\n"""
 ]
-
-flashcardTemplate = lambda mainCode, additionalInfo: f"""
+    @staticmethod
+    def flashcardTemplate(mainCode, additionalInfo): 
+        return f"""
 Using the context provided, generate 20 flashcards related to {mainCode} and {additionalInfo}. Provide the output as a JSON object in the following format:
 
 {{
@@ -58,7 +59,9 @@ Using the context provided, generate 20 flashcards related to {mainCode} and {ad
 Ensure the JSON is valid, properly formatted, and includes diverse, relevant questions and detailed answers.
 """
 
-flashcardRegenerationTemplate = lambda mainCode, additionalInfo, feedback, selectedFlashcards: f"""
+    @staticmethod
+    def flashcardRegenerationTemplate(mainCode, additionalInfo, feedback, selectedFlashcards): 
+        return f"""
 Using the provided context and correctly generated flashcards as references, generate 20 new flashcards relevant to {mainCode} and {additionalInfo}. 
 
 ### Instructions:
@@ -107,7 +110,10 @@ wordsJsonTemplate = """
   ]
 }}"""
 
-systemTemplateWordCloud = lambda mainCode: f"""
+class WordCloudPrompts:
+    @staticmethod
+    def systemTemplateWordCloud(mainCode): 
+        return f"""
 You are an advanced AI model skilled in analyzing text and extracting structured data. Your task is to extract 20 unique and diverse words relevant to a specific topic referred to as "{mainCode}". 
 
 To perform this task optimally, follow these principles:
@@ -122,8 +128,9 @@ Your response should adhere to the following format:
 Respond ONLY with the JSON object. Avoid any additional text, explanations, or comments.
 
 {{context}}"""
-
-wordCloudTemplate = lambda mainCode, flashcards: f"""
+    @staticmethod
+    def wordCloudTemplate(mainCode, flashcards): 
+        return f"""
 Please analyze the provided PDFs and use the flashcards to extract 20 unique and diverse words that are directly related to "{mainCode}". 
 
 Approach the task in the following steps:
@@ -147,8 +154,9 @@ Reference context, selected by user show the context of {mainCode}.
 
 Return only the JSON object and ensure it is correctly formatted.
 """
-
-wordCloudRegenerationTemplate = lambda mainCode, feedback, selectedWords: f"""
+    @staticmethod
+    def wordCloudRegenerationTemplate(mainCode, feedback, selectedWords): 
+        return f"""
 Please analyze the provided PDFs and use the flashcards to extract 20 unique and diverse words that are directly related to "{mainCode}". 
 
 Approach the task in the following steps:
@@ -454,14 +462,17 @@ Provide the following in **strict JSON format**:
 """
 
 
-systemTemplateThemes = ["""
-You are a highly skilled qualitative researcher specializing in thematic analysis. Your role is to analyze data and use the given main concept and additional context to generate related themes. Your responses must be concise, diverse, and inclusive, reflecting nuanced patterns within the data.
-                        
-### Provided context:
-{context}
-""", """\n\n{context}\n\n"""]
+class ThemePrompts:
+  systemTemplateThemes = ["""
+  You are a highly skilled qualitative researcher specializing in thematic analysis. Your role is to analyze data and use the given main concept and additional context to generate related themes. Your responses must be concise, diverse, and inclusive, reflecting nuanced patterns within the data.
+                          
+  ### Provided context:
+  {context}
+  """, """\n\n{context}\n\n"""]
 
-themesTemplate = lambda mainCode, additionalInfo: f"""
+  @staticmethod
+  def themesTemplate(mainCode, additionalInfo): 
+      return f"""
 Using the following inputs:
 
 Main Code: {mainCode}
@@ -483,8 +494,9 @@ Provide the output as a JSON object in the following format:
 }}
 Respond with only the JSON object.
 """
-
-themesRegenerationTemplate = lambda mainCode, additionalInfo, feedback, selectedThemes: f"""
+  @staticmethod
+  def themesRegenerationTemplate(mainCode, additionalInfo, feedback, selectedThemes): 
+      return f"""
 Using the following inputs:
 
 Main Code: {mainCode}
@@ -492,9 +504,11 @@ Main Code: {mainCode}
 Feedback: {feedback}
 Correct or User-Selected Themes: {selectedThemes}
 
-Regenerate and refine the themes based on the feedback. Ensure:
+Regenerate 10 more themes based on the feedback. Ensure:
+- Each new theme is a single word that aligns with the given main concept and additional context.
 - Themes align closely with the main concept ({mainCode}) and optional additional context.
 - Themes address the specific issues outlined in the feedback.
+- The new themes are aligned with the User-selected themes but are not same.
 - The new themes are diverse, inclusive, and more satisfactory than the original.
 
 Provide the refined output as a JSON object in the following format:
@@ -510,7 +524,8 @@ Provide the refined output as a JSON object in the following format:
 Respond with only the JSON object.
 """
 
-systemTemplateCodebook = ["""
+class CodebookPrompts:
+    systemTemplateCodebook = ["""
 You are an advanced qualitative researcher and coding expert specializing in thematic analysis and codebook development. Your task is to generate a comprehensive codebook from user-provided themes. You will first receive a set of themes, and then you will create multiple related codes derived from those themes. Each code should clearly reflect an aspect of its originating theme, while providing a distinct definition, inclusion criteria, and exclusion criteria.
 
 Follow these instructions for each code you produce:
@@ -536,8 +551,9 @@ The output must be formatted as a JSON object, following this structure:
 }}
 ""","""\n\n{context}\n\n"""]
 
-
-codebookTemplate = lambda mainCode, additionalInfo, selectedThemes: f"""
+    @staticmethod
+    def codebookTemplate(mainCode, additionalInfo, selectedThemes): 
+        return f"""
 Below are the themes I want you to work with: {selectedThemes}
 
 Use Main Code: {mainCode} and Additional Info: {additionalInfo} to generate a codebook. 
@@ -559,4 +575,36 @@ Return the codebook as a JSON object in the following structure:
 }}
 
 Respond with only the JSON object.
+"""
+
+    @staticmethod
+    def codebookRegenerationTemplate(mainCode, additionalInfo, selectedThemes, currentCodebook): 
+        return f"""
+Use the current state of the codebook below to generate additional codes.
+
+Provided Codebook:
+{json.dumps(currentCodebook)}
+
+Below are the themes I want you to work with: {selectedThemes}
+
+Use Main Code: {mainCode} and Additional Info: {additionalInfo} to generate **additional codes** that align with the existing entries in the codebook.
+
+For each provided theme:
+- Analyze the existing codes to identify gaps or areas for further expansion.
+- Generate additional codes that are related to the theme or existing codes but cover a distinct focus or facet.
+- Ensure each new code includes a clear description, inclusion criteria, and exclusion criteria.
+
+Return the updated codebook (including only new codes) in the following JSON format:
+
+{{
+  "new_codes": [
+    {{
+      "word": "NewCodeName",
+      "description": "Description of the new code and its relationship to the originating theme or code.",
+      "inclusion_criteria": ["Specific criteria for what this code includes."],
+      "exclusion_criteria": ["Specific criteria for what this code excludes."]
+    }},
+    ...
+  ]
+}}
 """

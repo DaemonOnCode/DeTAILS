@@ -89,8 +89,7 @@ const ThemeCloudPage: FC = () => {
                     selectedThemes.includes(theme)
                 );
                 const filteredNewThemes = newThemes
-                    .filter((theme) => !filteredPrevThemes.includes(theme))
-                    .slice(0, 20 - filteredPrevThemes.length);
+                    .filter((theme) => !filteredPrevThemes.includes(theme));
                 return [...filteredPrevThemes, ...filteredNewThemes];
             });
             // await ipcRenderer.invoke("disconnect-ws", datasetId);
@@ -128,8 +127,8 @@ const ThemeCloudPage: FC = () => {
                     additionalInfo,
                     selectedThemes,
                     dataset_id:datasetId
-                })
-            })
+                }),
+            });
 
             const results = await res.json();
             console.log(results, 'Theme Cloud Page');
@@ -179,10 +178,10 @@ const ThemeCloudPage: FC = () => {
                 <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
                     <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
                         <h2 className="text-xl font-bold mb-4">
-                            Why are these themes unsatisfactory?
+                            Why are these words unsatisfactory?
                         </h2>
                         <p className=" mb-3">
-                            Theme list:{' '}
+                            Word list:{' '}
                             {themes
                                 .filter((theme) => !selectedThemes.includes(theme))
                                 .join(', ')}

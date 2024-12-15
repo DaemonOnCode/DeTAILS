@@ -18,7 +18,7 @@ import { useCollectionContext } from '../../context/collection_context';
 const { ipcRenderer } = window.require('electron');
 
 const CodingValidationV2Page: FC = () => {
-    const { dispatchCodeResponses, codeResponses, references, mainCode, selectedFlashcards, flashcards, selectedWords } = useCodingContext();
+    const { dispatchCodeResponses, codeResponses, references, mainCode, selectedFlashcards, flashcards, selectedWords, codeBook } = useCodingContext();
     const { selectedPosts, datasetId } = useCollectionContext();
 
     const navigate = useNavigate();
@@ -77,14 +77,7 @@ const CodingValidationV2Page: FC = () => {
                     model: MODEL_LIST.LLAMA_3_2,
                     references,
                     mainCode,
-                    flashcards: selectedFlashcards.map((id) => {
-                        return {
-                            question: flashcards.find((flashcard) => flashcard.id === id)!
-                                .question,
-                            answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
-                        };
-                    }),
-                    selectedWords,
+                    codeBook,
                     selectedPosts,
                     feedback: codeResponses.filter((response) => response.isMarked === false),
                     datasetId

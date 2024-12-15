@@ -157,6 +157,7 @@ function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
 
 type CodeBookAction =
     | { type: "INITIALIZE"; entries: CodebookEntry[] }
+    | { type: "ADD_MANY"; entries: CodebookEntry[] }
     | { type: "UPDATE_FIELD"; index: number; field: keyof CodebookEntry; value: string | string[] }
     | { type: "TOGGLE_MARK"; index: number; isMarked?: boolean }
     | { type: "ADD_ROW" }
@@ -166,6 +167,8 @@ const codeBookReducer = (state: CodebookEntry[], action: CodeBookAction): Codebo
     switch (action.type) {
         case "INITIALIZE":
             return [...action.entries];
+        case "ADD_MANY":
+            return [...state.filter((entry) => entry.isMarked===true), ...action.entries];
         case "UPDATE_FIELD":
             return state.map((entry, i) =>
                 i === action.index
