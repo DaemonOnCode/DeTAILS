@@ -115,7 +115,12 @@ const websocketHandler = () => {
                 // return;
             }
 
-            config.mainWindow.webContents.send('ws-message', message);
+            try {
+                config.mainWindow.webContents.send('ws-message', message);
+            } catch (e) {
+                console.log('Application closed');
+                console.log(e);
+            }
         });
     });
 
