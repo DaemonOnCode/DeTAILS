@@ -47,7 +47,8 @@
 		"react-toastify": "^10.0.6",
 		"react-use": "^17.4.0",
 		"sqlite3": "^5.1.7",
-		"web-streams-polyfill": "^4.0.0"
+		"web-streams-polyfill": "^4.0.0",
+		"xlsx": "^0.18.5"
 	},
 	"homepage": "./",
 	"main": "public/electron.js",

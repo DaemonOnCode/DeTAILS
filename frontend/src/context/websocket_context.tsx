@@ -11,14 +11,33 @@ const WebSocketContext = createContext({
   unregisterCallback: (event: string) => {},
 });
 
+// Singleton to ensure WebSocket setup happens only once
+const WebSocketSingleton = (() => {
+  let isInitialized = false;
+
+  const initialize = (handleMessage: (event: any, message: string) => void) => {
+    if (isInitialized) return;
+
+    ipcRenderer.removeAllListeners("ws-message");
+    ipcRenderer.on("ws-message", handleMessage);
+
+    ipcRenderer.once("ws-closed", () => {
+      toast.warning("WebSocket connection closed. Attempting to reconnect...");
+    });
+
+    isInitialized = true;
+    console.log("WebSocket singleton initialized");
+  };
+
+  return {
+    initialize,
+  };
+})();
+
 export const WebSocketProvider: FC<ILayout> = ({ children }) => {
   const messageCallbacks = useRef<{ [key: string]: CallbackFn }>({});
-  const [networkOnline, setNetworkOnline] = useState<boolean>(navigator.onLine);
   const lastPingRef = useRef<Date | null>(null);
   const pingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const retryCountRef = useRef<number>(0); // Track retry attempts
-  const maxRetries = 3; // Max retries allowed
 
   const registerCallback = (event: string, callback: CallbackFn) => {
     console.log(`Registering callback for event: ${event}`);
@@ -46,96 +65,48 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
     if (message.startsWith("ERROR:")) {
       console.log("ERROR message:", message);
       toast.error(message);
-    //   return;
     }
+
     if (message.startsWith("WARNING:")) {
       console.log("WARNING message:", message);
       toast.warning(message);
-    //   return;
     }
 
     console.log("Registered callbacks before triggering:", messageCallbacks.current);
-    Object.values(messageCallbacks.current).forEach((value) => value(message));
-  };
-
-  const checkPingTimeout = () => {
-    const now = new Date();
-    if (lastPingRef.current && now.getTime() - lastPingRef.current.getTime() > 60000) {
-      toast.error("No response from backend in the last 60 seconds. Attempting to reconnect...");
-      reconnectWebSocket();
-    }
+    Object.values(messageCallbacks.current).forEach((callback) => callback(message));
   };
 
   const resetPingTimeout = () => {
     if (pingTimeoutRef.current) {
       clearTimeout(pingTimeoutRef.current);
     }
-    pingTimeoutRef.current = setTimeout(checkPingTimeout, 60000);
-  };
-
-  const reconnectWebSocket = () => {
-    if (retryCountRef.current >= maxRetries) {
-      toast.error("Network issue detected. Please restart the app.");
-      return;
-    }
-
-    retryCountRef.current += 1;
-    console.log(`Reconnecting WebSocket... Attempt ${retryCountRef.current}`);
-    ipcRenderer.invoke("disconnect-ws", "").then(() => {
-      ipcRenderer.invoke("connect-ws", "").then(() => {
-        // Reset retry count on successful connection
-        retryCountRef.current = 0;
-        toast.success("Reconnected to WebSocket successfully.");
-        lastPingRef.current = new Date();
-        resetPingTimeout();
-      }).catch(() => {
-        console.error("Failed to reconnect WebSocket.");
-        reconnectWebSocket(); // Retry connection
-      });
-    });
+    pingTimeoutRef.current = setTimeout(() => {
+      const now = new Date();
+      if (lastPingRef.current && now.getTime() - lastPingRef.current.getTime() > 60000) {
+        toast.error("No response from backend in the last 60 seconds.");
+      }
+    }, 60000);
   };
 
   useEffect(() => {
-    const connectWebSocket = async () => {
-      try {
-        // First, clean up any previous listeners
-        ipcRenderer.removeAllListeners("ws-message");
+    // Ensure singleton WebSocket initialization
+    WebSocketSingleton.initialize(handleMessage);
 
-        // Establish WebSocket connection
-        await ipcRenderer.invoke("connect-ws", "");
-
-        // Attach the message handler
-        ipcRenderer.on("ws-message", handleMessage);
-
-        // Attach a listener for WebSocket closure
-        ipcRenderer.once("ws-closed", () => {
-          toast.warning("WebSocket connection closed. Attempting to reconnect...");
-          reconnectWebSocket();
-        });
-
-        // Set initial ping state
-        lastPingRef.current = new Date();
-        resetPingTimeout();
-      } catch (error) {
-        console.error("Initial WebSocket connection failed.");
-        reconnectWebSocket();
-      }
-    };
-
-    connectWebSocket();
+    ipcRenderer.invoke("connect-ws", "").then(() => {
+      console.log("WebSocket connected");
+      lastPingRef.current = new Date();
+      resetPingTimeout();
+    }).catch((error: any) => {
+      console.error("Failed to connect WebSocket:", error);
+    });
 
     return () => {
-      ipcRenderer.removeListener("ws-message", handleMessage); // Cleanup specific listener
-      ipcRenderer.invoke("disconnect-ws", "").then(() => {
-        console.log("Disconnected from WebSocket");
-      });
-
       if (pingTimeoutRef.current) {
         clearTimeout(pingTimeoutRef.current);
       }
+      console.log("WebSocketProvider unmounted");
     };
   }, []);
-
 
   return (
     <WebSocketContext.Provider

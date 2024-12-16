@@ -1,4 +1,4 @@
-import React, { FC, useReducer } from "react";
+import { FC, useState } from "react";
 import { useCodingContext } from "../../context/coding_context";
 import NavigationBottomBar from "../../components/Coding/Shared/navigation_bottom_bar";
 import { LOADER_ROUTES, ROUTES } from "../../constants/Coding/shared";
@@ -6,12 +6,14 @@ import { FaTrash } from "react-icons/fa";
 import { useCollectionContext } from "../../context/collection_context";
 import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from "../../constants/Shared";
 import { useNavigate } from "react-router-dom";
+import { saveCSV, saveExcel } from "../../utility/convert-js-object";
 
 const { ipcRenderer } = window.require("electron");
 
 const CodeBookPage: FC = () => {
     const { codeBook, dispatchCodeBook, mainCode, additionalInfo, selectedThemes } = useCodingContext();
     const { datasetId } = useCollectionContext();
+    const [saving, setSaving] = useState(false);
     const navigate = useNavigate();
 
     const handleGenerateMore = async() => {
@@ -54,6 +56,20 @@ const CodeBookPage: FC = () => {
         }
         navigate("/coding/"+ROUTES.CODEBOOK);
     };
+
+    const handleSaveCsv = async() => {
+        setSaving(true);
+        const result = await saveCSV(ipcRenderer, codeBook, "codebook");
+        console.log(result);
+        setSaving(false);
+    }
+
+    const handleSaveExcel = async() => {
+        setSaving(true);
+        const result = await saveExcel(ipcRenderer, codeBook, "codebook");
+        console.log(result);
+        setSaving(false);
+    }
 
     const isReadyCheck = codeBook.some((entry) => entry.isMarked === true);
 
@@ -185,19 +201,37 @@ const CodeBookPage: FC = () => {
                         </tbody>
                     </table>
                 </div>
-                <div className="mt-6 flex justify-center gap-x-6">
-                    <button
-                        onClick={() => dispatchCodeBook({ type: "ADD_ROW" })}
-                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                    >
-                        Add New Row
-                    </button>
-                    <button
-                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
-                        onClick={handleGenerateMore}
-                    >
-                        Generate more
-                    </button>
+                <div className="mt-6 flex justify-center gap-x-48">
+                    <div className="flex gap-x-4">
+                        <button
+                            onClick={() => dispatchCodeBook({ type: "ADD_ROW" })}
+                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                        >
+                            Add New Row
+                        </button>
+                        <button
+                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
+                            onClick={handleGenerateMore}
+                        >
+                            Generate more
+                        </button>
+                    </div>
+                    <div className="flex gap-x-4">
+                        <button
+                            onClick={handleSaveCsv}
+                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                            disabled={saving}
+                        >
+                            Save as CSV
+                        </button>
+                        <button
+                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                            onClick={handleSaveExcel}
+                            disabled={saving}
+                        >
+                            Save as Excel
+                        </button>
+                    </div>
                 </div>
             </div>
             <NavigationBottomBar previousPage={ROUTES.THEME_CLOUD} nextPage={ROUTES.INITIAL_CODING} isReady={isReadyCheck}/>

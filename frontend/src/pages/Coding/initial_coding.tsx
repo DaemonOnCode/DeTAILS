@@ -253,6 +253,8 @@ const InitialCodingPage = () => {
                 });
             });
 
+            console.log(totalCodes, 'Total Codes');
+
             dispatchCodeResponses({
                 type: 'ADD_RESPONSES',
                 responses: totalCodes

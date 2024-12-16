@@ -107,6 +107,7 @@ type Action<T> =
 // Reducer function to manage the state of responses
 function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
     console.log('Action:', action);
+    let newResponses: T[] = [];
     switch (action.type) {
         case 'SET_CORRECT':
             return state.map((response, index) =>
@@ -135,13 +136,16 @@ function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
                 .filter((_, index) => !action.indexes.includes(index))
                 .concat(action.newResponses);
         case 'ADD_RESPONSE':
+            newResponses = state.filter((response: any) => response.coded_word !== '' || response.sentence !== '');
             return state.concat({
                 ...action.response
             });
         case 'SET_RESPONSES':
-            return [...action.responses];
+            newResponses = action.responses.filter((response: any) => response.coded_word !== '' || response.sentence !== '');
+            return [...newResponses];
         case 'ADD_RESPONSES':
-            return [...state, ...action.responses];
+            newResponses = action.responses.filter((response: any) => response.coded_word !== '' || response.sentence !== '');
+            return [...state, ...newResponses];
         case 'REMOVE_RESPONSES':
             if (action.all) {
                 return [];

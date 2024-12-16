@@ -1541,7 +1541,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                             )
                             raise e
 
-                await asyncio.sleep(5)
+                await asyncio.sleep(1)
                 # Parse validation results
                 match = re.search(
                     r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
@@ -1713,7 +1713,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                             )
                             raise e
 
-                await asyncio.sleep(5)
+                await asyncio.sleep(1)
                 # Parse validation results
                 match = re.search(
                     r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
@@ -1974,7 +1974,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                             )
                             raise e
 
-                await asyncio.sleep(5)
+                await asyncio.sleep(1)
                 # Parse the validation results
                 match = re.search(
                     r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
@@ -2131,7 +2131,7 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                             await manager.broadcast(f"ERROR: Dataset {request_body.datasetId}: Failed to validate results for post {post_id} after multiple attempts.")
                             raise e
 
-                await asyncio.sleep(5)
+                await asyncio.sleep(1)
                 # Parse the validation results
                 match = re.search(
                     r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',

@@ -5,6 +5,27 @@ const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
 
+function flattenObject(obj, parentKey = '', separator = '.') {
+    const flattened = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const newKey = parentKey ? `${parentKey}${separator}${key}` : key;
+            const value = obj[key];
+            if (Array.isArray(value)) {
+                // Join array values into a comma-separated string
+                flattened[newKey] = value.join(', ');
+            } else if (typeof value === 'object' && value !== null) {
+                // Recursively flatten nested objects
+                Object.assign(flattened, flattenObject(value, newKey, separator));
+            } else {
+                // Assign primitive values directly
+                flattened[newKey] = value;
+            }
+        }
+    }
+    return flattened;
+}
+
 const fileHandler = () => {
     ipcMain.handle('select-folder', async () => {
         await logger.info('Selecting folder');
@@ -66,8 +87,11 @@ const fileHandler = () => {
             });
 
             if (filePath) {
+                // Preprocess data to flatten nested objects and arrays
+                const processedData = data.map((item) => flattenObject(item));
+
                 // Create an Excel Workbook
-                const worksheet = XLSX.utils.json_to_sheet(data); // Convert JSON to Worksheet
+                const worksheet = XLSX.utils.json_to_sheet(processedData); // Convert JSON to Worksheet
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
 
