@@ -7,6 +7,7 @@ import { useCollectionContext } from "../../context/collection_context";
 import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from "../../constants/Shared";
 import { useNavigate } from "react-router-dom";
 import { saveCSV, saveExcel } from "../../utility/convert-js-object";
+import { useLogger } from "../../context/logging_context";
 
 const { ipcRenderer } = window.require("electron");
 
@@ -15,13 +16,16 @@ const CodeBookPage: FC = () => {
     const { datasetId } = useCollectionContext();
     const [saving, setSaving] = useState(false);
     const navigate = useNavigate();
-    
+    const logger = useLogger();
+
 
     const handleGenerateMore = async() => {
+        await logger.info("Generate more codes");
         navigate("../loader/"+LOADER_ROUTES.CODEBOOK_LOADER);
         const filteredCodebook = codeBook.filter((entry) => entry.isMarked === undefined);
         if(filteredCodebook.length === codeBook.length){
             navigate("/coding/"+ROUTES.CODEBOOK);
+            await logger.info('Codebook Generation completed');
             return;
         }
         if(!USE_LOCAL_SERVER){
@@ -54,22 +58,27 @@ const CodeBookPage: FC = () => {
                 type: 'ADD_MANY',
                 entries: newCodebook
             });
+            await logger.info('Codebook Generation completed');
         }
         navigate("/coding/"+ROUTES.CODEBOOK);
     };
 
     const handleSaveCsv = async() => {
+        await logger.info('Saving codebook as CSV');
         setSaving(true);
         const result = await saveCSV(ipcRenderer, codeBook, "codebook");
         console.log(result);
         setSaving(false);
+        await logger.info('Codebook saved as CSV');
     }
 
     const handleSaveExcel = async() => {
+        await logger.info('Saving codebook as Excel');
         setSaving(true);
         const result = await saveExcel(ipcRenderer, codeBook, "codebook");
         console.log(result);
         setSaving(false);
+        await logger.info('Codebook saved as Excel');
     }
 
     const isReadyCheck = codeBook.some((entry) => entry.isMarked === true);

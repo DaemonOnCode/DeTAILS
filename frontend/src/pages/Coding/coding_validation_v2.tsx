@@ -67,6 +67,7 @@ const CodingValidationV2Page: FC = () => {
 
 
         if(!USE_LOCAL_SERVER){
+            await logger.info('Sending data to remote server for validation');
             // await ipcRenderer.invoke("connect-ws", datasetId);
             const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_THEMES_AND_FEEDBACK}`, {
                 method: 'POST',
@@ -120,6 +121,7 @@ const CodingValidationV2Page: FC = () => {
                 }
             });
 
+            await logger.info('Coding validation with feedback', { time: timer.end() });
             dispatchCodeResponses({
                 type: 'SET_RESPONSES',
                 responses: totalResponses

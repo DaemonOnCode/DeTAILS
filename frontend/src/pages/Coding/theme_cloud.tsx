@@ -61,6 +61,7 @@ const ThemeCloudPage: FC = () => {
     };
 
     const refreshThemeCloud = async () => {
+        await logger.info('Regenerating Theme Cloud');
         navigate("../loader/" + LOADER_ROUTES.THEME_LOADER);
         if(!USE_LOCAL_SERVER){
             // await ipcRenderer.invoke("connect-ws", datasetId);
@@ -94,10 +95,12 @@ const ThemeCloudPage: FC = () => {
             });
             // await ipcRenderer.invoke("disconnect-ws", datasetId);
             navigate("/coding/"+ROUTES.THEME_CLOUD);
+            await logger.info('Theme Cloud refreshed');
             return;
         }
 
         console.log('Theme Cloud refreshed');
+        await logger.info('Theme Cloud refreshed');
     };
 
     const refreshThemes = () => {
@@ -107,6 +110,7 @@ const ThemeCloudPage: FC = () => {
 
     const handleNextClick = async(e:any) => {
         e.preventDefault();
+        await logger.info('Starting Codebook Generation');
         console.log('Navigating to codebook');
         // navigate(ROUTES.CODEBOOK);
         navigate('../loader/' + LOADER_ROUTES.CODEBOOK_LOADER);
@@ -140,6 +144,7 @@ const ThemeCloudPage: FC = () => {
                 type: 'INITIALIZE',
                 entries: newCodebook
             });
+            await logger.info('Codebook Generation completed');
             return;
         }
     }

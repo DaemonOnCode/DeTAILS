@@ -61,6 +61,7 @@ const BasisPage = () => {
 
     const handleOnNextClick = async (e: any) => {
         e.preventDefault();
+        await logger.info('Starting Theme Cloud Generation');
         navigate('../loader/' + LOADER_ROUTES.THEME_LOADER);
 
         console.log('Sending request to server');
@@ -94,6 +95,7 @@ const BasisPage = () => {
             }
 
             // await ipcRenderer.invoke("disconnect-ws", datasetId);
+            await logger.info('Theme Cloud generated');
             return;
         }
 
