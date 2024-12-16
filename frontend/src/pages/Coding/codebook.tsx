@@ -23,7 +23,7 @@ const CodeBookPage: FC = () => {
         await logger.info("Generate more codes");
         navigate("../loader/"+LOADER_ROUTES.CODEBOOK_LOADER);
         const filteredCodebook = codeBook.filter((entry) => entry.isMarked === undefined);
-        if(filteredCodebook.length === codeBook.length){
+        if(codeBook.length!==0 && filteredCodebook.length === codeBook.length){
             navigate("/coding/"+ROUTES.CODEBOOK);
             await logger.info('Codebook Generation completed');
             return;

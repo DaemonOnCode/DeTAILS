@@ -558,7 +558,9 @@ Below are the themes I want you to work with: {selectedThemes}
 
 Use Main Code: {mainCode} and Additional Info: {additionalInfo} to generate a codebook. 
 
-Please generate a codebook using the instructions from the system prompt. For each provided theme, create multiple codes derived from that theme. Do not treat the themes as codes directly; instead, create codes that reflect different facets or dimensions of each theme. Make sure to include a clear description, inclusion criteria, and exclusion criteria for each code.
+Please generate a codebook of only 20 words. For each provided theme, create multiple codes derived from that theme. 
+Do not treat the themes as codes directly; instead, create codes that reflect different facets or dimensions of each theme. 
+Make sure to include a clear description, inclusion criteria, and exclusion criteria for each code.
 
 Return the codebook as a JSON object in the following structure:
 
