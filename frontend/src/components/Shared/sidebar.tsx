@@ -9,9 +9,9 @@ const formatRouteName = (path: string) => {
         .replace(/#/g, '')
         .replace(/_/g, ' ')
         .replace(/-/g, ' ')
-        .replace(" V2","")
-        .replace("Theme","Word")
         .toLowerCase()
+        .replace(" v2","")
+        .replace("theme","word")
         .split(' ')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
