@@ -157,7 +157,7 @@ const Workflow = () => {
     } else if (message.includes("Successfully processed post")) {
       setStatuses((prev) => ({ ...prev, LLM3: "success" }));
       setGeneratedText((prev) => ({ ...prev, LLM3: "Validated Successfully" }));
-
+    } else if (message.includes("Processed post")) {
       if (postId) {
         setProcessedPosts((prev) => new Set(prev).add(postId)); // Add postId to Set
       }

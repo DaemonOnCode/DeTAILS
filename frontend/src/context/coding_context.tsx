@@ -136,15 +136,15 @@ function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
                 .filter((_, index) => !action.indexes.includes(index))
                 .concat(action.newResponses);
         case 'ADD_RESPONSE':
-            newResponses = [action.response]
+            newResponses = [action.response].filter((response: any) => response.coded_word?.trim() !== '' && response.sentence?.trim() !== '');
             return state.concat({
                 ...(newResponses.length?newResponses[0] as any:{}),
             });
         case 'SET_RESPONSES':
-            newResponses = action.responses.filter((response: any) => response.coded_word !== '' || response.sentence !== '');
+            newResponses = action.responses.filter((response: any) => response.coded_word?.trim() !== '' && response.sentence?.trim() !== '');
             return [...newResponses];
         case 'ADD_RESPONSES':
-            newResponses = action.responses.filter((response: any) => response.coded_word !== '' || response.sentence !== '');
+            newResponses = action.responses.filter((response: any) => response.coded_word?.trim() !== '' && response.sentence?.trim() !== '');
             return [...state, ...newResponses];
         case 'REMOVE_RESPONSES':
             if (action.all) {

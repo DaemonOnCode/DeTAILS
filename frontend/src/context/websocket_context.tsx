@@ -23,6 +23,15 @@ const WebSocketSingleton = (() => {
 
     ipcRenderer.once("ws-closed", () => {
       toast.warning("WebSocket connection closed. Attempting to reconnect...");
+      setTimeout(() => {
+        ipcRenderer.invoke("connect-ws", "").then(() => {
+          toast.success("WebSocket reconnected");
+          console.log("WebSocket reconnected");
+        }).catch((error: any) => {
+          toast.error("Failed to reconnect WebSocket.");
+          console.error("Failed to reconnect WebSocket:", error);
+        });
+      }, 5000);
     });
 
     isInitialized = true;
@@ -80,6 +89,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
     if (pingTimeoutRef.current) {
       clearTimeout(pingTimeoutRef.current);
     }
+
     pingTimeoutRef.current = setTimeout(() => {
       const now = new Date();
       if (lastPingRef.current && now.getTime() - lastPingRef.current.getTime() > 60000) {

@@ -358,17 +358,16 @@ class ForcibleThreadPoolExecutor:
             task_id (str): Unique identifier of the task to terminate
         """
         with self._task_lock:
-            task_info = self._active_tasks.get(task_id)
+            task_info = self._active_tasks.pop(task_id, None)  # Cleanup immediately
             
             if task_info:
                 future = task_info['future']
                 thread_id = task_info['thread_id']
                 
                 try:
-                    # Attempt to raise an exception in the thread
+                    # Raise exception in the thread
                     if thread_id:
                         self._async_raise(thread_id, SystemExit)
-                    
                     # Cancel the future
                     future.cancel()
                 except Exception as e:
@@ -1584,6 +1583,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
 
                     await asyncio.sleep(1)
                     # Remove processed post from the queue
+                await manager.broadcast(f"Dataset {request_body.datasetId}: Processed post {post_id}.")
                 posts.pop(0)
 
             except Exception as e:
@@ -1764,6 +1764,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                             # raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
                     await asyncio.sleep(1)
                     # Remove processed post from the queue
+                await manager.broadcast(f"Dataset {request_body.datasetId}: Processed post {post_id}.")
                 posts.pop(0)
 
             except Exception as e:
@@ -2027,6 +2028,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
 
                     await asyncio.sleep(1)
                     # Pop the post only after all steps are completed
+                await manager.broadcast(f"Dataset {request_body.datasetId}: Processed post {post_id}.")
                 posts.pop(0)
 
             except Exception as e:
@@ -2189,6 +2191,8 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                             continue
                             # raise e
                     await asyncio.sleep(1)
+
+                await manager.broadcast(f"Dataset {request_body.datasetId}: Processed post {post_id}.")
                 posts.pop(0)
 
             except Exception as e:

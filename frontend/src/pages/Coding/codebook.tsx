@@ -15,6 +15,7 @@ const CodeBookPage: FC = () => {
     const { datasetId } = useCollectionContext();
     const [saving, setSaving] = useState(false);
     const navigate = useNavigate();
+    
 
     const handleGenerateMore = async() => {
         navigate("../loader/"+LOADER_ROUTES.CODEBOOK_LOADER);
@@ -101,7 +102,7 @@ const CodeBookPage: FC = () => {
                                                 dispatchCodeBook({
                                                     type: "UPDATE_FIELD",
                                                     index,
-                                                    field: "theme",
+                                                    field: "word",
                                                     value: e.target.value,
                                                 })
                                             }
