@@ -136,9 +136,9 @@ function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
                 .filter((_, index) => !action.indexes.includes(index))
                 .concat(action.newResponses);
         case 'ADD_RESPONSE':
-            newResponses = state.filter((response: any) => response.coded_word !== '' || response.sentence !== '');
+            newResponses = [action.response]
             return state.concat({
-                ...action.response
+                ...(newResponses.length?newResponses[0] as any:{}),
             });
         case 'SET_RESPONSES':
             newResponses = action.responses.filter((response: any) => response.coded_word !== '' || response.sentence !== '');

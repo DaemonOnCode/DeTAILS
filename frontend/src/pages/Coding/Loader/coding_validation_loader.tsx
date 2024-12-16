@@ -110,7 +110,7 @@ const Workflow = () => {
   };
 
   const extractPostId = (message: string): string | null => {
-    const match = message.match(/post (\d+)/);
+    const match = message.match(/post ([a-zA-Z0-9]{6})/);
     return match ? match[1] : null;
   };
 
@@ -122,11 +122,11 @@ const Workflow = () => {
     if (message.includes("WARNING:")) {
       const warningLLM = message.includes("LLM1") ? "LLM1" : message.includes("LLM2") ? "LLM2" : "LLM3";
       setStatuses((prev) => ({ ...prev, [warningLLM]: "warning" }));
-      setGeneratedText((prev) => ({ ...prev, [warningLLM]: message }));
+      setGeneratedText((prev) => ({ ...prev, [warningLLM]: "Warning" }));
     } else if (message.includes("ERROR:")) {
       const errorLLM = message.includes("LLM1") ? "LLM1" : message.includes("LLM2") ? "LLM2" : "LLM3";
       setStatuses((prev) => ({ ...prev, [errorLLM]: "error" }));
-      setGeneratedText((prev) => ({ ...prev, [errorLLM]: message }));
+      setGeneratedText((prev) => ({ ...prev, [errorLLM]: "Error" }));
     } else if (message.includes("Fetching data")) {
       setStatuses({ LLM1: "fetching", LLM2: "not_started", LLM3: "not_started" });
       setGeneratedText({ LLM1: "Fetching data...", LLM2: "", LLM3: "" });
@@ -135,17 +135,26 @@ const Workflow = () => {
       setGeneratedText((prev) => ({ ...prev, LLM1: "Generating..." }));
     } else if (message.includes("LLM1 completed generation")) {
       setStatuses((prev) => ({ ...prev, LLM1: "success" }));
-      setGeneratedText((prev) => ({ ...prev, LLM1: "Completed by LLM1" }));
+      setGeneratedText((prev) => ({ ...prev, LLM1: "Completed by LLM 1" }));
     } else if (message.includes("Generating with LLM2")) {
       setStatuses((prev) => ({ ...prev, LLM2: "generating" }));
       setGeneratedText((prev) => ({ ...prev, LLM2: "Generating..." }));
     } else if (message.includes("LLM2 completed generation")) {
       setStatuses((prev) => ({ ...prev, LLM2: "success" }));
-      setGeneratedText((prev) => ({ ...prev, LLM2: "Completed by LLM2" }));
+      setGeneratedText((prev) => ({ ...prev, LLM2: "Completed by LLM 2" }));
     } else if (message.includes("Validating results")) {
       setStatuses((prev) => ({ ...prev, LLM3: "validating" }));
       setGeneratedText((prev) => ({ ...prev, LLM3: "Validating..." }));
-    } else if (message.includes("Validation completed")) {
+    } else if (message.includes("Retrying validation")) {
+      setStatuses((prev) => ({ ...prev, LLM3: "warning" }));
+      setGeneratedText((prev) => ({ ...prev, LLM3: "Retrying..." }));
+    } else if (message.includes("Error validating")) {
+      setStatuses((prev) => ({ ...prev, LLM3: "error" }));
+      setGeneratedText((prev) => ({ ...prev, LLM3: "Validation Failed" }));
+    } else if (message.includes("Failed to validate")) {
+      setStatuses((prev) => ({ ...prev, LLM3: "error" }));
+      setGeneratedText((prev) => ({ ...prev, LLM3: "Validation Failed" }));
+    } else if (message.includes("Successfully processed post")) {
       setStatuses((prev) => ({ ...prev, LLM3: "success" }));
       setGeneratedText((prev) => ({ ...prev, LLM3: "Validated Successfully" }));
 

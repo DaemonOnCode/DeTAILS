@@ -9,6 +9,8 @@ const formatRouteName = (path: string) => {
         .replace(/#/g, '')
         .replace(/_/g, ' ')
         .replace(/-/g, ' ')
+        .replace(" V2","")
+        .replace("Theme","Word")
         .toLowerCase()
         .split(' ')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -16,7 +18,7 @@ const formatRouteName = (path: string) => {
 };
 
 // Define keywords to filter out paths
-const IGNORED_KEYWORDS = ['*', '/', 'cleaning', 'modeling', 'basis', 'flashcards', 'word-cloud', 'coding-validation'];
+const IGNORED_KEYWORDS = ['*', '/', 'loader', 'cleaning', 'modeling', 'basis', 'flashcards', 'word-cloud', 'coding-validation'];
 
 const Sidebar: FC = () => {
     const location = useLocation();

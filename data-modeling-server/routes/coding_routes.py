@@ -1430,22 +1430,22 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
         # Initialize LLMs
         llm1 = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.9,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         llm2 = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         judge_llm = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.5,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
@@ -1522,6 +1522,9 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                 success = False
                 validation_result = None
                 while retries > 0 and not success:
+                    if retries != 3:
+                        # await manager.broadcast(f"Dataset {request_body.datasetId}: Validating failed for post {post_id}. Retrying... ({3 - retries}/3)")
+                        await asyncio.sleep(1)
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validating results with judge LLM for post {post_id}...")
                         validate_prompt = CodePrompts.judge_validate(
@@ -1540,41 +1543,47 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                                 f"ERROR: Dataset {request_body.datasetId}: Validation failed for post {post_id} after multiple attempts."
                             )
                             raise e
+                        continue
 
-                await asyncio.sleep(1)
-                # Parse validation results
-                match = re.search(
-                    r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
-                    validation_result,
-                )
-
-                if not match:
-                    await manager.broadcast(
-                        f"WARNING: Dataset {request_body.datasetId}: Validation result parsing failed for post {post_id}."
+                    await asyncio.sleep(1)
+                    # Parse validation results
+                    match = re.search(
+                        r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
+                        validation_result,
                     )
-                    final_results.append({"unified_codebook": [], "recoded_transcript": []})
-                else:
-                    try:
-                        unified_codebook = json.loads(match.group(1))
-                        recoded_transcript = (
-                            json.loads(match.group(2)) if match.group(2) else []
-                        )
-                        final_results.append(
-                            {
-                                "unified_codebook": unified_codebook,
-                                "recoded_transcript": recoded_transcript,
-                            }
-                        )
-                        await manager.broadcast(
-                            f"Dataset {request_body.datasetId}: Post {post_id} processed successfully."
-                        )
-                    except json.JSONDecodeError as e:
-                        await manager.broadcast(
-                            f"ERROR: Dataset {request_body.datasetId}: Error parsing JSON validation results for post {post_id}."
-                        )
-                        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-                # Remove processed post from the queue
+                    if not match:
+                        retries -= 1
+                        await manager.broadcast(
+                            f"WARNING: Dataset {request_body.datasetId}: Validation result parsing failed for post {post_id}."
+                        )
+                        # final_results.append({"unified_codebook": [], "recoded_transcript": []})
+                        continue
+                    else:
+                        try:
+                            unified_codebook = json.loads(match.group(1))
+                            recoded_transcript = (
+                                json.loads(match.group(2)) if match.group(2) else []
+                            )
+                            final_results.append(
+                                {
+                                    "unified_codebook": unified_codebook,
+                                    "recoded_transcript": recoded_transcript,
+                                }
+                            )
+                            await manager.broadcast(
+                                f"Dataset {request_body.datasetId}: Post {post_id} processed successfully."
+                            )
+                        except json.JSONDecodeError as e:
+                            retries -= 1
+                            await manager.broadcast(
+                                f"ERROR: Dataset {request_body.datasetId}: Error parsing JSON validation results for post {post_id}."
+                            )
+                            continue
+                            # raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+                    await asyncio.sleep(1)
+                    # Remove processed post from the queue
                 posts.pop(0)
 
             except Exception as e:
@@ -1601,22 +1610,22 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
         # Initialize LLMs
         llm1 = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.9,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         llm2 = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         judge_llm = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.5,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
@@ -1694,6 +1703,9 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                 success = False
                 validation_result = None
                 while retries > 0 and not success:
+                    if retries != 3:
+                        # await manager.broadcast(f"WARNING: Dataset {request_body.datasetId}: Validation failed for post {post_id}. Retrying... ({3 - retries}/3)")
+                        await asyncio.sleep(1)
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validating results for post {post_id}...")
                         validate_prompt = CodePrompts.judge_validate_with_feedback(
@@ -1712,41 +1724,46 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                                 f"ERROR: Dataset {request_body.datasetId}: Validation failed for post {post_id} after multiple attempts."
                             )
                             raise e
+                        continue
 
-                await asyncio.sleep(1)
-                # Parse validation results
-                match = re.search(
-                    r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
-                    validation_result,
-                )
-
-                if not match:
-                    await manager.broadcast(
-                        f"WARNING: Dataset {request_body.datasetId}: Validation result parsing failed for post {post_id}."
+                    await asyncio.sleep(1)
+                    # Parse validation results
+                    match = re.search(
+                        r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
+                        validation_result,
                     )
-                    final_results.append({"unified_codebook": [], "recoded_transcript": []})
-                else:
-                    try:
-                        unified_codebook = json.loads(match.group(1))
-                        recoded_transcript = (
-                            json.loads(match.group(2)) if match.group(2) else []
-                        )
-                        final_results.append(
-                            {
-                                "unified_codebook": unified_codebook,
-                                "recoded_transcript": recoded_transcript,
-                            }
-                        )
-                        await manager.broadcast(
-                            f"Dataset {request_body.datasetId}: Post {post_id} processed successfully."
-                        )
-                    except json.JSONDecodeError as e:
-                        await manager.broadcast(
-                            f"ERROR: Dataset {request_body.datasetId}: Error parsing JSON validation results for post {post_id}."
-                        )
-                        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-                # Remove processed post from the queue
+                    if not match:
+                        await manager.broadcast(
+                            f"WARNING: Dataset {request_body.datasetId}: Validation result parsing failed for post {post_id}."
+                        )
+                        # final_results.append({"unified_codebook": [], "recoded_transcript": []})
+                        retries -= 1
+                        continue
+                    else:
+                        try:
+                            unified_codebook = json.loads(match.group(1))
+                            recoded_transcript = (
+                                json.loads(match.group(2)) if match.group(2) else []
+                            )
+                            final_results.append(
+                                {
+                                    "unified_codebook": unified_codebook,
+                                    "recoded_transcript": recoded_transcript,
+                                }
+                            )
+                            await manager.broadcast(
+                                f"Dataset {request_body.datasetId}: Post {post_id} processed successfully."
+                            )
+                        except json.JSONDecodeError as e:
+                            retries -= 1
+                            await manager.broadcast(
+                                f"ERROR: Dataset {request_body.datasetId}: Error parsing JSON validation results for post {post_id}."
+                            )
+                            continue
+                            # raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+                    await asyncio.sleep(1)
+                    # Remove processed post from the queue
                 posts.pop(0)
 
             except Exception as e:
@@ -1766,22 +1783,22 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
 #     try:
 #         llm1 = OllamaLLM(
 #             model=request_body.model,
-#             num_ctx=16384,
-#             num_predict=16384,
+#             num_ctx=30000,
+#             num_predict=30000,
 #             temperature=0.9,
 #             callbacks=[StreamingStdOutCallbackHandler()]
 #         )
 #         llm2 = OllamaLLM(
 #             model=request_body.model,
-#             num_ctx=16384,
-#             num_predict=16384,
+#             num_ctx=30000,
+#             num_predict=30000,
 #             temperature=0.2,
 #             callbacks=[StreamingStdOutCallbackHandler()]
 #         )
 #         judge_llm = OllamaLLM(
 #             model=request_body.model,
-#             num_ctx=16384,
-#             num_predict=16384,
+#             num_ctx=30000,
+#             num_predict=30000,
 #             temperature=0.5,
 #             callbacks=[StreamingStdOutCallbackHandler()]
 #         )
@@ -1862,22 +1879,22 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
         # Initialize LLMs
         llm1 = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.9,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         llm2 = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         judge_llm = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.5,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
@@ -1957,11 +1974,14 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                 retries = 3
                 success = False
                 while retries > 0 and not success:
+                    if retries != 3:
+                        # await manager.broadcast(f"WARNING: Dataset {request_body.datasetId}: Retrying validation for post {post_id}...")
+                        await asyncio.sleep(1)
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validating results with judge LLM for post {post_id}...")
                         validate_prompt = CodePrompts.judge_validate(result1, result2, transcript, request_body.mainCode)
                         validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=180)
-                        success = True
+
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
                         retries -= 1
@@ -1973,33 +1993,40 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                                 f"ERROR: Dataset {request_body.datasetId}: Failed to validate results for post {post_id} after multiple attempts."
                             )
                             raise e
+                        continue
 
-                await asyncio.sleep(1)
-                # Parse the validation results
-                match = re.search(
-                    r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
-                    validation_result
-                )
+                    await asyncio.sleep(1)
+                    # Parse the validation results
+                    match = re.search(
+                        r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
+                        validation_result
+                    )
 
-                if not match:
-                    final_results.append({"unified_codebook": [], "recoded_transcript": []})
-                    await manager.broadcast(f"WARNING: Dataset {request_body.datasetId}: No valid results found for post {post_id}.")
-                else:
-                    try:
-                        unified_codebook = json.loads(match.group(1))
-                        recoded_transcript = json.loads(match.group(2)) if match.group(2) else []
-                        final_results.append({
-                            "unified_codebook": unified_codebook,
-                            "recoded_transcript": recoded_transcript
-                        })
-                        await manager.broadcast(f"Dataset {request_body.datasetId}: Successfully processed post {post_id}.")
-                    except json.JSONDecodeError as e:
-                        await manager.broadcast(
-                            f"ERROR: Dataset {request_body.datasetId}: Error parsing validation results for post {post_id} - {str(e)}."
-                        )
-                        raise e
+                    if not match:
+                        retries -= 1
+                        # final_results.append({"unified_codebook": [], "recoded_transcript": []})
+                        await manager.broadcast(f"WARNING: Dataset {request_body.datasetId}: No valid results found for post {post_id}.")
+                        continue
+                    else:
+                        try:
+                            unified_codebook = json.loads(match.group(1))
+                            recoded_transcript = json.loads(match.group(2)) if match.group(2) else []
+                            final_results.append({
+                                "unified_codebook": unified_codebook,
+                                "recoded_transcript": recoded_transcript
+                            })
+                            success = True
+                            await manager.broadcast(f"Dataset {request_body.datasetId}: Successfully processed post {post_id}.")
+                        except json.JSONDecodeError as e:
+                            retries -= 1
+                            await manager.broadcast(
+                                f"ERROR: Dataset {request_body.datasetId}: Error parsing validation results for post {post_id} - {str(e)}."
+                            )
+                            continue
+                            # raise e
 
-                # Pop the post only after all steps are completed
+                    await asyncio.sleep(1)
+                    # Pop the post only after all steps are completed
                 posts.pop(0)
 
             except Exception as e:
@@ -2028,22 +2055,22 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
         # Initialize LLMs
         llm1 = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.9,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         llm2 = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         judge_llm = OllamaLLM(
             model=request_body.model,
-            num_ctx=16384,
-            num_predict=16384,
+            num_ctx=30000,
+            num_predict=30000,
             temperature=0.5,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
@@ -2116,13 +2143,15 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                 success = False
                 validation_result = None
                 while retries > 0 and not success:
+                    if retries != 3:
+                        # await manager.broadcast(f"WARNING: Dataset {request_body.datasetId}: Retrying validation for post {post_id}...")
+                        await asyncio.sleep(1)
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validating results with judge LLM for post {post_id}...")
                         validate_prompt = CodePrompts.judge_validate_with_feedback(
                             result1, result2, transcript, request_body.mainCode, feedback_text
                         )
                         validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=180)
-                        success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
                         retries -= 1
@@ -2130,30 +2159,36 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                         if retries == 0:
                             await manager.broadcast(f"ERROR: Dataset {request_body.datasetId}: Failed to validate results for post {post_id} after multiple attempts.")
                             raise e
+                        continue
 
-                await asyncio.sleep(1)
-                # Parse the validation results
-                match = re.search(
-                    r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
-                    validation_result
-                )
+                    await asyncio.sleep(1)
+                    # Parse the validation results
+                    match = re.search(
+                        r'(?:```json\s*)?\{\s*"unified_codebook":\s*(\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(\[[\s\S]*?\])?\s*\}?',
+                        validation_result
+                    )
 
-                if not match:
-                    final_results.append({"unified_codebook": [], "recoded_transcript": []})
-                    await manager.broadcast(f"WARNING: Dataset {request_body.datasetId}: No valid results found for post {post_id}.")
-                else:
-                    try:
-                        unified_codebook = json.loads(match.group(1))
-                        recoded_transcript = json.loads(match.group(2)) if match.group(2) else []
-                        final_results.append({
-                            "unified_codebook": unified_codebook,
-                            "recoded_transcript": recoded_transcript
-                        })
-                        await manager.broadcast(f"Dataset {request_body.datasetId}: Successfully processed post {post_id}.")
-                    except json.JSONDecodeError as e:
-                        await manager.broadcast(f"ERROR: Dataset {request_body.datasetId}: Error parsing validation results for post {post_id} - {str(e)}.")
-                        raise e
-
+                    if not match:
+                        retries -= 1
+                        # final_results.append({"unified_codebook": [], "recoded_transcript": []})
+                        await manager.broadcast(f"WARNING: Dataset {request_body.datasetId}: No valid results found for post {post_id}.")
+                        continue
+                    else:
+                        try:
+                            unified_codebook = json.loads(match.group(1))
+                            recoded_transcript = json.loads(match.group(2)) if match.group(2) else []
+                            final_results.append({
+                                "unified_codebook": unified_codebook,
+                                "recoded_transcript": recoded_transcript
+                            })
+                            success = True
+                            await manager.broadcast(f"Dataset {request_body.datasetId}: Successfully processed post {post_id}.")
+                        except json.JSONDecodeError as e:
+                            retries -= 1
+                            await manager.broadcast(f"ERROR: Dataset {request_body.datasetId}: Error parsing validation results for post {post_id} - {str(e)}.")
+                            continue
+                            # raise e
+                    await asyncio.sleep(1)
                 posts.pop(0)
 
             except Exception as e:
@@ -2183,8 +2218,8 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
 
 #         llm1 = OllamaLLM(
 #                 model=request.model,
-#                 num_ctx=16384,
-#                 num_predict=16384,
+#                 num_ctx=30000,
+#                 num_predict=30000,
 #                 temperature=0.9,
 #                 callbacks=[
 #                     StreamingStdOutCallbackHandler()
@@ -2193,8 +2228,8 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
         
 #         llm2 = OllamaLLM(
 #                 model=request.model,
-#                 num_ctx=16384,
-#                 num_predict=16384,
+#                 num_ctx=30000,
+#                 num_predict=30000,
 #                 temperature=0.2,
 #                 callbacks=[
 #                     StreamingStdOutCallbackHandler()
@@ -2203,8 +2238,8 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
         
 #         judgeLLM = OllamaLLM(
 #                 model=request.model,
-#                 num_ctx=16384,
-#                 num_predict=16384,
+#                 num_ctx=30000,
+#                 num_predict=30000,
 #                 temperature=0.5,
 #                 callbacks=[
 #                     StreamingStdOutCallbackHandler()

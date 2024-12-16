@@ -40,13 +40,25 @@ const websocketHandler = () => {
         }
 
         // Create a new WebSocket instance if not already connected
-        wsInstance = new WebSocket('ws://20.51.212.222/backend/api/notifications/ws?app=electron');
-        config.websocket = wsInstance;
-        wsInstance.binaryType = 'arraybuffer';
+        try {
+            wsInstance = new WebSocket(
+                'ws://20.51.212.222/backend/api/notifications/ws?app=electron'
+            );
+            config.websocket = wsInstance;
+            wsInstance.binaryType = 'arraybuffer';
+        } catch (e) {
+            console.log('Application closed');
+            console.log(e);
+        }
 
         wsInstance.on('open', () => {
             console.log('WebSocket connected');
-            config.mainWindow.webContents.send('ws-connected');
+            try {
+                config.mainWindow.webContents.send('ws-connected');
+            } catch (e) {
+                console.log('Application closed');
+                console.log(e);
+            }
         });
 
         wsInstance.on('close', (code, reason) => {
@@ -59,9 +71,9 @@ const websocketHandler = () => {
 
             console.log('WebSocket closed:', code, message);
             // wsInstance.close();
-            wsInstance = null; // Clear the instance on close
-            config.websocket = null;
             try {
+                wsInstance = null; // Clear the instance on close
+                config.websocket = null;
                 config.mainWindow.webContents.send('ws-closed', { code, message });
             } catch (e) {
                 console.log('Application closed');
@@ -109,10 +121,15 @@ const websocketHandler = () => {
 
     ipcMain.handle('disconnect-ws', (event, message) => {
         if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
-            wsInstance.send('disconnect');
-            wsInstance.close();
-            wsInstance = null; // Clear the instance on close
-            config.websocket = null;
+            try {
+                wsInstance.send('disconnect');
+                wsInstance.close();
+                wsInstance = null; // Clear the instance on close
+                config.websocket = null;
+            } catch (e) {
+                console.log('Application closed');
+                console.log(e);
+            }
         }
     });
 };

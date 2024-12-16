@@ -17,12 +17,12 @@ const CodebookAnimation: React.FC = () => {
   ); // Unflipped pages
 
   const typingTexts = [
-    "Writing Analysis\nWriting Analysis\nWriting Analysis",
-    "Connecting Ideas\nWriting Analysis\nWriting Analysis",
-    "Synthesizing Content\nWriting Analysis\nWriting Analysis",
-    "Visualizing Insights\nWriting Analysis\nWriting Analysis",
-    "Finalizing Output\nWriting Analysis\nWriting Analysis",
-    "Codebook Complete\nWriting Analysis\nWriting Analysis",
+    "-------- -----\n-- --- --\n-- ----------",
+    "----- ----- -\n----------\n- - - - -",
+    "--- --- ---\n- -- --- --\n---- ---- --",
+    "--- ----- --\n-- ----------\n-----------",
+    "--- ---- -----\n- - -- -- -\n- -- -- --",
+    "--------------\n-- -- --- --\n - ---- -- -",
   ]; // Texts to display during flipping
 
   // --- Animation Phase Management ---

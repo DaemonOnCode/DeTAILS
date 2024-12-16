@@ -85,10 +85,19 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
       if (lastPingRef.current && now.getTime() - lastPingRef.current.getTime() > 60000) {
         toast.error("No response from backend in the last 60 seconds.");
       }
-    }, 60000);
+    }, 30*1000);
+  };
+
+  const handleOnline = () => {
+    toast.success("Back Online");
+  };
+  const handleOffline = () => {
+    toast.error("Going offline. Check network connection.");
   };
 
   useEffect(() => {
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
     // Ensure singleton WebSocket initialization
     WebSocketSingleton.initialize(handleMessage);
 
@@ -101,6 +110,8 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
     });
 
     return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
       if (pingTimeoutRef.current) {
         clearTimeout(pingTimeoutRef.current);
       }
