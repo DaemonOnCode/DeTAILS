@@ -11,7 +11,7 @@ const googleOAuthHandler = () => {
             clientData['installed']['client_id'],
             clientData['installed']['client_secret'],
             ['https://www.googleapis.com/auth/userinfo.profile'],
-            { successRedirectURL: 'https://google.com' }
+            { successRedirectURL: 'http://20.51.212.222/misc-frontend/oauth-redirect' }
         );
 
         try {

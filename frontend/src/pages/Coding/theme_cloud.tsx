@@ -1,16 +1,18 @@
-import { FC, useContext, useEffect, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { LOADER_ROUTES, ROUTES, WORD_CLOUD_MIN_THRESHOLD } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import ThemeCloud from '../../components/Coding/ThemeCloud/index';
-import { DataContext } from '../../context/data_context';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
+import {
+    MODEL_LIST,
+    REMOTE_SERVER_BASE_URL,
+    REMOTE_SERVER_ROUTES,
+    USE_LOCAL_SERVER
+} from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useNavigate } from 'react-router-dom';
 import { useCollectionContext } from '../../context/collection_context';
-
-const { ipcRenderer } = window.require('electron');
 
 const ThemeCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -20,8 +22,16 @@ const ThemeCloudPage: FC = () => {
 
     const navigate = useNavigate();
 
-    const {mainCode, additionalInfo, selectedThemes, setSelectedThemes, setThemes, themes, dispatchCodeBook} = useCodingContext();
-    const {datasetId} = useCollectionContext();
+    const {
+        mainCode,
+        additionalInfo,
+        selectedThemes,
+        setSelectedThemes,
+        setThemes,
+        themes,
+        dispatchCodeBook
+    } = useCodingContext();
+    const { datasetId } = useCollectionContext();
 
     // useEffect(() => {
     //     setSelectedThemes([mainCode]);
@@ -62,22 +72,25 @@ const ThemeCloudPage: FC = () => {
 
     const refreshThemeCloud = async () => {
         await logger.info('Regenerating Theme Cloud');
-        navigate("../loader/" + LOADER_ROUTES.THEME_LOADER);
-        if(!USE_LOCAL_SERVER){
+        navigate('../loader/' + LOADER_ROUTES.THEME_LOADER);
+        if (!USE_LOCAL_SERVER) {
             // await ipcRenderer.invoke("connect-ws", datasetId);
-            const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_THEMES}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: MODEL_LIST.LLAMA_3_2,
-                    mainCode,
-                    selectedThemes,
-                    feedback,
-                    dataset_id:datasetId
-                })
-            })
+            const res = await fetch(
+                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_THEMES}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: MODEL_LIST.LLAMA_3_2,
+                        mainCode,
+                        selectedThemes,
+                        feedback,
+                        dataset_id: datasetId
+                    })
+                }
+            );
 
             const results = await res.json();
             console.log(results, 'Theme Cloud Page');
@@ -89,12 +102,13 @@ const ThemeCloudPage: FC = () => {
                 const filteredPrevThemes = prevThemes.filter((theme) =>
                     selectedThemes.includes(theme)
                 );
-                const filteredNewThemes = newThemes
-                    .filter((theme) => !filteredPrevThemes.includes(theme));
+                const filteredNewThemes = newThemes.filter(
+                    (theme) => !filteredPrevThemes.includes(theme)
+                );
                 return [...filteredPrevThemes, ...filteredNewThemes];
             });
             // await ipcRenderer.invoke("disconnect-ws", datasetId);
-            navigate("/coding/"+ROUTES.THEME_CLOUD);
+            navigate('/coding/' + ROUTES.THEME_CLOUD);
             await logger.info('Theme Cloud refreshed');
             return;
         }
@@ -108,7 +122,7 @@ const ThemeCloudPage: FC = () => {
         setIsFeedbackOpen(true);
     };
 
-    const handleNextClick = async(e:any) => {
+    const handleNextClick = async (e: any) => {
         e.preventDefault();
         await logger.info('Starting Codebook Generation');
         console.log('Navigating to codebook');
@@ -116,23 +130,26 @@ const ThemeCloudPage: FC = () => {
         navigate('../loader/' + LOADER_ROUTES.CODEBOOK_LOADER);
 
         console.log('Sending request to server');
-        if(!USE_LOCAL_SERVER){
+        if (!USE_LOCAL_SERVER) {
             // await ipcRenderer.invoke("connect-ws", datasetId);
             console.log('Sending request to remote server');
 
-            const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: MODEL_LIST.LLAMA_3_2,
-                    mainCode,
-                    additionalInfo,
-                    selectedThemes,
-                    dataset_id:datasetId
-                }),
-            });
+            const res = await fetch(
+                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: MODEL_LIST.LLAMA_3_2,
+                        mainCode,
+                        additionalInfo,
+                        selectedThemes,
+                        dataset_id: datasetId
+                    })
+                }
+            );
 
             const results = await res.json();
             console.log(results, 'Theme Cloud Page');
@@ -147,7 +164,7 @@ const ThemeCloudPage: FC = () => {
             await logger.info('Codebook Generation completed');
             return;
         }
-    }
+    };
 
     const checkIfReady = selectedThemes.length > WORD_CLOUD_MIN_THRESHOLD;
 
@@ -176,7 +193,7 @@ const ThemeCloudPage: FC = () => {
                 previousPage={ROUTES.BASIS_V2}
                 nextPage={ROUTES.CODEBOOK}
                 isReady={checkIfReady}
-                onNextClick={(e)=>handleNextClick(e)}
+                onNextClick={(e) => handleNextClick(e)}
             />
 
             {isFeedbackOpen && (
@@ -187,9 +204,7 @@ const ThemeCloudPage: FC = () => {
                         </h2>
                         <p className=" mb-3">
                             Word list:{' '}
-                            {themes
-                                .filter((theme) => !selectedThemes.includes(theme))
-                                .join(', ')}
+                            {themes.filter((theme) => !selectedThemes.includes(theme)).join(', ')}
                         </p>
                         <textarea
                             value={feedback}

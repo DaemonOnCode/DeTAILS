@@ -10,7 +10,16 @@ import {
     ThemeLoaderPage,
     WordCloudLoaderPage
 } from '../pages/Coding/Loader';
-import { BasisV2Page, CodeBookPage, CodingValidationPage, CodingValidationV2Page, FinalPage, InitialCodingPage, ThemeCloudPage, WordCloudPage } from '../pages/Coding';
+import {
+    BasisV2Page,
+    CodeBookPage,
+    CodingValidationPage,
+    CodingValidationV2Page,
+    FinalPage,
+    InitialCodingPage,
+    ThemeCloudPage,
+    WordCloudPage
+} from '../pages/Coding';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
 

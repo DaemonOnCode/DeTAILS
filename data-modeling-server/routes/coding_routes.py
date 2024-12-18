@@ -65,8 +65,8 @@ async def run_in_threadpool(func: Callable, *args: Any, timeout: Optional[float]
 def add_documents_to_vector_store(vector_store: Chroma, chunks):
     vector_store.add_documents(chunks)
 
-def run_llm_chain(rag_chain, input_text):
-    return rag_chain.invoke({"input": input_text})
+# def run_llm_chain(rag_chain, input_text):
+#     return rag_chain.invoke({"input": input_text})
 
 
 # Create a task to monitor disconnection
@@ -175,7 +175,7 @@ async def monitor_disconnection(request:Request , cancel_event: asyncio.Event):
 #         finally:
 #             # Ensure the monitor thread is cleaned up
 #             if monitor_thread:
-#                 monitor_thread.join(timeout=1)
+#                 monitor_thread.join(timeout=180)
 
 
 # forcibleExecutor = ForcibleThreadPoolExecutor(executor)
@@ -251,27 +251,26 @@ class ForcibleThreadPoolExecutor:
                 ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, None)
                 raise SystemError("PyThreadState_SetAsyncExc failed")
 
-    async def _monitor_disconnection(self, request: Request, task_id: str):
+    async def _monitor_disconnection(self, request: Request, task_id: str, termination_event: asyncio.Event):
         """
         Monitor request disconnection and terminate the associated task.
         
         Args:
             request (Request): FastAPI request to monitor
             task_id (str): Unique identifier for the task
+            termination_event (asyncio.Event): Event to signal termination
         """
         print("Monitoring disconnection")
         try:
-            while True:
-                # Check for disconnection
+            while not termination_event.is_set():  # Exit loop if termination is signaled
                 if await request.is_disconnected():
-                    # Terminate the associated task
+                    print("Request disconnected, terminating task.")
                     self.terminate_task(task_id)
                     break
-                
-                # Poll at regular intervals
                 await asyncio.sleep(0.1)
         except Exception as e:
             print(f"Disconnection monitoring error: {e}")
+
 
     def submit_with_timeout_and_disconnection(
         self, 
@@ -283,28 +282,13 @@ class ForcibleThreadPoolExecutor:
     ) -> Any:
         """
         Submit a function to the thread pool with timeout and disconnection monitoring.
-        
-        Args:
-            func (Callable): Function to execute
-            request (Request): FastAPI request for disconnection monitoring
-            *args: Positional arguments for the function
-            timeout (Optional[float]): Maximum execution time in seconds
-            **kwargs: Keyword arguments for the function
-        
-        Returns:
-            Result of the function or raises an exception
-        
-        Raises:
-            concurrent.futures.TimeoutError: If function exceeds timeout
         """
         print("Submitting task with timeout and disconnection monitoring")
-        # Generate a unique task ID
         task_id = f"task_{id(func)}_{time.time()}"
+        termination_event = asyncio.Event()  # Termination signal
         
-        # Future to track the function execution
         future = self._executor.submit(func, *args, **kwargs)
         
-        # Track the active task
         with self._task_lock:
             self._active_tasks[task_id] = {
                 'future': future,
@@ -315,40 +299,34 @@ class ForcibleThreadPoolExecutor:
         disconnection_task = None
         
         try:
-            # Start disconnection monitoring
             loop = asyncio.get_event_loop()
             disconnection_task = loop.create_task(
-                self._monitor_disconnection(request, task_id)
+                self._monitor_disconnection(request, task_id, termination_event)
             )
             
-            # If timeout is specified, monitor and potentially terminate
             if timeout is not None:
                 def timeout_handler():
                     if not future.done():
+                        print("Timeout occurred, terminating task.")
                         self.terminate_task(task_id)
+                        termination_event.set()  # Signal termination to the disconnection monitor
                 
-                # Create a monitoring thread
                 monitor_thread = threading.Thread(
-                    target=lambda: 
-                    (time.sleep(timeout), timeout_handler()),
+                    target=lambda: (time.sleep(timeout), timeout_handler()),
                     daemon=True
                 )
                 monitor_thread.start()
             
-            # Wait for the future to complete
             return future.result(timeout=timeout)
-        
         finally:
-            # Cleanup tasks and monitoring threads
+            termination_event.set()  # Ensure termination event is set when task completes
             if disconnection_task:
                 disconnection_task.cancel()
-            
             if monitor_thread:
                 monitor_thread.join(timeout=1)
-            
-            # Remove the task from active tasks
             with self._task_lock:
                 self._active_tasks.pop(task_id, None)
+
 
     def terminate_task(self, task_id: str):
         """
@@ -508,6 +486,7 @@ async def add_documents_langchain(
                     num_ctx=8192,
                     num_predict=8192,
                     temperature=0.3,
+                    timeout=2,
                     callbacks=[StreamingStdOutCallbackHandler()]
                 )
                 question_answer_chain = create_stuff_documents_chain(llm=llm, prompt=prompt_template)
@@ -516,7 +495,7 @@ async def add_documents_langchain(
                 input_text = FlashcardPrompts.flashcardTemplate(mainCode, additionalInfo)
 
                 # Offload LLM chain invocation to thread pool
-                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, run_llm_chain, rag_chain, input_text, timeout=180)
+                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=180)
 
                 await manager.broadcast(f"Dataset {dataset_id}: Parsing generated flashcards...")
 
@@ -638,6 +617,7 @@ async def add_documents_and_get_themes(
                     num_ctx=8192,
                     num_predict=8192,
                     temperature=0.3,
+                    timeout=2,
                     callbacks=[StreamingStdOutCallbackHandler()]
                 )
                 question_answer_chain = create_stuff_documents_chain(llm=llm, prompt=prompt_template)
@@ -873,6 +853,7 @@ async def generate_additional_flashcards(
             num_ctx=8192,
             num_predict=8192,
             temperature=0.3,
+            timeout=2,
             callbacks=[
                 StreamingStdOutCallbackHandler()
             ]
@@ -985,6 +966,7 @@ async def generate_themes(request: Request, request_body: GenerateThemesRequest)
             num_ctx=8192,
             num_predict=8192,
             temperature=0.3,
+            timeout=2,
             callbacks=[
                 StreamingStdOutCallbackHandler()
             ]
@@ -1102,6 +1084,7 @@ async def generate_codebook(request: Request, request_body: GenerateCodeBookRequ
             num_ctx=8192,
             num_predict=8192,
             temperature=0.3,
+            timeout=2,
             callbacks=[
                 StreamingStdOutCallbackHandler()
             ]
@@ -1214,6 +1197,7 @@ async def generate_codes_for_codebook(request: Request, request_body: GenerateAd
             num_ctx=8192,
             num_predict=8192,
             temperature=0.3,
+            timeout=2,
             callbacks=[
                 StreamingStdOutCallbackHandler()
             ]
@@ -1332,6 +1316,7 @@ async def generate_words(request: Request, request_body: GenerateWordsRequest):
             num_ctx=8192,
             num_predict=8192,
             temperature=0.3,
+            timeout=2,
             callbacks=[
                 StreamingStdOutCallbackHandler()
             ]
@@ -1432,6 +1417,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
             num_ctx=30000,
             num_predict=30000,
             temperature=0.9,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         llm2 = OllamaLLM(
@@ -1439,6 +1425,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
             num_ctx=30000,
             num_predict=30000,
             temperature=0.2,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         judge_llm = OllamaLLM(
@@ -1446,6 +1433,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
             num_ctx=30000,
             num_predict=30000,
             temperature=0.5,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
 
@@ -1613,6 +1601,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
             num_ctx=30000,
             num_predict=30000,
             temperature=0.9,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         llm2 = OllamaLLM(
@@ -1620,6 +1609,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
             num_ctx=30000,
             num_predict=30000,
             temperature=0.2,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         judge_llm = OllamaLLM(
@@ -1627,6 +1617,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
             num_ctx=30000,
             num_predict=30000,
             temperature=0.5,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
 
@@ -1883,6 +1874,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
             num_ctx=30000,
             num_predict=30000,
             temperature=0.9,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         llm2 = OllamaLLM(
@@ -1890,6 +1882,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
             num_ctx=30000,
             num_predict=30000,
             temperature=0.2,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         judge_llm = OllamaLLM(
@@ -1897,6 +1890,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
             num_ctx=30000,
             num_predict=30000,
             temperature=0.5,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
 
@@ -2060,6 +2054,7 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
             num_ctx=30000,
             num_predict=30000,
             temperature=0.9,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         llm2 = OllamaLLM(
@@ -2067,6 +2062,7 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
             num_ctx=30000,
             num_predict=30000,
             temperature=0.2,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
         judge_llm = OllamaLLM(
@@ -2074,6 +2070,7 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
             num_ctx=30000,
             num_predict=30000,
             temperature=0.5,
+            timeout=2,
             callbacks=[StreamingStdOutCallbackHandler()]
         )
 

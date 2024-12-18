@@ -1,4 +1,13 @@
-import { createContext, useState, FC, Dispatch, useCallback, useReducer, useEffect, useContext } from 'react';
+import {
+    createContext,
+    useState,
+    FC,
+    Dispatch,
+    useCallback,
+    useReducer,
+    useEffect,
+    useContext
+} from 'react';
 import { useMemo } from 'react';
 import {
     IFinalCodeResponse,
@@ -136,15 +145,24 @@ function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
                 .filter((_, index) => !action.indexes.includes(index))
                 .concat(action.newResponses);
         case 'ADD_RESPONSE':
-            newResponses = [action.response].filter((response: any) => response.coded_word?.trim() !== '' && response.sentence?.trim() !== '');
+            newResponses = [action.response].filter(
+                (response: any) =>
+                    response.coded_word?.trim() !== '' && response.sentence?.trim() !== ''
+            );
             return state.concat({
-                ...(newResponses.length?newResponses[0] as any:{}),
+                ...(newResponses.length ? (newResponses[0] as any) : {})
             });
         case 'SET_RESPONSES':
-            newResponses = action.responses.filter((response: any) => response.coded_word?.trim() !== '' && response.sentence?.trim() !== '');
+            newResponses = action.responses.filter(
+                (response: any) =>
+                    response.coded_word?.trim() !== '' && response.sentence?.trim() !== ''
+            );
             return [...newResponses];
         case 'ADD_RESPONSES':
-            newResponses = action.responses.filter((response: any) => response.coded_word?.trim() !== '' && response.sentence?.trim() !== '');
+            newResponses = action.responses.filter(
+                (response: any) =>
+                    response.coded_word?.trim() !== '' && response.sentence?.trim() !== ''
+            );
             return [...state, ...newResponses];
         case 'REMOVE_RESPONSES':
             if (action.all) {
@@ -160,49 +178,49 @@ function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
 }
 
 type CodeBookAction =
-    | { type: "INITIALIZE"; entries: CodebookEntry[] }
-    | { type: "ADD_MANY"; entries: CodebookEntry[] }
-    | { type: "UPDATE_FIELD"; index: number; field: keyof CodebookEntry; value: string | string[] }
-    | { type: "TOGGLE_MARK"; index: number; isMarked?: boolean }
-    | { type: "ADD_ROW" }
-    | { type: "DELETE_ROW"; index: number };
+    | { type: 'INITIALIZE'; entries: CodebookEntry[] }
+    | { type: 'ADD_MANY'; entries: CodebookEntry[] }
+    | { type: 'UPDATE_FIELD'; index: number; field: keyof CodebookEntry; value: string | string[] }
+    | { type: 'TOGGLE_MARK'; index: number; isMarked?: boolean }
+    | { type: 'ADD_ROW' }
+    | { type: 'DELETE_ROW'; index: number };
 
 const codeBookReducer = (state: CodebookEntry[], action: CodeBookAction): CodebookEntry[] => {
     switch (action.type) {
-        case "INITIALIZE":
+        case 'INITIALIZE':
             return [...action.entries];
-        case "ADD_MANY":
-            return [...state.filter((entry) => entry.isMarked===true), ...action.entries];
-        case "UPDATE_FIELD":
+        case 'ADD_MANY':
+            return [...state.filter((entry) => entry.isMarked === true), ...action.entries];
+        case 'UPDATE_FIELD':
             return state.map((entry, i) =>
                 i === action.index
                     ? {
                           ...entry,
-                          [action.field]: action.value,
+                          [action.field]: action.value
                       }
                     : entry
             );
-        case "TOGGLE_MARK":
+        case 'TOGGLE_MARK':
             return state.map((entry, i) =>
                 i === action.index
                     ? {
                           ...entry,
-                          isMarked: action.isMarked,
+                          isMarked: action.isMarked
                       }
                     : entry
             );
-        case "ADD_ROW":
+        case 'ADD_ROW':
             return [
                 ...state,
                 {
-                    word: "",
-                    description: "",
+                    word: '',
+                    description: '',
                     codes: [],
                     inclusion_criteria: [],
-                    exclusion_criteria: [],
-                },
+                    exclusion_criteria: []
+                }
             ];
-        case "DELETE_ROW":
+        case 'DELETE_ROW':
             return state.filter((_, i) => i !== action.index);
         default:
             return state;
@@ -255,73 +273,73 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     }>({});
 
     const [codeBook, dispatchCodeBook] = useReducer(codeBookReducer, []);
-//      {
-//        "word": "Online discussions",
-//        "description": "Codes related to online discussions, including participation, engagement, and content creation.",
-//        "inclusion_criteria": ["Posts on social media (e.g., Instagram, Twitter) with comments or replies", "Emails from participants requesting information about upcoming events", "Online surveys or polls used for feedback"],
-//        "exclusion_criteria": ["Private messages sent to individuals outside of the event team"]
-//      },
-//      {
-//        "word": "Collaboration",
-//        "description": "Codes related to collaboration, including partnerships, teamwork, and shared goals.",
-//        "inclusion_criteria": ["Partnerships with other organizations or departments", "Collaborative projects between faculty members", "Shared goals for improving teaching practices"],
-//        "exclusion_criteria": ["Individual efforts without team involvement"]
-//      },
-//      {
-//        "word": "Partnership",
-//        "description": "Codes related to partnerships, including collaborations and joint initiatives.",
-//        "inclusion_criteria": ["Joint events or workshops with other organizations", "Collaborative research projects between faculty members and industry partners", "Partnerships for curriculum development"],
-//        "exclusion_criteria": ["Solo efforts without partner involvement"]
-//      },
-//      {
-//        "word": "Engagement",
-//        "description": "Codes related to engagement, including participation rates, audience feedback, and event evaluations.",
-//        "inclusion_criteria": ["High participation rates in online discussions or events", "Positive audience feedback on social media or email surveys", "Event evaluations indicating high levels of engagement"],
-//        "exclusion_criteria": ["Low participation rates or negative audience feedback"]
-//      },
-//      {
-//        "word": "Empowerment",
-//        "description": "Codes related to empowerment, including support for underrepresented groups, inclusive language, and opportunities for growth.",
-//        "inclusion_criteria": ["Support for underrepresented groups in events or online discussions", "Inclusive language used in event materials or social media posts", "Opportunities for growth and professional development provided to participants"],
-//        "exclusion_criteria": ["Lack of support for underrepresented groups, exclusionary language used"]
-//      },
-//      {
-//        "word": "Adaptability",
-//        "description": "Codes related to adaptability, including flexibility in event planning, responsiveness to participant needs, and ability to pivot when necessary.",
-//        "inclusion_criteria": ["Flexible event schedules or formats", "Responsive team members who address participant concerns promptly", "Ability to adjust plans in response to changing circumstances"],
-//        "exclusion_criteria": ["Inflexible event planning, delayed responses to participant concerns"]
-//      },
-//      {
-//        "word": "Resourcefulness",
-//        "description": "Codes related to resourcefulness, including creative solutions to challenges, efficient use of resources, and innovative approaches.",
-//        "inclusion_criteria": ["Creative solutions to technical or logistical challenges", "Efficient use of resources in event planning or online discussions", "Innovative approaches to teaching practices or curriculum development"],
-//        "exclusion_criteria": ["Lack of creative problem-solving, inefficient resource use"]
-//      },
-//      {
-//        "word": "Accommodation",
-//        "description": "Codes related to accommodation, including support for participants with disabilities, provision of accessible materials, and accommodations for different learning styles.",
-//        "inclusion_criteria": ["Support for participants with disabilities in events or online discussions", "Provision of accessible materials, such as transcripts or closed captions", "Accommodations for different learning styles, such as audio descriptions or large print materials"],
-//        "exclusion_criteria": ["Lack of support for participants with disabilities, inaccessible materials"]
-//      },
-//      {
-//        "word": "Equity",
-//        "description": "Codes related to equity, including efforts to address systemic inequalities, inclusive language and practices, and opportunities for underrepresented groups.",
-//        "inclusion_criteria": ["Efforts to address systemic inequalities in events or online discussions", "Inclusive language and practices used in event materials or social media posts", "Opportunities for underrepresented groups to participate and engage"],
-//        "exclusion_criteria": ["Lack of efforts to address systemic inequalities, exclusionary language or practices"]
-//      },
-//      {
-//        "word": "Participation",
-//        "description": "Codes related to participation, including opportunities for engagement, inclusive environments, and support for diverse perspectives.",
-//        "inclusion_criteria": ["Opportunities for engagement in events or online discussions", "Inclusive environments that value diverse perspectives", "Support for diverse perspectives and experiences"],
-//        "exclusion_criteria": ["Lack of opportunities for engagement, exclusionary environments"]
-//      },
-//      {
-//        "word": "Flexibility",
-//        "description": "Codes related to flexibility, including adaptability in event planning, responsiveness to participant needs, and ability to pivot when necessary.",
-//        "inclusion_criteria": ["Flexible event schedules or formats", "Responsive team members who address participant concerns promptly", "Ability to adjust plans in response to changing circumstances"],
-//        "exclusion_criteria": ["Inflexible event planning, delayed responses to participant concerns"]
-//      }
-//    ]);
+    //      {
+    //        "word": "Online discussions",
+    //        "description": "Codes related to online discussions, including participation, engagement, and content creation.",
+    //        "inclusion_criteria": ["Posts on social media (e.g., Instagram, Twitter) with comments or replies", "Emails from participants requesting information about upcoming events", "Online surveys or polls used for feedback"],
+    //        "exclusion_criteria": ["Private messages sent to individuals outside of the event team"]
+    //      },
+    //      {
+    //        "word": "Collaboration",
+    //        "description": "Codes related to collaboration, including partnerships, teamwork, and shared goals.",
+    //        "inclusion_criteria": ["Partnerships with other organizations or departments", "Collaborative projects between faculty members", "Shared goals for improving teaching practices"],
+    //        "exclusion_criteria": ["Individual efforts without team involvement"]
+    //      },
+    //      {
+    //        "word": "Partnership",
+    //        "description": "Codes related to partnerships, including collaborations and joint initiatives.",
+    //        "inclusion_criteria": ["Joint events or workshops with other organizations", "Collaborative research projects between faculty members and industry partners", "Partnerships for curriculum development"],
+    //        "exclusion_criteria": ["Solo efforts without partner involvement"]
+    //      },
+    //      {
+    //        "word": "Engagement",
+    //        "description": "Codes related to engagement, including participation rates, audience feedback, and event evaluations.",
+    //        "inclusion_criteria": ["High participation rates in online discussions or events", "Positive audience feedback on social media or email surveys", "Event evaluations indicating high levels of engagement"],
+    //        "exclusion_criteria": ["Low participation rates or negative audience feedback"]
+    //      },
+    //      {
+    //        "word": "Empowerment",
+    //        "description": "Codes related to empowerment, including support for underrepresented groups, inclusive language, and opportunities for growth.",
+    //        "inclusion_criteria": ["Support for underrepresented groups in events or online discussions", "Inclusive language used in event materials or social media posts", "Opportunities for growth and professional development provided to participants"],
+    //        "exclusion_criteria": ["Lack of support for underrepresented groups, exclusionary language used"]
+    //      },
+    //      {
+    //        "word": "Adaptability",
+    //        "description": "Codes related to adaptability, including flexibility in event planning, responsiveness to participant needs, and ability to pivot when necessary.",
+    //        "inclusion_criteria": ["Flexible event schedules or formats", "Responsive team members who address participant concerns promptly", "Ability to adjust plans in response to changing circumstances"],
+    //        "exclusion_criteria": ["Inflexible event planning, delayed responses to participant concerns"]
+    //      },
+    //      {
+    //        "word": "Resourcefulness",
+    //        "description": "Codes related to resourcefulness, including creative solutions to challenges, efficient use of resources, and innovative approaches.",
+    //        "inclusion_criteria": ["Creative solutions to technical or logistical challenges", "Efficient use of resources in event planning or online discussions", "Innovative approaches to teaching practices or curriculum development"],
+    //        "exclusion_criteria": ["Lack of creative problem-solving, inefficient resource use"]
+    //      },
+    //      {
+    //        "word": "Accommodation",
+    //        "description": "Codes related to accommodation, including support for participants with disabilities, provision of accessible materials, and accommodations for different learning styles.",
+    //        "inclusion_criteria": ["Support for participants with disabilities in events or online discussions", "Provision of accessible materials, such as transcripts or closed captions", "Accommodations for different learning styles, such as audio descriptions or large print materials"],
+    //        "exclusion_criteria": ["Lack of support for participants with disabilities, inaccessible materials"]
+    //      },
+    //      {
+    //        "word": "Equity",
+    //        "description": "Codes related to equity, including efforts to address systemic inequalities, inclusive language and practices, and opportunities for underrepresented groups.",
+    //        "inclusion_criteria": ["Efforts to address systemic inequalities in events or online discussions", "Inclusive language and practices used in event materials or social media posts", "Opportunities for underrepresented groups to participate and engage"],
+    //        "exclusion_criteria": ["Lack of efforts to address systemic inequalities, exclusionary language or practices"]
+    //      },
+    //      {
+    //        "word": "Participation",
+    //        "description": "Codes related to participation, including opportunities for engagement, inclusive environments, and support for diverse perspectives.",
+    //        "inclusion_criteria": ["Opportunities for engagement in events or online discussions", "Inclusive environments that value diverse perspectives", "Support for diverse perspectives and experiences"],
+    //        "exclusion_criteria": ["Lack of opportunities for engagement, exclusionary environments"]
+    //      },
+    //      {
+    //        "word": "Flexibility",
+    //        "description": "Codes related to flexibility, including adaptability in event planning, responsiveness to participant needs, and ability to pivot when necessary.",
+    //        "inclusion_criteria": ["Flexible event schedules or formats", "Responsive team members who address participant concerns promptly", "Ability to adjust plans in response to changing circumstances"],
+    //        "exclusion_criteria": ["Inflexible event planning, delayed responses to participant concerns"]
+    //      }
+    //    ]);
 
     const [codeResponses, dispatchCodeResponses] = useReducer(
         codeResponsesReducer<ISentenceBox>,

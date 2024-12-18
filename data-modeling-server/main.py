@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from routes import modeling_routes, filtering_routes, collection_routes, websocket_routes, coding_routes, miscellaneous_routes
+from routes import modeling_routes, filtering_routes, collection_routes, websocket_routes, coding_routes, miscellaneous_routes, workspace_routes, state_routes
 
 app = FastAPI()
 
@@ -20,6 +20,8 @@ app.include_router(filtering_routes.router, prefix="/api/data-filtering", tags=[
 app.include_router(websocket_routes.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(coding_routes.router, prefix="/api/coding", tags=["coding"])
 app.include_router(miscellaneous_routes.router, prefix="/api/miscellaneous", tags=["miscellaneous"])
+app.include_router(workspace_routes.router, prefix="/api/workspaces", tags=["workspace"])
+app.include_router(state_routes.router, prefix="/api/state", tags=["state"])
 
 @app.get("/")
 def health_check():

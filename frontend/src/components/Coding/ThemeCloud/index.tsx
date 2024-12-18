@@ -209,29 +209,32 @@ const ThemeCloud: React.FC<ThemeCloudProps> = ({
                                 : 'bg-gray-200 text-gray-800'
                         } font-bold relative`}
                         style={{
-                            fontSize: theme.text === mainCode ? mainCodeFontSize : otherThemeFontSize
+                            fontSize:
+                                theme.text === mainCode ? mainCodeFontSize : otherThemeFontSize
                         }}>
                         {theme.text}
 
                         {/* Hover Actions */}
-                        {theme.text!==mainCode && <div className="absolute -top-2 -right-2 flex space-x-1 opacity-0 group-hover:opacity-100">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEdit(theme.text);
-                                }}
-                                className="text-blue-600 hover:text-blue-800">
-                                <FiEdit />
-                            </button>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(theme.text);
-                                }}
-                                className="text-red-600 hover:text-red-800">
-                                <FiTrash2 />
-                            </button>
-                        </div>}
+                        {theme.text !== mainCode && (
+                            <div className="absolute -top-2 -right-2 flex space-x-1 opacity-0 group-hover:opacity-100">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEdit(theme.text);
+                                    }}
+                                    className="text-blue-600 hover:text-blue-800">
+                                    <FiEdit />
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDelete(theme.text);
+                                    }}
+                                    className="text-red-600 hover:text-red-800">
+                                    <FiTrash2 />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             ))}

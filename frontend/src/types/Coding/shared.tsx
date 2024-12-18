@@ -118,7 +118,6 @@ export type FullRedditData = {
     [id: string]: RedditPosts[string] & { comments: RedditComments };
 };
 
-
 export interface CodebookEntry {
     word: string;
     description: string;

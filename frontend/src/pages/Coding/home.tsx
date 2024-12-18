@@ -32,13 +32,15 @@ const HomePage: FC = () => {
 
     // Pagination Logic
     const isReadyCheck =
-        Object.keys(data).length > 0 &&
-        selectedPosts.length >= SELECTED_POSTS_MIN_THRESHOLD;
+        Object.keys(data).length > 0 && selectedPosts.length >= SELECTED_POSTS_MIN_THRESHOLD;
 
     return (
         <div className="w-full h-full flex flex-col">
             <RedditTableRenderer data={data} maxTableHeightClass="max-h-[calc(100vh-18rem)]" />
-            <NavigationBottomBar nextPage={USE_NEW_FLOW?ROUTES.BASIS_V2: ROUTES.BASIS} isReady={isReadyCheck} />
+            <NavigationBottomBar
+                nextPage={USE_NEW_FLOW ? ROUTES.BASIS_V2 : ROUTES.BASIS}
+                isReady={isReadyCheck}
+            />
         </div>
     );
 };

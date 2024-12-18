@@ -4,7 +4,12 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation_botto
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
+import {
+    MODEL_LIST,
+    REMOTE_SERVER_BASE_URL,
+    REMOTE_SERVER_ROUTES,
+    USE_LOCAL_SERVER
+} from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
@@ -18,8 +23,16 @@ const BasisPage = () => {
     const navigate = useNavigate();
     const logger = useLogger();
 
-    const { basisFiles, addBasisFile, mainCode, additionalInfo, setAdditionalInfo, setMainCode, removeBasisFile, setThemes} =
-        useCodingContext();
+    const {
+        basisFiles,
+        addBasisFile,
+        mainCode,
+        additionalInfo,
+        setAdditionalInfo,
+        setMainCode,
+        removeBasisFile,
+        setThemes
+    } = useCodingContext();
 
     const { datasetId } = useCollectionContext();
 
@@ -65,7 +78,7 @@ const BasisPage = () => {
         navigate('../loader/' + LOADER_ROUTES.THEME_LOADER);
 
         console.log('Sending request to server');
-        if (!USE_LOCAL_SERVER){
+        if (!USE_LOCAL_SERVER) {
             console.log('Sending request to remote server');
             const formData = new FormData();
             Object.keys(basisFiles).forEach((filePath) => {
@@ -75,22 +88,25 @@ const BasisPage = () => {
             });
             formData.append('model', MODEL_LIST.LLAMA_3_2);
             formData.append('mainCode', mainCode);
-            formData.append('additionalInfo', additionalInfo ?? "");
+            formData.append('additionalInfo', additionalInfo ?? '');
             formData.append('retry', 'false');
             formData.append('dataset_id', datasetId);
 
             // await ipcRenderer.invoke("connect-ws", datasetId);
-            let res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.ADD_DOCUMENTS_AND_GET_THEMES}`, {
-                method: 'POST',
-                body: formData
-            });
-            let results:{
+            let res = await fetch(
+                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.ADD_DOCUMENTS_AND_GET_THEMES}`,
+                {
+                    method: 'POST',
+                    body: formData
+                }
+            );
+            let results: {
                 message: string;
                 themes: string[];
             } = await res.json();
             console.log('Response from remote server', results);
 
-            if(results.themes.length > 0){
+            if (results.themes.length > 0) {
                 setThemes(Array.from(new Set(results.themes)));
             }
 
@@ -98,8 +114,6 @@ const BasisPage = () => {
             await logger.info('Theme Cloud generated');
             return;
         }
-
-
 
         console.log('Ending function');
     };

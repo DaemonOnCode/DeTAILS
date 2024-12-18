@@ -10,15 +10,25 @@ const formatRouteName = (path: string) => {
         .replace(/_/g, ' ')
         .replace(/-/g, ' ')
         .toLowerCase()
-        .replace(" v2","")
-        .replace("theme","word")
+        .replace(' v2', '')
+        .replace('theme', 'word')
         .split(' ')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
 };
 
 // Define keywords to filter out paths
-const IGNORED_KEYWORDS = ['*', '/', 'loader', 'cleaning', 'modeling', 'basis', 'flashcards', 'word-cloud', 'coding-validation'];
+const IGNORED_KEYWORDS = [
+    '*',
+    '/',
+    'loader',
+    'cleaning',
+    'modeling',
+    'basis',
+    'flashcards',
+    'word-cloud',
+    'coding-validation'
+];
 
 const Sidebar: FC = () => {
     const location = useLocation();

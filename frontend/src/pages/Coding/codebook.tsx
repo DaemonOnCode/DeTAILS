@@ -1,54 +1,62 @@
-import { FC, useState } from "react";
-import { useCodingContext } from "../../context/coding_context";
-import NavigationBottomBar from "../../components/Coding/Shared/navigation_bottom_bar";
-import { LOADER_ROUTES, ROUTES } from "../../constants/Coding/shared";
-import { FaTrash } from "react-icons/fa";
-import { useCollectionContext } from "../../context/collection_context";
-import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from "../../constants/Shared";
-import { useNavigate } from "react-router-dom";
-import { saveCSV, saveExcel } from "../../utility/convert-js-object";
-import { useLogger } from "../../context/logging_context";
+import { FC, useState } from 'react';
+import { useCodingContext } from '../../context/coding_context';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
+import { FaTrash } from 'react-icons/fa';
+import { useCollectionContext } from '../../context/collection_context';
+import {
+    MODEL_LIST,
+    REMOTE_SERVER_BASE_URL,
+    REMOTE_SERVER_ROUTES,
+    USE_LOCAL_SERVER
+} from '../../constants/Shared';
+import { useNavigate } from 'react-router-dom';
+import { saveCSV, saveExcel } from '../../utility/convert-js-object';
+import { useLogger } from '../../context/logging_context';
 
-const { ipcRenderer } = window.require("electron");
+const { ipcRenderer } = window.require('electron');
 
 const CodeBookPage: FC = () => {
-    const { codeBook, dispatchCodeBook, mainCode, additionalInfo, selectedThemes } = useCodingContext();
+    const { codeBook, dispatchCodeBook, mainCode, additionalInfo, selectedThemes } =
+        useCodingContext();
     const { datasetId } = useCollectionContext();
     const [saving, setSaving] = useState(false);
     const navigate = useNavigate();
     const logger = useLogger();
 
-
-    const handleGenerateMore = async() => {
-        await logger.info("Generate more codes");
-        navigate("../loader/"+LOADER_ROUTES.CODEBOOK_LOADER);
+    const handleGenerateMore = async () => {
+        await logger.info('Generate more codes');
+        navigate('../loader/' + LOADER_ROUTES.CODEBOOK_LOADER);
         const filteredCodebook = codeBook.filter((entry) => entry.isMarked === undefined);
-        if(codeBook.length!==0 && filteredCodebook.length === codeBook.length){
-            navigate("/coding/"+ROUTES.CODEBOOK);
+        if (codeBook.length !== 0 && filteredCodebook.length === codeBook.length) {
+            navigate('/coding/' + ROUTES.CODEBOOK);
             await logger.info('Codebook Generation completed');
             return;
         }
-        if(!USE_LOCAL_SERVER){
-            const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_MORE_CODES}`,{
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ 
-                    dataset_id: datasetId,
-                    model: MODEL_LIST.LLAMA_3_2,
-                    mainCode,
-                    additionalInfo,
-                    selectedThemes,
-                    currentCodebook: filteredCodebook.map((entry) => ({
-                        word: entry.word,
-                        description: entry.description,
-                        inclusion_criteria: entry.inclusion_criteria,
-                        exclusion_criteria: entry.exclusion_criteria,
-                        is_correct: entry.isMarked,
-                    })),
-                 }),
-            });
+        if (!USE_LOCAL_SERVER) {
+            const res = await fetch(
+                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_MORE_CODES}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        dataset_id: datasetId,
+                        model: MODEL_LIST.LLAMA_3_2,
+                        mainCode,
+                        additionalInfo,
+                        selectedThemes,
+                        currentCodebook: filteredCodebook.map((entry) => ({
+                            word: entry.word,
+                            description: entry.description,
+                            inclusion_criteria: entry.inclusion_criteria,
+                            exclusion_criteria: entry.exclusion_criteria,
+                            is_correct: entry.isMarked
+                        }))
+                    })
+                }
+            );
             const results = await res.json();
             console.log(results);
 
@@ -60,26 +68,26 @@ const CodeBookPage: FC = () => {
             });
             await logger.info('Codebook Generation completed');
         }
-        navigate("/coding/"+ROUTES.CODEBOOK);
+        navigate('/coding/' + ROUTES.CODEBOOK);
     };
 
-    const handleSaveCsv = async() => {
+    const handleSaveCsv = async () => {
         await logger.info('Saving codebook as CSV');
         setSaving(true);
-        const result = await saveCSV(ipcRenderer, codeBook, "codebook");
+        const result = await saveCSV(ipcRenderer, codeBook, 'codebook');
         console.log(result);
         setSaving(false);
         await logger.info('Codebook saved as CSV');
-    }
+    };
 
-    const handleSaveExcel = async() => {
+    const handleSaveExcel = async () => {
         await logger.info('Saving codebook as Excel');
         setSaving(true);
-        const result = await saveExcel(ipcRenderer, codeBook, "codebook");
+        const result = await saveExcel(ipcRenderer, codeBook, 'codebook');
         console.log(result);
         setSaving(false);
         await logger.info('Codebook saved as Excel');
-    }
+    };
 
     const isReadyCheck = codeBook.some((entry) => entry.isMarked === true);
 
@@ -109,10 +117,10 @@ const CodeBookPage: FC = () => {
                                             value={entry.word}
                                             onChange={(e) =>
                                                 dispatchCodeBook({
-                                                    type: "UPDATE_FIELD",
+                                                    type: 'UPDATE_FIELD',
                                                     index,
-                                                    field: "word",
-                                                    value: e.target.value,
+                                                    field: 'word',
+                                                    value: e.target.value
                                                 })
                                             }
                                         />
@@ -123,10 +131,10 @@ const CodeBookPage: FC = () => {
                                             value={entry.description}
                                             onChange={(e) =>
                                                 dispatchCodeBook({
-                                                    type: "UPDATE_FIELD",
+                                                    type: 'UPDATE_FIELD',
                                                     index,
-                                                    field: "description",
-                                                    value: e.target.value,
+                                                    field: 'description',
+                                                    value: e.target.value
                                                 })
                                             }
                                         />
@@ -134,13 +142,13 @@ const CodeBookPage: FC = () => {
                                     <td className="border border-gray-400 p-2">
                                         <textarea
                                             className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                            value={entry.inclusion_criteria.join(", ")}
+                                            value={entry.inclusion_criteria.join(', ')}
                                             onChange={(e) =>
                                                 dispatchCodeBook({
-                                                    type: "UPDATE_FIELD",
+                                                    type: 'UPDATE_FIELD',
                                                     index,
-                                                    field: "inclusion_criteria",
-                                                    value: e.target.value.split(","),
+                                                    field: 'inclusion_criteria',
+                                                    value: e.target.value.split(',')
                                                 })
                                             }
                                         />
@@ -148,13 +156,13 @@ const CodeBookPage: FC = () => {
                                     <td className="border border-gray-400 p-2">
                                         <textarea
                                             className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                            value={entry.exclusion_criteria.join(", ")}
+                                            value={entry.exclusion_criteria.join(', ')}
                                             onChange={(e) =>
                                                 dispatchCodeBook({
-                                                    type: "UPDATE_FIELD",
+                                                    type: 'UPDATE_FIELD',
                                                     index,
-                                                    field: "exclusion_criteria",
-                                                    value: e.target.value.split(","),
+                                                    field: 'exclusion_criteria',
+                                                    value: e.target.value.split(',')
                                                 })
                                             }
                                         />
@@ -165,17 +173,19 @@ const CodeBookPage: FC = () => {
                                             <button
                                                 className={`w-8 h-8 flex items-center justify-center rounded ${
                                                     entry.isMarked === true
-                                                        ? "bg-green-500 text-white"
-                                                        : "bg-gray-300 text-gray-500"
+                                                        ? 'bg-green-500 text-white'
+                                                        : 'bg-gray-300 text-gray-500'
                                                 }`}
                                                 onClick={() =>
                                                     dispatchCodeBook({
-                                                        type: "TOGGLE_MARK",
+                                                        type: 'TOGGLE_MARK',
                                                         index,
-                                                        isMarked: entry.isMarked !== true ? true : undefined,
+                                                        isMarked:
+                                                            entry.isMarked !== true
+                                                                ? true
+                                                                : undefined
                                                     })
-                                                }
-                                            >
+                                                }>
                                                 ✓
                                             </button>
 
@@ -183,25 +193,28 @@ const CodeBookPage: FC = () => {
                                             <button
                                                 className={`w-8 h-8 flex items-center justify-center rounded ${
                                                     entry.isMarked === false
-                                                        ? "bg-red-500 text-white"
-                                                        : "bg-gray-300 text-gray-500"
+                                                        ? 'bg-red-500 text-white'
+                                                        : 'bg-gray-300 text-gray-500'
                                                 }`}
                                                 onClick={() =>
                                                     dispatchCodeBook({
-                                                        type: "TOGGLE_MARK",
+                                                        type: 'TOGGLE_MARK',
                                                         index,
-                                                        isMarked: entry.isMarked !== false ? false : undefined,
+                                                        isMarked:
+                                                            entry.isMarked !== false
+                                                                ? false
+                                                                : undefined
                                                     })
-                                                }
-                                            >
+                                                }>
                                                 ✕
                                             </button>
 
                                             {/* Delete Button */}
                                             <button
                                                 className="w-8 h-8 flex items-center justify-center bg-red-600 text-white rounded hover:bg-red-700"
-                                                onClick={() => dispatchCodeBook({ type: "DELETE_ROW", index })}
-                                            >
+                                                onClick={() =>
+                                                    dispatchCodeBook({ type: 'DELETE_ROW', index })
+                                                }>
                                                 <FaTrash />
                                             </button>
                                         </div>
@@ -214,15 +227,13 @@ const CodeBookPage: FC = () => {
                 <div className="mt-6 flex justify-center gap-x-48">
                     <div className="flex gap-x-4">
                         <button
-                            onClick={() => dispatchCodeBook({ type: "ADD_ROW" })}
-                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                        >
+                            onClick={() => dispatchCodeBook({ type: 'ADD_ROW' })}
+                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
                             Add New Row
                         </button>
                         <button
                             className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
-                            onClick={handleGenerateMore}
-                        >
+                            onClick={handleGenerateMore}>
                             Generate more
                         </button>
                     </div>
@@ -230,24 +241,25 @@ const CodeBookPage: FC = () => {
                         <button
                             onClick={handleSaveCsv}
                             className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                            disabled={saving}
-                        >
+                            disabled={saving}>
                             Save as CSV
                         </button>
                         <button
                             className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
                             onClick={handleSaveExcel}
-                            disabled={saving}
-                        >
+                            disabled={saving}>
                             Save as Excel
                         </button>
                     </div>
                 </div>
             </div>
-            <NavigationBottomBar previousPage={ROUTES.THEME_CLOUD} nextPage={ROUTES.INITIAL_CODING} isReady={isReadyCheck}/>
+            <NavigationBottomBar
+                previousPage={ROUTES.THEME_CLOUD}
+                nextPage={ROUTES.INITIAL_CODING}
+                isReady={isReadyCheck}
+            />
         </div>
     );
 };
-
 
 export default CodeBookPage;

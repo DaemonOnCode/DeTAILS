@@ -1,22 +1,20 @@
-import { useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
-import {
-    FLASHCARDS_MIN_THRESHOLD,
-    LOADER_ROUTES,
-    ROUTES,
-    initialFlashcards
-} from '../../constants/Coding/shared';
-import { DataContext } from '../../context/data_context';
+import { FLASHCARDS_MIN_THRESHOLD, LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
+import {
+    MODEL_LIST,
+    REMOTE_SERVER_BASE_URL,
+    REMOTE_SERVER_ROUTES,
+    USE_LOCAL_SERVER
+} from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 
 const { ipcRenderer } = window.require('electron');
 
 const FlashcardsPage = () => {
-
     const navigate = useNavigate();
     // useEffect(() => {
     //     initialFlashcards.forEach(({ question, answer }) => {
@@ -24,7 +22,17 @@ const FlashcardsPage = () => {
     //     });
     // }, []);
 
-    const { flashcards, removeFlashcard, selectedFlashcards, mainCode, additionalInfo, addFlashcard, setWords, deselectFlashcard, selectFlashcard } = useCodingContext();
+    const {
+        flashcards,
+        removeFlashcard,
+        selectedFlashcards,
+        mainCode,
+        additionalInfo,
+        addFlashcard,
+        setWords,
+        deselectFlashcard,
+        selectFlashcard
+    } = useCodingContext();
 
     // const [modalOpen, setModalOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
@@ -49,33 +57,42 @@ const FlashcardsPage = () => {
             removeFlashcard(flashcard.id);
         }
 
-
-        if(!USE_LOCAL_SERVER){
-            console.log('Generating additional flashcards', selectedFlashcards, mainCode, additionalInfo, feedback);
-            let res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.REGENERATE_FLASHCARDS}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: MODEL_LIST.LLAMA_3_2,
-                    mainCode,
-                    additionalInfo,
-                    flashcards: selectedFlashcards.map((id) => {
-                        return {
-                            question: flashcards.find((flashcard) => flashcard.id === id)!.question,
-                            answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
-                        };
-                    }),
-                    feedback
-                }),
-            });
+        if (!USE_LOCAL_SERVER) {
+            console.log(
+                'Generating additional flashcards',
+                selectedFlashcards,
+                mainCode,
+                additionalInfo,
+                feedback
+            );
+            let res = await fetch(
+                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.REGENERATE_FLASHCARDS}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: MODEL_LIST.LLAMA_3_2,
+                        mainCode,
+                        additionalInfo,
+                        flashcards: selectedFlashcards.map((id) => {
+                            return {
+                                question: flashcards.find((flashcard) => flashcard.id === id)!
+                                    .question,
+                                answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+                            };
+                        }),
+                        feedback
+                    })
+                }
+            );
             let result: {
                 flashcards: { question: string; answer: string }[];
             } = await res.json();
             console.log(result);
 
-            if (result.flashcards){
+            if (result.flashcards) {
                 result.flashcards.forEach(({ question, answer }) => {
                     addFlashcard(question, answer);
                 });
@@ -156,20 +173,22 @@ const FlashcardsPage = () => {
         let result;
         let parsedResult = { words: [] };
 
-
-        if(!USE_LOCAL_SERVER){
+        if (!USE_LOCAL_SERVER) {
             console.log('Generating word cloud', mainCode, flashcardData);
-            let res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_WORDS}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: MODEL_LIST.LLAMA_3_2,
-                    mainCode,
-                    flashcards: flashcardData
-                }),
-            });
+            let res = await fetch(
+                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_WORDS}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: MODEL_LIST.LLAMA_3_2,
+                        mainCode,
+                        flashcards: flashcardData
+                    })
+                }
+            );
             result = await res.json();
             console.log(result, 'Initial result from generate-words');
             // parsedResult = JSON.parse(result);
@@ -181,7 +200,6 @@ const FlashcardsPage = () => {
             }
             return;
         }
-
 
         const timer = createTimer();
         try {

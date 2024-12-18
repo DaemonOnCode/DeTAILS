@@ -8,7 +8,7 @@ const RedditTable: FC<RedditTableProps> = ({
     selectedPosts,
     togglePostSelection,
     toggleSelectPage,
-    isLoading, // Add isLoading prop
+    isLoading // Add isLoading prop
 }) => {
     const [selectedPost, setSelectedPost] = useState<(typeof data)[number] | null>(null);
 

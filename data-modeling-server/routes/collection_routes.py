@@ -29,7 +29,9 @@ def initialize_database():
             name TEXT NOT NULL,
             description TEXT,
             file_path TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            workspace_id TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
         )
         """)
 

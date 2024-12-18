@@ -1,10 +1,15 @@
-import { createContext, useState, FC, Dispatch, useCallback, useReducer, useEffect, useContext } from 'react';
-import { useMemo } from 'react';
 import {
-    ILayout,
-    Mode,
-    SetState,
-} from '../types/Coding/shared';
+    createContext,
+    useState,
+    FC,
+    Dispatch,
+    useCallback,
+    useReducer,
+    useEffect,
+    useContext
+} from 'react';
+import { useMemo } from 'react';
+import { ILayout, Mode, SetState } from '../types/Coding/shared';
 
 interface ICollectionContext {
     currentMode: Mode;
@@ -77,13 +82,7 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
             datasetId,
             setDatasetId
         }),
-        [
-            currentMode,
-            modeInput,
-            selectedPosts,
-            subreddit,
-            datasetId
-        ]
+        [currentMode, modeInput, selectedPosts, subreddit, datasetId]
     );
 
     return <CollectionContext.Provider value={value}>{children}</CollectionContext.Provider>;

@@ -1,12 +1,6 @@
-import { useContext, useEffect, useState } from 'react';
-import {
-    LOADER_ROUTES,
-    ROUTES,
-    codeReferences,
-    codes as _codes,
-    DB_PATH
-} from '../../constants/Coding/shared';
-import { IComment, IRedditPostData, IReference, PostIdTitle } from '../../types/Coding/shared';
+import { useEffect, useState } from 'react';
+import { LOADER_ROUTES, ROUTES, DB_PATH } from '../../constants/Coding/shared';
+import { IComment, IRedditPostData, PostIdTitle } from '../../types/Coding/shared';
 import HighlightModal from '../../components/Coding/InitialCoding/highlight_modal';
 import AddCodeModal from '../../components/Coding/InitialCoding/add_code_modal';
 import ContentArea from '../../components/Coding/InitialCoding/content_area';
@@ -14,9 +8,14 @@ import LeftPanel from '../../components/Coding/InitialCoding/left_panel';
 import TopToolbar from '../../components/Coding/InitialCoding/top_toolbar';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { useNavigate } from 'react-router-dom';
-import { DataContext } from '../../context/data_context';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER, USE_NEW_FLOW } from '../../constants/Shared';
+import {
+    MODEL_LIST,
+    REMOTE_SERVER_BASE_URL,
+    REMOTE_SERVER_ROUTES,
+    USE_LOCAL_SERVER,
+    USE_NEW_FLOW
+} from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
@@ -37,14 +36,23 @@ const InitialCodingPage = () => {
     const [selectedCodeForReferences, setSelectedCodeForReferences] = useState<string | null>(null);
     const [selectedPostData, setSelectedPostData] = useState<IRedditPostData | null>(null);
 
-    const { references, setReferences, mainCode, selectedFlashcards, flashcards, selectedWords, dispatchCodeResponses, codeBook} = useCodingContext();
+    const {
+        references,
+        setReferences,
+        mainCode,
+        selectedFlashcards,
+        flashcards,
+        selectedWords,
+        dispatchCodeResponses,
+        codeBook
+    } = useCodingContext();
     const { selectedPosts, datasetId } = useCollectionContext();
 
     const logger = useLogger();
     const navigate = useNavigate();
 
     useEffect(() => {
-        if(!USE_LOCAL_SERVER){
+        if (!USE_LOCAL_SERVER) {
             fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_TITLES}`, {
                 method: 'POST',
                 headers: {
@@ -57,7 +65,7 @@ const InitialCodingPage = () => {
             })
                 .then((res) => res.json())
                 .then((data) => {
-                    console.log(data, 'Reddit posts'); 
+                    console.log(data, 'Reddit posts');
                     setPosts(data);
                 });
             return;
@@ -165,53 +173,58 @@ const InitialCodingPage = () => {
         navigate('../loader/' + LOADER_ROUTES.CODING_VALIDATION_LOADER);
         console.log(references, 'references');
 
-
-        if(!USE_LOCAL_SERVER){
+        if (!USE_LOCAL_SERVER) {
             let results;
             // await ipcRenderer.invoke("connect-ws", datasetId);
 
-            if(USE_NEW_FLOW){
-                const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_THEMES}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: MODEL_LIST.LLAMA_3_2,
-                        references,
-                        mainCode,
-                        codeBook,
-                        selectedPosts,
-                        datasetId
-                    })
-                });
-    
+            if (USE_NEW_FLOW) {
+                const res = await fetch(
+                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_THEMES}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: MODEL_LIST.LLAMA_3_2,
+                            references,
+                            mainCode,
+                            codeBook,
+                            selectedPosts,
+                            datasetId
+                        })
+                    }
+                );
+
                 results = await res.json();
                 console.log(results, 'Initial Coding Page');
-            }
-            else{
+            } else {
+                const res = await fetch(
+                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: MODEL_LIST.LLAMA_3_2,
+                            references,
+                            mainCode,
+                            flashcards: selectedFlashcards.map((id) => {
+                                return {
+                                    question: flashcards.find((flashcard) => flashcard.id === id)!
+                                        .question,
+                                    answer: flashcards.find((flashcard) => flashcard.id === id)!
+                                        .answer
+                                };
+                            }),
+                            selectedWords,
+                            selectedPosts,
+                            datasetId
+                        })
+                    }
+                );
 
-                const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: MODEL_LIST.LLAMA_3_2,
-                        references,
-                        mainCode,
-                        flashcards: selectedFlashcards.map((id) => {
-                            return {
-                                question: flashcards.find((flashcard) => flashcard.id === id)!.question,
-                                answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
-                            };
-                        }),
-                        selectedWords,
-                        selectedPosts,
-                        datasetId
-                    })
-                });
-    
                 results = await res.json();
                 console.log(results, 'Initial Coding Page');
             }
@@ -273,10 +286,8 @@ const InitialCodingPage = () => {
                 mainCode,
                 selectedFlashcards.map((id) => {
                     return {
-                        question: flashcards.find((flashcard) => flashcard.id === id)!
-                            .question,
-                        answer: flashcards.find((flashcard) => flashcard.id === id)!
-                            .answer
+                        question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+                        answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
                     };
                 }),
                 selectedWords,
@@ -402,7 +413,7 @@ const InitialCodingPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.WORD_CLOUD}
-                nextPage={USE_NEW_FLOW ? ROUTES.CODING_VALIDATION_V2: ROUTES.CODING_VALIDATION}
+                nextPage={USE_NEW_FLOW ? ROUTES.CODING_VALIDATION_V2 : ROUTES.CODING_VALIDATION}
                 isReady={true}
                 onNextClick={handleNextClick}
             />

@@ -1,16 +1,15 @@
-import { ChangeEvent, FC, useContext, useEffect, useState } from 'react';
-import {
-    DB_PATH,
-    LOADER_ROUTES,
-    ROUTES,
-    beforeHumanValidation
-} from '../../constants/Coding/shared';
+import { ChangeEvent, FC, useEffect, useState } from 'react';
+import { DB_PATH, LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
-import { DataContext } from '../../context/data_context';
 import RedditViewModal from '../../components/Coding/Shared/reddit_view_modal';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
-import { MODEL_LIST, REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
+import {
+    MODEL_LIST,
+    REMOTE_SERVER_BASE_URL,
+    REMOTE_SERVER_ROUTES,
+    USE_LOCAL_SERVER
+} from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
@@ -18,7 +17,15 @@ import { useCollectionContext } from '../../context/collection_context';
 const { ipcRenderer } = window.require('electron');
 
 const CodingValidationPage: FC = () => {
-    const { dispatchCodeResponses, codeResponses, references, mainCode, selectedFlashcards, flashcards, selectedWords } = useCodingContext();
+    const {
+        dispatchCodeResponses,
+        codeResponses,
+        references,
+        mainCode,
+        selectedFlashcards,
+        flashcards,
+        selectedWords
+    } = useCodingContext();
     const { selectedPosts, datasetId } = useCollectionContext();
 
     // console.count('Coding Validation Page');
@@ -111,31 +118,32 @@ const CodingValidationPage: FC = () => {
 
         // navigate(LOADER_ROUTES.FINAL_LOADER);
 
-
-
-        if(!USE_LOCAL_SERVER){
-            const res = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_FEEDBACK}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: MODEL_LIST.LLAMA_3_2,
-                    references,
-                    mainCode,
-                    flashcards: selectedFlashcards.map((id) => {
-                        return {
-                            question: flashcards.find((flashcard) => flashcard.id === id)!
-                                .question,
-                            answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
-                        };
-                    }),
-                    selectedWords,
-                    selectedPosts,
-                    feedback: codeResponses.filter((response) => response.isMarked === false),
-                    datasetId
-                })
-            });
+        if (!USE_LOCAL_SERVER) {
+            const res = await fetch(
+                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_FEEDBACK}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: MODEL_LIST.LLAMA_3_2,
+                        references,
+                        mainCode,
+                        flashcards: selectedFlashcards.map((id) => {
+                            return {
+                                question: flashcards.find((flashcard) => flashcard.id === id)!
+                                    .question,
+                                answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+                            };
+                        }),
+                        selectedWords,
+                        selectedPosts,
+                        feedback: codeResponses.filter((response) => response.isMarked === false),
+                        datasetId
+                    })
+                }
+            );
 
             const results = await res.json();
             console.log('Result:', results);
@@ -153,9 +161,7 @@ const CodingValidationPage: FC = () => {
                 }[];
             }[] = results;
 
-            let totalResponses = codeResponses.filter(
-                (response) => response.isMarked === true
-            );
+            let totalResponses = codeResponses.filter((response) => response.isMarked === true);
             parsedResult.forEach((answer, index) => {
                 for (const recodedTranscript of answer.recoded_transcript) {
                     const sentence = recodedTranscript.segment;
@@ -190,8 +196,7 @@ const CodingValidationPage: FC = () => {
             mainCode,
             selectedFlashcards.map((id) => {
                 return {
-                    question: flashcards.find((flashcard) => flashcard.id === id)!
-                        .question,
+                    question: flashcards.find((flashcard) => flashcard.id === id)!.question,
                     answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
                 };
             }),
@@ -218,9 +223,7 @@ const CodingValidationPage: FC = () => {
             }[];
         }[] = results;
 
-        let totalResponses = codeResponses.filter(
-            (response) => response.isMarked === true
-        );
+        let totalResponses = codeResponses.filter((response) => response.isMarked === true);
 
         // totalResponses = totalResponses.concat(
         parsedResult.forEach((answer, index) => {
@@ -276,7 +279,13 @@ const CodingValidationPage: FC = () => {
     };
 
     const handleOpenReddit = async (postId: string, commentSlice: string) => {
-        const link = await ipcRenderer.invoke('get-link-from-post', postId, commentSlice, datasetId, DB_PATH);
+        const link = await ipcRenderer.invoke(
+            'get-link-from-post',
+            postId,
+            commentSlice,
+            datasetId,
+            DB_PATH
+        );
 
         setSelectedData({ link, text: commentSlice });
     };
@@ -342,9 +351,7 @@ const CodingValidationPage: FC = () => {
         // });
     };
 
-    const isReadyCheck = codeResponses.some(
-        (response) => response.isMarked !== undefined
-    );
+    const isReadyCheck = codeResponses.some((response) => response.isMarked !== undefined);
 
     useEffect(() => {
         console.log('Code Responses:', codeResponses);

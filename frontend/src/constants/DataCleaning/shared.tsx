@@ -1,3 +1,3 @@
 export enum ROUTES {
-    HOME = 'home',
+    HOME = 'home'
 }

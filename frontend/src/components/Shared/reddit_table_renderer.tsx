@@ -61,10 +61,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeigh
     };
 
     const toggleSelectAllPosts = () => {
-        if (
-            selectedPosts.length !== filteredData.length &&
-            selectedPosts.length === 0
-        ) {
+        if (selectedPosts.length !== filteredData.length && selectedPosts.length === 0) {
             setSelectedPosts(filteredData.map(([id]) => id));
         } else {
             setSelectedPosts([]);
@@ -108,8 +105,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeigh
                 <button
                     onClick={toggleSelectAllPosts}
                     className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
-                    {selectedPosts.length !== filteredData.length &&
-                    selectedPosts.length === 0
+                    {selectedPosts.length !== filteredData.length && selectedPosts.length === 0
                         ? 'Select All Posts'
                         : 'Deselect All Posts'}
                 </button>
