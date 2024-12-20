@@ -4,6 +4,7 @@ const { ipcMain } = require('electron');
 const clientData = require('../../client_secret_311037134589-q63krfrlg9d2edp7gsnlbouivttk3cr7.apps.googleusercontent.com.json');
 const config = require('../utils/config');
 const logger = require('../utils/logger');
+const { createMenu } = require('../utils/menu');
 
 const googleOAuthHandler = () => {
     ipcMain.handle('google-oauth-login', async () => {
@@ -36,6 +37,7 @@ const googleOAuthHandler = () => {
                 oauthWindow.close();
             }
             console.log('Google OAuth Token:', token);
+            createMenu();
             return {
                 token,
                 user: userInfo

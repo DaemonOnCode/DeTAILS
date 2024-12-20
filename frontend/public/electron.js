@@ -7,6 +7,7 @@ const config = require('./utils/config');
 const registerIpcHandlers = require('./handles');
 const logger = require('./utils/logger');
 const WebSocket = require('ws');
+const { createMenu } = require('./utils/menu');
 
 // Enable auto-reloading in development mode
 if (config.isDev) {
@@ -39,90 +40,9 @@ const cleanupAndExit = async (signal) => {
     app.quit();
 };
 
-const menuTemplate = [
-    {
-        label: 'File',
-        submenu: [
-            {
-                label: 'New File',
-                accelerator: 'CmdOrCtrl+N',
-                click: () => console.log('New File')
-            },
-            {
-                label: 'Open File',
-                accelerator: 'CmdOrCtrl+O',
-                click: () => console.log('Open File')
-            },
-            { type: 'separator' },
-            {
-                label: 'Save workspace',
-                accelerator: 'CmdOrCtrl+S',
-                click: async () => {
-                    config.mainWindow.webContents.send('menu-save-workspace');
-                }
-            },
-            {
-                label: 'Import workspace',
-                accelerator: 'CmdOrCtrl+I',
-                click: async () => {
-                    const { canceled, filePaths } = await dialog.showOpenDialog({
-                        properties: ['openFile'],
-                        filters: [{ name: 'ZIP', extensions: ['zip'] }]
-                    });
-                    if (!canceled && filePaths.length > 0) {
-                        // const data = fs.readFileSync(filePaths[0], 'utf-8');
-                        config.mainWindow.webContents.send('menu-import-workspace', filePaths[0]);
-                    }
-                }
-            },
-            {
-                label: 'Export workspace',
-                accelerator: 'CmdOrCtrl+E',
-                click: async () => {
-                    // const { canceled, filePath } = await dialog.showSaveDialog({
-                    //     title: 'Export Workspace',
-                    //     defaultPath: 'workspace.json',
-                    //     filters: [{ name: 'JSON', extensions: ['json'] }]
-                    // });
-                    // console.log('Exporting workspace to:', filePath);
-                    // if (!canceled && filePath) {
-                    config.mainWindow.webContents.send('menu-export-workspace');
-                    // }
-                }
-            },
-            { type: 'separator' },
-            { label: 'Exit', role: 'quit' }
-        ]
-    },
-    {
-        label: 'Edit',
-        submenu: [
-            { role: 'undo' },
-            { role: 'redo' },
-            { type: 'separator' },
-            { role: 'cut' },
-            { role: 'copy' },
-            { role: 'paste' },
-            { role: 'selectAll' }
-        ]
-    },
-    {
-        label: 'View',
-        submenu: [
-            { label: 'Reload', role: 'reload' },
-            { label: 'Toggle Developer Tools', role: 'toggleDevTools' }
-        ]
-    },
-    {
-        label: 'Help',
-        submenu: [{ label: 'About', click: () => console.log('About clicked') }]
-    }
-];
-
 // Wait for the app to be ready
 app.whenReady().then(async () => {
-    const menu = Menu.buildFromTemplate(menuTemplate);
-    Menu.setApplicationMenu(menu);
+    createMenu();
 
     logger.info('Electron app is ready');
 
