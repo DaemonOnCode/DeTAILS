@@ -24,8 +24,8 @@ export const LOGGING = true;
 export const USE_LOCAL_SERVER = false;
 
 export const REMOTE_SERVER_BASE_URL = USE_LOCAL_SERVER
-    ? 'http://20.51.212.222/backend/api'
-    : 'http://localhost:8080/api';
+    ? 'http://localhost:8080/api'
+    : 'http://20.51.212.222/backend/api';
 
 // export enum SERVER_ROUTES {
 //     GET_REDDIT_POSTS_TITLES = '',
