@@ -13,6 +13,7 @@ import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useNavigate } from 'react-router-dom';
 import { useCollectionContext } from '../../context/collection_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const ThemeCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -33,6 +34,8 @@ const ThemeCloudPage: FC = () => {
     } = useCodingContext();
     const { datasetId } = useCollectionContext();
 
+    const { saveWorkspaceData } = useWorkspaceUtils();
+
     // useEffect(() => {
     //     setSelectedThemes([mainCode]);
     // }, []);
@@ -42,6 +45,7 @@ const ThemeCloudPage: FC = () => {
         logger.info('Loaded Theme cloud Page');
 
         return () => {
+            saveWorkspaceData();
             logger.info('Unloaded Theme cloud Page').then(() => {
                 logger.time('Theme cloud Page stay time', { time: timer.end() });
             });

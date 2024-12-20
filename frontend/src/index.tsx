@@ -21,13 +21,11 @@ root.render(
         <HashRouter>
             <LoggingProvider>
                 <AuthProvider>
-                    <WorkspaceProvider>
-                        <WebSocketProvider>
-                            <ToastContainer />
-                            <SystemMetricsLogger />
-                            <ApplicationRouter />
-                        </WebSocketProvider>
-                    </WorkspaceProvider>
+                    <WebSocketProvider>
+                        <ToastContainer />
+                        <SystemMetricsLogger />
+                        <ApplicationRouter />
+                    </WebSocketProvider>
                 </AuthProvider>
             </LoggingProvider>
         </HashRouter>

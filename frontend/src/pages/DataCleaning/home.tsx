@@ -6,6 +6,7 @@ import CreateRuleModal from '../../components/DataCleaning/rule_modal';
 import { Rule } from '../../types/DataCleaning/shared';
 import { REMOTE_SERVER_BASE_URL } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const tryRequest = async (promise: Promise<any>) => {
     try {
@@ -120,9 +121,15 @@ const HomePage = () => {
         setProcessing(false);
     };
 
+    const { saveWorkspaceData } = useWorkspaceUtils();
+
     useEffect(() => {
         fetchRules();
         fetchProcessedData();
+
+        return () => {
+            saveWorkspaceData();
+        };
     }, []);
 
     const addRule = async (newRule: Rule) => {
@@ -183,7 +190,7 @@ const HomePage = () => {
     const handleCloseModal = () => setModalOpen(false);
 
     return (
-        <div className="flex h-[calc(100vh-48px)] gap-x-1 bg-gray-100">
+        <div className="flex min-h-panel gap-x-1 bg-gray-100">
             {/* Left Panel */}
             <div className="flex flex-col w-1/2 h-full">
                 <div className="bg-white p-4 shadow-sm">

@@ -22,6 +22,8 @@ interface ICollectionContext {
     setSelectedPosts: SetState<string[]>;
     datasetId: string;
     setDatasetId: SetState<string>;
+    updateContext: (updates: Partial<ICollectionContext>) => void;
+    resetContext: () => void;
 }
 
 // Create the context
@@ -35,7 +37,9 @@ export const CollectionContext = createContext<ICollectionContext>({
     selectedPosts: [],
     setSelectedPosts: () => {},
     datasetId: '',
-    setDatasetId: () => {}
+    setDatasetId: () => {},
+    updateContext: () => {},
+    resetContext: () => {}
 });
 
 // Create a provider component
@@ -65,6 +69,23 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         });
     }, []);
 
+    // Function to update context state
+    const updateContext = (updates: Partial<ICollectionContext>) => {
+        if (updates.currentMode !== undefined) setCurrentMode(updates.currentMode);
+        if (updates.modeInput !== undefined) setModeInput(updates.modeInput);
+        if (updates.subreddit !== undefined) setSubreddit(updates.subreddit);
+        if (updates.selectedPosts !== undefined) setSelectedPosts(updates.selectedPosts);
+        if (updates.datasetId !== undefined) setDatasetId(updates.datasetId);
+    };
+
+    const resetContext = () => {
+        setCurrentMode('folder');
+        setModeInput('');
+        setSubreddit('');
+        setSelectedPosts([]);
+        setDatasetId('');
+    };
+
     useEffect(() => {
         console.log('In dc', datasetId);
     }, [datasetId]);
@@ -80,7 +101,9 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
             selectedPosts,
             setSelectedPosts,
             datasetId,
-            setDatasetId
+            setDatasetId,
+            updateContext,
+            resetContext
         }),
         [currentMode, modeInput, selectedPosts, subreddit, datasetId]
     );

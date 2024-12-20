@@ -1,4 +1,5 @@
-import React from 'react';
+import { useEffect } from 'react';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const HomePage = () => {
     // Event Handlers
@@ -11,6 +12,14 @@ const HomePage = () => {
         console.log(`${model} Sampling selected`);
         // Add logic for selected Topic Model Sampling
     };
+
+    const { saveWorkspaceData } = useWorkspaceUtils();
+
+    useEffect(() => {
+        return () => {
+            saveWorkspaceData();
+        };
+    }, []);
 
     return (
         <div className="bg-white text-gray-800 min-h-screen flex flex-col items-center p-6 space-y-8">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, FC } from 'react';
 import { IThemeBox } from '../../../types/Coding/shared';
 import { ThemeCloudProps } from '../../../types/Coding/props';
 import { FiEdit, FiTrash2 } from 'react-icons/fi'; // Import React Icons
@@ -38,7 +38,7 @@ const measureTextWidth = (text: string, fontSize: number) => {
     return 50;
 };
 
-const ThemeCloud: React.FC<ThemeCloudProps> = ({
+const ThemeCloud: FC<ThemeCloudProps> = ({
     mainCode,
     themes,
     selectedThemes,
@@ -67,6 +67,7 @@ const ThemeCloud: React.FC<ThemeCloudProps> = ({
         placedThemes.push(mainCodeBox);
 
         themes.forEach((theme, index) => {
+            if (theme === mainCode) return;
             const textWidth = measureTextWidth(theme, otherThemeFontSize);
             const themeBox: IThemeBox = {
                 text: theme,

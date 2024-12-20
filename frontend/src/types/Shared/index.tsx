@@ -21,17 +21,16 @@ export interface Token {
 
 // Define arguments for each route
 export type RouteArgs = {
-    [SERVER_ROUTES.PROCESS_DATA]: {
-        server: {
-            input: string;
-        };
-        local: {
-            input: string;
-        };
-    }; // Args for PROCESS_DATA
+    [K in SERVER_ROUTES]: {
+        server: Record<string, any>; // Default server args structure
+        local: Record<string, any>; // Default local args structure
+    };
 };
 
 // Define responses for each route
 export type RouteResponse = {
-    [SERVER_ROUTES.PROCESS_DATA]: { success: boolean; processedData: any }; // Response for PROCESS_DATA
+    [K in SERVER_ROUTES]: {
+        success: boolean; // Common success flag
+        data?: any; // Generic data for responses
+    };
 };

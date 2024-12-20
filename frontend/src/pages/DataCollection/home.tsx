@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Card from '../../components/DataCollection/card';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/DataCollection/shared';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const HomePage = () => {
     const navigate = useNavigate();
@@ -25,13 +26,21 @@ const HomePage = () => {
         // Add BerTopic model import logic here
     };
 
+    const { saveWorkspaceData } = useWorkspaceUtils();
+
+    useEffect(() => {
+        return () => {
+            saveWorkspaceData();
+        };
+    }, []);
+
     return (
         <div className="bg-white text-gray-800 h-full flex flex-col items-center p-6 space-y-8">
             {/* Header */}
             <h1 className="text-4xl font-bold text-center">Data Import & Retrieval Tool</h1>
 
             {/* Cards Container */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full max-w-6xl">
                 {/* Online Sources */}
                 <Card
                     title="Online Sources"

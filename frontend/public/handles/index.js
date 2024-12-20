@@ -4,6 +4,7 @@ const { langchainHandler } = require('./langchain');
 const { dbHandler } = require('./db');
 const { googleOAuthHandler } = require('./google-oauth');
 const { websocketHandler } = require('./websocket');
+const { workspaceHandler } = require('./workspace');
 // const { workerHandler } = require('./worker');
 
 const registerIpcHandlers = () => {
@@ -14,6 +15,7 @@ const registerIpcHandlers = () => {
     // workerHandler();
     dbHandler();
     websocketHandler();
+    workspaceHandler();
 };
 
 module.exports = registerIpcHandlers;

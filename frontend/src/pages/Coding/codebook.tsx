@@ -1,4 +1,4 @@
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { useCodingContext } from '../../context/coding_context';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
@@ -13,6 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { saveCSV, saveExcel } from '../../utility/convert-js-object';
 import { useLogger } from '../../context/logging_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -23,6 +24,7 @@ const CodeBookPage: FC = () => {
     const [saving, setSaving] = useState(false);
     const navigate = useNavigate();
     const logger = useLogger();
+    const { saveWorkspaceData } = useWorkspaceUtils();
 
     const handleGenerateMore = async () => {
         await logger.info('Generate more codes');
@@ -89,13 +91,19 @@ const CodeBookPage: FC = () => {
         await logger.info('Codebook saved as Excel');
     };
 
+    useEffect(() => {
+        return () => {
+            saveWorkspaceData();
+        };
+    }, []);
+
     const isReadyCheck = codeBook.some((entry) => entry.isMarked === true);
 
     return (
         <div className="flex flex-col justify-between h-full">
             <div>
                 <p>Please validate and manage the codeBook entries below:</p>
-                <div className="max-h-[calc(100vh-15rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
+                <div className="max-h-[calc(100vh-18rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-gray-200">

@@ -19,6 +19,7 @@ import {
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -50,6 +51,7 @@ const InitialCodingPage = () => {
 
     const logger = useLogger();
     const navigate = useNavigate();
+    const { saveWorkspaceData } = useWorkspaceUtils();
 
     useEffect(() => {
         if (!USE_LOCAL_SERVER) {
@@ -75,6 +77,10 @@ const InitialCodingPage = () => {
             .then((data: { id: string; title: string }[]) => {
                 setPosts(data);
             });
+
+        return () => {
+            saveWorkspaceData();
+        };
     }, []);
 
     useEffect(() => {
@@ -367,7 +373,7 @@ const InitialCodingPage = () => {
                     setIsAddCodeModalOpen={setIsAddCodeModalOpen}
                     setIsHighlightModalOpen={setIsHighlightModalOpen}
                 />
-                <div className="flex h-[calc(100vh-9rem)] overflow-hidden">
+                <div className="flex h-[calc(100vh-15rem)] overflow-hidden">
                     {/* Left Panel */}
                     <LeftPanel
                         selectedTab={selectedTab}

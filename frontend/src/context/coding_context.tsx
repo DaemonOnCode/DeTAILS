@@ -58,6 +58,8 @@ interface ICodingContext {
     dispatchCodeResponses: Dispatch<any>;
     finalCodeResponses: IFinalCodeResponse[];
     dispatchFinalCodeResponses: Dispatch<any>;
+    updateContext: (updates: Partial<ICodingContext>) => void;
+    resetContext: () => void;
 }
 
 // Create the context
@@ -90,7 +92,9 @@ export const CodingContext = createContext<ICodingContext>({
     codeResponses: [],
     dispatchCodeResponses: () => {},
     finalCodeResponses: [],
-    dispatchFinalCodeResponses: () => {}
+    dispatchFinalCodeResponses: () => {},
+    updateContext: () => {},
+    resetContext: () => {}
 });
 
 type Action<T> =
@@ -395,9 +399,57 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         );
     }, []);
 
+    const updateContext = (updates: Partial<ICodingContext>) => {
+        if (updates.basisFiles) setBasisFiles(updates.basisFiles);
+        if (updates.mainCode) setMainCode(updates.mainCode);
+        if (updates.additionalInfo) setAdditionalInfo(updates.additionalInfo);
+        if (updates.flashcards) setFlashcards(updates.flashcards);
+        if (updates.selectedFlashcards) setSelectedFlashcards(updates.selectedFlashcards);
+        if (updates.themes) setThemes(updates.themes);
+        if (updates.selectedThemes) setSelectedThemes(updates.selectedThemes);
+        if (updates.words) setWords(updates.words);
+        if (updates.selectedWords) setSelectedWords(updates.selectedWords);
+        if (updates.references) setReferences(updates.references);
+        if (updates.codeBook) {
+            dispatchCodeBook({ type: 'INITIALIZE', entries: updates.codeBook });
+        }
+        if (updates.codeResponses) {
+            dispatchCodeResponses({ type: 'SET_RESPONSES', responses: updates.codeResponses });
+        }
+        if (updates.finalCodeResponses) {
+            dispatchFinalCodeResponses({
+                type: 'SET_RESPONSES',
+                responses: updates.finalCodeResponses
+            });
+        }
+    };
+
+    const resetContext = () => {
+        setBasisFiles({});
+        setMainCode('');
+        setAdditionalInfo('');
+        setFlashcards([]);
+        setSelectedFlashcards([]);
+        setThemes([]);
+        setSelectedThemes([]);
+        setWords([]);
+        setSelectedWords([]);
+        setReferences({});
+        dispatchCodeBook({ type: 'INITIALIZE', entries: [] });
+        dispatchCodeResponses({ type: 'SET_RESPONSES', responses: [] });
+        dispatchFinalCodeResponses({ type: 'SET_RESPONSES', responses: [] });
+    };
+
+    const selectedThemesOrWords = useMemo(() => {
+        return [mainCode];
+    }, [mainCode]);
+
     useEffect(() => {
-        setSelectedThemes([mainCode]);
-        setSelectedWords([mainCode]);
+        if (selectedWords.length !== 0 || selectedWords[0] === mainCode) return;
+        setSelectedWords(selectedThemesOrWords);
+        if (selectedThemes.length !== 0 || selectedThemes[0] === mainCode) return;
+        setSelectedThemes(selectedThemesOrWords);
+        console.log('Selected themes or words:', selectedThemesOrWords);
     }, [mainCode]);
 
     useEffect(() => {
@@ -452,7 +504,9 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             codeResponses,
             dispatchCodeResponses,
             finalCodeResponses,
-            dispatchFinalCodeResponses
+            dispatchFinalCodeResponses,
+            updateContext,
+            resetContext
         }),
         [
             currentMode,

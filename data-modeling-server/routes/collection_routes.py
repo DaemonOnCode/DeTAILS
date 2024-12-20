@@ -107,6 +107,31 @@ def run_query_with_columns(query: str, params: tuple = ()) -> List[Dict[str, Any
         # Convert each row to a dictionary
         return [dict(row) for row in result]
 
+def insert_dataset(dataset_id: str, name: str, description: str):
+    try:
+        with sqlite3.connect(DATABASE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO datasets (id, name, description)
+                VALUES (?, ?, ?)
+            """, (dataset_id, name, description))
+            conn.commit()
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    
+def update_dataset(dataset_id: str, name: str = "", description: str = ""):
+    try:
+        with sqlite3.connect(DATABASE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE datasets SET name = ?, description = ?
+                WHERE id = ?
+            """, (name, description, dataset_id))
+            conn.commit()
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
 def save_temp_file(file: UploadFile, prefix: str) -> str:
     """
     Save an uploaded file temporarily and return the file path.
@@ -131,6 +156,8 @@ def parse_submissions_and_comments(files: List[Dict[str,str]], dataset_id: str):
     posts = {}
     comments = {}
 
+    subreddit = ""
+
     for file in files:
         file_type = file.get("type")
         file_path = file.get("path")
@@ -143,6 +170,8 @@ def parse_submissions_and_comments(files: List[Dict[str,str]], dataset_id: str):
         if file_type == "submissions":
             for post in filtered_data:
                 post_id = post.get("id")
+                if  subreddit !="" and "subreddit" in post:
+                    subreddit = post.get("subreddit")
                 if post_id:
                     posts[post_id] = {**post, "comments": {}}
                 parsed_data.append((
@@ -167,6 +196,8 @@ def parse_submissions_and_comments(files: List[Dict[str,str]], dataset_id: str):
             batch_insert_posts(parsed_data)
         elif file_type == "comments":
             for comment in filtered_data:
+                if subreddit !="" and "subreddit" in comment:
+                    subreddit = comment.get("subreddit")
                 comment_id = comment.get("id")
                 parent_id = comment.get("parent_id", "").split("_")[1] if "parent_id" in comment else None
                 post_id = comment.get("link_id", "").split("_")[1] if "link_id" in comment else None
@@ -197,14 +228,16 @@ def parse_submissions_and_comments(files: List[Dict[str,str]], dataset_id: str):
                 ))
             batch_insert_comments(parsed_data)
     # Build hierarchical comments
-    for comment_id, comment in comments.items():
-        parent_id = comment["parent_id"]
-        post_id = comment["link_id"]
+            
+    update_dataset(dataset_id, name=subreddit)
+    # for comment_id, comment in comments.items():
+    #     parent_id = comment["parent_id"]
+    #     post_id = comment["link_id"]
 
-        if parent_id and parent_id in comments:
-            comments[parent_id]["comments"][comment_id] = comment
-        elif post_id and post_id in posts:
-            posts[post_id]["comments"][comment_id] = comment
+    #     if parent_id and parent_id in comments:
+    #         comments[parent_id]["comments"][comment_id] = comment
+    #     elif post_id and post_id in posts:
+    #         posts[post_id]["comments"][comment_id] = comment
 
     return {"messages": "Data parsed successfully"}
 
@@ -268,24 +301,11 @@ async def parse_json_file(file_path: str):
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=str(e))
 
-def insert_dataset(dataset_id: str, name: str, description: str):
-    try:
-        with sqlite3.connect(DATABASE_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO datasets (id, name, description)
-                VALUES (?, ?, ?)
-            """, (dataset_id, name, description))
-            conn.commit()
-    except sqlite3.Error as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
 @router.post("/datasets")
 async def upload_dataset(
     file: UploadFile = File(...),
-    name: str = Form(...),
-    description: str = Form(...),
-    dataset_id: str = Form(...),
+    description: str = Form(None),
+    dataset_id: str = Form(None),
 ):
     """
     Endpoint to upload a dataset file and its metadata.
@@ -293,17 +313,15 @@ async def upload_dataset(
     try:
         if not dataset_id:
             dataset_id = str(uuid4())
-            insert_dataset(dataset_id, name, description)
+            insert_dataset(dataset_id, "", description)
         print(dataset_id)
-        file_location = f"datasets/{dataset_id}/{file.filename}"
+        if not file.filename.endswith(".json"):
+            raise HTTPException(status_code=400, detail="Only JSON files are allowed.")
+        file_location = f"./datasets/{dataset_id}/{file.filename}"
         os.makedirs(os.path.dirname(file_location), exist_ok=True)
 
         with open(file_location, "wb") as f:
             f.write(await file.read())
-
-
-        # if file.filename.endswith(".json"):
-            
 
         return {"message": f"File {file.filename} uploaded successfully", "dataset_id": dataset_id}
     except Exception as e:
@@ -338,7 +356,7 @@ async def parse_reddit_dataset(
     for file in comments_path:
         all_files.append({"type": "comments", "path": f"datasets/{dataset_id}/{file}"})
     
-    structured_data = parse_submissions_and_comments(all_files, dataset_id)
+    parse_submissions_and_comments(all_files, dataset_id)
 
     return {"message": "Reddit dataset parsed successfully"}
     # except Exception as e:

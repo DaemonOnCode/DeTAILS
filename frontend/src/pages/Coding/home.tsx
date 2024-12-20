@@ -7,15 +7,22 @@ import useRedditData from '../../hooks/Home/use_reddit_data';
 import RedditTableRenderer from '../../components/Shared/reddit_table_renderer';
 import { useCollectionContext } from '../../context/collection_context';
 import { USE_NEW_FLOW } from '../../constants/Shared';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const HomePage: FC = () => {
     const { selectedPosts } = useCollectionContext();
-    const { data, loadFolderData } = useRedditData();
+    const { data, loadFolderData, loading } = useRedditData();
 
     const logger = useLogger();
 
     console.log('rendered home page');
     console.count('Component Render');
+
+    const { saveWorkspaceData } = useWorkspaceUtils();
+
+    useEffect(() => {
+        console.log('loading:', loading);
+    }, [loading]);
 
     useEffect(() => {
         const timer = createTimer();
@@ -24,6 +31,7 @@ const HomePage: FC = () => {
         loadFolderData();
 
         return () => {
+            saveWorkspaceData();
             logger.info('Home Page Unloaded').then(() => {
                 logger.time('Home Page stay time', { time: timer.end() });
             });
@@ -36,7 +44,11 @@ const HomePage: FC = () => {
 
     return (
         <div className="w-full h-full flex flex-col">
-            <RedditTableRenderer data={data} maxTableHeightClass="max-h-[calc(100vh-18rem)]" />
+            <RedditTableRenderer
+                data={data}
+                maxTableHeightClass="max-h-[calc(100vh-22rem)]"
+                loading={loading}
+            />
             <NavigationBottomBar
                 nextPage={USE_NEW_FLOW ? ROUTES.BASIS_V2 : ROUTES.BASIS}
                 isReady={isReadyCheck}

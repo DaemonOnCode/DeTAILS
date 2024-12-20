@@ -143,7 +143,7 @@ const CodebookAnimation: React.FC = () => {
     // --- JSX ---
 
     return (
-        <div className="h-[calc(100vh-48px)] w-full flex flex-col items-center justify-center">
+        <div className="min-h-panel w-full flex flex-col items-center justify-center">
             <h1 className="text-3xl font-bold mb-16 text-gray-900">Generating Codebook</h1>
 
             {/* Stacking Phase */}

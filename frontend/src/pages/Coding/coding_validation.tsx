@@ -13,6 +13,7 @@ import {
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -32,6 +33,7 @@ const CodingValidationPage: FC = () => {
 
     const navigate = useNavigate();
     const logger = useLogger();
+    const { saveWorkspaceData } = useWorkspaceUtils();
 
     const handleCommentChange = (index: number, event: ChangeEvent<HTMLTextAreaElement>) => {
         dispatchCodeResponses({
@@ -58,6 +60,7 @@ const CodingValidationPage: FC = () => {
         logger.info('Loaded Coding validation Page');
 
         return () => {
+            saveWorkspaceData();
             logger.info('Unloaded Coding validation Page').then(() => {
                 logger.time('Coding validation Page stay time', { time: timer.end() });
             });
@@ -361,7 +364,7 @@ const CodingValidationPage: FC = () => {
         <div className="flex flex-col justify-between h-full">
             <div>
                 <p>Please validate the following codings done by LLM </p>
-                <div className="max-h-[calc(100vh-15rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
+                <div className="max-h-[calc(100vh-18rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-gray-200">

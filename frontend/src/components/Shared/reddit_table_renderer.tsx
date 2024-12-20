@@ -7,9 +7,14 @@ import { useCollectionContext } from '../../context/collection_context';
 type RedditTableRendererProps = {
     data: RedditPosts;
     maxTableHeightClass?: string;
+    loading?: boolean;
 };
 
-const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeightClass }) => {
+const RedditTableRenderer: FC<RedditTableRendererProps> = ({
+    data,
+    maxTableHeightClass,
+    loading
+}) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
@@ -86,8 +91,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeigh
         setSelectedPosts(newSelectedPosts);
     };
 
-    const isLoading = Object.keys(data).length === 0;
-
     return (
         <div className="flex-grow overflow-hidden h-full">
             {/* Top Bar with Filter and Controls */}
@@ -148,10 +151,10 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({ data, maxTableHeigh
 
             {/* Table */}
             <div
-                className={`overflow-y-auto ${maxTableHeightClass ? maxTableHeightClass : 'max-h-[calc(100vh-14rem)]'}`}>
+                className={`overflow-y-auto ${maxTableHeightClass ? maxTableHeightClass : 'max-h-[calc(100vh-18rem)]'}`}>
                 <RedditTable
                     data={displayedData}
-                    isLoading={isLoading} // Pass loading state to the table
+                    isLoading={loading ?? false} // Pass loading state to the table
                     selectedPosts={selectedPosts}
                     togglePostSelection={togglePostSelection}
                     toggleSelectPage={toggleSelectPage}

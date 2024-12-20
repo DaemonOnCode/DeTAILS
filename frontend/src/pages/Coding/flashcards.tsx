@@ -11,6 +11,7 @@ import {
 } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -39,12 +40,14 @@ const FlashcardsPage = () => {
     // const [hovering, setHovering] = useState(false);
 
     const logger = useLogger();
+    const { saveWorkspaceData } = useWorkspaceUtils();
 
     useEffect(() => {
         const timer = createTimer();
         logger.info('Loaded Flashcards Page');
 
         return () => {
+            saveWorkspaceData();
             logger.info('Unloaded Flashcards Page').then(() => {
                 logger.time('Flashcards Page stay time', { time: timer.end() });
             });

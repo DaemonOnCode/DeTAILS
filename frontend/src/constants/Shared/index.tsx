@@ -26,26 +26,79 @@ export const USE_LOCAL_SERVER = false;
 export const REMOTE_SERVER_BASE_URL = 'http://20.51.212.222/backend/api';
 
 export enum SERVER_ROUTES {
-    PROCESS_DATA = 'process-reddit-data'
+    GET_REDDIT_POSTS_TITLES = '',
+    GET_REDDIT_POST_BY_ID = '',
+    UPLOAD_REDDIT_DATA = '',
+    PARSE_REDDIT_DATA = '',
+    GET_REDDIT_POSTS_BY_BATCH = '',
+
+    ADD_DOCUMENTS_LANGCHAIN = '',
+    REGENERATE_FLASHCARDS = '',
+    GENERATE_WORDS = '',
+    REGENERATE_WORDS = '',
+    GENERATE_CODES = '',
+    GENERATE_CODES_WITH_FEEDBACK = '',
+    FINALIZE_CODES = '',
+    ADD_DOCUMENTS_AND_GET_THEMES = '',
+    GENERATE_THEMES = '',
+    GENERATE_CODEBOOK = '',
+    GENERATE_MORE_CODES = '',
+    GENERATE_CODES_WITH_THEMES = '',
+    GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = '',
+
+    CREATE_WORKSPACE = '',
+    GET_WORKSPACES = '',
+    UPDATE_WORKSPACE = '',
+    DELETE_WORKSPACE = '',
+    CREATE_TEMP_WORKSPACE = '',
+    UPGRADE_TEMP_WORKSPACE = '',
+
+    SAVE_STATE = '',
+    LOAD_STATE = ''
 }
 
-export const SERVER_ROUTE_MAP: Record<SERVER_ROUTES, { local: string; server: string }> = {
-    [SERVER_ROUTES.PROCESS_DATA]: {
-        local: 'local-processing',
-        server: 'process-data'
-    }
-};
+export enum LOCAL_ROUTES {
+    GET_REDDIT_POSTS_TITLES = '',
+    GET_REDDIT_POST_BY_ID = '',
+    UPLOAD_REDDIT_DATA = '',
+    PARSE_REDDIT_DATA = '',
+    GET_REDDIT_POSTS_BY_BATCH = '',
 
+    ADD_DOCUMENTS_LANGCHAIN = '',
+    REGENERATE_FLASHCARDS = '',
+    GENERATE_WORDS = '',
+    REGENERATE_WORDS = '',
+    GENERATE_CODES = '',
+    GENERATE_CODES_WITH_FEEDBACK = '',
+    FINALIZE_CODES = '',
+    ADD_DOCUMENTS_AND_GET_THEMES = '',
+    GENERATE_THEMES = '',
+    GENERATE_CODEBOOK = '',
+    GENERATE_MORE_CODES = '',
+    GENERATE_CODES_WITH_THEMES = '',
+    GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = '',
+
+    CREATE_WORKSPACE = '',
+    GET_WORKSPACES = '',
+    UPDATE_WORKSPACE = '',
+    DELETE_WORKSPACE = '',
+    CREATE_TEMP_WORKSPACE = '',
+    UPGRADE_TEMP_WORKSPACE = '',
+
+    SAVE_STATE = '',
+    LOAD_STATE = ''
+}
 export enum REMOTE_SERVER_ROUTES {
+    GET_REDDIT_POSTS_TITLES = 'collections/reddit-posts-titles',
+    GET_REDDIT_POST_BY_ID = 'collections/reddit-post-by-id',
     UPLOAD_REDDIT_DATA = 'collections/datasets',
     PARSE_REDDIT_DATA = 'collections/parse-reddit-dataset',
     GET_REDDIT_POSTS_BY_BATCH = 'collections/reddit-posts-by-batch',
+
     ADD_DOCUMENTS_LANGCHAIN = 'coding/add-documents-langchain',
     REGENERATE_FLASHCARDS = 'coding/generate-additional-flashcards',
     GENERATE_WORDS = 'coding/generate-words',
     REGENERATE_WORDS = 'coding/regenerate-words',
-    GET_REDDIT_POSTS_TITLES = 'collections/reddit-posts-titles',
-    GET_REDDIT_POST_BY_ID = 'collections/reddit-post-by-id',
     GENERATE_CODES = 'coding/generate-codes',
     GENERATE_CODES_WITH_FEEDBACK = 'coding/generate-codes-with-feedback',
     FINALIZE_CODES = 'coding/finalize-codes',
@@ -55,12 +108,31 @@ export enum REMOTE_SERVER_ROUTES {
     GENERATE_MORE_CODES = 'coding/generate-additional-codes-for-codebook',
     GENERATE_CODES_WITH_THEMES = 'coding/generate-codes-with-themes',
     GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = 'coding/generate-codes-with-themes-and-feedback',
+
     CREATE_WORKSPACE = 'workspaces/create-workspace',
     GET_WORKSPACES = 'workspaces/get-workspaces',
     UPDATE_WORKSPACE = 'workspaces/update-workspace',
     DELETE_WORKSPACE = 'workspaces/delete-workspace',
     CREATE_TEMP_WORKSPACE = 'workspaces/create-temp-workspace',
-    UPGRADE_TEMP_WORKSPACE = 'workspaces/upgrade-workspace-from-temp'
+    UPGRADE_TEMP_WORKSPACE = 'workspaces/upgrade-workspace-from-temp',
+
+    SAVE_STATE = 'state/save-state',
+    LOAD_STATE = 'state/load-state',
+    DELETE_STATE = 'state/delete-state',
+    IMPORT_WORKSPACE = 'state/import-workspace',
+    EXPORT_WORKSPACE = 'state/export-workspace'
 }
+
+export const SERVER_ROUTE_MAP: Record<SERVER_ROUTES, { local: string; server: string }> =
+    Object.keys(REMOTE_SERVER_ROUTES).reduce(
+        (map, routeKey) => {
+            const localRoute = LOCAL_ROUTES[routeKey as keyof typeof LOCAL_ROUTES] || '';
+            const serverRoute =
+                REMOTE_SERVER_ROUTES[routeKey as keyof typeof REMOTE_SERVER_ROUTES] || '';
+            map[routeKey as SERVER_ROUTES] = { local: localRoute, server: serverRoute };
+            return map;
+        },
+        {} as Record<SERVER_ROUTES, { local: string; server: string }>
+    );
 
 export const USE_NEW_FLOW = true;

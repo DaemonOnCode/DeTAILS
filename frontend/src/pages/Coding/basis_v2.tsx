@@ -13,6 +13,7 @@ import {
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -36,6 +37,8 @@ const BasisPage = () => {
 
     const { datasetId } = useCollectionContext();
 
+    const { saveWorkspaceData } = useWorkspaceUtils();
+
     const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
 
     useEffect(() => {
@@ -43,6 +46,7 @@ const BasisPage = () => {
         logger.info('Loaded Basis Page');
 
         return () => {
+            saveWorkspaceData();
             logger.info('Unloaded Basis Page').then(() => {
                 logger.time('Basis Page stay time', { time: timer.end() });
             });

@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/auth_context';
 import { useWorkspaceContext } from '../../context/workspace_context';
 import { REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+
+const { ipcRenderer } = window.require('electron');
 
 const Topbar: React.FC = () => {
     const { user, logout } = useAuth();
@@ -12,7 +15,8 @@ const Topbar: React.FC = () => {
         addWorkspaceBatch,
         setCurrentWorkspace,
         updateWorkspace,
-        deleteWorkspace
+        deleteWorkspace,
+        setCurrentWorkspaceById
     } = useWorkspaceContext();
 
     const [newWorkspaceName, setNewWorkspaceName] = useState<string>('');
@@ -20,6 +24,8 @@ const Topbar: React.FC = () => {
     const [renameWorkspaceName, setRenameWorkspaceName] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(true);
     const [dropdownVisible, setDropdownVisible] = useState<boolean>(false);
+
+    const { loadWorkspaceData, getWorkspaceData, saveWorkspaceData } = useWorkspaceUtils();
 
     useEffect(() => {
         const fetchWorkspaces = async () => {
@@ -39,6 +45,7 @@ const Topbar: React.FC = () => {
                 const data = await response.json();
 
                 if (Array.isArray(data) && data.length > 0) {
+                    console.log('Workspaces:', data);
                     const newWorkspaces = data.map((workspace: any) => ({
                         id: workspace.id,
                         name: workspace.name,
@@ -47,10 +54,22 @@ const Topbar: React.FC = () => {
 
                     // Update only if new workspaces differ from current state
                     if (workspaces.length === 0) {
+                        console.log(
+                            'Adding workspaces:',
+                            newWorkspaces,
+                            newWorkspaces.find(
+                                (workspace) => workspace.name === 'Temporary Workspace'
+                            )
+                        );
                         addWorkspaceBatch(newWorkspaces);
-                        setCurrentWorkspace(newWorkspaces[0].id); // Default to the first workspace
+                        setCurrentWorkspace(
+                            newWorkspaces.find(
+                                (workspace) => workspace.name === 'Temporary Workspace'
+                            )!
+                        );
                     }
                 } else {
+                    console.log('No workspaces found.');
                     // Create a temporary workspace only if none exists
                     if (workspaces.length === 0) {
                         await handleCreateTempWorkspace();
@@ -60,8 +79,6 @@ const Topbar: React.FC = () => {
                 if (error.name !== 'AbortError') {
                     console.error('Error fetching workspaces:', error);
                 }
-            } finally {
-                setLoading(false);
             }
 
             return () => {
@@ -70,7 +87,158 @@ const Topbar: React.FC = () => {
         };
 
         if (user?.email) fetchWorkspaces();
-    }, [user?.email, addWorkspaceBatch, setCurrentWorkspace, workspaces.length]);
+    }, [user?.email, workspaces.length]);
+
+    useEffect(() => {
+        if (workspaces.length > 0 && currentWorkspace) {
+            loadWorkspaceData().then(() => setLoading(false));
+        }
+    }, [workspaces, currentWorkspace]);
+
+    useEffect(() => {
+        if (!currentWorkspace) return;
+        // Listener for Save Workspace
+        const handleSaveWorkspace = async () => {
+            console.log('Saving workspace...');
+            await saveWorkspaceData();
+        };
+
+        // Listener for Import Workspace
+        const handleImportWorkspace = async (e: any, imported_file_path: string) => {
+            try {
+                console.log('Importing workspace from ZIP file:', imported_file_path);
+
+                // Use Electron's file system module to read the file
+                const fs = window.require('fs');
+
+                // Read the file into memory
+                const fileBuffer = fs.readFileSync(imported_file_path);
+
+                // Use FormData to construct the payload
+                const formData = new FormData();
+                formData.append('user_email', user?.email || '');
+                formData.append(
+                    'file',
+                    new Blob([fileBuffer], { type: 'application/zip' }),
+                    imported_file_path.split('/').pop()
+                );
+
+                // Send the file to the backend
+                const response = await fetch(
+                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.IMPORT_WORKSPACE}`,
+                    {
+                        method: 'POST',
+                        body: formData
+                    }
+                );
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Failed to import workspace:', errorText);
+                    alert('Failed to import workspace.');
+                    return;
+                }
+
+                const result = await response.json();
+                console.log('Workspace imported successfully:', result);
+                addWorkspaceBatch([...workspaces, result.workspace]);
+                setCurrentWorkspace(result.workspace);
+            } catch (error) {
+                console.error('Error importing workspace:', error);
+                alert('An error occurred while importing the workspace.');
+            }
+        };
+
+        // Listener for Export Workspace
+        const handleExportWorkspace = async (e: any) => {
+            console.log('Exporting workspace', currentWorkspace);
+
+            try {
+                const response = await fetch(
+                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.EXPORT_WORKSPACE}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            workspace_id: currentWorkspace?.id ?? '',
+                            user_email: user?.email ?? ''
+                        })
+                    }
+                );
+
+                if (!response.ok) {
+                    console.error('Failed to export workspace:', await response.text());
+                    alert('Failed to export workspace.');
+                    return;
+                }
+
+                // Use ReadableStream to handle the response body
+                // const contentDisposition = response.headers.get('Content-Disposition');
+                // const fileName = contentDisposition
+                //     ? contentDisposition.split('filename=')[1]
+                //     : 'exported_workspace.zip';
+
+                // const filePath = await ipcRenderer.invoke('save-file', {
+                //     defaultPath: 'exported_workspace.zip'
+                // });
+
+                // if (!filePath) {
+                //     console.log('User canceled the save dialog.');
+                //     return;
+                // }
+                // Fallback for unsupported browsers
+                console.warn('File System Access API not supported. Using fallback.');
+                const reader = response.body?.getReader();
+                const stream = new ReadableStream({
+                    start(controller) {
+                        const pump = async () => {
+                            if (!reader) {
+                                controller.close();
+                                return;
+                            }
+                            const { done, value } = await reader.read();
+                            if (done) {
+                                controller.close();
+                                return;
+                            }
+                            controller.enqueue(value);
+                            pump();
+                        };
+                        pump();
+                    }
+                });
+
+                const blob = await new Response(stream).blob();
+                const url = window.URL.createObjectURL(blob);
+
+                // Trigger file download
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'exported_workspace.zip';
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+
+                console.log('Workspace exported and file saved successfully.');
+            } catch (error) {
+                console.error('Error exporting workspace:', error);
+                alert('An error occurred while exporting the workspace.');
+            }
+        };
+
+        // Register the IPC listeners
+        ipcRenderer.on('menu-save-workspace', handleSaveWorkspace);
+        ipcRenderer.on('menu-import-workspace', handleImportWorkspace);
+        ipcRenderer.on('menu-export-workspace', handleExportWorkspace);
+
+        // Cleanup function to remove listeners when the component unmounts
+        return () => {
+            ipcRenderer.removeListener('menu-save-workspace', handleSaveWorkspace);
+            ipcRenderer.removeListener('menu-import-workspace', handleImportWorkspace);
+            ipcRenderer.removeListener('menu-export-workspace', handleExportWorkspace);
+        };
+    }, [currentWorkspace]);
 
     const handleCreateTempWorkspace = async () => {
         try {
@@ -89,8 +257,8 @@ const Topbar: React.FC = () => {
             );
             const tempWorkspace = await response.json();
 
-            addWorkspaceBatch([{ id: tempWorkspace.id, name: 'Temporary Workspace' }]);
-            setCurrentWorkspace(tempWorkspace.id);
+            addWorkspace({ id: tempWorkspace.id, name: 'Temporary Workspace' });
+            setCurrentWorkspaceById(tempWorkspace.id);
         } catch (error) {
             console.error('Error creating temporary workspace:', error);
         }
@@ -128,7 +296,7 @@ const Topbar: React.FC = () => {
             });
 
             // Set the new workspace as the current workspace
-            setCurrentWorkspace(result.id);
+            setCurrentWorkspace(result);
 
             // Clear the input field
             setNewWorkspaceName('');
@@ -170,10 +338,20 @@ const Topbar: React.FC = () => {
         }
 
         try {
-            await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.DELETE_WORKSPACE}/${currentWorkspace?.id}`,
-                { method: 'DELETE' }
-            );
+            await Promise.allSettled([
+                fetch(
+                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.DELETE_WORKSPACE}/${currentWorkspace?.id}`,
+                    { method: 'DELETE' }
+                ),
+                fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.DELETE_STATE}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        workspace_id: currentWorkspace?.id || '',
+                        user_email: user?.email || ''
+                    })
+                })
+            ]);
             deleteWorkspace(currentWorkspace?.id || '');
         } catch (error) {
             console.error('Error deleting workspace:', error);
@@ -189,13 +367,13 @@ const Topbar: React.FC = () => {
     }
 
     return (
-        <div className="h-16 bg-gray-800 text-white flex items-center justify-between px-6 shadow-md relative">
+        <div className="h-16 bg-gray-800 text-white flex items-center justify-between px-6 shadow-md  sticky top-0 z-10">
             {/* Workspace Selector */}
             <div className="flex items-center gap-4">
                 <select
                     className="bg-gray-700 text-white px-4 py-2 rounded-md focus:outline-none"
                     value={currentWorkspace?.id || ''}
-                    onChange={(e) => setCurrentWorkspace(e.target.value)}>
+                    onChange={(e) => setCurrentWorkspaceById(e.target.value)}>
                     {workspaces.map((workspace) => (
                         <option key={workspace.id} value={workspace.id}>
                             {workspace.name}
@@ -252,7 +430,10 @@ const Topbar: React.FC = () => {
             </div>
 
             {/* Profile Section */}
-            <div className="relative">
+            <div
+                className="relative"
+                tabIndex={0} // Make the div focusable to enable onBlur
+                onBlur={() => setDropdownVisible(false)}>
                 {user?.picture && (
                     <>
                         <img

@@ -175,7 +175,7 @@ async def monitor_disconnection(request:Request , cancel_event: asyncio.Event):
 #         finally:
 #             # Ensure the monitor thread is cleaned up
 #             if monitor_thread:
-#                 monitor_thread.join(timeout=180)
+#                 monitor_thread.join(timeout=60)
 
 
 # forcibleExecutor = ForcibleThreadPoolExecutor(executor)
@@ -424,7 +424,7 @@ async def add_documents_langchain(
         # Initialize embeddings and vector store
         embeddings = OllamaEmbeddings(model=model)
         chroma_client = HttpClient(host="localhost", port=8000)
-        vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
+        vector_store = Chroma(embedding_function=embeddings, collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", client=chroma_client)
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
         await manager.broadcast(f"Dataset {dataset_id}: Uploading files...")
@@ -439,8 +439,8 @@ async def add_documents_langchain(
                     file_content = await file.read()
                     file_name = file.filename
 
-                    temp_file_path = f"./temp_files/{time.time()}_{file_name}"
-                    os.makedirs("./temp_files", exist_ok=True)
+                    temp_file_path = f"./basis_files/{dataset_id}_{time.time()}_{file_name}"
+                    os.makedirs("./basis_files", exist_ok=True)
                     with open(temp_file_path, "wb") as temp_file:
                         temp_file.write(file_content)
 
@@ -495,7 +495,7 @@ async def add_documents_langchain(
                 input_text = FlashcardPrompts.flashcardTemplate(mainCode, additionalInfo)
 
                 # Offload LLM chain invocation to thread pool
-                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=180)
+                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=60)
 
                 await manager.broadcast(f"Dataset {dataset_id}: Parsing generated flashcards...")
 
@@ -554,7 +554,7 @@ async def add_documents_and_get_themes(
         # Initialize embeddings and vector store
         embeddings = OllamaEmbeddings(model=model)
         chroma_client = HttpClient(host="localhost", port=8000)
-        vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
+        vector_store = Chroma(embedding_function=embeddings, collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", client=chroma_client)
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
         await manager.broadcast(f"Dataset {dataset_id}: Uploading files...")
@@ -569,8 +569,8 @@ async def add_documents_and_get_themes(
                     file_content = await file.read()
                     file_name = file.filename
 
-                    temp_file_path = f"./temp_files/{time.time()}_{file_name}"
-                    os.makedirs("./temp_files", exist_ok=True)
+                    temp_file_path = f"./basis_files/{dataset_id}_{time.time()}_{file_name}"
+                    os.makedirs("./basis_files", exist_ok=True)
                     with open(temp_file_path, "wb") as temp_file:
                         temp_file.write(file_content)
 
@@ -582,7 +582,6 @@ async def add_documents_and_get_themes(
                     # Offload Chroma vector store operation to thread pool
                     await run_blocking_function_with_disconnection(forcibleExecutor, request, vector_store.add_documents, chunks)
 
-                    os.remove(temp_file_path)
                     success = True
                     await manager.broadcast(f"Dataset {dataset_id}: Successfully processed file {file_name}.")
                 except Exception as e:
@@ -626,7 +625,7 @@ async def add_documents_and_get_themes(
                 input_text = ThemePrompts.themesTemplate(mainCode, additionalInfo)
 
                 # Offload LLM chain invocation to thread pool
-                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=180)
+                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=60)
 
                 await manager.broadcast(f"Dataset {dataset_id}: Parsing generated themes...")
 
@@ -680,7 +679,7 @@ async def add_documents_and_get_themes(
 #         embeddings = OllamaEmbeddings(model=model)
 #         chroma_client = HttpClient(host = "localhost",
 #                port= 8000)
-#         vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
+#         vector_store = Chroma(embedding_function=embeddings, collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", client=chroma_client)
 #         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
 #         # Process uploaded files
@@ -691,8 +690,8 @@ async def add_documents_and_get_themes(
 #             file_name = file.filename
 
 #             # Save the file locally (optional)
-#             temp_file_path = f"./temp_files/{time.time()}_{file_name}"
-#             os.makedirs("./temp_files", exist_ok=True)
+#             temp_file_path = f"./basis_files/{time.time()}_{file_name}"
+#             os.makedirs("./basis_files", exist_ok=True)
 #             with open(temp_file_path, "wb") as temp_file:
 #                 temp_file.write(file_content)
 
@@ -818,6 +817,8 @@ async def generate_additional_flashcards(
     request_body: GenerateFlashcardsRequest
 ):
     try:
+        dataset_id = request_body.dataset_id
+        model = request_body.model
         # Notify clients that flashcard generation has started
         await manager.broadcast(f"Dataset {request_body.dataset_id}: Additional flashcard generation started.")
 
@@ -828,7 +829,7 @@ async def generate_additional_flashcards(
             try:
                 embeddings = OllamaEmbeddings(model=request_body.model)
                 chroma_client = HttpClient(host="localhost", port=8000)
-                vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
+                vector_store = Chroma(embedding_function=embeddings, collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", client=chroma_client)
 
                 # Offload retriever creation to thread pool
                 retriever = await run_blocking_function_with_disconnection(forcibleExecutor, request, vector_store.as_retriever)
@@ -884,7 +885,7 @@ async def generate_additional_flashcards(
                 await manager.broadcast(f"Dataset {request_body.dataset_id}: Generating additional flashcards...")
 
                 # Offload flashcard generation to thread pool
-                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=180)
+                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=60)
 
                 await manager.broadcast(f"Dataset {request_body.dataset_id}: Flashcards generated successfully.")
 
@@ -935,6 +936,8 @@ class GenerateThemesRequest(BaseModel):
 @router.post("/generate-themes")
 async def generate_themes(request: Request, request_body: GenerateThemesRequest):
     try:
+        dataset_id = request_body.dataset_id
+        model = request_body.model
         # Notify clients that processing has started
         await manager.broadcast(f"Dataset {request_body.dataset_id}: Theme generation started.")
         await manager.broadcast(f"Dataset {request_body.dataset_id}: Generating Themes...")
@@ -947,7 +950,7 @@ async def generate_themes(request: Request, request_body: GenerateThemesRequest)
             try:
                 embeddings = OllamaEmbeddings(model=request_body.model)
                 chroma_client = HttpClient(host="localhost", port=8000)
-                vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
+                vector_store = Chroma(embedding_function=embeddings, collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", client=chroma_client)
 
                 # Offload retriever creation to thread pool
                 retriever = await run_blocking_function_with_disconnection(forcibleExecutor, request, vector_store.as_retriever)
@@ -1002,7 +1005,7 @@ async def generate_themes(request: Request, request_body: GenerateThemesRequest)
                 await manager.broadcast(f"Dataset {request_body.dataset_id}: Regenerating themes...")
 
                 # Offload theme generation to thread pool
-                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=180)
+                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=60)
 
                 print("Themes regenerated")
                 await manager.broadcast(f"Dataset {request_body.dataset_id}: Themes regenerated successfully.")
@@ -1054,6 +1057,8 @@ class GenerateCodeBookRequest(BaseModel):
 @router.post("/generate-codebook")
 async def generate_codebook(request: Request, request_body: GenerateCodeBookRequest):
     try:
+        dataset_id = request_body.dataset_id
+        model = request_body.model
         # Notify clients that the codebook generation process has started
         await manager.broadcast(f"Dataset {request_body.dataset_id}: Codebook generation started.")
 
@@ -1065,7 +1070,7 @@ async def generate_codebook(request: Request, request_body: GenerateCodeBookRequ
             try:
                 embeddings = OllamaEmbeddings(model=request_body.model)
                 chroma_client = HttpClient(host="localhost", port=8000)
-                vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
+                vector_store = Chroma(embedding_function=embeddings, collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", client=chroma_client)
 
                 # Offload retriever creation to thread pool
                 retriever = await run_blocking_function_with_disconnection(forcibleExecutor, request, vector_store.as_retriever)
@@ -1118,7 +1123,7 @@ async def generate_codebook(request: Request, request_body: GenerateCodeBookRequ
                 await manager.broadcast(f"Dataset {request_body.dataset_id}: Generating codebook...")
 
                 # Offload codebook generation to thread pool
-                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=180)
+                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=60)
 
                 print("Codebook generated")
                 await manager.broadcast(f"Dataset {request_body.dataset_id}: Codebook generated successfully.")
@@ -1167,6 +1172,8 @@ class GenerateAdditionalCodesRequest(GenerateCodeBookRequest):
 @router.post("/generate-additional-codes-for-codebook")
 async def generate_codes_for_codebook(request: Request, request_body: GenerateAdditionalCodesRequest):
     try:
+        dataset_id = request_body.dataset_id
+        model = request_body.model
         # Notify clients that the codebook generation process has started
         await manager.broadcast(f"Dataset {request_body.dataset_id}: Codebook generation started.")
 
@@ -1178,7 +1185,7 @@ async def generate_codes_for_codebook(request: Request, request_body: GenerateAd
             try:
                 embeddings = OllamaEmbeddings(model=request_body.model)
                 chroma_client = HttpClient(host="localhost", port=8000)
-                vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
+                vector_store = Chroma(embedding_function=embeddings, collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", client=chroma_client)
 
                 # Offload retriever creation to thread pool
                 retriever = await run_blocking_function_with_disconnection(forcibleExecutor, request, vector_store.as_retriever)
@@ -1231,7 +1238,7 @@ async def generate_codes_for_codebook(request: Request, request_body: GenerateAd
                 await manager.broadcast(f"Dataset {request_body.dataset_id}: Generating codebook...")
 
                 # Offload codebook generation to thread pool
-                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=180)
+                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=60)
 
                 print("Codebook generated")
                 await manager.broadcast(f"Dataset {request_body.dataset_id}: Codebook generated successfully.")
@@ -1286,6 +1293,8 @@ class GenerateWordsRequest(BaseModel):
 @router.post("/generate-words")
 async def generate_words(request: Request, request_body: GenerateWordsRequest):
     try:
+        dataset_id = request_body.datasetId
+        model = request_body.model
         # Notify clients that the word generation process has started
         await manager.broadcast(f"Dataset {request_body.datasetId}: Word generation process started.")
 
@@ -1297,7 +1306,7 @@ async def generate_words(request: Request, request_body: GenerateWordsRequest):
             try:
                 embeddings = OllamaEmbeddings(model=request_body.model)
                 chroma_client = HttpClient(host="localhost", port=8000)
-                vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection", client=chroma_client)
+                vector_store = Chroma(embedding_function=embeddings, collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", client=chroma_client)
 
                 # Offload retriever creation to thread pool
                 retriever = await run_blocking_function_with_disconnection(forcibleExecutor, request, vector_store.as_retriever)
@@ -1354,7 +1363,7 @@ async def generate_words(request: Request, request_body: GenerateWordsRequest):
                 await manager.broadcast(f"Dataset {request_body.datasetId}: Generating words...")
 
                 # Offload word generation to thread pool
-                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=180)
+                results = await run_blocking_function_with_disconnection(forcibleExecutor, request, rag_chain.invoke, {"input": input_text}, timeout=60)
 
                 print("Words generated")
                 await manager.broadcast(f"Dataset {request_body.datasetId}: Words generated successfully.")
@@ -1468,7 +1477,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM1 for post {post_id}...")
                         generation_prompt_1 = CodePrompts.generate(transcript, context)
-                        result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=180)
+                        result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=60)
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM1 completed generation for post {post_id}.")
                     except Exception as e:
@@ -1490,7 +1499,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM2 for post {post_id}...")
                         generation_prompt_2 = CodePrompts.generate(transcript, context)
-                        result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=180)
+                        result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=60)
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM2 completed generation for post {post_id}.")
                     except Exception as e:
@@ -1517,7 +1526,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                         validate_prompt = CodePrompts.judge_validate(
                             result1, result2, transcript, request_body.mainCode
                         )
-                        validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=180)
+                        validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=60)
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
@@ -1653,7 +1662,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM1 for post {post_id}...")
                         generation_prompt_1 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
-                        result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=180)
+                        result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=60)
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM1 completed successfully for post {post_id}.")
                     except Exception as e:
@@ -1675,7 +1684,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM2 for post {post_id}...")
                         generation_prompt_2 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
-                        result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=180)
+                        result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=60)
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM2 completed successfully for post {post_id}.")
                     except Exception as e:
@@ -1702,7 +1711,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                         validate_prompt = CodePrompts.judge_validate_with_feedback(
                             result1, result2, transcript, request_body.mainCode, feedback_text
                         )
-                        validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=180)
+                        validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=60)
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
@@ -1930,7 +1939,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM1 for post {post_id}...")
                         generation_prompt_1 = CodePrompts.generate(transcript, context)
-                        result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=180)
+                        result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=60)
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM1 completed generation for post {post_id}.")
                     except Exception as e:
@@ -1951,7 +1960,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM2 for post {post_id}...")
                         generation_prompt_2 = CodePrompts.generate(transcript, context)
-                        result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=180)
+                        result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=60)
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM2 completed generation for post {post_id}.")
                     except Exception as e:
@@ -1975,7 +1984,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validating results with judge LLM for post {post_id}...")
                         validate_prompt = CodePrompts.judge_validate(result1, result2, transcript, request_body.mainCode)
-                        validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=180)
+                        validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=60)
 
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
@@ -2109,7 +2118,7 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM1 for post {post_id}...")
                         generation_prompt_1 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
-                        result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=180)
+                        result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=60)
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM1 completed generation for post {post_id}.")
                     except Exception as e:
@@ -2127,7 +2136,7 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM2 for post {post_id}...")
                         generation_prompt_2 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
-                        result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=180)
+                        result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=60)
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM2 completed generation for post {post_id}.")
                     except Exception as e:
@@ -2150,7 +2159,7 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                         validate_prompt = CodePrompts.judge_validate_with_feedback(
                             result1, result2, transcript, request_body.mainCode, feedback_text
                         )
-                        validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=180)
+                        validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=60)
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
                         retries -= 1
@@ -2214,7 +2223,7 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
 #         dataset_id = request.datasetId
 #         # Initialize retriever
 #         embeddings = OllamaEmbeddings(model=request.model)
-#         vector_store = Chroma(embedding_function=embeddings, collection_name="a-test-collection")
+#         vector_store = Chroma(embedding_function=embeddings, collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}")
 #         retriever = vector_store.as_retriever()
 
 #         llm1 = OllamaLLM(

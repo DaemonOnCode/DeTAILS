@@ -11,6 +11,7 @@ import {
 } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -22,6 +23,7 @@ const WordCloudPage: FC = () => {
 
     const { mainCode, selectedWords, setSelectedWords, setWords, words } = useCodingContext();
 
+    const { saveWorkspaceData } = useWorkspaceUtils();
     // useEffect(() => {
     //     setSelectedWords([mainCode]);
     // }, []);
@@ -31,6 +33,7 @@ const WordCloudPage: FC = () => {
         logger.info('Loaded Word cloud Page');
 
         return () => {
+            saveWorkspaceData();
             logger.info('Unloaded Word cloud Page').then(() => {
                 logger.time('Word cloud Page stay time', { time: timer.end() });
             });

@@ -1,11 +1,15 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { RedditPosts } from '../../types/Coding/shared';
 import { DB_PATH } from '../../constants/Coding/shared';
 import { useCollectionContext } from '../../context/collection_context';
-import { REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES, USE_LOCAL_SERVER } from '../../constants/Shared';
+import {
+    REMOTE_SERVER_BASE_URL,
+    REMOTE_SERVER_ROUTES,
+    USE_LOCAL_SERVER
+} from '../../constants/Shared';
 
 const { ipcRenderer } = window.require('electron');
-const FormData = require("form-data");
+const FormData = require('form-data');
 const fs = window.require('fs');
 const path = window.require('path');
 
@@ -13,8 +17,17 @@ const useRedditData = () => {
     const [data, setData] = useState<RedditPosts>({});
     // const [fullData, setFullData] = useState<FullRedditData>();
     const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState<boolean>(false);
 
-    const { modeInput, setModeInput, subreddit, setSubreddit, setDatasetId, datasetId } = useCollectionContext();
+    const { modeInput, setModeInput, subreddit, setSubreddit, setDatasetId, datasetId } =
+        useCollectionContext();
+
+    useEffect(() => {
+        if (!modeInput && !datasetId) {
+            setData({});
+            return;
+        }
+    }, [modeInput, datasetId]);
 
     const omitFirstIfMatchesStructure = (data: any[]) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -117,10 +130,9 @@ const useRedditData = () => {
     // };
 
     const sendFolderToBackendServer = async (folderPath: string) => {
-
         const files: string[] = fs.readdirSync(folderPath);
 
-        let dataset_id: string = "";
+        let dataset_id: string = '';
         for (const file of files) {
             const filePath = path.join(folderPath, file);
 
@@ -131,15 +143,17 @@ const useRedditData = () => {
                     const blob = new Blob([fileContent]); // Create a Blob for compatibility with FormData
                     const formData = new FormData();
 
-                    formData.append("file", blob, file); // Append the file to the form data
-                    formData.append("name", subreddit); // Add metadata if required
-                    formData.append("description", "Dataset Description");
-                    formData.append("dataset_id", dataset_id);
+                    formData.append('file', blob, file); // Append the file to the form data
+                    formData.append('description', 'Dataset Description');
+                    formData.append('dataset_id', dataset_id);
 
-                    const response = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.UPLOAD_REDDIT_DATA}`, {
-                        method: "POST",
-                        body: formData,
-                    });
+                    const response = await fetch(
+                        `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.UPLOAD_REDDIT_DATA}`,
+                        {
+                            method: 'POST',
+                            body: formData
+                        }
+                    );
 
                     if (!response.ok) {
                         console.error(`Failed to upload file ${file}: ${response.statusText}`);
@@ -151,27 +165,23 @@ const useRedditData = () => {
                 } catch (error) {
                     console.error(`Error uploading file ${file}:`, error);
                 }
-
             }
         }
 
-        console.log("Dataset ID:", dataset_id);
+        console.log('Dataset ID:', dataset_id);
         setDatasetId(dataset_id);
         await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.PARSE_REDDIT_DATA}`, {
-            method: "POST",
+            method: 'POST',
             body: JSON.stringify({
-                dataset_id,
+                dataset_id
             }),
             headers: {
-                "Content-Type": "application/json"
+                'Content-Type': 'application/json'
             }
-        })
+        });
 
         return dataset_id;
     };
-
-
-
 
     const loadRedditDataInBackground = useCallback(
         async (folderPath: string, parsedData: RedditPosts) => {
@@ -184,44 +194,58 @@ const useRedditData = () => {
         []
     );
 
-    const getRedditPostDataByBatch = async (datasetId: string, batch: number, offset: number, all: boolean = true) => {
-        if(USE_LOCAL_SERVER){
-            const result = await ipcRenderer.invoke('get-reddit-posts-by-batch', batch, offset, DB_PATH);
+    const getRedditPostDataByBatch = async (
+        datasetId: string,
+        batch: number,
+        offset: number,
+        all: boolean = true
+    ) => {
+        if (USE_LOCAL_SERVER) {
+            const result = await ipcRenderer.invoke(
+                'get-reddit-posts-by-batch',
+                batch,
+                offset,
+                DB_PATH
+            );
             return result;
-        }else{
-            console.log("Fetching data from remote server", batch, offset, all, datasetId);
-            const response = await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_BY_BATCH}`, {
-                method: "POST",
-                body: JSON.stringify({
-                    dataset_id: datasetId,
-                    batch,
-                    offset,
-                    all
-                }),
-                headers: {
-                    "Content-Type": "application/json"
+        } else {
+            console.log('Fetching data from remote server', batch, offset, all, datasetId);
+            const response = await fetch(
+                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_BY_BATCH}`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        dataset_id: datasetId,
+                        batch,
+                        offset,
+                        all
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 }
-            });
+            );
             const data = await response.json();
             console.log(data);
             return data;
         }
-    }
+    };
 
     const loadFolderData = async (addToDb: boolean = false, changeModeInput = false) => {
+        setLoading(true);
         try {
             let folderPath = modeInput;
-            if (!modeInput || changeModeInput) {
+            if (!modeInput && changeModeInput) {
                 folderPath = await ipcRenderer.invoke('select-folder');
                 setModeInput(folderPath);
             }
 
-            if(!USE_LOCAL_SERVER){
+            if (!USE_LOCAL_SERVER) {
                 let dataset_id = datasetId;
-                if(addToDb){
+                if (addToDb) {
                     dataset_id = await sendFolderToBackendServer(folderPath);
                 }
-                console.log("Data sent to server, dataset_id: ",datasetId );
+                console.log('Data sent to server, dataset_id: ', datasetId);
                 const parsedData = await getRedditPostDataByBatch(dataset_id, 10, 0);
                 setData(parsedData);
                 setError(null);
@@ -283,10 +307,12 @@ const useRedditData = () => {
         } catch (error) {
             console.error('Failed to load folder:', error);
             // setError('Failed to load folder.');
+        } finally {
+            setLoading(false);
         }
     };
 
-    return { data, error, loadFolderData };
+    return { data, error, loadFolderData, loading };
 };
 
 export default useRedditData;

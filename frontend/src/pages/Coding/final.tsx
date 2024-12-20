@@ -8,6 +8,7 @@ import { useLogger } from '../../context/logging_context';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -26,6 +27,7 @@ const FinalPage = () => {
     });
 
     const logger = useLogger();
+    const { saveWorkspaceData } = useWorkspaceUtils();
 
     useEffect(() => {
         console.log('Final Page:', finalCodeResponses);
@@ -36,6 +38,7 @@ const FinalPage = () => {
         logger.info('Loaded Final Page');
 
         return () => {
+            saveWorkspaceData();
             logger.info('Unloaded Final Page').then(() => {
                 logger.time('Final Page stay time', { time: timer.end() });
             });
@@ -68,7 +71,7 @@ const FinalPage = () => {
                 </p>
 
                 {/* Table Container */}
-                <div className="overflow-auto max-h-[calc(100vh-15rem)] border border-gray-300 rounded-lg">
+                <div className="overflow-auto max-h-[calc(100vh-18rem)] border border-gray-300 rounded-lg">
                     <table className="w-full border-collapse">
                         <thead className="bg-gray-200">
                             <tr>

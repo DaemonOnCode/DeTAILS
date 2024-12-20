@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, FC, useMemo, useCallback } from 'react';
+import React, {
+    createContext,
+    useContext,
+    useState,
+    FC,
+    useMemo,
+    useCallback,
+    useEffect
+} from 'react';
 
 interface Workspace {
     id: string;
@@ -12,9 +20,10 @@ interface IWorkspaceContext {
     addWorkspace: (workspace: Workspace) => void;
     updateWorkspace: (id: string, name: string) => void;
     deleteWorkspace: (id: string) => void;
-    setCurrentWorkspace: (workspaceId: string) => void;
+    setCurrentWorkspace: (workspace: Workspace) => void;
     resetWorkspaces: () => void;
     addWorkspaceBatch: (newWorkspaces: Workspace[]) => void;
+    setCurrentWorkspaceById: (workspaceId: string) => void;
 }
 
 const WorkspaceContext = createContext<IWorkspaceContext | undefined>(undefined);
@@ -32,8 +41,8 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
 
     // Delete workspace
     const deleteWorkspace = useCallback((id: string) => {
+        setCurrentWorkspaceState(null);
         setWorkspaces((prev) => prev.filter((ws) => ws.id !== id));
-        setCurrentWorkspaceState((prev) => (prev?.id === id ? null : prev));
     }, []);
 
     const addWorkspaceBatch = useCallback((newWorkspaces: Workspace[]) => {
@@ -42,6 +51,11 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
             const filteredNewWorkspaces = newWorkspaces.filter((ws) => !existingIds.has(ws.id));
             return [...prevWorkspaces, ...filteredNewWorkspaces];
         });
+        if (!currentWorkspace) {
+            setCurrentWorkspaceState(
+                newWorkspaces.find((ws) => ws.name === 'Temporary Workspace') ?? null
+            );
+        }
     }, []);
 
     // const setCurrentWorkspace = useCallback((workspaceId: string) => {
@@ -66,6 +80,13 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
 
     // Set current workspace
     const setCurrentWorkspace = useCallback(
+        (workspace: Workspace) => {
+            setCurrentWorkspaceState(workspace);
+        },
+        [workspaces]
+    );
+
+    const setCurrentWorkspaceById = useCallback(
         (workspaceId: string) => {
             setCurrentWorkspaceState(
                 (prev) => workspaces.find((ws) => ws.id === workspaceId) || prev
@@ -73,12 +94,15 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
         },
         [workspaces]
     );
-
     // Reset all workspaces
     const resetWorkspaces = useCallback(() => {
         setWorkspaces([]);
         setCurrentWorkspaceState(null);
     }, []);
+
+    useEffect(() => {
+        console.log('Workspaces:', workspaces, 'Current Workspace:', currentWorkspace);
+    }, [currentWorkspace]);
 
     const value = useMemo(
         () => ({
@@ -89,18 +113,10 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
             updateWorkspace,
             deleteWorkspace,
             setCurrentWorkspace,
-            resetWorkspaces
+            resetWorkspaces,
+            setCurrentWorkspaceById
         }),
-        [
-            workspaces,
-            currentWorkspace,
-            addWorkspace,
-            addWorkspaceBatch,
-            updateWorkspace,
-            deleteWorkspace,
-            setCurrentWorkspace,
-            resetWorkspaces
-        ]
+        [workspaces, currentWorkspace]
     );
 
     return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

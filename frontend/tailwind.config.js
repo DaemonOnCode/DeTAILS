@@ -12,6 +12,14 @@ module.exports = {
             },
             animation: {
                 shadowPulse: 'shadowPulse 1.5s ease-in-out infinite'
+            },
+            height: {
+                panel: 'calc(100vh-64px-48px)',
+                page: 'calc(100vh-64px)'
+            },
+            minHeight: {
+                panel: 'calc(100vh - 64px - 48px)',
+                page: 'calc(100vh - 64px)'
             }
         }
     }

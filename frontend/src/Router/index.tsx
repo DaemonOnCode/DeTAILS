@@ -37,6 +37,5 @@ export const AppRoutes: RouteObject[] = [
 
 export const ApplicationRouter: FC = () => {
     const routes = useRoutes(AppRoutes);
-    console.log(routes);
     return routes;
 };

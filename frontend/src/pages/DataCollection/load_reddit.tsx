@@ -2,16 +2,22 @@ import { FC, useContext, useEffect } from 'react';
 import useRedditData from '../../hooks/Home/use_reddit_data';
 import RedditTableRenderer from '../../components/Shared/reddit_table_renderer';
 import { useCollectionContext } from '../../context/collection_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const LoadReddit: FC = () => {
-    const { data, loadFolderData, error } = useRedditData();
+    const { data, loadFolderData, error, loading } = useRedditData();
     const { toggleMode, currentMode, modeInput, setModeInput } = useCollectionContext();
+
+    const { saveWorkspaceData } = useWorkspaceUtils();
 
     useEffect(() => {
         if (modeInput) {
             loadFolderData();
             return;
         }
+        return () => {
+            saveWorkspaceData();
+        };
     }, []);
 
     // Check if data is loaded
@@ -21,7 +27,7 @@ const LoadReddit: FC = () => {
         // Render RedditTableRenderer when data is loaded
         return (
             <div className="flex flex-col h-full">
-                <RedditTableRenderer data={data} />
+                <RedditTableRenderer data={data} loading={loading} />
             </div>
         );
     }

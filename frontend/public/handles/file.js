@@ -105,6 +105,17 @@ const fileHandler = () => {
             return { success: false, message: error.message };
         }
     });
+
+    ipcMain.handle('save-file', async (event) => {
+        await logger.info('Saving file');
+        const result = await dialog.showSaveDialog({
+            title: 'Save File',
+            defaultPath: path.join(__dirname, 'example.txt'),
+            filters: [{ name: 'Text Files', extensions: ['txt'] }]
+        });
+        await logger.info('Saved file:', { filePath: result.filePath });
+        return result.filePath; // Return the saved file path
+    });
 };
 
 module.exports = { fileHandler };
