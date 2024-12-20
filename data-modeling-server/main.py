@@ -1,3 +1,4 @@
+import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -29,4 +30,9 @@ def health_check():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", port=8080, reload=True)
+    is_pyinstaller = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+    uvicorn.run(
+        "main:app",
+        port=8080,
+        reload=not is_pyinstaller  # Enable reload only outside of PyInstaller
+    )

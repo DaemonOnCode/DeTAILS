@@ -6,14 +6,22 @@ from typing import List, Dict, Any, Optional, Tuple
 from fastapi import APIRouter, HTTPException, Path, Query, Body
 from pydantic import BaseModel
 import spacy
+import sys
+import os
 
 from constants import DATABASE_PATH
 
 # DATABASE_PATH = "example.db"
 
 # Initialize FastAPI and spaCy
-# Initialize FastAPI and spaCy
-nlp = spacy.load("en_core_web_sm")
+# Check if running inside PyInstaller bundle
+if hasattr(sys, '_MEIPASS'):
+    model_path = os.path.join(sys._MEIPASS, 'spacy/data/en_core_web_sm')
+else:
+    model_path = 'en_core_web_sm'  # Fallback for normal execution
+
+# Load the spaCy model
+nlp = spacy.load(model_path)
 router = APIRouter()
 
 # Utility to execute SQL queries

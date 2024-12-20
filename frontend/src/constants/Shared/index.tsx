@@ -23,71 +23,73 @@ export const LOGGING = true;
 
 export const USE_LOCAL_SERVER = false;
 
-export const REMOTE_SERVER_BASE_URL = 'http://20.51.212.222/backend/api';
+export const REMOTE_SERVER_BASE_URL = USE_LOCAL_SERVER
+    ? 'http://20.51.212.222/backend/api'
+    : 'http://localhost:8080/api';
 
-export enum SERVER_ROUTES {
-    GET_REDDIT_POSTS_TITLES = '',
-    GET_REDDIT_POST_BY_ID = '',
-    UPLOAD_REDDIT_DATA = '',
-    PARSE_REDDIT_DATA = '',
-    GET_REDDIT_POSTS_BY_BATCH = '',
+// export enum SERVER_ROUTES {
+//     GET_REDDIT_POSTS_TITLES = '',
+//     GET_REDDIT_POST_BY_ID = '',
+//     UPLOAD_REDDIT_DATA = '',
+//     PARSE_REDDIT_DATA = '',
+//     GET_REDDIT_POSTS_BY_BATCH = '',
 
-    ADD_DOCUMENTS_LANGCHAIN = '',
-    REGENERATE_FLASHCARDS = '',
-    GENERATE_WORDS = '',
-    REGENERATE_WORDS = '',
-    GENERATE_CODES = '',
-    GENERATE_CODES_WITH_FEEDBACK = '',
-    FINALIZE_CODES = '',
-    ADD_DOCUMENTS_AND_GET_THEMES = '',
-    GENERATE_THEMES = '',
-    GENERATE_CODEBOOK = '',
-    GENERATE_MORE_CODES = '',
-    GENERATE_CODES_WITH_THEMES = '',
-    GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = '',
+//     ADD_DOCUMENTS_LANGCHAIN = '',
+//     REGENERATE_FLASHCARDS = '',
+//     GENERATE_WORDS = '',
+//     REGENERATE_WORDS = '',
+//     GENERATE_CODES = '',
+//     GENERATE_CODES_WITH_FEEDBACK = '',
+//     FINALIZE_CODES = '',
+//     ADD_DOCUMENTS_AND_GET_THEMES = '',
+//     GENERATE_THEMES = '',
+//     GENERATE_CODEBOOK = '',
+//     GENERATE_MORE_CODES = '',
+//     GENERATE_CODES_WITH_THEMES = '',
+//     GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = '',
 
-    CREATE_WORKSPACE = '',
-    GET_WORKSPACES = '',
-    UPDATE_WORKSPACE = '',
-    DELETE_WORKSPACE = '',
-    CREATE_TEMP_WORKSPACE = '',
-    UPGRADE_TEMP_WORKSPACE = '',
+//     CREATE_WORKSPACE = '',
+//     GET_WORKSPACES = '',
+//     UPDATE_WORKSPACE = '',
+//     DELETE_WORKSPACE = '',
+//     CREATE_TEMP_WORKSPACE = '',
+//     UPGRADE_TEMP_WORKSPACE = '',
 
-    SAVE_STATE = '',
-    LOAD_STATE = ''
-}
+//     SAVE_STATE = '',
+//     LOAD_STATE = ''
+// }
 
-export enum LOCAL_ROUTES {
-    GET_REDDIT_POSTS_TITLES = '',
-    GET_REDDIT_POST_BY_ID = '',
-    UPLOAD_REDDIT_DATA = '',
-    PARSE_REDDIT_DATA = '',
-    GET_REDDIT_POSTS_BY_BATCH = '',
+// export enum LOCAL_ROUTES {
+//     GET_REDDIT_POSTS_TITLES = '',
+//     GET_REDDIT_POST_BY_ID = '',
+//     UPLOAD_REDDIT_DATA = '',
+//     PARSE_REDDIT_DATA = '',
+//     GET_REDDIT_POSTS_BY_BATCH = '',
 
-    ADD_DOCUMENTS_LANGCHAIN = '',
-    REGENERATE_FLASHCARDS = '',
-    GENERATE_WORDS = '',
-    REGENERATE_WORDS = '',
-    GENERATE_CODES = '',
-    GENERATE_CODES_WITH_FEEDBACK = '',
-    FINALIZE_CODES = '',
-    ADD_DOCUMENTS_AND_GET_THEMES = '',
-    GENERATE_THEMES = '',
-    GENERATE_CODEBOOK = '',
-    GENERATE_MORE_CODES = '',
-    GENERATE_CODES_WITH_THEMES = '',
-    GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = '',
+//     ADD_DOCUMENTS_LANGCHAIN = '',
+//     REGENERATE_FLASHCARDS = '',
+//     GENERATE_WORDS = '',
+//     REGENERATE_WORDS = '',
+//     GENERATE_CODES = '',
+//     GENERATE_CODES_WITH_FEEDBACK = '',
+//     FINALIZE_CODES = '',
+//     ADD_DOCUMENTS_AND_GET_THEMES = '',
+//     GENERATE_THEMES = '',
+//     GENERATE_CODEBOOK = '',
+//     GENERATE_MORE_CODES = '',
+//     GENERATE_CODES_WITH_THEMES = '',
+//     GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = '',
 
-    CREATE_WORKSPACE = '',
-    GET_WORKSPACES = '',
-    UPDATE_WORKSPACE = '',
-    DELETE_WORKSPACE = '',
-    CREATE_TEMP_WORKSPACE = '',
-    UPGRADE_TEMP_WORKSPACE = '',
+//     CREATE_WORKSPACE = '',
+//     GET_WORKSPACES = '',
+//     UPDATE_WORKSPACE = '',
+//     DELETE_WORKSPACE = '',
+//     CREATE_TEMP_WORKSPACE = '',
+//     UPGRADE_TEMP_WORKSPACE = '',
 
-    SAVE_STATE = '',
-    LOAD_STATE = ''
-}
+//     SAVE_STATE = '',
+//     LOAD_STATE = ''
+// }
 export enum REMOTE_SERVER_ROUTES {
     GET_REDDIT_POSTS_TITLES = 'collections/reddit-posts-titles',
     GET_REDDIT_POST_BY_ID = 'collections/reddit-post-by-id',
@@ -122,17 +124,5 @@ export enum REMOTE_SERVER_ROUTES {
     IMPORT_WORKSPACE = 'state/import-workspace',
     EXPORT_WORKSPACE = 'state/export-workspace'
 }
-
-export const SERVER_ROUTE_MAP: Record<SERVER_ROUTES, { local: string; server: string }> =
-    Object.keys(REMOTE_SERVER_ROUTES).reduce(
-        (map, routeKey) => {
-            const localRoute = LOCAL_ROUTES[routeKey as keyof typeof LOCAL_ROUTES] || '';
-            const serverRoute =
-                REMOTE_SERVER_ROUTES[routeKey as keyof typeof REMOTE_SERVER_ROUTES] || '';
-            map[routeKey as SERVER_ROUTES] = { local: localRoute, server: serverRoute };
-            return map;
-        },
-        {} as Record<SERVER_ROUTES, { local: string; server: string }>
-    );
 
 export const USE_NEW_FLOW = true;

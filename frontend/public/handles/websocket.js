@@ -42,6 +42,7 @@ const websocketHandler = () => {
         // Create a new WebSocket instance if not already connected
         try {
             wsInstance = new WebSocket(
+                // 'ws://localhost:8080/api/notifications/ws?app=electron'
                 'ws://20.51.212.222/backend/api/notifications/ws?app=electron'
             );
             config.websocket = wsInstance;
