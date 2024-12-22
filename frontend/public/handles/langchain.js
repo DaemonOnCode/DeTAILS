@@ -12,7 +12,7 @@ const { ChatPromptTemplate } = require('@langchain/core/prompts');
 const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 
 const { codePrompts } = require('../utils/code_helper');
-const { getPostById, initDatabase } = require('../utils/db_helpers');
+const { getPostById, initDatabase } = require('../utils/db-helpers');
 const logger = require('../utils/logger');
 const { createTimer } = require('../utils/timer');
 

@@ -160,7 +160,7 @@ let config;
 
 const LOGGING = true;
 
-const LOGGING_SERVER_URL = 'http://20.51.212.222/logging/api/log';
+// const LOGGING_SERVER_URL = 'http://20.51.212.222/logging/api/log';
 // Define log levels
 const LOG_LEVELS = ['info', 'warning', 'error', 'debug', 'health', 'time'];
 
@@ -176,6 +176,11 @@ const sendLog = async (level, message, context, loggerContext) => {
             console.log('Error loading config: ', e);
         }
     }
+
+    const LOGGING_SERVER_URL =
+        config?.processing === 'remote'
+            ? 'http://20.51.212.222/logging/api/log'
+            : 'http://localhost:9000/api/log';
 
     let email = config ? config.userEmail : (loggerContext?.userEmail ?? 'Anonymous');
     console.log('Email:', email);

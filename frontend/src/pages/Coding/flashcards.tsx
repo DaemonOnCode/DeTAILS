@@ -3,15 +3,11 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation_botto
 import { FLASHCARDS_MIN_THRESHOLD, LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
-import {
-    MODEL_LIST,
-    REMOTE_SERVER_BASE_URL,
-    REMOTE_SERVER_ROUTES,
-    USE_LOCAL_SERVER
-} from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import getServerUtils from '../../hooks/Shared/get_server_url';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -41,6 +37,7 @@ const FlashcardsPage = () => {
 
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
+    const { getServerUrl } = getServerUtils();
 
     useEffect(() => {
         const timer = createTimer();
@@ -60,101 +57,97 @@ const FlashcardsPage = () => {
             removeFlashcard(flashcard.id);
         }
 
-        if (!USE_LOCAL_SERVER) {
-            console.log(
-                'Generating additional flashcards',
-                selectedFlashcards,
-                mainCode,
-                additionalInfo,
-                feedback
-            );
-            let res = await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.REGENERATE_FLASHCARDS}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: MODEL_LIST.LLAMA_3_2,
-                        mainCode,
-                        additionalInfo,
-                        flashcards: selectedFlashcards.map((id) => {
-                            return {
-                                question: flashcards.find((flashcard) => flashcard.id === id)!
-                                    .question,
-                                answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
-                            };
-                        }),
-                        feedback
-                    })
-                }
-            );
-            let result: {
-                flashcards: { question: string; answer: string }[];
-            } = await res.json();
-            console.log(result);
-
-            if (result.flashcards) {
-                result.flashcards.forEach(({ question, answer }) => {
-                    addFlashcard(question, answer);
-                });
-            }
-            return;
-        }
-
-        let maxRetries = 5;
-        const timer = createTimer();
-        await logger.info('Generating additional flashcards');
-        let result = await ipcRenderer.invoke(
-            'generate-additional-flashcards',
-            MODEL_LIST.LLAMA_3_2,
+        // if (!USE_LOCAL_SERVER) {
+        console.log(
+            'Generating additional flashcards',
+            selectedFlashcards,
             mainCode,
             additionalInfo,
-            selectedFlashcards.map((id) => {
-                return {
-                    question: flashcards.find((flashcard) => flashcard.id === id)!.question,
-                    answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
-                };
-            }),
             feedback
         );
-
-        await logger.time('Generated additional flashcards: Initial', { time: timer.end() });
-
-        console.log(result);
-
-        let parsedResult: { flashcards: { question: string; answer: string }[] } =
-            JSON.parse(result);
-
-        while (parsedResult.flashcards.length === 0 && maxRetries > 0) {
-            await logger.warning('Failed to generate additional flashcards', { maxRetries });
-            await logger.info('Retrying flashcards', { maxRetries });
-            timer.reset();
-            result = await ipcRenderer.invoke(
-                'generate-additional-flashcards',
-                MODEL_LIST.LLAMA_3_2,
+        let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REGENERATE_FLASHCARDS), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: MODEL_LIST.LLAMA_3_2,
                 mainCode,
                 additionalInfo,
-                selectedFlashcards.map((id) => {
+                flashcards: selectedFlashcards.map((id) => {
                     return {
                         question: flashcards.find((flashcard) => flashcard.id === id)!.question,
                         answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
                     };
                 }),
                 feedback
-            );
-            await logger.time(`Generated additional flashcards: Retry ${maxRetries}`, {
-                time: timer.end()
-            });
-            parsedResult = JSON.parse(result);
-            maxRetries--;
-        }
-        parsedResult.flashcards.forEach(({ question, answer }) => {
-            addFlashcard(question, answer);
+            })
         });
+        let result: {
+            flashcards: { question: string; answer: string }[];
+        } = await res.json();
+        console.log(result);
 
-        console.log('Flashcards regenerated', parsedResult);
+        if (result.flashcards) {
+            result.flashcards.forEach(({ question, answer }) => {
+                addFlashcard(question, answer);
+            });
+        }
+        //     return;
+        // }
+
+        // let maxRetries = 5;
+        // const timer = createTimer();
+        // await logger.info('Generating additional flashcards');
+        // let result = await ipcRenderer.invoke(
+        //     'generate-additional-flashcards',
+        //     MODEL_LIST.LLAMA_3_2,
+        //     mainCode,
+        //     additionalInfo,
+        //     selectedFlashcards.map((id) => {
+        //         return {
+        //             question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+        //             answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+        //         };
+        //     }),
+        //     feedback
+        // );
+
+        // await logger.time('Generated additional flashcards: Initial', { time: timer.end() });
+
+        // console.log(result);
+
+        // let parsedResult: { flashcards: { question: string; answer: string }[] } =
+        //     JSON.parse(result);
+
+        // while (parsedResult.flashcards.length === 0 && maxRetries > 0) {
+        //     await logger.warning('Failed to generate additional flashcards', { maxRetries });
+        //     await logger.info('Retrying flashcards', { maxRetries });
+        //     timer.reset();
+        //     result = await ipcRenderer.invoke(
+        //         'generate-additional-flashcards',
+        //         MODEL_LIST.LLAMA_3_2,
+        //         mainCode,
+        //         additionalInfo,
+        //         selectedFlashcards.map((id) => {
+        //             return {
+        //                 question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+        //                 answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+        //             };
+        //         }),
+        //         feedback
+        //     );
+        //     await logger.time(`Generated additional flashcards: Retry ${maxRetries}`, {
+        //         time: timer.end()
+        //     });
+        //     parsedResult = JSON.parse(result);
+        //     maxRetries--;
+        // }
+        // parsedResult.flashcards.forEach(({ question, answer }) => {
+        //     addFlashcard(question, answer);
+        // });
+
+        console.log('Flashcards regenerated');
     };
 
     const handleGenerateAdditionalFlashcards = (e: any) => {
@@ -176,98 +169,95 @@ const FlashcardsPage = () => {
         let result;
         let parsedResult = { words: [] };
 
-        if (!USE_LOCAL_SERVER) {
-            console.log('Generating word cloud', mainCode, flashcardData);
-            let res = await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_WORDS}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: MODEL_LIST.LLAMA_3_2,
-                        mainCode,
-                        flashcards: flashcardData
-                    })
-                }
-            );
-            result = await res.json();
-            console.log(result, 'Initial result from generate-words');
-            // parsedResult = JSON.parse(result);
-            if (result.words.length > 0) {
-                // setWords(result.words);
-                setWords(Array.from(new Set(result.words)));
-            } else {
-                console.error('Failed to generate words after retries');
-            }
-            return;
-        }
-
-        const timer = createTimer();
-        try {
-            result = await ipcRenderer.invoke(
-                'generate-words',
-                MODEL_LIST.LLAMA_3_2,
+        // if (!USE_LOCAL_SERVER) {
+        console.log('Generating word cloud', mainCode, flashcardData);
+        let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_WORDS), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: MODEL_LIST.LLAMA_3_2,
                 mainCode,
-                flashcardData
-            );
-            await logger.time('Word cloud generation: Initial', { time: timer.end() });
-            console.log(result, 'Initial result from generate-words');
-            parsedResult = JSON.parse(result);
-        } catch (e) {
-            console.log(e, 'Error invoking generate-words');
-            return;
-        }
-
-        console.log(parsedResult, 'Parsed result from generate-words');
-        while (parsedResult.words.length === 0 && maxRetries > 0) {
-            // try {
-            //     if (!result || result === 'undefined') {
-            //         throw new Error('Result is undefined or invalid');
-            //     }
-
-            //     parsedResult = JSON.parse(result);
-
-            //     if (!Array.isArray(parsedResult.words)) {
-            //         throw new Error('Parsed result does not contain a valid words array');
-            //     }
-            // } catch (e) {
-            // console.log('Error parsing result or validating parsedResult');
-
-            // if (maxRetries > 0) {
-            console.log('Retrying word cloud generation', maxRetries);
-            await logger.warning('Retrying word cloud generation', { maxRetries });
-            timer.reset();
-            try {
-                result = await ipcRenderer.invoke(
-                    'generate-words',
-                    MODEL_LIST.LLAMA_3_2,
-                    mainCode,
-                    flashcardData,
-                    true
-                );
-                await logger.time(`Word cloud generation: Retry ${maxRetries}`, {
-                    time: timer.end()
-                });
-            } catch (retryError) {
-                console.log(retryError, 'Error invoking generate-words on retry');
-                // continue;
-            }
-            // } else {
-            //     console.error('Max retries reached. Exiting.');
-            //     return;
-            // }
-            // // }
-            maxRetries--;
-        }
-
-        console.log(parsedResult, 'Final parsed result from generate-words');
-        if (parsedResult.words.length > 0) {
-            setWords(parsedResult.words);
+                flashcards: flashcardData
+            })
+        });
+        result = await res.json();
+        console.log(result, 'Initial result from generate-words');
+        // parsedResult = JSON.parse(result);
+        if (result.words.length > 0) {
+            // setWords(result.words);
+            setWords(Array.from(new Set(result.words)));
         } else {
             console.error('Failed to generate words after retries');
         }
+        //     return;
+        // }
+
+        // const timer = createTimer();
+        // try {
+        //     result = await ipcRenderer.invoke(
+        //         'generate-words',
+        //         MODEL_LIST.LLAMA_3_2,
+        //         mainCode,
+        //         flashcardData
+        //     );
+        //     await logger.time('Word cloud generation: Initial', { time: timer.end() });
+        //     console.log(result, 'Initial result from generate-words');
+        //     parsedResult = JSON.parse(result);
+        // } catch (e) {
+        //     console.log(e, 'Error invoking generate-words');
+        //     return;
+        // }
+
+        // console.log(parsedResult, 'Parsed result from generate-words');
+        // while (parsedResult.words.length === 0 && maxRetries > 0) {
+        //     // try {
+        //     //     if (!result || result === 'undefined') {
+        //     //         throw new Error('Result is undefined or invalid');
+        //     //     }
+
+        //     //     parsedResult = JSON.parse(result);
+
+        //     //     if (!Array.isArray(parsedResult.words)) {
+        //     //         throw new Error('Parsed result does not contain a valid words array');
+        //     //     }
+        //     // } catch (e) {
+        //     // console.log('Error parsing result or validating parsedResult');
+
+        //     // if (maxRetries > 0) {
+        //     console.log('Retrying word cloud generation', maxRetries);
+        //     await logger.warning('Retrying word cloud generation', { maxRetries });
+        //     timer.reset();
+        //     try {
+        //         result = await ipcRenderer.invoke(
+        //             'generate-words',
+        //             MODEL_LIST.LLAMA_3_2,
+        //             mainCode,
+        //             flashcardData,
+        //             true
+        //         );
+        //         await logger.time(`Word cloud generation: Retry ${maxRetries}`, {
+        //             time: timer.end()
+        //         });
+        //     } catch (retryError) {
+        //         console.log(retryError, 'Error invoking generate-words on retry');
+        //         // continue;
+        //     }
+        //     // } else {
+        //     //     console.error('Max retries reached. Exiting.');
+        //     //     return;
+        //     // }
+        //     // // }
+        //     maxRetries--;
+        // }
+
+        // console.log(parsedResult, 'Final parsed result from generate-words');
+        // if (parsedResult.words.length > 0) {
+        //     setWords(parsedResult.words);
+        // } else {
+        //     console.error('Failed to generate words after retries');
+        // }
     };
 
     const isReadyCheck = selectedFlashcards.length >= FLASHCARDS_MIN_THRESHOLD;

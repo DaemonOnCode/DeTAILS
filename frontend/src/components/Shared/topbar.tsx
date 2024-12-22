@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/auth_context';
 import { useWorkspaceContext } from '../../context/workspace_context';
-import { REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import useServerUtils from '../../hooks/Shared/get_server_url';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -26,6 +27,7 @@ const Topbar: React.FC = () => {
     const [dropdownVisible, setDropdownVisible] = useState<boolean>(false);
 
     const { loadWorkspaceData, getWorkspaceData, saveWorkspaceData } = useWorkspaceUtils();
+    const { getServerUrl } = useServerUtils();
 
     useEffect(() => {
         const fetchWorkspaces = async () => {
@@ -36,9 +38,11 @@ const Topbar: React.FC = () => {
                 setLoading(true);
 
                 const response = await fetch(
-                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
-                        user?.email || ''
-                    )}`,
+                    getServerUrl(
+                        `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
+                            user?.email || ''
+                        )}`
+                    ),
                     { signal }
                 );
 
@@ -124,13 +128,10 @@ const Topbar: React.FC = () => {
                 );
 
                 // Send the file to the backend
-                const response = await fetch(
-                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.IMPORT_WORKSPACE}`,
-                    {
-                        method: 'POST',
-                        body: formData
-                    }
-                );
+                const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.IMPORT_WORKSPACE), {
+                    method: 'POST',
+                    body: formData
+                });
 
                 if (!response.ok) {
                     const errorText = await response.text();
@@ -154,17 +155,14 @@ const Topbar: React.FC = () => {
             console.log('Exporting workspace', currentWorkspace);
 
             try {
-                const response = await fetch(
-                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.EXPORT_WORKSPACE}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            workspace_id: currentWorkspace?.id ?? '',
-                            user_email: user?.email ?? ''
-                        })
-                    }
-                );
+                const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.EXPORT_WORKSPACE), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        workspace_id: currentWorkspace?.id ?? '',
+                        user_email: user?.email ?? ''
+                    })
+                });
 
                 if (!response.ok) {
                     console.error('Failed to export workspace:', await response.text());
@@ -247,9 +245,11 @@ const Topbar: React.FC = () => {
             }
 
             const response = await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.CREATE_TEMP_WORKSPACE}?user_email=${encodeURIComponent(
-                    user?.email || ''
-                )}`,
+                getServerUrl(
+                    `${REMOTE_SERVER_ROUTES.CREATE_TEMP_WORKSPACE}?user_email=${encodeURIComponent(
+                        user?.email || ''
+                    )}`
+                ),
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
@@ -272,14 +272,11 @@ const Topbar: React.FC = () => {
         }
 
         try {
-            const response = await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.CREATE_WORKSPACE}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: newWorkspaceName, user_email: user?.email })
-                }
-            );
+            const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.CREATE_WORKSPACE), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newWorkspaceName, user_email: user?.email })
+            });
 
             const result = await response.json();
 
@@ -313,7 +310,7 @@ const Topbar: React.FC = () => {
         }
 
         try {
-            await fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.UPDATE_WORKSPACE}`, {
+            await fetch(getServerUrl(REMOTE_SERVER_ROUTES.UPDATE_WORKSPACE), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -340,10 +337,12 @@ const Topbar: React.FC = () => {
         try {
             await Promise.allSettled([
                 fetch(
-                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.DELETE_WORKSPACE}/${currentWorkspace?.id}`,
+                    getServerUrl(
+                        `${REMOTE_SERVER_ROUTES.DELETE_WORKSPACE}/${currentWorkspace?.id}`
+                    ),
                     { method: 'DELETE' }
                 ),
-                fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.DELETE_STATE}`, {
+                fetch(getServerUrl(REMOTE_SERVER_ROUTES.DELETE_STATE), {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

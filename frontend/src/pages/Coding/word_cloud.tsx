@@ -3,15 +3,11 @@ import { ROUTES, WORD_CLOUD_MIN_THRESHOLD } from '../../constants/Coding/shared'
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import WordCloud from '../../components/Coding/WordCloud/index';
 import { useLogger } from '../../context/logging_context';
-import {
-    MODEL_LIST,
-    REMOTE_SERVER_BASE_URL,
-    REMOTE_SERVER_ROUTES,
-    USE_LOCAL_SERVER
-} from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import getServerUtils from '../../hooks/Shared/get_server_url';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -20,6 +16,8 @@ const WordCloudPage: FC = () => {
     const [feedback, setFeedback] = useState('');
 
     const logger = useLogger();
+
+    const { getServerUrl } = getServerUtils();
 
     const { mainCode, selectedWords, setSelectedWords, setWords, words } = useCodingContext();
 
@@ -63,63 +61,27 @@ const WordCloudPage: FC = () => {
     };
 
     const refreshWordCloud = async () => {
-        if (!USE_LOCAL_SERVER) {
-            const res = await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_WORDS}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: MODEL_LIST.LLAMA_3_2,
-                        mainCode,
-                        flashcards: null,
-                        regenerate: true,
-                        selectedWords,
-                        feedback
-                    })
-                }
-            );
+        // if (!USE_LOCAL_SERVER) {
+        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_WORDS), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: MODEL_LIST.LLAMA_3_2,
+                mainCode,
+                flashcards: null,
+                regenerate: true,
+                selectedWords,
+                feedback
+            })
+        });
 
-            const results = await res.json();
-            console.log(results, 'Word Cloud Page');
-
-            // const parsedResults = JSON.parse(results);
-            const newWords: string[] = results.words;
-
-            setWords((prevWords) => {
-                const filteredPrevWords = prevWords.filter((word) => selectedWords.includes(word));
-                const filteredNewWords = newWords
-                    .filter((word) => !filteredPrevWords.includes(word))
-                    .slice(0, 20 - filteredPrevWords.length);
-                return [...filteredPrevWords, ...filteredNewWords];
-            });
-            return;
-        }
-
-        const timer = createTimer();
-        const results = await ipcRenderer.invoke(
-            'generate-words',
-            MODEL_LIST.LLAMA_3_2,
-            mainCode,
-            null,
-            true,
-            selectedWords,
-            feedback
-        );
-        await logger.info('Word Cloud Refreshed', { time: timer.end() });
-
+        const results = await res.json();
         console.log(results, 'Word Cloud Page');
 
-        let newWords: string[] = [];
-
-        try {
-            const parsedResults = JSON.parse(results);
-            newWords = parsedResults.words;
-        } catch (e) {
-            console.log(e, 'Error parsing results');
-        }
+        // const parsedResults = JSON.parse(results);
+        const newWords: string[] = results.words;
 
         setWords((prevWords) => {
             const filteredPrevWords = prevWords.filter((word) => selectedWords.includes(word));
@@ -128,6 +90,39 @@ const WordCloudPage: FC = () => {
                 .slice(0, 20 - filteredPrevWords.length);
             return [...filteredPrevWords, ...filteredNewWords];
         });
+        // return;
+        // }
+
+        // const timer = createTimer();
+        // const results = await ipcRenderer.invoke(
+        //     'generate-words',
+        //     MODEL_LIST.LLAMA_3_2,
+        //     mainCode,
+        //     null,
+        //     true,
+        //     selectedWords,
+        //     feedback
+        // );
+        // await logger.info('Word Cloud Refreshed', { time: timer.end() });
+
+        // console.log(results, 'Word Cloud Page');
+
+        // let newWords: string[] = [];
+
+        // try {
+        //     const parsedResults = JSON.parse(results);
+        //     newWords = parsedResults.words;
+        // } catch (e) {
+        //     console.log(e, 'Error parsing results');
+        // }
+
+        // setWords((prevWords) => {
+        //     const filteredPrevWords = prevWords.filter((word) => selectedWords.includes(word));
+        //     const filteredNewWords = newWords
+        //         .filter((word) => !filteredPrevWords.includes(word))
+        //         .slice(0, 20 - filteredPrevWords.length);
+        //     return [...filteredPrevWords, ...filteredNewWords];
+        // });
 
         console.log('Word Cloud refreshed');
     };

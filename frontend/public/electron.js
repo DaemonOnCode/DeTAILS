@@ -6,7 +6,7 @@ const remote = require('@electron/remote/main');
 const config = require('./utils/config');
 const registerIpcHandlers = require('./handles');
 const logger = require('./utils/logger');
-const WebSocket = require('ws');
+const { spawnedProcesses } = require('./utils/spawn-services');
 const { createMenu } = require('./utils/menu');
 
 // Enable auto-reloading in development mode
@@ -31,6 +31,14 @@ if (!config.isDev) {
 const cleanupAndExit = async (signal) => {
     console.log(`Received signal: ${signal}`);
     await logger.info('Process exited', { signal });
+    for (const { name, process } of spawnedProcesses) {
+        console.log(`Terminating process: ${name}`);
+        try {
+            process.kill(); // Sends SIGTERM to the process
+        } catch (err) {
+            console.error(`Error terminating process ${name}:`, err);
+        }
+    }
     try {
         config.websocket.close();
     } catch (e) {

@@ -10,11 +10,13 @@ model_path = os.path.join(base_path, "./env/lib/python3.12/site-packages/en_core
 
 a = Analysis(
     ['main.py'],
-    pathex=[],
+    pathex=[base_path],
     binaries=[],
     datas=[(model_path, 'spacy/data/en_core_web_sm')],
     hiddenimports=[
         'main',
+        'routes',
+        'utils',
         'chromadb.utils.embedding_functions.onnx_mini_lm_l6_v2',
         'pydantic.deprecated.decorator'
     ],

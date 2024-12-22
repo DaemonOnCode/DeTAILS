@@ -4,16 +4,12 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation_botto
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
-import {
-    MODEL_LIST,
-    REMOTE_SERVER_BASE_URL,
-    REMOTE_SERVER_ROUTES,
-    USE_LOCAL_SERVER
-} from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import getServerUtils from '../../hooks/Shared/get_server_url';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -38,6 +34,7 @@ const BasisPage = () => {
     const { datasetId } = useCollectionContext();
 
     const { saveWorkspaceData } = useWorkspaceUtils();
+    const { getServerUrl } = getServerUtils();
 
     const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
 
@@ -82,92 +79,89 @@ const BasisPage = () => {
         const timer = createTimer();
 
         console.log('Sending request to server');
-        if (!USE_LOCAL_SERVER) {
-            console.log('Sending request to remote server');
-            const formData = new FormData();
-            Object.keys(basisFiles).forEach((filePath) => {
-                const fileContent = fs.readFileSync(filePath);
-                const blob = new Blob([fileContent]);
-                formData.append('basisFiles', blob, basisFiles[filePath]);
-            });
-            formData.append('model', MODEL_LIST.LLAMA_3_2);
-            formData.append('mainCode', mainCode);
-            formData.append('additionalInfo', additionalInfo ?? '');
-            formData.append('retry', 'false');
-            formData.append('dataset_id', datasetId);
-
-            // await ipcRenderer.invoke("connect-ws", datasetId);
-            let res = await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.ADD_DOCUMENTS_LANGCHAIN}`,
-                {
-                    method: 'POST',
-                    body: formData
-                }
-            );
-            let result: {
-                flashcards: { question: string; answer: string }[];
-            } = await res.json();
-            console.log(result);
-
-            if (result.flashcards) {
-                result.flashcards.forEach(({ question, answer }) => {
-                    addFlashcard(question, answer);
-                });
-            }
-            // await ipcRenderer.invoke("disconnect-ws", datasetId);
-            return;
-        }
-
-        let result: string = await ipcRenderer.invoke(
-            'add-documents-langchain',
-            basisFiles,
-            MODEL_LIST.LLAMA_3_2,
-            mainCode,
-            additionalInfo,
-            false
-        );
-        await logger.time('Flashcards generation: Initial', { time: timer.end() });
-        let maxRetries = 5;
-        console.log(result);
-        let parsedResult: { flashcards: { question: string; answer: any }[] } = { flashcards: [] };
-        try {
-            parsedResult = JSON.parse(result);
-        } catch (error) {
-            console.error(error, JSON.stringify(result));
-        }
-
-        console.log(parsedResult);
-
-        while (parsedResult.flashcards.length === 0 && maxRetries > 0) {
-            console.log('Retrying', maxRetries);
-            await logger.warning('Retrying flashcards', { maxRetries });
-            timer.reset();
-            result = await ipcRenderer.invoke(
-                'add-documents-langchain',
-                basisFiles,
-                MODEL_LIST.LLAMA_3_2,
-                mainCode,
-                additionalInfo,
-                true
-            );
-            maxRetries--;
-            await logger.time(`Flashcards generation: Retry ${maxRetries}`, {
-                time: timer.end()
-            });
-            console.log(result);
-
-            try {
-                parsedResult = JSON.parse(result);
-            } catch (error) {
-                console.error(error, JSON.stringify(result));
-            }
-
-            console.log(parsedResult);
-        }
-
-        parsedResult.flashcards.forEach(({ question, answer }) => {
-            addFlashcard(question, answer);
+        // if (!USE_LOCAL_SERVER) {
+        console.log('Sending request to remote server');
+        const formData = new FormData();
+        Object.keys(basisFiles).forEach((filePath) => {
+            const fileContent = fs.readFileSync(filePath);
+            const blob = new Blob([fileContent]);
+            formData.append('basisFiles', blob, basisFiles[filePath]);
         });
+        formData.append('model', MODEL_LIST.LLAMA_3_2);
+        formData.append('mainCode', mainCode);
+        formData.append('additionalInfo', additionalInfo ?? '');
+        formData.append('retry', 'false');
+        formData.append('dataset_id', datasetId);
+
+        // await ipcRenderer.invoke("connect-ws", datasetId);
+        let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.ADD_DOCUMENTS_LANGCHAIN), {
+            method: 'POST',
+            body: formData
+        });
+        let result: {
+            flashcards: { question: string; answer: string }[];
+        } = await res.json();
+        console.log(result);
+
+        if (result.flashcards) {
+            result.flashcards.forEach(({ question, answer }) => {
+                addFlashcard(question, answer);
+            });
+        }
+        // await ipcRenderer.invoke("disconnect-ws", datasetId);
+        //     return;
+        // }
+
+        // let result: string = await ipcRenderer.invoke(
+        //     'add-documents-langchain',
+        //     basisFiles,
+        //     MODEL_LIST.LLAMA_3_2,
+        //     mainCode,
+        //     additionalInfo,
+        //     false
+        // );
+        // await logger.time('Flashcards generation: Initial', { time: timer.end() });
+        // let maxRetries = 5;
+        // console.log(result);
+        // let parsedResult: { flashcards: { question: string; answer: any }[] } = { flashcards: [] };
+        // try {
+        //     parsedResult = JSON.parse(result);
+        // } catch (error) {
+        //     console.error(error, JSON.stringify(result));
+        // }
+
+        // console.log(parsedResult);
+
+        // while (parsedResult.flashcards.length === 0 && maxRetries > 0) {
+        //     console.log('Retrying', maxRetries);
+        //     await logger.warning('Retrying flashcards', { maxRetries });
+        //     timer.reset();
+        //     result = await ipcRenderer.invoke(
+        //         'add-documents-langchain',
+        //         basisFiles,
+        //         MODEL_LIST.LLAMA_3_2,
+        //         mainCode,
+        //         additionalInfo,
+        //         true
+        //     );
+        //     maxRetries--;
+        //     await logger.time(`Flashcards generation: Retry ${maxRetries}`, {
+        //         time: timer.end()
+        //     });
+        //     console.log(result);
+
+        //     try {
+        //         parsedResult = JSON.parse(result);
+        //     } catch (error) {
+        //         console.error(error, JSON.stringify(result));
+        //     }
+
+        //     console.log(parsedResult);
+        // }
+
+        // parsedResult.flashcards.forEach(({ question, answer }) => {
+        //     addFlashcard(question, answer);
+        // });
 
         console.log('Ending function');
     };

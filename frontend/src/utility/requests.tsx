@@ -1,6 +1,7 @@
-import { REMOTE_SERVER_BASE_URL, USE_LOCAL_SERVER } from '../constants/Shared';
+// import { REMOTE_SERVER_BASE_URL, USE_LOCAL_SERVER } from '../constants/Shared';
 
 const { ipcRenderer } = window.require('electron');
+export {};
 
 // export const makeRequest = async <T extends SERVER_ROUTES>(
 //     route: T,

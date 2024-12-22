@@ -10,9 +10,7 @@ import { HashRouter } from 'react-router-dom';
 import { AuthProvider } from './context/auth_context';
 import { LoggingProvider } from './context/logging_context';
 import SystemMetricsLogger from './components/Shared/system_metrics_logger';
-import { WebSocketProvider } from './context/websocket_context';
 import { ToastContainer } from 'react-toastify';
-import { WorkspaceProvider } from './context/workspace_context';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
@@ -21,11 +19,9 @@ root.render(
         <HashRouter>
             <LoggingProvider>
                 <AuthProvider>
-                    <WebSocketProvider>
-                        <ToastContainer />
-                        <SystemMetricsLogger />
-                        <ApplicationRouter />
-                    </WebSocketProvider>
+                    <ToastContainer />
+                    <SystemMetricsLogger />
+                    <ApplicationRouter />
                 </AuthProvider>
             </LoggingProvider>
         </HashRouter>

@@ -4,16 +4,12 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation_botto
 import RedditViewModal from '../../components/Coding/Shared/reddit_view_modal';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
-import {
-    MODEL_LIST,
-    REMOTE_SERVER_BASE_URL,
-    REMOTE_SERVER_ROUTES,
-    USE_LOCAL_SERVER
-} from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import getServerUtils from '../../hooks/Shared/get_server_url';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -34,6 +30,7 @@ const CodingValidationV2Page: FC = () => {
     const logger = useLogger();
 
     const { saveWorkspaceData } = useWorkspaceUtils();
+    const { getServerUrl } = getServerUtils();
 
     const handleCommentChange = (index: number, event: ChangeEvent<HTMLTextAreaElement>) => {
         dispatchCodeResponses({
@@ -76,93 +73,29 @@ const CodingValidationV2Page: FC = () => {
             return;
         }
 
-        if (!USE_LOCAL_SERVER) {
-            await logger.info('Sending data to remote server for validation');
-            // await ipcRenderer.invoke("connect-ws", datasetId);
-            const res = await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_THEMES_AND_FEEDBACK}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: MODEL_LIST.LLAMA_3_2,
-                        references,
-                        mainCode,
-                        codeBook,
-                        selectedPosts,
-                        feedback: codeResponses.filter((response) => response.isMarked === false),
-                        datasetId
-                    })
-                }
-            );
-
-            const results = await res.json();
-            console.log('Result:', results);
-
-            const parsedResult: {
-                unified_codebook: {
-                    code: string;
-                    description: string;
-                    examples: string[];
-                }[];
-                recoded_transcript: {
-                    code: string;
-                    segment: string;
-                    reasoning: string;
-                }[];
-            }[] = results;
-
-            let totalResponses = codeResponses.filter((response) => response.isMarked === true);
-            parsedResult.forEach((answer, index) => {
-                for (const recodedTranscript of answer.recoded_transcript) {
-                    const sentence = recodedTranscript.segment;
-                    const coded_word = recodedTranscript.code;
-                    const postId = selectedPosts[index];
-                    const reasoning = recodedTranscript.reasoning;
-                    totalResponses.push({
-                        sentence,
-                        coded_word,
-                        postId,
-                        reasoning,
-                        isMarked: undefined,
-                        comment: ''
-                    });
-                }
-            });
-
-            await logger.info('Coding validation with feedback', { time: timer.end() });
-            dispatchCodeResponses({
-                type: 'SET_RESPONSES',
-                responses: totalResponses
-            });
-
-            // await ipcRenderer.invoke("disconnect-ws", datasetId);
-            navigate('/coding/' + ROUTES.CODING_VALIDATION);
-
-            return;
-        }
-
-        const results = await ipcRenderer.invoke(
-            'generate-codes-with-feedback',
-            MODEL_LIST.LLAMA_3_2,
-            references,
-            mainCode,
-            selectedFlashcards.map((id) => {
-                return {
-                    question: flashcards.find((flashcard) => flashcard.id === id)!.question,
-                    answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
-                };
-            }),
-            selectedWords,
-            selectedPosts,
-            codeResponses.filter((response) => response.isMarked === false),
-            DB_PATH
+        // if (!USE_LOCAL_SERVER) {
+        await logger.info('Sending data to remote server for validation');
+        // await ipcRenderer.invoke("connect-ws", datasetId);
+        const res = await fetch(
+            getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_THEMES_AND_FEEDBACK),
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: MODEL_LIST.LLAMA_3_2,
+                    references,
+                    mainCode,
+                    codeBook,
+                    selectedPosts,
+                    feedback: codeResponses.filter((response) => response.isMarked === false),
+                    datasetId
+                })
+            }
         );
 
-        await logger.time('Coding validation with feedback', { time: timer.end() });
-
+        const results = await res.json();
         console.log('Result:', results);
 
         const parsedResult: {
@@ -179,8 +112,6 @@ const CodingValidationV2Page: FC = () => {
         }[] = results;
 
         let totalResponses = codeResponses.filter((response) => response.isMarked === true);
-
-        // totalResponses = totalResponses.concat(
         parsedResult.forEach((answer, index) => {
             for (const recodedTranscript of answer.recoded_transcript) {
                 const sentence = recodedTranscript.segment;
@@ -197,14 +128,80 @@ const CodingValidationV2Page: FC = () => {
                 });
             }
         });
-        // )
 
+        await logger.info('Coding validation with feedback', { time: timer.end() });
         dispatchCodeResponses({
             type: 'SET_RESPONSES',
             responses: totalResponses
         });
 
+        // await ipcRenderer.invoke("disconnect-ws", datasetId);
         navigate('/coding/' + ROUTES.CODING_VALIDATION);
+
+        //     return;
+        // }
+
+        // const results = await ipcRenderer.invoke(
+        //     'generate-codes-with-feedback',
+        //     MODEL_LIST.LLAMA_3_2,
+        //     references,
+        //     mainCode,
+        //     selectedFlashcards.map((id) => {
+        //         return {
+        //             question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+        //             answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+        //         };
+        //     }),
+        //     selectedWords,
+        //     selectedPosts,
+        //     codeResponses.filter((response) => response.isMarked === false),
+        //     DB_PATH
+        // );
+
+        // await logger.time('Coding validation with feedback', { time: timer.end() });
+
+        // console.log('Result:', results);
+
+        // const parsedResult: {
+        //     unified_codebook: {
+        //         code: string;
+        //         description: string;
+        //         examples: string[];
+        //     }[];
+        //     recoded_transcript: {
+        //         code: string;
+        //         segment: string;
+        //         reasoning: string;
+        //     }[];
+        // }[] = results;
+
+        // let totalResponses = codeResponses.filter((response) => response.isMarked === true);
+
+        // // totalResponses = totalResponses.concat(
+        // parsedResult.forEach((answer, index) => {
+        //     for (const recodedTranscript of answer.recoded_transcript) {
+        //         const sentence = recodedTranscript.segment;
+        //         const coded_word = recodedTranscript.code;
+        //         const postId = selectedPosts[index];
+        //         const reasoning = recodedTranscript.reasoning;
+        //         totalResponses.push({
+        //             sentence,
+        //             coded_word,
+        //             postId,
+        //             reasoning,
+        //             isMarked: undefined,
+        //             comment: ''
+        //         });
+        //     }
+        // });
+        // // )
+
+        // dispatchCodeResponses({
+        //     type: 'SET_RESPONSES',
+        //     responses: totalResponses
+        // });
+
+        // navigate('/coding/' + ROUTES.CODING_VALIDATION);
     };
 
     const handleRerunCoding = () => {

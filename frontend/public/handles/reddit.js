@@ -1,7 +1,7 @@
 const { ipcMain, BrowserView } = require('electron');
 const puppeteer = require('puppeteer-core');
 const config = require('../utils/config');
-const { initDatabase, getCommentsRecursive, getPostById } = require('../utils/db_helpers');
+const { initDatabase, getCommentsRecursive, getPostById } = require('../utils/db-helpers');
 const logger = require('../utils/logger');
 
 const redditHandler = () => {

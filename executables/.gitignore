@@ -3,6 +3,9 @@ chroma.log
 chroma_data/*
 ollama/*
 models/*
+log-viewer/*
+data-modeling-server/*
+temp/*
 .env
 !**/*.sh
 !**/*.yml

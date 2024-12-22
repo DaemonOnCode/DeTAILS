@@ -19,7 +19,7 @@ const menuTemplate = [
             {
                 label: 'Save workspace',
                 accelerator: 'CmdOrCtrl+S',
-                click: async () => {
+                click: () => {
                     config.mainWindow.webContents.send('menu-save-workspace');
                 }
             },

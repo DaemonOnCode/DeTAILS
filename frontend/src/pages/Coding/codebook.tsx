@@ -4,16 +4,12 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation_botto
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { FaTrash } from 'react-icons/fa';
 import { useCollectionContext } from '../../context/collection_context';
-import {
-    MODEL_LIST,
-    REMOTE_SERVER_BASE_URL,
-    REMOTE_SERVER_ROUTES,
-    USE_LOCAL_SERVER
-} from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useNavigate } from 'react-router-dom';
 import { saveCSV, saveExcel } from '../../utility/convert-js-object';
 import { useLogger } from '../../context/logging_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import getServerUtils from '../../hooks/Shared/get_server_url';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -25,6 +21,7 @@ const CodeBookPage: FC = () => {
     const navigate = useNavigate();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
+    const { getServerUrl } = getServerUtils();
 
     const handleGenerateMore = async () => {
         await logger.info('Generate more codes');
@@ -35,41 +32,38 @@ const CodeBookPage: FC = () => {
             await logger.info('Codebook Generation completed');
             return;
         }
-        if (!USE_LOCAL_SERVER) {
-            const res = await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_MORE_CODES}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        dataset_id: datasetId,
-                        model: MODEL_LIST.LLAMA_3_2,
-                        mainCode,
-                        additionalInfo,
-                        selectedThemes,
-                        currentCodebook: filteredCodebook.map((entry) => ({
-                            word: entry.word,
-                            description: entry.description,
-                            inclusion_criteria: entry.inclusion_criteria,
-                            exclusion_criteria: entry.exclusion_criteria,
-                            is_correct: entry.isMarked
-                        }))
-                    })
-                }
-            );
-            const results = await res.json();
-            console.log(results);
+        // if (!USE_LOCAL_SERVER) {
+        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_MORE_CODES), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                dataset_id: datasetId,
+                model: MODEL_LIST.LLAMA_3_2,
+                mainCode,
+                additionalInfo,
+                selectedThemes,
+                currentCodebook: filteredCodebook.map((entry) => ({
+                    word: entry.word,
+                    description: entry.description,
+                    inclusion_criteria: entry.inclusion_criteria,
+                    exclusion_criteria: entry.exclusion_criteria,
+                    is_correct: entry.isMarked
+                }))
+            })
+        });
+        const results = await res.json();
+        console.log(results);
 
-            const newCodebook: string[] = results.codebook;
+        const newCodebook: string[] = results.codebook;
 
-            dispatchCodeBook({
-                type: 'ADD_MANY',
-                entries: newCodebook
-            });
-            await logger.info('Codebook Generation completed');
-        }
+        dispatchCodeBook({
+            type: 'ADD_MANY',
+            entries: newCodebook
+        });
+        await logger.info('Codebook Generation completed');
+        // }
         navigate('/coding/' + ROUTES.CODEBOOK);
     };
 

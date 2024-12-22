@@ -10,7 +10,7 @@ const LoginPage = () => {
     const navigate = useNavigate();
 
     const logger = useLogger();
-    const { login } = useAuth();
+    const { login, remoteProcessing, setProcessing } = useAuth();
 
     const handleGoogleLogin = async () => {
         // Trigger Electron's main process for OAuth
@@ -23,11 +23,24 @@ const LoginPage = () => {
 
             login(user, token);
 
-            navigate(`/${ROUTES.DATA_COLLECTION}/${DATA_COLLECTION_ROUTES.HOME}`);
+            if (!remoteProcessing) {
+                ipcRenderer.invoke('start-services');
+            }
+
+            navigate('/' + ROUTES.WORKSPACE);
         } catch (error) {
             await logger.error('Google OAuth Login Failed', { error });
             console.error('Google Sign-In Failed:', error);
         }
+    };
+
+    const toggleProcessingMode = async () => {
+        await setProcessing(!remoteProcessing);
+
+        // Notify Electron's main process about the change
+        // await ipcRenderer.invoke('set-processing-mode', !remoteProcessing);
+
+        await logger.info(`Processing mode switched to: ${remoteProcessing ? 'Remote' : 'Local'}`);
     };
 
     return (
@@ -51,6 +64,21 @@ const LoginPage = () => {
                         <span className="text-gray-700 font-medium">Sign in with Google</span>
                     </button>
                 </div>
+                <div className="mt-4">
+                    <button
+                        onClick={toggleProcessingMode}
+                        className={`w-full py-2 px-4 rounded-lg transition duration-150 font-semibold ${
+                            remoteProcessing
+                                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                : 'bg-green-500 text-white hover:bg-green-600'
+                        }`}>
+                        Switch to {remoteProcessing ? 'Local' : 'Remote'} Processing
+                    </button>
+                </div>
+                <p className="mt-4 text-sm text-gray-500 text-center">
+                    Current Processing Mode:{' '}
+                    <strong>{remoteProcessing ? 'Remote Processing' : 'Local processing'}</strong>
+                </p>
             </div>
         </div>
     );

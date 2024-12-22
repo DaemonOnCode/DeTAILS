@@ -3,11 +3,15 @@ import { Token, User } from '../types/Shared';
 import { ILayout } from '../types/Coding/shared';
 import { useLogger } from './logging_context';
 
+const { ipcRenderer } = window.require('electron');
+
 interface AuthContextType {
     isAuthenticated: boolean;
     user: User | null;
     login: (user: User, token: Token) => void;
     logout: () => void;
+    remoteProcessing: boolean;
+    setProcessing: (processing: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,6 +28,10 @@ export const AuthProvider: FC<ILayout> = ({ children }) => {
     const [token, setToken] = useState<Token | null>(() => {
         return JSON.parse(sessionStorage.getItem('token') || 'null');
     });
+
+    const [remoteProcessing, setRemoteProcessing] = useState<boolean>(
+        JSON.parse(sessionStorage.getItem('remoteProcessing') || 'false')
+    );
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -53,8 +61,16 @@ export const AuthProvider: FC<ILayout> = ({ children }) => {
         logger.setUserEmail('');
     };
 
+    const setProcessing = async (processing: boolean) => {
+        setRemoteProcessing(processing);
+        sessionStorage.setItem('remoteProcessing', JSON.stringify(processing));
+        await logger.info(`Processing mode switched to: ${processing ? 'Remote' : 'Local'}`);
+        await ipcRenderer.invoke('set-processing-mode', processing);
+    };
+
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+        <AuthContext.Provider
+            value={{ isAuthenticated, user, login, logout, remoteProcessing, setProcessing }}>
             {children}
         </AuthContext.Provider>
     );

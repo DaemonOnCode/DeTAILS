@@ -6,7 +6,7 @@ const {
     getAllPostIdsAndTitles,
     getPostById,
     loadPostsByBatch
-} = require('../utils/db_helpers');
+} = require('../utils/db-helpers');
 const logger = require('../utils/logger');
 const config = require('../utils/config');
 

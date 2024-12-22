@@ -4,9 +4,9 @@ import RulesTable from '../../components/DataCleaning/rules_table';
 import WordPanel, { WordDetail } from '../../components/DataCleaning/word_panel';
 import CreateRuleModal from '../../components/DataCleaning/rule_modal';
 import { Rule } from '../../types/DataCleaning/shared';
-import { REMOTE_SERVER_BASE_URL } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import useServerUtils from '../../hooks/Shared/get_server_url';
 
 const tryRequest = async (promise: Promise<any>) => {
     try {
@@ -35,11 +35,12 @@ const HomePage = () => {
     });
 
     const { datasetId } = useCollectionContext();
+    const { getServerUrl } = useServerUtils();
 
     const fetchRules = async () => {
         try {
             const data = await tryRequest(
-                axios.get(`${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/${datasetId}/rules`)
+                axios.get(getServerUrl(`/data-filtering/datasets/${datasetId}/rules`))
             );
             setRules(data);
         } catch {
@@ -51,29 +52,23 @@ const HomePage = () => {
         try {
             const [posts, comments, includedWordsData, removedWordsData] = await Promise.all([
                 tryRequest(
-                    axios.get(
-                        `${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/processed-posts/${datasetId}`
-                    )
+                    axios.get(getServerUrl(`/data-filtering/datasets/processed-posts/${datasetId}`))
                 ),
                 tryRequest(
                     axios.get(
-                        `${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/processed-comments/${datasetId}`
+                        getServerUrl(`/data-filtering/datasets/processed-comments/${datasetId}`)
                     )
                 ),
                 tryRequest(
-                    axios.get(
-                        `${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/included-words/${datasetId}`
-                    )
+                    axios.get(getServerUrl(`/data-filtering/datasets/included-words/${datasetId}`))
                 ),
                 tryRequest(
-                    axios.get(
-                        `${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/removed-words/${datasetId}`
-                    )
+                    axios.get(getServerUrl(`/data-filtering/datasets/removed-words/${datasetId}`))
                 )
             ]);
             // Fetch overall dataset stats (documents, tokens, etc.)
             // const statsData = await tryRequest(
-            //   axios.get(`${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/stats/${datasetId}`)
+            //   axios.get(getServerUrl(`/data-filtering/datasets/stats/${datasetId}`)
             // );
             setProcessedPosts(posts.posts);
             setProcessedComments(comments.comments);
@@ -91,13 +86,13 @@ const HomePage = () => {
             });
             // Fetch included words
             // const includedWordsData = await tryRequest(
-            //   axios.get(`${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/included-words/${datasetId}`)
+            //   axios.get(getServerUrl(`/data-filtering/datasets/included-words/${datasetId}`)
             // );
             setIncludedWords(includedWordsData.words);
 
             // Fetch removed words
             // const removedWordsData = await tryRequest(
-            //   axios.get(`${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/removed-words/${datasetId}`)
+            //   axios.get(getServerUrl(`/data-filtering/datasets/removed-words/${datasetId}`)
             // );
             setRemovedWords(removedWordsData.words);
         } catch {
@@ -109,7 +104,7 @@ const HomePage = () => {
         setProcessing(true);
         try {
             await tryRequest(
-                axios.post(`${REMOTE_SERVER_BASE_URL}/data-filtering/apply-rules-to-dataset`, {
+                axios.post(getServerUrl(`/data-filtering/apply-rules-to-dataset`), {
                     dataset_id: datasetId,
                     rules
                 })
@@ -137,7 +132,7 @@ const HomePage = () => {
             const updatedRules = [...rules, { ...newRule, id: rules.length + 1 }];
             setRules(updatedRules);
             await tryRequest(
-                axios.post(`${REMOTE_SERVER_BASE_URL}/data-filtering/rules`, {
+                axios.post(getServerUrl(`/data-filtering/rules`), {
                     rules: updatedRules,
                     dataset_id: datasetId
                 })
@@ -154,18 +149,13 @@ const HomePage = () => {
 
             if (deleteAll) {
                 await tryRequest(
-                    axios.delete(
-                        `${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/${datasetId}/rules`
-                    )
+                    axios.delete(getServerUrl(`/data-filtering/datasets/${datasetId}/rules`))
                 );
             } else {
                 await tryRequest(
-                    axios.post(
-                        `${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/${datasetId}/rules`,
-                        {
-                            rules: updatedRules
-                        }
-                    )
+                    axios.post(getServerUrl(`/data-filtering/datasets/${datasetId}/rules`), {
+                        rules: updatedRules
+                    })
                 );
             }
         } catch {
@@ -177,7 +167,7 @@ const HomePage = () => {
         try {
             setRules(updatedRules);
             await tryRequest(
-                axios.post(`${REMOTE_SERVER_BASE_URL}/data-filtering/datasets/${datasetId}/rules`, {
+                axios.post(getServerUrl(`/data-filtering/datasets/${datasetId}/rules`), {
                     rules: updatedRules
                 })
             );

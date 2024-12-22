@@ -1,14 +1,10 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect } from 'react';
 import Comment from './comment';
 import { ContentAreaProps } from '../../../types/Coding/props';
-import { DB_PATH } from '../../../constants/Coding/shared';
 import { IRedditPostData } from '../../../types/Coding/shared';
-import {
-    REMOTE_SERVER_BASE_URL,
-    REMOTE_SERVER_ROUTES,
-    USE_LOCAL_SERVER
-} from '../../../constants/Shared';
+import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection_context';
+import getServerUtils from '../../../hooks/Shared/get_server_url';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -22,6 +18,7 @@ const ContentArea: FC<ContentAreaProps> = ({
     setSelectedPostData
 }) => {
     const { datasetId } = useCollectionContext();
+    const { getServerUrl } = getServerUtils();
 
     useEffect(() => {
         console.log('Getting post by id, content area', selectedPost);
@@ -29,30 +26,30 @@ const ContentArea: FC<ContentAreaProps> = ({
         if (!selectedPost) {
             return;
         }
-        if (!USE_LOCAL_SERVER) {
-            fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    postId: selectedPost.id,
-                    datasetId: datasetId
-                })
+        // if (!USE_LOCAL_SERVER) {
+        fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                postId: selectedPost.id,
+                datasetId: datasetId
             })
-                .then((response) => response.json())
-                .then((data: IRedditPostData) => {
-                    console.log('Post data:', data);
-                    setSelectedPostData(data);
-                });
-            return;
-        }
-        ipcRenderer
-            .invoke('get-post-by-id', selectedPost?.id, DB_PATH)
+        })
+            .then((response) => response.json())
             .then((data: IRedditPostData) => {
                 console.log('Post data:', data);
                 setSelectedPostData(data);
             });
+        //     return;
+        // }
+        // ipcRenderer
+        //     .invoke('get-post-by-id', selectedPost?.id, DB_PATH)
+        //     .then((data: IRedditPostData) => {
+        //         console.log('Post data:', data);
+        //         setSelectedPostData(data);
+        //     });
     }, [selectedPost]);
     return (
         <div className="flex-1 p-6 overflow-y-auto" onMouseUp={handleTextSelection}>

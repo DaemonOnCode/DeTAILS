@@ -1,90 +1,90 @@
 {
-	"name": "llm",
-	"description": "Electron app template with React and Tailwind CSS",
-	"devDependencies": {
-		"@types/node": "^22.9.0",
-		"@types/react": "^18.3.12",
-		"@types/react-dom": "^18.3.1",
-		"@types/react-router-dom": "^5.3.3",
-		"autoprefixer": "^10.4.13",
-		"concurrently": "^9.1.0",
-		"cross-env": "^7.0.3",
-		"electron": "^33.2.0",
-		"electron-builder": "^25.1.8",
-		"mammoth": "^1.8.0",
-		"postcss": "^8.4.19",
-		"prettier": "^3.3.3",
-		"react-scripts": "^5.0.1",
-		"rimraf": "^6.0.1",
-		"tailwindcss": "^3.4.15",
-		"taze": "^0.18.0",
-		"typescript": "^4.9.5",
-		"wait-on": "^8.0.1"
-	},
-	"type": "commonjs",
-	"dependencies": {
-		"@electron/remote": "^2.0.8",
-		"@getstation/electron-google-oauth2": "^14.0.0",
-		"@langchain/community": "^0.3.15",
-		"@langchain/ollama": "^0.1.2",
-		"auto-launch": "^5.0.5",
-		"chromadb": "^1.9.2",
-		"chromadb-default-embed": "^2.13.2",
-		"chrome-launcher": "^1.1.2",
-		"core-js": "^3.39.0",
-		"electron-is-dev": "^3.0.1",
-		"electron-reloader": "^1.2.3",
-		"electron-updater": "^6.3.9",
-		"framer-motion": "^11.14.1",
-		"langchain": "^0.3.6",
-		"pdf-parse": "^1.1.1",
-		"puppeteer": "^23.8.0",
-		"puppeteer-core": "^23.8.0",
-		"react": "^18.2.0",
-		"react-dom": "^18.2.0",
-		"react-icons": "^5.4.0",
-		"react-router-dom": "^6.4.4",
-		"react-toastify": "^10.0.6",
-		"react-use": "^17.4.0",
-		"sqlite3": "^5.1.7",
-		"web-streams-polyfill": "^4.0.0",
-		"xlsx": "^0.18.5"
-	},
-	"homepage": "./",
-	"main": "public/electron.js",
-	"scripts": {
-		"dev": "concurrently \"npm run react:dev\" \"npm run electron:wait\"",
-		"executables": "cd ../executables && rm -f ./test.db && rm -rf ./chroma_data && concurrently \"./chroma/cli run\" \"./ollama/ollama-darwin serve\"",
-		"run:chroma": "./chroma/cli run",
-		"run:ollama": "./ollama/ollama-darwin serve",
-		"electron:wait": "wait-on tcp:3000 && npm run electron:dev",
-		"prebuild": "rimraf build && rimraf dist",
-		"react:build": "react-scripts build",
-		"react:dev": "cross-env BROWSER=none react-scripts start",
-		"electron:build": "electron-builder build --win --publish never",
-		"electron:deploy": "electron-builder build --win --publish always",
-		"electron:dev": "electron .",
-		"build": "npm run react:build && npm run electron:build",
-		"deploy": "npm run react:build && npm run electron:deploy",
-		"format": "prettier --write .",
-		"update": "taze latest -w",
-		"serve:chroma": "chroma run --path ${DB_PATH:-../chroma}"
-	},
-	"eslintConfig": {
-		"extends": [
-			"react-app"
-		]
-	},
-	"browserslist": {
-		"production": [
-			">0.2%",
-			"not dead",
-			"not op_mini all"
-		],
-		"development": [
-			"last 1 chrome version",
-			"last 1 firefox version",
-			"last 1 safari version"
-		]
-	}
+    "name": "llm",
+    "description": "Electron app template with React and Tailwind CSS",
+    "devDependencies": {
+        "@types/node": "^22.9.0",
+        "@types/react": "^18.3.12",
+        "@types/react-dom": "^18.3.1",
+        "@types/react-router-dom": "^5.3.3",
+        "autoprefixer": "^10.4.13",
+        "concurrently": "^9.1.0",
+        "cross-env": "^7.0.3",
+        "electron": "^33.2.0",
+        "electron-builder": "^25.1.8",
+        "mammoth": "^1.8.0",
+        "postcss": "^8.4.19",
+        "prettier": "^3.3.3",
+        "react-scripts": "^5.0.1",
+        "rimraf": "^6.0.1",
+        "tailwindcss": "^3.4.15",
+        "taze": "^0.18.0",
+        "typescript": "^4.9.5",
+        "wait-on": "^8.0.1"
+    },
+    "type": "commonjs",
+    "dependencies": {
+        "@electron/remote": "^2.0.8",
+        "@getstation/electron-google-oauth2": "^14.0.0",
+        "@langchain/community": "^0.3.15",
+        "@langchain/ollama": "^0.1.2",
+        "auto-launch": "^5.0.5",
+        "chromadb": "^1.9.2",
+        "chromadb-default-embed": "^2.13.2",
+        "chrome-launcher": "^1.1.2",
+        "core-js": "^3.39.0",
+        "electron-is-dev": "^3.0.1",
+        "electron-reloader": "^1.2.3",
+        "electron-updater": "^6.3.9",
+        "framer-motion": "^11.14.1",
+        "langchain": "^0.3.6",
+        "pdf-parse": "^1.1.1",
+        "puppeteer": "^23.8.0",
+        "puppeteer-core": "^23.8.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "react-icons": "^5.4.0",
+        "react-router-dom": "^6.4.4",
+        "react-toastify": "^10.0.6",
+        "react-use": "^17.4.0",
+        "sqlite3": "^5.1.7",
+        "web-streams-polyfill": "^4.0.0",
+        "xlsx": "^0.18.5"
+    },
+    "homepage": "./",
+    "main": "public/electron.js",
+    "scripts": {
+        "dev": "concurrently \"npm run react:dev\" \"npm run electron:wait\"",
+        "executables": "cd ../executables && rm -f ./test.db && rm -rf ./chroma_data && concurrently \"./chroma/cli run\" \"./ollama/ollama-darwin serve\"",
+        "run:chroma": "./chroma/cli run",
+        "run:ollama": "./ollama/ollama-darwin serve",
+        "electron:wait": "wait-on tcp:3000 && npm run electron:dev",
+        "prebuild": "rimraf build && rimraf dist",
+        "react:build": "react-scripts build",
+        "react:dev": "cross-env BROWSER=none react-scripts start",
+        "electron:build": "electron-builder build --win --publish never",
+        "electron:deploy": "electron-builder build --win --publish always",
+        "electron:dev": "electron .",
+        "build": "npm run react:build && npm run electron:build",
+        "deploy": "npm run react:build && npm run electron:deploy",
+        "format": "prettier --write .",
+        "update": "taze latest -w",
+        "serve:chroma": "chroma run --path ${DB_PATH:-../chroma}"
+    },
+    "eslintConfig": {
+        "extends": [
+            "react-app"
+        ]
+    },
+    "browserslist": {
+        "production": [
+            ">0.2%",
+            "not dead",
+            "not op_mini all"
+        ],
+        "development": [
+            "last 1 chrome version",
+            "last 1 firefox version",
+            "last 1 safari version"
+        ]
+    }
 }

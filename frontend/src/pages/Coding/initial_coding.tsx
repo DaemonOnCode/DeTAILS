@@ -9,17 +9,12 @@ import TopToolbar from '../../components/Coding/InitialCoding/top_toolbar';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
-import {
-    MODEL_LIST,
-    REMOTE_SERVER_BASE_URL,
-    REMOTE_SERVER_ROUTES,
-    USE_LOCAL_SERVER,
-    USE_NEW_FLOW
-} from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES, USE_NEW_FLOW } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import getServerUtils from '../../hooks/Shared/get_server_url';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -52,31 +47,32 @@ const InitialCodingPage = () => {
     const logger = useLogger();
     const navigate = useNavigate();
     const { saveWorkspaceData } = useWorkspaceUtils();
+    const { getServerUrl } = getServerUtils();
 
     useEffect(() => {
-        if (!USE_LOCAL_SERVER) {
-            fetch(`${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_TITLES}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    dbPath: DB_PATH,
-                    dataset_id: datasetId
-                })
+        // if (!USE_LOCAL_SERVER) {
+        fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_TITLES), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                dbPath: DB_PATH,
+                dataset_id: datasetId
             })
-                .then((res) => res.json())
-                .then((data) => {
-                    console.log(data, 'Reddit posts');
-                    setPosts(data);
-                });
-            return;
-        }
-        ipcRenderer
-            .invoke('get-post-ids-titles', DB_PATH)
-            .then((data: { id: string; title: string }[]) => {
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                console.log(data, 'Reddit posts');
                 setPosts(data);
             });
+        return;
+        // }
+        // ipcRenderer
+        //     .invoke('get-post-ids-titles', DB_PATH)
+        //     .then((data: { id: string; title: string }[]) => {
+        //         setPosts(data);
+        //     });
 
         return () => {
             saveWorkspaceData();
@@ -179,188 +175,180 @@ const InitialCodingPage = () => {
         navigate('../loader/' + LOADER_ROUTES.CODING_VALIDATION_LOADER);
         console.log(references, 'references');
 
-        if (!USE_LOCAL_SERVER) {
-            let results;
-            // await ipcRenderer.invoke("connect-ws", datasetId);
-
-            if (USE_NEW_FLOW) {
-                const res = await fetch(
-                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_THEMES}`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            model: MODEL_LIST.LLAMA_3_2,
-                            references,
-                            mainCode,
-                            codeBook,
-                            selectedPosts,
-                            datasetId
-                        })
-                    }
-                );
-
-                results = await res.json();
-                console.log(results, 'Initial Coding Page');
-            } else {
-                const res = await fetch(
-                    `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.GENERATE_CODES}`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            model: MODEL_LIST.LLAMA_3_2,
-                            references,
-                            mainCode,
-                            flashcards: selectedFlashcards.map((id) => {
-                                return {
-                                    question: flashcards.find((flashcard) => flashcard.id === id)!
-                                        .question,
-                                    answer: flashcards.find((flashcard) => flashcard.id === id)!
-                                        .answer
-                                };
-                            }),
-                            selectedWords,
-                            selectedPosts,
-                            datasetId
-                        })
-                    }
-                );
-
-                results = await res.json();
-                console.log(results, 'Initial Coding Page');
-            }
-
-            let parsedResults: {
-                unified_codebook: {
-                    code: string;
-                    definition: string;
-                    examples: string[];
-                }[];
-                recoded_transcript: {
-                    segment: string;
-                    code: string;
-                    reasoning: string;
-                }[];
-            }[] = results;
-
-            console.log(parsedResults, 'Parsed Results');
-
-            let totalCodes: {
-                sentence: string;
-                coded_word: string;
-                isCorrect?: boolean;
-                comment: string;
-                postId: string;
-                reasoning: string;
-            }[] = [];
-
-            parsedResults.forEach((parsedResult, index) => {
-                parsedResult.recoded_transcript.forEach((recoded) => {
-                    totalCodes.push({
-                        sentence: recoded.segment,
-                        coded_word: recoded.code,
-                        isCorrect: undefined,
-                        comment: '',
-                        postId: selectedPosts[index],
-                        reasoning: recoded.reasoning
-                    });
-                });
-            });
-
-            console.log(totalCodes, 'Total Codes');
-
-            dispatchCodeResponses({
-                type: 'ADD_RESPONSES',
-                responses: totalCodes
-            });
-            // await ipcRenderer.invoke("disconnect-ws", datasetId);
-            return;
-        }
-
-        const timer = createTimer();
+        // if (!USE_LOCAL_SERVER) {
         let results;
-        try {
-            results = await ipcRenderer.invoke(
-                'generate-codes',
-                MODEL_LIST.LLAMA_3_2,
-                references,
-                mainCode,
-                selectedFlashcards.map((id) => {
-                    return {
-                        question: flashcards.find((flashcard) => flashcard.id === id)!.question,
-                        answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
-                    };
-                }),
-                selectedWords,
-                selectedPosts,
-                DB_PATH
-            );
+        // await ipcRenderer.invoke("connect-ws", datasetId);
 
-            await logger.time('Initial Coding: Code generation', { time: timer.end() });
+        if (USE_NEW_FLOW) {
+            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_CODES_WITH_THEMES), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: MODEL_LIST.LLAMA_3_2,
+                    references,
+                    mainCode,
+                    codeBook,
+                    selectedPosts,
+                    datasetId
+                })
+            });
 
+            results = await res.json();
             console.log(results, 'Initial Coding Page');
+        } else {
+            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_CODES), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: MODEL_LIST.LLAMA_3_2,
+                    references,
+                    mainCode,
+                    flashcards: selectedFlashcards.map((id) => {
+                        return {
+                            question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+                            answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+                        };
+                    }),
+                    selectedWords,
+                    selectedPosts,
+                    datasetId
+                })
+            });
 
-            let parsedResults: {
-                unified_codebook: {
-                    code: string;
-                    definition: string;
-                    examples: string[];
-                }[];
-                recoded_transcript: {
-                    segment: string;
-                    code: string;
-                    reasoning: string;
-                }[];
-            }[] = results;
+            results = await res.json();
+            console.log(results, 'Initial Coding Page');
+        }
 
-            console.log(parsedResults, 'Parsed Results');
-
-            let totalCodes: {
-                sentence: string;
-                coded_word: string;
-                isCorrect?: boolean;
-                comment: string;
-                postId: string;
+        let parsedResults: {
+            unified_codebook: {
+                code: string;
+                definition: string;
+                examples: string[];
+            }[];
+            recoded_transcript: {
+                segment: string;
+                code: string;
                 reasoning: string;
-            }[] = [];
+            }[];
+        }[] = results;
 
-            parsedResults.forEach((parsedResult, index) => {
-                parsedResult.recoded_transcript.forEach((recoded) => {
-                    totalCodes.push({
-                        sentence: recoded.segment,
-                        coded_word: recoded.code,
-                        isCorrect: undefined,
-                        comment: '',
-                        postId: selectedPosts[index],
-                        reasoning: recoded.reasoning
-                    });
+        console.log(parsedResults, 'Parsed Results');
+
+        let totalCodes: {
+            sentence: string;
+            coded_word: string;
+            isCorrect?: boolean;
+            comment: string;
+            postId: string;
+            reasoning: string;
+        }[] = [];
+
+        parsedResults.forEach((parsedResult, index) => {
+            parsedResult.recoded_transcript.forEach((recoded) => {
+                totalCodes.push({
+                    sentence: recoded.segment,
+                    coded_word: recoded.code,
+                    isCorrect: undefined,
+                    comment: '',
+                    postId: selectedPosts[index],
+                    reasoning: recoded.reasoning
                 });
             });
+        });
 
-            dispatchCodeResponses({
-                type: 'ADD_RESPONSES',
-                responses: totalCodes
-                // payload: parsedResults.map((parsedResult, index) => {
-                //     parsedResult.recoded_transcript.forEach((recoded) => {
+        console.log(totalCodes, 'Total Codes');
 
-                //     });
-                //     return {
-                //         sentence: parsedResult.recoded_transcript[0].segment,
-                //         code: parsedResult.recoded_transcript[0].code,
-                //         isCorrect: undefined,
-                //         comment: '',
-                //         postId: selectedPosts[index]
-                //     };
-            });
-            // });
-        } catch (e) {
-            console.error(e, 'Error invoking generate-codes');
-        }
+        dispatchCodeResponses({
+            type: 'ADD_RESPONSES',
+            responses: totalCodes
+        });
+        // await ipcRenderer.invoke("disconnect-ws", datasetId);
+        //     return;
+        // }
+
+        // const timer = createTimer();
+        // let results;
+        // try {
+        //     results = await ipcRenderer.invoke(
+        //         'generate-codes',
+        //         MODEL_LIST.LLAMA_3_2,
+        //         references,
+        //         mainCode,
+        //         selectedFlashcards.map((id) => {
+        //             return {
+        //                 question: flashcards.find((flashcard) => flashcard.id === id)!.question,
+        //                 answer: flashcards.find((flashcard) => flashcard.id === id)!.answer
+        //             };
+        //         }),
+        //         selectedWords,
+        //         selectedPosts,
+        //         DB_PATH
+        //     );
+
+        //     await logger.time('Initial Coding: Code generation', { time: timer.end() });
+
+        //     console.log(results, 'Initial Coding Page');
+
+        //     let parsedResults: {
+        //         unified_codebook: {
+        //             code: string;
+        //             definition: string;
+        //             examples: string[];
+        //         }[];
+        //         recoded_transcript: {
+        //             segment: string;
+        //             code: string;
+        //             reasoning: string;
+        //         }[];
+        //     }[] = results;
+
+        //     console.log(parsedResults, 'Parsed Results');
+
+        //     let totalCodes: {
+        //         sentence: string;
+        //         coded_word: string;
+        //         isCorrect?: boolean;
+        //         comment: string;
+        //         postId: string;
+        //         reasoning: string;
+        //     }[] = [];
+
+        //     parsedResults.forEach((parsedResult, index) => {
+        //         parsedResult.recoded_transcript.forEach((recoded) => {
+        //             totalCodes.push({
+        //                 sentence: recoded.segment,
+        //                 coded_word: recoded.code,
+        //                 isCorrect: undefined,
+        //                 comment: '',
+        //                 postId: selectedPosts[index],
+        //                 reasoning: recoded.reasoning
+        //             });
+        //         });
+        //     });
+
+        //     dispatchCodeResponses({
+        //         type: 'ADD_RESPONSES',
+        //         responses: totalCodes
+        //         // payload: parsedResults.map((parsedResult, index) => {
+        //         //     parsedResult.recoded_transcript.forEach((recoded) => {
+
+        //         //     });
+        //         //     return {
+        //         //         sentence: parsedResult.recoded_transcript[0].segment,
+        //         //         code: parsedResult.recoded_transcript[0].code,
+        //         //         isCorrect: undefined,
+        //         //         comment: '',
+        //         //         postId: selectedPosts[index]
+        //         //     };
+        //     });
+        //     // });
+        // } catch (e) {
+        //     console.error(e, 'Error invoking generate-codes');
+        // }
 
         console.log(results, 'Initial Coding Page');
     };

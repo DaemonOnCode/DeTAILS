@@ -7,7 +7,8 @@ export enum ROUTES {
     CODING = 'coding',
     DATA_COLLECTION = 'data-collection',
     CLEANING = 'cleaning',
-    DATA_MODELING = 'modeling'
+    DATA_MODELING = 'modeling',
+    WORKSPACE = 'workspaces'
 }
 
 export const LOGGING_API_URL = 'http://20.51.212.222/logging/api/log';
@@ -21,11 +22,12 @@ export enum MODEL_LIST {
 
 export const LOGGING = true;
 
-export const USE_LOCAL_SERVER = false;
+// export const USE_LOCAL_SERVER = false;
 
-export const REMOTE_SERVER_BASE_URL = USE_LOCAL_SERVER
-    ? 'http://localhost:8080/api'
-    : 'http://20.51.212.222/backend/api';
+export const REMOTE_SERVER_BASE_URL = {
+    local: 'http://localhost:8080/api',
+    remote: 'http://20.51.212.222/backend/api'
+};
 
 // export enum SERVER_ROUTES {
 //     GET_REDDIT_POSTS_TITLES = '',

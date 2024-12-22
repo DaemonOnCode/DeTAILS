@@ -29,7 +29,7 @@ const websocketHandler = () => {
     // if (isHandlerRegistered) return; // Prevent duplicate registration
     // isHandlerRegistered = true;
 
-    ipcMain.handle('connect-ws', (event, message) => {
+    ipcMain.handle('connect-ws', (event) => {
         if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
             console.log('WebSocket already connected.');
             return 'WebSocket already connected.';
@@ -41,15 +41,19 @@ const websocketHandler = () => {
 
         // Create a new WebSocket instance if not already connected
         try {
+            console.log('Connecting to WebSocket...', config.processing);
             wsInstance = new WebSocket(
-                // 'ws://localhost:8080/api/notifications/ws?app=electron'
-                'ws://20.51.212.222/backend/api/notifications/ws?app=electron'
+                config.processing === 'local'
+                    ? 'ws://localhost:8080/api/notifications/ws?app=electron'
+                    : 'ws://20.51.212.222/backend/api/notifications/ws?app=electron'
             );
             config.websocket = wsInstance;
             wsInstance.binaryType = 'arraybuffer';
         } catch (e) {
             console.log('Application closed');
             console.log(e);
+            wsInstance = null; // Clear the instance on close
+            return;
         }
 
         wsInstance.on('open', () => {
@@ -123,6 +127,8 @@ const websocketHandler = () => {
                 console.log(e);
             }
         });
+
+        // return 'WebSocket connected.';
     });
 
     ipcMain.handle('disconnect-ws', (event, message) => {

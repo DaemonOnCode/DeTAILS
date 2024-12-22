@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth_context';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
 import { useWorkspaceContext } from '../../context/workspace_context';
 import { toast } from 'react-toastify';
+import useServerUtils from './get_server_url';
+import { useWebSocket } from '../../context/websocket_context';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
     const { currentWorkspace } = useWorkspaceContext();
     const collectionContext = useCollectionContext();
     const codingContext = useCodingContext();
+    const { serviceStarting } = useWebSocket();
+
+    const { getServerUrl } = useServerUtils();
 
     // useEffect(() => {
     //     console.log('Current workspace updated:', currentWorkspace);
@@ -100,17 +105,14 @@ const useWorkspaceUtils = () => {
     const loadWorkspaceData = async () => {
         try {
             // toast.info('Loading workspace data...');
-            const results = await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.LOAD_STATE}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        workspace_id: currentWorkspace?.id || '',
-                        user_email: user?.email || ''
-                    })
-                }
-            );
+            const results = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.LOAD_STATE), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    workspace_id: currentWorkspace?.id || '',
+                    user_email: user?.email || ''
+                })
+            });
             const parsedResults = await results.json();
 
             if (parsedResults.success) {
@@ -133,19 +135,20 @@ const useWorkspaceUtils = () => {
     };
 
     const saveWorkspaceData = async () => {
+        if (serviceStarting) {
+            // toast.error('Service is starting, please wait');
+            return;
+        }
         const payload = getWorkspaceData();
         console.log('Saving workspace data:', payload);
 
         try {
             // toast.info('Saving workspace data...');
-            const results = await fetch(
-                `${REMOTE_SERVER_BASE_URL}/${REMOTE_SERVER_ROUTES.SAVE_STATE}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                }
-            );
+            const results = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.SAVE_STATE), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
             const parsedResults = await results.json();
 

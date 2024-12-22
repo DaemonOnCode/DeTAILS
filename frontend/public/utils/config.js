@@ -18,7 +18,8 @@ let config = {
     browserView: null,
     backendServer: 'http://20.51.212.222/backend',
     userEmail: 'Anonymous',
-    websocket: null
+    websocket: null,
+    processing: 'local'
 };
 
 module.exports = config;
