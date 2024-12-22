@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { useCodingContext } from '../../context/coding_context';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
@@ -22,6 +22,8 @@ const CodeBookPage: FC = () => {
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
+
+    const hasSavedRef = useRef(false);
 
     const handleGenerateMore = async () => {
         await logger.info('Generate more codes');
@@ -87,7 +89,10 @@ const CodeBookPage: FC = () => {
 
     useEffect(() => {
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true; // Set the flag to prevent future calls
+            }
         };
     }, []);
 

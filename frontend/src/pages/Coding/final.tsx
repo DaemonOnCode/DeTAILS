@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { DB_PATH, ROUTES, exampleData } from '../../constants/Coding/shared';
 import { IFinalCodeResponse } from '../../types/Coding/shared';
@@ -29,6 +29,8 @@ const FinalPage = () => {
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
 
+    const hasSavedRef = useRef(false);
+
     useEffect(() => {
         console.log('Final Page:', finalCodeResponses);
     }, [finalCodeResponses]);
@@ -38,7 +40,10 @@ const FinalPage = () => {
         logger.info('Loaded Final Page');
 
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true; // Set the flag to prevent future calls
+            }
             logger.info('Unloaded Final Page').then(() => {
                 logger.time('Final Page stay time', { time: timer.end() });
             });

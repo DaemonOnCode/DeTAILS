@@ -1,4 +1,4 @@
-import { FC, useContext, useEffect } from 'react';
+import { FC, useContext, useEffect, useRef } from 'react';
 import useRedditData from '../../hooks/Home/use_reddit_data';
 import RedditTableRenderer from '../../components/Shared/reddit_table_renderer';
 import { useCollectionContext } from '../../context/collection_context';
@@ -10,13 +10,18 @@ const LoadReddit: FC = () => {
 
     const { saveWorkspaceData } = useWorkspaceUtils();
 
+    const hasSavedRef = useRef(false);
+
     useEffect(() => {
         if (modeInput) {
             loadFolderData();
             return;
         }
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true; // Set the flag to prevent future calls
+            }
         };
     }, []);
 

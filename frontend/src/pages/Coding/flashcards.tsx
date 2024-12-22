@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { FLASHCARDS_MIN_THRESHOLD, LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useNavigate } from 'react-router-dom';
@@ -39,12 +39,17 @@ const FlashcardsPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
 
+    const hasSavedRef = useRef(false);
+
     useEffect(() => {
         const timer = createTimer();
         logger.info('Loaded Flashcards Page');
 
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true; // Set the flag to prevent future calls
+            }
             logger.info('Unloaded Flashcards Page').then(() => {
                 logger.time('Flashcards Page stay time', { time: timer.end() });
             });

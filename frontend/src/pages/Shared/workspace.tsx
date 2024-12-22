@@ -16,6 +16,8 @@ const WorkspacePage: React.FC = () => {
     const [newWorkspaceName, setNewWorkspaceName] = useState('');
     const [renamingWorkspace, setRenamingWorkspace] = useState<string | null>(null);
     const [renameWorkspaceName, setRenameWorkspaceName] = useState('');
+    const [editingDescription, setEditingDescription] = useState<string | null>(null);
+    const [newDescription, setNewDescription] = useState<string>('');
 
     const toggleExpand = (id: string) => {
         setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -41,9 +43,15 @@ const WorkspacePage: React.FC = () => {
             return;
         }
 
-        updateWorkspace(id, renameWorkspaceName);
+        updateWorkspace(id, renameWorkspaceName, undefined);
         setRenamingWorkspace(null);
         setRenameWorkspaceName('');
+    };
+
+    const handleUpdateDescription = (id: string) => {
+        updateWorkspace(id, undefined, newDescription);
+        setEditingDescription(null);
+        setNewDescription('');
     };
 
     const handleWorkspaceClick = (workspaceId: string) => {
@@ -127,14 +135,28 @@ const WorkspacePage: React.FC = () => {
                             </div>
                             {expanded[workspace.id] && (
                                 <div className="ml-6 mt-2">
-                                    {/* Example of sub-items or details */}
                                     <p className="text-sm text-gray-600">
                                         Workspace ID: {workspace.id}
                                     </p>
-                                    <p className="text-sm text-gray-600">
-                                        Description:{' '}
-                                        {workspace.description || 'No description available'}
-                                    </p>
+                                    {editingDescription === workspace.id ? (
+                                        <textarea
+                                            value={newDescription}
+                                            onChange={(e) => setNewDescription(e.target.value)}
+                                            onBlur={() => handleUpdateDescription(workspace.id)}
+                                            className="w-full px-2 py-1 border rounded-md text-gray-700"
+                                            autoFocus
+                                        />
+                                    ) : (
+                                        <p
+                                            className="text-sm text-gray-600 cursor-pointer hover:underline"
+                                            onClick={() => {
+                                                setEditingDescription(workspace.id);
+                                                setNewDescription(workspace.description || '');
+                                            }}>
+                                            Description:{' '}
+                                            {workspace.description || 'No description available'}
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>

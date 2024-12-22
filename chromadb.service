@@ -1,0 +1,14 @@
+[Unit]
+Description=ChromaDB Server
+After=network.target
+
+[Service]
+ExecStart=~/documents/abc/chroma/chromadb/cli/dist/cli run
+Restart=always
+WorkingDirectory=~/documents/abc/chroma/chromadb/cli
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

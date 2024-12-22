@@ -1,4 +1,4 @@
-import { FC, useContext, useEffect } from 'react';
+import { FC, useContext, useEffect, useRef } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
 import { useLogger } from '../../context/logging_context';
@@ -20,6 +20,8 @@ const HomePage: FC = () => {
 
     const { saveWorkspaceData } = useWorkspaceUtils();
 
+    const hasSavedRef = useRef(false);
+
     useEffect(() => {
         console.log('loading:', loading);
     }, [loading]);
@@ -31,7 +33,10 @@ const HomePage: FC = () => {
         loadFolderData();
 
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true; // Set the flag to prevent future calls
+            }
             logger.info('Home Page Unloaded').then(() => {
                 logger.time('Home Page stay time', { time: timer.end() });
             });

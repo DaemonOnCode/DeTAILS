@@ -1,0 +1,14 @@
+[Unit]
+Description=Backend Server
+After=network.target
+
+[Service]
+ExecStart=/bin/bash -c 'source ~/documents/abc/data-modeling-server/env/bin/activate && python3 main.py'
+Restart=always
+WorkingDirectory= ~/documents/abc/data-modeling-server
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+LimitNOFILE=1000000
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target

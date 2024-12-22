@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { ROUTES, WORD_CLOUD_MIN_THRESHOLD } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import WordCloud from '../../components/Coding/WordCloud/index';
@@ -26,12 +26,17 @@ const WordCloudPage: FC = () => {
     //     setSelectedWords([mainCode]);
     // }, []);
 
+    const hasSavedRef = useRef(false);
+
     useEffect(() => {
         const timer = createTimer();
         logger.info('Loaded Word cloud Page');
 
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true; // Set the flag to prevent future calls
+            }
             logger.info('Unloaded Word cloud Page').then(() => {
                 logger.time('Word cloud Page stay time', { time: timer.end() });
             });

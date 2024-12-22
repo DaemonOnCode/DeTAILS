@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import Card from '../../components/DataCollection/card';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/DataCollection/shared';
@@ -6,6 +6,7 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const HomePage = () => {
     const navigate = useNavigate();
+    const hasSavedRef = useRef(false);
 
     // Event Handlers
     const handleRedditRetrieval = () => {
@@ -30,7 +31,10 @@ const HomePage = () => {
 
     useEffect(() => {
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true; // Set the flag to prevent future calls
+            }
         };
     }, []);
 

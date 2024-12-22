@@ -88,19 +88,31 @@ const websocketHandler = () => {
 
         wsInstance.on('error', (error) => {
             console.error('WebSocket error:', error.message);
-            config.mainWindow.webContents.send('ws-error', error.message);
+            try {
+                config.mainWindow.webContents.send('ws-error', error.message);
+            } catch (e) {
+                console.log('Application closed');
+                console.log(e);
+            }
         });
 
         wsInstance.on('message', (data) => {
             if (!wsInstance || wsInstance.readyState !== WebSocket.OPEN) {
                 console.error('WebSocket not connected');
-                wsInstance.close();
+                if (wsInstance) {
+                    wsInstance.close();
+                }
                 wsInstance = null; // Clear the instance on close
                 config.websocket = null;
-                config.mainWindow.webContents.send('ws-closed', {
-                    code: 1006,
-                    message: 'WebSocket not connected'
-                });
+                try {
+                    config.mainWindow.webContents.send('ws-closed', {
+                        code: 1006,
+                        message: 'WebSocket not connected'
+                    });
+                } catch (e) {
+                    console.log('Application closed');
+                    console.log(e);
+                }
                 return;
             }
 

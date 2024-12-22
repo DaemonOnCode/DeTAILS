@@ -18,7 +18,7 @@ interface IWorkspaceContext {
     workspaces: Workspace[];
     currentWorkspace: Workspace | null;
     addWorkspace: (workspace: Workspace) => void;
-    updateWorkspace: (id: string, name: string) => void;
+    updateWorkspace: (id: string, name?: string, description?: string) => void;
     deleteWorkspace: (id: string) => void;
     setCurrentWorkspace: (workspace: Workspace) => void;
     resetWorkspaces: () => void;
@@ -35,8 +35,14 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
     // Add workspace
 
     // Update workspace
-    const updateWorkspace = useCallback((id: string, name: string) => {
-        setWorkspaces((prev) => prev.map((ws) => (ws.id === id ? { ...ws, name } : ws)));
+    const updateWorkspace = useCallback((id: string, name?: string, description?: string) => {
+        setWorkspaces((prev) =>
+            prev.map((ws) =>
+                ws.id === id
+                    ? { ...ws, ...(name && { name }), ...(description && { description }) }
+                    : ws
+            )
+        );
     }, []);
 
     // Delete workspace

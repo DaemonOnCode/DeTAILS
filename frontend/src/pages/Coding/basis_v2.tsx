@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import FileCard from '../../components/Coding/Shared/file_card';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
@@ -36,6 +36,8 @@ const BasisPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
 
+    const hasSavedRef = useRef(false);
+
     const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
 
     useEffect(() => {
@@ -43,7 +45,10 @@ const BasisPage = () => {
         logger.info('Loaded Basis Page');
 
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true; // Set the flag to prevent future calls
+            }
             logger.info('Unloaded Basis Page').then(() => {
                 logger.time('Basis Page stay time', { time: timer.end() });
             });

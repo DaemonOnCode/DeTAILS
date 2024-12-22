@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LOADER_ROUTES, ROUTES, DB_PATH } from '../../constants/Coding/shared';
 import { IComment, IRedditPostData, PostIdTitle } from '../../types/Coding/shared';
 import HighlightModal from '../../components/Coding/InitialCoding/highlight_modal';
@@ -49,6 +49,8 @@ const InitialCodingPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
 
+    const hasSavedRef = useRef(false);
+
     useEffect(() => {
         // if (!USE_LOCAL_SERVER) {
         fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_TITLES), {
@@ -66,7 +68,7 @@ const InitialCodingPage = () => {
                 console.log(data, 'Reddit posts');
                 setPosts(data);
             });
-        return;
+        // return;
         // }
         // ipcRenderer
         //     .invoke('get-post-ids-titles', DB_PATH)
@@ -75,7 +77,10 @@ const InitialCodingPage = () => {
         //     });
 
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true; // Set the flag to prevent future calls
+            }
         };
     }, []);
 

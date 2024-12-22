@@ -1,4 +1,4 @@
-import { ChangeEvent, FC, useEffect, useState } from 'react';
+import { ChangeEvent, FC, useEffect, useRef, useState } from 'react';
 import { DB_PATH, LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import RedditViewModal from '../../components/Coding/Shared/reddit_view_modal';
@@ -32,6 +32,8 @@ const CodingValidationPage: FC = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
 
+    const hasSavedRef = useRef(false);
+
     const handleCommentChange = (index: number, event: ChangeEvent<HTMLTextAreaElement>) => {
         dispatchCodeResponses({
             type: 'UPDATE_COMMENT',
@@ -57,7 +59,10 @@ const CodingValidationPage: FC = () => {
         logger.info('Loaded Coding validation Page');
 
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true; // Set the flag to prevent future calls
+            }
             logger.info('Unloaded Coding validation Page').then(() => {
                 logger.time('Coding validation Page stay time', { time: timer.end() });
             });

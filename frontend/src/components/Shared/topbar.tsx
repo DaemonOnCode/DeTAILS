@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/auth_context';
 import { useWorkspaceContext } from '../../context/workspace_context';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
@@ -29,8 +29,12 @@ const Topbar: React.FC = () => {
     const { loadWorkspaceData, getWorkspaceData, saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = useServerUtils();
 
+    const isLoading = useRef(false);
+
     useEffect(() => {
         const fetchWorkspaces = async () => {
+            if (isLoading.current) return; // Prevent concurrent loads
+            isLoading.current = true;
             const controller = new AbortController();
             const signal = controller.signal;
 
@@ -95,7 +99,10 @@ const Topbar: React.FC = () => {
 
     useEffect(() => {
         if (workspaces.length > 0 && currentWorkspace) {
-            loadWorkspaceData().then(() => setLoading(false));
+            loadWorkspaceData().then(() => {
+                isLoading.current = false;
+                setLoading(false);
+            });
         }
     }, [workspaces, currentWorkspace]);
 
