@@ -11,7 +11,7 @@ export interface WordDetail {
 
 interface WordPanelProps {
     title: string;
-    words: WordDetail[]; // Updated to accept detailed word data
+    words: WordDetail[];
     onDropWord: (word: WordDetail) => void;
 }
 
@@ -42,7 +42,7 @@ const WordPanel: FC<WordPanelProps> = ({ title, words, onDropWord }) => {
 
     return (
         <div
-            className="flex-1 p-4 bg-white border-b border-gray-300"
+            className="px-2 bg-white border-b border-gray-300"
             onDragOver={handleDragOver}
             onDrop={handleDrop}>
             <div className="mb-4">
@@ -54,34 +54,36 @@ const WordPanel: FC<WordPanelProps> = ({ title, words, onDropWord }) => {
                     className="w-full border rounded p-2"
                 />
             </div>
-            <div className="h-60 overflow-auto bg-gray-100 border rounded p-2">
+            <div className="overflow-auto max-h-[calc((100vh-64px-48px-210px)/2)] bg-gray-100 border rounded">
                 {filteredWords.length > 0 ? (
-                    filteredWords.map((word, index) => (
-                        <div
-                            key={index}
-                            className="py-2 px-3 bg-white rounded mb-2 shadow-sm cursor-move border hover:shadow-md"
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, word)}>
-                            <div className="font-semibold">{word.token}</div>
-                            <div className="text-sm text-gray-600">
-                                <p>
-                                    <strong>POS:</strong> {word.pos}
-                                </p>
-                                <p>
-                                    <strong># of Words:</strong> {word.count_words}
-                                </p>
-                                <p>
-                                    <strong># of Docs:</strong> {word.count_docs}
-                                </p>
-                                <p>
-                                    <strong>TF-IDF Min:</strong> {word.tfidf_min.toFixed(4)}
-                                </p>
-                                <p>
-                                    <strong>TF-IDF Max:</strong> {word.tfidf_max.toFixed(4)}
-                                </p>
-                            </div>
-                        </div>
-                    ))
+                    <table className="table-auto w-full bg-white border border-gray-300">
+                        <thead>
+                            <tr className="bg-gray-200">
+                                <th className="px-4 py-2 text-left">Token</th>
+                                <th className="px-4 py-2 text-left">POS</th>
+                                <th className="px-4 py-2 text-left"># of Words</th>
+                                <th className="px-4 py-2 text-left"># of Docs</th>
+                                <th className="px-4 py-2 text-left">TF-IDF Min</th>
+                                <th className="px-4 py-2 text-left">TF-IDF Max</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredWords.map((word, index) => (
+                                <tr
+                                    key={index}
+                                    className="border-t hover:bg-gray-100"
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, word)}>
+                                    <td className="px-4 py-2">{word.token}</td>
+                                    <td className="px-4 py-2">{word.pos}</td>
+                                    <td className="px-4 py-2">{word.count_words}</td>
+                                    <td className="px-4 py-2">{word.count_docs}</td>
+                                    <td className="px-4 py-2">{word.tfidf_min.toFixed(4)}</td>
+                                    <td className="px-4 py-2">{word.tfidf_max.toFixed(4)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 ) : (
                     <p className="text-gray-500 text-sm">No matching words found</p>
                 )}

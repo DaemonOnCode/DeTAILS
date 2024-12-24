@@ -662,28 +662,28 @@ def apply_rules_to_dataset_parallel(payload: Dict[str, Any]):
 
 
 # Retrieve processed posts (Query Param)
-@router.post("/datasets/processed-posts", response_model=dict)
+@router.post("/datasets/processed-posts")
 def get_processed_posts(payload: DatasetIdRequest):
     """Retrieve processed posts."""
     if payload.dataset_id is None:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
     try:
         dataset_id = payload.dataset_id
-        posts = execute_query(f"SELECT * FROM posts_backup_{dataset_id.replace('-', '_')} LIMIT 20 OFFSET 0", keys=True)
-        return {"posts": [{"id": row["id"], "title": row["title"], "selftext": row["selftext"]} for row in posts]}
+        posts = execute_query(f"SELECT COUNT(*) from posts where dataset_id = ?", (dataset_id,))
+        return posts[0][0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching processed posts: {str(e)}")
 
 # Retrieve processed comments (Query Param)
-@router.post("/datasets/processed-comments", response_model=dict)
+@router.post("/datasets/processed-comments")
 def get_processed_comments(payload: DatasetIdRequest):
     """Retrieve processed comments."""
     if payload.dataset_id is None:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
     try:
         dataset_id = payload.dataset_id
-        comments = execute_query(f"SELECT * FROM comments_backup_{dataset_id.replace('-', '_')} LIMIT 20 OFFSET 0", keys=True)
-        return {"comments": [{"id": row["id"], "body": row["body"]} for row in comments]}
+        comments = execute_query(f"SELECT COUNT(*) FROM comments where dataset_id = ?", (dataset_id,))
+        return comments[0][0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching processed comments: {str(e)}")
 

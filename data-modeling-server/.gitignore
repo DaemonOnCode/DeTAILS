@@ -2,3 +2,5 @@ datasets
 temp_files
 dist
 build
+env
+new_env

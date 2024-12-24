@@ -100,7 +100,7 @@ const HomePage = () => {
             setProcessedComments(commentsResponse.data.comments);
 
             setStats({
-                totalDocs: postsResponse.data.posts.length + commentsResponse.data.comments.length,
+                totalDocs: postsResponse.data + commentsResponse.data,
                 totalTokens:
                     includedWordsResponse.data.words.reduce(
                         (acc: number, word: any) => acc + word.count_words,
@@ -226,10 +226,10 @@ const HomePage = () => {
     const handleCloseModal = () => setModalOpen(false);
 
     return (
-        <div className="flex min-h-panel gap-x-1 bg-gray-100">
+        <div className="flex min-h-panel bg-gray-100">
             {/* Left Panel */}
-            <div className="flex flex-col w-1/2 h-full">
-                <div className="bg-white p-4 shadow-sm">
+            <div className="flex flex-col w-1/2 min-h-panel">
+                <div className="bg-white shadow-sm p-4">
                     <h2 className="text-lg font-bold mb-2">Rules List</h2>
                     <p className="text-sm text-gray-600 mb-2">Tokenizer: {tokenizer}</p>
 
@@ -264,7 +264,7 @@ const HomePage = () => {
                     </div>
                 </div>
 
-                <div className="flex-grow bg-white shadow-sm p-4 rounded overflow-y-auto">
+                <div className="flex-grow bg-white px-4 shadow-sm rounded overflow-y-auto">
                     <RulesTable
                         rules={rules}
                         deleteRule={deleteRule}
@@ -287,8 +287,8 @@ const HomePage = () => {
             </div>
 
             {/* Right Panel */}
-            <div className="flex flex-col w-1/2 h-full">
-                <div className="flex-1 p-2 bg-white shadow-sm mb-2">
+            <div className="flex flex-col w-1/2 border-l-2">
+                <div className="max-h-1/2 p-2 bg-white shadow-sm border-b-2">
                     <h3 className="text-md font-bold mb-1">Included Words</h3>
                     <WordPanel
                         title="Included Words"
@@ -296,20 +296,16 @@ const HomePage = () => {
                         onDropWord={(word) => console.log('Dropped word:', word)}
                     />
                 </div>
-                <div className="flex-1 p-2 bg-white shadow-sm">
+                <div className="max-h-1/2 p-2 bg-white shadow-sm">
                     <h3 className="text-md font-bold mb-1">Removed Words</h3>
                     <WordPanel
                         title="Removed Words"
                         words={removedWords}
                         onDropWord={(word) => console.log('Dropped word:', word)}
                     />
-                    <CreateRuleModal
-                        isOpen={isModalOpen}
-                        onClose={handleCloseModal}
-                        onSave={addRule}
-                    />
                 </div>
             </div>
+            <CreateRuleModal isOpen={isModalOpen} onClose={handleCloseModal} onSave={addRule} />
         </div>
     );
 };

@@ -19,7 +19,15 @@ module.exports = {
             },
             minHeight: {
                 panel: 'calc(100vh - 64px - 48px)',
-                page: 'calc(100vh - 64px)'
+                page: 'calc(100vh - 64px)',
+                '1/2': '50%',
+                '2/5': '40%'
+            },
+            maxHeight: {
+                panel: 'calc(100vh - 64px - 48px)',
+                page: 'calc(100vh - 64px)',
+                '1/2': '50%',
+                '2/5': '40%'
             }
         }
     }

@@ -31,7 +31,7 @@ const RulesTable: FC<RulesTableProps> = ({ rules, deleteRule, reorderRules }) =>
     };
 
     return (
-        <div className="w-full max-h-[450px] p-4 bg-white border-gray-300">
+        <div className="w-full h-[448px] py-4 bg-white border-gray-300">
             <div className="overflow-x-auto">
                 <table className="min-w-full bg-white border border-gray-300 rounded">
                     <thead>
