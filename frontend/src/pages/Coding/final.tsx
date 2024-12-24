@@ -42,7 +42,7 @@ const FinalPage = () => {
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
-                hasSavedRef.current = true; // Set the flag to prevent future calls
+                hasSavedRef.current = true;
             }
             logger.info('Unloaded Final Page').then(() => {
                 logger.time('Final Page stay time', { time: timer.end() });

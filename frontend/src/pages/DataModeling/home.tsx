@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const HomePage = () => {
@@ -14,10 +14,14 @@ const HomePage = () => {
     };
 
     const { saveWorkspaceData } = useWorkspaceUtils();
+    const hasSavedRef = useRef(false);
 
     useEffect(() => {
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true;
+            }
         };
     }, []);
 

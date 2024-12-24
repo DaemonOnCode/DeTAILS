@@ -33,7 +33,7 @@ const HomePage = () => {
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
-                hasSavedRef.current = true; // Set the flag to prevent future calls
+                hasSavedRef.current = true;
             }
         };
     }, []);

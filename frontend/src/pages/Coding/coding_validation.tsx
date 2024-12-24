@@ -61,7 +61,7 @@ const CodingValidationPage: FC = () => {
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
-                hasSavedRef.current = true; // Set the flag to prevent future calls
+                hasSavedRef.current = true;
             }
             logger.info('Unloaded Coding validation Page').then(() => {
                 logger.time('Coding validation Page stay time', { time: timer.end() });

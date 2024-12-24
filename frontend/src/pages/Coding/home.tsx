@@ -35,7 +35,7 @@ const HomePage: FC = () => {
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
-                hasSavedRef.current = true; // Set the flag to prevent future calls
+                hasSavedRef.current = true;
             }
             logger.info('Home Page Unloaded').then(() => {
                 logger.time('Home Page stay time', { time: timer.end() });

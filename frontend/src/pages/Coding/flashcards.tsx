@@ -48,7 +48,7 @@ const FlashcardsPage = () => {
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
-                hasSavedRef.current = true; // Set the flag to prevent future calls
+                hasSavedRef.current = true;
             }
             logger.info('Unloaded Flashcards Page').then(() => {
                 logger.time('Flashcards Page stay time', { time: timer.end() });

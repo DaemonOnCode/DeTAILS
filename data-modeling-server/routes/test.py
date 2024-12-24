@@ -196,14 +196,12 @@ def execute_query_with_retry(
     Execute a SQL query with retry logic and optional concurrent transactions.
     """
     for attempt in range(retries):
-        # print(f"Attempt {attempt + 1} of {retries}")
         try:
             with sqlite3.connect(DATABASE_PATH) as conn:
-                sqlite3.threadsafety = 1
-                # if concurrent:
-                #     conn.execute("BEGIN CONCURRENT")
-                # else:
-                conn.execute("BEGIN")
+                if concurrent:
+                    conn.execute("BEGIN CONCURRENT")
+                else:
+                    conn.execute("BEGIN")
                 
                 cursor = conn.cursor()
                 cursor.execute(query, params)
@@ -238,7 +236,6 @@ def prepare_batches(table_name: str, batch_size: int, dataset_id: str, batch_typ
     """
     Create batch tables for processing with concurrent transaction support.
     """
-    print(f"Preparing batches for {batch_type}...")
     total_rows = execute_query_with_retry(f"SELECT COUNT(*) FROM {table_name}")[0][0]
     tasks = []
 
@@ -261,7 +258,6 @@ def calculate_tfidf(texts: List[str]) -> Dict[str, Dict[str, float]]:
     """
     Calculate TF-IDF scores for a list of texts.
     """
-    # print("Calculating TF-IDF scores...")
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(texts)
     tfidf_vocab = vectorizer.get_feature_names_out()
@@ -283,7 +279,6 @@ def process_batch(batch_table: str, dataset_id: str, rules: List[Dict[str, Any]]
     """
     Process a single batch, calculate TF-IDF, apply rules, and update token stats.
     """
-    print(f"Processing batch {batch_table} for {'posts' if is_posts else 'comments'}")
     texts_query = f"SELECT {'selftext' if is_posts else 'body'} FROM {batch_table}"
     texts = [row[0] for row in execute_query_with_retry(texts_query)]
     tfidf_scores = calculate_tfidf(texts)
@@ -307,9 +302,6 @@ def process_batch(batch_table: str, dataset_id: str, rules: List[Dict[str, Any]]
                 tokens[action].setdefault(token.text, {"pos": token.pos_, "count": 0, **tfidf_vector})
                 tokens[action][token.text]["count"] += 1
 
-    print(f"Processed batch {batch_table} for {'posts' if is_posts else 'comments'}")
-
-    print(f"Updating token stats... {batch_table} for {'posts' if is_posts else 'comments'}")
     for status, token_data in tokens.items():
         update_token_stats(dataset_id, token_data, status)
 
@@ -332,110 +324,37 @@ def update_token_stats(dataset_id: str, tokens: Dict[str, Dict[str, Any]], statu
         """, row, concurrent=True)  # Enable concurrent transaction
 
 
-def merge_batches(dataset_id: str, table_name: str, batch_type: str):
-    """
-    Merge processed batch tables back into the main backup table.
-    """
-    sanitized_id = dataset_id.replace("-", "_")
-    batch_prefix = f"{batch_type}_batch_{sanitized_id}_"
-    
-    # Find all batch tables
-    batch_tables_query = f"""
-        SELECT name 
-        FROM sqlite_master 
-        WHERE type='table' AND name LIKE '{batch_prefix}%';
-    """
-    batch_tables = [row["name"] for row in fetch_query_as_dict(batch_tables_query)]
-    
-    # Get the column names of the target table
-    column_query = f"PRAGMA table_info({table_name});"
-    columns = [col["name"] for col in fetch_query_as_dict(column_query)]
-    column_list = ", ".join(columns)  # Create a comma-separated list of column names
-
-    # Merge each batch table into the main table
-    for batch_table in batch_tables:
-        execute_query_with_retry(
-            f"""
-            INSERT INTO {table_name} ({column_list})
-            SELECT {column_list} FROM {batch_table};
-            """
-        )
-        # Drop the batch table after merging
-        execute_query_with_retry(f"DROP TABLE IF EXISTS {batch_table};")
-
-
-
-def cleanup_temporary_tables(dataset_id: str):
-    """
-    Clean up any remaining temporary batch tables for a dataset.
-    """
-    sanitized_id = dataset_id.replace("-", "_")
-    batch_prefixes = [f"posts_batch_{sanitized_id}_", f"comments_batch_{sanitized_id}_"]
-
-    for prefix in batch_prefixes:
-        temp_tables_query = f"""
-            SELECT name 
-            FROM sqlite_master 
-            WHERE type='table' AND name LIKE '{prefix}%';
-        """
-        temp_tables = [row["name"] for row in fetch_query_as_dict(temp_tables_query)]
-        
-        for temp_table in temp_tables:
-            execute_query_with_retry(f"DROP TABLE IF EXISTS {temp_table};")
-
-
-
 @router.post("/datasets/apply-rules", response_model=dict)
 def apply_rules_to_dataset(payload: ProcessBatchRequest):
     """
     Apply rules to a dataset in batches, using batch-specific tables and merging results.
     """
     dataset_id = payload.dataset_id
-    if dataset_id is None:
-        raise HTTPException(status_code=400, detail="Dataset ID is required.")
-    try:
-        # sanitized_dataset_id = dataset_id.replace("-", "_")
-        BATCH_SIZE = 1000  # Define the size of each batch
-        THREAD_COUNT = os.cpu_count() - 2  # Define the number of threads to use
+    # sanitized_dataset_id = dataset_id.replace("-", "_")
+    BATCH_SIZE = 100  # Define the size of each batch
+    THREAD_COUNT = 8  # Define the number of threads to use
 
 
-        print("Creating backup tables...")
-        create_backup_tables(dataset_id)
+    create_backup_tables(dataset_id)
 
-        print("Fetching rules...")
-        # Fetch rules for the dataset
-        rules = fetch_rules_for_dataset(dataset_id)
-        if not rules:
-            raise ValueError(f"No rules found for dataset {dataset_id}")
+    # Fetch rules for the dataset
+    rules = fetch_rules_for_dataset(dataset_id)
+    if not rules:
+        raise ValueError(f"No rules found for dataset {dataset_id}")
 
-        sanitized_id = dataset_id.replace("-", "_")
-        
-        # Prepare batches for posts and comments
-        print("Preparing batches...")
-        post_batches = prepare_batches(f"posts_backup_{sanitized_id}", BATCH_SIZE, dataset_id, "posts")
-        comment_batches = prepare_batches(f"comments_backup_{sanitized_id}", BATCH_SIZE, dataset_id, "comments")
-        tasks = post_batches + comment_batches
+    sanitized_id = dataset_id.replace("-", "_")
+    
+    # Prepare batches for posts and comments
+    post_batches = prepare_batches(f"posts_backup_{sanitized_id}", BATCH_SIZE, dataset_id, "posts")
+    comment_batches = prepare_batches(f"comments_backup_{sanitized_id}", BATCH_SIZE, dataset_id, "comments")
+    tasks = post_batches + comment_batches
 
-        # Process batches concurrently using a thread pool
-        print("Processing batches...")
-        with ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
-            executor.map(
-                lambda t: process_batch(t[0], dataset_id, rules, t[1] == "posts"),
-                tasks
-            )
-
-        print("Merging batches...")
-        # Merge processed batches back into main backup tables
-        merge_batches(dataset_id, f"posts_backup_{sanitized_id}", "posts")
-        merge_batches(dataset_id, f"comments_backup_{sanitized_id}", "comments")
-
-        # Cleanup temporary batch tables
-    except Exception as e:
-        print(f"Error applying rules to dataset: {e}")
-        raise HTTPException(status_code=500, detail=f"Error applying rules to dataset: {str(e)}")
-    finally:
-        print("Cleaning up temporary tables...")
-        cleanup_temporary_tables(dataset_id)
+    # Process batches concurrently using a thread pool
+    with ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
+        executor.map(
+            lambda t: process_batch(t[0], dataset_id, rules, t[1] == "posts"),
+            tasks
+        )
 
     return {"message": "Rules applied successfully"}
 

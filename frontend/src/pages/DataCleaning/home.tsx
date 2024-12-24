@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import RulesTable from '../../components/DataCleaning/rules_table';
 import WordPanel, { WordDetail } from '../../components/DataCleaning/word_panel';
@@ -8,10 +8,17 @@ import { useCollectionContext } from '../../context/collection_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import useServerUtils from '../../hooks/Shared/get_server_url';
 
-const tryRequest = async (promise: Promise<any>) => {
+const tryRequest = async (promise: Promise<Response>) => {
     try {
         const response = await promise;
-        return response.data;
+
+        if (!response.ok) {
+            const errorDetails = await response.json();
+            throw new Error(errorDetails?.message || 'Request failed');
+        }
+
+        const data = await response.json();
+        return { data }; // Mimic axios' response structure
     } catch (error) {
         console.error('Request failed', error);
         throw error;
@@ -37,12 +44,19 @@ const HomePage = () => {
     const { datasetId } = useCollectionContext();
     const { getServerUrl } = useServerUtils();
 
+    const { saveWorkspaceData } = useWorkspaceUtils();
+    const hasSavedRef = useRef(false);
+
     const fetchRules = async () => {
         try {
-            const data = await tryRequest(
-                axios.get(getServerUrl(`/data-filtering/datasets/${datasetId}/rules`))
+            const response = await tryRequest(
+                fetch(getServerUrl(`data-filtering/datasets/rules`), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dataset_id: datasetId })
+                })
             );
-            setRules(data);
+            setRules(response.data);
         } catch {
             // Errors are handled by tryRequest
         }
@@ -50,51 +64,58 @@ const HomePage = () => {
 
     const fetchProcessedData = async () => {
         try {
-            const [posts, comments, includedWordsData, removedWordsData] = await Promise.all([
-                tryRequest(
-                    axios.get(getServerUrl(`/data-filtering/datasets/processed-posts/${datasetId}`))
-                ),
-                tryRequest(
-                    axios.get(
-                        getServerUrl(`/data-filtering/datasets/processed-comments/${datasetId}`)
+            const [postsResponse, commentsResponse, includedWordsResponse, removedWordsResponse] =
+                await Promise.all([
+                    tryRequest(
+                        fetch(getServerUrl(`data-filtering/datasets/processed-posts`), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ dataset_id: datasetId })
+                        })
+                    ),
+                    tryRequest(
+                        fetch(getServerUrl(`data-filtering/datasets/processed-comments`), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ dataset_id: datasetId })
+                        })
+                    ),
+                    tryRequest(
+                        fetch(getServerUrl(`data-filtering/datasets/included-words`), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ dataset_id: datasetId })
+                        })
+                    ),
+                    tryRequest(
+                        fetch(getServerUrl(`data-filtering/datasets/removed-words`), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ dataset_id: datasetId })
+                        })
                     )
-                ),
-                tryRequest(
-                    axios.get(getServerUrl(`/data-filtering/datasets/included-words/${datasetId}`))
-                ),
-                tryRequest(
-                    axios.get(getServerUrl(`/data-filtering/datasets/removed-words/${datasetId}`))
-                )
-            ]);
-            // Fetch overall dataset stats (documents, tokens, etc.)
-            // const statsData = await tryRequest(
-            //   axios.get(getServerUrl(`/data-filtering/datasets/stats/${datasetId}`)
-            // );
-            setProcessedPosts(posts.posts);
-            setProcessedComments(comments.comments);
+                ]);
+
+            setProcessedPosts(postsResponse.data.posts);
+            setProcessedComments(commentsResponse.data.comments);
 
             setStats({
-                totalDocs: posts.posts.length + comments.comments.length,
+                totalDocs: postsResponse.data.posts.length + commentsResponse.data.comments.length,
                 totalTokens:
-                    includedWordsData.words.reduce((acc: number, iWord: any) => {
-                        return acc + iWord.count;
-                    }) +
-                    removedWordsData.words.reduce((acc: number, rWord: any) => {
-                        return acc + rWord.count;
-                    }),
-                uniqueTokens: includedWordsData.words.length + removedWordsData.words.length
+                    includedWordsResponse.data.words.reduce(
+                        (acc: number, iWord: any) => acc + iWord.count,
+                        0
+                    ) +
+                    removedWordsResponse.data.words.reduce(
+                        (acc: number, rWord: any) => acc + rWord.count,
+                        0
+                    ),
+                uniqueTokens:
+                    includedWordsResponse.data.words.length + removedWordsResponse.data.words.length
             });
-            // Fetch included words
-            // const includedWordsData = await tryRequest(
-            //   axios.get(getServerUrl(`/data-filtering/datasets/included-words/${datasetId}`)
-            // );
-            setIncludedWords(includedWordsData.words);
 
-            // Fetch removed words
-            // const removedWordsData = await tryRequest(
-            //   axios.get(getServerUrl(`/data-filtering/datasets/removed-words/${datasetId}`)
-            // );
-            setRemovedWords(removedWordsData.words);
+            setIncludedWords(includedWordsResponse.data.words);
+            setRemovedWords(removedWordsResponse.data.words);
         } catch {
             // Errors are handled by tryRequest
         }
@@ -104,9 +125,13 @@ const HomePage = () => {
         setProcessing(true);
         try {
             await tryRequest(
-                axios.post(getServerUrl(`/data-filtering/apply-rules-to-dataset`), {
-                    dataset_id: datasetId,
-                    rules
+                fetch(getServerUrl(`data-filtering/datasets/apply-rules`), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        dataset_id: datasetId,
+                        rules
+                    })
                 })
             );
             await fetchProcessedData();
@@ -116,25 +141,19 @@ const HomePage = () => {
         setProcessing(false);
     };
 
-    const { saveWorkspaceData } = useWorkspaceUtils();
-
-    useEffect(() => {
-        fetchRules();
-        fetchProcessedData();
-
-        return () => {
-            saveWorkspaceData();
-        };
-    }, []);
-
     const addRule = async (newRule: Rule) => {
         try {
             const updatedRules = [...rules, { ...newRule, id: rules.length + 1 }];
             setRules(updatedRules);
+
             await tryRequest(
-                axios.post(getServerUrl(`/data-filtering/rules`), {
-                    rules: updatedRules,
-                    dataset_id: datasetId
+                fetch(getServerUrl(`data-filtering/datasets/rules`), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        dataset_id: datasetId,
+                        rules: updatedRules
+                    })
                 })
             );
         } catch {
@@ -149,12 +168,21 @@ const HomePage = () => {
 
             if (deleteAll) {
                 await tryRequest(
-                    axios.delete(getServerUrl(`/data-filtering/datasets/${datasetId}/rules`))
+                    fetch(getServerUrl(`data-filtering/datasets/delete-rules`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ dataset_id: datasetId })
+                    })
                 );
             } else {
                 await tryRequest(
-                    axios.post(getServerUrl(`/data-filtering/datasets/${datasetId}/rules`), {
-                        rules: updatedRules
+                    fetch(getServerUrl(`data-filtering/datasets/rules`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            dataset_id: datasetId,
+                            rules: updatedRules
+                        })
                     })
                 );
             }
@@ -166,15 +194,33 @@ const HomePage = () => {
     const reorderRules = async (updatedRules: Rule[]) => {
         try {
             setRules(updatedRules);
+
             await tryRequest(
-                axios.post(getServerUrl(`/data-filtering/datasets/${datasetId}/rules`), {
-                    rules: updatedRules
+                fetch(getServerUrl(`data-filtering/datasets/rules`), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        dataset_id: datasetId,
+                        rules: updatedRules
+                    })
                 })
             );
         } catch {
             // Errors are handled by tryRequest
         }
     };
+
+    useEffect(() => {
+        fetchRules();
+        fetchProcessedData();
+
+        return () => {
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true;
+            }
+        };
+    }, []);
 
     const handleOpenModal = () => setModalOpen(true);
     const handleCloseModal = () => setModalOpen(false);

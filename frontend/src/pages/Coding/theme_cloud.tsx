@@ -46,7 +46,7 @@ const ThemeCloudPage: FC = () => {
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
-                hasSavedRef.current = true; // Set the flag to prevent future calls
+                hasSavedRef.current = true;
             }
             logger.info('Unloaded Theme cloud Page').then(() => {
                 logger.time('Theme cloud Page stay time', { time: timer.end() });
