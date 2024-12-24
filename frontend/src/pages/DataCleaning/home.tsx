@@ -103,11 +103,11 @@ const HomePage = () => {
                 totalDocs: postsResponse.data.posts.length + commentsResponse.data.comments.length,
                 totalTokens:
                     includedWordsResponse.data.words.reduce(
-                        (acc: number, iWord: any) => acc + iWord.count,
+                        (acc: number, word: any) => acc + word.count_words,
                         0
                     ) +
                     removedWordsResponse.data.words.reduce(
-                        (acc: number, rWord: any) => acc + rWord.count,
+                        (acc: number, word: any) => acc + word.count_words,
                         0
                     ),
                 uniqueTokens:
@@ -147,7 +147,7 @@ const HomePage = () => {
             setRules(updatedRules);
 
             await tryRequest(
-                fetch(getServerUrl(`data-filtering/datasets/rules`), {
+                fetch(getServerUrl(`data-filtering/datasets/add-rules`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

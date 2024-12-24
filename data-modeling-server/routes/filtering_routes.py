@@ -1,5 +1,6 @@
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+import math
 from pathlib import Path
 import random
 import sqlite3
@@ -163,12 +164,10 @@ def create_backup(payload: DatasetRequest = Body(...)):
     """, (dataset_id,))
     return {"message": "Backup created successfully"}
 
+import re
 
-
+# Utilities
 def fetch_query_as_dict(query: str, params: tuple = ()) -> List[Dict[str, Any]]:
-    """
-    Fetch query results as a list of dictionaries.
-    """
     with sqlite3.connect(DATABASE_PATH) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -184,48 +183,52 @@ def fetch_rules_for_dataset(dataset_id: str) -> List[Dict[str, Any]]:
     rules = fetch_query_as_dict(query, (dataset_id,))
     return [{"fields": rule["fields"], "words": rule["words"], "pos": rule["pos"], "action": rule["action"]} for rule in rules]
 
-
-def execute_query_with_retry(
-    query: str,
-    params: tuple = (),
-    retries: int = 5,
-    backoff: float = 0.1,
-    concurrent: bool = False
-) -> List[Tuple]:
-    """
-    Execute a SQL query with retry logic and optional concurrent transactions.
-    """
+def execute_query_with_retry(query: str, params: tuple = (), retries: int = 5, backoff: float = 0.1):
     for attempt in range(retries):
-        # print(f"Attempt {attempt + 1} of {retries}")
         try:
             with sqlite3.connect(DATABASE_PATH) as conn:
                 sqlite3.threadsafety = 1
-                # if concurrent:
-                #     conn.execute("BEGIN CONCURRENT")
-                # else:
                 conn.execute("BEGIN")
-                
                 cursor = conn.cursor()
                 cursor.execute(query, params)
                 conn.commit()
                 return cursor.fetchall()
-
         except sqlite3.OperationalError as e:
             if "database is locked" in str(e).lower() and attempt < retries - 1:
-                # Exponential backoff with jitter
                 time.sleep(backoff * (2 ** attempt) + random.uniform(0, 0.05))
             else:
                 raise Exception(f"Database operation failed after {retries} attempts: {e}")
         except Exception as e:
-            # Rollback the transaction on any exception
             conn.rollback()
             raise
 
-# Core Functions
+def cleanup_temp_tables(dataset_id: str):
+    sanitized_id = dataset_id.replace("-", "_")
+    temp_tables = [f"tokens_{sanitized_id}", f"tfidf_{sanitized_id}"]
+    for table in temp_tables:
+        execute_query_with_retry(f"DROP TABLE IF EXISTS {table};")
+
+# Utilities
+def clean_text(text: str) -> str:
+    text = re.sub(r'[^\w\s]', '', text)
+    return text.strip() if len(text.strip()) > 2 else ""
+
+
+def filter_tokens(doc) -> List[Dict[str, Any]]:
+    """
+    Filter tokens to include all alphanumeric tokens, emojis, and meaningful symbols.
+    """
+    tokens = []
+    for token in doc:
+        token_data = {"text": token.text, "pos": token.pos_}
+        tokens.append(token_data)
+    # Debugging: Log the filtered tokens
+    print(f"Filtered tokens: {tokens[:10]}")  # Show the first 10 tokens for debugging
+    return tokens
+
+
+
 def create_backup_tables(dataset_id: str):
-    """
-    Create backup tables for posts and comments.
-    """
     sanitized_id = dataset_id.replace("-", "_")
     queries = [
         f"CREATE TABLE IF NOT EXISTS posts_backup_{sanitized_id} AS SELECT * FROM posts WHERE dataset_id = ?;",
@@ -234,211 +237,331 @@ def create_backup_tables(dataset_id: str):
     for query in queries:
         execute_query_with_retry(query, (dataset_id,))
 
-def prepare_batches(table_name: str, batch_size: int, dataset_id: str, batch_type: str) -> List[Tuple[str, str]]:
-    """
-    Create batch tables for processing with concurrent transaction support.
-    """
-    print(f"Preparing batches for {batch_type}...")
-    total_rows = execute_query_with_retry(f"SELECT COUNT(*) FROM {table_name}")[0][0]
-    tasks = []
 
+def create_token_table(dataset_id: str):
+    """
+    Create the token table with doc_id, token, pos, and count columns.
+    """
     sanitized_id = dataset_id.replace("-", "_")
-    for offset in range(0, total_rows, batch_size):
-        batch_table = f"{batch_type}_batch_{sanitized_id}_{offset // batch_size}"
-        execute_query_with_retry(
-            f"""
-            CREATE TABLE IF NOT EXISTS {batch_table} AS
-            SELECT * FROM {table_name} LIMIT {batch_size} OFFSET {offset};
-            """,
-            concurrent=True  # Enable concurrent transaction for batch preparation
-        )
-        tasks.append((batch_table, batch_type))
-    return tasks
-
-
-
-def calculate_tfidf(texts: List[str]) -> Dict[str, Dict[str, float]]:
+    table_name = f"tokens_{sanitized_id}"
+    query = f"""
+        CREATE TABLE IF NOT EXISTS {table_name} (
+            doc_id TEXT,
+            token TEXT,
+            pos TEXT,
+            count INTEGER,
+            PRIMARY KEY (doc_id, token, pos)
+        );
     """
-    Calculate TF-IDF scores for a list of texts.
+    execute_query_with_retry(query)
+    return table_name
+
+
+
+def populate_token_table_parallel(dataset_id: str, batch_size: int, table_name: str):
     """
-    # print("Calculating TF-IDF scores...")
-    vectorizer = TfidfVectorizer()
-    tfidf_matrix = vectorizer.fit_transform(texts)
-    tfidf_vocab = vectorizer.get_feature_names_out()
-
-    tfidf_scores = {word: {"min": float("inf"), "max": float("-inf")} for word in tfidf_vocab}
-
-    for doc_idx in range(tfidf_matrix.shape[0]):
-        feature_index = tfidf_matrix[doc_idx, :].nonzero()[1]
-        tfidf_values = zip(feature_index, [tfidf_matrix[doc_idx, x] for x in feature_index])
-
-        for idx, value in tfidf_values:
-            word = tfidf_vocab[idx]
-            tfidf_scores[word]["min"] = min(tfidf_scores[word]["min"], value)
-            tfidf_scores[word]["max"] = max(tfidf_scores[word]["max"], value)
-
-    return {k: v for k, v in tfidf_scores.items() if v["min"] != float("inf")}
-
-def process_batch(batch_table: str, dataset_id: str, rules: List[Dict[str, Any]], is_posts: bool):
+    Populate the token table with preprocessed tokens using parallel processing.
     """
-    Process a single batch, calculate TF-IDF, apply rules, and update token stats.
+    sanitized_id = dataset_id.replace("-", "_")
+    query = f"""
+        SELECT id, selftext FROM posts_backup_{sanitized_id}
+        UNION ALL
+        SELECT id, body FROM comments_backup_{sanitized_id};
     """
-    print(f"Processing batch {batch_table} for {'posts' if is_posts else 'comments'}")
-    texts_query = f"SELECT {'selftext' if is_posts else 'body'} FROM {batch_table}"
-    texts = [row[0] for row in execute_query_with_retry(texts_query)]
-    tfidf_scores = calculate_tfidf(texts)
 
-    # Process texts with SpaCy
     nlp = spacy.load("en_core_web_sm")
-    nlp.disable_pipes("ner", "textcat")
-    docs = list(nlp.pipe(texts, batch_size=1000, n_process=4))
+    for component in ["ner", "textcat"]:
+        if component in nlp.pipe_names:
+            nlp.disable_pipes(component)
 
-    tokens = {"included": {}, "removed": {}}
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query)
 
-    for doc, tfidf_vector in zip(docs, tfidf_scores.values()):
-        for token in doc:
-            if token.is_alpha:
-                action = "included"
-                for rule in rules:
-                    if rule["words"] in ("<ANY>", token.text) and rule.get("pos") in (None, token.pos_):
-                        if rule["action"] == "Remove":
-                            action = "removed"
-                            break
-                tokens[action].setdefault(token.text, {"pos": token.pos_, "count": 0, **tfidf_vector})
-                tokens[action][token.text]["count"] += 1
+        with ThreadPoolExecutor() as executor:
+            while True:
+                rows = cursor.fetchmany(batch_size)
+                if not rows:
+                    break
 
-    print(f"Processed batch {batch_table} for {'posts' if is_posts else 'comments'}")
+                # Process rows in parallel
+                future = executor.submit(process_documents, rows)
+                tokens = future.result()  # Retrieve processed tokens
+                insert_tokens(cursor, table_name, tokens)  # Insert into the database
 
-    print(f"Updating token stats... {batch_table} for {'posts' if is_posts else 'comments'}")
-    for status, token_data in tokens.items():
-        update_token_stats(dataset_id, token_data, status)
+        conn.commit()
 
-def update_token_stats(dataset_id: str, tokens: Dict[str, Dict[str, Any]], status: str):
+
+def compute_global_tfidf_from_table(dataset_id: str, token_table: str):
     """
-    Update token stats in the database using concurrent transactions.
+    Compute global TF-IDF scores from the token table and store results in another table.
     """
-    rows = [
-        (dataset_id, token, data["pos"], data["count"], data["tfidf_min"], data["tfidf_max"], status)
-        for token, data in tokens.items()
+    sanitized_id = dataset_id.replace("-", "_")
+    tfidf_table = f"tfidf_{sanitized_id}"
+    doc_frequency_table = f"doc_frequency_{sanitized_id}"
+    tfidf_per_doc_table = f"tfidf_per_doc_{sanitized_id}"
+
+    # Create the TF-IDF table
+    execute_query_with_retry(f"""
+        CREATE TABLE IF NOT EXISTS {tfidf_table} (
+            token TEXT PRIMARY KEY,
+            tfidf_min REAL,
+            tfidf_max REAL
+        );
+    """)
+
+    # Step 1: Create the doc_frequency table
+    execute_query_with_retry(f"""
+        CREATE TABLE IF NOT EXISTS {doc_frequency_table} AS
+        SELECT 
+            token,
+            COUNT(DISTINCT doc_id) AS doc_frequency
+        FROM {token_table}
+        GROUP BY token;
+    """)
+
+    # Step 2: Create the tfidf_per_doc table
+    total_docs_query = f"SELECT COUNT(DISTINCT doc_id) FROM {token_table};"
+    total_docs = execute_query_with_retry(total_docs_query)[0][0]
+
+    execute_query_with_retry(f"""
+        CREATE TABLE IF NOT EXISTS {tfidf_per_doc_table} AS
+        SELECT 
+            t.token,
+            t.doc_id,
+            SUM(t.count) AS term_frequency,
+            SUM(t.count) * LOG(1 + {total_docs} / (1 + df.doc_frequency)) AS doc_tfidf
+        FROM {token_table} t
+        JOIN {doc_frequency_table} df ON t.token = df.token
+        GROUP BY t.token, t.doc_id;
+    """)
+
+    # Step 3: Compute tfidf_min and tfidf_max and insert into the tfidf table
+    execute_query_with_retry(f"""
+        INSERT OR REPLACE INTO {tfidf_table}
+        SELECT 
+            token,
+            MIN(doc_tfidf) AS tfidf_min,
+            MAX(doc_tfidf) AS tfidf_max
+        FROM {tfidf_per_doc_table}
+        GROUP BY token;
+    """)
+
+    # Cleanup intermediate tables
+    print("Cleaning up intermediate tables...")
+    execute_query_with_retry(f"DROP TABLE IF EXISTS {doc_frequency_table};")
+    execute_query_with_retry(f"DROP TABLE IF EXISTS {tfidf_per_doc_table};")
+
+    return tfidf_table
+
+
+
+
+def process_documents(rows):
+    tokens = []
+    for doc_id, raw_text in rows:
+        if not raw_text.strip():
+            continue
+        doc = nlp(re.sub(r'\s+', ' ', raw_text.strip()))
+        token_counts = defaultdict(int)
+        for token in filter_tokens(doc):
+            key = (token["text"], token["pos"])
+            token_counts[key] += 1
+        for (text, pos), count in token_counts.items():
+            tokens.append({"doc_id": doc_id, "token": text, "pos": pos, "count": count})
+    return tokens
+
+
+
+def insert_tokens(cursor, table_name: str, tokens: List[Dict[str, Any]]):
+    """
+    Insert tokens with counts into the token table.
+    """
+    if not tokens:
+        return
+
+    valid_tokens = [
+        token for token in tokens
+        if all(key in token for key in ["doc_id", "token", "pos", "count"])
     ]
-    for row in rows:
-        execute_query_with_retry("""
-            INSERT INTO token_stats_detailed (dataset_id, token, pos, count_words, tfidf_min, tfidf_max, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(dataset_id, token, status) DO UPDATE SET
-                count_words = excluded.count_words,
-                tfidf_min = excluded.tfidf_min,
-                tfidf_max = excluded.tfidf_max;
-        """, row, concurrent=True)  # Enable concurrent transaction
+
+    cursor.executemany(
+        f"""
+        INSERT OR IGNORE INTO {table_name} (doc_id, token, pos, count)
+        VALUES (:doc_id, :token, :pos, :count);
+        """,
+        valid_tokens
+    )
 
 
-def merge_batches(dataset_id: str, table_name: str, batch_type: str):
+def apply_rule(rule, dataset_id, token_table, tfidf_table, temp_table):
     """
-    Merge processed batch tables back into the main backup table.
+    Apply a single rule to the dataset and insert results into the intermediate table.
     """
-    sanitized_id = dataset_id.replace("-", "_")
-    batch_prefix = f"{batch_type}_batch_{sanitized_id}_"
-    
-    # Find all batch tables
-    batch_tables_query = f"""
-        SELECT name 
-        FROM sqlite_master 
-        WHERE type='table' AND name LIKE '{batch_prefix}%';
+    token_condition = f"token = '{rule['words']}'" if rule["words"] != "<ANY>" else "1=1"
+    pos_condition = f"pos = '{rule['pos']}'" if rule["pos"] else "1=1"
+    status = 'removed' if rule["action"] == "Remove" else 'included'
+
+    query = f"""
+        INSERT INTO {temp_table}
+        SELECT 
+            '{dataset_id}' AS dataset_id,
+            token,
+            pos,
+            SUM(count) AS count_words,
+            COUNT(DISTINCT doc_id) AS count_docs,
+            MIN(tfidf_min) AS tfidf_min,
+            MAX(tfidf_max) AS tfidf_max,
+            '{status}' AS status
+        FROM {token_table}
+        LEFT JOIN {tfidf_table} USING (token)
+        WHERE {token_condition} AND {pos_condition}
+        GROUP BY token, pos;
     """
-    batch_tables = [row["name"] for row in fetch_query_as_dict(batch_tables_query)]
-    
-    # Get the column names of the target table
-    column_query = f"PRAGMA table_info({table_name});"
-    columns = [col["name"] for col in fetch_query_as_dict(column_query)]
-    column_list = ", ".join(columns)  # Create a comma-separated list of column names
-
-    # Merge each batch table into the main table
-    for batch_table in batch_tables:
-        execute_query_with_retry(
-            f"""
-            INSERT INTO {table_name} ({column_list})
-            SELECT {column_list} FROM {batch_table};
-            """
-        )
-        # Drop the batch table after merging
-        execute_query_with_retry(f"DROP TABLE IF EXISTS {batch_table};")
+    execute_query_with_retry(query)
 
 
-
-def cleanup_temporary_tables(dataset_id: str):
+def add_remaining_tokens(dataset_id, token_table, tfidf_table, temp_table):
     """
-    Clean up any remaining temporary batch tables for a dataset.
+    Ensure all tokens are added to temp_table with a default 'included' status.
     """
-    sanitized_id = dataset_id.replace("-", "_")
-    batch_prefixes = [f"posts_batch_{sanitized_id}_", f"comments_batch_{sanitized_id}_"]
+    query = f"""
+        INSERT INTO {temp_table}
+        SELECT 
+            '{dataset_id}' AS dataset_id,
+            token,
+            pos,
+            SUM(count) AS count_words,
+            COUNT(DISTINCT doc_id) AS count_docs,
+            MIN(tfidf_min) AS tfidf_min,
+            MAX(tfidf_max) AS tfidf_max,
+            'included' AS status
+        FROM {token_table}
+        LEFT JOIN {tfidf_table} USING (token)
+        WHERE token NOT IN (SELECT DISTINCT token FROM {temp_table})
+        GROUP BY token, pos;
+    """
+    execute_query_with_retry(query)
 
-    for prefix in batch_prefixes:
-        temp_tables_query = f"""
-            SELECT name 
-            FROM sqlite_master 
-            WHERE type='table' AND name LIKE '{prefix}%';
-        """
-        temp_tables = [row["name"] for row in fetch_query_as_dict(temp_tables_query)]
-        
-        for temp_table in temp_tables:
-            execute_query_with_retry(f"DROP TABLE IF EXISTS {temp_table};")
+
+
+
+
+
+
+def apply_rules_to_tokens_parallel(dataset_id, token_table, tfidf_table, temp_table, rules, thread_count):
+    """
+    Apply rules to tokens in parallel and ensure all tokens are included in the temp table.
+    """
+    # Parallel rule application
+    with ThreadPoolExecutor(max_workers=thread_count) as executor:
+        futures = [
+            executor.submit(apply_rule, rule, dataset_id, token_table, tfidf_table, temp_table)
+            for rule in rules
+        ]
+        for future in futures:
+            future.result()  # Ensure all threads complete
+
+    # Add remaining tokens with default 'included' status
+    print("Adding remaining tokens...")
+    add_remaining_tokens(dataset_id, token_table, tfidf_table, temp_table)
 
 
 
 @router.post("/datasets/apply-rules", response_model=dict)
-def apply_rules_to_dataset(payload: ProcessBatchRequest):
-    """
-    Apply rules to a dataset in batches, using batch-specific tables and merging results.
-    """
-    dataset_id = payload.dataset_id
-    if dataset_id is None:
+def apply_rules_to_dataset_parallel(payload: Dict[str, Any]):
+    dataset_id = payload.get("dataset_id")
+    if not dataset_id:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
+
+    BATCH_SIZE = 1000
+    THREAD_COUNT = os.cpu_count() - 2
+
     try:
-        # sanitized_dataset_id = dataset_id.replace("-", "_")
-        BATCH_SIZE = 1000  # Define the size of each batch
-        THREAD_COUNT = os.cpu_count() - 2  # Define the number of threads to use
+        sanitized_id = dataset_id.replace("-", "_")
+        temp_table = f"temp_token_stats_{sanitized_id}"  
 
-
-        print("Creating backup tables...")
         create_backup_tables(dataset_id)
 
-        print("Fetching rules...")
-        # Fetch rules for the dataset
+        token_table = create_token_table(dataset_id)
+
+        populate_token_table_parallel(dataset_id, BATCH_SIZE, token_table)
+
+        tfidf_table = compute_global_tfidf_from_table(dataset_id, token_table)
+
+        # execute_query_with_retry(f"""
+        #     CREATE TABLE IF NOT EXISTS {temp_table} (
+        #         dataset_id TEXT,
+        #         token TEXT,
+        #         pos TEXT,
+        #         count_words INTEGER,
+        #         count_docs INTEGER,
+        #         tfidf_min REAL,
+        #         tfidf_max REAL,
+        #         status TEXT
+        #     );
+        # """)
+
+        # rules = fetch_rules_for_dataset(dataset_id)
+        # if not rules:
+        #     raise ValueError(f"No rules found for dataset {dataset_id}")
+
+        execute_query_with_retry(f"""
+            CREATE TABLE IF NOT EXISTS {temp_table} (
+                dataset_id TEXT,
+                token TEXT,
+                pos TEXT,
+                count_words INTEGER,
+                count_docs INTEGER,
+                tfidf_min REAL,
+                tfidf_max REAL,
+                status TEXT
+            );
+        """)
+
+        # Step 5: Apply rules in parallel
+        print("Applying rules in parallel...")
         rules = fetch_rules_for_dataset(dataset_id)
         if not rules:
             raise ValueError(f"No rules found for dataset {dataset_id}")
 
-        sanitized_id = dataset_id.replace("-", "_")
-        
-        # Prepare batches for posts and comments
-        print("Preparing batches...")
-        post_batches = prepare_batches(f"posts_backup_{sanitized_id}", BATCH_SIZE, dataset_id, "posts")
-        comment_batches = prepare_batches(f"comments_backup_{sanitized_id}", BATCH_SIZE, dataset_id, "comments")
-        tasks = post_batches + comment_batches
+        apply_rules_to_tokens_parallel(dataset_id, token_table, tfidf_table, temp_table, rules, THREAD_COUNT)
 
-        # Process batches concurrently using a thread pool
-        print("Processing batches...")
-        with ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
-            executor.map(
-                lambda t: process_batch(t[0], dataset_id, rules, t[1] == "posts"),
-                tasks
-            )
+        # Merge final results into the detailed stats table
+        print("Merging results into token_stats_detailed...")
+        final_merge_query = f"""
+            INSERT OR REPLACE INTO token_stats_detailed
+            SELECT 
+                dataset_id,
+                token,
+                pos,
+                SUM(count_words) AS count_words,
+                SUM(count_docs) AS count_docs,
+                MIN(tfidf_min) AS tfidf_min,
+                MAX(tfidf_max) AS tfidf_max,
+                CASE 
+                    WHEN SUM(CASE WHEN status = 'removed' THEN 1 ELSE 0 END) > 0 THEN 'removed'
+                    ELSE 'included'
+                END AS status
+            FROM {temp_table}
+            GROUP BY dataset_id, token, pos;
+        """
+        execute_query_with_retry(final_merge_query)
 
-        print("Merging batches...")
-        # Merge processed batches back into main backup tables
-        merge_batches(dataset_id, f"posts_backup_{sanitized_id}", "posts")
-        merge_batches(dataset_id, f"comments_backup_{sanitized_id}", "comments")
 
-        # Cleanup temporary batch tables
+
+
+
     except Exception as e:
         print(f"Error applying rules to dataset: {e}")
-        raise HTTPException(status_code=500, detail=f"Error applying rules to dataset: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
     finally:
-        print("Cleaning up temporary tables...")
-        cleanup_temporary_tables(dataset_id)
+        # execute_query_with_retry(f"DROP TABLE IF EXISTS {temp_table};")
+        # cleanup_temp_tables(dataset_id)
+        pass
 
     return {"message": "Rules applied successfully"}
-
 
 
 # @router.post("/apply-rules-to-dataset", response_model=dict)
@@ -566,64 +689,40 @@ def get_processed_comments(payload: DatasetIdRequest):
 
 @router.post("/datasets/included-words", response_model=dict)
 def get_included_words(payload: DatasetIdRequest):
-    """Retrieve detailed included words (tokens) for a dataset."""
-    if payload.dataset_id is None:
+    """Retrieve included words for a dataset."""
+    dataset_id = payload.dataset_id
+    if not dataset_id:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
     try:
-        dataset_id = payload.dataset_id
-        result = execute_query(
-            """
-            SELECT token, pos, count_words, count_docs, tfidf_min, tfidf_max
-            FROM token_stats_detailed
-            WHERE dataset_id = ? AND status = 'included'
-            ORDER BY count_words DESC
-            """,
-            (dataset_id,),
-            keys=True
-        )
-        included_words = [
-            {
-                "token": row["token"],
-                "pos": row["pos"],
-                "count_words": row["count_words"],
-                "count_docs": row["count_docs"],
-                "tfidf_min": row["tfidf_min"],
-                "tfidf_max": row["tfidf_max"]
-            }
-            for row in result
-        ]
-        return {"words": included_words}
+        query = """
+        SELECT token, pos, count_words, count_docs, tfidf_min, tfidf_max
+        FROM token_stats_detailed
+        WHERE dataset_id = ? AND status = 'included'
+        ORDER BY count_words DESC;
+        """
+        result = fetch_query_as_dict(query, (dataset_id,))
+        return {"words": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching included words: {str(e)}")
 
 
+
+
 @router.post("/datasets/removed-words", response_model=dict)
 def get_removed_words(payload: DatasetIdRequest):
-    """Retrieve detailed removed words (tokens) for a dataset."""
+    """Retrieve excluded words for a dataset."""
+    dataset_id = payload.dataset_id
+    if not dataset_id:
+        raise HTTPException(status_code=400, detail="Dataset ID is required.")
     try:
-        dataset_id = payload.dataset_id
-        result = execute_query(
-            """
-            SELECT token, pos, count_words, count_docs, tfidf_min, tfidf_max
-            FROM token_stats_detailed
-            WHERE dataset_id = ? AND status = 'removed'
-            ORDER BY count_words DESC
-            """,
-            (dataset_id,),
-            keys=True
-        )
-        removed_words = [
-            {
-                "token": row["token"],
-                "pos": row["pos"],
-                "count_words": row["count_words"],
-                "count_docs": row["count_docs"],
-                "tfidf_min": row["tfidf_min"],
-                "tfidf_max": row["tfidf_max"]
-            }
-            for row in result
-        ]
-        return {"words": removed_words}
+        query = """
+        SELECT token, pos, count_words, count_docs, tfidf_min, tfidf_max
+        FROM token_stats_detailed
+        WHERE dataset_id = ? AND status = 'removed'
+        ORDER BY count_words DESC;
+        """
+        result = fetch_query_as_dict(query, (dataset_id,))
+        return {"words": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching removed words: {str(e)}")
 
