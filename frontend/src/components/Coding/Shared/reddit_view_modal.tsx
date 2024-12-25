@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react';
 import { RedditViewModalProps } from '../../../types/Coding/props';
+import { useCollectionContext } from '../../../context/collection_context';
 const { ipcRenderer } = window.require('electron');
 
-const RedditViewModal = ({ postLink, isViewOpen, postText, closeModal }: RedditViewModalProps) => {
+const RedditViewModal = ({
+    postLink,
+    isViewOpen,
+    postText,
+    closeModal,
+    postId
+}: RedditViewModalProps) => {
     const [browserViewBounds, setBrowserViewBounds] = useState({
         x: 0,
         y: 0,
         width: 800,
         height: 600
     });
+
+    const { datasetId } = useCollectionContext();
 
     useEffect(() => {
         if (isViewOpen) {
@@ -25,7 +34,13 @@ const RedditViewModal = ({ postLink, isViewOpen, postText, closeModal }: RedditV
     const openBrowserView = async (postLink: string, postText?: string) => {
         if (!postLink) return; // Avoid running if postLink is missing
         try {
-            const result = await ipcRenderer.invoke('render-reddit-webview', postLink, postText);
+            const result = await ipcRenderer.invoke(
+                'render-reddit-webview',
+                postLink,
+                postText,
+                postId,
+                datasetId
+            );
             console.log(result);
             setBrowserViewBounds(result);
         } catch (error) {

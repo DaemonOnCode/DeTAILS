@@ -4,3 +4,4 @@ dist
 build
 env
 new_env
+.venv

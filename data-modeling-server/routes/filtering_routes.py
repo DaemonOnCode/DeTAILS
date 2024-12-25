@@ -223,7 +223,7 @@ def filter_tokens(doc) -> List[Dict[str, Any]]:
         token_data = {"text": token.text, "pos": token.pos_}
         tokens.append(token_data)
     # Debugging: Log the filtered tokens
-    print(f"Filtered tokens: {tokens[:10]}")  # Show the first 10 tokens for debugging
+    # print(f"Filtered tokens: {tokens[:10]}")  # Show the first 10 tokens for debugging
     return tokens
 
 
@@ -264,9 +264,11 @@ def populate_token_table_parallel(dataset_id: str, batch_size: int, table_name: 
     """
     sanitized_id = dataset_id.replace("-", "_")
     query = f"""
-        SELECT id, selftext FROM posts_backup_{sanitized_id}
+        SELECT id, title || ' ' || selftext AS content
+        FROM posts_backup_{sanitized_id}
         UNION ALL
-        SELECT id, body FROM comments_backup_{sanitized_id};
+        SELECT id, body AS content
+        FROM comments_backup_{sanitized_id};
     """
 
     nlp = spacy.load("en_core_web_sm")

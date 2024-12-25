@@ -1,8 +1,10 @@
 import sqlite3
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from httpx import get
 from pydantic import BaseModel
 
 from constants import DATABASE_PATH
+from utils.db_helpers import get_post_with_comments
 
 
 router = APIRouter()
@@ -99,3 +101,50 @@ async def get_reddit_post_link(
     print(f"Link not found, returning post link: {post_data.get('id')}")
     print(f"Link: {link_creator(post_data.get('id'), 'post', post_data.get('id'), post_data.get('subreddit'))}")
     return {"link":link_creator(post_data.get('id'), 'post', post_data.get('id'), post_data.get('subreddit'))}
+
+
+class RedditPostByIdRequest(BaseModel):
+    postId: str
+    datasetId: str
+
+@router.post("/get-post-from-id")
+async def get_post_from_id(
+    request: RedditPostByIdRequest
+):
+    post_id = request.postId
+    dataset_id = request.datasetId
+    if not post_id or not dataset_id:
+        return HTTPException(status_code=400, detail="Missing post_id or dataset_id")
+    # post_data = get_post_with_comments(dataset_id, post_id)
+    post_data = {}
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        # print("connected")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        post = cursor.execute("SELECT id, title, selftext FROM posts WHERE id = ? AND dataset_id = ?", (post_id, dataset_id)).fetchone()
+
+        post = dict(post) if post else {}
+        # print(post, "post check")
+        if not post:
+            raise ValueError(f"Post with ID {post_id} not found")
+
+        comments = cursor.execute("SELECT id, body, parent_id, author FROM comments WHERE post_id = ? AND dataset_id = ?", (post_id,dataset_id)).fetchall()
+
+        comments = [dict(comment) for comment in comments]
+
+        # print(comments, "comments check")
+        # Build a recursive tree structure for comments
+        comment_map = {comment["id"]: comment for comment in comments}
+        comment_map = {comment["id"]: comment for comment in comments}
+        # print(comment_map, "comment map")
+        for comment in comments:
+            # print(comment['parent_id'],comment['id'], post_id , "comment", comment['parent_id'] in comment_map, comment['parent_id'] in comment_map.keys())
+            if comment["parent_id"] and comment["parent_id"] in comment_map:
+                parent = comment_map[comment["parent_id"]]
+                parent.setdefault("comments", []).append(comment)
+                # print(parent, "parent")
+        # print(post, "post check")
+        top_level_comments = [comment for comment in comments if comment["parent_id"] == post_id]
+        # print(top_level_comments, "top level comments")
+        post_data = {**post, "comments": top_level_comments}
+    return post_data

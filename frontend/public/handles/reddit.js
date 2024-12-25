@@ -3,6 +3,7 @@ const puppeteer = require('puppeteer-core');
 const config = require('../utils/config');
 const { initDatabase, getCommentsRecursive, getPostById } = require('../utils/db-helpers');
 const logger = require('../utils/logger');
+const path = require('path');
 
 const redditHandler = () => {
     ipcMain.handle('fetch-reddit-content', async (event, url) => {
@@ -17,143 +18,289 @@ const redditHandler = () => {
         }
     });
 
-    ipcMain.handle('render-reddit-webview', async (event, url, text) => {
-        console.log('url', url);
-        if (url.startsWith('/r/')) {
-            url = 'https://www.reddit.com' + url;
-        }
-        // if (url.length === 6) {
-        //     url = 'https://www.reddit.com/r/' + url;
-        // }
-        // Remove existing BrowserView if it exists
-        console.log('sentence', text);
-
-        if (config.browserView) {
-            config.mainWindow.removeBrowserView(config.browserView);
-            // config.browserView.destroy();
-            config.browserView = null;
-        }
-
-        const view = new BrowserView({
-            webPreferences: {
-                contextIsolation: true,
-                nodeIntegration: false,
-                webSecurity: false
+    ipcMain.handle(
+        'render-reddit-webview',
+        async (event, url, text, postId = '', datasetId = '', getFromPostData = true) => {
+            console.log('url', url);
+            if (url.startsWith('/r/')) {
+                url = 'https://www.reddit.com' + url;
             }
-        });
+            // if (url.length === 6) {
+            //     url = 'https://www.reddit.com/r/' + url;
+            // }
+            // Remove existing BrowserView if it exists
+            console.log('sentence', text);
 
-        // Add the BrowserView to the main window
-        config.mainWindow.setBrowserView(view);
+            let postData = null;
+            if (getFromPostData && config.backendServer) {
+                if (!postId) {
+                    console.log('URL', url);
+                    filteredUrl = url.split('https://www.reddit.com/r/uwaterloo/comments/');
 
-        const viewWidth = 800;
-        const viewHeight = 600;
-
-        const [mainWidth, mainHeight] = config.mainWindow.getContentSize();
-
-        // Calculate centered position
-        const x = Math.round((mainWidth - viewWidth) / 2);
-        const y = Math.round((mainHeight - viewHeight) / 2);
-
-        // Set bounds for the BrowserView
-        view.setBounds({ x, y, width: viewWidth, height: viewHeight });
-        view.setAutoResize({ width: true, height: true, x: true, y: true });
-
-        const handleRedirect = (event, newUrl) => {
-            console.log('Redirect detected to:', newUrl);
-            url = newUrl; // Update the URL to reflect the redirected URL
-        };
-
-        // Listen for redirects and navigation events
-        view.webContents.session.webRequest.onBeforeRedirect((details) => {
-            console.log('Redirect detected via webRequest:', details.redirectURL);
-            url = details.redirectURL; // Update the URL with the redirect destination
-        });
-
-        // Load the URL
-        await logger.info(`Loading Reddit content:, ${url}`);
-        view.webContents.loadURL(url);
-
-        if (text) {
-            view.webContents.on('did-finish-load', () => {
-                view.webContents
-                    .executeJavaScript(
-                        `
-          (function() {
-            try {
-              const sentence = ${JSON.stringify(text)};
-              const highlightColor = '#FFF9C4'; // Soft pastel yellow for highlighting
-              const textColor = '#000000'; // Black text color for readability
-              const highlightClass = 'highlighted-sentence';
-      
-              // Add CSS for the highlight class
-              const style = document.createElement('style');
-              style.innerHTML = \`
-                .\${highlightClass} {
-                  background-color: \${highlightColor};
-                  color: \${textColor}; /* Set text color to black */
-                  transition: background-color 0.5s ease;
-                  padding: 2px; /* Add a bit of padding to make the highlight clearer */
-                  border-radius: 4px; /* Rounded edges for a subtle highlight */
+                    postId = filteredUrl[1].split('/')[0];
                 }
-              \`;
-              document.head.appendChild(style);
-      
-              function highlightExactText(node, sentence) {
-                if (node.nodeType === Node.TEXT_NODE) {
-                  const index = node.textContent.indexOf(sentence);
-                  if (index !== -1) {
-                    const range = document.createRange();
-                    range.setStart(node, index);
-                    range.setEnd(node, index + sentence.length);
-      
-                    // Create a span wrapper to apply the highlight
-                    const span = document.createElement('span');
-                    span.className = highlightClass;
-                    span.textContent = sentence;
-      
-                    range.deleteContents();
-                    range.insertNode(span);
-      
-                    // Scroll to the highlighted text
-                    span.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return true;
-                  }
-                }
-                return false;
-              }
-      
-              function searchAndHighlight(node, sentence) {
-                for (let child of node.childNodes) {
-                  if (highlightExactText(child, sentence)) {
-                    return; // Stop after the first exact match is highlighted
-                  }
-                  searchAndHighlight(child, sentence); // Recursively search in child nodes
-                }
-              }
-      
-              // Start searching from the body element
-              searchAndHighlight(document.body, sentence);
-      
-            } catch (error) {
-              console.error('Error in injected script:', error);
+
+                console.log('postId', postId);
+
+                const res = await fetch(
+                    `${config.backendServer}/api/miscellaneous/get-post-from-id`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ postId, datasetId })
+                    }
+                );
+                postData = await res.json();
+                // return data.link;
             }
-          })();
-        `
-                    )
-                    .catch(async (error) => {
-                        await logger.error('Error executing injected script:', error);
-                        console.error('Error executing injected script:', error);
-                    });
+
+            console.log('postData', postData);
+
+            if (config.browserView) {
+                config.mainWindow.removeBrowserView(config.browserView);
+                // config.browserView.destroy();
+                config.browserView = null;
+            }
+
+            const view = new BrowserView({
+                webPreferences: {
+                    contextIsolation: false,
+                    nodeIntegration: false,
+                    webSecurity: false
+                }
             });
+
+            // Add the BrowserView to the main window
+            config.mainWindow.setBrowserView(view);
+
+            const viewWidth = 800;
+            const viewHeight = 600;
+
+            const [mainWidth, mainHeight] = config.mainWindow.getContentSize();
+
+            // Calculate centered position
+            const x = Math.round((mainWidth - viewWidth) / 2);
+            const y = Math.round((mainHeight - viewHeight) / 2);
+
+            // Set bounds for the BrowserView
+            view.setBounds({ x, y, width: viewWidth, height: viewHeight });
+            view.setAutoResize({ width: true, height: true, x: true, y: true });
+
+            const handleRedirect = (event, newUrl) => {
+                console.log('Redirect detected to:', newUrl);
+                url = newUrl; // Update the URL to reflect the redirected URL
+            };
+
+            // Listen for redirects and navigation events
+            view.webContents.session.webRequest.onBeforeRedirect((details) => {
+                console.log('Redirect detected via webRequest:', details.redirectURL);
+                url = details.redirectURL; // Update the URL with the redirect destination
+            });
+
+            // Load the URL
+            if (!getFromPostData) {
+                await logger.info(`Loading Reddit content:, ${url}`);
+                view.webContents.loadURL(url);
+            } else {
+                const templatePath = path.join(
+                    __dirname,
+                    '..',
+                    'templates',
+                    'reddit-template.html'
+                );
+                console.log('Loading template from:', templatePath);
+                try {
+                    await view.webContents.loadFile(templatePath);
+                } catch (error) {
+                    console.error('Error loading template:', error);
+                }
+            }
+            // view.webContents.on('console-message', (event, level, message) => {
+            //     console.log(`BrowserView log [${level}]: ${message}`);
+            // });
+
+            // view.webContents.openDevTools();
+
+            console.log('text', text);
+            if (text) {
+                // view.webContents
+                //     .executeJavaScript(
+                //         `
+                //             (function() {
+                //                 console.log('JavaScript execution started');
+                //                 // Your JavaScript logic here
+                //                 console.log('JavaScript execution finished');
+                //             })();
+                //         `
+                //     )
+                //     .catch((error) => {
+                //         console.error('Error executing JavaScript:', error);
+                // //     });
+                // view.webContents.on('did-stop-loading', (...e) => {
+                //     console.error('Failed to load file', e);
+                // });
+
+                view.webContents.on('did-stop-loading', () => {
+                    console.log('Did finish load event');
+                    if (getFromPostData) {
+                        console.log('Injecting post data:', postData);
+                        function renderComments(comments) {
+                            if (!comments || comments.length === 0) {
+                                return '';
+                            }
+
+                            return `
+                                <div class="comments">
+                                    ${comments
+                                        .map(
+                                            (comment) => `
+                                            <div class="comment">
+                                                <h3 class="comment-author">${comment.author}</h3>
+                                                <p class="comment-body">${comment.body}</p>
+                                                ${renderComments(comment.comments || [])}
+                                            </div>
+                                        `
+                                        )
+                                        .join('')}
+                                </div>
+                            `;
+                        }
+                        view.webContents
+                            .executeJavaScript(
+                                `(function() {
+                                    const container = document.getElementById('content');
+
+                                        const postHtml = \`
+                                            <div class="post">
+                                                <h1 class="post-title">${postData.title}</h1>
+                                                <p class="post-body">${postData.selftext}</p>
+                                            </div>
+                                            ${renderComments(postData.comments)}
+                                        \`;
+
+                                        container.innerHTML = postHtml;
+                                    })();`
+                            )
+                            .catch((error) => {
+                                console.error('Error injecting post data:', error);
+                            });
+                    }
+                    console.log('Injecting sentence:', text);
+                    view.webContents
+                        .executeJavaScript(
+                            `
+                            (function() {
+                                try {
+                                const sentence = ${JSON.stringify(text)};
+                                const highlightColor = '#FFF9C4'; // Soft pastel yellow for highlighting
+                                const textColor = '#000000'; // Black text color for readability
+                                const highlightClass = 'highlighted-sentence';
+                        
+                                // Add CSS for the highlight class
+                                const style = document.createElement('style');
+                                style.innerHTML = \`
+                                    .\${highlightClass} {
+                                    background-color: \${highlightColor};
+                                    color: \${textColor}; /* Set text color to black */
+                                    transition: background-color 0.5s ease;
+                                    padding: 2px; /* Add a bit of padding to make the highlight clearer */
+                                    border-radius: 4px; /* Rounded edges for a subtle highlight */
+                                    }
+                                \`;
+                                document.head.appendChild(style);
+                        
+                                function highlightExactText(node, sentence) {
+                                    if (node.nodeType === Node.TEXT_NODE) {
+                                    const index = node.textContent.indexOf(sentence);
+                                    if (index !== -1) {
+                                        const range = document.createRange();
+                                        range.setStart(node, index);
+                                        range.setEnd(node, index + sentence.length);
+                        
+                                        // Create a span wrapper to apply the highlight
+                                        const span = document.createElement('span');
+                                        span.className = highlightClass;
+                                        span.textContent = sentence;
+                        
+                                        range.deleteContents();
+                                        range.insertNode(span);
+                        
+                                        // Scroll to the highlighted text
+                                        span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        return true;
+                                    }
+                                    }
+                                    return false;
+                                }
+                        
+                                function searchAndHighlight(node, sentence) {
+                                    for (let child of node.childNodes) {
+                                    if (highlightExactText(child, sentence)) {
+                                        return; // Stop after the first exact match is highlighted
+                                    }
+                                    searchAndHighlight(child, sentence); // Recursively search in child nodes
+                                    }
+                                }
+                        
+                                // Start searching from the body element
+                                searchAndHighlight(document.body, sentence);
+                        
+                                } catch (error) {
+                                console.error('Error in injected script:', error);
+                                }
+                            })();
+                        `
+                        )
+                        .catch(async (error) => {
+                            await logger.error('Error executing injected script:', error);
+                            console.error('Error executing injected script:', error);
+                        });
+                });
+                // view.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+                //     console.error(`Failed to load file: ${errorCode} - ${errorDescription}`);
+                // });
+                // const eventsToLog = [
+                //     'did-finish-load',
+                //     'did-fail-load',
+                //     'did-start-loading',
+                //     'did-stop-loading',
+                //     'dom-ready',
+                //     'did-frame-finish-load',
+                //     'did-navigate',
+                //     'did-navigate-in-page',
+                //     'will-navigate',
+                //     'new-window',
+                //     'console-message',
+                //     'crashed',
+                //     'unresponsive',
+                //     'responsive',
+                //     'ipc-message',
+                //     'ipc-message-sync',
+                //     'media-started-playing',
+                //     'media-paused',
+                //     'did-change-theme-color',
+                //     'devtools-opened',
+                //     'devtools-closed',
+                //     'devtools-focused'
+                // ];
+
+                // eventsToLog.forEach((event) => {
+                //     view.webContents.on(event, (...args) => {
+                //         console.log(`[webContents event] ${event}:`, args);
+                //     });
+                // });
+            }
+
+            config.browserView = view;
+
+            return {
+                success: true,
+                bounds: view.getBounds()
+            };
         }
-
-        config.browserView = view;
-
-        return {
-            success: true,
-            bounds: view.getBounds()
-        };
-    });
+    );
 
     ipcMain.handle('close-reddit-webview', async (event) => {
         if (config.browserView) {

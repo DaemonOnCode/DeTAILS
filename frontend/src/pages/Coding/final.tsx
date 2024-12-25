@@ -121,6 +121,7 @@ const FinalPage = () => {
                     isViewOpen={renderedPost.link !== ''}
                     postLink={renderedPost?.link}
                     postText={renderedPost?.sentence}
+                    postId={renderedPost?.id}
                     closeModal={() => {
                         console.log('Closing modal');
                         setRenderedPost({

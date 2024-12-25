@@ -89,6 +89,7 @@ const RedditTable: FC<RedditTableProps> = ({
                     postLink={selectedPost[1].url || selectedPost[1].permalink}
                     postText={selectedPost[1].selftext}
                     closeModal={() => setSelectedPost(null)}
+                    postId={selectedPost[0]}
                 />
             )}
         </div>

@@ -82,6 +82,7 @@ export type RedditViewModalProps = {
     isViewOpen: boolean | null;
     postText?: string;
     closeModal?: () => void;
+    postId?: string;
 };
 
 export type WordCloudProps = {
