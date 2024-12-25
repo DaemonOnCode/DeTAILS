@@ -1,6 +1,6 @@
 {
     "name": "llm",
-    "description": "Electron app template with React and Tailwind CSS",
+    "description": "CTA Toolkit",
     "devDependencies": {
         "@types/node": "^22.9.0",
         "@types/react": "^18.3.12",

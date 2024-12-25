@@ -10,6 +10,7 @@ export enum ROUTES {
     INITIAL_CODING = 'initial-coding',
     CODING_VALIDATION = 'coding-validation',
     CODING_VALIDATION_V2 = 'coding-validation-v2',
+    CODING_OVERVIEW = 'coding-overview',
     FINAL = 'final'
 }
 

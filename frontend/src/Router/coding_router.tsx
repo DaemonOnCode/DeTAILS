@@ -13,6 +13,7 @@ import {
 import {
     BasisV2Page,
     CodeBookPage,
+    CodingOverviewPage,
     CodingValidationPage,
     CodingValidationV2Page,
     FinalPage,
@@ -34,6 +35,7 @@ export const CodingRouter: RouteObject[] = [
     { path: ROUTES.INITIAL_CODING, element: <InitialCodingPage /> },
     { path: ROUTES.CODING_VALIDATION, element: <CodingValidationPage /> },
     { path: ROUTES.CODING_VALIDATION_V2, element: <CodingValidationV2Page /> },
+    { path: ROUTES.CODING_OVERVIEW, element: <CodingOverviewPage /> },
     { path: ROUTES.FINAL, element: <FinalPage /> },
     {
         path: 'loader',

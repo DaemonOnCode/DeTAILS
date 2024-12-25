@@ -6,7 +6,7 @@ async function getIsDev() {
 }
 
 let config = {
-    appName: 'Electron React Tailwind Template',
+    appName: 'CTA Toolkit',
     icon: join(__dirname, '..', '/favicon.ico'),
     tray: null,
     isQuiting: true,

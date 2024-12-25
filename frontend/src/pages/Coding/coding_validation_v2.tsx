@@ -362,7 +362,7 @@ const CodingValidationV2Page: FC = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.INITIAL_CODING}
-                nextPage={ROUTES.FINAL}
+                nextPage={ROUTES.CODING_OVERVIEW}
                 isReady={isReadyCheck}
                 onNextClick={handleNextClick}
             />
