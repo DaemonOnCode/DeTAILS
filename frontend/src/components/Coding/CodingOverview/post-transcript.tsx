@@ -54,7 +54,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
     }, [codes]);
 
     const processedSegments = useMemo(() => {
-        // Refined segmentation: Break into lines first, then split sentences/phrases
         const transcriptLines = transcript.split(/\n/).flatMap(
             (line) => line.split(/(?<=[.?!])\s+|,/) // Further split sentences/phrases
         );
@@ -67,7 +66,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
             relatedCodeText: string[];
             similarityRatios: Record<string, number>;
         }[] = transcriptLines.map((line) => ({
-            line: line.trim(), // Trim extra spaces
+            line,
             hasSingleLineMatch: false,
             bestMatchSimilarity: 0, // Initialize similarity to 0
             backgroundColours: [],
@@ -90,38 +89,26 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
             }
         };
 
-        // Single-line search with refined segmentation
+        // Single-line search using partial_ratio
         charData.forEach((lineData) => {
             codes.forEach(({ text, code }) => {
-                const similarity = partial_ratio(lineData.line, text); // Use `partial_ratio` for partial matches
-                const strictSimilarity = ratio(lineData.line, text);
-
-                // Validate match based on length ratio and similarity
-                const lengthRatio =
-                    Math.min(lineData.line.length, text.length) /
-                    Math.max(lineData.line.length, text.length);
-
+                const similarity = partial_ratio(lineData.line, text); // Use partial_ratio for partial matches
                 console.log(
                     'Partial ratio:',
                     lineData.line,
                     'Text: ',
                     text,
                     'Similarity: ',
-                    similarity,
-                    'Strict Similarity:',
-                    strictSimilarity,
-                    'Length Ratio:',
-                    lengthRatio
+                    similarity
                 );
-
-                // Ensure the match passes strict thresholds
-                if (similarity >= 90 && lengthRatio > 0.5 && strictSimilarity >= 70) {
+                if (similarity >= 90) {
                     addMatch(lineData, code, similarity);
                     lineData.hasSingleLineMatch = true; // Mark single-line match
                 }
             });
         });
 
+        // No multi-line search; only single line is considered
         // Finalize segments (return broken segments)
         return charData.map((lineData) => ({
             text: lineData.line + '\n',
