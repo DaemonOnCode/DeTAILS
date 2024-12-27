@@ -126,3 +126,20 @@ export interface CodebookEntry {
     exclusion_criteria: string[];
     isMarked?: boolean;
 }
+
+export type Comments = {
+    author: string;
+    body: string;
+    comments: Comments[];
+    controversiality: number;
+    created_utc: number;
+    dataset_id: string;
+    gilded: number;
+    id: string;
+    parent_id: string;
+    post_id: string;
+    retrieved_on: number;
+    score: number;
+    score_hidden: boolean;
+    subreddit_id: string;
+};

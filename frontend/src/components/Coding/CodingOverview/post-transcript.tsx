@@ -1,24 +1,11 @@
-import React, { FC, useState, useMemo, useRef, useEffect } from 'react';
+import { FC, useState, useMemo, useRef } from 'react';
 import { useCodingContext } from '../../../context/coding_context';
-import { getTranscript } from '../../../utility/transcript';
-import { ratio, partial_ratio } from 'fuzzball';
-
-type Comments = {
-    author: string;
-    body: string;
-    comments: Comments[];
-    controversiality: number;
-    created_utc: number;
-    dataset_id: string;
-    gilded: number;
-    id: string;
-    parent_id: string;
-    post_id: string;
-    retrieved_on: number;
-    score: number;
-    score_hidden: boolean;
-    subreddit_id: string;
-};
+import { ratio } from 'fuzzball';
+import { Comments } from '../../../types/Coding/shared';
+import RedditComments from './reddit-comments';
+import HighlightedSegment from './highlighted-segment';
+import RelatedCodes from './related-codes';
+import { generateColor } from '../../../utility/color-generator';
 
 interface PostTranscriptProps {
     post: {
@@ -71,21 +58,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
 
     const codeRefs = useRef<Record<string, HTMLLIElement | null>>({});
     const segmentRefs = useRef<(HTMLSpanElement | null)[]>([]);
-
-    const generateColor = (key: string): string => {
-        const hash = Array.from(key).reduce((acc, char) => char.charCodeAt(0) + acc, 0);
-        const r = Math.min(((hash * 19) % 200) + 55, 255);
-        const g = Math.min(((hash * 37) % 200) + 55, 255);
-        const b = Math.min(((hash * 53) % 200) + 55, 255);
-
-        // Calculate perceived brightness using a common formula
-        const brightness = Math.sqrt(0.299 * r * r + 0.587 * g * g + 0.114 * b * b);
-
-        // Map brightness to opacity (e.g., brighter colors = lower opacity)
-        const opacity = Math.max(0.5, Math.min(1, 1 - brightness / 255)); // Range: 0.3 to 0.8
-
-        return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-    };
 
     const codeColors = useMemo(() => {
         return codes.reduce(
@@ -215,100 +187,14 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
 
             {/* Related Codes Panel */}
             <div className="w-1/3 pl-4 h-[calc(100vh-15rem)] min-h-[calc(100vh-15rem)] overflow-auto">
-                <h3 className="text-lg font-bold mb-2">Related Codes</h3>
-                <ul className="space-y-2">
-                    {hoveredCodeText
-                        ? hoveredCodeText.map((text, index) => (
-                              <li
-                                  key={index}
-                                  className="p-2 rounded bg-gray-200"
-                                  style={{
-                                      backgroundColor: codeColors[text]
-                                  }}>
-                                  {text}
-                              </li>
-                          ))
-                        : codeSet.map((code, index) => (
-                              <li
-                                  key={index}
-                                  className="p-2 rounded bg-gray-200"
-                                  style={{
-                                      backgroundColor: codeColors[code]
-                                  }}>
-                                  {code}
-                              </li>
-                          ))}
-                </ul>
+                <RelatedCodes
+                    codeSet={codeSet}
+                    codeColors={codeColors}
+                    hoveredCodeText={hoveredCodeText}
+                />
             </div>
         </div>
     );
 };
 
 export default PostTranscript;
-
-const HighlightedSegment: FC<{
-    segment: any;
-    setHoveredCodeText: (codes: string[] | null) => void;
-}> = ({ segment, setHoveredCodeText }) => {
-    if (segment.backgroundColours.length === 0) {
-        return <span>{segment.line}</span>;
-    }
-
-    // Render nested spans for multiple background colors
-    return segment.backgroundColours.reduceRight(
-        (inner: any, bgColor: string, layerIndex: number) => (
-            <span
-                key={layerIndex}
-                style={{
-                    backgroundColor: bgColor,
-                    display: 'inline-block',
-                    position: 'relative',
-                    zIndex: segment.backgroundColours.length - layerIndex // Topmost layer has the highest index
-                }}
-                onMouseEnter={() => setHoveredCodeText(segment.relatedCodeText)}
-                onMouseLeave={() => setHoveredCodeText(null)}>
-                {inner}
-            </span>
-        ),
-        <span>{segment.line}</span> // The innermost content
-    );
-};
-
-const RedditComments: FC<{
-    comments: Comments[];
-    processedSegments: any[];
-    setHoveredCodeText: (codes: string[] | null) => void;
-    level: number;
-}> = ({ comments, processedSegments, setHoveredCodeText, level }) => {
-    if (!comments || comments.length === 0) return null;
-
-    return (
-        <div>
-            {comments.map((comment, idx) => (
-                <div key={idx} style={{ marginLeft: `${level * 20}px` }}>
-                    <div className="text-gray-700 leading-relaxed break-words py-2">
-                        {processedSegments
-                            .filter(
-                                (segment) => segment.id === comment.id && segment.type === 'comment'
-                            )
-                            .map((segment, index) => (
-                                <HighlightedSegment
-                                    key={index}
-                                    segment={segment}
-                                    setHoveredCodeText={setHoveredCodeText}
-                                />
-                            ))}
-                    </div>
-
-                    {/* Recursively Render Replies */}
-                    <RedditComments
-                        comments={comment.comments || []}
-                        processedSegments={processedSegments}
-                        setHoveredCodeText={setHoveredCodeText}
-                        level={level + 1}
-                    />
-                </div>
-            ))}
-        </div>
-    );
-};
