@@ -54,9 +54,9 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
     }, [codes]);
 
     const processedSegments = useMemo(() => {
-        const transcriptLines = transcript.split(/\n/).flatMap(
-            (line) => line.split(/(?<=[.?!])\s+|,/) // Further split sentences/phrases
-        );
+        const transcriptLines = transcript
+            .split(/\n/)
+            .flatMap((line) => line.split(/(?<=[.?!])\s+|,/)); // Split into sentences/phrases
 
         const charData: {
             line: string;
@@ -68,7 +68,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
         }[] = transcriptLines.map((line) => ({
             line,
             hasSingleLineMatch: false,
-            bestMatchSimilarity: 0, // Initialize similarity to 0
+            bestMatchSimilarity: 0,
             backgroundColours: [],
             relatedCodeText: [],
             similarityRatios: {}
@@ -76,42 +76,62 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
 
         const addMatch = (lineData: (typeof charData)[0], code: string, similarity: number) => {
             if (similarity > lineData.bestMatchSimilarity) {
-                // Replace with the new highest similarity match
                 lineData.bestMatchSimilarity = similarity;
                 lineData.backgroundColours = [codeColors[code]];
                 lineData.relatedCodeText = [code];
                 lineData.similarityRatios = { [code]: similarity };
             } else if (similarity === lineData.bestMatchSimilarity) {
-                // Handle ties by adding the new code
                 lineData.backgroundColours.push(codeColors[code]);
                 lineData.relatedCodeText.push(code);
                 lineData.similarityRatios[code] = similarity;
             }
         };
 
-        // Single-line search using partial_ratio
+        // Split target text into segments
+        const splitIntoSegments = (text: string) =>
+            text.split(/\n/).flatMap((line) => line.split(/(?<=[.?!])\s+|,/));
+
+        // Single-line and multiline search
         charData.forEach((lineData) => {
             codes.forEach(({ text, code }) => {
-                const similarity = partial_ratio(lineData.line, text); // Use partial_ratio for partial matches
-                console.log(
-                    'Partial ratio:',
-                    lineData.line,
-                    'Text: ',
-                    text,
-                    'Similarity: ',
-                    similarity
-                );
-                if (similarity >= 90) {
-                    addMatch(lineData, code, similarity);
-                    lineData.hasSingleLineMatch = true; // Mark single-line match
-                }
+                const targetSegments = splitIntoSegments(text); // Split the target text
+                targetSegments.forEach((segment) => {
+                    const partialSimilarity = partial_ratio(lineData.line, segment);
+                    const strictSimilarity = ratio(lineData.line, segment);
+
+                    // Calculate length ratio
+                    const lengthRatio =
+                        Math.min(lineData.line.length, segment.length) /
+                        Math.max(lineData.line.length, segment.length);
+
+                    // Validate match
+                    const isValidMatch = strictSimilarity >= 90;
+                    // && (lengthRatio >= 0.5 || strictSimilarity >= 70); // Allow strict similarity for imbalanced lengths
+
+                    console.log(
+                        'Partial ratio:',
+                        partialSimilarity,
+                        'Strict Similarity:',
+                        strictSimilarity,
+                        'Length Ratio:',
+                        lengthRatio,
+                        'Line:',
+                        lineData.line,
+                        'Segment:',
+                        segment
+                    );
+
+                    if (isValidMatch) {
+                        addMatch(lineData, code, partialSimilarity);
+                        lineData.hasSingleLineMatch = true;
+                    }
+                });
             });
         });
 
-        // No multi-line search; only single line is considered
         // Finalize segments (return broken segments)
         return charData.map((lineData) => ({
-            text: lineData.line + '\n',
+            text: lineData.line,
             backgroundColours: Array.from(new Set(lineData.backgroundColours)),
             relatedCodeText: Array.from(new Set(lineData.relatedCodeText)),
             similarityRatios: lineData.similarityRatios
