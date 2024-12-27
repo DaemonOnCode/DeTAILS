@@ -1,61 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { ROUTES } from '../../constants/Coding/shared';
 import PostCard from '../../components/Coding/CodingOverview/post-card';
 import PostTranscript from '../../components/Coding/CodingOverview/post-transcript';
+import { useCodingContext } from '../../context/coding_context';
+import { REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import useServerUtils from '../../hooks/Shared/get_server_url';
+import { useCollectionContext } from '../../context/collection_context';
 
 const CodingOverviewPage = () => {
     const [loading, setLoading] = useState(true);
-    const [posts, setPosts] = useState<
-        {
-            id: string;
-            title: string;
-        }[]
-    >([]);
+    const [posts, setPosts] = useState<any[]>([]);
     const [currentPost, setCurrentPost] = useState<(typeof posts)[number] | null>(null);
     const [viewTranscript, setViewTranscript] = useState(false);
 
+    const { finalCodeResponses } = useCodingContext();
+    const { datasetId } = useCollectionContext();
+
+    const { getServerUrl } = useServerUtils();
+
+    const postIdSet = new Set(finalCodeResponses.map((response) => response.postId));
+
+    const fetchPosts = async () => {
+        setLoading(true);
+        const fetchedPosts = await Promise.all(
+            Array.from(postIdSet).map(async (postId) => {
+                const response = await fetch(
+                    getServerUrl(REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID),
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ postId, datasetId })
+                    }
+                );
+                const data = await response.json();
+                return data;
+            })
+        );
+        setPosts(fetchedPosts);
+        setLoading(false);
+        console.log('Fetched posts:', fetchedPosts);
+    };
+
     useEffect(() => {
-        // Simulating fetch for posts
-        setTimeout(() => {
-            const fetchedPosts = [
-                { id: '1', title: 'Understanding React Hooks' },
-                { id: '2', title: 'JavaScript ES6 Features' },
-                { id: '3', title: 'Introduction to TypeScript' },
-                { id: '4', title: 'Understanding React Hooks' },
-                { id: '5', title: 'JavaScript ES6 Features' },
-                { id: '6', title: 'Introduction to TypeScript' },
-                { id: '7', title: 'Understanding React Hooks' },
-                { id: '8', title: 'JavaScript ES6 Features' },
-                { id: '9', title: 'Introduction to TypeScript' },
-                { id: '10', title: 'Understanding React Hooks' },
-                { id: '11', title: 'JavaScript ES6 Features' },
-                { id: '12', title: 'Introduction to TypeScript' },
-                { id: '13', title: 'Understanding React Hooks' },
-                { id: '14', title: 'JavaScript ES6 Features' },
-                { id: '15', title: 'Introduction to TypeScript' },
-                { id: '16', title: 'Understanding React Hooks' },
-                { id: '17', title: 'JavaScript ES6 Features' },
-                { id: '18', title: 'Introduction to TypeScript' },
-                { id: '19', title: 'Understanding React Hooks' },
-                { id: '20', title: 'JavaScript ES6 Features' },
-                { id: '21', title: 'Introduction to TypeScript' },
-                { id: '22', title: 'Understanding React Hooks' },
-                { id: '23', title: 'JavaScript ES6 Features' },
-                { id: '24', title: 'Introduction to TypeScript' },
-                { id: '25', title: 'Understanding React Hooks' },
-                { id: '26', title: 'JavaScript ES6 Features' },
-                { id: '27', title: 'Introduction to TypeScript' },
-                { id: '28', title: 'Understanding React Hooks' },
-                { id: '29', title: 'JavaScript ES6 Features' },
-                { id: '30', title: 'Introduction to TypeScript' },
-                { id: '31', title: 'Understanding React Hooks' },
-                { id: '32', title: 'JavaScript ES6 Features' },
-                { id: '33', title: 'Introduction to TypeScript' }
-            ];
-            setPosts(fetchedPosts);
-            setLoading(false);
-        }, 1000); // Simulate API delay
+        fetchPosts();
     }, []);
 
     const handleViewTranscript = (postId: string) => {
