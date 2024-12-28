@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { LOADER_ROUTES, ROUTES, DB_PATH } from '../../constants/Coding/shared';
 import { IComment, IRedditPostData, PostIdTitle } from '../../types/Coding/shared';
-import HighlightModal from '../../components/Coding/InitialCoding/highlight_modal';
-import AddCodeModal from '../../components/Coding/InitialCoding/add_code_modal';
+
 import ContentArea from '../../components/Coding/InitialCoding/content_area';
 import LeftPanel from '../../components/Coding/InitialCoding/left_panel';
-import TopToolbar from '../../components/Coding/InitialCoding/top_toolbar';
+import TopToolbar from '../../components/Coding/Shared/top-toolbar';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging_context';
@@ -15,6 +14,12 @@ import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get_server_url';
+import HighlightModal from '../../components/Coding/Shared/highlight-modal';
+import AddCodeModal from '../../components/Coding/Shared/add-code-modal';
+import EditCodeModal from '../../components/Coding/Shared/edit-code-modal';
+import DeleteCodeModal from '../../components/Coding/Shared/delete-code-modal';
+import DeleteHighlightModal from '../../components/Coding/Shared/delete-highlight-modal';
+import EditHighlightModal from '../../components/Coding/Shared/edit-highlight-modal';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -25,7 +30,12 @@ const InitialCodingPage = () => {
     const [codes, setCodes] = useState<string[]>([]);
 
     const [isAddCodeModalOpen, setIsAddCodeModalOpen] = useState(false);
+    const [isEditCodeModalOpen, setIsEditCodeModalOpen] = useState(false);
+    const [isDeleteCodeModalOpen, setIsDeleteCodeModalOpen] = useState(false);
     const [isHighlightModalOpen, setIsHighlightModalOpen] = useState(false);
+    const [isEditHighlightModalOpen, setIsEditHighlightModalOpen] = useState(false);
+    const [isDeleteHighlightModalOpen, setDeleteIsHighlightModalOpen] = useState(false);
+
     const [selectedCode, setSelectedCode] = useState<string>('');
     const [selectedText, setSelectedText] = useState<string | null>(null);
     const [selectedTab, setSelectedTab] = useState<'data' | 'codes'>('data');
@@ -365,6 +375,10 @@ const InitialCodingPage = () => {
                     selectedPost={selectedPost}
                     setIsAddCodeModalOpen={setIsAddCodeModalOpen}
                     setIsHighlightModalOpen={setIsHighlightModalOpen}
+                    setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
+                    setIsEditCodeModalOpen={setIsEditCodeModalOpen}
+                    setIsEditHighlightCodeModalOpen={setIsEditHighlightModalOpen}
+                    setIsDeleteHighlightCodeModalOpen={setDeleteIsHighlightModalOpen}
                 />
                 <div className="flex h-[calc(100vh-15rem)] overflow-hidden">
                     {/* Left Panel */}
@@ -399,6 +413,24 @@ const InitialCodingPage = () => {
                         setSelectedCode={setSelectedCode}
                     />
                 )}
+                {isEditCodeModalOpen && (
+                    <EditCodeModal
+                        setIsEditCodeModalOpen={setIsEditCodeModalOpen}
+                        setIsHighlightModalOpen={setIsHighlightModalOpen}
+                        setCodes={setCodes}
+                        codes={codes}
+                        setSelectedCode={setSelectedCode}
+                    />
+                )}
+                {isDeleteCodeModalOpen && (
+                    <DeleteCodeModal
+                        setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
+                        setIsHighlightModalOpen={setIsHighlightModalOpen}
+                        setCodes={setCodes}
+                        codes={codes}
+                        setSelectedCode={setSelectedCode}
+                    />
+                )}
                 {isHighlightModalOpen && (
                     <HighlightModal
                         codes={codes}
@@ -407,6 +439,22 @@ const InitialCodingPage = () => {
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}
                         applyCodeToSelection={applyCodeToSelection}
                         setIsHighlightModalOpen={setIsHighlightModalOpen}
+                    />
+                )}
+                {isEditHighlightModalOpen && (
+                    <EditHighlightModal
+                        references={references}
+                        setReferences={setReferences}
+                        applyCodeToSelection={applyCodeToSelection}
+                        setIsHighlightModalOpen={setIsEditHighlightModalOpen}
+                    />
+                )}
+                {isDeleteHighlightModalOpen && (
+                    <DeleteHighlightModal
+                        references={references}
+                        setReferences={setReferences}
+                        applyCodeToSelection={applyCodeToSelection}
+                        setIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
                     />
                 )}
             </div>

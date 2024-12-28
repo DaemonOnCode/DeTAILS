@@ -7,7 +7,10 @@ const HighlightModal: FC<HighlightModalProps> = ({
     setSelectedCode,
     setIsAddCodeModalOpen,
     applyCodeToSelection,
-    setIsHighlightModalOpen
+    setIsHighlightModalOpen,
+    addReasoning,
+    reasoning,
+    setReasoning
 }) => (
     <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center">
         <div className="bg-white p-6 rounded shadow-lg w-1/3 relative">
@@ -36,6 +39,14 @@ const HighlightModal: FC<HighlightModalProps> = ({
                 ))}
                 <option value="addNewCode">+ Add New Code</option>
             </select>
+            {addReasoning && (
+                <textarea
+                    className="w-full p-2 border rounded mb-4"
+                    placeholder="Add reasoning here..."
+                    value={reasoning ?? ''}
+                    onChange={(e) => setReasoning!(e.target.value)}
+                />
+            )}
             <button
                 className="bg-blue-500 text-white px-4 py-2 rounded"
                 onClick={applyCodeToSelection}>

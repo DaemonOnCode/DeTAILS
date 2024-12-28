@@ -13,7 +13,7 @@ const RedditComments: FC<{
     return (
         <div>
             {comments.map((comment, idx) => (
-                <div key={idx} style={{ marginLeft: `${level * 20}px` }}>
+                <div key={comment.id} style={{ marginLeft: `${level * 20}px` }}>
                     <div className="text-gray-700 leading-relaxed break-words py-2">
                         {processedSegments
                             .filter(

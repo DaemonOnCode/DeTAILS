@@ -1,4 +1,5 @@
 import {
+    Comments,
     ContentAreaTabs,
     IRedditPostData,
     IReference,
@@ -29,6 +30,22 @@ export type AddCodeModalProps = {
     setSelectedCode: SetState<string>;
 };
 
+export type EditCodeModalProps = {
+    setIsEditCodeModalOpen: SetState<boolean>;
+    setIsHighlightModalOpen: SetState<boolean>;
+    setCodes: SetState<string[]>;
+    codes: string[];
+    setSelectedCode: SetState<string>;
+};
+
+export type DeleteCodeModalProps = {
+    setIsDeleteCodeModalOpen: SetState<boolean>;
+    setIsHighlightModalOpen: SetState<boolean>;
+    setCodes: SetState<string[]>;
+    codes: string[];
+    setSelectedCode: SetState<string>;
+};
+
 export type ContentAreaProps = {
     selectedPost: PostIdTitle | null;
     selectedCodeForReferences: string | null;
@@ -46,6 +63,31 @@ export type HighlightModalProps = {
     setIsAddCodeModalOpen: SetState<boolean>;
     applyCodeToSelection: () => void;
     setIsHighlightModalOpen: SetState<boolean>;
+    addReasoning?: boolean;
+    reasoning?: string;
+    setReasoning?: SetState<string>;
+};
+
+export type EditHighlightModalProps = {
+    references: {
+        [code: string]: IReference[];
+    };
+    setReferences: SetState<{
+        [code: string]: IReference[];
+    }>;
+    applyCodeToSelection: () => void;
+    setIsHighlightModalOpen: SetState<boolean>;
+};
+
+export type DeleteHighlightModalProps = {
+    references: {
+        [code: string]: IReference[];
+    };
+    setReferences: SetState<{
+        [code: string]: IReference[];
+    }>;
+    applyCodeToSelection: () => void;
+    setIsHighlightModalOpen: SetState<boolean>;
 };
 
 export type LeftPanelProps = {
@@ -61,6 +103,10 @@ export type TopToolbarProps = {
     selectedPost: PostIdTitle | null;
     setIsAddCodeModalOpen: SetState<boolean>;
     setIsHighlightModalOpen: SetState<boolean>;
+    setIsEditCodeModalOpen: SetState<boolean>;
+    setIsDeleteCodeModalOpen: SetState<boolean>;
+    setIsEditHighlightCodeModalOpen: SetState<boolean>;
+    setIsDeleteHighlightCodeModalOpen: SetState<boolean>;
 };
 
 export type FileCardProps = {
@@ -98,4 +144,28 @@ export type ThemeCloudProps = {
     selectedThemes: string[];
     toggleThemeSelection: (theme: string) => void;
     setThemes: SetState<string[]>;
+};
+
+export type PostTranscriptProps = {
+    post: {
+        author: string;
+        comments: Comments[];
+        created_utc: number;
+        dataset_id: string;
+        domain: string;
+        hide_score: boolean;
+        id: string;
+        is_self: boolean;
+        num_comments: number;
+        over_18: boolean;
+        permalink: string;
+        score: number;
+        selftext: string;
+        subreddit: string;
+        subreddit_id: string;
+        thumbnail: string;
+        title: string;
+        url: string;
+    };
+    onBack: () => void;
 };

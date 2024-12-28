@@ -115,7 +115,11 @@ type Action<T> =
           | { type: 'REMOVE_RESPONSES'; all: boolean; indexes?: never }
       )
     | { type: 'SET_ALL_UNMARKED' }
-    | { type: 'SET_RESPONSES'; responses: T[] };
+    | { type: 'SET_RESPONSES'; responses: T[] }
+    | { type: 'DELETE_CODE'; code: string }
+    | { type: 'EDIT_CODE'; currentCode: string; newCode: string }
+    | { type: 'DELETE_HIGHLIGHT'; postId: string; sentence: string }
+    | { type: 'EDIT_HIGHLIGHT'; postId: string; sentence: string; newSentence: string };
 
 // Reducer function to manage the state of responses
 function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
@@ -176,6 +180,27 @@ function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
                 return state.filter((_, index) => !action.indexes!.includes(index));
             }
             return state;
+        case 'DELETE_CODE':
+            return state.filter((response: any) => response.coded_word !== action.code);
+        case 'EDIT_CODE':
+            return [
+                ...state.map((response: any) =>
+                    response.coded_word === action.currentCode
+                        ? { ...response, coded_word: action.newCode }
+                        : response
+                )
+            ];
+        case 'DELETE_HIGHLIGHT':
+            return state.filter(
+                (response: any) =>
+                    response.postId !== action.postId && response.sentence !== action.sentence
+            );
+        case 'EDIT_HIGHLIGHT':
+            return state.map((response: any) =>
+                response.postId === action.postId && response.sentence === action.sentence
+                    ? { ...response, sentence: action.newSentence }
+                    : response
+            );
         default:
             return state;
     }
@@ -451,6 +476,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         setSelectedThemes(selectedThemesOrWords);
         console.log('Selected themes or words:', selectedThemesOrWords);
     }, [mainCode]);
+
+    useEffect(() => {
+        console.log('finalCodeResponses', finalCodeResponses);
+    }, [finalCodeResponses]);
 
     useEffect(() => {
         dispatchFinalCodeResponses({

@@ -4,9 +4,10 @@ import { ROUTES } from '../../constants/Coding/shared';
 import PostCard from '../../components/Coding/CodingOverview/post-card';
 import PostTranscript from '../../components/Coding/CodingOverview/post-transcript';
 import { useCodingContext } from '../../context/coding_context';
-import { REMOTE_SERVER_BASE_URL, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import useServerUtils from '../../hooks/Shared/get_server_url';
 import { useCollectionContext } from '../../context/collection_context';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const CodingOverviewPage = () => {
     const [loading, setLoading] = useState(true);
@@ -16,6 +17,8 @@ const CodingOverviewPage = () => {
 
     const { finalCodeResponses } = useCodingContext();
     const { datasetId } = useCollectionContext();
+
+    const { saveWorkspaceData } = useWorkspaceUtils();
 
     const { getServerUrl } = useServerUtils();
 
@@ -46,6 +49,11 @@ const CodingOverviewPage = () => {
 
     useEffect(() => {
         fetchPosts();
+
+        // return () => {
+        //     console.log('Cleanup CodingOverviewPage');
+        //     saveWorkspaceData();
+        // };
     }, []);
 
     const handleViewTranscript = (postId: string) => {
@@ -61,9 +69,11 @@ const CodingOverviewPage = () => {
 
     if (loading) return <div>Loading Coding overview...</div>;
 
+    if (!posts.length) return <div>No codes validated</div>;
+
     return (
         <div className="h-full flex justify-between flex-col">
-            <div className="min-h-[calc(100vh-12rem)] h-[calc(100vh-12rem)] overflow-auto">
+            <div>
                 {!viewTranscript ? (
                     <PostCard posts={posts} onPostClick={handleViewTranscript} />
                 ) : (
