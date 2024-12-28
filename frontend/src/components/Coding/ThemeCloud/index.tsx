@@ -88,6 +88,7 @@ const ThemeCloud: FC<ThemeCloudProps> = ({
                 themeBox.y = y;
 
                 if (placeTheme(placedThemes, themeBox, mainCodeBox)) {
+                    if (themeBox.text === mainCode) continue;
                     placedThemes.push(themeBox);
                     placed = true;
                 } else {

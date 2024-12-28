@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { ROUTES } from '../../constants/Coding/shared';
 import PostCard from '../../components/Coding/CodingOverview/post-card';
@@ -21,6 +21,7 @@ const CodingOverviewPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
 
     const { getServerUrl } = useServerUtils();
+    const hasSavedRef = useRef(false);
 
     const postIdSet = new Set(finalCodeResponses.map((response) => response.postId));
 
@@ -50,10 +51,12 @@ const CodingOverviewPage = () => {
     useEffect(() => {
         fetchPosts();
 
-        // return () => {
-        //     console.log('Cleanup CodingOverviewPage');
-        //     saveWorkspaceData();
-        // };
+        return () => {
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true;
+            }
+        };
     }, []);
 
     const handleViewTranscript = (postId: string) => {

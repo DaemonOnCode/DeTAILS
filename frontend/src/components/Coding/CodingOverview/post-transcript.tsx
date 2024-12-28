@@ -1,6 +1,6 @@
-import { FC, useState, useMemo, useRef } from 'react';
+import { FC, useState, useMemo, useRef, useEffect } from 'react';
 import { useCodingContext } from '../../../context/coding_context';
-import { ratio } from 'fuzzball';
+import { ratio, partial_ratio } from 'fuzzball';
 import { Comments, IComment, IReference } from '../../../types/Coding/shared';
 import RedditComments from './reddit-comments';
 import HighlightedSegment from './highlighted-segment';
@@ -37,9 +37,9 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
 
     const [hoveredCodeText, setHoveredCodeText] = useState<string[] | null>(null);
 
-    const [hoveredLines, setHoveredLines] = useState<
-        { x1: number; y1: number; x2: number; y2: number; color: string }[]
-    >([]);
+    // const [hoveredLines, setHoveredLines] = useState<
+    //     { x1: number; y1: number; x2: number; y2: number; color: string }[]
+    // >([]);
 
     const [isAddCodeModalOpen, setIsAddCodeModalOpen] = useState(false);
     const [isEditCodeModalOpen, setIsEditCodeModalOpen] = useState(false);
@@ -51,6 +51,10 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
     const [selectedCode, setSelectedCode] = useState<string>('');
     const [selectedText, setSelectedText] = useState<string | null>(null);
     const [reasoning, setReasoning] = useState<string>('');
+
+    useEffect(() => {
+        console.log('Additional codes:', additionalCodes);
+    }, [additionalCodes]);
 
     const currentReferences = Object.fromEntries(
         codeSet.map((code) => [
@@ -79,7 +83,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
         if (result.length) {
             switch (type) {
                 case 'ADD_CODE':
-                    setAdditionalCodes(result);
+                    console.log('Adding code:', result);
+                    setAdditionalCodes([...result]);
                     break;
                 case 'UPDATE_CODE_NAME':
                     let newCode = result.find((code) => !codeSet.includes(code));
@@ -88,13 +93,20 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
                         currentCode: selectedCode,
                         newCode
                     });
-
+                    if (newCode) {
+                        setAdditionalCodes((prevCodes) =>
+                            prevCodes.map((code) => (code === selectedCode ? newCode! : code))
+                        );
+                    }
                     break;
                 case 'DELETE_CODE':
                     dispatchFinalCodeResponses({
                         type: 'DELETE_CODE',
                         code: selectedCode
                     });
+                    setAdditionalCodes((prevCodes) =>
+                        prevCodes.filter((code) => code !== selectedCode)
+                    );
                     break;
                 default:
                     break;
@@ -382,7 +394,20 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
                         onMouseUp={handleTextSelection}>
                         {/* Post Content */}
                         <div className="mb-6">
-                            <h2 className="text-xl font-bold mb-2">{post.title}</h2>
+                            <h2 className="text-xl font-bold mb-2">
+                                {processedSegments
+                                    .filter(
+                                        (segment) =>
+                                            segment.id === post.id && segment.type === 'title'
+                                    )
+                                    .map((segment, index) => (
+                                        <HighlightedSegment
+                                            key={index}
+                                            segment={segment}
+                                            setHoveredCodeText={setHoveredCodeText}
+                                        />
+                                    ))}
+                            </h2>
                             <p className="text-gray-700 leading-relaxed whitespace-pre-line break-words">
                                 {processedSegments
                                     .filter(
@@ -415,7 +440,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
                 {/* Related Codes Panel */}
                 <div className="w-1/4 pl-4 h-[calc(100vh-18rem)] min-h-[calc(100vh-18rem)] overflow-auto">
                     <RelatedCodes
-                        codeSet={codeSet}
+                        codeSet={additionalCodes}
                         codeColors={codeColors}
                         hoveredCodeText={hoveredCodeText}
                     />
@@ -425,9 +450,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
                     <AddCodeModal
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}
                         setIsHighlightModalOpen={setIsHighlightModalOpen}
-                        setCodes={(value: any) => {
-                            setCodes(value, 'ADD_CODE_NAME');
-                        }}
+                        setCodes={setAdditionalCodes}
                         setSelectedCode={setSelectedCode}
                     />
                 )}
@@ -438,7 +461,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
                         setCodes={(value: any) => {
                             setCodes(value, 'UPDATE_CODE_NAME');
                         }}
-                        codes={codeSet}
+                        codes={additionalCodes}
                         setSelectedCode={setSelectedCode}
                     />
                 )}
@@ -449,13 +472,13 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
                         setCodes={(value: any) => {
                             setCodes(value, 'DELETE_CODE');
                         }}
-                        codes={codeSet}
+                        codes={additionalCodes}
                         setSelectedCode={setSelectedCode}
                     />
                 )}
                 {isHighlightModalOpen && (
                     <HighlightModal
-                        codes={codeSet}
+                        codes={additionalCodes}
                         selectedCode={selectedCode}
                         setSelectedCode={setSelectedCode}
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}

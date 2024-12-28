@@ -1,6 +1,8 @@
 import asyncio
+import sqlite3
 import time
 from typing import Dict, List
+from uuid import uuid4
 from fastapi import APIRouter, HTTPException, UploadFile, Form, Request
 from pydantic import BaseModel
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -20,6 +22,7 @@ import os
 import re
 import json
 from chromadb import HttpClient
+from constants import DATABASE_PATH
 from utils.prompts import CodePrompts, ThemePrompts, FlashcardPrompts, WordCloudPrompts, CodebookPrompts
 from utils.db_helpers import get_post_with_comments
 from utils.coding_helpers import generate_context, generate_feedback, generate_transcript, generate_context_with_codebook
@@ -401,6 +404,52 @@ async def run_blocking_function_with_disconnection(
     except Exception as e:
         print(f"Error in run_blocking_function_with_disconnection: {e}")
         raise
+
+
+
+def initialize_database():
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        # Create datasets table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS llm_responses (
+            id TEXT PRIMARY KEY,
+            dataset_id TEXT NOT NULL,
+            model TEXT NOT NULL,
+            post_id TEXT NOT NULL,
+            response TEXT NOT NULL,
+            function_id TEXT NOT NULL,
+            additional_info TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (dataset_id) REFERENCES datasets (id),
+            FOREIGN KEY (post_id) REFERENCES posts (id)
+        )
+        """)
+        conn.commit()
+
+initialize_database()
+
+def run_query(query: str, params: tuple = ()) -> list:
+    """
+    Run a SQLite query and return the result.
+    """
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        conn.commit()
+        return cursor.fetchall()
+    
+def run_query_with_columns(query: str, params: tuple = ()) -> List[Dict[str, Any]]:
+    """
+    Run a SQLite query and return the result as a list of dictionaries with column names as keys.
+    """
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        conn.row_factory = sqlite3.Row  # Set row factory to get column names
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        result = cursor.fetchall()
+        # Convert each row to a dictionary
+        return [dict(row) for row in result]
 
 # Request model
 class AddDocumentsRequest(BaseModel):
@@ -1404,6 +1453,12 @@ async def generate_words(request: Request, request_body: GenerateWordsRequest):
         print(e)
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
+
+
+
+
+
+
 class GenerateCodesRequest(BaseModel):
     model: str
     references: dict
@@ -1449,6 +1504,8 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
         final_results = []
         posts = request_body.selectedPosts
 
+        function_id = str(uuid4())
+
         while len(posts) > 0:
             post_id = posts[0]
             await manager.broadcast(f"Dataset {request_body.datasetId}: Processing post {post_id}...")
@@ -1472,12 +1529,15 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                 # Retry logic for LLM1
                 retries = 3
                 success = False
-                result1 = None
+                result1: str = None
                 while retries > 0 and not success:
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM1 for post {post_id}...")
                         generation_prompt_1 = CodePrompts.generate(transcript, context)
                         result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, result1.lower(), str(uuid4()), "LLM1 response", function_id)
+                        )
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM1 completed generation for post {post_id}.")
                     except Exception as e:
@@ -1490,16 +1550,19 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                                 f"ERROR: Dataset {request_body.datasetId}: LLM1 failed for post {post_id} after multiple attempts."
                             )
                             raise e
-
+                print("LLM1 completed generation", result1)
                 # Retry logic for LLM2
                 retries = 3
                 success = False
-                result2 = None
+                result2: str = None
                 while retries > 0 and not success:
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM2 for post {post_id}...")
                         generation_prompt_2 = CodePrompts.generate(transcript, context)
                         result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, result2.lower(), str(uuid4()), "LLM2 response", function_id)
+                        )
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM2 completed generation for post {post_id}.")
                     except Exception as e:
@@ -1512,11 +1575,11 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                                 f"ERROR: Dataset {request_body.datasetId}: LLM2 failed for post {post_id} after multiple attempts."
                             )
                             raise e
-
+                print("LLM2 completed generation", result2)
                 # Retry logic for Validation (judge_llm)
                 retries = 3
                 success = False
-                validation_result = None
+                validation_result:str = None
                 while retries > 0 and not success:
                     if retries != 3:
                         # await manager.broadcast(f"Dataset {request_body.datasetId}: Validating failed for post {post_id}. Retrying... ({3 - retries}/3)")
@@ -1524,9 +1587,12 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validating results with judge LLM for post {post_id}...")
                         validate_prompt = CodePrompts.judge_validate(
-                            result1, result2, transcript, request_body.mainCode
+                            result1.lower(), result2.lower(), transcript, request_body.mainCode
                         )
                         validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, validation_result.lower(), str(uuid4()), "Validation LLM response", function_id)
+                        )
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
@@ -1632,6 +1698,8 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
 
         final_results = []
         posts = request_body.selectedPosts
+        
+        function_id = str(uuid4())
 
         while len(posts) > 0:
             post_id = posts[0]
@@ -1657,12 +1725,15 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                 # Retry logic for LLM1
                 retries = 3
                 success = False
-                result1 = None
+                result1: str = None
                 while retries > 0 and not success:
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM1 for post {post_id}...")
                         generation_prompt_1 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
                         result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, result1.lower(), str(uuid4()), "LLM1 response", function_id)
+                        )
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM1 completed successfully for post {post_id}.")
                     except Exception as e:
@@ -1675,16 +1746,19 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                                 f"ERROR: Dataset {request_body.datasetId}: LLM1 failed for post {post_id} after multiple attempts."
                             )
                             raise e
-
+                print("LLM1 completed generation", result1)
                 # Retry logic for LLM2
                 retries = 3
                 success = False
-                result2 = None
+                result2: str = None
                 while retries > 0 and not success:
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM2 for post {post_id}...")
                         generation_prompt_2 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
                         result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, result2.lower(), str(uuid4()), "LLM2 response", function_id)
+                        )
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM2 completed successfully for post {post_id}.")
                     except Exception as e:
@@ -1698,10 +1772,11 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                             )
                             raise e
 
+                print("LLM2 completed generation", result2)
                 # Retry logic for Validation (judge_llm)
                 retries = 3
                 success = False
-                validation_result = None
+                validation_result:str = None
                 while retries > 0 and not success:
                     if retries != 3:
                         # await manager.broadcast(f"WARNING: Dataset {request_body.datasetId}: Validation failed for post {post_id}. Retrying... ({3 - retries}/3)")
@@ -1709,9 +1784,12 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validating results for post {post_id}...")
                         validate_prompt = CodePrompts.judge_validate_with_feedback(
-                            result1, result2, transcript, request_body.mainCode, feedback_text
+                            result1.lower(), result2.lower(), transcript, request_body.mainCode, feedback_text
                         )
                         validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, validation_result.lower(), str(uuid4()), "Validation LLM response", function_id)
+                        )
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
@@ -1928,9 +2006,11 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                 )
 
                 # Initialize results for the post
-                result1 = None
-                result2 = None
-                validation_result = None
+                result1: str = None
+                result2: str = None
+                validation_result:str = None
+
+                function_id = str(uuid4())
 
                 # Retry logic for LLM1
                 retries = 3
@@ -1940,6 +2020,9 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM1 for post {post_id}...")
                         generation_prompt_1 = CodePrompts.generate(transcript, context)
                         result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, result1.lower(), str(uuid4()), "LLM1 response", function_id)
+                        )
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM1 completed generation for post {post_id}.")
                     except Exception as e:
@@ -1953,6 +2036,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                             )
                             raise e
 
+                print("LLM1 completed generation", result1)
                 # Retry logic for LLM2
                 retries = 3
                 success = False
@@ -1961,6 +2045,9 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM2 for post {post_id}...")
                         generation_prompt_2 = CodePrompts.generate(transcript, context)
                         result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, result2.lower(), str(uuid4()), "LLM2 response", function_id)
+                        )
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM2 completed generation for post {post_id}.")
                     except Exception as e:
@@ -1974,6 +2061,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                             )
                             raise e
 
+                print("LLM2 completed generation", result2)
                 # Retry logic for Validation (judge_llm)
                 retries = 3
                 success = False
@@ -1983,9 +2071,11 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
                         await asyncio.sleep(1)
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validating results with judge LLM for post {post_id}...")
-                        validate_prompt = CodePrompts.judge_validate(result1, result2, transcript, request_body.mainCode)
+                        validate_prompt = CodePrompts.judge_validate(result1.lower(), result2.lower(), transcript, request_body.mainCode)
                         validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=60)
-
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, validation_result.lower(), str(uuid4()), "Validation LLM response", function_id)
+                        )
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
                         retries -= 1
@@ -2086,6 +2176,8 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
         final_results = []
         posts = request_body.selectedPosts
 
+        function_id = str(uuid4())
+
         while len(posts) > 0:
             post_id = posts[0]
 
@@ -2113,12 +2205,15 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                 # Generate code with LLM1
                 retries = 3
                 success = False
-                result1 = None
+                result1: str = None
                 while retries > 0 and not success:
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM1 for post {post_id}...")
                         generation_prompt_1 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
                         result1 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm1.invoke, generation_prompt_1, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, result1.lower(), str(uuid4()), "LLM1 response", function_id)
+                        )
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM1 completed generation for post {post_id}.")
                     except Exception as e:
@@ -2128,15 +2223,19 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                             await manager.broadcast(f"ERROR: Dataset {request_body.datasetId}: Failed to generate code with LLM1 for post {post_id} after multiple attempts.")
                             raise e
 
+                print("LLM1 completed generation", result1)
                 # Generate code with LLM2
                 retries = 3
                 success = False
-                result2 = None
+                result2: str = None
                 while retries > 0 and not success:
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Generating with LLM2 for post {post_id}...")
                         generation_prompt_2 = CodePrompts.generate_with_feedback(transcript, context, feedback_text)
                         result2 = await run_blocking_function_with_disconnection(forcibleExecutor, request, llm2.invoke, generation_prompt_2, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, result2.lower(), str(uuid4()), "LLM2 response", function_id)
+                        )
                         success = True
                         await manager.broadcast(f"Dataset {request_body.datasetId}: LLM2 completed generation for post {post_id}.")
                     except Exception as e:
@@ -2146,10 +2245,11 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                             await manager.broadcast(f"ERROR: Dataset {request_body.datasetId}: Failed to generate code with LLM2 for post {post_id} after multiple attempts.")
                             raise e
 
+                print("LLM2 completed generation", result2)
                 # Validate results using judge LLM
                 retries = 3
                 success = False
-                validation_result = None
+                validation_result:str = None
                 while retries > 0 and not success:
                     if retries != 3:
                         # await manager.broadcast(f"WARNING: Dataset {request_body.datasetId}: Retrying validation for post {post_id}...")
@@ -2157,9 +2257,12 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
                     try:
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validating results with judge LLM for post {post_id}...")
                         validate_prompt = CodePrompts.judge_validate_with_feedback(
-                            result1, result2, transcript, request_body.mainCode, feedback_text
+                            result1.lower(), result2.lower(), transcript, request_body.mainCode, feedback_text
                         )
                         validation_result = await run_blocking_function_with_disconnection(forcibleExecutor, request, judge_llm.invoke, validate_prompt, timeout=60)
+                        run_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (request_body.datasetId, post_id, request_body.model, validation_result.lower(), str(uuid4()), "Validation LLM response", function_id)
+                        )
                         await manager.broadcast(f"Dataset {request_body.datasetId}: Validation completed for post {post_id}.")
                     except Exception as e:
                         retries -= 1

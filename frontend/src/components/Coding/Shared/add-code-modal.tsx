@@ -4,13 +4,14 @@ import { AddCodeModalProps } from '../../../types/Coding/props';
 const AddCodeModal: FC<AddCodeModalProps> = ({
     setIsAddCodeModalOpen,
     setIsHighlightModalOpen,
+    isHighlightModalOpen,
     setCodes,
     setSelectedCode
 }) => {
     const [newCode, setNewCode] = useState('');
 
     return (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center">
+        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
             <div className="bg-white p-6 rounded shadow-lg w-1/3 relative">
                 <button
                     className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
@@ -33,7 +34,9 @@ const AddCodeModal: FC<AddCodeModalProps> = ({
                             setSelectedCode(newCode);
                             setNewCode('');
                             setIsAddCodeModalOpen(false);
-                            setIsHighlightModalOpen(true);
+                            if (isHighlightModalOpen) {
+                                setIsHighlightModalOpen(true);
+                            }
                         }
                     }}>
                     Add Code

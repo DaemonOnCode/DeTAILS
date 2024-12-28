@@ -409,6 +409,7 @@ const InitialCodingPage = () => {
                     <AddCodeModal
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}
                         setIsHighlightModalOpen={setIsHighlightModalOpen}
+                        isHighlightModalOpen={isHighlightModalOpen}
                         setCodes={setCodes}
                         setSelectedCode={setSelectedCode}
                     />

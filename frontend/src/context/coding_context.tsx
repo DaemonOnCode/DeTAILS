@@ -465,16 +465,17 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         dispatchFinalCodeResponses({ type: 'SET_RESPONSES', responses: [] });
     };
 
-    const selectedThemesOrWords = useMemo(() => {
-        return [mainCode];
-    }, [mainCode]);
+    // const selectedThemesOrWords = useMemo(() => {
+    //     return [mainCode];
+    // }, [mainCode]);
 
     useEffect(() => {
-        if (selectedWords.length !== 0 || selectedWords[0] === mainCode) return;
-        setSelectedWords(selectedThemesOrWords);
-        if (selectedThemes.length !== 0 || selectedThemes[0] === mainCode) return;
-        setSelectedThemes(selectedThemesOrWords);
-        console.log('Selected themes or words:', selectedThemesOrWords);
+        if (!themes.includes(mainCode)) {
+            setSelectedThemes([mainCode]);
+        }
+        if (!words.includes(mainCode)) {
+            setSelectedWords([mainCode]);
+        }
     }, [mainCode]);
 
     useEffect(() => {

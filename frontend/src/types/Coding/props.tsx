@@ -26,6 +26,7 @@ export type RedditTableProps = {
 export type AddCodeModalProps = {
     setIsAddCodeModalOpen: SetState<boolean>;
     setIsHighlightModalOpen: SetState<boolean>;
+    isHighlightModalOpen?: boolean;
     setCodes: SetState<string[]>;
     setSelectedCode: SetState<string>;
 };
