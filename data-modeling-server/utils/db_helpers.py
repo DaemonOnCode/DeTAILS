@@ -131,30 +131,46 @@ class DatabaseHelper:
         return {"post": post, "comments": top_level_comments}
 
 
-def batch_insert_posts(posts):
+def batch_insert_posts(posts, tokenized = False):
     with sqlite3.connect(DATABASE_PATH) as conn:
         cursor = conn.cursor()
-        cursor.executemany("""
-            INSERT OR REPLACE INTO posts (
-                id, over_18, subreddit, score, thumbnail, permalink, is_self,
-                domain, created_utc, url, num_comments, title, selftext,
-                author, hide_score, subreddit_id, dataset_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, posts)
+        if tokenized:
+            cursor.executemany("""
+                INSERT OR REPLACE INTO tokenized_posts (
+                    post_id, title, selftext
+                ) VALUES (?, ?, ?)
+            """, posts)
+        else:
+            cursor.executemany("""
+                INSERT OR REPLACE INTO posts (
+                    id, over_18, subreddit, score, thumbnail, permalink, is_self,
+                    domain, created_utc, url, num_comments, title, selftext,
+                    author, hide_score, subreddit_id, dataset_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, posts)
         conn.commit()
 
 # Helper to insert comments into the database
-def batch_insert_comments(comments):
+def batch_insert_comments(comments, tokenized = False):
     with sqlite3.connect(DATABASE_PATH) as conn:
         cursor = conn.cursor()
-        cursor.executemany("""
-            INSERT OR REPLACE INTO comments (
-                id, body, author, created_utc, post_id, parent_id,
-                controversiality, score_hidden, score, subreddit_id,
-                retrieved_on, gilded, dataset_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, comments)
+        if tokenized:
+            cursor.executemany("""
+                INSERT OR REPLACE INTO tokenized_comments (
+                    comment_id, body
+                ) VALUES (?, ?)
+            """, comments)
+        else:
+            cursor.executemany("""
+                INSERT OR REPLACE INTO comments (
+                    id, body, author, created_utc, post_id, parent_id,
+                    controversiality, score_hidden, score, subreddit_id,
+                    retrieved_on, gilded, dataset_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, comments)
         conn.commit()
+
+
 
 def get_post_with_comments(dataset_id, post_id):
     with sqlite3.connect(DATABASE_PATH) as conn:
@@ -180,6 +196,6 @@ def get_post_with_comments(dataset_id, post_id):
                 parent = comment_map[comment["parent_id"]]
                 parent.setdefault("comments", []).append(comment)
 
-        top_level_comments = [comment for comment in comments if not comment["parent_id"]]
+        top_level_comments = [comment for comment in comments if comment["parent_id"] == post_id]
     print(post, "post check")
     return {} if not post else {**post, "comments": top_level_comments}

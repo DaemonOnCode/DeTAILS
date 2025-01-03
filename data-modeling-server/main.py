@@ -16,7 +16,7 @@ app.add_middleware(
 )
 
 app.include_router(collection_routes.router, prefix="/api/collections", tags=["collections"])
-app.include_router(modeling_routes.router, prefix="/api/topic-modeling", tags=["topic-modeling"])
+app.include_router(modeling_routes.router, prefix="/api/data-modeling", tags=["topic-modeling"])
 app.include_router(filtering_routes.router, prefix="/api/data-filtering", tags=["data-filtering"])
 app.include_router(websocket_routes.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(coding_routes.router, prefix="/api/coding", tags=["coding"])

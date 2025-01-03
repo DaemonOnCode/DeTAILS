@@ -80,6 +80,27 @@ def initialize_database():
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tokenized_posts (
+                dataset_id TEXT NOT NULL,
+                post_id TEXT PRIMARY KEY,
+                title TEXT,
+                selftext TEXT,
+                FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE
+                FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+            );
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tokenized_comments (
+                dataset_id TEXT NOT NULL,
+                comment_id TEXT PRIMARY KEY,
+                body TEXT,
+                FOREIGN KEY(comment_id) REFERENCES comments(id) ON DELETE CASCADE
+                FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+            );
+        """)
+
         conn.commit()
 
 initialize_database()
@@ -227,19 +248,10 @@ def parse_submissions_and_comments(files: List[Dict[str,str]], dataset_id: str):
                     dataset_id
                 ))
             batch_insert_comments(parsed_data)
-    # Build hierarchical comments
             
     update_dataset(dataset_id, name=subreddit)
-    # for comment_id, comment in comments.items():
-    #     parent_id = comment["parent_id"]
-    #     post_id = comment["link_id"]
+    return {"messages": "Data parsed and inserted successfully"}
 
-    #     if parent_id and parent_id in comments:
-    #         comments[parent_id]["comments"][comment_id] = comment
-    #     elif post_id and post_id in posts:
-    #         posts[post_id]["comments"][comment_id] = comment
-
-    return {"messages": "Data parsed successfully"}
 
 async def parse_json_file(file_path: str):
     """

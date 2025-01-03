@@ -170,7 +170,7 @@ const Sidebar: FC = () => {
     };
 
     return (
-        <div className="sidebar w-48 h-screen bg-gray-800 text-white fixed overflow-y-auto shadow-lg">
+        <div className="sidebar w-48 h-page bg-gray-800 text-white fixed overflow-y-auto shadow-lg">
             <nav>
                 <ul className="p-4">{renderRoutes(AppRoutes)}</ul>
             </nav>

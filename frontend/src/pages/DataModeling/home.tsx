@@ -1,22 +1,32 @@
 import { useEffect, useRef } from 'react';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import { useModelingContext } from '../../context/modeling_context';
+import useServerUtils from '../../hooks/Shared/get_server_url';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { useCollectionContext } from '../../context/collection_context';
+import { useWorkspaceContext } from '../../context/workspace_context';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../constants/DataModeling/shared';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 
 const HomePage = () => {
-    // Event Handlers
-    const handleRandomSampling = () => {
-        console.log('Random Sampling selected');
-        // Add logic for Random Sampling
-    };
-
-    const handleTopicModelSelection = (model: string) => {
-        console.log(`${model} Sampling selected`);
-        // Add logic for selected Topic Model Sampling
-    };
-
+    const { addNewModel, models, addModel, setActiveModelId, activeModelId } = useModelingContext();
+    const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
+
+    const { getServerUrl } = useServerUtils();
     const hasSavedRef = useRef(false);
 
+    const navigate = useNavigate();
+
     useEffect(() => {
+        // if (models.length > 0 && !addNewModel) {
+        //     if (!activeModelId) {
+        //         setActiveModelId(models[0].id);
+        //     }
+        //     navigate(`/${SHARED_ROUTES.DATA_MODELING}/${ROUTES.MODELS}`);
+        // }
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
@@ -24,6 +34,39 @@ const HomePage = () => {
             }
         };
     }, []);
+
+    // Event Handlers
+    const handleRandomSampling = () => {
+        console.log('Random Sampling selected');
+        // Add logic for Random Sampling
+    };
+
+    const handleTopicModelSelection = async (modelType: string) => {
+        console.log(`${modelType} Sampling selected`);
+        const res = await fetch(getServerUrl(`${REMOTE_SERVER_ROUTES.ADD_MODEL}/${modelType}`), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                // workspace_id: currentWorkspace?.id,
+                dataset_id: datasetId
+            })
+        });
+
+        const data: {
+            method: string;
+            topics: string[];
+            id: string;
+            model_name: string;
+        } = await res.json();
+
+        console.log(data, 'Model Data');
+        addModel(data.id, data.model_name, modelType); // Add the model to the context
+        setActiveModelId(data.id); // Set it as the active model
+
+        navigate(`/${SHARED_ROUTES.DATA_MODELING}/${ROUTES.MODELS}`);
+    };
 
     return (
         <div className="bg-white text-gray-800 min-h-screen flex flex-col items-center p-6 space-y-8">
@@ -57,7 +100,7 @@ const HomePage = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button
-                        onClick={() => handleTopicModelSelection('Latent Dirichlet Allocation')}
+                        onClick={() => handleTopicModelSelection('lda')}
                         className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md border border-gray-400 text-left">
                         <strong>Latent Dirichlet Allocation</strong>
                         <p className="text-sm text-gray-600">
@@ -67,7 +110,7 @@ const HomePage = () => {
                     </button>
 
                     <button
-                        onClick={() => handleTopicModelSelection('Biterm')}
+                        onClick={() => handleTopicModelSelection('biterm')}
                         className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md border border-gray-400 text-left">
                         <strong>Biterm</strong>
                         <p className="text-sm text-gray-600">
@@ -77,9 +120,7 @@ const HomePage = () => {
                     </button>
 
                     <button
-                        onClick={() =>
-                            handleTopicModelSelection('Non-Negative Matrix Factorization')
-                        }
+                        onClick={() => handleTopicModelSelection('nnmf')}
                         className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md border border-gray-400 text-left">
                         <strong>Non-Negative Matrix Factorization</strong>
                         <p className="text-sm text-gray-600">
@@ -89,7 +130,7 @@ const HomePage = () => {
                     </button>
 
                     <button
-                        onClick={() => handleTopicModelSelection('Bertopic')}
+                        onClick={() => handleTopicModelSelection('bertopic')}
                         className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md border border-gray-400 text-left">
                         <strong>Bertopic</strong>
                         <p className="text-sm text-gray-600">

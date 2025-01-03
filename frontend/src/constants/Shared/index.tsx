@@ -20,7 +20,7 @@ export enum MODEL_LIST {
     NU_EXTRACT_1_5 = 'hf.co/DevQuasar/numind.NuExtract-v1.5-GGUF:Q4_K_M'
 }
 
-export const LOGGING = true;
+export const LOGGING = false;
 
 // export const USE_LOCAL_SERVER = false;
 
@@ -124,7 +124,11 @@ export enum REMOTE_SERVER_ROUTES {
     LOAD_STATE = 'state/load-state',
     DELETE_STATE = 'state/delete-state',
     IMPORT_WORKSPACE = 'state/import-workspace',
-    EXPORT_WORKSPACE = 'state/export-workspace'
+    EXPORT_WORKSPACE = 'state/export-workspace',
+
+    GET_MODEL_METADATA = 'data-modeling/metadata',
+    GET_MODEL_SAMPLES = 'data-modeling/samples',
+    ADD_MODEL = 'data-modeling/model'
 }
 
 export const USE_NEW_FLOW = true;

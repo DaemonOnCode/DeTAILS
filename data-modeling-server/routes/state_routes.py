@@ -26,6 +26,7 @@ class SaveStateRequest(BaseModel):
     dataset_id: str
     coding_context: Dict[str, Any]
     collection_context: Dict[str, Any]
+    modeling_context: Dict[str, Any]
 
 class LoadStateRequest(BaseModel):
     workspace_id: str
@@ -36,6 +37,9 @@ class CollectionContext(BaseModel):
     mode_input: str = ""
     subreddit: str = ""
     selected_posts: list = []
+
+class ModelingContext(BaseModel):
+    models: list = []
 
 class CodingContext(BaseModel):
     main_code: str = ""
@@ -55,12 +59,17 @@ def initialize_database():
         # Create workspaces table with user_email
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS workspace_states (
-            workspace_id TEXT NOT NULL,
             user_email TEXT NOT NULL,
+                       
+            workspace_id TEXT NOT NULL,
+                       
             dataset_id TEXT,
             mode_input TEXT,
             subreddit TEXT,
             selected_posts TEXT,
+
+            models TEXT,           
+            
             main_code TEXT,
             additional_info TEXT,
             basis_files TEXT,
@@ -104,6 +113,9 @@ def save_state(request: SaveStateRequest):
 
         collection_context = CollectionContext(**request.collection_context)
         coding_context = CodingContext(**request.coding_context)
+        modeling_context = ModelingContext(**request.coding_context)
+
+        models = json.dumps(modeling_context.models)
 
         selected_posts = json.dumps(collection_context.selected_posts)
         basis_files = json.dumps(coding_context.basis_files)
@@ -133,15 +145,16 @@ def save_state(request: SaveStateRequest):
         run_query(
             """
             INSERT INTO workspace_states (
-                workspace_id, user_email, dataset_id, mode_input, subreddit, selected_posts, main_code, 
+                workspace_id, user_email, dataset_id, mode_input, subreddit, selected_posts, models, main_code, 
                 additional_info, basis_files, themes, selected_themes, 
                 codebook, references_data, code_responses, final_code_responses, 
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(workspace_id, user_email) DO UPDATE SET
                 dataset_id = excluded.dataset_id,
                 mode_input = excluded.mode_input,
                 subreddit = excluded.subreddit,
+                models = excluded.models,
                 main_code = excluded.main_code,
                 additional_info = excluded.additional_info,
                 selected_posts = excluded.selected_posts,
@@ -161,6 +174,7 @@ def save_state(request: SaveStateRequest):
                 collection_context.mode_input,
                 collection_context.subreddit,
                 selected_posts,
+                models,
                 coding_context.main_code,
                 coding_context.additional_info,
                 basis_files,
@@ -176,6 +190,7 @@ def save_state(request: SaveStateRequest):
         return {"success": True, "message": "State saved successfully"}
 
     except Exception as e:
+        print(f"Error saving state: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -199,6 +214,7 @@ def load_state(request: LoadStateRequest):
 
         # print("Loading state...", state)
         state = state[0]
+        state["models"] = json.loads(state["models"])
         state["basis_files"] = json.loads(state["basis_files"])
         state["themes"] = json.loads(state["themes"])
         state["selected_posts"] = json.loads(state["selected_posts"])
@@ -212,6 +228,7 @@ def load_state(request: LoadStateRequest):
         return {"success": True, "data": state}
 
     except Exception as e:
+        print(f"Error loading state: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     
 
@@ -269,6 +286,7 @@ def export_workspace(request: LoadStateRequest):
             raise HTTPException(status_code=404, detail="State not found")
 
         state = state[0]
+        state["models"] = json.loads(state["models"])
         state["basis_files"] = json.loads(state["basis_files"])
         state["themes"] = json.loads(state["themes"])
         state["selected_posts"] = json.loads(state["selected_posts"])
@@ -383,6 +401,9 @@ async def import_workspace(
         dataset_id = workspace_data.get("dataset_id")
         # mode_input = workspace_data.get("mode_input")
         # subreddit = workspace_data.get("subreddit")
+
+        models = json.dumps(workspace_data.get("models", []))
+
         selected_posts = json.dumps(workspace_data.get("selected_posts", []))
         main_code = workspace_data.get("main_code")
         additional_info = workspace_data.get("additional_info")
@@ -408,14 +429,14 @@ async def import_workspace(
             """
             INSERT INTO workspace_states (
                 workspace_id, user_email,
-                selected_posts, main_code, additional_info, basis_files,
+                selected_posts, models, main_code, additional_info, basis_files,
                 themes, selected_themes, codebook, references_data,
                 code_responses, final_code_responses, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 workspace_id, user_email,
-                selected_posts, main_code, additional_info, basis_files,
+                selected_posts, models, main_code, additional_info, basis_files,
                 themes, selected_themes, codebook, references_data,
                 code_responses, final_code_responses, datetime.now(),
             ),
@@ -463,7 +484,7 @@ async def import_workspace(
             chroma_import(collection=file_name, import_file=jsonl_file, model=model_name, embedding_function="ollama")
 
         # Clean up temporary directory
-        shutil.rmtree(temp_dir)
+        shutil.rmtree(temp_dir, ignore_errors=True)
         print(f"Cleaned up temporary directory: {temp_dir}")
 
         # Return the new workspace details
@@ -484,122 +505,3 @@ async def import_workspace(
     #     raise HTTPException(status_code=500, detail=f"Error importing workspace: {str(e)}")
 
 
-
-# @router.post("/import-workspace")
-# async def import_workspace(
-#     user_email: str = Form(...),
-#     file: UploadFile = File(...)
-# ):
-#     try:
-#         # Create a temporary directory for file extraction
-#         temp_dir = "./import_temp"
-#         os.makedirs(temp_dir, exist_ok=True)
-
-#         if not file.filename.endswith(".zip"):
-#             raise HTTPException(status_code=400, detail="Uploaded file is not a ZIP file")
-
-
-#         # Create a unique file path for the uploaded ZIP file
-#         prefix = f"{str(uuid4())}_{time.time()}"
-#         zip_file_path = os.path.join(temp_dir, f"{prefix}_{file.filename}")
-
-#         # Save the uploaded file in chunks
-#         with open(zip_file_path, "wb") as temp_file:
-#             # Stream chunks of the file from the request
-#             while chunk := await file.read(1024 * 1024):  # Read in 1MB chunks
-#                 temp_file.write(chunk)
-
-#         print(f"Saved streamed file to: {zip_file_path}")
-
-#         with ZipFile(zip_file_path, 'r') as zip_ref:
-#             zip_ref.testzip()
-
-#         print(f"Validated ZIP file: {zip_file_path}")
-#         # Extract the ZIP file
-#         extracted_dir = os.path.join(temp_dir, f"{prefix}_extracted")
-#         with ZipFile(zip_file_path, 'r') as zip_ref:
-#             zip_ref.extractall(extracted_dir)
-
-#         print(f"Extracted ZIP file to: {extracted_dir}")
-
-#         # Locate and validate workspace_data.json
-#         workspace_data_path = os.path.join(extracted_dir, "workspace_data.json")
-#         if not os.path.exists(workspace_data_path):
-#             raise HTTPException(status_code=400, detail="workspace_data.json is missing in the uploaded ZIP file")
-
-#         with open(workspace_data_path, "r") as wf:
-#             workspace_data = json.load(wf)
-
-#         # Extract data from workspace_data.json
-#         workspace_id = workspace_data.get("workspace_id", str(uuid4()))
-#         workspace_name = workspace_data.get("name")
-#         workspace_description = workspace_data.get("description")
-#         dataset_id = workspace_data.get("dataset_id")
-#         mode_input = workspace_data.get("mode_input")
-#         subreddit = workspace_data.get("subreddit")
-#         selected_posts = json.dumps(workspace_data.get("selected_posts", []))
-#         main_code = workspace_data.get("main_code")
-#         additional_info = workspace_data.get("additional_info")
-#         basis_files = json.dumps(workspace_data.get("basis_files", []))
-#         themes = json.dumps(workspace_data.get("themes", []))
-#         selected_themes = json.dumps(workspace_data.get("selected_themes", []))
-#         codebook = json.dumps(workspace_data.get("codebook", []))
-#         references_data = json.dumps(workspace_data.get("references", []))
-#         code_responses = json.dumps(workspace_data.get("code_responses", []))
-#         final_code_responses = json.dumps(workspace_data.get("final_code_responses", []))
-
-
-
-
-#         print("Data: ",workspace_id,
-#         user_email,
-#         dataset_id,
-#         mode_input,
-#         subreddit,
-#         selected_posts,
-#         main_code,
-#         additional_info,
-#         basis_files,
-#         themes,
-#         selected_themes,
-#         codebook,
-#         references_data,
-#         code_responses,
-#         final_code_responses)
-
-#         # Locate JSONL file and import if present
-#         jsonl_file = next((os.path.join(extracted_dir, f) for f in os.listdir(extracted_dir) if f.endswith(".jsonl")), None)
-#         if jsonl_file:
-#             collection_name = os.path.basename(jsonl_file).split(".jsonl")[0].replace("-", "_")
-#             model_name = f"{uuid4()}_model".replace("-", "_")
-#             print(f"Found JSONL file: {jsonl_file}, Collection: {collection_name}, Model: {model_name}")
-
-#         # Process basis files (PDFs matching dataset ID)
-#         basis_pdfs = [
-#             os.path.join(extracted_dir, f)
-#             for f in os.listdir(extracted_dir)
-#             if dataset_id.replace("-", "_") in f and f.endswith(".pdf")
-#         ]
-#         print(f"Imported basis files: {basis_pdfs}")
-
-#         # Clean up temporary files
-#         shutil.rmtree(temp_dir)
-#         print(f"Cleaned up temporary directory: {temp_dir}")
-
-#         # Return the new workspace details
-#         return {
-#             "success": True,
-#             "message": "Workspace imported successfully",
-#             "workspace": {
-#                 "id": workspace_id,
-#                 "name": workspace_name,
-#                 "description": workspace_description,
-#             }
-#         }
-
-#     except Exception as e:
-#         # Clean up on failure
-#         if os.path.exists(temp_dir):
-#             shutil.rmtree(temp_dir)
-#         print(f"Error importing workspace: {e}")
-#         raise HTTPException(status_code=500, detail=f"Error importing workspace: {str(e)}")

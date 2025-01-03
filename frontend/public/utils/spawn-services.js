@@ -60,14 +60,26 @@ const spawnService = async (config, mainWindow) => {
             if (code === 0) {
                 resolve();
             } else {
-                reject(new Error(`${config.name} exited with code ${code}`));
+                if (config.name === 'backend' && code !== 0) {
+                    console.log(
+                        `The ${config.name} service may have failed due to port issues. Please check.`
+                    );
+                    resolve(); // Resolve without rejecting
+                } else {
+                    reject(new Error(`${config.name} exited with code ${code}`));
+                }
             }
         });
 
         service.on('error', (err) => {
             console.error(`${config.name} encountered an error:`, err);
             mainWindow.webContents.send('service-stopped', config.name);
-            reject(err);
+            if (config.name === 'backend' && err.message.includes('Address already in use')) {
+                console.log(`The ${config.name} service failed to start due to port conflict.`);
+                resolve(); // Graceful resolution
+            } else {
+                reject(err);
+            }
         });
 
         service.on('disconnect', (code) => {

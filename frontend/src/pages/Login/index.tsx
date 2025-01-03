@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth_context';
 import { useLogger } from '../../context/logging_context';
-import { ROUTES as DATA_COLLECTION_ROUTES } from '../../constants/DataCollection/shared';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -13,9 +12,11 @@ const LoginPage = () => {
     const { login, remoteProcessing, setProcessing } = useAuth();
 
     const handleGoogleLogin = async () => {
+        console.log('Started onclick');
         // Trigger Electron's main process for OAuth
         try {
             await logger.info('Attempting Google OAuth Login');
+            console.log('Attempting Google OAuth Login');
             const { token, user } = await ipcRenderer.invoke('google-oauth-login');
             console.log('Google OAuth Token:', token);
             await logger.info('Google OAuth Login Successful', { user });

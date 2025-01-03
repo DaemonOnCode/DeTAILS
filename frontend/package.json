@@ -2,6 +2,7 @@
     "name": "llm",
     "description": "CTA Toolkit",
     "devDependencies": {
+        "@types/d3": "^7.4.3",
         "@types/node": "^22.9.0",
         "@types/react": "^18.3.12",
         "@types/react-dom": "^18.3.1",
@@ -32,6 +33,7 @@
         "chromadb-default-embed": "^2.13.2",
         "chrome-launcher": "^1.1.2",
         "core-js": "^3.39.0",
+        "d3": "^7.9.0",
         "electron-is-dev": "^3.0.1",
         "electron-reloader": "^1.2.3",
         "electron-updater": "^6.3.9",

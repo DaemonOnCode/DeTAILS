@@ -1,3 +1,4 @@
 export enum ROUTES {
-    HOME = 'home'
+    HOME = 'home',
+    MODELS = 'models'
 }

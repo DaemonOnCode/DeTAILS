@@ -7,12 +7,14 @@ import { useWorkspaceContext } from '../../context/workspace_context';
 import { toast } from 'react-toastify';
 import useServerUtils from './get_server_url';
 import { useWebSocket } from '../../context/websocket_context';
+import { useModelingContext } from '../../context/modeling_context';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
     const { currentWorkspace } = useWorkspaceContext();
     const collectionContext = useCollectionContext();
     const codingContext = useCodingContext();
+    const modelingContext = useModelingContext();
     const { serviceStarting } = useWebSocket();
 
     const { getServerUrl } = useServerUtils();
@@ -44,6 +46,7 @@ const useWorkspaceUtils = () => {
                 subreddit: collectionContext.subreddit || '',
                 selected_posts: collectionContext.selectedPosts || []
             },
+            modeling_context: {},
             coding_context: {
                 main_code: codingContext.mainCode || '',
                 additional_info: codingContext.additionalInfo || '',
@@ -87,6 +90,10 @@ const useWorkspaceUtils = () => {
             modeInput: data.mode_input ?? '',
             subreddit: data.subreddit ?? '',
             selectedPosts: data.selected_posts ?? []
+        });
+
+        modelingContext.updateContext({
+            models: data.models ?? []
         });
 
         codingContext.updateContext({

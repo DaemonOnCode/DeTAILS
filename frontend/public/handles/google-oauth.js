@@ -8,6 +8,7 @@ const { createMenu } = require('../utils/menu');
 
 const googleOAuthHandler = () => {
     ipcMain.handle('google-oauth-login', async () => {
+        console.log('Google OAuth Login');
         const googleOAuth = new ElectronGoogleOAuth2(
             clientData['installed']['client_id'],
             clientData['installed']['client_secret'],
@@ -18,6 +19,7 @@ const googleOAuthHandler = () => {
         );
 
         try {
+            console.log('Starting Google OAuth');
             await logger.info('Starting Google OAuth');
             const token = await googleOAuth.openAuthWindowAndGetTokens();
 
@@ -26,6 +28,7 @@ const googleOAuthHandler = () => {
                     Authorization: `Bearer ${token.access_token}`
                 }
             });
+            console.log('Google OAuth Response:', response);
 
             const userInfo = await response.json(); // Contains user information including email
             console.log('User Info:', userInfo);

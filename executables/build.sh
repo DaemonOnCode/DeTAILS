@@ -13,7 +13,7 @@ fi
 echo "Entering the backend"
 cd ./data-modeling-server
 echo "Setting environment"
-source ./env/bin/activate
+source ./.venv/bin/activate
 echo "Building the backend"
 pyinstaller main.spec
 echo "Copying the built backend"
