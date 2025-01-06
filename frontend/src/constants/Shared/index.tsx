@@ -128,7 +128,8 @@ export enum REMOTE_SERVER_ROUTES {
 
     GET_MODEL_METADATA = 'data-modeling/metadata',
     GET_MODEL_SAMPLES = 'data-modeling/samples',
-    ADD_MODEL = 'data-modeling/model'
+    ADD_MODEL = 'data-modeling/model',
+    LIST_MODELS = 'data-modeling/list-models'
 }
 
 export const USE_NEW_FLOW = true;

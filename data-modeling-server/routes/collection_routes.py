@@ -83,21 +83,23 @@ def initialize_database():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS tokenized_posts (
                 dataset_id TEXT NOT NULL,
-                post_id TEXT PRIMARY KEY,
+                post_id TEXT NOT NULL,
                 title TEXT,
                 selftext TEXT,
-                FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE
-                FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+                PRIMARY KEY (dataset_id, post_id), -- Composite primary key
+                FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+                FOREIGN KEY (dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
             );
         """)
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS tokenized_comments (
                 dataset_id TEXT NOT NULL,
-                comment_id TEXT PRIMARY KEY,
+                comment_id TEXT NOT NULL,
                 body TEXT,
-                FOREIGN KEY(comment_id) REFERENCES comments(id) ON DELETE CASCADE
-                FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+                PRIMARY KEY (dataset_id, comment_id), -- Composite primary key
+                FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+                FOREIGN KEY (dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
             );
         """)
 

@@ -20,17 +20,17 @@ export const AuthProvider: FC<ILayout> = ({ children }) => {
     const logger = useLogger();
 
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-        return JSON.parse(sessionStorage.getItem('isAuthenticated') || 'false');
+        return JSON.parse(localStorage.getItem('isAuthenticated') || 'false');
     });
     const [user, setUser] = useState<User | null>(() => {
-        return JSON.parse(sessionStorage.getItem('user') || 'null');
+        return JSON.parse(localStorage.getItem('user') || 'null');
     });
     const [token, setToken] = useState<Token | null>(() => {
-        return JSON.parse(sessionStorage.getItem('token') || 'null');
+        return JSON.parse(localStorage.getItem('token') || 'null');
     });
 
     const [remoteProcessing, setRemoteProcessing] = useState<boolean>(
-        JSON.parse(sessionStorage.getItem('remoteProcessing') || 'false')
+        JSON.parse(localStorage.getItem('remoteProcessing') || 'false')
     );
 
     useEffect(() => {
@@ -39,10 +39,10 @@ export const AuthProvider: FC<ILayout> = ({ children }) => {
         }
     }, []);
 
-    // Persist authentication state to sessionStorage
+    // Persist authentication state to localStorage
     useEffect(() => {
-        sessionStorage.setItem('isAuthenticated', JSON.stringify(isAuthenticated));
-        sessionStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('isAuthenticated', JSON.stringify(isAuthenticated));
+        localStorage.setItem('user', JSON.stringify(user));
     }, [isAuthenticated, user]);
 
     const login = (user: User, token: Token) => {
@@ -56,14 +56,14 @@ export const AuthProvider: FC<ILayout> = ({ children }) => {
     const logout = () => {
         setIsAuthenticated(false);
         setUser(null);
-        sessionStorage.removeItem('isAuthenticated');
-        sessionStorage.removeItem('user');
+        localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('user');
         logger.setUserEmail('');
     };
 
     const setProcessing = async (processing: boolean) => {
         setRemoteProcessing(processing);
-        sessionStorage.setItem('remoteProcessing', JSON.stringify(processing));
+        localStorage.setItem('remoteProcessing', JSON.stringify(processing));
         await logger.info(`Processing mode switched to: ${processing ? 'Remote' : 'Local'}`);
         await ipcRenderer.invoke('set-processing-mode', processing);
     };

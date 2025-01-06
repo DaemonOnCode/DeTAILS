@@ -4,7 +4,7 @@ import { ROUTES } from '../../constants/Shared';
 
 const HomePage = () => {
     const { user } = useAuth();
-    if (user) return <Navigate to={ROUTES.DATA_COLLECTION} />;
+    if (user) return <Navigate to={ROUTES.WORKSPACE} />;
     else return <Navigate to={ROUTES.LOGIN} />;
 };
 

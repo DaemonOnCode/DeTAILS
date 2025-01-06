@@ -113,7 +113,7 @@ def save_state(request: SaveStateRequest):
 
         collection_context = CollectionContext(**request.collection_context)
         coding_context = CodingContext(**request.coding_context)
-        modeling_context = ModelingContext(**request.coding_context)
+        modeling_context = ModelingContext(**request.modeling_context)
 
         models = json.dumps(modeling_context.models)
 

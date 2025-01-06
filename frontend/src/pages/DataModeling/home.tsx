@@ -49,7 +49,7 @@ const HomePage = () => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                // workspace_id: currentWorkspace?.id,
+                workspace_id: currentWorkspace?.id,
                 dataset_id: datasetId
             })
         });
@@ -62,10 +62,8 @@ const HomePage = () => {
         } = await res.json();
 
         console.log(data, 'Model Data');
-        addModel(data.id, data.model_name, modelType); // Add the model to the context
-        setActiveModelId(data.id); // Set it as the active model
-
-        navigate(`/${SHARED_ROUTES.DATA_MODELING}/${ROUTES.MODELS}`);
+        // addModel(data.id, data.model_name, modelType); // Add the model to the context
+        // setActiveModelId(data.id); // Set it as the active model
     };
 
     return (

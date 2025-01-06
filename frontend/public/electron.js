@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog, session } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { createMainWindow } = require('./utils/createMainWindow');
 const AutoLaunch = require('auto-launch');
@@ -77,9 +77,9 @@ app.whenReady().then(async () => {
     });
 
     // Handle app activation (specific to macOS)
-    app.on('activate', () => {
+    app.on('activate', async () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-            config.mainWindow = createMainWindow();
+            config.mainWindow = await createMainWindow();
         }
     });
 
@@ -116,13 +116,23 @@ app.whenReady().then(async () => {
         autoUpdater.quitAndInstall();
     });
 
+    app.on('before-quit', async () => {
+        const ses = session.defaultSession;
+        try {
+            await ses.clearStorageData({ storages: ['localstorage'] });
+            console.log('LocalStorage cleared via session API.');
+        } catch (err) {
+            console.error('Error clearing localStorage via session API:', err);
+        }
+    });
+
     // Register other IPC handlers
     registerIpcHandlers();
 });
 
 // Handle all windows being closed
 app.on('window-all-closed', () => {
-    // if (process.platform !== 'darwin') {
-    app.quit();
-    // }
+    if (process.platform !== 'darwin') {
+        cleanupAndExit();
+    }
 });

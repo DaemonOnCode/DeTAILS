@@ -17,7 +17,9 @@ from bertopic.vectorizers import ClassTfidfTransformer
 import pandas as pd
 
 # LDA
-def lda_topic_modeling(documents, num_topics):
+def lda_topic_modeling(num_topics):
+    documents = []
+    return []
     config = {
         "workers": psutil.cpu_count(logical=False),
         num_topics: num_topics,
@@ -54,7 +56,9 @@ def lda_topic_modeling(documents, num_topics):
     pass
 
 # Biterm
-def biterm_topic_modeling(documents, num_topics):
+def biterm_topic_modeling(num_topics):
+    documents = []
+    return []
     config = {
         "iterations": 50,
         verbose: False,
@@ -85,7 +89,9 @@ def biterm_topic_modeling(documents, num_topics):
     return topic_words
 
 # NNMF
-def nnmf_topic_modeling(documents, num_topics):
+def nnmf_topic_modeling(num_topics):
+    documents = []
+    return []
     vectorizer = TfidfVectorizer(stop_words='english')
     X = vectorizer.fit_transform(documents)
     nmf_model = NMF(n_components=num_topics, random_state=42)
@@ -98,7 +104,9 @@ def nnmf_topic_modeling(documents, num_topics):
     return topics
 
 # BERTopic
-def bertopic_modeling(documents, num_topics):
+def bertopic_modeling(num_topics):
+    documents = []
+    return []
     model = SentenceTransformer("all-MiniLM-L6-v2")
     embedding_model = model.encode(documents, show_progress_bar=False)
 
@@ -143,7 +151,9 @@ def bertopic_modeling(documents, num_topics):
     return topics
 
 # LLM
-def llm_topic_modeling(documents, num_topics):
+def llm_topic_modeling(num_topics):
+    documents = []
+    return []
     
     # Data preprocessing / tokenization
     # Text embedding generation

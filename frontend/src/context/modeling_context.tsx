@@ -1,6 +1,13 @@
 import { createContext, useState, FC, useCallback, useEffect, useContext } from 'react';
 import { useMemo } from 'react';
 import { ILayout, SetState } from '../types/Coding/shared';
+import { useWebSocket } from './websocket_context';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useCollectionContext } from './collection_context';
+import { useWorkspaceContext } from './workspace_context';
+import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../constants/Shared';
+import { ROUTES } from '../constants/DataModeling/shared';
+import useServerUtils from '../hooks/Shared/get_server_url';
 
 // Define the interface for each model's state
 interface IModelState {
@@ -8,6 +15,9 @@ interface IModelState {
     name: string;
     type: 'lda' | 'nmf' | 'bertopic' | 'biterm';
     isProcessing: boolean;
+    numTopics: number;
+    state?: 'known' | 'unknown';
+    stage: string | null;
 }
 
 // Define the interface for the ModelingContext
@@ -19,10 +29,12 @@ interface IModelingContext {
     toggleProcessing: (id: string) => void;
     activeModelId: string | null;
     setActiveModelId: (id: string) => void;
-    resetModelingContext: () => void;
     addNewModel: boolean;
     setAddNewModel: SetState<boolean>;
     updateContext: (updates: Partial<IModelingContext>) => void;
+    resetContext: () => void;
+    startListening: () => void;
+    stopListening: () => void;
 }
 
 // Create the context
@@ -34,18 +46,27 @@ export const ModelingContext = createContext<IModelingContext>({
     toggleProcessing: () => {},
     activeModelId: null,
     setActiveModelId: () => {},
-    resetModelingContext: () => {},
     addNewModel: false,
     setAddNewModel: () => {},
-    updateContext: () => {}
+    updateContext: () => {},
+    resetContext: () => {},
+    startListening: () => {},
+    stopListening: () => {}
 });
 
 // Create a provider component
 export const ModelingProvider: FC<ILayout> = ({ children }) => {
+    const { registerCallback, unregisterCallback } = useWebSocket();
+    const location = useLocation();
+    const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
+    const { getServerUrl } = useServerUtils();
+    const navigate = useNavigate();
+
     const [models, setModels] = useState<IModelState[]>([
-        { id: '1', name: 'Model 1', isProcessing: false, type: 'lda' },
-        { id: '2', name: 'Model 2', isProcessing: true, type: 'nmf' },
-        { id: '3', name: 'Model 3', isProcessing: false, type: 'bertopic' }
+        // { id: '1', name: 'Model 1', isProcessing: false, type: 'lda' },
+        // { id: '2', name: 'Model 2', isProcessing: true, type: 'nmf' },
+        // { id: '3', name: 'Model 3', isProcessing: false, type: 'bertopic' }
     ]);
     const [activeModelId, setActiveModelId] = useState<string | null>(null);
     const [addNewModel, setAddNewModel] = useState<boolean>(false);
@@ -56,7 +77,7 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
             // if (prevModels.some((model) => model.name === modelName)) return prevModels;
             return [
                 ...prevModels,
-                { id, name: modelName, isProcessing: false, type } as IModelState
+                { id, name: modelName, isProcessing: false, type, state: 'known' } as IModelState
             ];
         });
     }, []);
@@ -64,8 +85,19 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
     // Remove a model from the list
     const removeModel = useCallback(
         (id: string) => {
-            setModels((prevModels) => prevModels.filter((model) => model.id !== id));
-            if (activeModelId === id) setActiveModelId(null); // Reset active model if removed
+            console.log('Removing model:', id);
+            setModels((prevModels) => {
+                let newModels: IModelState[] = [];
+                newModels = prevModels.filter((model) => model.id !== id);
+                if (activeModelId === id) {
+                    if (newModels.length > 1) {
+                        setActiveModelId(newModels[0].id);
+                    } else {
+                        setActiveModelId(null);
+                    }
+                } // Reset active model if removed
+                return newModels;
+            });
         },
         [activeModelId]
     );
@@ -80,7 +112,7 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
     }, []);
 
     // Reset all modeling context state
-    const resetModelingContext = useCallback(() => {
+    const resetContext = useCallback(() => {
         setModels([]);
         setActiveModelId(null);
     }, []);
@@ -91,12 +123,206 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
         );
     };
 
+    const handleWebSocketMessage = (message: string) => {
+        console.log('message', message);
+        const data: {
+            type: string;
+            dataset_id: string;
+            model_id: string;
+            model_name: string;
+            workspace_id: string;
+            message: string;
+            num_topics: number;
+        } = JSON.parse(message);
+        console.log('data', data, typeof data);
+
+        if (data.dataset_id !== datasetId || data.workspace_id !== currentWorkspace?.id) {
+            console.log('Message not for this workspace');
+            return;
+        }
+
+        const messageArgs = data.message.split('|');
+
+        switch (messageArgs[0]) {
+            case 'starting':
+                console.log('Starting');
+                setModels((prevModels) => [
+                    ...prevModels,
+                    {
+                        id: data.model_id,
+                        isProcessing: true,
+                        name: data.model_name,
+                        type: data.type,
+                        numTopics: data.num_topics,
+                        stage: data.message
+                    } as IModelState
+                ]);
+                console.log('Models:', models);
+                setActiveModelId(data.model_id);
+                navigate(`/${SHARED_ROUTES.DATA_MODELING}/${ROUTES.MODELS}`);
+                break;
+            case 'preprocessing':
+                console.log('preprocessing');
+                setModels((prevModels) =>
+                    prevModels.map((m) =>
+                        m.id === data.model_id ? { ...m, stage: data.message } : m
+                    )
+                );
+                break;
+            case 'preprocessed':
+                console.log('preprocessed');
+                setModels((prevModels) =>
+                    prevModels.map((m) =>
+                        m.id === data.model_id ? { ...m, stage: 'preprocessed' } : m
+                    )
+                );
+                break;
+            case 'modeling':
+                console.log('modeling');
+                setModels((prevModels) =>
+                    prevModels.map((m) =>
+                        m.id === data.model_id ? { ...m, stage: 'modeling' } : m
+                    )
+                );
+                break;
+            case 'modeled':
+                console.log('modeled');
+                setModels((prevModels) =>
+                    prevModels.map((m) => (m.id === data.model_id ? { ...m, stage: 'modeled' } : m))
+                );
+                break;
+            case 'end':
+                console.log('end');
+                setModels((prevModels) =>
+                    prevModels.map((m) =>
+                        m.id === data.model_id ? { ...m, isProcessing: false, stage: null } : m
+                    )
+                );
+                break;
+            default:
+                console.log('Default');
+                break;
+        }
+    };
+
+    const startListening = async () => {
+        const unknownModels = models.filter((model) => model.state !== 'known');
+
+        if (unknownModels.length !== 0) {
+            const result = await Promise.all(
+                unknownModels.map((model) => {
+                    return fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_MODEL_METADATA), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model_id: model.id,
+                            dataset_id: datasetId || '',
+                            workspace_id: currentWorkspace?.id || ''
+                        })
+                    });
+                })
+            );
+            console.log('Result:', result);
+            const data = await Promise.all(result.map((res) => res.json()));
+            console.log('Data:', data);
+            setModels((prevModels) => {
+                return prevModels.map((model) => {
+                    const modelData = data.find((d) => d.id === model.id);
+                    console.log('Model Data:', modelData);
+                    if (modelData) {
+                        return {
+                            id: model.id,
+                            state: 'known',
+                            isProcessing: modelData.end_time === null,
+                            name: modelData.model_name,
+                            type: modelData.type,
+                            numTopics: modelData.num_topics,
+                            stage: modelData.stage || null
+                        };
+                    }
+                    return model;
+                });
+            });
+        }
+        registerCallback('model-loader', handleWebSocketMessage);
+    };
+
+    const stopListening = () => {
+        unregisterCallback('model-loader');
+        models.forEach((model) => {
+            if (!model.isProcessing) {
+                return;
+            }
+            setModels((prevModels) =>
+                prevModels.map((m) => (m.id === model.id ? { ...m, state: 'unknown' } : m))
+            );
+        });
+    };
+
+    useEffect(() => {
+        // Check if the path is '/modeling' or starts with '/modeling/'
+        console.log('Location:', location.pathname);
+        if (location.pathname.startsWith(`/${SHARED_ROUTES.DATA_MODELING}`)) {
+            console.log('Listening for model updates');
+            startListening();
+            return () => {
+                console.log('Stopped listening for model updates');
+                stopListening();
+            };
+        }
+    }, [location.pathname]);
+
     useEffect(() => {
         console.log('Modeling Context updated:', { models, activeModelId });
         if (models.length > 0 && !activeModelId) {
             setActiveModelId(models[0].id);
         }
     }, [models, activeModelId]);
+
+    useEffect(() => {
+        console.log('Current workspace:', currentWorkspace, datasetId);
+        if (!currentWorkspace || !datasetId) return;
+        console.log('Fetching models for dataset:', datasetId);
+        fetch(getServerUrl(REMOTE_SERVER_ROUTES.LIST_MODELS), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                workspace_id: currentWorkspace.id,
+                dataset_id: datasetId
+            })
+        }).then(async (res) => {
+            const data: {
+                dataset_id: string;
+                finished_at: string;
+                id: string;
+                method: string;
+                model_name: string;
+                num_topics: number;
+                started_at: string;
+                topics: string[];
+                stage: string;
+            }[] = await res.json();
+            console.log('Data:', data);
+            setModels(
+                data.map(
+                    (model) =>
+                        ({
+                            id: model.id,
+                            isProcessing: model.finished_at === null,
+                            name: model.model_name,
+                            numTopics: model.num_topics,
+                            type: model.method,
+                            state: 'known',
+                            stage: model.stage || null
+                        }) as IModelState
+                )
+            );
+        });
+    }, [datasetId, currentWorkspace]);
 
     const updateContext = (updates: Partial<IModelingContext>) => {
         setModels(updates.models ?? []);
@@ -111,10 +337,12 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
             toggleProcessing,
             activeModelId,
             setActiveModelId,
-            resetModelingContext,
+            resetContext,
             addNewModel,
             setAddNewModel,
-            updateContext
+            updateContext,
+            startListening,
+            stopListening
         }),
         [models, activeModelId, addNewModel]
     );

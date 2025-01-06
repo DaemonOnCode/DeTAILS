@@ -49,7 +49,7 @@ const ThemeLoaderPage = () => {
             unregisterCallback('theme-loader');
             logger.info('Unloaded Theme Loader Page');
         };
-    }, [logger]);
+    }, []);
 
     useEffect(() => {
         if (stage === 'Uploading files') {

@@ -35,7 +35,8 @@ const useWorkspaceUtils = () => {
         currentWorkspace: any,
         user: any,
         collectionContext: any,
-        codingContext: any
+        codingContext: any,
+        modelingContext: any
     ) => {
         return {
             workspace_id: currentWorkspace?.id || '',
@@ -46,7 +47,9 @@ const useWorkspaceUtils = () => {
                 subreddit: collectionContext.subreddit || '',
                 selected_posts: collectionContext.selectedPosts || []
             },
-            modeling_context: {},
+            modeling_context: {
+                models: modelingContext.models || []
+            },
             coding_context: {
                 main_code: codingContext.mainCode || '',
                 additional_info: codingContext.additionalInfo || '',
@@ -65,16 +68,34 @@ const useWorkspaceUtils = () => {
         currentWorkspace,
         user,
         collectionContext,
-        codingContext
+        codingContext,
+        modelingContext
     });
 
     useEffect(() => {
-        contextRef.current = { currentWorkspace, user, collectionContext, codingContext };
+        contextRef.current = {
+            currentWorkspace,
+            user,
+            collectionContext,
+            codingContext,
+            modelingContext
+        };
     }, [currentWorkspace, user, collectionContext, codingContext]);
 
     const getWorkspaceData = () => {
-        const { currentWorkspace, user, collectionContext, codingContext } = contextRef.current;
-        return getPayload(currentWorkspace, user, collectionContext, codingContext);
+        const { currentWorkspace, user, collectionContext, codingContext, modelingContext } =
+            contextRef.current;
+        return getPayload(
+            currentWorkspace,
+            user,
+            collectionContext,
+            codingContext,
+            modelingContext
+        );
+    };
+
+    const resetContextData = (...contexts: any[]) => {
+        contexts.forEach((context) => context.resetContext());
     };
 
     const updateContextData = (data: Record<string, any>) => {
@@ -82,6 +103,7 @@ const useWorkspaceUtils = () => {
         if (!data) {
             collectionContext.resetContext();
             codingContext.resetContext();
+            modelingContext.resetContext();
             return;
         }
 
@@ -92,9 +114,9 @@ const useWorkspaceUtils = () => {
             selectedPosts: data.selected_posts ?? []
         });
 
-        modelingContext.updateContext({
-            models: data.models ?? []
-        });
+        // modelingContext.updateContext({
+        //     models: data.models ?? []
+        // });
 
         codingContext.updateContext({
             mainCode: data.main_code ?? '',
@@ -127,15 +149,13 @@ const useWorkspaceUtils = () => {
                 toast.success('Workspace data loaded successfully');
                 console.log('Workspace data loaded successfully');
             } else {
-                codingContext.resetContext();
-                collectionContext.resetContext();
+                resetContextData(collectionContext, codingContext, modelingContext);
                 toast.error('Error loading workspace data');
                 console.error('Error in loadWorkspaceData:', parsedResults.message);
             }
             console.log('Loading workspace data:', parsedResults.data);
         } catch (error) {
-            codingContext.resetContext();
-            collectionContext.resetContext();
+            resetContextData(collectionContext, codingContext, modelingContext);
             // toast.error('Error loading workspace data');
             console.error('Error in loadWorkspaceData:', error);
         }

@@ -5,7 +5,10 @@ import { useModelingContext } from '../../context/modeling_context';
 const RightPanel = () => {
     const [plotType, setPlotType] = useState('chord');
     const { models, activeModelId } = useModelingContext();
-    const currentModel = models.find((model) => model.id === activeModelId)!;
+    const currentModel = models.find((model) => model.id === activeModelId);
+    console.log('Current Model:', currentModel);
+
+    if (!currentModel) return <></>;
 
     // Determine plot types based on model type
     const plotTypes = currentModel.type === 'bertopic' ? ['chord', 'hierarchy'] : ['chord'];

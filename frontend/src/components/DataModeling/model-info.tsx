@@ -16,6 +16,7 @@ const ModelInfo = () => {
         createdOn: string;
         numTopics: number;
         numPasses: number;
+        isProcessing: boolean;
     } | null>(null);
 
     const { currentWorkspace } = useWorkspaceContext();
@@ -36,8 +37,24 @@ const ModelInfo = () => {
                 signal
             });
 
-            const data = await res.json();
-            setMetadata(data);
+            const data: {
+                id: string;
+                dataset_id: string;
+                model_name: string;
+                type: string;
+                topics: string[];
+                start_time: string;
+                end_time: string;
+                num_topics: number;
+            } = await res.json();
+            console.log(data, res.ok);
+            setMetadata({
+                type: data.type,
+                createdOn: data.start_time,
+                numTopics: data.num_topics,
+                numPasses: 100,
+                isProcessing: data.end_time === null
+            });
         } catch (e) {
             console.log(e);
         }
@@ -56,7 +73,7 @@ const ModelInfo = () => {
         <div className="p-4 border-b">
             <h2 className="text-xl font-semibold">Model Info</h2>
             <p>
-                <strong>Model type:</strong> {currentModel.type.toUpperCase()}
+                <strong>Model type:</strong> {metadata.type.toUpperCase()}
             </p>
             <p>
                 <strong>Processing:</strong> {currentModel.isProcessing ? 'Yes' : 'No'}

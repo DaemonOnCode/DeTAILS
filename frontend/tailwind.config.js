@@ -2,6 +2,12 @@
 module.exports = {
     content: ['./src/**/*.{js,jsx,ts,tsx}', './public/index.html'],
     darkMode: 'media',
+    plugins: [require('tailwind-scrollbar')],
+    variants: {
+        extend: {
+            scrollbar: ['group-hover'] // Enable group-hover for scrollbar styles
+        }
+    },
     theme: {
         extend: {
             keyframes: {
