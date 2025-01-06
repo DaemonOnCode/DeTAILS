@@ -1,4 +1,5 @@
 from logging import config
+import sqlite3
 from tabnanny import verbose
 from regex import B
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -16,10 +17,19 @@ from umap import UMAP
 from bertopic.vectorizers import ClassTfidfTransformer
 import pandas as pd
 
+from constants import DATABASE_PATH
+
+
+
+def convert_post_to_document(post):
+    return post["title"] + " " + post["selftext"]
+
 # LDA
-def lda_topic_modeling(num_topics):
-    documents = []
-    return []
+def lda_topic_modeling(dataset_id, num_topics):
+    # documents = []
+    # return []
+
+
     config = {
         "workers": psutil.cpu_count(logical=False),
         num_topics: num_topics,

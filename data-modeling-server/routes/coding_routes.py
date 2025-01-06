@@ -405,30 +405,6 @@ async def run_blocking_function_with_disconnection(
         print(f"Error in run_blocking_function_with_disconnection: {e}")
         raise
 
-
-
-def initialize_database():
-    with sqlite3.connect(DATABASE_PATH) as conn:
-        cursor = conn.cursor()
-        # Create datasets table
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS llm_responses (
-            id TEXT PRIMARY KEY,
-            dataset_id TEXT NOT NULL,
-            model TEXT NOT NULL,
-            post_id TEXT NOT NULL,
-            response TEXT NOT NULL,
-            function_id TEXT NOT NULL,
-            additional_info TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (dataset_id) REFERENCES datasets (id),
-            FOREIGN KEY (post_id) REFERENCES posts (id)
-        )
-        """)
-        conn.commit()
-
-initialize_database()
-
 def run_query(query: str, params: tuple = ()) -> list:
     """
     Run a SQLite query and return the result.

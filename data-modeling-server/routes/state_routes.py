@@ -15,79 +15,12 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from constants import DATABASE_PATH
+from controllers.state_controller import delete_state, load_state, save_state
+from models.state_models import CodingContext, CollectionContext, LoadStateRequest, ModelingContext, SaveStateRequest
 from utils.chroma_export import chroma_export_cli, chroma_import
 
 
 router = APIRouter()
-
-class SaveStateRequest(BaseModel):
-    workspace_id: str
-    user_email: str
-    dataset_id: str
-    coding_context: Dict[str, Any]
-    collection_context: Dict[str, Any]
-    modeling_context: Dict[str, Any]
-
-class LoadStateRequest(BaseModel):
-    workspace_id: str
-    user_email: str
-
-
-class CollectionContext(BaseModel):
-    mode_input: str = ""
-    subreddit: str = ""
-    selected_posts: list = []
-
-class ModelingContext(BaseModel):
-    models: list = []
-
-class CodingContext(BaseModel):
-    main_code: str = ""
-    additional_info: str = ""
-    basis_files: dict = {}
-    themes: list = []
-    selected_themes: list = []
-    codebook: list = []
-    references: dict = {}
-    code_responses: list = []
-    final_code_responses: list = []
-
-def initialize_database():
-    with sqlite3.connect(DATABASE_PATH) as conn:
-        cursor = conn.cursor()
-
-        # Create workspaces table with user_email
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS workspace_states (
-            user_email TEXT NOT NULL,
-                       
-            workspace_id TEXT NOT NULL,
-                       
-            dataset_id TEXT,
-            mode_input TEXT,
-            subreddit TEXT,
-            selected_posts TEXT,
-
-            models TEXT,           
-            
-            main_code TEXT,
-            additional_info TEXT,
-            basis_files TEXT,
-            themes TEXT,
-            selected_themes TEXT,
-            codebook TEXT,
-            references_data TEXT,
-            code_responses TEXT,
-            final_code_responses TEXT,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (workspace_id, user_email)
-        )
-        """)
-        conn.commit()
-
-
-initialize_database()
-
 
 # Helper function
 def run_query(query: str, params: tuple = ()):
@@ -104,89 +37,11 @@ def run_query_with_columns(query: str, params: tuple = ()) -> List[dict]:
         return [dict(row) for row in cursor.fetchall()]
 
 @router.post("/save-state")
-def save_state(request: SaveStateRequest):
+def save_state_endpoint(request: SaveStateRequest):
     if request.workspace_id is None or request.workspace_id == "":
         raise HTTPException(status_code=400, detail="workspace_id is required")
     try:
-        # Prepare JSON objects for insertion
-        # print("Saving state...", request)
-
-        collection_context = CollectionContext(**request.collection_context)
-        coding_context = CodingContext(**request.coding_context)
-        modeling_context = ModelingContext(**request.modeling_context)
-
-        models = json.dumps(modeling_context.models)
-
-        selected_posts = json.dumps(collection_context.selected_posts)
-        basis_files = json.dumps(coding_context.basis_files)
-        themes = json.dumps(coding_context.themes)
-        selected_themes = json.dumps(coding_context.selected_themes)
-        references_data = json.dumps(coding_context.references)
-        codebook = json.dumps(coding_context.codebook)
-        code_responses = json.dumps(coding_context.code_responses)
-        final_code_responses = json.dumps(coding_context.final_code_responses)
-
-        # print("Saving state...", request.workspace_id,
-        #         request.user_email,
-        #         request.dataset_id,
-        #         collection_context.mode_input,
-        #         collection_context.subreddit,
-        #         selected_posts,
-        #         coding_context.main_code,
-        #         coding_context.additional_info,
-        #         basis_files,
-        #         themes,
-        #         selected_themes,
-        #         codebook,
-        #         references_data,
-        #         code_responses,
-        #         final_code_responses)
-        # Insert or update the user context based on workspace_id, user_email, and dataset_id
-        run_query(
-            """
-            INSERT INTO workspace_states (
-                workspace_id, user_email, dataset_id, mode_input, subreddit, selected_posts, models, main_code, 
-                additional_info, basis_files, themes, selected_themes, 
-                codebook, references_data, code_responses, final_code_responses, 
-                updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(workspace_id, user_email) DO UPDATE SET
-                dataset_id = excluded.dataset_id,
-                mode_input = excluded.mode_input,
-                subreddit = excluded.subreddit,
-                models = excluded.models,
-                main_code = excluded.main_code,
-                additional_info = excluded.additional_info,
-                selected_posts = excluded.selected_posts,
-                basis_files = excluded.basis_files,
-                themes = excluded.themes,
-                selected_themes = excluded.selected_themes,
-                codebook = excluded.codebook,
-                references_data = excluded.references_data,
-                code_responses = excluded.code_responses,
-                final_code_responses = excluded.final_code_responses,
-                updated_at = CURRENT_TIMESTAMP
-            """,
-            (
-                request.workspace_id,
-                request.user_email,
-                request.dataset_id,
-                collection_context.mode_input,
-                collection_context.subreddit,
-                selected_posts,
-                models,
-                coding_context.main_code,
-                coding_context.additional_info,
-                basis_files,
-                themes,
-                selected_themes,
-                codebook,
-                references_data,
-                code_responses,
-                final_code_responses,
-            ),
-        )
-
+        save_state(request)
         return {"success": True, "message": "State saved successfully"}
 
     except Exception as e:
@@ -197,47 +52,19 @@ def save_state(request: SaveStateRequest):
 
 
 @router.post("/load-state")
-def load_state(request: LoadStateRequest):
+def load_state_endpoint(request: LoadStateRequest):
     try:
-        workspace_id = request.workspace_id
-        user_email = request.user_email
-        state = run_query_with_columns(
-            """
-            SELECT * FROM workspace_states 
-            WHERE workspace_id = ? AND user_email = ?
-            """,
-            (workspace_id, user_email),
-        )
-
-        if not state:
-            return {"success": True, "data": None}
-
-        # print("Loading state...", state)
-        state = state[0]
-        state["models"] = json.loads(state["models"])
-        state["basis_files"] = json.loads(state["basis_files"])
-        state["themes"] = json.loads(state["themes"])
-        state["selected_posts"] = json.loads(state["selected_posts"])
-        state["selected_themes"] = json.loads(state["selected_themes"])
-        state["references"] = json.loads(state["references_data"])
-        del state["references_data"]
-        state["codebook"] = json.loads(state["codebook"])
-        state["code_responses"] = json.loads(state["code_responses"])
-        state["final_code_responses"] = json.loads(state["final_code_responses"])
-
-        return {"success": True, "data": state}
-
+        result = load_state(request)
+        return {"success": True, "data": result.get("state")}
     except Exception as e:
         print(f"Error loading state: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     
 
 @router.delete("/delete-state")
-def delete_state(request: LoadStateRequest):
+def delete_state_endpoint(request: LoadStateRequest):
     try:
-        workspace_id = request.workspace_id
-        user_email = request.user_email
-        run_query("DELETE FROM workspace_states WHERE workspace_id = ? AND user_email = ?", (workspace_id, user_email))
+        delete_state(request)
         return {"success": True, "message": "State deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

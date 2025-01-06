@@ -28,27 +28,6 @@ class TopicModelingRequest(BaseModel):
     workspace_id: str
     dataset_id: str
 
-def initialize_database():
-    with sqlite3.connect(DATABASE_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS models (
-                id TEXT PRIMARY KEY,
-                dataset_id TEXT,
-                model_name TEXT,
-                method TEXT,
-                topics TEXT,
-                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                finished_at TIMESTAMP,
-                num_topics INTEGER,
-                stage TEXT,
-                FOREIGN KEY (dataset_id) REFERENCES datasets(id)
-            );
-        """)
-        conn.commit()
-
-initialize_database()
-
 # # Batch Tokenization Function
 # def preprocess_tokenization_batch(nlp, data: List[str]) -> List[List[str]]:
 #     """

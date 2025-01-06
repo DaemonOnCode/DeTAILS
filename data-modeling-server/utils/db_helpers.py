@@ -1,4 +1,6 @@
+import random
 import sqlite3
+import time
 from typing import List, Dict, Any
 from constants import DATABASE_PATH
 
@@ -199,3 +201,36 @@ def get_post_with_comments(dataset_id, post_id):
         top_level_comments = [comment for comment in comments if comment["parent_id"] == post_id]
     print(post, "post check")
     return {} if not post else {**post, "comments": top_level_comments}
+
+
+def execute_query(query: str, params: tuple = (), keys = False) -> List[tuple]:
+    """Utility function to execute SQL queries."""
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        if keys:
+            conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        conn.commit()
+        if keys:
+            return [dict(row) for row in cursor.fetchall()]
+        return cursor.fetchall()
+    
+
+def execute_query_with_retry(query: str, params: tuple = (), retries: int = 5, backoff: float = 0.1):
+    for attempt in range(retries):
+        try:
+            with sqlite3.connect(DATABASE_PATH) as conn:
+                sqlite3.threadsafety = 1
+                conn.execute("BEGIN")
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                conn.commit()
+                return cursor.fetchall()
+        except sqlite3.OperationalError as e:
+            if "database is locked" in str(e).lower() and attempt < retries - 1:
+                time.sleep(backoff * (2 ** attempt) + random.uniform(0, 0.05))
+            else:
+                raise Exception(f"Database operation failed after {retries} attempts: {e}")
+        except Exception as e:
+            conn.rollback()
+            raise
