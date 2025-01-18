@@ -188,7 +188,7 @@ const ThemeCloudPage: FC = () => {
             </div>
 
             <NavigationBottomBar
-                previousPage={ROUTES.BASIS_V2}
+                previousPage={ROUTES.CONTEXT_V2}
                 nextPage={ROUTES.CODEBOOK}
                 isReady={checkIfReady}
                 onNextClick={(e) => handleNextClick(e)}

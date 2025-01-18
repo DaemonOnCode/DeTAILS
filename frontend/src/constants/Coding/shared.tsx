@@ -1,7 +1,7 @@
 export enum ROUTES {
     HOME = 'home',
     BASIS = 'basis',
-    BASIS_V2 = 'basis-v2',
+    CONTEXT_V2 = 'context-v2',
     FLASHCARDS = 'flashcards',
     THEME_CLOUD = 'theme-cloud',
     WORD_CLOUD = 'word-cloud',

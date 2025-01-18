@@ -11,7 +11,7 @@ import {
     WordCloudLoaderPage
 } from '../pages/Coding/Loader';
 import {
-    BasisV2Page,
+    ContextV2Page,
     CodeBookPage,
     CodingOverviewPage,
     CodingValidationPage,
@@ -27,7 +27,7 @@ import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
 export const CodingRouter: RouteObject[] = [
     { path: ROUTES.HOME, element: <HomePage />, index: true },
     { path: ROUTES.BASIS, element: <BasisPage /> },
-    { path: ROUTES.BASIS_V2, element: <BasisV2Page /> },
+    { path: ROUTES.CONTEXT_V2, element: <ContextV2Page /> },
     { path: ROUTES.FLASHCARDS, element: <FlashcardsPage /> },
     { path: ROUTES.THEME_CLOUD, element: <ThemeCloudPage /> },
     { path: ROUTES.WORD_CLOUD, element: <WordCloudPage /> },

@@ -16,18 +16,18 @@ const { ipcRenderer } = window.require('electron');
 
 const validExtensions = ['.pdf', '.doc', '.docx', '.txt'];
 
-const BasisPage = () => {
+const ContextPage = () => {
     const navigate = useNavigate();
     const logger = useLogger();
 
     const {
-        basisFiles,
-        addBasisFile,
+        contextFiles,
+        addContextFile,
         mainCode,
         additionalInfo,
         setAdditionalInfo,
         setMainCode,
-        removeBasisFile,
+        removeContextFile,
         addFlashcard
     } = useCodingContext();
 
@@ -38,19 +38,19 @@ const BasisPage = () => {
 
     const hasSavedRef = useRef(false);
 
-    const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
+    const checkIfReady = Object.keys(contextFiles).length > 0 && mainCode.length > 0;
 
     useEffect(() => {
         const timer = createTimer();
-        logger.info('Loaded Basis Page');
+        logger.info('Loaded Context Page');
 
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
                 hasSavedRef.current = true;
             }
-            logger.info('Unloaded Basis Page').then(() => {
-                logger.time('Basis Page stay time', { time: timer.end() });
+            logger.info('Unloaded Context Page').then(() => {
+                logger.time('Context Page stay time', { time: timer.end() });
             });
         };
     }, []);
@@ -74,7 +74,7 @@ const BasisPage = () => {
 
         // Pass the selected files to the parent or context
         filteredFiles.forEach(({ filePath, fileName }) => {
-            addBasisFile(filePath, fileName);
+            addContextFile(filePath, fileName);
         });
     };
 
@@ -87,10 +87,10 @@ const BasisPage = () => {
         // if (!USE_LOCAL_SERVER) {
         console.log('Sending request to remote server');
         const formData = new FormData();
-        Object.keys(basisFiles).forEach((filePath) => {
+        Object.keys(contextFiles).forEach((filePath) => {
             const fileContent = fs.readFileSync(filePath);
             const blob = new Blob([fileContent]);
-            formData.append('basisFiles', blob, basisFiles[filePath]);
+            formData.append('contextFiles', blob, contextFiles[filePath]);
         });
         formData.append('model', MODEL_LIST.LLAMA_3_2);
         formData.append('mainCode', mainCode);
@@ -119,7 +119,7 @@ const BasisPage = () => {
 
         // let result: string = await ipcRenderer.invoke(
         //     'add-documents-langchain',
-        //     basisFiles,
+        //     contextFiles,
         //     MODEL_LIST.LLAMA_3_2,
         //     mainCode,
         //     additionalInfo,
@@ -143,7 +143,7 @@ const BasisPage = () => {
         //     timer.reset();
         //     result = await ipcRenderer.invoke(
         //         'add-documents-langchain',
-        //         basisFiles,
+        //         contextFiles,
         //         MODEL_LIST.LLAMA_3_2,
         //         mainCode,
         //         additionalInfo,
@@ -175,9 +175,9 @@ const BasisPage = () => {
         <div className="w-full h-full flex justify-between flex-col">
             <div>
                 <section className="">
-                    {Object.keys(basisFiles).length === 0 ? (
+                    {Object.keys(contextFiles).length === 0 ? (
                         <>
-                            <h1>Select basis pdfs</h1>
+                            <h1>Select context pdfs</h1>
                             <button
                                 onClick={handleSelectFiles}
                                 className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
@@ -186,14 +186,14 @@ const BasisPage = () => {
                         </>
                     ) : (
                         <>
-                            <h1>Selected basis files</h1>
+                            <h1>Selected context files</h1>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 py-10">
-                                {Object.keys(basisFiles).map((filePath, index) => (
+                                {Object.keys(contextFiles).map((filePath, index) => (
                                     <FileCard
                                         key={index}
                                         filePath={filePath}
-                                        fileName={basisFiles[filePath]}
-                                        onRemove={removeBasisFile}
+                                        fileName={contextFiles[filePath]}
+                                        onRemove={removeContextFile}
                                     />
                                 ))}
                                 <label
@@ -238,4 +238,4 @@ const BasisPage = () => {
     );
 };
 
-export default BasisPage;
+export default ContextPage;

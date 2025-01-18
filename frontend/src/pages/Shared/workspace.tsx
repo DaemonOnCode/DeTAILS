@@ -4,11 +4,14 @@ import { FiFolder, FiFolderPlus, FiChevronDown, FiChevronRight, FiEdit2 } from '
 import { BsTrash } from 'react-icons/bs';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES as DATA_COLLECTION_ROUTES } from '../../constants/DataCollection/shared';
-import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import useServerUtils from '../../hooks/Shared/get_server_url';
+import { useAuth } from '../../context/auth_context';
 
 const WorkspacePage: React.FC = () => {
     const { workspaces, addWorkspace, deleteWorkspace, updateWorkspace, setCurrentWorkspaceById } =
         useWorkspaceContext();
+    const { user } = useAuth();
 
     const navigate = useNavigate();
 
@@ -18,6 +21,8 @@ const WorkspacePage: React.FC = () => {
     const [renameWorkspaceName, setRenameWorkspaceName] = useState('');
     const [editingDescription, setEditingDescription] = useState<string | null>(null);
     const [newDescription, setNewDescription] = useState<string>('');
+
+    const { getServerUrl } = useServerUtils();
 
     const toggleExpand = (id: string) => {
         setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -33,8 +38,31 @@ const WorkspacePage: React.FC = () => {
         setNewWorkspaceName('');
     };
 
-    const handleDeleteWorkspace = (id: string) => {
-        deleteWorkspace(id);
+    const handleDeleteWorkspace = async (id: string) => {
+        if (workspaces.length <= 1) {
+            alert('You must have at least one workspace.');
+            return;
+        }
+
+        try {
+            const res = await Promise.allSettled([
+                fetch(getServerUrl(`${REMOTE_SERVER_ROUTES.DELETE_WORKSPACE}/${id}`), {
+                    method: 'DELETE'
+                }),
+                fetch(getServerUrl(REMOTE_SERVER_ROUTES.DELETE_STATE), {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        workspace_id: id || '',
+                        user_email: user?.email || ''
+                    })
+                })
+            ]);
+            console.log('Delete workspace response:', res);
+            deleteWorkspace(id || '');
+        } catch (error) {
+            console.error('Error deleting workspace:', error);
+        }
     };
 
     const handleRenameWorkspace = (id: string) => {

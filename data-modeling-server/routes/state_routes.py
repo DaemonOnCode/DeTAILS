@@ -27,6 +27,7 @@ def run_query(query: str, params: tuple = ()):
     with sqlite3.connect(DATABASE_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute(query, params)
+        print(f"Executed query: {query}", params, cursor.lastrowid)
         conn.commit()
 
 def run_query_with_columns(query: str, params: tuple = ()) -> List[dict]:
@@ -55,7 +56,8 @@ def save_state_endpoint(request: SaveStateRequest):
 def load_state_endpoint(request: LoadStateRequest):
     try:
         result = load_state(request)
-        return {"success": True, "data": result.get("state")}
+        # print("Loaded state", result)
+        return {"success": True, "data": result.get("data")}
     except Exception as e:
         print(f"Error loading state: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -64,6 +66,7 @@ def load_state_endpoint(request: LoadStateRequest):
 @router.delete("/delete-state")
 def delete_state_endpoint(request: LoadStateRequest):
     try:
+        print("Deleting state", request.workspace_id, request.user_email)
         delete_state(request)
         return {"success": True, "message": "State deleted successfully"}
     except Exception as e:
@@ -242,6 +245,9 @@ async def import_workspace(
         code_responses = json.dumps(workspace_data.get("code_responses", []))
         final_code_responses = json.dumps(workspace_data.get("final_code_responses", []))
 
+
+
+        print(f"Importing workspace: {workspace_id}, {workspace_name}, {workspace_description}, {dataset_id}, {user_email}, {models}, {selected_posts}, {main_code}, {additional_info}, {basis_files}, {themes}, {selected_themes}, {codebook}, {references_data}, {code_responses}, {final_code_responses}")
         # Check if workspace ID and email combination exists
         existing_workspace = run_query_with_columns(
             "SELECT 1 FROM workspace_states WHERE workspace_id = ? AND user_email = ?",
@@ -311,8 +317,8 @@ async def import_workspace(
             chroma_import(collection=file_name, import_file=jsonl_file, model=model_name, embedding_function="ollama")
 
         # Clean up temporary directory
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        print(f"Cleaned up temporary directory: {temp_dir}")
+        # shutil.rmtree(temp_dir, ignore_errors=True)
+        # print(f"Cleaned up temporary directory: {temp_dir}")
 
         # Return the new workspace details
         return {

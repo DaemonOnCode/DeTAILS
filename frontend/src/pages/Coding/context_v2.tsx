@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import FileCard from '../../components/Coding/Shared/file_card';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
@@ -16,18 +16,18 @@ const { ipcRenderer } = window.require('electron');
 
 const validExtensions = ['.pdf', '.doc', '.docx', '.txt'];
 
-const BasisPage = () => {
+const ContextPage = () => {
     const navigate = useNavigate();
     const logger = useLogger();
 
     const {
-        basisFiles,
-        addBasisFile,
+        contextFiles,
+        addContextFile,
         mainCode,
         additionalInfo,
         setAdditionalInfo,
         setMainCode,
-        removeBasisFile,
+        removeContextFile,
         setThemes
     } = useCodingContext();
 
@@ -36,21 +36,43 @@ const BasisPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
 
+    const [researchQuestions, setResearchQuestions] = useState<string[]>([]);
+    const [newQuestion, setNewQuestion] = useState<string>('');
+
+    const addQuestion = () => {
+        if (newQuestion.trim() !== '') {
+            setResearchQuestions([...researchQuestions, newQuestion]);
+            setNewQuestion('');
+        }
+    };
+
+    const updateQuestion = (index: number, updatedQuestion: string) => {
+        const updatedQuestions = researchQuestions.map((question, i) =>
+            i === index ? updatedQuestion : question
+        );
+        setResearchQuestions(updatedQuestions);
+    };
+
+    const deleteQuestion = (index: number) => {
+        const updatedQuestions = researchQuestions.filter((_, i) => i !== index);
+        setResearchQuestions(updatedQuestions);
+    };
+
     const hasSavedRef = useRef(false);
 
-    const checkIfReady = Object.keys(basisFiles).length > 0 && mainCode.length > 0;
+    const checkIfReady = Object.keys(contextFiles).length > 0 && mainCode.length > 0;
 
     useEffect(() => {
         const timer = createTimer();
-        logger.info('Loaded Basis Page');
+        logger.info('Loaded Context Page');
 
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
                 hasSavedRef.current = true;
             }
-            logger.info('Unloaded Basis Page').then(() => {
-                logger.time('Basis Page stay time', { time: timer.end() });
+            logger.info('Unloaded Context Page').then(() => {
+                logger.time('Context Page stay time', { time: timer.end() });
             });
         };
     }, []);
@@ -74,7 +96,7 @@ const BasisPage = () => {
 
         // Pass the selected files to the parent or context
         filteredFiles.forEach(({ filePath, fileName }) => {
-            addBasisFile(filePath, fileName);
+            addContextFile(filePath, fileName);
         });
     };
 
@@ -87,10 +109,10 @@ const BasisPage = () => {
         // if (!USE_LOCAL_SERVER) {
         console.log('Sending request to remote server');
         const formData = new FormData();
-        Object.keys(basisFiles).forEach((filePath) => {
+        Object.keys(contextFiles).forEach((filePath) => {
             const fileContent = fs.readFileSync(filePath);
             const blob = new Blob([fileContent]);
-            formData.append('basisFiles', blob, basisFiles[filePath]);
+            formData.append('contextFiles', blob, contextFiles[filePath]);
         });
         formData.append('model', MODEL_LIST.LLAMA_3_2);
         formData.append('mainCode', mainCode);
@@ -125,9 +147,9 @@ const BasisPage = () => {
         <div className="w-full h-full flex justify-between flex-col">
             <div>
                 <section className="">
-                    {Object.keys(basisFiles).length === 0 ? (
+                    {Object.keys(contextFiles).length === 0 ? (
                         <>
-                            <h1>Select basis pdfs</h1>
+                            <h1>Select context files</h1>
                             <button
                                 onClick={handleSelectFiles}
                                 className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
@@ -136,14 +158,14 @@ const BasisPage = () => {
                         </>
                     ) : (
                         <>
-                            <h1>Selected basis files</h1>
+                            <h1>Selected Context files</h1>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 py-10">
-                                {Object.keys(basisFiles).map((filePath, index) => (
+                                {Object.keys(contextFiles).map((filePath, index) => (
                                     <FileCard
                                         key={index}
                                         filePath={filePath}
-                                        fileName={basisFiles[filePath]}
-                                        onRemove={removeBasisFile}
+                                        fileName={contextFiles[filePath]}
+                                        onRemove={removeContextFile}
                                     />
                                 ))}
                                 <label
@@ -161,7 +183,7 @@ const BasisPage = () => {
                     )}
                 </section>
                 <div>
-                    <p>Main Code:</p>
+                    <p>Main topic of interest:</p>
                     <input
                         type="text"
                         className="p-2 border border-gray-300 rounded w-96"
@@ -170,12 +192,46 @@ const BasisPage = () => {
                     />
                 </div>
                 <div>
-                    <p>Provide some additional information about main code:</p>
+                    <p>Provide some additional information about your topic of interest:</p>
                     <textarea
                         className="p-2 border border-gray-300 rounded w-96"
                         value={additionalInfo}
                         onChange={(e) => setAdditionalInfo(e.target.value)}
                     />
+                </div>
+                <div>
+                    <p>Research Questions:</p>
+                    <div className="flex items-center">
+                        <textarea
+                            className="p-2 border border-gray-300 rounded w-96"
+                            rows={3}
+                            placeholder="Type your research question here..."
+                            value={newQuestion}
+                            onChange={(e) => setNewQuestion(e.target.value)}
+                        />
+                        <button
+                            onClick={addQuestion}
+                            className="ml-2 p-2 bg-blue-500 text-white rounded">
+                            Add
+                        </button>
+                    </div>
+                    <ul className="mt-4">
+                        {researchQuestions.map((question, index) => (
+                            <li key={index} className="flex flex-col mb-4">
+                                <textarea
+                                    className="p-2 border border-gray-300 rounded w-full"
+                                    rows={3}
+                                    value={question}
+                                    onChange={(e) => updateQuestion(index, e.target.value)}
+                                />
+                                <button
+                                    onClick={() => deleteQuestion(index)}
+                                    className="mt-2 p-2 bg-red-500 text-white rounded w-fit self-end">
+                                    Delete
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             </div>
             <NavigationBottomBar
@@ -188,4 +244,4 @@ const BasisPage = () => {
     );
 };
 
-export default BasisPage;
+export default ContextPage;

@@ -48,7 +48,11 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
     // Delete workspace
     const deleteWorkspace = useCallback((id: string) => {
         setCurrentWorkspaceState(null);
-        setWorkspaces((prev) => prev.filter((ws) => ws.id !== id));
+        setWorkspaces((prev) => {
+            let newWorkspaces = prev.filter((ws) => ws.id !== id);
+            setCurrentWorkspaceState(newWorkspaces[0] ?? null);
+            return newWorkspaces.length > 0 ? newWorkspaces : [];
+        });
     }, []);
 
     const addWorkspaceBatch = useCallback((newWorkspaces: Workspace[]) => {

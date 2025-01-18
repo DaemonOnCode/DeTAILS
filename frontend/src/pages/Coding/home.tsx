@@ -55,7 +55,7 @@ const HomePage: FC = () => {
                 loading={loading}
             />
             <NavigationBottomBar
-                nextPage={USE_NEW_FLOW ? ROUTES.BASIS_V2 : ROUTES.BASIS}
+                nextPage={USE_NEW_FLOW ? ROUTES.CONTEXT_V2 : ROUTES.BASIS}
                 isReady={isReadyCheck}
             />
         </div>

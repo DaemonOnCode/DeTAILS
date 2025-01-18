@@ -342,7 +342,7 @@ const Topbar: React.FC = () => {
         }
 
         try {
-            await Promise.allSettled([
+            const res = await Promise.allSettled([
                 fetch(
                     getServerUrl(
                         `${REMOTE_SERVER_ROUTES.DELETE_WORKSPACE}/${currentWorkspace?.id}`
@@ -358,6 +358,7 @@ const Topbar: React.FC = () => {
                     })
                 })
             ]);
+            console.log('Delete workspace response:', res);
             deleteWorkspace(currentWorkspace?.id || '');
         } catch (error) {
             console.error('Error deleting workspace:', error);

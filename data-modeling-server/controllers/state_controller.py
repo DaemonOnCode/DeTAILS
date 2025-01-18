@@ -12,7 +12,7 @@ def save_state(data):
     models = json.dumps(modeling_context.models)
 
     selected_posts = json.dumps(collection_context.selected_posts)
-    basis_files = json.dumps(coding_context.basis_files)
+    context_files = json.dumps(coding_context.context_files)
     themes = json.dumps(coding_context.themes)
     selected_themes = json.dumps(coding_context.selected_themes)
     references_data = json.dumps(coding_context.references)
@@ -25,7 +25,7 @@ def save_state(data):
         """
         INSERT INTO workspace_states (
             workspace_id, user_email, dataset_id, mode_input, subreddit, selected_posts, models, main_code, 
-            additional_info, basis_files, themes, selected_themes, 
+            additional_info, context_files, themes, selected_themes, 
             codebook, references_data, code_responses, final_code_responses, 
             updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -37,7 +37,7 @@ def save_state(data):
             main_code = excluded.main_code,
             additional_info = excluded.additional_info,
             selected_posts = excluded.selected_posts,
-            basis_files = excluded.basis_files,
+            context_files = excluded.context_files,
             themes = excluded.themes,
             selected_themes = excluded.selected_themes,
             codebook = excluded.codebook,
@@ -56,7 +56,7 @@ def save_state(data):
             models,
             coding_context.main_code,
             coding_context.additional_info,
-            basis_files,
+            context_files,
             themes,
             selected_themes,
             codebook,
@@ -85,7 +85,7 @@ def load_state(data):
     # print("Loading state...", state)
     state = state[0]
     state["models"] = json.loads(state["models"])
-    state["basis_files"] = json.loads(state["basis_files"])
+    state["context_files"] = json.loads(state["context_files"])
     state["themes"] = json.loads(state["themes"])
     state["selected_posts"] = json.loads(state["selected_posts"])
     state["selected_themes"] = json.loads(state["selected_themes"])

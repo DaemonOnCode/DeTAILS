@@ -21,9 +21,9 @@ import {
 } from '../types/Coding/shared';
 
 interface ICodingContext {
-    basisFiles: IFile;
-    addBasisFile: (filePath: string, fileName: string) => void;
-    removeBasisFile: (filePath: string) => void;
+    contextFiles: IFile;
+    addContextFile: (filePath: string, fileName: string) => void;
+    removeContextFile: (filePath: string) => void;
     mainCode: string;
     setMainCode: SetState<string>;
     additionalInfo?: string;
@@ -64,9 +64,9 @@ interface ICodingContext {
 
 // Create the context
 export const CodingContext = createContext<ICodingContext>({
-    basisFiles: {},
-    addBasisFile: () => {},
-    removeBasisFile: () => {},
+    contextFiles: {},
+    addContextFile: () => {},
+    removeContextFile: () => {},
     mainCode: '',
     setMainCode: () => {},
     additionalInfo: '',
@@ -273,7 +273,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         // '1253598',
         // '1254667'
     ]);
-    const [basisFiles, setBasisFiles] = useState<IFile>({});
+    const [contextFiles, setContextFiles] = useState<IFile>({});
     const [mainCode, setMainCode] = useState<string>('');
     // 'Student life';
     const [additionalInfo, setAdditionalInfo] = useState<string>('');
@@ -387,12 +387,12 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         });
     }, []);
 
-    const addBasisFile = useCallback((filePath: string, fileName: string) => {
-        setBasisFiles((prevFiles) => ({ ...prevFiles, [filePath]: fileName }));
+    const addContextFile = useCallback((filePath: string, fileName: string) => {
+        setContextFiles((prevFiles) => ({ ...prevFiles, [filePath]: fileName }));
     }, []);
 
-    const removeBasisFile = useCallback((filePath: string) => {
-        setBasisFiles((prevFiles) => {
+    const removeContextFile = useCallback((filePath: string) => {
+        setContextFiles((prevFiles) => {
             const newFiles = { ...prevFiles };
             delete newFiles[filePath];
             return newFiles;
@@ -425,7 +425,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     }, []);
 
     const updateContext = (updates: Partial<ICodingContext>) => {
-        if (updates.basisFiles) setBasisFiles(updates.basisFiles);
+        if (updates.contextFiles) setContextFiles(updates.contextFiles);
         if (updates.mainCode) setMainCode(updates.mainCode);
         if (updates.additionalInfo) setAdditionalInfo(updates.additionalInfo);
         if (updates.flashcards) setFlashcards(updates.flashcards);
@@ -450,7 +450,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     };
 
     const resetContext = () => {
-        setBasisFiles({});
+        setContextFiles({});
         setMainCode('');
         setAdditionalInfo('');
         setFlashcards([]);
@@ -504,9 +504,9 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
 
     const value = useMemo(
         () => ({
-            basisFiles,
-            addBasisFile,
-            removeBasisFile,
+            contextFiles,
+            addContextFile,
+            removeContextFile,
             selectedPosts,
             setSelectedPosts,
             mainCode,
@@ -543,7 +543,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             modeInput,
             selectedPosts,
             subreddit,
-            basisFiles,
+            contextFiles,
             mainCode,
             additionalInfo,
             flashcards,

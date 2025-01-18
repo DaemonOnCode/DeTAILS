@@ -121,7 +121,7 @@ const useWorkspaceUtils = () => {
         codingContext.updateContext({
             mainCode: data.main_code ?? '',
             additionalInfo: data.additional_info ?? '',
-            basisFiles: data.basis_files ?? {},
+            contextFiles: data.context_files ?? {},
             themes: data.themes ?? [],
             selectedThemes: data.selected_themes ?? [],
             codeBook: data.codebook ?? [],
