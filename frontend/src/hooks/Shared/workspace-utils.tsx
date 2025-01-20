@@ -53,10 +53,10 @@ const useWorkspaceUtils = () => {
             coding_context: {
                 main_code: codingContext.mainCode || '',
                 additional_info: codingContext.additionalInfo || '',
-                basis_files: codingContext.basisFiles || {},
-                themes: codingContext.themes || [],
-                selected_themes: codingContext.selectedThemes || [],
-                codebook: codingContext.codeBook || [],
+                context_files: codingContext.contextFiles || {},
+                keywords: codingContext.keywords || [],
+                selected_keywords: codingContext.selectedKeywords || [],
+                keyword_table: codingContext.keywordTable || [],
                 references: codingContext.references || {},
                 code_responses: codingContext.codeResponses || [],
                 final_code_responses: codingContext.finalCodeResponses || []
@@ -122,9 +122,9 @@ const useWorkspaceUtils = () => {
             mainCode: data.main_code ?? '',
             additionalInfo: data.additional_info ?? '',
             contextFiles: data.context_files ?? {},
-            themes: data.themes ?? [],
-            selectedThemes: data.selected_themes ?? [],
-            codeBook: data.codebook ?? [],
+            keywords: data.keywords ?? [],
+            selectedKeywords: data.selected_keywords ?? [],
+            keywordTable: data.keyword_table ?? [],
             references: data.references ?? {},
             codeResponses: data.code_responses ?? [],
             finalCodeResponses: data.final_code_responses ?? []

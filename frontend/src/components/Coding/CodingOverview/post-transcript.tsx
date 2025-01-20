@@ -15,7 +15,7 @@ import DeleteCodeModal from '../Shared/delete-code-modal';
 import EditHighlightModal from '../Shared/edit-highlight-modal';
 import DeleteHighlightModal from '../Shared/delete-highlight-modal';
 
-const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
+const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
     console.log('Post:', post);
     // const transcript = getTranscript(
     //     post.title,
@@ -373,15 +373,17 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack }) => {
         // <div className="h-full flex justify-between flex-col">
         <div className="-m-6">
             {/* <div className=""> */}
-            <TopToolbar
-                selectedPost={post}
-                setIsAddCodeModalOpen={setIsAddCodeModalOpen}
-                setIsHighlightModalOpen={setIsHighlightModalOpen}
-                setIsEditCodeModalOpen={setIsEditCodeModalOpen}
-                setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
-                setIsEditHighlightCodeModalOpen={setIsEditHighlightModalOpen}
-                setIsDeleteHighlightCodeModalOpen={setDeleteIsHighlightModalOpen}
-            />
+            {!review && (
+                <TopToolbar
+                    selectedPost={post}
+                    setIsAddCodeModalOpen={setIsAddCodeModalOpen}
+                    setIsHighlightModalOpen={setIsHighlightModalOpen}
+                    setIsEditCodeModalOpen={setIsEditCodeModalOpen}
+                    setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
+                    setIsEditHighlightCodeModalOpen={setIsEditHighlightModalOpen}
+                    setIsDeleteHighlightCodeModalOpen={setDeleteIsHighlightModalOpen}
+                />
+            )}
             {/* </div> */}
             <div className="flex relative p-6">
                 <div className="flex-1 min-w-0">

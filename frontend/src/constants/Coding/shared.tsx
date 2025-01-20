@@ -1,16 +1,21 @@
 export enum ROUTES {
     HOME = 'home',
-    BASIS = 'basis',
+    // BASIS = 'basis',
     CONTEXT_V2 = 'context-v2',
-    FLASHCARDS = 'flashcards',
-    THEME_CLOUD = 'theme-cloud',
-    WORD_CLOUD = 'word-cloud',
-    CODEBOOK = 'codebook',
+    // FLASHCARDS = 'flashcards',
+    KEYWORD_CLOUD = 'keyword-cloud',
+    // WORD_CLOUD = 'word-cloud',
+    KEYWORD_TABLE = 'keyword-table',
     //  GENERATION = 'generation',
-    INITIAL_CODING = 'initial-coding',
-    CODING_VALIDATION = 'coding-validation',
-    CODING_VALIDATION_V2 = 'coding-validation-v2',
-    CODING_OVERVIEW = 'coding-overview',
+    // INITIAL_CODING = 'initial-coding',
+    // CODING_VALIDATION = 'coding-validation',
+    // CODING_VALIDATION_V2 = 'coding-validation-v2',
+    // CODING_OVERVIEW = 'coding-overview',
+    CODES_REVIEW = 'codes-review',
+    CODEBOOK_REFINEMENT = 'codebook-refinement',
+    TRANSCRIPT = 'transcript/:id/:state',
+    THEMES = 'themes',
+    FINAL_CODEBOOK = 'final-codebook',
     FINAL = 'final'
 }
 
@@ -20,7 +25,8 @@ export enum LOADER_ROUTES {
     CODEBOOK_LOADER = 'codebook-loader',
     CODING_VALIDATION_LOADER = 'coding-validation-loader',
     FINAL_LOADER = 'final-loader',
-    THEME_LOADER = 'theme-loader'
+    THEME_LOADER = 'theme-loader',
+    KEYWORD_TABLE_LOADER = 'keyword-table-loader'
 }
 
 export const DB_PATH = '../executables/test.db';

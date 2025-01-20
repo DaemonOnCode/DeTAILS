@@ -147,6 +147,14 @@ export type ThemeCloudProps = {
     setThemes: SetState<string[]>;
 };
 
+export type KeywordCloudProps = {
+    mainCode: string;
+    keywords: string[];
+    selectedKeywords: string[];
+    toggleKeywordSelection: (keyword: string) => void;
+    setKeywords: SetState<string[]>;
+};
+
 export type PostTranscriptProps = {
     post: {
         author: string;
@@ -169,4 +177,5 @@ export type PostTranscriptProps = {
         url: string;
     };
     onBack: () => void;
+    review?: boolean;
 };

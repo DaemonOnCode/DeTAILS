@@ -1,14 +1,12 @@
 export { default as HomePage } from './home';
-export { default as BasisPage } from './basis';
-export { default as FlashcardsPage } from './flashcards';
-export { default as WordCloudPage } from './word_cloud';
-export { default as InitialCodingPage } from './initial_coding';
-export { default as GenerationPage } from './generation';
-export { default as CodingValidationPage } from './coding_validation';
 export { default as FinalPage } from './final';
 
-export { default as ContextV2Page } from './context_v2';
-export { default as ThemeCloudPage } from './theme_cloud';
-export { default as CodeBookPage } from './codebook';
-export { default as CodingValidationV2Page } from './coding_validation_v2';
-export { default as CodingOverviewPage } from './coding_overview';
+export { default as ContextV2Page } from './context-v2';
+export { default as KeywordCloudPage } from './keyword-cloud';
+export { default as KeywordTablePage } from './keywords-table';
+
+export { default as CodeReviewPage } from './code-review';
+export { default as CodebookRefinementPage } from './codebook-refinement';
+export { default as TranscriptPage } from './transcript';
+export { default as ThemesPage } from './themes';
+export { default as FinalCodebookPage } from './final-codebook';

@@ -1,7 +1,7 @@
 import { FC, useEffect, useRef, useState } from 'react';
 import { LOADER_ROUTES, ROUTES, WORD_CLOUD_MIN_THRESHOLD } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
-import ThemeCloud from '../../components/Coding/ThemeCloud/index';
+import KeywordCloud from '../../components/Coding/KeywordCloud/index';
 import { useLogger } from '../../context/logging_context';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
@@ -11,7 +11,7 @@ import { useCollectionContext } from '../../context/collection_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get_server_url';
 
-const ThemeCloudPage: FC = () => {
+const KeywordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
 
@@ -22,18 +22,18 @@ const ThemeCloudPage: FC = () => {
     const {
         mainCode,
         additionalInfo,
-        selectedThemes,
-        setSelectedThemes,
-        setThemes,
-        themes,
-        dispatchCodeBook
+        selectedKeywords,
+        setSelectedKeywords,
+        setKeywords,
+        keywords,
+        dispatchKeywordsTable
     } = useCodingContext();
     const { datasetId } = useCollectionContext();
 
     const { saveWorkspaceData } = useWorkspaceUtils();
 
     // useEffect(() => {
-    //     setSelectedThemes([mainCode]);
+    //     setSelectedKeywords([mainCode]);
     // }, []);
     const { getServerUrl } = getServerUtils();
 
@@ -41,23 +41,23 @@ const ThemeCloudPage: FC = () => {
 
     useEffect(() => {
         const timer = createTimer();
-        logger.info('Loaded Theme cloud Page');
+        logger.info('Loaded Keyword cloud Page');
 
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
                 hasSavedRef.current = true;
             }
-            logger.info('Unloaded Theme cloud Page').then(() => {
-                logger.time('Theme cloud Page stay time', { time: timer.end() });
+            logger.info('Unloaded Keyword cloud Page').then(() => {
+                logger.time('Keyword cloud Page stay time', { time: timer.end() });
             });
         };
     }, []);
 
-    const toggleThemeSelection = (word: string) => {
+    const toggleKeywordSelection = (word: string) => {
         if (word === mainCode) return;
 
-        setSelectedThemes((prevSelected) =>
+        setSelectedKeywords((prevSelected) =>
             prevSelected.includes(word)
                 ? prevSelected.filter((w) => w !== word)
                 : [...prevSelected, word]
@@ -73,11 +73,11 @@ const ThemeCloudPage: FC = () => {
         setFeedback('');
         setIsFeedbackOpen(false); // Close the modal
 
-        refreshThemeCloud();
+        refreshKeywordCloud();
     };
 
-    const refreshThemeCloud = async () => {
-        await logger.info('Regenerating Theme Cloud');
+    const refreshKeywordCloud = async () => {
+        await logger.info('Regenerating Keyword Cloud');
         navigate('../loader/' + LOADER_ROUTES.THEME_LOADER);
         // if (!USE_LOCAL_SERVER) {
         // await ipcRenderer.invoke("connect-ws", datasetId);
@@ -89,36 +89,38 @@ const ThemeCloudPage: FC = () => {
             body: JSON.stringify({
                 model: MODEL_LIST.LLAMA_3_2,
                 mainCode,
-                selectedThemes,
+                selectedKeywords,
                 feedback,
                 dataset_id: datasetId
             })
         });
 
         const results = await res.json();
-        console.log(results, 'Theme Cloud Page');
+        console.log(results, 'Keyword Cloud Page');
 
         // const parsedResults = JSON.parse(results);
-        const newThemes: string[] = results.themes ?? [];
+        const newKeywords: string[] = results.keywords ?? [];
 
-        setThemes((prevThemes) => {
-            const filteredPrevThemes = prevThemes.filter((theme) => selectedThemes.includes(theme));
-            const filteredNewThemes = newThemes.filter(
-                (theme) => !filteredPrevThemes.includes(theme)
+        setKeywords((prevKeywords) => {
+            const filteredPrevKeywords = prevKeywords.filter((keyword) =>
+                selectedKeywords.includes(keyword)
             );
-            return [...filteredPrevThemes, ...filteredNewThemes];
+            const filteredNewKeywords = newKeywords.filter(
+                (keyword) => !filteredPrevKeywords.includes(keyword)
+            );
+            return [...filteredPrevKeywords, ...filteredNewKeywords];
         });
         // await ipcRenderer.invoke("disconnect-ws", datasetId);
-        navigate('/coding/' + ROUTES.THEME_CLOUD);
-        await logger.info('Theme Cloud refreshed');
+        navigate('/coding/' + ROUTES.KEYWORD_CLOUD);
+        await logger.info('Keyword Cloud refreshed');
         //     return;
         // }
 
-        console.log('Theme Cloud refreshed');
-        await logger.info('Theme Cloud refreshed');
+        console.log('Keyword Cloud refreshed');
+        await logger.info('Keyword Cloud refreshed');
     };
 
-    const refreshThemes = () => {
+    const refreshKeywords = () => {
         // Open the feedback modal
         setIsFeedbackOpen(true);
     };
@@ -144,18 +146,18 @@ const ThemeCloudPage: FC = () => {
                 model: MODEL_LIST.LLAMA_3_2,
                 mainCode,
                 additionalInfo,
-                selectedThemes,
+                selectedKeywords,
                 dataset_id: datasetId
             })
         });
 
         const results = await res.json();
-        console.log(results, 'Theme Cloud Page');
+        console.log(results, 'Keyword Cloud Page');
 
         // const parsedResults = JSON.parse(results);
         const newCodebook: string[] = results.codebook;
 
-        dispatchCodeBook({
+        dispatchKeywordsTable({
             type: 'INITIALIZE',
             entries: newCodebook
         });
@@ -164,32 +166,35 @@ const ThemeCloudPage: FC = () => {
         // }
     };
 
-    const checkIfReady = selectedThemes.length > WORD_CLOUD_MIN_THRESHOLD;
+    const checkIfReady = selectedKeywords.length > WORD_CLOUD_MIN_THRESHOLD;
 
     return (
         <div className="h-full flex justify-between flex-col">
             <div className="flex justify-center items-center flex-col">
                 <div className="my-6 text-center">
-                    <p>Select all of the words which you feel are similar to the main code</p>
+                    <p>
+                        Select all of the words which you feel are similar to the main topic of
+                        interest
+                    </p>
                     <button
-                        onClick={refreshThemes}
+                        onClick={refreshKeywords}
                         className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600  my-4">
-                        Refresh word cloud
+                        Refresh keyword cloud
                     </button>
                 </div>
 
-                <ThemeCloud
+                <KeywordCloud
                     mainCode={mainCode}
-                    themes={themes}
-                    selectedThemes={selectedThemes}
-                    toggleThemeSelection={toggleThemeSelection}
-                    setThemes={setThemes}
+                    keywords={keywords}
+                    selectedKeywords={selectedKeywords}
+                    toggleKeywordSelection={toggleKeywordSelection}
+                    setKeywords={setKeywords}
                 />
             </div>
 
             <NavigationBottomBar
                 previousPage={ROUTES.CONTEXT_V2}
-                nextPage={ROUTES.CODEBOOK}
+                nextPage={ROUTES.KEYWORD_TABLE}
                 isReady={checkIfReady}
                 onNextClick={(e) => handleNextClick(e)}
             />
@@ -202,7 +207,9 @@ const ThemeCloudPage: FC = () => {
                         </h2>
                         <p className=" mb-3">
                             Word list:{' '}
-                            {themes.filter((theme) => !selectedThemes.includes(theme)).join(', ')}
+                            {keywords
+                                .filter((keyword) => !selectedKeywords.includes(keyword))
+                                .join(', ')}
                         </p>
                         <textarea
                             value={feedback}
@@ -229,4 +236,4 @@ const ThemeCloudPage: FC = () => {
     );
 };
 
-export default ThemeCloudPage;
+export default KeywordCloudPage;

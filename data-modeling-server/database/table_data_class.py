@@ -24,8 +24,8 @@ class WorkspaceStates:
     main_code: Optional[str] = None
     additional_info: Optional[str] = None
     context_files: Optional[str] = None
-    themes: Optional[str] = None
-    selected_themes: Optional[str] = None
+    keywords: Optional[str] = None
+    selected_keywords: Optional[str] = None
     codebook: Optional[str] = None
     references_data: Optional[str] = None
     code_responses: Optional[str] = None

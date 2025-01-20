@@ -38,10 +38,10 @@ interface ICodingContext {
     selectedFlashcards: number[];
     selectFlashcard: (id: number) => void;
     deselectFlashcard: (id: number) => void;
-    themes: string[];
-    setThemes: SetState<string[]>;
-    selectedThemes: string[];
-    setSelectedThemes: SetState<string[]>;
+    keywords: string[];
+    setKeywords: SetState<string[]>;
+    selectedKeywords: string[];
+    setSelectedKeywords: SetState<string[]>;
     words: string[];
     setWords: SetState<string[]>;
     selectedWords: string[];
@@ -52,8 +52,8 @@ interface ICodingContext {
     setReferences: SetState<{
         [code: string]: IReference[];
     }>;
-    codeBook: CodebookEntry[];
-    dispatchCodeBook: Dispatch<any>;
+    keywordTable: CodebookEntry[];
+    dispatchKeywordsTable: Dispatch<any>;
     codeResponses: ISentenceBox[];
     dispatchCodeResponses: Dispatch<any>;
     finalCodeResponses: IFinalCodeResponse[];
@@ -77,18 +77,18 @@ export const CodingContext = createContext<ICodingContext>({
     selectedFlashcards: [],
     selectFlashcard: () => {},
     deselectFlashcard: () => {},
-    themes: [],
-    setThemes: () => {},
-    selectedThemes: [],
-    setSelectedThemes: () => {},
+    keywords: [],
+    setKeywords: () => {},
+    selectedKeywords: [],
+    setSelectedKeywords: () => {},
     words: [],
     setWords: () => {},
     selectedWords: [],
     setSelectedWords: () => {},
     references: {},
     setReferences: () => {},
-    codeBook: [],
-    dispatchCodeBook: () => {},
+    keywordTable: [],
+    dispatchKeywordsTable: () => {},
     codeResponses: [],
     dispatchCodeResponses: () => {},
     finalCodeResponses: [],
@@ -206,7 +206,7 @@ function codeResponsesReducer<T>(state: T[], action: Action<T>): T[] {
     }
 }
 
-type CodeBookAction =
+type KeywordsTableAction =
     | { type: 'INITIALIZE'; entries: CodebookEntry[] }
     | { type: 'ADD_MANY'; entries: CodebookEntry[] }
     | { type: 'UPDATE_FIELD'; index: number; field: keyof CodebookEntry; value: string | string[] }
@@ -214,7 +214,10 @@ type CodeBookAction =
     | { type: 'ADD_ROW' }
     | { type: 'DELETE_ROW'; index: number };
 
-const codeBookReducer = (state: CodebookEntry[], action: CodeBookAction): CodebookEntry[] => {
+const keywordTableReducer = (
+    state: CodebookEntry[],
+    action: KeywordsTableAction
+): CodebookEntry[] => {
     switch (action.type) {
         case 'INITIALIZE':
             return [...action.entries];
@@ -294,14 +297,14 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     const [selectedWords, setSelectedWords] = useState<string[]>([]);
     // initialWords.slice(0, 10)
 
-    const [themes, setThemes] = useState<string[]>([]);
-    const [selectedThemes, setSelectedThemes] = useState<string[]>([]);
+    const [keywords, setKeywords] = useState<string[]>([]);
+    const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
 
     const [references, setReferences] = useState<{
         [code: string]: IReference[];
     }>({});
 
-    const [codeBook, dispatchCodeBook] = useReducer(codeBookReducer, []);
+    const [keywordTable, dispatchKeywordsTable] = useReducer(keywordTableReducer, []);
     //      {
     //        "word": "Online discussions",
     //        "description": "Codes related to online discussions, including participation, engagement, and content creation.",
@@ -430,13 +433,13 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         if (updates.additionalInfo) setAdditionalInfo(updates.additionalInfo);
         if (updates.flashcards) setFlashcards(updates.flashcards);
         if (updates.selectedFlashcards) setSelectedFlashcards(updates.selectedFlashcards);
-        if (updates.themes) setThemes(updates.themes);
-        if (updates.selectedThemes) setSelectedThemes(updates.selectedThemes);
+        if (updates.keywords) setKeywords(updates.keywords);
+        if (updates.selectedKeywords) setSelectedKeywords(updates.selectedKeywords);
         if (updates.words) setWords(updates.words);
         if (updates.selectedWords) setSelectedWords(updates.selectedWords);
         if (updates.references) setReferences(updates.references);
-        if (updates.codeBook) {
-            dispatchCodeBook({ type: 'INITIALIZE', entries: updates.codeBook });
+        if (updates.keywordTable) {
+            dispatchKeywordsTable({ type: 'INITIALIZE', entries: updates.keywordTable });
         }
         if (updates.codeResponses) {
             dispatchCodeResponses({ type: 'SET_RESPONSES', responses: updates.codeResponses });
@@ -455,23 +458,23 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         setAdditionalInfo('');
         setFlashcards([]);
         setSelectedFlashcards([]);
-        setThemes([]);
-        setSelectedThemes([]);
+        setKeywords([]);
+        setSelectedKeywords([]);
         setWords([]);
         setSelectedWords([]);
         setReferences({});
-        dispatchCodeBook({ type: 'INITIALIZE', entries: [] });
+        dispatchKeywordsTable({ type: 'INITIALIZE', entries: [] });
         dispatchCodeResponses({ type: 'SET_RESPONSES', responses: [] });
         dispatchFinalCodeResponses({ type: 'SET_RESPONSES', responses: [] });
     };
 
-    // const selectedThemesOrWords = useMemo(() => {
+    // const selectedKeywordsOrWords = useMemo(() => {
     //     return [mainCode];
     // }, [mainCode]);
 
     useEffect(() => {
-        if (!themes.includes(mainCode)) {
-            setSelectedThemes([mainCode]);
+        if (!keywords.includes(mainCode)) {
+            setSelectedKeywords([mainCode]);
         }
         if (!words.includes(mainCode)) {
             setSelectedWords([mainCode]);
@@ -519,18 +522,18 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             selectedFlashcards,
             selectFlashcard,
             deselectFlashcard,
-            themes,
-            setThemes,
-            selectedThemes,
-            setSelectedThemes,
+            keywords,
+            setKeywords,
+            selectedKeywords,
+            setSelectedKeywords,
             words,
             setWords,
             selectedWords,
             setSelectedWords,
             references,
             setReferences,
-            codeBook,
-            dispatchCodeBook,
+            keywordTable,
+            dispatchKeywordsTable,
             codeResponses,
             dispatchCodeResponses,
             finalCodeResponses,
@@ -548,11 +551,11 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             additionalInfo,
             flashcards,
             selectedFlashcards,
-            themes,
-            selectedThemes,
+            keywords,
+            selectedKeywords,
             words,
             selectedWords,
-            codeBook,
+            keywordTable,
             references,
             codeResponses,
             finalCodeResponses

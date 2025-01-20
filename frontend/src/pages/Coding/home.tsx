@@ -54,10 +54,7 @@ const HomePage: FC = () => {
                 maxTableHeightClass="max-h-[calc(100vh-22rem)]"
                 loading={loading}
             />
-            <NavigationBottomBar
-                nextPage={USE_NEW_FLOW ? ROUTES.CONTEXT_V2 : ROUTES.BASIS}
-                isReady={isReadyCheck}
-            />
+            <NavigationBottomBar nextPage={ROUTES.CONTEXT_V2} isReady={isReadyCheck} />
         </div>
     );
 };

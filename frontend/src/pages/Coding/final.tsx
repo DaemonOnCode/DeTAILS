@@ -133,7 +133,7 @@ const FinalPage = () => {
                 />
             )}
 
-            <NavigationBottomBar previousPage={ROUTES.CODING_OVERVIEW} />
+            <NavigationBottomBar previousPage={ROUTES.FINAL_CODEBOOK} />
         </div>
     );
 };

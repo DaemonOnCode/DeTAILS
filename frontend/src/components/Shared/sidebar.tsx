@@ -27,7 +27,8 @@ const IGNORED_KEYWORDS = [
     'basis',
     'flashcards',
     'word-cloud',
-    'coding-validation'
+    'coding-validation',
+    'transcript/:id:/:state'
 ];
 
 const Sidebar: FC = () => {

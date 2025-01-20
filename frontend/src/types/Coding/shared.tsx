@@ -16,6 +16,14 @@ export interface IWordBox {
     height: number;
 }
 
+export interface IKeywordBox {
+    text: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
 export interface IThemeBox {
     text: string;
     x: number;

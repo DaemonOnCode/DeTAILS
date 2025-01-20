@@ -1,7 +1,5 @@
 import { RouteObject } from 'react-router-dom';
 import HomePage from '../pages/Coding/home';
-import BasisPage from '../pages/Coding/basis';
-import FlashcardsPage from '../pages/Coding/flashcards';
 import {
     CodeBookLoaderPage,
     CodingValidationLoaderPage,
@@ -12,30 +10,43 @@ import {
 } from '../pages/Coding/Loader';
 import {
     ContextV2Page,
-    CodeBookPage,
-    CodingOverviewPage,
-    CodingValidationPage,
-    CodingValidationV2Page,
+    KeywordTablePage,
     FinalPage,
-    InitialCodingPage,
-    ThemeCloudPage,
-    WordCloudPage
+    KeywordCloudPage,
+    CodeReviewPage,
+    CodebookRefinementPage,
+    TranscriptPage,
+    ThemesPage,
+    FinalCodebookPage
 } from '../pages/Coding';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
 
 export const CodingRouter: RouteObject[] = [
     { path: ROUTES.HOME, element: <HomePage />, index: true },
-    { path: ROUTES.BASIS, element: <BasisPage /> },
     { path: ROUTES.CONTEXT_V2, element: <ContextV2Page /> },
-    { path: ROUTES.FLASHCARDS, element: <FlashcardsPage /> },
-    { path: ROUTES.THEME_CLOUD, element: <ThemeCloudPage /> },
-    { path: ROUTES.WORD_CLOUD, element: <WordCloudPage /> },
-    { path: ROUTES.CODEBOOK, element: <CodeBookPage /> },
-    { path: ROUTES.INITIAL_CODING, element: <InitialCodingPage /> },
-    { path: ROUTES.CODING_VALIDATION, element: <CodingValidationPage /> },
-    { path: ROUTES.CODING_VALIDATION_V2, element: <CodingValidationV2Page /> },
-    { path: ROUTES.CODING_OVERVIEW, element: <CodingOverviewPage /> },
+    { path: ROUTES.KEYWORD_CLOUD, element: <KeywordCloudPage /> },
+    { path: ROUTES.KEYWORD_TABLE, element: <KeywordTablePage /> },
+    {
+        path: ROUTES.CODES_REVIEW,
+        element: <CodeReviewPage />
+    },
+    {
+        path: ROUTES.CODEBOOK_REFINEMENT,
+        element: <CodebookRefinementPage />
+    },
+    {
+        path: ROUTES.TRANSCRIPT,
+        element: <TranscriptPage />
+    },
+    {
+        path: ROUTES.THEMES,
+        element: <ThemesPage />
+    },
+    {
+        path: ROUTES.FINAL_CODEBOOK,
+        element: <FinalCodebookPage />
+    },
     { path: ROUTES.FINAL, element: <FinalPage /> },
     {
         path: 'loader',

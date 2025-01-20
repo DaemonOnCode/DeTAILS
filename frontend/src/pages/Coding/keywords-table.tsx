@@ -13,9 +13,8 @@ import getServerUtils from '../../hooks/Shared/get_server_url';
 
 const { ipcRenderer } = window.require('electron');
 
-const CodeBookPage: FC = () => {
-    const { codeBook, dispatchCodeBook, mainCode, additionalInfo, selectedThemes } =
-        useCodingContext();
+const KeywordsTablePage: FC = () => {
+    const { keywordTable, dispatchKeywordsTable, mainCode, additionalInfo } = useCodingContext();
     const { datasetId } = useCollectionContext();
     const [saving, setSaving] = useState(false);
     const navigate = useNavigate();
@@ -27,10 +26,10 @@ const CodeBookPage: FC = () => {
 
     const handleGenerateMore = async () => {
         await logger.info('Generate more codes');
-        navigate('../loader/' + LOADER_ROUTES.CODEBOOK_LOADER);
-        const filteredCodebook = codeBook.filter((entry) => entry.isMarked === undefined);
-        if (codeBook.length !== 0 && filteredCodebook.length === codeBook.length) {
-            navigate('/coding/' + ROUTES.CODEBOOK);
+        navigate('../loader/' + LOADER_ROUTES.KEYWORD_TABLE_LOADER);
+        const filteredCodebook = keywordTable.filter((entry) => entry.isMarked === undefined);
+        if (keywordTable.length !== 0 && filteredCodebook.length === keywordTable.length) {
+            navigate('/coding/' + ROUTES.KEYWORD_TABLE);
             await logger.info('Codebook Generation completed');
             return;
         }
@@ -45,7 +44,7 @@ const CodeBookPage: FC = () => {
                 model: MODEL_LIST.LLAMA_3_2,
                 mainCode,
                 additionalInfo,
-                selectedThemes,
+                keywordTable,
                 currentCodebook: filteredCodebook.map((entry) => ({
                     word: entry.word,
                     description: entry.description,
@@ -60,19 +59,19 @@ const CodeBookPage: FC = () => {
 
         const newCodebook: string[] = results.codebook;
 
-        dispatchCodeBook({
+        dispatchKeywordsTable({
             type: 'ADD_MANY',
             entries: newCodebook
         });
         await logger.info('Codebook Generation completed');
         // }
-        navigate('/coding/' + ROUTES.CODEBOOK);
+        navigate('/coding/' + ROUTES.KEYWORD_TABLE);
     };
 
     const handleSaveCsv = async () => {
         await logger.info('Saving codebook as CSV');
         setSaving(true);
-        const result = await saveCSV(ipcRenderer, codeBook, 'codebook');
+        const result = await saveCSV(ipcRenderer, keywordTable, 'codebook');
         console.log(result);
         setSaving(false);
         await logger.info('Codebook saved as CSV');
@@ -81,7 +80,7 @@ const CodeBookPage: FC = () => {
     const handleSaveExcel = async () => {
         await logger.info('Saving codebook as Excel');
         setSaving(true);
-        const result = await saveExcel(ipcRenderer, codeBook, 'codebook');
+        const result = await saveExcel(ipcRenderer, keywordTable, 'codebook');
         console.log(result);
         setSaving(false);
         await logger.info('Codebook saved as Excel');
@@ -96,12 +95,12 @@ const CodeBookPage: FC = () => {
         };
     }, []);
 
-    const isReadyCheck = codeBook.some((entry) => entry.isMarked === true);
+    const isReadyCheck = keywordTable.some((entry) => entry.isMarked === true);
 
     return (
         <div className="flex flex-col justify-between h-full">
             <div>
-                <p>Please validate and manage the codeBook entries below:</p>
+                <p>Please validate and manage the keywordTable entries below:</p>
                 <div className="max-h-[calc(100vh-18rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
                     <table className="w-full border-collapse">
                         <thead>
@@ -116,14 +115,14 @@ const CodeBookPage: FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {codeBook.map((entry, index) => (
+                            {keywordTable.map((entry, index) => (
                                 <tr key={index} className="text-center">
                                     <td className="border border-gray-400 p-2">
                                         <textarea
                                             className="w-full p-2 border border-gray-300 rounded resize-none h-24"
                                             value={entry.word}
                                             onChange={(e) =>
-                                                dispatchCodeBook({
+                                                dispatchKeywordsTable({
                                                     type: 'UPDATE_FIELD',
                                                     index,
                                                     field: 'word',
@@ -137,7 +136,7 @@ const CodeBookPage: FC = () => {
                                             className="w-full p-2 border border-gray-300 rounded resize-none h-24"
                                             value={entry.description}
                                             onChange={(e) =>
-                                                dispatchCodeBook({
+                                                dispatchKeywordsTable({
                                                     type: 'UPDATE_FIELD',
                                                     index,
                                                     field: 'description',
@@ -151,7 +150,7 @@ const CodeBookPage: FC = () => {
                                             className="w-full p-2 border border-gray-300 rounded resize-none h-24"
                                             value={entry.inclusion_criteria.join(', ')}
                                             onChange={(e) =>
-                                                dispatchCodeBook({
+                                                dispatchKeywordsTable({
                                                     type: 'UPDATE_FIELD',
                                                     index,
                                                     field: 'inclusion_criteria',
@@ -165,7 +164,7 @@ const CodeBookPage: FC = () => {
                                             className="w-full p-2 border border-gray-300 rounded resize-none h-24"
                                             value={entry.exclusion_criteria.join(', ')}
                                             onChange={(e) =>
-                                                dispatchCodeBook({
+                                                dispatchKeywordsTable({
                                                     type: 'UPDATE_FIELD',
                                                     index,
                                                     field: 'exclusion_criteria',
@@ -184,7 +183,7 @@ const CodeBookPage: FC = () => {
                                                         : 'bg-gray-300 text-gray-500'
                                                 }`}
                                                 onClick={() =>
-                                                    dispatchCodeBook({
+                                                    dispatchKeywordsTable({
                                                         type: 'TOGGLE_MARK',
                                                         index,
                                                         isMarked:
@@ -204,7 +203,7 @@ const CodeBookPage: FC = () => {
                                                         : 'bg-gray-300 text-gray-500'
                                                 }`}
                                                 onClick={() =>
-                                                    dispatchCodeBook({
+                                                    dispatchKeywordsTable({
                                                         type: 'TOGGLE_MARK',
                                                         index,
                                                         isMarked:
@@ -220,7 +219,10 @@ const CodeBookPage: FC = () => {
                                             <button
                                                 className="w-8 h-8 flex items-center justify-center bg-red-600 text-white rounded hover:bg-red-700"
                                                 onClick={() =>
-                                                    dispatchCodeBook({ type: 'DELETE_ROW', index })
+                                                    dispatchKeywordsTable({
+                                                        type: 'DELETE_ROW',
+                                                        index
+                                                    })
                                                 }>
                                                 <FaTrash />
                                             </button>
@@ -234,7 +236,7 @@ const CodeBookPage: FC = () => {
                 <div className="mt-6 flex justify-center gap-x-48">
                     <div className="flex gap-x-4">
                         <button
-                            onClick={() => dispatchCodeBook({ type: 'ADD_ROW' })}
+                            onClick={() => dispatchKeywordsTable({ type: 'ADD_ROW' })}
                             className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
                             Add New Row
                         </button>
@@ -261,12 +263,12 @@ const CodeBookPage: FC = () => {
                 </div>
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.THEME_CLOUD}
-                nextPage={ROUTES.INITIAL_CODING}
+                previousPage={ROUTES.KEYWORD_CLOUD}
+                nextPage={ROUTES.CODES_REVIEW}
                 isReady={isReadyCheck}
             />
         </div>
     );
 };
 
-export default CodeBookPage;
+export default KeywordsTablePage;
