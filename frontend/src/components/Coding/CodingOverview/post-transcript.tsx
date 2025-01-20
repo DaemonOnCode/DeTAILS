@@ -370,9 +370,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
     return !post ? (
         <></>
     ) : (
-        // <div className="h-full flex justify-between flex-col">
-        <div className="-m-6">
-            {/* <div className=""> */}
+        <div className="flex flex-col h-full overflow-hidden">
             {!review && (
                 <TopToolbar
                     selectedPost={post}
@@ -384,17 +382,15 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
                     setIsDeleteHighlightCodeModalOpen={setDeleteIsHighlightModalOpen}
                 />
             )}
-            {/* </div> */}
-            <div className="flex relative p-6">
-                <div className="flex-1 min-w-0">
-                    <button onClick={onBack} className="mb-4 text-blue-500">
+
+            <div className="flex flex-1 overflow-hidden p-6">
+                {/* Left Section: Transcript */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    <button onClick={onBack} className="mb-4 text-blue-500 self-start">
                         &lt;- <span className="underline">Back to Posts</span>
                     </button>
 
-                    <div
-                        className="h-[calc(100vh-18rem)] min-h-[calc(100vh-18rem)] overflow-auto"
-                        onMouseUp={handleTextSelection}>
-                        {/* Post Content */}
+                    <div className="flex-1 overflow-y-auto">
                         <div className="mb-6">
                             <h2 className="text-xl font-bold mb-2">
                                 {processedSegments
@@ -428,7 +424,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
 
                         {/* Comments Section */}
                         <h2 className="text-lg font-semibold mb-2">Comments</h2>
-                        <div>
+                        <div className="overflow-y-auto max-h-full">
                             <RedditComments
                                 comments={post.comments}
                                 processedSegments={processedSegments}
@@ -439,15 +435,18 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
                     </div>
                 </div>
 
-                {/* Related Codes Panel */}
-                <div className="w-1/4 pl-4 h-[calc(100vh-18rem)] min-h-[calc(100vh-18rem)] overflow-auto">
-                    <RelatedCodes
-                        codeSet={additionalCodes}
-                        codeColors={codeColors}
-                        hoveredCodeText={hoveredCodeText}
-                    />
+                {/* Right Section: Related Codes */}
+                <div className="w-1/4 pl-4 flex flex-col overflow-hidden">
+                    <div className="flex-1 overflow-y-auto">
+                        <RelatedCodes
+                            codeSet={additionalCodes}
+                            codeColors={codeColors}
+                            hoveredCodeText={hoveredCodeText}
+                        />
+                    </div>
                 </div>
-
+                {/* </div> */}
+                {/* </div> */}
                 {isAddCodeModalOpen && (
                     <AddCodeModal
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}

@@ -60,6 +60,38 @@ interface ICodingContext {
     dispatchFinalCodeResponses: Dispatch<any>;
     updateContext: (updates: Partial<ICodingContext>) => void;
     resetContext: () => void;
+    sampledPostData: {
+        postId: string;
+        quote: string;
+        explanation: string;
+        code: string;
+        theme: string;
+    }[];
+    unseenPostData: {
+        postId: string;
+        quote: string;
+        explanation: string;
+        code: string;
+        theme: string;
+    }[];
+    setSampledPostData: SetState<
+        {
+            postId: string;
+            quote: string;
+            explanation: string;
+            code: string;
+            theme: string;
+        }[]
+    >;
+    setUnseenPostData: SetState<
+        {
+            postId: string;
+            quote: string;
+            explanation: string;
+            code: string;
+            theme: string;
+        }[]
+    >;
 }
 
 // Create the context
@@ -94,7 +126,11 @@ export const CodingContext = createContext<ICodingContext>({
     finalCodeResponses: [],
     dispatchFinalCodeResponses: () => {},
     updateContext: () => {},
-    resetContext: () => {}
+    resetContext: () => {},
+    sampledPostData: [],
+    unseenPostData: [],
+    setSampledPostData: () => {},
+    setUnseenPostData: () => {}
 });
 
 type Action<T> =
@@ -296,6 +332,55 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     // initialWords
     const [selectedWords, setSelectedWords] = useState<string[]>([]);
     // initialWords.slice(0, 10)
+
+    const [sampledPostData, setSampledPostData] = useState<
+        {
+            postId: string;
+            quote: string;
+            explanation: string;
+            code: string;
+            theme: string;
+        }[]
+    >([
+        {
+            postId: '1',
+            quote: 'AI is evolving rapidly.',
+            explanation: 'AI is evolving rapidly.',
+            code: 'AI',
+            theme: 'Technology'
+        },
+        {
+            postId: '2',
+            quote: 'React hooks simplify state management.',
+            explanation: 'React hooks simplify state management.',
+            code: 'React',
+            theme: 'Web Development'
+        },
+        {
+            postId: '3',
+            quote: 'JavaScript is versatile.',
+            explanation: 'JavaScript is versatile.',
+            code: 'JavaScript',
+            theme: 'Programming'
+        },
+        {
+            postId: '4',
+            quote: 'JavaScript is versatile.',
+            explanation: 'JavaScript is versatile.',
+            code: 'React',
+            theme: 'Frontend'
+        }
+    ]);
+
+    const [unseenPostData, setUnseenPostData] = useState<
+        {
+            postId: string;
+            quote: string;
+            explanation: string;
+            code: string;
+            theme: string;
+        }[]
+    >([]);
 
     const [keywords, setKeywords] = useState<string[]>([]);
     const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
@@ -539,7 +624,11 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             finalCodeResponses,
             dispatchFinalCodeResponses,
             updateContext,
-            resetContext
+            resetContext,
+            sampledPostData,
+            setSampledPostData,
+            unseenPostData,
+            setUnseenPostData
         }),
         [
             currentMode,
@@ -558,7 +647,9 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             keywordTable,
             references,
             codeResponses,
-            finalCodeResponses
+            finalCodeResponses,
+            sampledPostData,
+            unseenPostData
         ]
     );
 

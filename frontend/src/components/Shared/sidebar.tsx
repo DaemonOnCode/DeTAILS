@@ -11,7 +11,6 @@ const formatRouteName = (path: string) => {
         .replace(/-/g, ' ')
         .toLowerCase()
         .replace(' v2', '')
-        .replace('theme', 'word')
         .split(' ')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
@@ -28,7 +27,7 @@ const IGNORED_KEYWORDS = [
     'flashcards',
     'word-cloud',
     'coding-validation',
-    'transcript/:id:/:state'
+    'transcript/:id/:state'
 ];
 
 const Sidebar: FC = () => {

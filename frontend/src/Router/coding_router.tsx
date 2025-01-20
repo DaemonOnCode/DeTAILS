@@ -17,7 +17,10 @@ import {
     CodebookRefinementPage,
     TranscriptPage,
     ThemesPage,
-    FinalCodebookPage
+    FinalCodebookPage,
+    CodeValidationPage,
+    SplitCheckPage,
+    EncodedDataPage
 } from '../pages/Coding';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
@@ -46,6 +49,18 @@ export const CodingRouter: RouteObject[] = [
     {
         path: ROUTES.FINAL_CODEBOOK,
         element: <FinalCodebookPage />
+    },
+    {
+        path: ROUTES.CODE_VALIDATION,
+        element: <CodeValidationPage />
+    },
+    {
+        path: ROUTES.SPLIT_CHECK,
+        element: <SplitCheckPage />
+    },
+    {
+        path: ROUTES.ENCODED_DATA,
+        element: <EncodedDataPage />
     },
     { path: ROUTES.FINAL, element: <FinalPage /> },
     {

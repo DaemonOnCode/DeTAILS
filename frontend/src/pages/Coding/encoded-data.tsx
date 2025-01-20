@@ -3,12 +3,12 @@ import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-cod
 import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
-const FinalThemes = () => {
-    const { sampledPostData } = useCodingContext();
+const EncodedDataPage = () => {
+    const { unseenPostData } = useCodingContext();
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
-                <UnifiedCodingPage data={sampledPostData} showThemes download />
+                <UnifiedCodingPage data={unseenPostData} showThemes />
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.HOME}
@@ -19,4 +19,4 @@ const FinalThemes = () => {
     );
 };
 
-export default FinalThemes;
+export default EncodedDataPage;

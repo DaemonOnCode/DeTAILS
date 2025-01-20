@@ -13,10 +13,13 @@ export enum ROUTES {
     // CODING_OVERVIEW = 'coding-overview',
     CODES_REVIEW = 'codes-review',
     CODEBOOK_REFINEMENT = 'codebook-refinement',
-    TRANSCRIPT = 'transcript/:id/:state',
     THEMES = 'themes',
     FINAL_CODEBOOK = 'final-codebook',
-    FINAL = 'final'
+    CODE_VALIDATION = 'code-validation',
+    SPLIT_CHECK = 'split-check',
+    ENCODED_DATA = 'encoded-data',
+    FINAL = 'final',
+    TRANSCRIPT = 'transcript/:id/:state'
 }
 
 export enum LOADER_ROUTES {

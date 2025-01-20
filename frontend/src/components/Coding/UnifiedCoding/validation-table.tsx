@@ -1,96 +1,249 @@
-import { FC } from 'react';
+import { ChangeEvent, FC, useState } from 'react';
 
 interface ValidationTableProps {
     codeResponses: {
         postId: string;
-        sentence: string;
-        coded_word: string;
+        quote: string;
+        explanation: string;
+        code: string;
         theme?: string;
+        isMarked?: boolean;
+        comment?: string;
     }[];
     onViewTranscript: (postId: string) => void;
     review: boolean;
-    showThemes?: boolean; // New prop to conditionally show the Themes column
+    showThemes?: boolean;
+    onReRunCoding: () => void;
+    onUpdateResponses: (updatedResponses: any[]) => void;
 }
 
 const ValidationTable: FC<ValidationTableProps> = ({
     codeResponses,
     onViewTranscript,
     review,
-    showThemes
+    showThemes,
+    onReRunCoding,
+    onUpdateResponses
 }) => {
-    // Group data by postId
-    const groupedData = codeResponses.reduce<{ [key: string]: any[] }>((acc, item) => {
-        if (!acc[item.postId]) {
-            acc[item.postId] = [];
-        }
-        acc[item.postId].push(item);
-        return acc;
-    }, {});
+    const [editIndex, setEditIndex] = useState<number | null>(null);
+    const [editableRow, setEditableRow] = useState<any>(null);
+
+    // Handling marking of responses (correct/incorrect)
+    const handleMark = (index: number, isMarked?: boolean) => {
+        const updatedResponses = [...codeResponses];
+        updatedResponses[index].isMarked = isMarked;
+        onUpdateResponses(updatedResponses);
+    };
+
+    // Handling comments when response is marked incorrect
+    const handleCommentChange = (index: number, event: ChangeEvent<HTMLTextAreaElement>) => {
+        const updatedResponses = [...codeResponses];
+        updatedResponses[index].comment = event.target.value;
+        onUpdateResponses(updatedResponses);
+    };
+
+    // Edit functionality handlers
+    const handleEditRow = (index: number) => {
+        setEditIndex(index);
+        setEditableRow({ ...codeResponses[index] });
+    };
+
+    const handleSaveEdit = () => {
+        const updatedResponses = [...codeResponses];
+        updatedResponses[editIndex!] = editableRow;
+        onUpdateResponses(updatedResponses);
+        setEditIndex(null);
+    };
+
+    const handleCancelEdit = () => {
+        setEditIndex(null);
+    };
+
+    const handleInputChange = (field: string, value: string) => {
+        setEditableRow({ ...editableRow, [field]: value });
+    };
+
+    const isReadyCheck = codeResponses.some((response) => response.isMarked !== undefined);
 
     return (
         <div className="p-6 overflow-auto">
-            <h2 className="text-xl font-bold mb-4">
-                {review ? 'Coding Review' : 'Coding Validation'}
-            </h2>
             <table className="w-full border-collapse border border-gray-300">
                 <thead>
                     <tr className="bg-gray-200">
-                        <th className="border p-2">Link</th>
-                        <th className="border p-2">Sentence</th>
-                        <th className="border p-2">Coded Word</th>
-                        {showThemes && <th className="border p-2">Theme</th>}
-                        {!review && <th className="border p-2">Actions</th>}
+                        <th className="border border-gray-300 p-2">Post ID</th>
+                        <th className="border border-gray-300 p-2">Quote</th>
+                        <th className="border border-gray-300 p-2">Explanation</th>
+                        <th className="border border-gray-300 p-2">Code</th>
+                        {showThemes && <th className="border border-gray-300 p-2">Theme</th>}
+                        {!review && (
+                            <>
+                                <th className="border border-gray-300 p-2">Actions</th>
+                                <th className="border border-gray-300 p-2">Comments</th>
+                            </>
+                        )}
                     </tr>
                 </thead>
                 <tbody>
-                    {Object.keys(groupedData).map((postId) => {
-                        const rows = groupedData[postId];
-                        return rows.map((row, index) => (
-                            <tr key={`${postId}-${index}`}>
-                                {index === 0 ? (
-                                    <td
-                                        rowSpan={rows.length}
-                                        className="border p-2 text-center align-middle">
-                                        <button
-                                            className="text-blue-500 underline"
-                                            onClick={() => onViewTranscript(postId)}>
-                                            {postId}
-                                        </button>
-                                    </td>
-                                ) : null}
-                                <td className="border p-2">{row.sentence}</td>
-                                <td className="border p-2">{row.coded_word}</td>
-                                {showThemes && (
-                                    <td className="border p-2">
-                                        {row.theme || (
+                    {codeResponses.map((row, index) => (
+                        <tr
+                            key={index}
+                            className={`transition-all duration-200 ${
+                                editIndex === index ? 'bg-yellow-100' : ''
+                            }`}>
+                            <td className="border border-gray-300 p-2">
+                                <button
+                                    className="text-blue-500 underline"
+                                    onClick={() => onViewTranscript(row.postId)}>
+                                    {row.postId}
+                                </button>
+                            </td>
+
+                            {/* Sentence Column */}
+                            <td className="border border-gray-300 p-2">
+                                {editIndex === index ? (
+                                    <input
+                                        type="text"
+                                        value={editableRow.quote}
+                                        onChange={(e) => handleInputChange('quote', e.target.value)}
+                                        className="border border-gray-400 p-1 w-full rounded outline-none focus:ring-2 ring-blue-400"
+                                    />
+                                ) : (
+                                    row.quote
+                                )}
+                            </td>
+
+                            {/* Explanation Column */}
+                            <td className="border border-gray-300 p-2">
+                                {editIndex === index ? (
+                                    <input
+                                        type="text"
+                                        value={editableRow.explanation}
+                                        onChange={(e) =>
+                                            handleInputChange('explanation', e.target.value)
+                                        }
+                                        className="border border-gray-400 p-1 w-full rounded outline-none focus:ring-2 ring-blue-400"
+                                    />
+                                ) : (
+                                    row.explanation
+                                )}
+                            </td>
+
+                            {/* Coded Word Column */}
+                            <td className="border border-gray-300 p-2">
+                                {editIndex === index ? (
+                                    <input
+                                        type="text"
+                                        value={editableRow.code}
+                                        onChange={(e) => handleInputChange('code', e.target.value)}
+                                        className="border border-gray-400 p-1 w-full rounded outline-none focus:ring-2 ring-blue-400"
+                                    />
+                                ) : (
+                                    row.code
+                                )}
+                            </td>
+
+                            {/* Theme Column */}
+                            {showThemes && (
+                                <td className="border border-gray-300 p-2">
+                                    {editIndex === index ? (
+                                        <input
+                                            type="text"
+                                            value={editableRow.theme || ''}
+                                            onChange={(e) =>
+                                                handleInputChange('theme', e.target.value)
+                                            }
+                                            className="border border-gray-400 p-1 w-full rounded outline-none focus:ring-2 ring-blue-400"
+                                        />
+                                    ) : (
+                                        row.theme || (
                                             <span className="text-gray-400 italic">
                                                 No theme assigned
                                             </span>
+                                        )
+                                    )}
+                                </td>
+                            )}
+
+                            {/* Actions */}
+                            {!review && (
+                                <>
+                                    <td className="border border-gray-300 p-2">
+                                        <div className="flex justify-center gap-2 h-full text-center">
+                                            {editIndex === index ? (
+                                                <>
+                                                    <button
+                                                        className="px-3 py-2 bg-green-500 text-white rounded-md"
+                                                        onClick={handleSaveEdit}>
+                                                        💾
+                                                    </button>
+                                                    <button
+                                                        className="px-3 py-2 bg-red-500 text-white rounded-md"
+                                                        onClick={handleCancelEdit}>
+                                                        ❌
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        className={`px-3 py-2 rounded-md ${
+                                                            row.isMarked === true
+                                                                ? 'bg-green-500 text-white'
+                                                                : 'bg-gray-300 text-gray-500'
+                                                        }`}
+                                                        onClick={() =>
+                                                            handleMark(
+                                                                index,
+                                                                row.isMarked !== true
+                                                                    ? true
+                                                                    : undefined
+                                                            )
+                                                        }>
+                                                        ✓
+                                                    </button>
+                                                    <button
+                                                        className={`px-3 py-2 rounded-md ${
+                                                            row.isMarked === false
+                                                                ? 'bg-red-500 text-white'
+                                                                : 'bg-gray-300 text-gray-500'
+                                                        }`}
+                                                        onClick={() =>
+                                                            handleMark(
+                                                                index,
+                                                                row.isMarked !== false
+                                                                    ? false
+                                                                    : undefined
+                                                            )
+                                                        }>
+                                                        ✕
+                                                    </button>
+                                                    <button
+                                                        className="px-3 py-2 bg-yellow-500 text-white rounded-md"
+                                                        onClick={() => handleEditRow(index)}
+                                                        title="Click to edit">
+                                                        ✏️
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </td>
+
+                                    {/* Comments Column */}
+                                    <td className="border border-gray-300 p-2">
+                                        {row.isMarked === false && (
+                                            <textarea
+                                                className="w-full p-2 border border-gray-400 rounded-md"
+                                                placeholder="Enter reason for rejection..."
+                                                value={row.comment || ''}
+                                                onChange={(event) =>
+                                                    handleCommentChange(index, event)
+                                                }
+                                            />
                                         )}
                                     </td>
-                                )}
-                                {!review && (
-                                    <td className="border p-2 flex gap-2">
-                                        <button
-                                            className="bg-green-500 text-white px-2 py-1 rounded"
-                                            onClick={() => console.log('Correct', row)}>
-                                            ✓ Correct
-                                        </button>
-                                        <button
-                                            className="bg-red-500 text-white px-2 py-1 rounded"
-                                            onClick={() => console.log('Wrong', row)}>
-                                            ✕ Wrong
-                                        </button>
-                                        <button
-                                            className="bg-gray-500 text-white px-2 py-1 rounded"
-                                            onClick={() => console.log('Delete', row)}>
-                                            🗑 Delete
-                                        </button>
-                                    </td>
-                                )}
-                            </tr>
-                        ));
-                    })}
+                                </>
+                            )}
+                        </tr>
+                    ))}
                 </tbody>
             </table>
         </div>

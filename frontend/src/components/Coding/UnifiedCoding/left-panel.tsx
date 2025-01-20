@@ -15,10 +15,8 @@ const LeftPanel: FC<LeftPanelProps> = ({ sampledPosts, codes, onFilterSelect }) 
         onFilterSelect(filter);
     };
 
-    console.log('Codes', codes);
-
     return (
-        <div className="p-4">
+        <div className="p-6">
             {/* Tabs */}
             <div className="flex justify-around mb-4">
                 <button
@@ -27,7 +25,7 @@ const LeftPanel: FC<LeftPanelProps> = ({ sampledPosts, codes, onFilterSelect }) 
                         setActiveTab('posts');
                         handleSelect(null);
                     }}>
-                    Sampled Posts
+                    Posts
                 </button>
                 <button
                     className={`py-2 px-4 w-1/2 ${activeTab === 'codes' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
@@ -39,7 +37,7 @@ const LeftPanel: FC<LeftPanelProps> = ({ sampledPosts, codes, onFilterSelect }) 
                 </button>
             </div>
 
-            {/* Sampled Posts Tab */}
+            {/* Posts Tab */}
             {activeTab === 'posts' ? (
                 <ul className="space-y-2">
                     <li

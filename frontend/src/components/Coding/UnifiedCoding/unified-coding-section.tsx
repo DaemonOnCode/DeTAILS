@@ -5,57 +5,41 @@ import PostTranscript from './post-transcript';
 import { useNavigate } from 'react-router-dom';
 
 interface UnifiedCodingPageProps {
+    data: {
+        postId: string;
+        quote: string;
+        explanation: string;
+        code: string;
+        theme: string;
+    }[];
     review?: boolean;
     showThemes?: boolean;
+    download?: boolean;
 }
 
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
+    data,
     review = true,
-    showThemes = false
+    showThemes = false,
+    download = false
 }) => {
     const [viewTranscript, setViewTranscript] = useState(false);
     const [currentPost, setCurrentPost] = useState<any | null>(null);
     const [filter, setFilter] = useState<string | null>(null);
     const [isThemesVisible, setIsThemesVisible] = useState(showThemes);
-
-    const sampledPosts = [
-        { id: '1', title: 'Post about AI' },
-        { id: '2', title: 'Understanding React' },
-        { id: '3', title: 'JavaScript Tips 1' },
-        { id: '4', title: 'React Tips 1' }
-    ];
-
-    const codeResponses = [
-        { postId: '1', sentence: 'AI is evolving rapidly.', coded_word: 'AI', theme: 'Technology' },
-        {
-            postId: '2',
-            sentence: 'React hooks simplify state management.',
-            coded_word: 'React',
-            theme: 'Web Development'
-        },
-        {
-            postId: '3',
-            sentence: 'JavaScript is versatile.',
-            coded_word: 'JavaScript',
-            theme: 'Programming'
-        },
-        {
-            postId: '4',
-            sentence: 'JavaScript is versatile.',
-            coded_word: 'React',
-            theme: 'Frontend'
-        }
-    ];
+    const [responses, setResponses] = useState(
+        data.map((item) => ({ ...item, isMarked: undefined, comment: '' }))
+    );
 
     const navigate = useNavigate();
 
     // Handle viewing transcript for a post
     const handleViewTranscript = (postId: string) => {
-        const post = sampledPosts.find((p) => p.id === postId);
+        const post = responses.find((p) => p.postId === postId);
         if (post) {
             setCurrentPost({
                 ...post,
-                selftext: `This is the full transcript of the post discussing ${post.title}`,
+                selftext: `This is the full transcript of the post discussing ${post.quote}`,
                 comments: [
                     { id: 'c1', body: 'Great insights!', comments: [] },
                     {
@@ -65,7 +49,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                     }
                 ]
             });
-            navigate(`/coding/transcript/${postId}/${review ? 'review' : 'refine'}`);
+            navigate(
+                `/coding/transcript/${postId}/${review ? 'review' : 'refine'}?${showThemes && new URLSearchParams({ split: 'true' })}`
+            );
             setViewTranscript(true);
         }
     };
@@ -75,10 +61,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     };
 
     const filteredData = filter
-        ? codeResponses.filter(
-              (response) => response.postId === filter || response.coded_word === filter
-          )
-        : codeResponses;
+        ? responses.filter((response) => response.postId === filter || response.code === filter)
+        : responses;
 
     // Function to generate and download codebook CSV
     const downloadCodebook = () => {
@@ -86,9 +70,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         const csvRows = [headers.join(',')];
 
         filteredData.forEach((row) => {
-            csvRows.push(
-                `${row.postId},"${row.sentence}","${row.coded_word}","${row.theme || 'N/A'}"`
-            );
+            csvRows.push(`${row.postId},"${row.quote}","${row.code}","${row.theme || 'N/A'}"`);
         });
 
         const csvContent = csvRows.join('\n');
@@ -103,41 +85,62 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         URL.revokeObjectURL(url);
     };
 
+    // Update responses when users mark/edit them
+    const handleUpdateResponses = (updatedResponses: any[]) => {
+        setResponses(updatedResponses);
+    };
+
+    // Function to re-run the coding with updates
+    const handleReRunCoding = () => {
+        console.log('Re-running coding with updated responses:', responses);
+    };
+
     return (
-        <div className="flex h-screen">
-            {!viewTranscript && (
-                <div className="w-1/4 border-r overflow-auto">
-                    <LeftPanel
-                        sampledPosts={sampledPosts}
-                        codes={Array.from(new Set(codeResponses.map((item) => item.coded_word)))}
-                        onFilterSelect={setFilter}
-                    />
-                </div>
-            )}
-
-            <div className={viewTranscript ? 'w-full' : 'w-3/4 flex flex-col'}>
-                {!viewTranscript ? (
-                    <>
-                        {showThemes && (
-                            <div className="text-center mb-4 p-4">
-                                <button
-                                    onClick={downloadCodebook}
-                                    className="px-4 py-2 bg-green-500 text-white rounded">
-                                    Download Codebook
-                                </button>
-                            </div>
-                        )}
-
-                        <ValidationTable
-                            codeResponses={filteredData}
-                            onViewTranscript={handleViewTranscript}
-                            review={review}
-                            showThemes={isThemesVisible}
+        <div className="-m-6 overflow-hidden">
+            <div className="flex h-[calc(100vh-8rem)]">
+                {!viewTranscript && (
+                    <div className="w-1/4 border-r overflow-auto">
+                        <LeftPanel
+                            sampledPosts={responses.map((item) => ({
+                                id: item.postId,
+                                title: item.quote
+                            }))}
+                            codes={Array.from(new Set(responses.map((item) => item.code)))}
+                            onFilterSelect={setFilter}
                         />
-                    </>
-                ) : (
-                    <PostTranscript post={currentPost} onBack={handleBackToTable} review={review} />
+                    </div>
                 )}
+
+                <div className={viewTranscript ? 'w-full' : 'w-3/4 flex flex-col'}>
+                    {!viewTranscript ? (
+                        <>
+                            {download && (
+                                <div className="flex justify-between items-center px-6 py-2">
+                                    <button
+                                        onClick={downloadCodebook}
+                                        className="px-4 py-2 bg-green-500 text-white rounded">
+                                        Download Codebook
+                                    </button>
+                                </div>
+                            )}
+
+                            <ValidationTable
+                                codeResponses={filteredData}
+                                onViewTranscript={handleViewTranscript}
+                                review={review}
+                                showThemes={isThemesVisible}
+                                onReRunCoding={handleReRunCoding}
+                                onUpdateResponses={handleUpdateResponses}
+                            />
+                        </>
+                    ) : (
+                        <PostTranscript
+                            post={currentPost}
+                            onBack={handleBackToTable}
+                            review={review}
+                        />
+                    )}
+                </div>
             </div>
         </div>
     );
