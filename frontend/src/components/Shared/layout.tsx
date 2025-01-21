@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import Sidebar from './sidebar';
 import Topbar from './topbar'; // Import the Topbar component
 import { ILayout } from '../../types/Coding/shared';
@@ -9,6 +9,8 @@ import { motion } from 'framer-motion';
 export const Layout: FC<ILayout> = ({ children }) => {
     const { serviceStarting } = useWebSocket();
     const { remoteProcessing } = useAuth();
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
     console.log('Layout remoteProcessing:', remoteProcessing, 'serviceStarting:', serviceStarting);
 
     if (!remoteProcessing && serviceStarting) {
@@ -18,9 +20,7 @@ export const Layout: FC<ILayout> = ({ children }) => {
                     {/* Animated Loader */}
                     <motion.div
                         className="h-5 w-5 bg-black rounded-full"
-                        animate={{
-                            y: [0, -20, 0] // Bouncing animation
-                        }}
+                        animate={{ y: [0, -20, 0] }}
                         transition={{
                             duration: 0.6,
                             repeat: Infinity,
@@ -30,9 +30,7 @@ export const Layout: FC<ILayout> = ({ children }) => {
                     />
                     <motion.div
                         className="h-5 w-5 bg-black rounded-full"
-                        animate={{
-                            y: [0, -20, 0] // Bouncing animation
-                        }}
+                        animate={{ y: [0, -20, 0] }}
                         transition={{
                             duration: 0.6,
                             repeat: Infinity,
@@ -42,9 +40,7 @@ export const Layout: FC<ILayout> = ({ children }) => {
                     />
                     <motion.div
                         className="h-5 w-5 bg-black rounded-full"
-                        animate={{
-                            y: [0, -20, 0] // Bouncing animation
-                        }}
+                        animate={{ y: [0, -20, 0] }}
                         transition={{
                             duration: 0.6,
                             repeat: Infinity,
@@ -65,14 +61,20 @@ export const Layout: FC<ILayout> = ({ children }) => {
             <div>
                 {/* Topbar */}
                 <Topbar />
-                <div className="flex w-full relative">
-                    {/* Sidebar */}
-                    <Sidebar />
 
-                    {/* Main Content Wrapper */}
-                    <div className="flex flex-col w-full pl-48 min-h-page">
-                        {/* Main Content Area */}
-                        <div className="p-6 h-full overflow-hidden">{children}</div>
+                <div className="flex flex-1">
+                    {/* Sidebar with dynamic width based on collapse state */}
+                    <div
+                        className={`transition-all duration-300 ${isSidebarCollapsed ? 'w-16' : 'w-64'}`}>
+                        <Sidebar
+                            isCollapsed={isSidebarCollapsed}
+                            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                        />
+                    </div>
+
+                    {/* Main Content Area dynamically adjusting */}
+                    <div className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
+                        <div className="p-6 h-full overflow-auto">{children}</div>
                     </div>
                 </div>
             </div>

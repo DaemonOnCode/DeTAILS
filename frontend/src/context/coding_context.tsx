@@ -380,7 +380,36 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             code: string;
             theme: string;
         }[]
-    >([]);
+    >([
+        {
+            postId: '1',
+            quote: 'AI is evolving rapidly.',
+            explanation: 'AI is evolving rapidly.',
+            code: 'AI',
+            theme: 'Technology'
+        },
+        {
+            postId: '2',
+            quote: 'React hooks simplify state management.',
+            explanation: 'React hooks simplify state management.',
+            code: 'React',
+            theme: 'Web Development'
+        },
+        {
+            postId: '3',
+            quote: 'JavaScript is versatile.',
+            explanation: 'JavaScript is versatile.',
+            code: 'JavaScript',
+            theme: 'Programming'
+        },
+        {
+            postId: '4',
+            quote: 'JavaScript is versatile.',
+            explanation: 'JavaScript is versatile.',
+            code: 'React',
+            theme: 'Frontend'
+        }
+    ]);
 
     const [keywords, setKeywords] = useState<string[]>([]);
     const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);

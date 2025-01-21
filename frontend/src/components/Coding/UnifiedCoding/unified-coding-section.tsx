@@ -15,13 +15,17 @@ interface UnifiedCodingPageProps {
     review?: boolean;
     showThemes?: boolean;
     download?: boolean;
+    showCodebook?: boolean;
+    split?: boolean;
 }
 
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     data,
     review = true,
     showThemes = false,
-    download = false
+    download = false,
+    showCodebook = false,
+    split = false
 }) => {
     const [viewTranscript, setViewTranscript] = useState(false);
     const [currentPost, setCurrentPost] = useState<any | null>(null);
@@ -49,8 +53,16 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                     }
                 ]
             });
+            let params = new URLSearchParams();
+            if (split) {
+                params.append('split', 'true');
+            }
+            if (showCodebook) {
+                params.append('codebook', 'true');
+            }
+
             navigate(
-                `/coding/transcript/${postId}/${review ? 'review' : 'refine'}?${showThemes && new URLSearchParams({ split: 'true' })}`
+                `/coding/transcript/${postId}/${review ? 'review' : 'refine'}?${params.toString()}`
             );
             setViewTranscript(true);
         }

@@ -6,7 +6,8 @@ const TranscriptPage = () => {
     const { id, state } = useParams<{ id: string; state: 'review' | 'refine' }>();
     const [searchParams] = useSearchParams();
     const [split] = searchParams.getAll('split');
-    console.log(searchParams, split);
+    const [codebook] = searchParams.getAll('codebook');
+    console.log(searchParams, split, codebook);
     const [post, setPost] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [showCodebook, setShowCodebook] = useState(false);
@@ -72,8 +73,8 @@ const TranscriptPage = () => {
             )}
 
             <div
-                className={`${split === 'true' ? 'h-[60%]' : 'h-full'} flex-1 flex flex-col overflow-hidden`}>
-                {split === 'true' && (
+                className={`${codebook === 'true' ? 'h-[60%]' : 'h-full'} flex-1 flex flex-col overflow-hidden`}>
+                {codebook === 'true' && (
                     <div className="flex justify-center p-3">
                         <button
                             className="bg-blue-500 text-white rounded px-4 py-2"
@@ -83,7 +84,7 @@ const TranscriptPage = () => {
                     </div>
                 )}
 
-                <div className={`${split === 'true' ? 'h-[85%]' : 'h-full'}`}>
+                <div className={`${codebook === 'true' ? 'h-[85%]' : 'h-full'}`}>
                     <PostTranscript
                         post={post}
                         onBack={() => window.history.back()}
