@@ -11,8 +11,8 @@ const CodeReview = () => {
                 <UnifiedCodingPage data={sampledPostData} review={true} />
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.HOME}
-                nextPage={ROUTES.KEYWORD_CLOUD}
+                previousPage={ROUTES.KEYWORD_TABLE}
+                nextPage={ROUTES.CODEBOOK_REFINEMENT}
                 isReady={true}
             />
         </div>

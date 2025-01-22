@@ -6,18 +6,24 @@ import Bucket from '../../components/Coding/Themes/bucket';
 import UnplacedCodesBox from '../../components/Coding/Themes/unplaced-box';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { ROUTES } from '../../constants/Coding/shared';
+import { useCodingContext } from '../../context/coding_context';
 
 const ThemesPage = () => {
-    const [themes, setThemes] = useState([
-        { id: uuidv4(), name: 'Technology', codes: ['AI', 'Blockchain', 'IoT'] },
-        { id: uuidv4(), name: 'Science', codes: ['Biology', 'Physics'] }
-    ]);
+    const { sampledPostWithThemeData } = useCodingContext();
 
-    const [unplacedCodes, setUnplacedCodes] = useState([
-        'Psychology',
-        'Quantum Computing',
-        'Painting'
-    ]);
+    const themeSet = new Set(sampledPostWithThemeData.map((data) => data.theme));
+
+    const [themes, setThemes] = useState(
+        Array.from(themeSet).map((theme) => ({
+            id: uuidv4(),
+            name: theme,
+            codes: sampledPostWithThemeData
+                .filter((data) => data.theme === theme)
+                .map((data) => data.code)
+        }))
+    );
+
+    const [unplacedCodes, setUnplacedCodes] = useState<string[]>([]);
 
     // Handle drop into a specific theme
     const handleDropToBucket = (themeId: string, code: string) => {
@@ -64,7 +70,7 @@ const ThemesPage = () => {
     return (
         <div>
             <div className="max-h-[calc(100vh-11rem)] h-[calc(100vh-11rem)]">
-                <DndProvider backend={HTML5Backend}>
+                <DndProvider backend={HTML5Backend} context={window}>
                     <div className="container mx-auto">
                         <h1 className="text-2xl font-bold mb-4">Themes and Codes Organizer</h1>
 
@@ -93,8 +99,8 @@ const ThemesPage = () => {
                 </DndProvider>
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.HOME}
-                nextPage={ROUTES.KEYWORD_CLOUD}
+                previousPage={ROUTES.CODEBOOK_REFINEMENT}
+                nextPage={ROUTES.FINAL_CODEBOOK}
                 isReady={true}
             />
         </div>

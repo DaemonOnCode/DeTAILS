@@ -136,7 +136,7 @@ const Sidebar: FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
 
     return (
         <div
-            className={`fixed h-screen bg-gray-800 text-white shadow-lg transition-all duration-300 flex ${
+            className={`fixed h-page bg-gray-800 text-white shadow-lg transition-all duration-300 flex ${
                 isCollapsed ? 'min-w-16' : 'max-w-64'
             }`}>
             {/* Left Section: Collapsible Navigation */}

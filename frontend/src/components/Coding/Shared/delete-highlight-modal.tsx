@@ -52,7 +52,7 @@ const DeleteHighlightModal: FC<DeleteHighlightModalProps> = ({
                                 [code]: prevReferences[code].filter((ref) => ref !== reference)
                             }));
 
-                            applyCodeToSelection();
+                            applyCodeToSelection(selectedReference);
                             setSelectedReference(undefined);
                             setIsHighlightModalOpen(false);
                         }

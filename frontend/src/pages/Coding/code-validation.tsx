@@ -4,11 +4,16 @@ import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
 const CodeValidation = () => {
-    const { unseenPostData } = useCodingContext();
+    const { unseenPostWithThemeData } = useCodingContext();
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
-                <UnifiedCodingPage data={unseenPostData} review={false} showThemes showCodebook />
+                <UnifiedCodingPage
+                    data={unseenPostWithThemeData}
+                    review={false}
+                    showThemes
+                    showCodebook
+                />
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.HOME}

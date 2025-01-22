@@ -50,10 +50,10 @@ export const CodingRouter: RouteObject[] = [
         path: ROUTES.FINAL_CODEBOOK,
         element: <FinalCodebookPage />
     },
-    {
-        path: ROUTES.CODE_VALIDATION,
-        element: <CodeValidationPage />
-    },
+    // {
+    //     path: ROUTES.CODE_VALIDATION,
+    //     element: <CodeValidationPage />
+    // },
     {
         path: ROUTES.SPLIT_CHECK,
         element: <SplitCheckPage />

@@ -3,20 +3,30 @@ import LeftPanel from './left-panel';
 import ValidationTable from './validation-table';
 import PostTranscript from './post-transcript';
 import { useNavigate } from 'react-router-dom';
+import {
+    IQECResponse,
+    IQECRow,
+    IQECTResponse,
+    IQECTRow,
+    IQECTTyResponse,
+    IQECTTyRow
+} from '../../../types/Coding/shared';
 
 interface UnifiedCodingPageProps {
-    data: {
-        postId: string;
-        quote: string;
-        explanation: string;
-        code: string;
-        theme: string;
-    }[];
+    data:
+        | IQECTRow[]
+        | IQECRow[]
+        | IQECTTyRow[]
+        | IQECResponse[]
+        | IQECTResponse[]
+        | IQECTTyResponse[];
     review?: boolean;
     showThemes?: boolean;
     download?: boolean;
     showCodebook?: boolean;
     split?: boolean;
+    showFilterDropdown?: boolean;
+    showRerunCoding?: boolean;
 }
 
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
@@ -25,14 +35,22 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     showThemes = false,
     download = false,
     showCodebook = false,
-    split = false
+    split = false,
+    showFilterDropdown = false,
+    showRerunCoding = false
 }) => {
+    console.log('Data:', data);
     const [viewTranscript, setViewTranscript] = useState(false);
     const [currentPost, setCurrentPost] = useState<any | null>(null);
     const [filter, setFilter] = useState<string | null>(null);
-    const [isThemesVisible, setIsThemesVisible] = useState(showThemes);
+    const [selectedTypeFilter, setSelectedTypeFilter] = useState<'Human' | 'LLM' | 'All'>('All');
+
+    const isThemesVisible = showThemes;
+    // const [isThemesVisible, setIsThemesVisible] = useState(showThemes);
     const [responses, setResponses] = useState(
-        data.map((item) => ({ ...item, isMarked: undefined, comment: '' }))
+        'isMarked' in data && 'comment' in data
+            ? data
+            : data.map((item) => ({ ...item, isMarked: undefined, comment: '' }))
     );
 
     const navigate = useNavigate();
@@ -55,7 +73,11 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             });
             let params = new URLSearchParams();
             if (split) {
-                params.append('split', 'true');
+                if (selectedTypeFilter !== 'All') {
+                    params.append('type', selectedTypeFilter);
+                } else {
+                    params.append('split', 'true');
+                }
             }
             if (showCodebook) {
                 params.append('codebook', 'true');
@@ -78,11 +100,21 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     // Function to generate and download codebook CSV
     const downloadCodebook = () => {
-        const headers = ['Post ID', 'Sentence', 'Coded Word', 'Theme'];
+        const headers = ['Post ID', 'Sentence', 'Coded Word', 'Theme', 'Type'];
         const csvRows = [headers.join(',')];
 
         filteredData.forEach((row) => {
-            csvRows.push(`${row.postId},"${row.quote}","${row.code}","${row.theme || 'N/A'}"`);
+            if ('type' in row && 'theme' in row) {
+                csvRows.push(
+                    `${row.postId},"${row.quote}","${row.code}","${row.theme || 'N/A'}","${row.type || 'N/A'}"`
+                );
+            } else if ('theme' in row) {
+                csvRows.push(
+                    `${row.postId},"${row.quote}","${row.code}","${row.theme || 'N/A'}", "N/A"`
+                );
+            } else {
+                csvRows.push(`${row.postId},"${row.quote}","${row.code}","N/A", "N/A"`);
+            }
         });
 
         const csvContent = csvRows.join('\n');
@@ -102,6 +134,24 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         setResponses(updatedResponses);
     };
 
+    const handleSelectedTypeFilter = (type: 'Human' | 'LLM' | 'All') => {
+        setSelectedTypeFilter(type);
+        setResponses(
+            // @ts-ignore
+            ('isMarked' in data && 'comment' in data
+                ? data
+                : data.map((item) => ({ ...item, isMarked: undefined, comment: '' }))
+            ).filter((item) => {
+                if ('type' in item) {
+                    if (type === 'All') {
+                        return true;
+                    }
+                    return item.type === type;
+                }
+            })
+        );
+    };
+
     // Function to re-run the coding with updates
     const handleReRunCoding = () => {
         console.log('Re-running coding with updated responses:', responses);
@@ -113,12 +163,17 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 {!viewTranscript && (
                     <div className="w-1/4 border-r overflow-auto">
                         <LeftPanel
-                            sampledPosts={responses.map((item) => ({
-                                id: item.postId,
-                                title: item.quote
+                            sampledPosts={Array.from(
+                                new Set(responses.map((item) => item.postId))
+                            ).map((postId) => ({
+                                id: postId,
+                                title: responses.find((item) => item.postId === postId)?.quote || ''
                             }))}
                             codes={Array.from(new Set(responses.map((item) => item.code)))}
                             onFilterSelect={setFilter}
+                            showTypeFilterDropdown={showFilterDropdown}
+                            selectedTypeFilter={selectedTypeFilter}
+                            handleSelectedTypeFilter={handleSelectedTypeFilter}
                         />
                     </div>
                 )}
@@ -137,13 +192,30 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             )}
 
                             <ValidationTable
-                                codeResponses={filteredData}
+                                codeResponses={filteredData.map((item: any) => {
+                                    if (!('isMarked' in item)) {
+                                        item.isMarked = false;
+                                    }
+                                    if (!('comment' in item)) {
+                                        item.comment = '';
+                                    }
+                                    return item;
+                                })}
                                 onViewTranscript={handleViewTranscript}
                                 review={review}
                                 showThemes={isThemesVisible}
                                 onReRunCoding={handleReRunCoding}
                                 onUpdateResponses={handleUpdateResponses}
                             />
+                            {showRerunCoding && (
+                                <div className="flex justify-center p-6">
+                                    <button
+                                        onClick={handleReRunCoding}
+                                        className="px-4 py-2 bg-green-500 text-white rounded">
+                                        Re-run Coding
+                                    </button>
+                                </div>
+                            )}
                         </>
                     ) : (
                         <PostTranscript

@@ -4,15 +4,15 @@ import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
 const EncodedDataPage = () => {
-    const { unseenPostData } = useCodingContext();
+    const { unseenPostWithThemeData } = useCodingContext();
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
-                <UnifiedCodingPage data={unseenPostData} showThemes />
+                <UnifiedCodingPage data={unseenPostWithThemeData} showThemes />
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.HOME}
-                nextPage={ROUTES.KEYWORD_CLOUD}
+                previousPage={ROUTES.SPLIT_CHECK}
+                nextPage={ROUTES.FINAL}
                 isReady={true}
             />
         </div>

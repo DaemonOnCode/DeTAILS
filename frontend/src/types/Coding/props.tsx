@@ -1,6 +1,9 @@
+import { Dispatch } from 'react';
 import {
     Comments,
     ContentAreaTabs,
+    IQECRow,
+    IQECTRow,
     IRedditPostData,
     IReference,
     PostIdTitle,
@@ -67,6 +70,8 @@ export type HighlightModalProps = {
     addReasoning?: boolean;
     reasoning?: string;
     setReasoning?: SetState<string>;
+    restoreSelection: () => void;
+    removeSelection: () => void;
 };
 
 export type EditHighlightModalProps = {
@@ -76,8 +81,9 @@ export type EditHighlightModalProps = {
     setReferences: SetState<{
         [code: string]: IReference[];
     }>;
-    applyCodeToSelection: () => void;
+    applyCodeToSelection: (e: any) => void;
     setIsHighlightModalOpen: SetState<boolean>;
+    restoreSelection?: () => void;
 };
 
 export type DeleteHighlightModalProps = {
@@ -87,7 +93,7 @@ export type DeleteHighlightModalProps = {
     setReferences: SetState<{
         [code: string]: IReference[];
     }>;
-    applyCodeToSelection: () => void;
+    applyCodeToSelection: (e: any) => void;
     setIsHighlightModalOpen: SetState<boolean>;
 };
 
@@ -108,6 +114,10 @@ export type TopToolbarProps = {
     setIsDeleteCodeModalOpen: SetState<boolean>;
     setIsEditHighlightCodeModalOpen: SetState<boolean>;
     setIsDeleteHighlightCodeModalOpen: SetState<boolean>;
+    activeTranscript?: 'human' | 'llm' | null;
+    showCodebookButton?: boolean; // Optional prop to control the Codebook button
+    showCodebook?: boolean; // Optional prop to control the Codebook visibility
+    onShowCodebook?: (e: any) => void; // Callback function for showing the codebook
 };
 
 export type FileCardProps = {
@@ -178,4 +188,21 @@ export type PostTranscriptProps = {
     };
     onBack: () => void;
     review?: boolean;
+    isActive?: boolean;
+    codeResponses: (IQECTRow | IQECRow)[];
+    dispatchCodeResponse: Dispatch<any>;
+    selectedText: string | null;
+    setSelectedText: SetState<string | null>;
+    isAddCodeModalOpen: boolean;
+    setIsAddCodeModalOpen: SetState<boolean>;
+    isEditCodeModalOpen: boolean;
+    setIsEditCodeModalOpen: SetState<boolean>;
+    isDeleteCodeModalOpen: boolean;
+    setIsDeleteCodeModalOpen: SetState<boolean>;
+    isHighlightModalOpen: boolean;
+    setIsHighlightModalOpen: SetState<boolean>;
+    isEditHighlightModalOpen: boolean;
+    setIsEditHighlightModalOpen: SetState<boolean>;
+    isDeleteHighlightModalOpen: boolean;
+    setDeleteIsHighlightModalOpen: SetState<boolean>;
 };

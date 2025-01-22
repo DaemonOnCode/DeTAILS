@@ -8,11 +8,11 @@ const CodebookRefinement = () => {
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
-                <UnifiedCodingPage data={sampledPostData} review={false} />
+                <UnifiedCodingPage data={sampledPostData} review={false} showRerunCoding />
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.HOME}
-                nextPage={ROUTES.KEYWORD_CLOUD}
+                previousPage={ROUTES.CODES_REVIEW}
+                nextPage={ROUTES.THEMES}
                 isReady={true}
             />
         </div>

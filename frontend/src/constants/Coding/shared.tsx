@@ -15,7 +15,7 @@ export enum ROUTES {
     CODEBOOK_REFINEMENT = 'codebook-refinement',
     THEMES = 'themes',
     FINAL_CODEBOOK = 'final-codebook',
-    CODE_VALIDATION = 'code-validation',
+    // CODE_VALIDATION = 'code-validation',
     SPLIT_CHECK = 'split-check',
     ENCODED_DATA = 'encoded-data',
     FINAL = 'final',

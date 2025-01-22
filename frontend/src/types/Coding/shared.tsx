@@ -48,6 +48,37 @@ export interface IFinalCodeResponse {
     reasoning: string;
 }
 
+export interface IQECRow {
+    id: string;
+    quote: string;
+    explanation: string;
+    code: string;
+    postId: string;
+}
+
+export interface IQECResponse extends IQECRow {
+    isMarked?: boolean;
+    comment: string;
+}
+
+export interface IQECTRow extends IQECRow {
+    theme: string;
+}
+
+export interface IQECTResponse extends IQECTRow {
+    isMarked?: boolean;
+    comment: string;
+}
+
+export interface IQECTTyRow extends IQECTRow {
+    type: string;
+}
+
+export interface IQECTTyResponse extends IQECTTyRow {
+    isMarked?: boolean;
+    comment: string;
+}
+
 export interface IRedditPost {
     sentence: string;
     word: string;

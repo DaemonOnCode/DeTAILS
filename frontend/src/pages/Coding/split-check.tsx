@@ -4,15 +4,22 @@ import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
 const SplitCheckPage = () => {
-    const { unseenPostData } = useCodingContext();
+    const { unseenPostWithThemeData, llmCodeResponses, humanCodeResponses } = useCodingContext();
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
-                <UnifiedCodingPage data={unseenPostData} showThemes split />
+                <UnifiedCodingPage
+                    data={[...llmCodeResponses, ...humanCodeResponses]}
+                    showThemes
+                    split
+                    showCodebook
+                    review={false}
+                    showFilterDropdown
+                />
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.HOME}
-                nextPage={ROUTES.KEYWORD_CLOUD}
+                previousPage={ROUTES.FINAL_CODEBOOK}
+                nextPage={ROUTES.ENCODED_DATA}
                 isReady={true}
             />
         </div>

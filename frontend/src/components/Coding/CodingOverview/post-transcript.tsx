@@ -15,20 +15,41 @@ import DeleteCodeModal from '../Shared/delete-code-modal';
 import EditHighlightModal from '../Shared/edit-highlight-modal';
 import DeleteHighlightModal from '../Shared/delete-highlight-modal';
 
-const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
-    console.log('Post:', post);
+const PostTranscript: FC<PostTranscriptProps> = ({
+    post,
+    onBack,
+    review,
+    isActive = false,
+    codeResponses,
+    dispatchCodeResponse,
+    selectedText,
+    setSelectedText,
+    isAddCodeModalOpen,
+    setIsAddCodeModalOpen,
+    isEditCodeModalOpen,
+    setIsEditCodeModalOpen,
+    isDeleteCodeModalOpen,
+    setIsDeleteCodeModalOpen,
+    isHighlightModalOpen,
+    setIsHighlightModalOpen,
+    isEditHighlightModalOpen,
+    setIsEditHighlightModalOpen,
+    isDeleteHighlightModalOpen,
+    setDeleteIsHighlightModalOpen
+}) => {
+    console.log('Post:', post, codeResponses);
     // const transcript = getTranscript(
     //     post.title,
     //     post.selftext,
     //     ...[post.comments.map((c: any) => c.body)]
     // );
-    const { finalCodeResponses, dispatchFinalCodeResponses } = useCodingContext();
+    // const { codeResponses, dispatchCodeResponse } = useCodingContext();
 
-    const codes = finalCodeResponses
+    const codes = codeResponses
         .filter((response) => response.postId === post.id)
         .map((response) => ({
-            text: response.sentence,
-            code: response.coded_word
+            text: response.quote,
+            code: response.code
         }));
 
     const codeSet = Array.from(new Set(codes.map((code) => code.code)));
@@ -41,16 +62,10 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
     //     { x1: number; y1: number; x2: number; y2: number; color: string }[]
     // >([]);
 
-    const [isAddCodeModalOpen, setIsAddCodeModalOpen] = useState(false);
-    const [isEditCodeModalOpen, setIsEditCodeModalOpen] = useState(false);
-    const [isDeleteCodeModalOpen, setIsDeleteCodeModalOpen] = useState(false);
-    const [isHighlightModalOpen, setIsHighlightModalOpen] = useState(false);
-    const [isEditHighlightModalOpen, setIsEditHighlightModalOpen] = useState(false);
-    const [isDeleteHighlightModalOpen, setDeleteIsHighlightModalOpen] = useState(false);
-
     const [selectedCode, setSelectedCode] = useState<string>('');
-    const [selectedText, setSelectedText] = useState<string | null>(null);
     const [reasoning, setReasoning] = useState<string>('');
+
+    const selectionRangeRef = useRef<Range | null>(null);
 
     useEffect(() => {
         console.log('Additional codes:', additionalCodes);
@@ -59,10 +74,10 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
     const currentReferences = Object.fromEntries(
         codeSet.map((code) => [
             code,
-            finalCodeResponses
-                .filter((response) => response.coded_word === code)
+            codeResponses
+                .filter((response) => response.code === code)
                 .map((response) => ({
-                    text: response.sentence,
+                    text: response.quote,
                     isComment: true,
                     postId: response.postId
                 }))
@@ -72,6 +87,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
     const [references, setReferences] = useState<Record<string, IReference[]>>(currentReferences);
 
     const setCodes = (value: any, type: string) => {
+        if (!isActive) return;
         let result: string[] = [];
         if (typeof value !== 'function') {
             result = value;
@@ -80,48 +96,77 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
             result = value(codeSet);
         }
         console.log('Result:', result);
-        if (result.length) {
-            switch (type) {
-                case 'ADD_CODE':
-                    console.log('Adding code:', result);
-                    setAdditionalCodes([...result]);
-                    break;
-                case 'UPDATE_CODE_NAME':
-                    let newCode = result.find((code) => !codeSet.includes(code));
-                    dispatchFinalCodeResponses({
-                        type: 'EDIT_CODE',
-                        currentCode: selectedCode,
-                        newCode
-                    });
-                    if (newCode) {
-                        setAdditionalCodes((prevCodes) =>
-                            prevCodes.map((code) => (code === selectedCode ? newCode! : code))
-                        );
-                    }
-                    break;
-                case 'DELETE_CODE':
-                    dispatchFinalCodeResponses({
-                        type: 'DELETE_CODE',
-                        code: selectedCode
-                    });
+        // if (result.length) {
+        switch (type) {
+            case 'ADD_CODE':
+                console.log('Adding code:', result);
+                setAdditionalCodes([...result]);
+                break;
+            case 'UPDATE_CODE_NAME':
+                let newCode = result.find((code) => !codeSet.includes(code));
+                dispatchCodeResponse({
+                    type: 'EDIT_CODE',
+                    currentCode: selectedCode,
+                    newCode
+                });
+                if (newCode) {
                     setAdditionalCodes((prevCodes) =>
-                        prevCodes.filter((code) => code !== selectedCode)
+                        prevCodes.map((code) => (code === selectedCode ? newCode! : code))
                     );
-                    break;
-                default:
-                    break;
-            }
+                }
+                break;
+            case 'DELETE_CODE':
+                dispatchCodeResponse({
+                    type: 'DELETE_CODE',
+                    code: selectedCode
+                });
+                setAdditionalCodes((prevCodes) =>
+                    prevCodes.filter((code) => code !== selectedCode)
+                );
+                break;
+            default:
+                break;
         }
+        // }
         setSelectedCode('');
     };
 
     // Capture selected text
     const handleTextSelection = () => {
+        console.log('Handling text selection');
+        if (!isActive) return;
         const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-            const selected = selection.toString();
-            setSelectedText(selected || null);
-        }
+        if (!selection || selection.rangeCount === 0) return;
+
+        selectionRangeRef.current = selection.getRangeAt(0);
+        setSelectedText(selection.toString() || null);
+    };
+
+    const restoreSelection = () => {
+        console.log('Restoring selection');
+        if (!isActive) return;
+        if (!selectionRangeRef.current) return;
+
+        const selection = window.getSelection();
+        if (!selection) return;
+
+        // Clear any existing selection
+        selection.removeAllRanges();
+
+        // Re-apply our saved range
+        selection.addRange(selectionRangeRef.current);
+    };
+
+    const removeSelection = () => {
+        console.log('Removing selection');
+        if (!isActive) return;
+        if (!selectionRangeRef.current) return;
+
+        const selection = window.getSelection();
+        if (!selection) return;
+
+        selection.removeAllRanges();
+        selectionRangeRef.current = null;
     };
 
     function findSingleKeyDifference(
@@ -169,10 +214,18 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
     }
 
     // Apply code to the selected text
-    const applyCodeToSelection = (type: string) => {
+    const applyCodeToSelection = (type: string, extra?: any) => {
+        if (!isActive) return;
         console.log('Applying code to selection:', selectedText, selectedCode, type);
-        if (!selectedText || !selectedCode) {
-            alert('Please select text and choose a code to apply.');
+        if (!selectedText && isHighlightModalOpen) {
+            alert(
+                'Please select text. Make sure you explicitly select the text in an active tab, which can be distinguished by a blue border.'
+            );
+            return;
+        }
+
+        if (!selectedCode && isHighlightModalOpen) {
+            alert('Please select a code.');
             return;
         }
 
@@ -184,31 +237,40 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
 
         switch (type) {
             case 'ADD_HIGHLIGHT':
-                dispatchFinalCodeResponses({
+                dispatchCodeResponse({
                     type: 'ADD_RESPONSE',
                     response: {
+                        id: Math.random().toString(36),
                         postId: post.id,
-                        coded_word: selectedCode,
-                        sentence: selectedText,
-                        reasoning
+                        code: selectedCode,
+                        quote: selectedText,
+                        explanation: reasoning,
+                        isMarked: true,
+                        comment: '',
+                        type: 'Human',
+                        theme: 'Some theme'
                     }
                 });
                 break;
             case 'EDIT_HIGHLIGHT':
                 difference = findSingleKeyDifference(currentReferences, references, 'modified');
-                dispatchFinalCodeResponses({
+                console.log('Edit Difference:', difference, extra);
+                dispatchCodeResponse({
                     type: 'EDIT_HIGHLIGHT',
                     postId: post.id,
-                    sentence: difference?.originalReference,
-                    newSentence: difference?.result.text
+                    sentence: extra?.reference.text,
+                    code: extra?.code,
+                    newSentence: extra?.newText
                 });
                 break;
             case 'DELETE_HIGHLIGHT':
                 difference = findSingleKeyDifference(currentReferences, references, 'removed');
-                dispatchFinalCodeResponses({
+                console.log('Delete Difference:', difference, extra);
+                dispatchCodeResponse({
                     type: 'DELETE_HIGHLIGHT',
                     postId: post.id,
-                    sentence: difference?.result.text
+                    sentence: extra?.reference.text,
+                    code: extra?.code
                 });
                 break;
             default:
@@ -348,7 +410,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
                 const codeSegments = splitIntoSegments(text);
 
                 codeSegments.forEach((codeSegment) => {
-                    const partialSimilarity = ratio(segment.line, codeSegment);
+                    const partialSimilarity = partial_ratio(segment.line, codeSegment);
                     if (partialSimilarity >= 90) {
                         segment.backgroundColours.push(codeColors[code]);
                         segment.relatedCodeText.push(code);
@@ -365,32 +427,24 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
         }));
     }, [post, codes, codeColors]);
 
+    useEffect(() => {
+        console.log('Selected text:', selectedText);
+    }, [selectedText]);
+
     console.log('Processed segments:', processedSegments);
 
     return !post ? (
         <></>
     ) : (
         <div className="flex flex-col h-full overflow-hidden">
-            {!review && (
-                <TopToolbar
-                    selectedPost={post}
-                    setIsAddCodeModalOpen={setIsAddCodeModalOpen}
-                    setIsHighlightModalOpen={setIsHighlightModalOpen}
-                    setIsEditCodeModalOpen={setIsEditCodeModalOpen}
-                    setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
-                    setIsEditHighlightCodeModalOpen={setIsEditHighlightModalOpen}
-                    setIsDeleteHighlightCodeModalOpen={setDeleteIsHighlightModalOpen}
-                />
-            )}
-
-            <div className="flex flex-1 overflow-hidden p-6">
+            <div className="flex flex-1 overflow-hidden m-6">
                 {/* Left Section: Transcript */}
                 <div className="flex-1 flex flex-col overflow-hidden">
                     <button onClick={onBack} className="mb-4 text-blue-500 self-start">
                         &lt;- <span className="underline">Back to Posts</span>
                     </button>
 
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto" onMouseUp={handleTextSelection}>
                         <div className="mb-6">
                             <h2 className="text-xl font-bold mb-2">
                                 {processedSegments
@@ -424,7 +478,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
 
                         {/* Comments Section */}
                         <h2 className="text-lg font-semibold mb-2">Comments</h2>
-                        <div className="overflow-y-auto max-h-full">
+                        <div className="max-h-full">
                             <RedditComments
                                 comments={post.comments}
                                 processedSegments={processedSegments}
@@ -447,7 +501,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
                 </div>
                 {/* </div> */}
                 {/* </div> */}
-                {isAddCodeModalOpen && (
+                {isAddCodeModalOpen && isActive && (
                     <AddCodeModal
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}
                         setIsHighlightModalOpen={setIsHighlightModalOpen}
@@ -455,7 +509,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
                         setSelectedCode={setSelectedCode}
                     />
                 )}
-                {isEditCodeModalOpen && (
+                {isEditCodeModalOpen && isActive && (
                     <EditCodeModal
                         setIsEditCodeModalOpen={setIsEditCodeModalOpen}
                         setIsHighlightModalOpen={setIsHighlightModalOpen}
@@ -466,7 +520,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
                         setSelectedCode={setSelectedCode}
                     />
                 )}
-                {isDeleteCodeModalOpen && (
+                {isDeleteCodeModalOpen && isActive && (
                     <DeleteCodeModal
                         setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
                         setIsHighlightModalOpen={setIsHighlightModalOpen}
@@ -477,7 +531,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
                         setSelectedCode={setSelectedCode}
                     />
                 )}
-                {isHighlightModalOpen && (
+                {isHighlightModalOpen && isActive && (
                     <HighlightModal
                         codes={additionalCodes}
                         selectedCode={selectedCode}
@@ -488,21 +542,28 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
                         addReasoning={true}
                         reasoning={reasoning}
                         setReasoning={setReasoning}
+                        restoreSelection={restoreSelection}
+                        removeSelection={removeSelection}
                     />
                 )}
-                {isEditHighlightModalOpen && (
+                {isEditHighlightModalOpen && isActive && (
                     <EditHighlightModal
                         references={references}
                         setReferences={setReferences}
-                        applyCodeToSelection={() => applyCodeToSelection('EDIT_HIGHLIGHT')}
+                        applyCodeToSelection={(extra) =>
+                            applyCodeToSelection('EDIT_HIGHLIGHT', extra)
+                        }
                         setIsHighlightModalOpen={setIsEditHighlightModalOpen}
+                        restoreSelection={restoreSelection}
                     />
                 )}
-                {isDeleteHighlightModalOpen && (
+                {isDeleteHighlightModalOpen && isActive && (
                     <DeleteHighlightModal
                         references={references}
                         setReferences={setReferences}
-                        applyCodeToSelection={() => applyCodeToSelection('DELETE_HIGHLIGHT')}
+                        applyCodeToSelection={(extra) =>
+                            applyCodeToSelection('DELETE_HIGHLIGHT', extra)
+                        }
                         setIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
                     />
                 )}

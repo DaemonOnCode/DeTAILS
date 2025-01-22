@@ -1,15 +1,8 @@
 import { ChangeEvent, FC, useState } from 'react';
+import { IQECResponse, IQECTResponse, IQECTTyResponse } from '../../../types/Coding/shared';
 
 interface ValidationTableProps {
-    codeResponses: {
-        postId: string;
-        quote: string;
-        explanation: string;
-        code: string;
-        theme?: string;
-        isMarked?: boolean;
-        comment?: string;
-    }[];
+    codeResponses: IQECResponse[] | IQECTResponse[] | IQECTTyResponse[];
     onViewTranscript: (postId: string) => void;
     review: boolean;
     showThemes?: boolean;
@@ -75,6 +68,9 @@ const ValidationTable: FC<ValidationTableProps> = ({
                         <th className="border border-gray-300 p-2">Explanation</th>
                         <th className="border border-gray-300 p-2">Code</th>
                         {showThemes && <th className="border border-gray-300 p-2">Theme</th>}
+                        {'type' in codeResponses?.[0] && (
+                            <th className="border border-gray-300 p-2">Type</th>
+                        )}
                         {!review && (
                             <>
                                 <th className="border border-gray-300 p-2">Actions</th>
@@ -143,7 +139,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                             </td>
 
                             {/* Theme Column */}
-                            {showThemes && (
+                            {showThemes && 'theme' in row && (
                                 <td className="border border-gray-300 p-2">
                                     {editIndex === index ? (
                                         <input
@@ -158,6 +154,27 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                         row.theme || (
                                             <span className="text-gray-400 italic">
                                                 No theme assigned
+                                            </span>
+                                        )
+                                    )}
+                                </td>
+                            )}
+
+                            {'type' in row && (
+                                <td className="border border-gray-300 p-2">
+                                    {editIndex === index ? (
+                                        <input
+                                            type="text"
+                                            value={editableRow.type || ''}
+                                            onChange={(e) =>
+                                                handleInputChange('type', e.target.value)
+                                            }
+                                            className="border border-gray-400 p-1 w-full rounded outline-none focus:ring-2 ring-blue-400"
+                                        />
+                                    ) : (
+                                        row.type || (
+                                            <span className="text-gray-400 italic">
+                                                No type assigned
                                             </span>
                                         )
                                     )}
