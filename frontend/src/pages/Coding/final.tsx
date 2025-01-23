@@ -14,7 +14,7 @@ const { ipcRenderer } = window.require('electron');
 
 const FinalPage = () => {
     const { subreddit, datasetId } = useCollectionContext();
-    const { finalCodeResponses } = useCodingContext();
+    // const { finalCodeResponses } = useCodingContext();
 
     const [renderedPost, setRenderedPost] = useState<{
         id: string;
@@ -31,9 +31,9 @@ const FinalPage = () => {
 
     const hasSavedRef = useRef(false);
 
-    useEffect(() => {
-        console.log('Final Page:', finalCodeResponses);
-    }, [finalCodeResponses]);
+    // useEffect(() => {
+    //     console.log('Final Page:', finalCodeResponses);
+    // }, [finalCodeResponses]);
 
     useEffect(() => {
         const timer = createTimer();
@@ -88,7 +88,7 @@ const FinalPage = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {finalCodeResponses.map((item, index) => (
+                            {/* {finalCodeResponses.map((item, index) => (
                                 <tr key={index} className="text-center">
                                     <td className="border border-gray-400 p-2">
                                         <button
@@ -108,9 +108,9 @@ const FinalPage = () => {
                                     <td className="border border-gray-400 p-2 min-w-96">
                                         {item.reasoning}
                                     </td>
-                                    {/* <td className="border border-gray-400 p-2">{item.context}</td> */}
+                                    <td className="border border-gray-400 p-2">{item.context}</td>
                                 </tr>
-                            ))}
+                            ))} */}
                         </tbody>
                     </table>
                 </div>

@@ -4,11 +4,15 @@ import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
 const CodeReview = () => {
-    const { sampledPostData } = useCodingContext();
+    const { sampledPostResponse, dispatchSampledPostResponse } = useCodingContext();
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
-                <UnifiedCodingPage data={sampledPostData} review={true} />
+                <UnifiedCodingPage
+                    data={sampledPostResponse}
+                    dispatchFunction={dispatchSampledPostResponse}
+                    review={true}
+                />
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.KEYWORD_TABLE}

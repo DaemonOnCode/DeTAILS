@@ -68,7 +68,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                         <th className="border border-gray-300 p-2">Explanation</th>
                         <th className="border border-gray-300 p-2">Code</th>
                         {showThemes && <th className="border border-gray-300 p-2">Theme</th>}
-                        {'type' in codeResponses?.[0] && (
+                        {'type' in (codeResponses?.[0] ?? {}) && (
                             <th className="border border-gray-300 p-2">Type</th>
                         )}
                         {!review && (

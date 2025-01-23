@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DndProvider, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { v4 as uuidv4 } from 'uuid';
@@ -9,21 +9,14 @@ import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
 const ThemesPage = () => {
-    const { sampledPostWithThemeData } = useCodingContext();
-
-    const themeSet = new Set(sampledPostWithThemeData.map((data) => data.theme));
-
-    const [themes, setThemes] = useState(
-        Array.from(themeSet).map((theme) => ({
-            id: uuidv4(),
-            name: theme,
-            codes: sampledPostWithThemeData
-                .filter((data) => data.theme === theme)
-                .map((data) => data.code)
-        }))
-    );
-
-    const [unplacedCodes, setUnplacedCodes] = useState<string[]>([]);
+    const {
+        themes,
+        setThemes,
+        unplacedCodes,
+        setUnplacedCodes,
+        dispatchSampledPostWithThemeResponse,
+        sampledPostWithThemeResponse
+    } = useCodingContext();
 
     // Handle drop into a specific theme
     const handleDropToBucket = (themeId: string, code: string) => {
@@ -55,7 +48,7 @@ const ThemesPage = () => {
     };
 
     const handleAddTheme = () => {
-        const newTheme = { id: uuidv4(), name: 'New Theme', codes: [] };
+        const newTheme = { id: (themes.length + 1).toString(), name: 'New Theme', codes: [] };
         setThemes((prevThemes) => [...prevThemes, newTheme]);
     };
 
@@ -66,6 +59,43 @@ const ThemesPage = () => {
         }
         setThemes((prevThemes) => prevThemes.filter((theme) => theme.id !== themeId));
     };
+
+    useEffect(() => {
+        if (!sampledPostWithThemeResponse) return;
+
+        if (themes.length === 0 && unplacedCodes.length === 0) {
+            const themeSet = Array.from(
+                new Set(sampledPostWithThemeResponse.map((data) => data.theme))
+            ).filter(Boolean);
+
+            setThemes(
+                themeSet.map((theme, idx) => ({
+                    id: idx.toString(),
+                    name: theme,
+                    codes: sampledPostWithThemeResponse
+                        .filter((data) => data.theme === theme)
+                        .map((data) => data.code)
+                }))
+            );
+
+            setUnplacedCodes(
+                Array.from(
+                    new Set(
+                        sampledPostWithThemeResponse
+                            .map((data) => data.code)
+                            .filter((code) => !themeSet.includes(code))
+                    )
+                )
+            );
+        }
+    }, []);
+
+    useEffect(() => {
+        dispatchSampledPostWithThemeResponse({
+            type: 'UPDATE_THEMES',
+            themes: themes ?? []
+        });
+    }, [themes]);
 
     return (
         <div>
@@ -101,7 +131,7 @@ const ThemesPage = () => {
             <NavigationBottomBar
                 previousPage={ROUTES.CODEBOOK_REFINEMENT}
                 nextPage={ROUTES.FINAL_CODEBOOK}
-                isReady={true}
+                isReady={unplacedCodes.length === 0}
             />
         </div>
     );

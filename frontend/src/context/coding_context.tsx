@@ -17,11 +17,13 @@ import {
     Mode,
     SetState,
     IReference,
-    CodebookEntry,
+    KeywordEntry,
     IQECRow,
     IQECTRow,
     IQECTResponse,
-    IQECTTyResponse
+    IQECTTyResponse,
+    IQECResponse,
+    ThemeBucket
 } from '../types/Coding/shared';
 
 interface ICodingContext {
@@ -32,16 +34,6 @@ interface ICodingContext {
     setMainCode: SetState<string>;
     additionalInfo?: string;
     setAdditionalInfo: SetState<string>;
-    flashcards: {
-        id: number;
-        question: string;
-        answer: string;
-    }[];
-    addFlashcard: (question: string, answer: string) => void;
-    removeFlashcard: (id: number) => void;
-    selectedFlashcards: number[];
-    selectFlashcard: (id: number) => void;
-    deselectFlashcard: (id: number) => void;
     keywords: string[];
     setKeywords: SetState<string[]>;
     selectedKeywords: string[];
@@ -56,26 +48,36 @@ interface ICodingContext {
     setReferences: SetState<{
         [code: string]: IReference[];
     }>;
-    keywordTable: CodebookEntry[];
+    keywordTable: KeywordEntry[];
     dispatchKeywordsTable: Dispatch<any>;
-    codeResponses: ISentenceBox[];
-    dispatchCodeResponses: Dispatch<any>;
-    finalCodeResponses: IFinalCodeResponse[];
-    dispatchFinalCodeResponses: Dispatch<any>;
+    // codeResponses: ISentenceBox[];
+    // dispatchCodeResponses: Dispatch<any>;
+    // finalCodeResponses: IFinalCodeResponse[];
+    // dispatchFinalCodeResponses: Dispatch<any>;
     updateContext: (updates: Partial<ICodingContext>) => void;
     resetContext: () => void;
-    sampledPostData: IQECRow[];
-    unseenPostData: IQECRow[];
-    setSampledPostData: SetState<IQECRow[]>;
-    setUnseenPostData: SetState<IQECRow[]>;
-    sampledPostWithThemeData: IQECTRow[];
-    unseenPostWithThemeData: IQECTRow[];
-    setSampledPostWithThemeData: SetState<IQECTRow[]>;
-    setUnseenPostWithThemeData: SetState<IQECTRow[]>;
-    llmCodeResponses: IQECTResponse[];
-    dispatchLLMCodeResponses: Dispatch<any>;
-    humanCodeResponses: IQECTResponse[];
-    dispatchHumanCodeResponses: Dispatch<any>;
+    // sampledPostData: IQECRow[];
+    // unseenPostData: IQECRow[];
+    // setSampledPostData: SetState<IQECRow[]>;
+    // setUnseenPostData: SetState<IQECRow[]>;
+    // sampledPostWithThemeData: IQECTRow[];
+    // unseenPostWithThemeData: IQECTRow[];
+    // setSampledPostWithThemeData: SetState<IQECTRow[]>;
+    // setUnseenPostWithThemeData: SetState<IQECTRow[]>;
+    // llmCodeResponses: IQECTResponse[];
+    // dispatchLLMCodeResponses: Dispatch<any>;
+    // humanCodeResponses: IQECTResponse[];
+    // dispatchHumanCodeResponses: Dispatch<any>;
+    sampledPostResponse: IQECResponse[];
+    dispatchSampledPostResponse: Dispatch<any>;
+    sampledPostWithThemeResponse: IQECTResponse[];
+    dispatchSampledPostWithThemeResponse: Dispatch<any>;
+    unseenPostResponse: IQECTTyResponse[];
+    dispatchUnseenPostResponse: Dispatch<any>;
+    themes: ThemeBucket[];
+    setThemes: SetState<ThemeBucket[]>;
+    unplacedCodes: string[];
+    setUnplacedCodes: SetState<string[]>;
 }
 
 // Create the context
@@ -87,12 +89,6 @@ export const CodingContext = createContext<ICodingContext>({
     setMainCode: () => {},
     additionalInfo: '',
     setAdditionalInfo: () => {},
-    flashcards: [],
-    addFlashcard: () => {},
-    removeFlashcard: () => {},
-    selectedFlashcards: [],
-    selectFlashcard: () => {},
-    deselectFlashcard: () => {},
     keywords: [],
     setKeywords: () => {},
     selectedKeywords: [],
@@ -105,25 +101,35 @@ export const CodingContext = createContext<ICodingContext>({
     setReferences: () => {},
     keywordTable: [],
     dispatchKeywordsTable: () => {},
-    codeResponses: [],
-    dispatchCodeResponses: () => {},
-    finalCodeResponses: [],
-    dispatchFinalCodeResponses: () => {},
+    // codeResponses: [],
+    // dispatchCodeResponses: () => {},
+    // finalCodeResponses: [],
+    // dispatchFinalCodeResponses: () => {},
     updateContext: () => {},
     resetContext: () => {},
-    sampledPostData: [],
-    unseenPostData: [],
-    setSampledPostData: () => {},
-    setUnseenPostData: () => {},
+    // sampledPostData: [],
+    // unseenPostData: [],
+    // setSampledPostData: () => {},
+    // setUnseenPostData: () => {},
 
-    sampledPostWithThemeData: [],
-    unseenPostWithThemeData: [],
-    setSampledPostWithThemeData: () => {},
-    setUnseenPostWithThemeData: () => {},
-    llmCodeResponses: [],
-    dispatchLLMCodeResponses: () => {},
-    humanCodeResponses: [],
-    dispatchHumanCodeResponses: () => {}
+    // sampledPostWithThemeData: [],
+    // unseenPostWithThemeData: [],
+    // setSampledPostWithThemeData: () => {},
+    // setUnseenPostWithThemeData: () => {},
+    // llmCodeResponses: [],
+    // dispatchLLMCodeResponses: () => {},
+    // humanCodeResponses: [],
+    // dispatchHumanCodeResponses: () => {}
+    sampledPostResponse: [],
+    dispatchSampledPostResponse: () => {},
+    sampledPostWithThemeResponse: [],
+    dispatchSampledPostWithThemeResponse: () => {},
+    unseenPostResponse: [],
+    dispatchUnseenPostResponse: () => {},
+    themes: [],
+    setThemes: () => {},
+    unplacedCodes: [],
+    setUnplacedCodes: () => {}
 });
 
 type Action<T> =
@@ -328,17 +334,17 @@ function codeResponseReducer<T>(state: T[], action: Action<T>): T[] {
 }
 
 type KeywordsTableAction =
-    | { type: 'INITIALIZE'; entries: CodebookEntry[] }
-    | { type: 'ADD_MANY'; entries: CodebookEntry[] }
-    | { type: 'UPDATE_FIELD'; index: number; field: keyof CodebookEntry; value: string | string[] }
+    | { type: 'INITIALIZE'; entries: KeywordEntry[] }
+    | { type: 'ADD_MANY'; entries: KeywordEntry[] }
+    | { type: 'UPDATE_FIELD'; index: number; field: keyof KeywordEntry; value: string | string[] }
     | { type: 'TOGGLE_MARK'; index: number; isMarked?: boolean }
     | { type: 'ADD_ROW' }
     | { type: 'DELETE_ROW'; index: number };
 
 const keywordTableReducer = (
-    state: CodebookEntry[],
+    state: KeywordEntry[],
     action: KeywordsTableAction
-): CodebookEntry[] => {
+): KeywordEntry[] => {
     switch (action.type) {
         case 'INITIALIZE':
             return [...action.entries];
@@ -380,6 +386,236 @@ const keywordTableReducer = (
     }
 };
 
+type baseResponseHandlerActions<T> =
+    | { type: 'SET_CORRECT'; index: number }
+    | { type: 'SET_ALL_CORRECT' }
+    | { type: 'SET_INCORRECT'; index: number }
+    | { type: 'SET_ALL_INCORRECT' }
+    | { type: 'UPDATE_COMMENT'; index: number; comment: string }
+    | { type: 'MARK_RESPONSE'; index: number; isMarked?: boolean }
+    | { type: 'RERUN_CODING'; indexes: number[]; newResponses: T[] }
+    | {
+          type: 'ADD_RESPONSE';
+          response: T;
+      }
+    | { type: 'ADD_RESPONSES'; responses: T[] }
+    | (
+          | { type: 'REMOVE_RESPONSES'; indexes: number[]; all?: never }
+          | { type: 'REMOVE_RESPONSES'; all: boolean; indexes?: never }
+      )
+    | { type: 'SET_ALL_UNMARKED' }
+    | { type: 'SET_RESPONSES'; responses: T[] };
+
+function baseResponseHandler<T>(
+    state: T[],
+    action: baseResponseHandlerActions<T>,
+    config: Record<string, any>
+): T[] {
+    let newResponses: T[] = [];
+    switch (action.type) {
+        case 'SET_CORRECT':
+            return state.map((response, index) =>
+                index === action.index ? { ...response, isCorrect: true, comment: '' } : response
+            );
+        case 'SET_ALL_CORRECT':
+            return [...state.map((response) => ({ ...response, isMarked: true }))];
+        case 'SET_INCORRECT':
+            return state.map((response, index) =>
+                index === action.index ? { ...response, isCorrect: false } : response
+            );
+        case 'SET_ALL_INCORRECT':
+            return [...state.map((response) => ({ ...response, isMarked: false }))];
+        case 'SET_ALL_UNMARKED':
+            return [...state.map((response) => ({ ...response, isMarked: undefined }))];
+        case 'UPDATE_COMMENT':
+            return state.map((response, index) =>
+                index === action.index ? { ...response, comment: action.comment } : response
+            );
+        case 'MARK_RESPONSE':
+            return state.map((response, index) =>
+                index === action.index ? { ...response, isMarked: action.isMarked } : response
+            );
+        case 'ADD_RESPONSE':
+            newResponses = [action.response].filter(
+                (response: any) => response.code?.trim() !== '' && response.quote?.trim() !== ''
+            );
+            return state.concat({
+                ...(newResponses.length ? (newResponses[0] as any) : {})
+            });
+        case 'SET_RESPONSES':
+            newResponses = action.responses.filter(
+                (response: any) => response.code?.trim() !== '' && response.quote?.trim() !== ''
+            );
+            return [...newResponses];
+        case 'ADD_RESPONSES':
+            newResponses = action.responses.filter(
+                (response: any) => response.code?.trim() !== '' && response.quote?.trim() !== ''
+            );
+            return [...state, ...newResponses];
+        case 'REMOVE_RESPONSES':
+            if (action.all) {
+                return [];
+            }
+            if (action.indexes) {
+                return state.filter((_, index) => !action.indexes!.includes(index));
+            }
+            return state;
+        default:
+            return state;
+    }
+}
+
+type sampleDataResponseReducerActions = baseResponseHandlerActions<IQECResponse>;
+
+const sampleDataResponseReducer = (
+    state: IQECResponse[],
+    action: sampleDataResponseReducerActions
+): IQECResponse[] => {
+    console.log('Action:', action, 'Sample Data');
+    switch (action.type) {
+        case 'SET_CORRECT':
+        case 'SET_ALL_CORRECT':
+        case 'SET_INCORRECT':
+        case 'SET_ALL_INCORRECT':
+        case 'SET_ALL_UNMARKED':
+        case 'UPDATE_COMMENT':
+        case 'MARK_RESPONSE':
+        case 'ADD_RESPONSE':
+        case 'ADD_RESPONSES':
+        case 'REMOVE_RESPONSES':
+        case 'SET_RESPONSES':
+            return baseResponseHandler(state, action, {});
+        default:
+            return state;
+    }
+};
+
+type sampleDataWithThemeResponseReducerActions =
+    | baseResponseHandlerActions<IQECTResponse>
+    | { type: 'UPDATE_THEMES'; themes: ThemeBucket[] }
+    | { type: 'DELETE_THEME'; name: string };
+
+const sampleDataWithThemeResponseReducer = (
+    state: IQECTResponse[],
+    action: sampleDataWithThemeResponseReducerActions
+): IQECTResponse[] => {
+    console.log('Action:', action, 'Sampled with theme', state);
+    switch (action.type) {
+        case 'SET_CORRECT':
+        case 'SET_ALL_CORRECT':
+        case 'SET_INCORRECT':
+        case 'SET_ALL_INCORRECT':
+        case 'SET_ALL_UNMARKED':
+        case 'UPDATE_COMMENT':
+        case 'MARK_RESPONSE':
+        case 'ADD_RESPONSE':
+        case 'ADD_RESPONSES':
+        case 'REMOVE_RESPONSES':
+        case 'SET_RESPONSES':
+            return baseResponseHandler(state, action, {});
+        case 'UPDATE_THEMES':
+            console.log('Themes:', action.themes);
+            if (!action.themes?.length) return state;
+            let newState = state.map((response) => {
+                const theme = action.themes.find((theme) => theme.codes.includes(response.code));
+                return theme ? { ...response, theme: theme.name } : response;
+            });
+            console.log('New State:', newState);
+            return newState;
+        case 'DELETE_THEME':
+            return state.filter((response) => response.theme !== action.name);
+        default:
+            return state;
+    }
+};
+
+const unseenDataResponseReducer = (state: IQECTTyResponse[], action: any): IQECTTyResponse[] => {
+    console.log('Action:', action, 'Unseen Data');
+    switch (action.type) {
+        case 'SET_CORRECT':
+        case 'SET_ALL_CORRECT':
+        case 'SET_INCORRECT':
+        case 'SET_ALL_INCORRECT':
+        case 'SET_ALL_UNMARKED':
+        case 'UPDATE_COMMENT':
+        case 'MARK_RESPONSE':
+        case 'ADD_RESPONSE':
+        case 'ADD_RESPONSES':
+        case 'REMOVE_RESPONSES':
+        case 'SET_RESPONSES':
+            return baseResponseHandler(state, action, {});
+
+        default:
+            return state;
+    }
+};
+
+const sampleData = [
+    {
+        postId: '1',
+        quote: 'AI is evolving rapidly.',
+        explanation: 'AI is evolving rapidly.',
+        code: 'AI',
+        id: '1'
+    },
+    {
+        postId: '2',
+        quote: 'React hooks simplify state management.',
+        explanation: 'React hooks simplify state management.',
+        code: 'React',
+        id: '2'
+    },
+    {
+        postId: '3',
+        quote: 'JavaScript is versatile.',
+        explanation: 'JavaScript is versatile.',
+        code: 'JavaScript',
+        id: '3'
+    },
+    {
+        postId: '4',
+        quote: 'JavaScript is versatile.',
+        explanation: 'JavaScript is versatile.',
+        code: 'React',
+        id: '4'
+    }
+];
+
+const unseenData = [
+    {
+        postId: '1',
+        quote: 'AI is evolving rapidly.',
+        explanation: 'AI is evolving rapidly.',
+        code: 'AI',
+        theme: 'AI',
+        id: '1'
+    },
+    {
+        postId: '2',
+        quote: 'React hooks simplify state management.',
+        explanation: 'React hooks simplify state management.',
+        code: 'React',
+        theme: 'JS',
+        id: '2'
+    },
+    {
+        postId: '3',
+        quote: 'JavaScript is versatile.',
+        explanation: 'JavaScript is versatile.',
+        code: 'JavaScript',
+        theme: 'JS',
+        id: '3'
+    },
+    {
+        postId: '4',
+        quote: 'JavaScript is versatile.',
+        explanation: 'JavaScript is versatile.',
+        code: 'React',
+        theme: 'JS',
+        id: '4'
+    }
+];
+
 // Create a provider component
 export const CodingProvider: FC<ILayout> = ({ children }) => {
     const [currentMode, setCurrentMode] = useState<Mode>('folder');
@@ -418,157 +654,124 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     const [selectedWords, setSelectedWords] = useState<string[]>([]);
     // initialWords.slice(0, 10)
 
-    const [sampledPostData, setSampledPostData] = useState<IQECRow[]>([
-        {
-            postId: '1',
-            quote: 'AI is evolving rapidly.',
-            explanation: 'AI is evolving rapidly.',
-            code: 'AI',
-            id: '1'
-        },
-        {
-            postId: '2',
-            quote: 'React hooks simplify state management.',
-            explanation: 'React hooks simplify state management.',
-            code: 'React',
-            id: '2'
-        },
-        {
-            postId: '3',
-            quote: 'JavaScript is versatile.',
-            explanation: 'JavaScript is versatile.',
-            code: 'JavaScript',
-            id: '3'
-        },
-        {
-            postId: '4',
-            quote: 'JavaScript is versatile.',
-            explanation: 'JavaScript is versatile.',
-            code: 'React',
-            id: '4'
-        }
-    ]);
+    // const [sampledPostData, setSampledPostData] = useState<IQECRow[]>([]);
 
-    const [unseenPostData, setUnseenPostData] = useState<IQECRow[]>([
-        {
-            postId: '1',
-            quote: 'AI is evolving rapidly.',
-            explanation: 'AI is evolving rapidly.',
-            code: 'AI',
-            id: '1'
-        },
-        {
-            postId: '2',
-            quote: 'React hooks simplify state management.',
-            explanation: 'React hooks simplify state management.',
-            code: 'React',
-            id: '2'
-        },
-        {
-            postId: '3',
-            quote: 'JavaScript is versatile.',
-            explanation: 'JavaScript is versatile.',
-            code: 'JavaScript',
-            id: '3'
-        },
-        {
-            postId: '4',
-            quote: 'JavaScript is versatile.',
-            explanation: 'JavaScript is versatile.',
-            code: 'React',
-            id: '4'
-        }
-    ]);
+    // const [unseenPostData, setUnseenPostData] = useState<IQECRow[]>([]);
 
-    const [sampledPostWithThemeData, setSampledPostWithThemeData] = useState<IQECTRow[]>([
-        {
-            postId: '1',
-            quote: 'AI is evolving rapidly.',
-            explanation: 'AI is evolving rapidly.',
-            code: 'AI',
-            id: '1',
-            theme: 'AI'
-        },
-        {
-            postId: '2',
-            quote: 'React hooks simplify state management.',
-            explanation: 'React hooks simplify state management.',
-            code: 'React',
-            id: '2',
-            theme: 'JS'
-        },
-        {
-            postId: '3',
-            quote: 'JavaScript is versatile.',
-            explanation: 'JavaScript is versatile.',
-            code: 'JavaScript',
-            id: '3',
-            theme: 'JS'
-        },
-        {
-            postId: '4',
-            quote: 'JavaScript is versatile.',
-            explanation: 'JavaScript is versatile.',
-            code: 'React',
-            id: '4',
-            theme: 'JS'
-        }
-    ]);
+    // const [sampledPostWithThemeData, setSampledPostWithThemeData] = useState<IQECTRow[]>([
+    //     {
+    //         postId: '1',
+    //         quote: 'AI is evolving rapidly.',
+    //         explanation: 'AI is evolving rapidly.',
+    //         code: 'AI',
+    //         id: '1',
+    //         theme: 'AI'
+    //     },
+    //     {
+    //         postId: '2',
+    //         quote: 'React hooks simplify state management.',
+    //         explanation: 'React hooks simplify state management.',
+    //         code: 'React',
+    //         id: '2',
+    //         theme: 'JS'
+    //     },
+    //     {
+    //         postId: '3',
+    //         quote: 'JavaScript is versatile.',
+    //         explanation: 'JavaScript is versatile.',
+    //         code: 'JavaScript',
+    //         id: '3',
+    //         theme: 'JS'
+    //     },
+    //     {
+    //         postId: '4',
+    //         quote: 'JavaScript is versatile.',
+    //         explanation: 'JavaScript is versatile.',
+    //         code: 'React',
+    //         id: '4',
+    //         theme: 'JS'
+    //     }
+    // ]);
 
-    const [unseenPostWithThemeData, setUnseenPostWithThemeData] = useState<IQECTRow[]>([
-        {
-            postId: '5',
-            quote: 'AI is evolving rapidly.',
-            explanation: 'AI is evolving rapidly.',
-            code: 'AI',
-            id: '5',
-            theme: 'AI'
-        },
-        {
-            postId: '6',
-            quote: 'React hooks simplify state management.',
-            explanation: 'React hooks simplify state management.',
-            code: 'React',
-            id: '6',
-            theme: 'JS'
-        },
-        {
-            postId: '7',
-            quote: 'JavaScript is versatile.',
-            explanation: 'JavaScript is versatile.',
-            code: 'JavaScript',
-            id: '7',
-            theme: 'JS'
-        },
-        {
-            postId: '8',
-            quote: 'JavaScript is versatile.',
-            explanation: 'JavaScript is versatile.',
-            code: 'React',
-            id: '8',
-            theme: 'JS'
-        }
-    ]);
+    // const [unseenPostWithThemeData, setUnseenPostWithThemeData] = useState<IQECTRow[]>([
+    //     {
+    //         postId: '5',
+    //         quote: 'AI is evolving rapidly.',
+    //         explanation: 'AI is evolving rapidly.',
+    //         code: 'AI',
+    //         id: '5',
+    //         theme: 'AI'
+    //     },
+    //     {
+    //         postId: '6',
+    //         quote: 'React hooks simplify state management.',
+    //         explanation: 'React hooks simplify state management.',
+    //         code: 'React',
+    //         id: '6',
+    //         theme: 'JS'
+    //     },
+    //     {
+    //         postId: '7',
+    //         quote: 'JavaScript is versatile.',
+    //         explanation: 'JavaScript is versatile.',
+    //         code: 'JavaScript',
+    //         id: '7',
+    //         theme: 'JS'
+    //     },
+    //     {
+    //         postId: '8',
+    //         quote: 'JavaScript is versatile.',
+    //         explanation: 'JavaScript is versatile.',
+    //         code: 'React',
+    //         id: '8',
+    //         theme: 'JS'
+    //     }
+    // ]);
 
-    const [llmCodeResponses, dispatchLLMCodeResponses] = useReducer(
-        codeResponseReducer<IQECTTyResponse>,
-        unseenPostWithThemeData.map((post) => ({
-            ...post,
-            isMarked: undefined,
-            comment: '',
-            type: 'LLM'
-        }))
+    // const [llmCodeResponses, dispatchLLMCodeResponses] = useReducer(
+    //     codeResponseReducer<IQECTTyResponse>,
+    //     unseenPostWithThemeData.map((post) => ({
+    //         ...post,
+    //         isMarked: undefined,
+    //         comment: '',
+    //         type: 'LLM'
+    //     }))
+    // );
+
+    // const [humanCodeResponses, dispatchHumanCodeResponses] = useReducer(
+    //     codeResponseReducer<IQECTTyResponse>,
+    //     unseenPostWithThemeData.map((post) => ({
+    //         ...post,
+    //         isMarked: undefined,
+    //         comment: '',
+    //         type: 'Human'
+    //     }))
+    // );
+
+    const [sampledPostResponse, dispatchSampledPostResponse] = useReducer(
+        sampleDataResponseReducer,
+        sampleData.map((post) => ({ ...post, isMarked: undefined, comment: '' }))
     );
 
-    const [humanCodeResponses, dispatchHumanCodeResponses] = useReducer(
-        codeResponseReducer<IQECTTyResponse>,
-        unseenPostWithThemeData.map((post) => ({
-            ...post,
-            isMarked: undefined,
-            comment: '',
-            type: 'Human'
-        }))
+    const [sampledPostWithThemeResponse, dispatchSampledPostWithThemeResponse] = useReducer(
+        sampleDataWithThemeResponseReducer,
+        []
     );
+
+    const [unseenPostResponse, dispatchUnseenPostResponse] = useReducer(
+        unseenDataResponseReducer,
+        unseenData.map((post) => ({ ...post, isMarked: undefined, comment: '', type: 'LLM' }))
+    );
+
+    useEffect(() => {
+        dispatchSampledPostWithThemeResponse({
+            type: 'SET_RESPONSES',
+            responses: sampledPostResponse.map((post) => ({
+                ...post,
+                theme: ''
+            }))
+        });
+    }, [sampleData]);
 
     const [keywords, setKeywords] = useState<string[]>([]);
     const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
@@ -578,6 +781,13 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     }>({});
 
     const [keywordTable, dispatchKeywordsTable] = useReducer(keywordTableReducer, []);
+
+    const [themes, setThemes] = useState<ThemeBucket[]>([]);
+
+    const [unplacedCodes, setUnplacedCodes] = useState<string[]>([
+        // .filter((code) => !themes.some((theme) => theme.codes.includes(code)))
+    ]);
+
     //      {
     //        "word": "Online discussions",
     //        "description": "Codes related to online discussions, including participation, engagement, and content creation.",
@@ -646,15 +856,15 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     //      }
     //    ]);
 
-    const [codeResponses, dispatchCodeResponses] = useReducer(
-        codeResponsesReducer<ISentenceBox>,
-        []
-    );
+    // const [codeResponses, dispatchCodeResponses] = useReducer(
+    //     codeResponsesReducer<ISentenceBox>,
+    //     []
+    // );
 
-    const [finalCodeResponses, dispatchFinalCodeResponses] = useReducer(
-        codeResponsesReducer<IFinalCodeResponse>,
-        []
-    );
+    // const [finalCodeResponses, dispatchFinalCodeResponses] = useReducer(
+    //     codeResponsesReducer<IFinalCodeResponse>,
+    //     []
+    // );
 
     const toggleMode = useCallback(() => {
         setCurrentMode((prevMode: Mode) => {
@@ -704,8 +914,6 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         if (updates.contextFiles) setContextFiles(updates.contextFiles);
         if (updates.mainCode) setMainCode(updates.mainCode);
         if (updates.additionalInfo) setAdditionalInfo(updates.additionalInfo);
-        if (updates.flashcards) setFlashcards(updates.flashcards);
-        if (updates.selectedFlashcards) setSelectedFlashcards(updates.selectedFlashcards);
         if (updates.keywords) setKeywords(updates.keywords);
         if (updates.selectedKeywords) setSelectedKeywords(updates.selectedKeywords);
         if (updates.words) setWords(updates.words);
@@ -714,15 +922,15 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         if (updates.keywordTable) {
             dispatchKeywordsTable({ type: 'INITIALIZE', entries: updates.keywordTable });
         }
-        if (updates.codeResponses) {
-            dispatchCodeResponses({ type: 'SET_RESPONSES', responses: updates.codeResponses });
-        }
-        if (updates.finalCodeResponses) {
-            dispatchFinalCodeResponses({
-                type: 'SET_RESPONSES',
-                responses: updates.finalCodeResponses
-            });
-        }
+        // if (updates.codeResponses) {
+        //     dispatchCodeResponses({ type: 'SET_RESPONSES', responses: updates.codeResponses });
+        // }
+        // if (updates.finalCodeResponses) {
+        //     dispatchFinalCodeResponses({
+        //         type: 'SET_RESPONSES',
+        //         responses: updates.finalCodeResponses
+        //     });
+        // }
     };
 
     const resetContext = () => {
@@ -737,8 +945,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         setSelectedWords([]);
         setReferences({});
         dispatchKeywordsTable({ type: 'INITIALIZE', entries: [] });
-        dispatchCodeResponses({ type: 'SET_RESPONSES', responses: [] });
-        dispatchFinalCodeResponses({ type: 'SET_RESPONSES', responses: [] });
+        // dispatchCodeResponses({ type: 'SET_RESPONSES', responses: [] });
+        // dispatchFinalCodeResponses({ type: 'SET_RESPONSES', responses: [] });
     };
 
     // const selectedKeywordsOrWords = useMemo(() => {
@@ -754,25 +962,25 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         }
     }, [mainCode]);
 
-    useEffect(() => {
-        console.log('finalCodeResponses', finalCodeResponses);
-    }, [finalCodeResponses]);
+    // useEffect(() => {
+    //     console.log('finalCodeResponses', finalCodeResponses);
+    // }, [finalCodeResponses]);
 
-    useEffect(() => {
-        dispatchFinalCodeResponses({
-            type: 'SET_RESPONSES',
-            responses: codeResponses
-                .filter((response) => response.isMarked === true)
-                .map((response) => {
-                    return {
-                        postId: response.postId,
-                        sentence: response.sentence,
-                        coded_word: response.coded_word,
-                        reasoning: response.reasoning
-                    };
-                })
-        });
-    }, [codeResponses]);
+    // useEffect(() => {
+    //     dispatchFinalCodeResponses({
+    //         type: 'SET_RESPONSES',
+    //         responses: codeResponses
+    //             .filter((response) => response.isMarked === true)
+    //             .map((response) => {
+    //                 return {
+    //                     postId: response.postId,
+    //                     sentence: response.sentence,
+    //                     coded_word: response.coded_word,
+    //                     reasoning: response.reasoning
+    //                 };
+    //             })
+    //     });
+    // }, [codeResponses]);
 
     useEffect(() => {
         console.log('In dc', currentMode, modeInput);
@@ -789,12 +997,6 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             setMainCode,
             additionalInfo,
             setAdditionalInfo,
-            flashcards,
-            addFlashcard,
-            removeFlashcard,
-            selectedFlashcards,
-            selectFlashcard,
-            deselectFlashcard,
             keywords,
             setKeywords,
             selectedKeywords,
@@ -807,24 +1009,34 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             setReferences,
             keywordTable,
             dispatchKeywordsTable,
-            codeResponses,
-            dispatchCodeResponses,
-            finalCodeResponses,
-            dispatchFinalCodeResponses,
+            // codeResponses,
+            // dispatchCodeResponses,
+            // finalCodeResponses,
+            // dispatchFinalCodeResponses,
             updateContext,
             resetContext,
-            sampledPostData,
-            setSampledPostData,
-            unseenPostData,
-            setUnseenPostData,
-            sampledPostWithThemeData,
-            setSampledPostWithThemeData,
-            unseenPostWithThemeData,
-            setUnseenPostWithThemeData,
-            llmCodeResponses,
-            dispatchLLMCodeResponses,
-            humanCodeResponses,
-            dispatchHumanCodeResponses
+            // sampledPostData,
+            // setSampledPostData,
+            // unseenPostData,
+            // setUnseenPostData,
+            // sampledPostWithThemeData,
+            // setSampledPostWithThemeData,
+            // unseenPostWithThemeData,
+            // setUnseenPostWithThemeData,
+            // llmCodeResponses,
+            // dispatchLLMCodeResponses,
+            // humanCodeResponses,
+            // dispatchHumanCodeResponses
+            sampledPostResponse,
+            dispatchSampledPostResponse,
+            sampledPostWithThemeResponse,
+            dispatchSampledPostWithThemeResponse,
+            unseenPostResponse,
+            dispatchUnseenPostResponse,
+            themes,
+            setThemes,
+            unplacedCodes,
+            setUnplacedCodes
         }),
         [
             currentMode,
@@ -834,22 +1046,25 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             contextFiles,
             mainCode,
             additionalInfo,
-            flashcards,
-            selectedFlashcards,
             keywords,
             selectedKeywords,
             words,
             selectedWords,
             keywordTable,
             references,
-            codeResponses,
-            finalCodeResponses,
-            sampledPostData,
-            unseenPostData,
-            sampledPostWithThemeData,
-            unseenPostWithThemeData,
-            llmCodeResponses,
-            humanCodeResponses
+            // codeResponses,
+            // finalCodeResponses,
+            // sampledPostData,
+            // unseenPostData,
+            // sampledPostWithThemeData,
+            // unseenPostWithThemeData,
+            // llmCodeResponses,
+            // humanCodeResponses
+            sampledPostResponse,
+            sampledPostWithThemeResponse,
+            unseenPostResponse,
+            themes,
+            unplacedCodes
         ]
     );
 

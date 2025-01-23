@@ -4,11 +4,16 @@ import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
 const CodebookRefinement = () => {
-    const { sampledPostData } = useCodingContext();
+    const { sampledPostResponse, dispatchSampledPostResponse } = useCodingContext();
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
-                <UnifiedCodingPage data={sampledPostData} review={false} showRerunCoding />
+                <UnifiedCodingPage
+                    data={sampledPostResponse}
+                    dispatchFunction={dispatchSampledPostResponse}
+                    review={false}
+                    showRerunCoding
+                />
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.CODES_REVIEW}

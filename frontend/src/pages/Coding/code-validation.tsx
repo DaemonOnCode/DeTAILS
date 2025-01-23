@@ -4,12 +4,13 @@ import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
 const CodeValidation = () => {
-    const { unseenPostWithThemeData } = useCodingContext();
+    const { unseenPostResponse, dispatchUnseenPostResponse } = useCodingContext();
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
                 <UnifiedCodingPage
-                    data={unseenPostWithThemeData}
+                    data={unseenPostResponse}
+                    dispatchFunction={dispatchUnseenPostResponse}
                     review={false}
                     showThemes
                     showCodebook

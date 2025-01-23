@@ -2,8 +2,11 @@ import { Dispatch } from 'react';
 import {
     Comments,
     ContentAreaTabs,
+    IQECResponse,
     IQECRow,
+    IQECTResponse,
     IQECTRow,
+    IQECTTyResponse,
     IRedditPostData,
     IReference,
     PostIdTitle,
@@ -189,7 +192,7 @@ export type PostTranscriptProps = {
     onBack: () => void;
     review?: boolean;
     isActive?: boolean;
-    codeResponses: (IQECTRow | IQECRow)[];
+    codeResponses: (IQECTResponse | IQECResponse | IQECTTyResponse)[];
     dispatchCodeResponse: Dispatch<any>;
     selectedText: string | null;
     setSelectedText: SetState<string | null>;

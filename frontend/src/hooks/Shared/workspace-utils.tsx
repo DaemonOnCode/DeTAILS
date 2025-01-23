@@ -125,9 +125,9 @@ const useWorkspaceUtils = () => {
             keywords: data.keywords ?? [],
             selectedKeywords: data.selected_keywords ?? [],
             keywordTable: data.keyword_table ?? [],
-            references: data.references ?? {},
-            codeResponses: data.code_responses ?? [],
-            finalCodeResponses: data.final_code_responses ?? []
+            references: data.references ?? {}
+            // codeResponses: data.code_responses ?? [],
+            // finalCodeResponses: data.final_code_responses ?? []
         });
     };
 

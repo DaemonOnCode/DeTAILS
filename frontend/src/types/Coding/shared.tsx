@@ -157,7 +157,7 @@ export type FullRedditData = {
     [id: string]: RedditPosts[string] & { comments: RedditComments };
 };
 
-export interface CodebookEntry {
+export interface KeywordEntry {
     word: string;
     description: string;
     codes?: string[];
@@ -181,4 +181,10 @@ export type Comments = {
     score: number;
     score_hidden: boolean;
     subreddit_id: string;
+};
+
+export type ThemeBucket = {
+    id: string;
+    name: string;
+    codes: string[];
 };

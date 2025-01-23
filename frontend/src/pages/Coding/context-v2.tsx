@@ -160,8 +160,8 @@ const ContextPage = () => {
 
     return (
         <div className="w-full h-full flex justify-between flex-col">
-            <div>
-                <section className="">
+            <div className="h-[calc(100vh-11rem)]">
+                <section>
                     {Object.keys(contextFiles).length === 0 ? (
                         <>
                             <h1>Select context files</h1>

@@ -4,11 +4,15 @@ import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
 const EncodedDataPage = () => {
-    const { unseenPostWithThemeData } = useCodingContext();
+    const { unseenPostResponse, dispatchUnseenPostResponse } = useCodingContext();
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
-                <UnifiedCodingPage data={unseenPostWithThemeData} showThemes />
+                <UnifiedCodingPage
+                    data={unseenPostResponse}
+                    dispatchFunction={dispatchUnseenPostResponse}
+                    showThemes
+                />
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.SPLIT_CHECK}

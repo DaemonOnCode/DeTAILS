@@ -18,12 +18,260 @@ const TranscriptPage = () => {
     const splitCodebook = !(codebookIsTrue && !splitIsTrue);
 
     const {
-        unseenPostWithThemeData,
-        llmCodeResponses,
-        humanCodeResponses,
-        dispatchLLMCodeResponses,
-        dispatchHumanCodeResponses
+        unseenPostResponse,
+        dispatchUnseenPostResponse,
+        sampledPostResponse,
+        dispatchSampledPostResponse,
+        sampledPostWithThemeResponse,
+        dispatchSampledPostWithThemeResponse
     } = useCodingContext();
+
+    const config = new Map<
+        string,
+        {
+            name: string;
+            review: boolean;
+            codebook: {
+                responses: any[];
+                dispatchFunction: (...args: any) => void;
+            } | null;
+            topTranscript: {
+                responses: any[];
+                dispatchFunction: (...args: any) => void;
+            } | null;
+            bottomTranscript: {
+                responses: any[];
+                dispatchFunction: (...args: any) => void;
+            };
+        }
+    >([
+        [
+            JSON.stringify({
+                state: 'review',
+                codebook: 'true',
+                type: null,
+                split: null
+            }),
+            {
+                name: 'Review',
+                review: true,
+                codebook: {
+                    responses: sampledPostWithThemeResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchSampledPostWithThemeResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: sampledPostWithThemeResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchSampledPostWithThemeResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                }
+            }
+        ],
+        [
+            JSON.stringify({
+                state: 'review',
+                codebook: 'false',
+                type: null,
+                split: null
+            }),
+            {
+                name: 'Review',
+                review: true,
+                codebook: null,
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: sampledPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review:', args);
+                        dispatchSampledPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                }
+            }
+        ],
+        [
+            JSON.stringify({
+                state: 'refine',
+                codebook: 'true',
+                type: null,
+                split: null
+            }),
+            {
+                name: 'Refine',
+                review: false,
+                codebook: {
+                    responses: sampledPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchSampledPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: sampledPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Refine:', args);
+                        dispatchSampledPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                }
+            }
+        ],
+        [
+            JSON.stringify({
+                state: 'refine',
+                codebook: 'true',
+                type: 'Human',
+                split: null
+            }),
+            {
+                name: 'Refine',
+                review: false,
+                codebook: {
+                    responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: unseenPostResponse.filter((response) => response.type === 'Human'),
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Refine:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0].map((response: any) => ({
+                                ...response,
+                                type: 'Human'
+                            }))
+                        });
+                    }
+                }
+            }
+        ],
+        [
+            JSON.stringify({
+                state: 'refine',
+                codebook: 'true',
+                type: 'LLM',
+                split: null
+            }),
+            {
+                name: 'Refine',
+                review: false,
+                codebook: {
+                    responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: unseenPostResponse.filter((response) => response.type === 'LLM'),
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Refine:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0].map((response: any) => ({
+                                ...response,
+                                type: 'LLM'
+                            }))
+                        });
+                    }
+                }
+            }
+        ],
+        [
+            JSON.stringify({
+                state: 'refine',
+                codebook: 'true',
+                type: null,
+                split: 'true'
+            }),
+            {
+                name: 'Refine',
+                review: false,
+                codebook: {
+                    responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                },
+                topTranscript: {
+                    responses: unseenPostResponse.filter((response) => response.type === 'Human'),
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Refine:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0].map((response: any) => ({
+                                ...response,
+                                type: 'Human'
+                            }))
+                        });
+                    }
+                },
+                bottomTranscript: {
+                    responses: unseenPostResponse.filter((response) => response.type === 'LLM'),
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Refine:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0].map((response: any) => ({
+                                ...response,
+                                type: 'LLM'
+                            }))
+                        });
+                    }
+                }
+            }
+        ]
+    ]);
+
+    const currentConfig = config.get(
+        JSON.stringify({
+            state: state ?? 'review',
+            codebook: (codebook ?? 'false') as 'true' | 'false',
+            type,
+            split
+        })
+    );
+
+    console.log('Current config:', currentConfig, {
+        state: state ?? 'review',
+        codebook: (codebook ?? 'false') as 'true' | 'false',
+        type,
+        split
+    });
 
     const [post, setPost] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
@@ -62,13 +310,9 @@ const TranscriptPage = () => {
 
     const handleUpdateResponses = (updatedResponses: any[]) => {
         console.log('Updated responses:', updatedResponses);
-        dispatchHumanCodeResponses({
+        dispatchUnseenPostResponse({
             type: 'SET_RESPONSES',
-            responses: updatedResponses.filter((r) => r.type === 'Human')
-        });
-        dispatchLLMCodeResponses({
-            type: 'SET_RESPONSES',
-            responses: updatedResponses.filter((r) => r.type === 'LLM')
+            responses: updatedResponses
         });
     };
 
@@ -126,9 +370,13 @@ const TranscriptPage = () => {
         return <div>Post not found</div>;
     }
 
-    // const filteredData = unseenPostWithThemeData;
+    // const humanCodeResponses = unseenPostResponse.filter((response) => response.type === 'Human');
 
-    const [topTranscript, bottomTranscript] = splitIsTrue ? ['Human', 'LLM'] : [null, type];
+    // const llmCodeResponses = unseenPostResponse.filter((response) => response.type === 'LLM');
+
+    // // const filteredData = unseenPostWithThemeData;
+
+    // const [topTranscript, bottomTranscript] = splitIsTrue ? ['Human', 'LLM'] : [null, type];
 
     return (
         <div className="h-page flex flex-col -m-6">
@@ -151,9 +399,9 @@ const TranscriptPage = () => {
                         showCodebook={showCodebook}
                         activeTranscript={
                             activeTranscript === 'top'
-                                ? (topTranscript as any)
+                                ? (currentConfig?.topTranscript?.responses as any)
                                 : activeTranscript === 'bottom'
-                                  ? (bottomTranscript as any)
+                                  ? (currentConfig?.bottomTranscript.responses as any)
                                   : null
                         }
                         onShowCodebook={() => {
@@ -166,12 +414,12 @@ const TranscriptPage = () => {
                 {showCodebook && !splitIsTrue && (
                     <div className="h-[40%] overflow-auto border-b border-gray-300 p-4 m-6">
                         <ValidationTable
-                            codeResponses={[...llmCodeResponses, ...humanCodeResponses]}
+                            codeResponses={currentConfig?.codebook?.responses ?? []}
                             onViewTranscript={() => {}}
-                            review={true}
+                            review={currentConfig?.review ?? true}
                             showThemes={true}
                             onReRunCoding={() => {}}
-                            onUpdateResponses={handleUpdateResponses}
+                            onUpdateResponses={currentConfig?.codebook?.dispatchFunction as any}
                         />
                     </div>
                 )}
@@ -207,24 +455,27 @@ const TranscriptPage = () => {
                                 {showCodebook ? (
                                     <>
                                         <ValidationTable
-                                            codeResponses={[
-                                                ...llmCodeResponses,
-                                                ...humanCodeResponses
-                                            ]}
+                                            codeResponses={currentConfig?.codebook?.responses ?? []}
                                             onViewTranscript={() => {}}
                                             review={false}
                                             showThemes
                                             onReRunCoding={() => {}}
-                                            onUpdateResponses={handleUpdateResponses}
+                                            onUpdateResponses={
+                                                currentConfig?.codebook?.dispatchFunction as any
+                                            }
                                         />
                                     </>
                                 ) : (
                                     <PostTranscript
                                         post={post}
                                         onBack={() => window.history.back()}
-                                        codeResponses={humanCodeResponses}
+                                        codeResponses={
+                                            currentConfig?.topTranscript?.responses ?? []
+                                        }
                                         isActive={activeTranscript === 'top'}
-                                        dispatchCodeResponse={dispatchHumanCodeResponses}
+                                        dispatchCodeResponse={
+                                            currentConfig?.topTranscript?.dispatchFunction as any
+                                        }
                                         review={state === 'review'}
                                         selectedText={selectedText}
                                         setSelectedText={setSelectedText}
@@ -263,14 +514,10 @@ const TranscriptPage = () => {
                                 post={post}
                                 onBack={() => window.history.back()}
                                 review={state === 'review'}
-                                codeResponses={
-                                    type === 'Human' ? humanCodeResponses : llmCodeResponses
-                                }
+                                codeResponses={currentConfig?.bottomTranscript?.responses ?? []}
                                 isActive={activeTranscript === 'bottom'}
                                 dispatchCodeResponse={
-                                    type === 'Human'
-                                        ? dispatchHumanCodeResponses
-                                        : dispatchLLMCodeResponses
+                                    currentConfig?.bottomTranscript?.dispatchFunction as any
                                 }
                                 selectedText={selectedText}
                                 setSelectedText={setSelectedText}

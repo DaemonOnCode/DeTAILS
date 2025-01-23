@@ -4,12 +4,14 @@ import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
 const FinalThemes = () => {
-    const { sampledPostWithThemeData } = useCodingContext();
+    const { sampledPostWithThemeResponse, dispatchSampledPostWithThemeResponse } =
+        useCodingContext();
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
                 <UnifiedCodingPage
-                    data={sampledPostWithThemeData}
+                    data={sampledPostWithThemeResponse}
+                    dispatchFunction={dispatchSampledPostWithThemeResponse}
                     showThemes
                     showCodebook
                     download

@@ -4,12 +4,13 @@ import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 
 const SplitCheckPage = () => {
-    const { unseenPostWithThemeData, llmCodeResponses, humanCodeResponses } = useCodingContext();
+    const { unseenPostResponse, dispatchUnseenPostResponse } = useCodingContext();
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
                 <UnifiedCodingPage
-                    data={[...llmCodeResponses, ...humanCodeResponses]}
+                    data={unseenPostResponse}
+                    dispatchFunction={dispatchUnseenPostResponse}
                     showThemes
                     split
                     showCodebook
