@@ -21,7 +21,8 @@ import {
     CodeValidationPage,
     SplitCheckPage,
     EncodedDataPage,
-    TranscriptsPage
+    TranscriptsPage,
+    LoadDataPage
 } from '../pages/Coding';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
@@ -32,6 +33,10 @@ export const CodingRouter: RouteObject[] = [
     { path: ROUTES.KEYWORD_CLOUD, element: <KeywordCloudPage /> },
     { path: ROUTES.KEYWORD_TABLE, element: <KeywordTablePage /> },
     {
+        path: ROUTES.LOAD_DATA,
+        element: <LoadDataPage />
+    },
+    {
         path: ROUTES.CODES_REVIEW,
         element: <CodeReviewPage />
     },
@@ -39,6 +44,7 @@ export const CodingRouter: RouteObject[] = [
         path: ROUTES.CODEBOOK_REFINEMENT,
         element: <CodebookRefinementPage />
     },
+
     {
         path: ROUTES.TRANSCRIPT,
         element: <TranscriptPage />

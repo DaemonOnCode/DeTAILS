@@ -101,33 +101,28 @@ const LeftPanel: FC<LeftPanelProps> = ({
                         onClick={() => handleSelect(null)}>
                         Show All
                     </li>
-                    {postIds
-                        // .filter(
-                        //     (post) =>
-                        //         selectedFilter === 'All' || post.title.includes(selectedFilter)
-                        // )
-                        .map((postId, idx) => (
-                            <Suspense
-                                key={idx}
-                                fallback={
-                                    <li
-                                        key={postId}
-                                        className={`p-3 border rounded shadow cursor-pointer transition-all text-gray-400 ${
-                                            selectedItem === postId
-                                                ? 'bg-blue-200 font-bold'
-                                                : 'hover:bg-blue-100'
-                                        }`}
-                                        onClick={() => handleSelect(postId)}>
-                                        Loading...
-                                    </li>
-                                }>
-                                <PostTab
-                                    resource={createResource(fetchTabData(postId))}
-                                    selectedItem={selectedItem}
-                                    handleSelect={handleSelect}
-                                />
-                            </Suspense>
-                        ))}
+                    {postIds.map((postId, idx) => (
+                        <Suspense
+                            key={idx}
+                            fallback={
+                                <li
+                                    key={postId}
+                                    className={`p-3 border rounded shadow cursor-pointer transition-all text-gray-400 ${
+                                        selectedItem === postId
+                                            ? 'bg-blue-200 font-bold'
+                                            : 'hover:bg-blue-100'
+                                    }`}
+                                    onClick={() => handleSelect(postId)}>
+                                    Loading...
+                                </li>
+                            }>
+                            <PostTab
+                                resource={createResource(fetchTabData(postId))}
+                                selectedItem={selectedItem}
+                                handleSelect={handleSelect}
+                            />
+                        </Suspense>
+                    ))}
                 </ul>
             ) : (
                 // Codes Tab

@@ -6,6 +6,7 @@ export enum ROUTES {
     KEYWORD_CLOUD = 'keyword-cloud',
     // WORD_CLOUD = 'word-cloud',
     KEYWORD_TABLE = 'keyword-table',
+    LOAD_DATA = 'load-data',
     //  GENERATION = 'generation',
     // INITIAL_CODING = 'initial-coding',
     // CODING_VALIDATION = 'coding-validation',

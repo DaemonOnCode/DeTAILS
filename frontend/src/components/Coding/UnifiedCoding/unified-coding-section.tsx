@@ -11,6 +11,7 @@ import {
     IQECTTyResponse,
     IQECTTyRow
 } from '../../../types/Coding/shared';
+import { ROUTES } from '../../../constants/Coding/shared';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
@@ -53,7 +54,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     // Handle viewing transcript for a post
     const handleViewTranscript = (postId: string | null) => {
         if (!postId) {
-            navigate('/coding/transcripts', {
+            navigate('../' + ROUTES.TRANSCRIPTS, {
                 state: {
                     split,
                     showCodebook,
