@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import { useAuth } from '../../context/auth_context';
-import { useCodingContext } from '../../context/coding_context';
-import { useCollectionContext } from '../../context/collection_context';
-import { useWorkspaceContext } from '../../context/workspace_context';
+import { useAuth, AuthContextType } from '../../context/auth_context';
+import { useCodingContext, ICodingContext } from '../../context/coding_context';
+import { useCollectionContext, ICollectionContext } from '../../context/collection_context';
+import { IWorkspaceContext, useWorkspaceContext } from '../../context/workspace_context';
 import { toast } from 'react-toastify';
 import useServerUtils from './get_server_url';
 import { useWebSocket } from '../../context/websocket_context';
-import { useModelingContext } from '../../context/modeling_context';
+import { useModelingContext, IModelingContext } from '../../context/modeling_context';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
@@ -32,11 +32,11 @@ const useWorkspaceUtils = () => {
     // }, [codingContext]);
 
     const getPayload = (
-        currentWorkspace: any,
-        user: any,
-        collectionContext: any,
-        codingContext: any,
-        modelingContext: any
+        currentWorkspace: IWorkspaceContext['currentWorkspace'],
+        user: AuthContextType['user'],
+        collectionContext: ICollectionContext,
+        codingContext: ICodingContext,
+        modelingContext: IModelingContext
     ) => {
         return {
             workspace_id: currentWorkspace?.id || '',
@@ -51,15 +51,21 @@ const useWorkspaceUtils = () => {
                 models: modelingContext.models || []
             },
             coding_context: {
+                context_files: codingContext.contextFiles || {},
                 main_code: codingContext.mainCode || '',
                 additional_info: codingContext.additionalInfo || '',
-                context_files: codingContext.contextFiles || {},
+                research_questions: codingContext.researchQuestions || [],
                 keywords: codingContext.keywords || [],
                 selected_keywords: codingContext.selectedKeywords || [],
                 keyword_table: codingContext.keywordTable || [],
                 references: codingContext.references || {},
-                code_responses: codingContext.codeResponses || [],
-                final_code_responses: codingContext.finalCodeResponses || []
+                sample_post_responses: codingContext.sampledPostResponse || [],
+                themes: codingContext.themes || [],
+                unplaced_codes: codingContext.unplacedCodes || [],
+                sample_post_with_themes_responses: codingContext.sampledPostWithThemeResponse || [],
+                unseen_post_response: codingContext.unseenPostResponse || [],
+                sampled_post_ids: codingContext.sampledPostIds || [],
+                unseen_post_ids: codingContext.unseenPostIds || []
             }
         };
     };
@@ -114,9 +120,9 @@ const useWorkspaceUtils = () => {
             selectedPosts: data.selected_posts ?? []
         });
 
-        // modelingContext.updateContext({
-        //     models: data.models ?? []
-        // });
+        modelingContext.updateContext({
+            models: data.models ?? []
+        });
 
         codingContext.updateContext({
             mainCode: data.main_code ?? '',
@@ -125,9 +131,15 @@ const useWorkspaceUtils = () => {
             keywords: data.keywords ?? [],
             selectedKeywords: data.selected_keywords ?? [],
             keywordTable: data.keyword_table ?? [],
-            references: data.references ?? {}
-            // codeResponses: data.code_responses ?? [],
-            // finalCodeResponses: data.final_code_responses ?? []
+            references: data.references ?? {},
+            themes: data.themes ?? [],
+            researchQuestions: data.research_questions ?? [],
+            sampledPostResponse: data.sample_post_responses ?? [],
+            sampledPostWithThemeResponse: data.sample_post_with_themes_responses ?? [],
+            unseenPostResponse: data.unseen_post_response ?? [],
+            unplacedCodes: data.unplaced_codes ?? [],
+            sampledPostIds: data.sampled_post_ids ?? [],
+            unseenPostIds: data.unseen_post_ids ?? []
         });
     };
 

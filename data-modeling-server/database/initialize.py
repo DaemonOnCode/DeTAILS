@@ -1,10 +1,10 @@
+import re
 import sqlite3
 from dataclasses import fields
 from typing import Optional, Any, Dict
 from datetime import datetime
 
 from constants import DATABASE_PATH
-from database.table_data_class import *
 
 SQLITE_TYPE_MAPPING = {
     str: "TEXT",
@@ -19,8 +19,12 @@ SQLITE_TYPE_MAPPING = {
     Optional[datetime]: "TIMESTAMP",
 }
 
+def camel_to_snake(name):
+    """Convert CamelCase to snake_case."""
+    return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
+
 def generate_create_table_statement(dataclass_obj):
-    table_name = dataclass_obj.__name__.lower()
+    table_name = camel_to_snake(dataclass_obj.__name__)
     columns = []
     primary_keys = []
     foreign_keys = []
@@ -39,8 +43,12 @@ def generate_create_table_statement(dataclass_obj):
         if default_value is not None:
             if isinstance(default_value, str):
                 constraints.append(f"DEFAULT '{default_value}'")
-            else:
+            elif isinstance(default_value, (int, float)):
                 constraints.append(f"DEFAULT {default_value}")
+        elif field.default_factory is not None:
+            if field.default_factory == datetime.now:
+                constraints.append("DEFAULT CURRENT_TIMESTAMP")
+
 
         # Add primary key constraint
         if field.metadata.get("primary_key"):
@@ -74,22 +82,9 @@ def initialize_database(dataclasses):
         cursor = conn.cursor()
 
         for dataclass_obj in dataclasses:
+            print(f"Initializing table for {dataclass_obj.__name__}...")
             create_statement = generate_create_table_statement(dataclass_obj)
             cursor.execute(create_statement)
+            print(f"Table for {dataclass_obj.__name__} initialized!")
 
         conn.commit()
-
-initialize_database([
-    Workspaces, 
-    WorkspaceStates, 
-    Rules,
-    TokenStats,
-    TokenStatsDetailed,
-    Models,
-    Datasets, 
-    Posts, 
-    Comments,
-    TokenizedPosts,
-    TokenizedComments,
-    LLMResponses
-])

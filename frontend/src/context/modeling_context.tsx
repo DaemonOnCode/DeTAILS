@@ -21,7 +21,7 @@ interface IModelState {
 }
 
 // Define the interface for the ModelingContext
-interface IModelingContext {
+export interface IModelingContext {
     models: IModelState[];
     addModel: (id: string, modelName: string, type: string) => void;
     updateModelName: (id: string, newName: string) => void;

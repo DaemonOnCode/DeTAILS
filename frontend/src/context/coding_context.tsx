@@ -26,7 +26,7 @@ import {
     ThemeBucket
 } from '../types/Coding/shared';
 
-interface ICodingContext {
+export interface ICodingContext {
     contextFiles: IFile;
     addContextFile: (filePath: string, fileName: string) => void;
     removeContextFile: (filePath: string) => void;
@@ -78,6 +78,12 @@ interface ICodingContext {
     setThemes: SetState<ThemeBucket[]>;
     unplacedCodes: string[];
     setUnplacedCodes: SetState<string[]>;
+    researchQuestions: string[];
+    setResearchQuestions: SetState<string[]>;
+    sampledPostIds: string[];
+    setSampledPostIds: SetState<string[]>;
+    unseenPostIds: string[];
+    setUnseenPostIds: SetState<string[]>;
 }
 
 // Create the context
@@ -129,7 +135,13 @@ export const CodingContext = createContext<ICodingContext>({
     themes: [],
     setThemes: () => {},
     unplacedCodes: [],
-    setUnplacedCodes: () => {}
+    setUnplacedCodes: () => {},
+    researchQuestions: [],
+    setResearchQuestions: () => {},
+    sampledPostIds: [],
+    setSampledPostIds: () => {},
+    unseenPostIds: [],
+    setUnseenPostIds: () => {}
 });
 
 type Action<T> =
@@ -637,6 +649,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     const [mainCode, setMainCode] = useState<string>('');
     // 'Student life';
     const [additionalInfo, setAdditionalInfo] = useState<string>('');
+
+    const [researchQuestions, setResearchQuestions] = useState<string[]>([]);
     // 'Daily activities of students';
     const [flashcards, setFlashcards] = useState<
         {
@@ -653,6 +667,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     // initialWords
     const [selectedWords, setSelectedWords] = useState<string[]>([]);
     // initialWords.slice(0, 10)
+
+    const [sampledPostIds, setSampledPostIds] = useState<string[]>([]);
+
+    const [unseenPostIds, setUnseenPostIds] = useState<string[]>([]);
 
     // const [sampledPostData, setSampledPostData] = useState<IQECRow[]>([]);
 
@@ -922,6 +940,29 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         if (updates.keywordTable) {
             dispatchKeywordsTable({ type: 'INITIALIZE', entries: updates.keywordTable });
         }
+        if (updates.sampledPostWithThemeResponse) {
+            dispatchSampledPostWithThemeResponse({
+                type: 'SET_RESPONSES',
+                responses: updates.sampledPostWithThemeResponse
+            });
+        }
+        if (updates.sampledPostResponse) {
+            dispatchSampledPostResponse({
+                type: 'SET_RESPONSES',
+                responses: updates.sampledPostResponse
+            });
+        }
+        if (updates.unseenPostResponse) {
+            dispatchUnseenPostResponse({
+                type: 'SET_RESPONSES',
+                responses: updates.unseenPostResponse
+            });
+        }
+        if (updates.themes) setThemes(updates.themes);
+        if (updates.unplacedCodes) setUnplacedCodes(updates.unplacedCodes);
+        if (updates.researchQuestions) setResearchQuestions(updates.researchQuestions);
+        if (updates.sampledPostIds) setSampledPostIds(updates.sampledPostIds);
+        if (updates.unseenPostIds) setUnseenPostIds(updates.unseenPostIds);
         // if (updates.codeResponses) {
         //     dispatchCodeResponses({ type: 'SET_RESPONSES', responses: updates.codeResponses });
         // }
@@ -945,6 +986,25 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         setSelectedWords([]);
         setReferences({});
         dispatchKeywordsTable({ type: 'INITIALIZE', entries: [] });
+        dispatchSampledPostWithThemeResponse({ type: 'SET_RESPONSES', responses: [] });
+        dispatchSampledPostResponse({
+            type: 'SET_RESPONSES',
+            responses: sampleData.map((post) => ({ ...post, isMarked: undefined, comment: '' }))
+        });
+        dispatchUnseenPostResponse({
+            type: 'SET_RESPONSES',
+            responses: unseenData.map((post) => ({
+                ...post,
+                isMarked: undefined,
+                comment: '',
+                type: 'LLM'
+            }))
+        });
+        setThemes([]);
+        setUnplacedCodes([]);
+        setResearchQuestions([]);
+        setSampledPostIds([]);
+        setUnseenPostIds([]);
         // dispatchCodeResponses({ type: 'SET_RESPONSES', responses: [] });
         // dispatchFinalCodeResponses({ type: 'SET_RESPONSES', responses: [] });
     };
@@ -1036,7 +1096,13 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             themes,
             setThemes,
             unplacedCodes,
-            setUnplacedCodes
+            setUnplacedCodes,
+            researchQuestions,
+            setResearchQuestions,
+            sampledPostIds,
+            setSampledPostIds,
+            unseenPostIds,
+            setUnseenPostIds
         }),
         [
             currentMode,
@@ -1064,7 +1130,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             sampledPostWithThemeResponse,
             unseenPostResponse,
             themes,
-            unplacedCodes
+            unplacedCodes,
+            researchQuestions,
+            sampledPostIds,
+            unseenPostIds
         ]
     );
 

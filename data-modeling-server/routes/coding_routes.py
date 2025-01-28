@@ -4,6 +4,7 @@ import time
 from typing import Dict, List
 from uuid import uuid4
 from fastapi import APIRouter, HTTPException, UploadFile, Form, Request
+import numpy as np
 from pydantic import BaseModel
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
@@ -2365,3 +2366,51 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
 #         return {"codes": final_results}
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+class SamplePostsRequest(BaseModel):
+    dataset_id: str
+    post_ids: list= []
+    sample_size: int = 0.5
+
+
+@router.post("/sample-posts")
+async def sample_posts(request_body: SamplePostsRequest):
+    if request_body.sample_size <= 0 or request_body.dataset_id == "" or len(request_body.post_ids) == 0:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+    try:
+        # Fetch posts
+        sampled_post_ids = np.random.choice(request_body.post_ids, int(request_body.sample_size * len(request_body.post_ids)), replace=False)
+        return {
+            "sampled" :sampled_post_ids.tolist(),
+            "unseen": list(set(request_body.post_ids) - set(sampled_post_ids))
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+
+
+
+
+
+# class GenerateKeywordCloudRequest(BaseModel):
+#     workspace_id: str
+#     datasetId: str
+
+    
+
+# @router.post("generate-keyword-cloud")
+# def generate_keyword_cloud(    request: Request,
+#     basisFiles: List[UploadFile],
+#     model: str = Form(...),
+#     mainCode: str = Form(...),
+#     additionalInfo: str = Form(""),
+#     retry: bool = Form(False),
+#     dataset_id: str = Form(...)
+# ):
+#     try:
+#         # Fetch post and comments
+#         post_data = get_post_with_comments(request.datasetId, request.postId)
+#         transcript = generate_transcript(post_data)
+#         keywords

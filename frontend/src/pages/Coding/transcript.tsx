@@ -1,9 +1,12 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import PostTranscript from '../../components/Coding/CodingOverview/post-transcript';
 import TopToolbar from '../../components/Coding/Shared/top-toolbar';
 import ValidationTable from '../../components/Coding/UnifiedCoding/validation-table';
 import { useCodingContext } from '../../context/coding_context';
+import { useLogger } from '../../context/logging_context';
+import { createTimer } from '../../utility/timer';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const TranscriptPage = () => {
     const { id, state } = useParams<{ id: string; state: 'review' | 'refine' }>();
@@ -25,6 +28,25 @@ const TranscriptPage = () => {
         sampledPostWithThemeResponse,
         dispatchSampledPostWithThemeResponse
     } = useCodingContext();
+
+    const logger = useLogger();
+    const { saveWorkspaceData } = useWorkspaceUtils();
+
+    const hasSavedRef = useRef(false);
+    useEffect(() => {
+        const timer = createTimer();
+        logger.info('Transcript Page Loaded');
+
+        return () => {
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true;
+            }
+            logger.info('Transcript Page Unloaded').then(() => {
+                logger.time('Transcript Page stay time', { time: timer.end() });
+            });
+        };
+    }, []);
 
     const config = new Map<
         string,

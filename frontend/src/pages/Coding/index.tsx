@@ -13,3 +13,4 @@ export { default as FinalCodebookPage } from './final-codebook';
 export { default as CodeValidationPage } from './code-validation';
 export { default as SplitCheckPage } from './split-check';
 export { default as EncodedDataPage } from './encoded-data';
+export { default as TranscriptsPage } from './transcripts';

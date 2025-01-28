@@ -21,7 +21,7 @@ const redditHandler = () => {
     ipcMain.handle(
         'render-reddit-webview',
         async (event, url, text, postId = '', datasetId = '', getFromPostData = true) => {
-            console.log('url', url);
+            console.log('url', url, config);
             if (url.startsWith('/r/')) {
                 url = 'https://www.reddit.com' + url;
             }
@@ -319,6 +319,8 @@ const redditHandler = () => {
     };
 
     ipcMain.handle('get-link-from-post', async (event, postId, commentSlice, datasetId, dbPath) => {
+        console.log('get-link-from-post', postId, commentSlice, datasetId, config);
+
         if (config.backendServer) {
             const res = await fetch(
                 `${config.backendServer}/api/miscellaneous/get-link-from-post`,

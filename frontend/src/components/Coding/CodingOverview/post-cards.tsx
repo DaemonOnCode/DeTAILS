@@ -1,18 +1,20 @@
 import { FC } from 'react';
 
-interface PostCardProps {
-    posts: {
-        id: string;
-        title: string;
-        selftext?: string;
-    }[];
+interface PostCardsProps {
+    resource: {
+        read(): any;
+    };
     onPostClick: (postId: string) => void;
 }
 
-const PostCard: FC<PostCardProps> = ({ posts, onPostClick }) => {
+const PostCards: FC<PostCardsProps> = ({ resource, onPostClick }) => {
+    const postIdTitles = resource.read();
+
+    console.count('Post Cards Render');
+
     return (
         <div className="p-4 grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {posts.map((post) => (
+            {postIdTitles.map((post: { id: string; title: string; selftext: string }) => (
                 <div
                     key={post.id}
                     className="p-4 border rounded shadow transition-all transform hover:scale-105 hover:shadow-2xl bg-white hover:bg-blue-100 cursor-pointer duration-300 ease-in-out break-words"
@@ -29,4 +31,4 @@ const PostCard: FC<PostCardProps> = ({ posts, onPostClick }) => {
     );
 };
 
-export default PostCard;
+export default PostCards;

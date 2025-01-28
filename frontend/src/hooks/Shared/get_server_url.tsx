@@ -6,7 +6,6 @@ const useServerUtils = () => {
     const { remoteProcessing } = useAuth();
     const getServerUrl = useCallback(
         (route: string) => {
-            console.log('REMOTE_SERVER_BASE_URL:', REMOTE_SERVER_BASE_URL, remoteProcessing);
             return `${REMOTE_SERVER_BASE_URL[!remoteProcessing ? 'local' : 'remote']}/${route}`;
         },
         [REMOTE_SERVER_BASE_URL]

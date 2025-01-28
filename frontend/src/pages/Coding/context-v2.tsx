@@ -28,7 +28,9 @@ const ContextPage = () => {
         setAdditionalInfo,
         setMainCode,
         removeContextFile,
-        setKeywords
+        setKeywords,
+        researchQuestions,
+        setResearchQuestions
     } = useCodingContext();
 
     const { datasetId } = useCollectionContext();
@@ -36,7 +38,6 @@ const ContextPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
 
-    const [researchQuestions, setResearchQuestions] = useState<string[]>([]);
     const [newQuestion, setNewQuestion] = useState<string>('');
 
     const addQuestion = () => {

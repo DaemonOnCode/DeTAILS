@@ -11,7 +11,7 @@ import {
 import { useMemo } from 'react';
 import { ILayout, Mode, SetState } from '../types/Coding/shared';
 
-interface ICollectionContext {
+export interface ICollectionContext {
     currentMode: Mode;
     toggleMode: () => void;
     modeInput: string;

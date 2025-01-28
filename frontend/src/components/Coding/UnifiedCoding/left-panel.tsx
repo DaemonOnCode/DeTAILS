@@ -1,7 +1,12 @@
-import { FC, useState } from 'react';
+import { FC, Suspense, useState } from 'react';
+import PostTab from './post-tab';
+import { createResource } from '../../../utility/resource-creator';
+import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
+import useServerUtils from '../../../hooks/Shared/get_server_url';
+import { useCollectionContext } from '../../../context/collection_context';
 
 interface LeftPanelProps {
-    sampledPosts: { id: string; title: string }[];
+    postIds: string[];
     codes: string[];
     onFilterSelect: (filter: string | null) => void;
     showTypeFilterDropdown?: boolean; // Optional prop to control filter dropdown visibility
@@ -10,7 +15,7 @@ interface LeftPanelProps {
 }
 
 const LeftPanel: FC<LeftPanelProps> = ({
-    sampledPosts,
+    postIds,
     codes,
     onFilterSelect,
     showTypeFilterDropdown = false,
@@ -19,6 +24,9 @@ const LeftPanel: FC<LeftPanelProps> = ({
 }) => {
     const [activeTab, setActiveTab] = useState<'posts' | 'codes'>('posts');
     const [selectedItem, setSelectedItem] = useState<string | null>(null);
+
+    const { getServerUrl } = useServerUtils();
+    const { datasetId } = useCollectionContext();
 
     const handleSelect = (filter: string | null) => {
         setSelectedItem(filter);
@@ -29,6 +37,23 @@ const LeftPanel: FC<LeftPanelProps> = ({
     //     setSelectedFilter(event.target.value as 'Human' | 'LLM' | 'All');
     //     handleSelect(null); // Reset selection when filter changes
     // };
+
+    const fetchTabData = async (postId: string) => {
+        await new Promise((resolve) => setTimeout(resolve, 5000)); // Simulate delay
+        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ post_id: postId, dataset_id: datasetId })
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to fetch data');
+        }
+
+        return res.json();
+    };
 
     return (
         <div className="p-6">
@@ -76,22 +101,32 @@ const LeftPanel: FC<LeftPanelProps> = ({
                         onClick={() => handleSelect(null)}>
                         Show All
                     </li>
-                    {sampledPosts
+                    {postIds
                         // .filter(
                         //     (post) =>
                         //         selectedFilter === 'All' || post.title.includes(selectedFilter)
                         // )
-                        .map((post, idx) => (
-                            <li
+                        .map((postId, idx) => (
+                            <Suspense
                                 key={idx}
-                                className={`p-3 border rounded shadow cursor-pointer transition-all ${
-                                    selectedItem === post.id
-                                        ? 'bg-blue-200 font-bold'
-                                        : 'hover:bg-blue-100'
-                                }`}
-                                onClick={() => handleSelect(post.id)}>
-                                {post.title}
-                            </li>
+                                fallback={
+                                    <li
+                                        key={postId}
+                                        className={`p-3 border rounded shadow cursor-pointer transition-all text-gray-400 ${
+                                            selectedItem === postId
+                                                ? 'bg-blue-200 font-bold'
+                                                : 'hover:bg-blue-100'
+                                        }`}
+                                        onClick={() => handleSelect(postId)}>
+                                        Loading...
+                                    </li>
+                                }>
+                                <PostTab
+                                    resource={createResource(fetchTabData(postId))}
+                                    selectedItem={selectedItem}
+                                    handleSelect={handleSelect}
+                                />
+                            </Suspense>
                         ))}
                 </ul>
             ) : (

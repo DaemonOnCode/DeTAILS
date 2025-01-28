@@ -19,7 +19,8 @@ export enum ROUTES {
     SPLIT_CHECK = 'split-check',
     ENCODED_DATA = 'encoded-data',
     FINAL = 'final',
-    TRANSCRIPT = 'transcript/:id/:state'
+    TRANSCRIPT = 'transcript/:id/:state',
+    TRANSCRIPTS = 'transcripts'
 }
 
 export enum LOADER_ROUTES {

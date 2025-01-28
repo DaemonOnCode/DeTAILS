@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DndProvider, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { v4 as uuidv4 } from 'uuid';
@@ -7,6 +7,9 @@ import UnplacedCodesBox from '../../components/Coding/Themes/unplaced-box';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import { ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
+import { useLogger } from '../../context/logging_context';
+import { createTimer } from '../../utility/timer';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const ThemesPage = () => {
     const {
@@ -17,6 +20,25 @@ const ThemesPage = () => {
         dispatchSampledPostWithThemeResponse,
         sampledPostWithThemeResponse
     } = useCodingContext();
+
+    const logger = useLogger();
+    const { saveWorkspaceData } = useWorkspaceUtils();
+
+    const hasSavedRef = useRef(false);
+    useEffect(() => {
+        const timer = createTimer();
+        logger.info('Themes Page Loaded');
+
+        return () => {
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true;
+            }
+            logger.info('Themes Page Unloaded').then(() => {
+                logger.time('Themes Page stay time', { time: timer.end() });
+            });
+        };
+    }, []);
 
     // Handle drop into a specific theme
     const handleDropToBucket = (themeId: string, code: string) => {
@@ -61,6 +83,7 @@ const ThemesPage = () => {
     };
 
     useEffect(() => {
+        console.log('sampledPostWithThemeResponse:', sampledPostWithThemeResponse);
         if (!sampledPostWithThemeResponse) return;
 
         if (themes.length === 0 && unplacedCodes.length === 0) {

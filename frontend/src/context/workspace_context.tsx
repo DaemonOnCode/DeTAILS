@@ -14,7 +14,7 @@ interface Workspace {
     description?: string;
 }
 
-interface IWorkspaceContext {
+export interface IWorkspaceContext {
     workspaces: Workspace[];
     currentWorkspace: Workspace | null;
     addWorkspace: (workspace: Workspace) => void;

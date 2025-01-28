@@ -5,7 +5,7 @@ import { useLogger } from './logging_context';
 
 const { ipcRenderer } = window.require('electron');
 
-interface AuthContextType {
+export interface AuthContextType {
     isAuthenticated: boolean;
     user: User | null;
     login: (user: User, token: Token) => void;

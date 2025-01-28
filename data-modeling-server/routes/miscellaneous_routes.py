@@ -2,6 +2,7 @@ import sqlite3
 from fastapi import APIRouter, HTTPException
 from httpx import get
 from pydantic import BaseModel
+from sqlalchemy import all_
 
 from constants import DATABASE_PATH
 from utils.db_helpers import get_post_with_comments
@@ -148,3 +149,52 @@ async def get_post_from_id(
         # print(top_level_comments, "top level comments")
         post_data = {**post, "comments": top_level_comments}
     return post_data
+
+class RedditPostIDAndTitleRequestBatch(BaseModel):
+    post_ids: list = None
+    dataset_id: str
+
+
+@router.post("/get-post-title-from-id-batch")
+async def get_post_title_from_id(
+    request: RedditPostIDAndTitleRequestBatch
+):
+    post_ids = request.post_ids
+    dataset_id = request.dataset_id
+    if not post_ids or not dataset_id: 
+        return HTTPException(status_code=400, detail="Missing post_id or dataset_id")
+    
+    all_post_data = []
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        for post_id in post_ids:
+            post = cursor.execute("SELECT id, title, selftext FROM posts WHERE id = ? AND dataset_id = ?", (post_id, dataset_id)).fetchone()
+            post = dict(post) if post else {}
+            post_data = {**post}
+            # print(post_data)
+            all_post_data.append(post_data)
+    return all_post_data
+
+class RedditPostIDAndTitleRequest(BaseModel):
+    post_id: str
+    dataset_id: str
+
+@router.post("/get-post-title-from-id")
+async def get_post_title_from_id(
+    request: RedditPostIDAndTitleRequest
+):
+    post_id = request.post_id
+    dataset_id = request.dataset_id
+    if not post_id or not dataset_id: 
+        return HTTPException(status_code=400, detail="Missing post_id or dataset_id")
+    
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        post = cursor.execute("SELECT id, title, selftext FROM posts WHERE id = ? AND dataset_id = ?", (post_id, dataset_id)).fetchone()
+        post = dict(post) if post else {}
+        post_data = {**post}
+        # print(post_data)
+        return post_data

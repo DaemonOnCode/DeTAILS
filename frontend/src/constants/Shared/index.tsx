@@ -112,6 +112,7 @@ export enum REMOTE_SERVER_ROUTES {
     GENERATE_MORE_CODES = 'coding/generate-additional-codes-for-codebook',
     GENERATE_CODES_WITH_THEMES = 'coding/generate-codes-with-themes',
     GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = 'coding/generate-codes-with-themes-and-feedback',
+    SAMPLE_POSTS = 'coding/sample-posts',
 
     CREATE_WORKSPACE = 'workspaces/create-workspace',
     GET_WORKSPACES = 'workspaces/get-workspaces',
@@ -129,7 +130,10 @@ export enum REMOTE_SERVER_ROUTES {
     GET_MODEL_METADATA = 'data-modeling/metadata',
     GET_MODEL_SAMPLES = 'data-modeling/samples',
     ADD_MODEL = 'data-modeling/model',
-    LIST_MODELS = 'data-modeling/list-models'
+    LIST_MODELS = 'data-modeling/list-models',
+
+    GET_POST_ID_TITLE_BATCH = 'miscellaneous/get-post-title-from-id-batch',
+    GET_POST_ID_TITLE = 'miscellaneous/get-post-title-from-id'
 }
 
 export const USE_NEW_FLOW = true;

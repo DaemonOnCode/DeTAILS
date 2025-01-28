@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 
@@ -24,13 +24,19 @@ class ModelingContext(BaseModel):
     models: list = []
 
 class CodingContext(BaseModel):
-    main_code: str = ""
-    additional_info: str = ""
-    basis_files: dict = {}
+    main_code: Optional[str] = None
+    additional_info: Optional[str] = None
+    context_files: dict = {}  # Dict instead of basis_files for consistency
+    keywords: list = []
+    selected_keywords: list = []
+    keyword_table: list = []
+    references_data: dict = {}  # Renamed to match save/load function
     themes: list = []
-    selected_themes: list = []
-    codebook: list = []
-    references: dict = {}
-    code_responses: list = []
-    final_code_responses: list = []
+    research_questions: list = []
+    sampled_post_responses: list = []
+    sampled_post_with_themes_responses: list = []
+    unseen_post_response: list = []
+    unplaced_codes: list = []
+    sampled_post_ids: list = []
+    unseen_post_ids: list = []
 

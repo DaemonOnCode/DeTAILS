@@ -13,6 +13,7 @@ import {
 } from '../../../types/Coding/shared';
 
 interface UnifiedCodingPageProps {
+    postIds: string[];
     data: IQECResponse[] | IQECTResponse[] | IQECTTyResponse[];
     dispatchFunction: (data: any) => void;
     review?: boolean;
@@ -25,6 +26,7 @@ interface UnifiedCodingPageProps {
 }
 
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
+    postIds,
     data,
     dispatchFunction,
     review = true,
@@ -49,7 +51,20 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     const navigate = useNavigate();
 
     // Handle viewing transcript for a post
-    const handleViewTranscript = (postId: string) => {
+    const handleViewTranscript = (postId: string | null) => {
+        if (!postId) {
+            navigate('/coding/transcripts', {
+                state: {
+                    split,
+                    showCodebook,
+                    review,
+                    showThemes,
+                    showFilterDropdown,
+                    postIds
+                }
+            });
+            return;
+        }
         // const post = responses.find((p) => p.postId === postId);
         // if (post) {
         //     setCurrentPost({
@@ -157,12 +172,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 {!viewTranscript && (
                     <div className="w-1/4 border-r overflow-auto">
                         <LeftPanel
-                            sampledPosts={Array.from(
-                                new Set(responses.map((item) => item.postId))
-                            ).map((postId) => ({
-                                id: postId,
-                                title: responses.find((item) => item.postId === postId)?.quote || ''
-                            }))}
+                            postIds={postIds}
                             codes={Array.from(new Set(responses.map((item) => item.code)))}
                             onFilterSelect={setFilter}
                             showTypeFilterDropdown={showFilterDropdown}

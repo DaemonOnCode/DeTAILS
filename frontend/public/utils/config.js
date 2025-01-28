@@ -16,7 +16,7 @@ let config = {
         return getIsDev();
     },
     browserView: null,
-    backendServer: 'http://20.51.212.222/backend',
+    backendServer: 'http://localhost:8080',
     userEmail: 'Anonymous',
     websocket: null,
     processing: 'local'
