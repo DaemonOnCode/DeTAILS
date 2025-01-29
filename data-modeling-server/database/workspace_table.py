@@ -1,12 +1,12 @@
 from typing import List
 from .base_class import BaseRepository
-from .table_data_class import Workspaces
+from .table_data_class import Workspace, Workspaces
 
-class WorkspacesRepository(BaseRepository[Workspaces]):
+class WorkspacesRepository(BaseRepository[Workspace]):
     def __init__(self):
-        super().__init__("workspaces", Workspaces)
+        super().__init__("workspaces", Workspace)
 
-    def find_by_user_email(self, user_email: str) -> List[Workspaces]:
+    def find_by_user_email(self, user_email: str) -> Workspaces:
         """
         Finds workspaces by user email.
         """

@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from constants import DATABASE_PATH
 from controllers.state_controller import delete_state, load_state, save_state
+from decorators.execution_time_logger import log_execution_time
 from models.state_models import CodingContext, CollectionContext, LoadStateRequest, ModelingContext, SaveStateRequest
 from utils.chroma_export import chroma_export_cli, chroma_import
 
@@ -38,6 +39,7 @@ def run_query_with_columns(query: str, params: tuple = ()) -> List[dict]:
         return [dict(row) for row in cursor.fetchall()]
 
 @router.post("/save-state")
+@log_execution_time()
 def save_state_endpoint(request: SaveStateRequest):
     if request.workspace_id is None or request.workspace_id == "":
         raise HTTPException(status_code=400, detail="workspace_id is required")
@@ -53,6 +55,7 @@ def save_state_endpoint(request: SaveStateRequest):
 
 
 @router.post("/load-state")
+@log_execution_time()
 def load_state_endpoint(request: LoadStateRequest):
     try:
         result = load_state(request)
@@ -64,6 +67,7 @@ def load_state_endpoint(request: LoadStateRequest):
     
 
 @router.delete("/delete-state")
+@log_execution_time()
 def delete_state_endpoint(request: LoadStateRequest):
     try:
         print("Deleting state", request.workspace_id, request.user_email)
@@ -87,6 +91,7 @@ def find_file_with_time(folder_path: str, dataset_id: str, file_name: str) -> st
     return matching_files[0]
 
 @router.post("/export-workspace")
+@log_execution_time()
 def export_workspace(request: LoadStateRequest):
     workspace_id = request.workspace_id
     user_email = request.user_email
@@ -184,6 +189,7 @@ def export_workspace(request: LoadStateRequest):
 
 
 @router.post("/import-workspace")
+@log_execution_time()
 async def import_workspace(
     user_email: str = Form(...),
     file: UploadFile = File(...)

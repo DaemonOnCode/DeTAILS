@@ -7,6 +7,9 @@ import { useCodingContext } from '../../context/coding_context';
 import { useLogger } from '../../context/logging_context';
 import { createTimer } from '../../utility/timer';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import useServerUtils from '../../hooks/Shared/get_server_url';
+import { useCollectionContext } from '../../context/collection_context';
 
 const TranscriptPage = () => {
     const { id, state } = useParams<{ id: string; state: 'review' | 'refine' }>();
@@ -28,6 +31,8 @@ const TranscriptPage = () => {
         sampledPostWithThemeResponse,
         dispatchSampledPostWithThemeResponse
     } = useCodingContext();
+
+    const { datasetId } = useCollectionContext();
 
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -330,6 +335,8 @@ const TranscriptPage = () => {
         setActiveTranscript(position);
     };
 
+    const { getServerUrl } = useServerUtils();
+
     const handleUpdateResponses = (updatedResponses: any[]) => {
         console.log('Updated responses:', updatedResponses);
         dispatchUnseenPostResponse({
@@ -338,47 +345,35 @@ const TranscriptPage = () => {
         });
     };
 
+    const fetchPostById = async (postId: string, datasetId: string) => {
+        console.log('Fetching post:', postId, datasetId);
+        if (!postId || !datasetId) return;
+        setLoading(true);
+        try {
+            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ postId, datasetId })
+            });
+            const fetchedPost = await res.json();
+            console.log('Fetched post:', fetchedPost);
+            setPost(fetchedPost);
+        } catch (error) {
+            console.error('Error fetching post:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        // Simulating API fetch, replace with real API call
-        const fetchPostById = async (postId: string) => {
-            setLoading(true);
-            try {
-                // Simulated fetch request - replace with actual fetch
-                const fetchedPost = {
-                    id: postId,
-                    title: `Post Title for ID ${postId}`,
-                    selftext: 'This is a sample transcript content.',
-                    comments: [
-                        { id: 'c1', body: 'Great insights!', comments: [] },
-                        {
-                            id: 'c2',
-                            body: 'Nice analysis.',
-                            comments: [{ id: 'c3', body: 'Agreed!' }]
-                        },
-                        {
-                            id: 'c4',
-                            body: 'Nice analysis.',
-                            comments: [{ id: 'c5', body: 'Agreed!' }]
-                        },
-                        {
-                            id: 'c6',
-                            body: 'Nice analysis.',
-                            comments: [{ id: 'c7', body: 'Agreed!' }]
-                        }
-                    ]
-                };
-                setPost(fetchedPost);
-            } catch (error) {
-                console.error('Error fetching post:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
+        console.log('ID:', id);
 
         if (id) {
-            fetchPostById(id);
+            fetchPostById(id, datasetId);
         }
-    }, [id]);
+    }, [id, datasetId]);
 
     useEffect(() => {
         console.log(activeTranscript);

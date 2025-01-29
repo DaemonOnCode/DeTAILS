@@ -7,6 +7,7 @@ from uuid import uuid4
 from aiofiles import open as async_open
 from pydantic import BaseModel
 from constants import DATABASE_PATH
+from decorators.execution_time_logger import log_execution_time
 from utils.db_helpers import  batch_insert_posts, batch_insert_comments
 
 # Initialize the router
@@ -227,6 +228,7 @@ async def parse_json_file(file_path: str):
 #         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/datasets")
+@log_execution_time()
 async def upload_dataset(
     file: UploadFile = File(...),
     description: str = Form(None),
@@ -263,6 +265,7 @@ class ParseRedditPostsRequest(BaseModel):
     all: bool = True
 
 @router.post("/parse-reddit-dataset")
+@log_execution_time()
 async def parse_reddit_dataset(
     request: ParseDatasetRequest = Body(...)
 ):
@@ -289,6 +292,7 @@ async def parse_reddit_dataset(
     #     raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/process-reddit-json")
+@log_execution_time()
 async def process_reddit_json(
     posts: UploadFile = File(...), comments: UploadFile = File(...)
 ):
@@ -324,6 +328,7 @@ async def process_reddit_json(
 
 
 @router.post("/datasets/multiple/streaming")
+@log_execution_time()
 async def add_multiple_files_streaming(
     name: str = Form(...),
     description: str = Form(...),
@@ -363,6 +368,7 @@ async def add_multiple_files_streaming(
 
 
 @router.post("/stream-upload")
+@log_execution_time()
 async def stream_upload(file: UploadFile = File(...)):
     """
     Stream and save an uploaded file in chunks.
@@ -383,6 +389,7 @@ async def stream_upload(file: UploadFile = File(...)):
 
 
 @router.get("/datasets")
+@log_execution_time()
 def list_datasets():
     """
     List all datasets stored in the database.
@@ -394,6 +401,7 @@ def list_datasets():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/datasets/export")
+@log_execution_time()
 def export_datasets():
     """
     Export all dataset metadata to a JSON file.
@@ -408,6 +416,7 @@ def export_datasets():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/datasets/{dataset_id}")
+@log_execution_time()
 def delete_dataset(dataset_id: int):
     """
     Delete a dataset by its ID.
@@ -419,6 +428,7 @@ def delete_dataset(dataset_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/reddit-posts-by-batch")
+@log_execution_time()
 def get_reddit_posts(request: ParseRedditPostsRequest = Body(...)):
     """
     Get a dataset by its ID.
@@ -440,6 +450,7 @@ class ParseRedditPostsRequest(BaseModel):
     dataset_id: str
 
 @router.post("/reddit-posts-titles")
+@log_execution_time()
 def get_reddit_posts(request: ParseRedditPostsRequest = Body(...)):
     """
     Get a dataset by its ID.
@@ -465,7 +476,7 @@ def get_comments_recursive(post_id: str, dataset_id: str):
             parent = comment_map[comment["parent_id"]]
             parent.setdefault("comments", []).append(comment)
 
-    top_level_comments = [comment for comment in comments if not comment["parent_id"] or comment["parent_id"] == post_id]
+    top_level_comments = [comment for comment in comments if comment["parent_id"] == post_id]
 
     return top_level_comments
 
@@ -474,6 +485,7 @@ class ParseRedditPostByIdRequest(BaseModel):
     postId: str
 
 @router.post("/reddit-post-by-id")
+@log_execution_time()
 def get_reddit_post_by_id(request: ParseRedditPostByIdRequest = Body(...)):
     """
     Get a dataset by its ID.
@@ -481,10 +493,12 @@ def get_reddit_post_by_id(request: ParseRedditPostByIdRequest = Body(...)):
     try:
         dataset_id = request.datasetId
         post_id = request.postId
+
+        print(dataset_id, post_id, "from get_reddit_post_by_id")
         posts = run_query_with_columns("SELECT * FROM posts WHERE dataset_id = ? AND id = ?", (dataset_id, post_id))
 
         comments = get_comments_recursive(post_id, dataset_id)
-
+        print(comments, "from get_reddit_post_by_id")
         return {**posts[0], "comments": comments} if posts else {}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

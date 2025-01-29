@@ -61,7 +61,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                     review,
                     showThemes,
                     showFilterDropdown,
-                    postIds
+                    postIds,
+                    selectedTypeFilter
                 }
             });
             return;

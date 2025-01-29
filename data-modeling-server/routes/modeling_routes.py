@@ -9,6 +9,7 @@ from numpy import add
 import psutil
 from pydantic import BaseModel
 import spacy
+from decorators.execution_time_logger import log_execution_time
 from routes.websocket_routes import manager, ConnectionManager
 from constants import DATABASE_PATH
 from utils.topic_modeling import lda_topic_modeling, biterm_topic_modeling, nnmf_topic_modeling, bertopic_modeling, llm_topic_modeling
@@ -407,6 +408,7 @@ async def process_topic_modeling(
 
 # Dynamic route to handle topic modeling methods
 @router.post("/model/{method}")
+@log_execution_time()
 async def topic_model(
     method: str = Path(..., description="The topic modeling method to use"),
     request: TopicModelingRequest = None
@@ -427,6 +429,7 @@ class MetadataRequest(BaseModel):
     model_id: str
 
 @router.post("/metadata")
+@log_execution_time()
 def get_metadata_for_model(request: MetadataRequest):
     if not request.dataset_id:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
@@ -458,6 +461,7 @@ class UpdateMetadataRequest(MetadataRequest):
     new_model_name: str
 
 @router.put("/model")
+@log_execution_time()
 def update_metadata_for_model(request: UpdateMetadataRequest):
     model_id = request.model_id
     dataset_id = request.dataset_id
@@ -480,6 +484,7 @@ def update_metadata_for_model(request: UpdateMetadataRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/model")
+@log_execution_time()
 def delete_model(request: MetadataRequest):
     model_id = request.model_id
     dataset_id = request.dataset_id
@@ -505,6 +510,7 @@ class ModelListRequest(BaseModel):
     workspace_id: str
 
 @router.post("/list-models")
+@log_execution_time()
 def get_models(request: ModelListRequest):
     if not request.dataset_id or not request.workspace_id:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")

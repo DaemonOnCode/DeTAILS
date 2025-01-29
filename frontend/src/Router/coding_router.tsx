@@ -50,10 +50,6 @@ export const CodingRouter: RouteObject[] = [
         element: <TranscriptPage />
     },
     {
-        path: ROUTES.THEMES,
-        element: <ThemesPage />
-    },
-    {
         path: ROUTES.FINAL_CODEBOOK,
         element: <FinalCodebookPage />
     },
@@ -68,6 +64,10 @@ export const CodingRouter: RouteObject[] = [
     {
         path: ROUTES.ENCODED_DATA,
         element: <EncodedDataPage />
+    },
+    {
+        path: ROUTES.THEMES,
+        element: <ThemesPage />
     },
     {
         path: ROUTES.TRANSCRIPTS,

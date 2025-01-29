@@ -359,6 +359,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     };
 
     const processedSegments = useMemo(() => {
+        if (!post || !Object.keys(post).length) return [];
         const transcriptFlatMap: {
             id: string;
             text: string;
@@ -434,7 +435,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     console.log('Processed segments:', processedSegments);
 
     return !post ? (
-        <></>
+        <p>Post not found</p>
     ) : (
         <div className="flex flex-col h-full overflow-hidden">
             <div className="flex flex-1 overflow-hidden m-6">

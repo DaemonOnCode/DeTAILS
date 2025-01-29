@@ -15,6 +15,7 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from constants import DATABASE_PATH
+from decorators.execution_time_logger import log_execution_time
 from utils.db_helpers import execute_query, execute_query_with_retry
 
 class DatasetIdRequest(BaseModel):
@@ -64,6 +65,7 @@ class DatasetRequest(BaseModel):
 
 # Fetch rules for a dataset (Path Param)
 @router.post("/datasets/rules", response_model=List[Rule])
+@log_execution_time()
 def get_rules(payload: DatasetIdRequest):
     """Fetch rules for a dataset."""
     dataset_id = payload.dataset_id
@@ -78,6 +80,7 @@ def get_rules(payload: DatasetIdRequest):
 
 # Add or replace rules (Body Param)
 @router.post("/datasets/add-rules", response_model=dict)
+@log_execution_time()
 def add_rules(payload: RulesRequest):
     """Add or replace rules for a dataset."""
     dataset_id = payload.dataset_id
@@ -95,6 +98,7 @@ def add_rules(payload: RulesRequest):
 
 # Delete all rules for a dataset (Path Param)
 @router.post("/datasets/delete-rules", response_model=dict)
+@log_execution_time()
 def delete_all_rules(payload: DatasetIdRequest):
     """Delete all rules for a dataset."""
     dataset_id = payload.dataset_id
@@ -106,6 +110,7 @@ def delete_all_rules(payload: DatasetIdRequest):
 
 # Create backup tables (Body Param)
 @router.post("/datasets/backup", response_model=dict)
+@log_execution_time()
 def create_backup(payload: DatasetRequest = Body(...)):
     """Create backups for posts and comments."""
     dataset_id = payload.dataset_id
@@ -391,6 +396,7 @@ def apply_rules_to_tokens_parallel(dataset_id, token_table, tfidf_table, temp_ta
 
 
 @router.post("/datasets/apply-rules", response_model=dict)
+@log_execution_time()
 def apply_rules_to_dataset_parallel(payload: Dict[str, Any]):
     dataset_id = payload.get("dataset_id")
     if not dataset_id:
@@ -467,6 +473,7 @@ def apply_rules_to_dataset_parallel(payload: Dict[str, Any]):
 
 # Retrieve processed posts (Query Param)
 @router.post("/datasets/processed-posts")
+@log_execution_time()
 def get_processed_posts(payload: DatasetIdRequest):
     """Retrieve processed posts."""
     if payload.dataset_id is None:
@@ -480,6 +487,7 @@ def get_processed_posts(payload: DatasetIdRequest):
 
 # Retrieve processed comments (Query Param)
 @router.post("/datasets/processed-comments")
+@log_execution_time()
 def get_processed_comments(payload: DatasetIdRequest):
     """Retrieve processed comments."""
     if payload.dataset_id is None:
@@ -492,6 +500,7 @@ def get_processed_comments(payload: DatasetIdRequest):
         raise HTTPException(status_code=500, detail=f"Error fetching processed comments: {str(e)}")
 
 @router.post("/datasets/included-words", response_model=dict)
+@log_execution_time()
 def get_included_words(payload: DatasetIdRequest):
     """Retrieve included words for a dataset."""
     dataset_id = payload.dataset_id
@@ -513,6 +522,7 @@ def get_included_words(payload: DatasetIdRequest):
 
 
 @router.post("/datasets/removed-words", response_model=dict)
+@log_execution_time()
 def get_removed_words(payload: DatasetIdRequest):
     """Retrieve excluded words for a dataset."""
     dataset_id = payload.dataset_id

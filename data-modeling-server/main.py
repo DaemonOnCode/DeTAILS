@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database.initialize import initialize_database
 from database.table_data_class import Comments, Datasets, LlmResponses, Models, Posts, Rules, TokenStats, TokenStatsDetailed, TokenizedComments, TokenizedPosts, WorkspaceStates, Workspaces
-from routes import modeling_routes, filtering_routes, collection_routes, websocket_routes, coding_routes, miscellaneous_routes, workspace_routes, state_routes
+from routes import coding_routes, modeling_routes, filtering_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
 
 print("Initializing database...")
 initialize_database([

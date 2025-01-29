@@ -1,6 +1,5 @@
-import { FC, Suspense, useState } from 'react';
+import { FC, Suspense, useEffect, useState } from 'react';
 import PostTab from './post-tab';
-import { createResource } from '../../../utility/resource-creator';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import useServerUtils from '../../../hooks/Shared/get_server_url';
 import { useCollectionContext } from '../../../context/collection_context';
@@ -25,6 +24,8 @@ const LeftPanel: FC<LeftPanelProps> = ({
     const [activeTab, setActiveTab] = useState<'posts' | 'codes'>('posts');
     const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
+    const [postIdTitles, setPostIdTitles] = useState<{ id: string; title: string }[]>([]);
+
     const { getServerUrl } = useServerUtils();
     const { datasetId } = useCollectionContext();
 
@@ -38,22 +39,35 @@ const LeftPanel: FC<LeftPanelProps> = ({
     //     handleSelect(null); // Reset selection when filter changes
     // };
 
-    const fetchTabData = async (postId: string) => {
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // Simulate delay
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE), {
+    const fetchTabData = async (postIds: string[], datasetId: string) => {
+        if (!postIds.length || !datasetId) {
+            return [];
+        }
+        // await new Promise((resolve) => setTimeout(resolve, 5000)); // Simulate delay
+        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ post_id: postId, dataset_id: datasetId })
+            body: JSON.stringify({ post_ids: postIds, dataset_id: datasetId })
         });
 
         if (!res.ok) {
             throw new Error('Failed to fetch data');
         }
 
-        return res.json();
+        const results = await res.json();
+
+        console.log('Results:', results);
+
+        setPostIdTitles(
+            results?.map((result: any) => ({ id: result.id, title: result.title })) ?? []
+        );
     };
+
+    useEffect(() => {
+        fetchTabData(postIds, datasetId);
+    }, [postIds]);
 
     return (
         <div className="p-6">
@@ -101,28 +115,22 @@ const LeftPanel: FC<LeftPanelProps> = ({
                         onClick={() => handleSelect(null)}>
                         Show All
                     </li>
-                    {postIds.map((postId, idx) => (
-                        <Suspense
-                            key={idx}
-                            fallback={
-                                <li
-                                    key={postId}
-                                    className={`p-3 border rounded shadow cursor-pointer transition-all text-gray-400 ${
-                                        selectedItem === postId
-                                            ? 'bg-blue-200 font-bold'
-                                            : 'hover:bg-blue-100'
-                                    }`}
-                                    onClick={() => handleSelect(postId)}>
-                                    Loading...
-                                </li>
-                            }>
-                            <PostTab
-                                resource={createResource(fetchTabData(postId))}
-                                selectedItem={selectedItem}
-                                handleSelect={handleSelect}
-                            />
-                        </Suspense>
-                    ))}
+                    {postIdTitles.length === 0 ? (
+                        <li>Loading...</li>
+                    ) : (
+                        postIdTitles
+                            // .filter(
+                            //     (post) =>
+                            //         selectedFilter === 'All' || post.title.includes(selectedFilter)
+                            // )
+                            .map((postIdTitle) => (
+                                <PostTab
+                                    postIdTitle={postIdTitle}
+                                    selectedItem={selectedItem}
+                                    handleSelect={handleSelect}
+                                />
+                            ))
+                    )}
                 </ul>
             ) : (
                 // Codes Tab

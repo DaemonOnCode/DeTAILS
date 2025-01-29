@@ -1,16 +1,15 @@
 import { FC } from 'react';
 
-interface PostTab {
-    resource: {
-        read(): any;
+interface PostTabProps {
+    postIdTitle: {
+        id: string;
+        title: string;
     };
     selectedItem: string | null;
     handleSelect: (postId: string) => void;
 }
 
-const PostTab: FC<PostTab> = ({ resource, selectedItem, handleSelect }) => {
-    const postIdTitle = resource.read();
-
+const PostTab: FC<PostTabProps> = ({ postIdTitle, selectedItem, handleSelect }) => {
     return (
         <li
             key={postIdTitle.id}

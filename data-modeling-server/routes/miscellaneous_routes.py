@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import all_
 
 from constants import DATABASE_PATH
+from decorators.execution_time_logger import log_execution_time
 from utils.db_helpers import get_post_with_comments
 
 
@@ -44,6 +45,7 @@ def link_creator(id, type, postId, subreddit):
         return f"https://www.reddit.com/r/{subreddit}/comments/{postId}/{id}/"
 
 @router.post("/get-link-from-post", response_model=dict)
+@log_execution_time()
 async def get_reddit_post_link(
     request: RedditPostLinkRequest
 ):
@@ -109,6 +111,7 @@ class RedditPostByIdRequest(BaseModel):
     datasetId: str
 
 @router.post("/get-post-from-id")
+@log_execution_time()
 async def get_post_from_id(
     request: RedditPostByIdRequest
 ):
@@ -156,6 +159,7 @@ class RedditPostIDAndTitleRequestBatch(BaseModel):
 
 
 @router.post("/get-post-title-from-id-batch")
+@log_execution_time()
 async def get_post_title_from_id(
     request: RedditPostIDAndTitleRequestBatch
 ):
@@ -182,6 +186,7 @@ class RedditPostIDAndTitleRequest(BaseModel):
     dataset_id: str
 
 @router.post("/get-post-title-from-id")
+@log_execution_time()
 async def get_post_title_from_id(
     request: RedditPostIDAndTitleRequest
 ):

@@ -2,6 +2,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 
 from controllers.workspace_controller import create_temp_workspace, create_workspace, delete_workspace, get_workspaces, update_workspace, upgrade_workspace_from_temp
+from decorators.execution_time_logger import log_execution_time
 from models.workspace_model import WorkspaceCreateRequest, WorkspaceUpdateRequest
 
 
@@ -9,6 +10,7 @@ router = APIRouter()
 
 # Routes
 @router.post("/create-workspace")
+@log_execution_time()
 async def create_workspace_endpoint(request: WorkspaceCreateRequest):
     """
     Create a new workspace and associate it with the user's email.
@@ -20,6 +22,7 @@ async def create_workspace_endpoint(request: WorkspaceCreateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/get-workspaces", response_model=List[dict])
+@log_execution_time()
 async def get_workspaces_endpoint(user_email: str):
     """
     Retrieve all workspaces associated with the user's email.
@@ -32,6 +35,7 @@ async def get_workspaces_endpoint(user_email: str):
 
 
 @router.put("/update-workspace")
+@log_execution_time()
 async def update_workspace_endpoint(request: WorkspaceUpdateRequest):
     """
     Update a workspace's name or description.
@@ -45,6 +49,7 @@ async def update_workspace_endpoint(request: WorkspaceUpdateRequest):
 
 
 @router.delete("/delete-workspace/{workspace_id}")
+@log_execution_time()
 async def delete_workspace_endpoint(workspace_id: str):
     """
     Delete a workspace by its ID.
@@ -56,6 +61,7 @@ async def delete_workspace_endpoint(workspace_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/create-temp-workspace")
+@log_execution_time()
 async def create_temp_workspace_endpoint(user_email: str):
     """
     Create a temporary workspace for the user if it doesn't already exist.
@@ -68,6 +74,7 @@ async def create_temp_workspace_endpoint(user_email: str):
 
 
 @router.post("/upgrade-workspace-from-temp")
+@log_execution_time()
 async def upgrade_workspace_from_temp_endpoint(workspace_id: str, new_name: str):
     """
     Upgrade a temporary workspace to a permanent one.
