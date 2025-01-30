@@ -3,7 +3,7 @@ import { IKeywordBox } from '../../../types/Coding/shared';
 import { KeywordCloudProps } from '../../../types/Coding/props';
 import { FiEdit, FiTrash2 } from 'react-icons/fi'; // Import React Icons
 
-const mainCodeFontSize = 20;
+const mainTopicFontSize = 20;
 const otherKeywordFontSize = 14;
 
 function areKeywordsColliding(keyword1: IKeywordBox, keyword2: IKeywordBox, padding: number = 10) {
@@ -15,8 +15,8 @@ function areKeywordsColliding(keyword1: IKeywordBox, keyword2: IKeywordBox, padd
     );
 }
 
-function placeKeyword(keywords: IKeywordBox[], newKeyword: IKeywordBox, mainCodeBox: IKeywordBox) {
-    if (areKeywordsColliding(mainCodeBox, newKeyword)) {
+function placeKeyword(keywords: IKeywordBox[], newKeyword: IKeywordBox, mainTopicBox: IKeywordBox) {
+    if (areKeywordsColliding(mainTopicBox, newKeyword)) {
         return false;
     }
 
@@ -39,7 +39,7 @@ const measureTextWidth = (text: string, fontSize: number) => {
 };
 
 const KeywordCloud: FC<KeywordCloudProps> = ({
-    mainCode,
+    mainTopic,
     keywords,
     selectedKeywords,
     toggleKeywordSelection,
@@ -53,21 +53,21 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
 
     const placeKeywordsAround = (): IKeywordBox[] => {
         const placedKeywords: IKeywordBox[] = [];
-        const mainCodeWidth = measureTextWidth(mainCode, mainCodeFontSize) + 30;
-        const mainCodeHeight = mainCodeFontSize + 10;
+        const mainTopicWidth = measureTextWidth(mainTopic, mainTopicFontSize) + 30;
+        const mainTopicHeight = mainTopicFontSize + 10;
 
-        const mainCodeBox: IKeywordBox = {
-            text: mainCode,
+        const mainTopicBox: IKeywordBox = {
+            text: mainTopic,
             x: 0,
             y: 0,
-            width: mainCodeWidth,
-            height: mainCodeHeight
+            width: mainTopicWidth,
+            height: mainTopicHeight
         };
 
-        placedKeywords.push(mainCodeBox);
+        placedKeywords.push(mainTopicBox);
 
         keywords.forEach((keyword, index) => {
-            if (keyword === mainCode) return;
+            if (keyword === mainTopic) return;
             const textWidth = measureTextWidth(keyword, otherKeywordFontSize);
             const keywordBox: IKeywordBox = {
                 text: keyword,
@@ -78,7 +78,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             };
 
             let angle = (index * (2 * Math.PI)) / keywords.length; // Spread keywords evenly
-            let radius = mainCodeWidth + 50;
+            let radius = mainTopicWidth + 50;
             let placed = false;
 
             while (!placed) {
@@ -87,8 +87,8 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                 keywordBox.x = x;
                 keywordBox.y = y;
 
-                if (placeKeyword(placedKeywords, keywordBox, mainCodeBox)) {
-                    if (keywordBox.text === mainCode) continue;
+                if (placeKeyword(placedKeywords, keywordBox, mainTopicBox)) {
+                    if (keywordBox.text === mainTopic) continue;
                     placedKeywords.push(keywordBox);
                     placed = true;
                 } else {
@@ -176,7 +176,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                     left: 0
                 }}>
                 {keywordsPlaced.map((keyword) => {
-                    if (keyword.text === mainCode) return null;
+                    if (keyword.text === mainTopic) return null;
 
                     const keywordX = keyword.x;
                     const keywordY = keyword.y;
@@ -213,12 +213,14 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                         } font-bold relative`}
                         style={{
                             fontSize:
-                                keyword.text === mainCode ? mainCodeFontSize : otherKeywordFontSize
+                                keyword.text === mainTopic
+                                    ? mainTopicFontSize
+                                    : otherKeywordFontSize
                         }}>
                         {keyword.text}
 
                         {/* Hover Actions */}
-                        {keyword.text !== mainCode && (
+                        {keyword.text !== mainTopic && (
                             <div className="absolute -top-2 -right-2 flex space-x-1 opacity-0 group-hover:opacity-100">
                                 <button
                                     onClick={(e) => {

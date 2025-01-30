@@ -14,7 +14,7 @@ import getServerUtils from '../../hooks/Shared/get_server_url';
 const { ipcRenderer } = window.require('electron');
 
 const KeywordsTablePage: FC = () => {
-    const { keywordTable, dispatchKeywordsTable, mainCode, additionalInfo } = useCodingContext();
+    const { keywordTable, dispatchKeywordsTable, mainTopic, additionalInfo } = useCodingContext();
     const { datasetId } = useCollectionContext();
     const [saving, setSaving] = useState(false);
     const navigate = useNavigate();
@@ -27,10 +27,10 @@ const KeywordsTablePage: FC = () => {
     const handleGenerateMore = async () => {
         await logger.info('Generate more codes');
         navigate('../loader/' + LOADER_ROUTES.KEYWORD_TABLE_LOADER);
-        const filteredCodebook = keywordTable.filter((entry) => entry.isMarked === undefined);
-        if (keywordTable.length !== 0 && filteredCodebook.length === keywordTable.length) {
+        const filteredKeywordTable = keywordTable.filter((entry) => entry.isMarked === undefined);
+        if (keywordTable.length !== 0 && filteredKeywordTable.length === keywordTable.length) {
             navigate('/coding/' + ROUTES.KEYWORD_TABLE);
-            await logger.info('Codebook Generation completed');
+            await logger.info('KeywordTable Generation completed');
             return;
         }
         // if (!USE_LOCAL_SERVER) {
@@ -41,11 +41,11 @@ const KeywordsTablePage: FC = () => {
             },
             body: JSON.stringify({
                 dataset_id: datasetId,
-                model: MODEL_LIST.LLAMA_3_2,
-                mainCode,
+                model: MODEL_LIST.DEEPSEEK_R1_32b,
+                mainTopic,
                 additionalInfo,
                 keywordTable,
-                currentCodebook: filteredCodebook.map((entry) => ({
+                currentKeywordTable: filteredKeywordTable.map((entry) => ({
                     word: entry.word,
                     description: entry.description,
                     inclusion_criteria: entry.inclusion_criteria,
@@ -57,33 +57,33 @@ const KeywordsTablePage: FC = () => {
         const results = await res.json();
         console.log(results);
 
-        const newCodebook: string[] = results.codebook;
+        const newKeywordTable: string[] = results.KeywordTable;
 
         dispatchKeywordsTable({
             type: 'ADD_MANY',
-            entries: newCodebook
+            entries: newKeywordTable
         });
-        await logger.info('Codebook Generation completed');
+        await logger.info('KeywordTable Generation completed');
         // }
         navigate('/coding/' + ROUTES.KEYWORD_TABLE);
     };
 
     const handleSaveCsv = async () => {
-        await logger.info('Saving codebook as CSV');
+        await logger.info('Saving KeywordTable as CSV');
         setSaving(true);
-        const result = await saveCSV(ipcRenderer, keywordTable, 'codebook');
+        const result = await saveCSV(ipcRenderer, keywordTable, 'KeywordTable');
         console.log(result);
         setSaving(false);
-        await logger.info('Codebook saved as CSV');
+        await logger.info('KeywordTable saved as CSV');
     };
 
     const handleSaveExcel = async () => {
-        await logger.info('Saving codebook as Excel');
+        await logger.info('Saving KeywordTable as Excel');
         setSaving(true);
-        const result = await saveExcel(ipcRenderer, keywordTable, 'codebook');
+        const result = await saveExcel(ipcRenderer, keywordTable, 'KeywordTable');
         console.log(result);
         setSaving(false);
-        await logger.info('Codebook saved as Excel');
+        await logger.info('KeywordTable saved as Excel');
     };
 
     useEffect(() => {

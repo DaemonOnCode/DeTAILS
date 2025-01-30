@@ -20,20 +20,37 @@ const KeywordCloudPage: FC = () => {
     const navigate = useNavigate();
 
     const {
-        mainCode,
+        mainTopic,
         additionalInfo,
         selectedKeywords,
         setSelectedKeywords,
         setKeywords,
         keywords,
+        keywordTable,
         dispatchKeywordsTable
     } = useCodingContext();
     const { datasetId } = useCollectionContext();
 
     const { saveWorkspaceData } = useWorkspaceUtils();
 
+    const [response, setResponse] = useState<
+        {
+            word: string;
+            description: string;
+            inclusion_criteria: string[];
+            exclusion_criteria: string[];
+        }[]
+    >(
+        keywordTable.map((keyword) => ({
+            word: keyword.word,
+            description: keyword.description,
+            inclusion_criteria: keyword.inclusion_criteria,
+            exclusion_criteria: keyword.exclusion_criteria
+        }))
+    );
+
     // useEffect(() => {
-    //     setSelectedKeywords([mainCode]);
+    //     setSelectedKeywords([mainTopic]);
     // }, []);
     const { getServerUrl } = getServerUtils();
 
@@ -55,7 +72,7 @@ const KeywordCloudPage: FC = () => {
     }, []);
 
     const toggleKeywordSelection = (word: string) => {
-        if (word === mainCode) return;
+        if (word === mainTopic) return;
 
         setSelectedKeywords((prevSelected) =>
             prevSelected.includes(word)
@@ -81,14 +98,14 @@ const KeywordCloudPage: FC = () => {
         navigate('../loader/' + LOADER_ROUTES.THEME_LOADER);
         // if (!USE_LOCAL_SERVER) {
         // await ipcRenderer.invoke("connect-ws", datasetId);
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_THEMES), {
+        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.BUILD_CONTEXT), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: MODEL_LIST.LLAMA_3_2,
-                mainCode,
+                model: MODEL_LIST.DEEPSEEK_R1_32b,
+                mainTopic,
                 selectedKeywords,
                 feedback,
                 dataset_id: datasetId
@@ -99,17 +116,25 @@ const KeywordCloudPage: FC = () => {
         console.log(results, 'Keyword Cloud Page');
 
         // const parsedResults = JSON.parse(results);
-        const newKeywords: string[] = results.keywords ?? [];
+        const newKeywords: {
+            word: string;
+            description: string;
+            inclusion_criteria: string[];
+            exclusion_criteria: string[];
+        }[] = results.keywords ?? [];
+
+        setResponse((prevResponse) => [...prevResponse, ...newKeywords]);
 
         setKeywords((prevKeywords) => {
             const filteredPrevKeywords = prevKeywords.filter((keyword) =>
                 selectedKeywords.includes(keyword)
             );
-            const filteredNewKeywords = newKeywords.filter(
-                (keyword) => !filteredPrevKeywords.includes(keyword)
-            );
+            const filteredNewKeywords = newKeywords
+                .filter((keyword) => !filteredPrevKeywords.includes(keyword.word))
+                .map((keyword) => keyword.word);
             return [...filteredPrevKeywords, ...filteredNewKeywords];
         });
+
         // await ipcRenderer.invoke("disconnect-ws", datasetId);
         navigate('/coding/' + ROUTES.KEYWORD_CLOUD);
         await logger.info('Keyword Cloud refreshed');
@@ -137,29 +162,31 @@ const KeywordCloudPage: FC = () => {
         // await ipcRenderer.invoke("connect-ws", datasetId);
         console.log('Sending request to remote server');
 
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: MODEL_LIST.LLAMA_3_2,
-                mainCode,
-                additionalInfo,
-                selectedKeywords,
-                dataset_id: datasetId
-            })
-        });
+        // const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK), {
+        //     method: 'POST',
+        //     headers: {
+        //         'Content-Type': 'application/json'
+        //     },
+        //     body: JSON.stringify({
+        //         model: MODEL_LIST.DEEPSEEK_R1_32b,
+        //         mainTopic,
+        //         additionalInfo,
+        //         selectedKeywords,
+        //         dataset_id: datasetId
+        //     })
+        // });
 
-        const results = await res.json();
-        console.log(results, 'Keyword Cloud Page');
+        // const results = await res.json();
+        // console.log(results, 'Keyword Cloud Page');
 
         // const parsedResults = JSON.parse(results);
-        const newCodebook: string[] = results.codebook;
+        // const newCodebook: string[] = results.codebook;
+
+        console.log('response', response, selectedKeywords);
 
         dispatchKeywordsTable({
             type: 'INITIALIZE',
-            entries: newCodebook
+            entries: response.filter((keyword) => selectedKeywords.includes(keyword.word))
         });
         await logger.info('Codebook Generation completed');
         //     return;
@@ -184,7 +211,7 @@ const KeywordCloudPage: FC = () => {
                 </div>
 
                 <KeywordCloud
-                    mainCode={mainCode}
+                    mainTopic={mainTopic}
                     keywords={keywords}
                     selectedKeywords={selectedKeywords}
                     toggleKeywordSelection={toggleKeywordSelection}

@@ -13,7 +13,7 @@ const Workflow = () => {
     const llm2Ref = useRef<HTMLDivElement>(null);
     const llm3Ref = useRef<HTMLDivElement>(null);
 
-    const modelName = MODEL_LIST.LLAMA_3_2;
+    const modelName = MODEL_LIST.DEEPSEEK_R1_32b;
 
     const { registerCallback, unregisterCallback } = useWebSocket();
     const { selectedPosts } = useCollectionContext();

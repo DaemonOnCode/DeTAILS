@@ -52,7 +52,7 @@ const useWorkspaceUtils = () => {
             },
             coding_context: {
                 context_files: codingContext.contextFiles || {},
-                main_code: codingContext.mainCode || '',
+                main_topic: codingContext.mainTopic || '',
                 additional_info: codingContext.additionalInfo || '',
                 research_questions: codingContext.researchQuestions || [],
                 keywords: codingContext.keywords || [],
@@ -125,7 +125,7 @@ const useWorkspaceUtils = () => {
         });
 
         codingContext.updateContext({
-            mainCode: data.main_code ?? '',
+            mainTopic: data.main_topic ?? '',
             additionalInfo: data.additional_info ?? '',
             contextFiles: data.context_files ?? {},
             keywords: data.keywords ?? [],

@@ -3,6 +3,7 @@ from .base_class import BaseRepository
 from .table_data_class import Workspace, Workspaces
 
 class WorkspacesRepository(BaseRepository[Workspace]):
+    model = Workspace
     def __init__(self):
         super().__init__("workspaces", Workspace)
 

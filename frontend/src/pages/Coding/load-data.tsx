@@ -52,7 +52,7 @@ const LoadData = () => {
 
     const handleSamplingPosts = async () => {
         console.log('Sampling posts:', selectedPosts);
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.SAMPLE_POSTS), {
+        let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.SAMPLE_POSTS), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -60,11 +60,26 @@ const LoadData = () => {
             body: JSON.stringify({ dataset_id: datasetId, post_ids: selectedPosts ?? [] })
         });
 
-        const results = await res.json();
+        let results = await res.json();
         console.log('Results:', results);
 
         setSampledPostIds(results['sampled']);
         setUnseenPostIds(results['unseen']);
+
+        console.log('Generate initial codes:', results['sampled']);
+        res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                dataset_id: datasetId,
+                post_ids: results['sampled'] ?? []
+            })
+        });
+
+        results = await res.json();
+        console.log('Results:', results);
     };
     return (
         <div className="w-full h-full flex flex-col">

@@ -161,7 +161,7 @@ export type ThemeCloudProps = {
 };
 
 export type KeywordCloudProps = {
-    mainCode: string;
+    mainTopic: string;
     keywords: string[];
     selectedKeywords: string[];
     toggleKeywordSelection: (keyword: string) => void;

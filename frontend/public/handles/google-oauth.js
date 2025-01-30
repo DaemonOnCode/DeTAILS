@@ -14,7 +14,7 @@ const googleOAuthHandler = () => {
             clientData['installed']['client_secret'],
             ['https://www.googleapis.com/auth/userinfo.profile'],
             {
-                successRedirectURL: `http://${config.processing === 'local' ? 'localhost:4000' : '20.51.212.222'}/misc-frontend/oauth-redirect`
+                successRedirectURL: `${config.processing === 'http://local' ? 'localhost:4000' : config.backendServer}/misc-frontend/oauth-redirect`
             }
         );
 

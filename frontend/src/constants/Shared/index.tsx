@@ -11,13 +11,14 @@ export enum ROUTES {
     WORKSPACE = 'workspaces'
 }
 
-export const LOGGING_API_URL = 'http://20.51.212.222/logging/api/log';
+export const LOGGING_API_URL = 'http://34.130.161.42/logging/api/log';
 
 export enum MODEL_LIST {
     LLAMA_3_2 = 'llama3.2:3b',
     LLAMA_3 = 'llama3',
     LLAMA_3_3 = 'llama3.3',
-    NU_EXTRACT_1_5 = 'hf.co/DevQuasar/numind.NuExtract-v1.5-GGUF:Q4_K_M'
+    NU_EXTRACT_1_5 = 'hf.co/DevQuasar/numind.NuExtract-v1.5-GGUF:Q4_K_M',
+    DEEPSEEK_R1_32b = 'deepseek-r1:32b'
 }
 
 export const LOGGING = false;
@@ -26,7 +27,7 @@ export const LOGGING = false;
 
 export const REMOTE_SERVER_BASE_URL = {
     local: 'http://localhost:8080/api',
-    remote: 'http://20.51.212.222/backend/api'
+    remote: 'http://34.130.161.42/backend/api'
 };
 
 // export enum SERVER_ROUTES {
@@ -99,7 +100,7 @@ export enum REMOTE_SERVER_ROUTES {
     PARSE_REDDIT_DATA = 'collections/parse-reddit-dataset',
     GET_REDDIT_POSTS_BY_BATCH = 'collections/reddit-posts-by-batch',
 
-    ADD_DOCUMENTS_LANGCHAIN = 'coding/add-documents-langchain',
+    // ADD_DOCUMENTS_LANGCHAIN = 'coding/add-documents-langchain',
     REGENERATE_FLASHCARDS = 'coding/generate-additional-flashcards',
     GENERATE_WORDS = 'coding/generate-words',
     REGENERATE_WORDS = 'coding/regenerate-words',
@@ -112,7 +113,10 @@ export enum REMOTE_SERVER_ROUTES {
     GENERATE_MORE_CODES = 'coding/generate-additional-codes-for-codebook',
     GENERATE_CODES_WITH_THEMES = 'coding/generate-codes-with-themes',
     GENERATE_CODES_WITH_THEMES_AND_FEEDBACK = 'coding/generate-codes-with-themes-and-feedback',
+
     SAMPLE_POSTS = 'coding/sample-posts',
+    BUILD_CONTEXT = 'coding/build-context-from-topic',
+    GENERATE_INITIAL_CODES = 'coding/generate-initial-codes',
 
     CREATE_WORKSPACE = 'workspaces/create-workspace',
     GET_WORKSPACES = 'workspaces/get-workspaces',

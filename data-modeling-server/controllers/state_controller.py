@@ -30,7 +30,7 @@ def save_state(data):
         """
         INSERT INTO workspace_states (
             user_email, workspace_id, dataset_id, mode_input, subreddit, selected_posts, models, 
-            main_code, additional_info, context_files, keywords, selected_keywords, keyword_table, 
+            main_topic, additional_info, context_files, keywords, selected_keywords, keyword_table, 
             references_data, themes, research_questions, sampled_post_responses, 
             sampled_post_with_themes_responses, unseen_post_response, unplaced_codes, 
             sampled_post_ids, unseen_post_ids ,updated_at
@@ -41,7 +41,7 @@ def save_state(data):
             subreddit = excluded.subreddit,
             selected_posts = excluded.selected_posts,
             models = excluded.models,
-            main_code = excluded.main_code,
+            main_topic = excluded.main_topic,
             additional_info = excluded.additional_info,
             context_files = excluded.context_files,
             keywords = excluded.keywords,
@@ -66,7 +66,7 @@ def save_state(data):
             collection_context.subreddit,
             selected_posts,
             models,
-            coding_context.main_code,
+            coding_context.main_topic,
             coding_context.additional_info,
             context_files,
             keywords,

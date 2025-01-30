@@ -24,7 +24,7 @@ class ModelingContext(BaseModel):
     models: list = []
 
 class CodingContext(BaseModel):
-    main_code: Optional[str] = None
+    main_topic: Optional[str] = None
     additional_info: Optional[str] = None
     context_files: dict = {}  # Dict instead of basis_files for consistency
     keywords: list = []

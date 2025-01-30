@@ -30,8 +30,8 @@ export interface ICodingContext {
     contextFiles: IFile;
     addContextFile: (filePath: string, fileName: string) => void;
     removeContextFile: (filePath: string) => void;
-    mainCode: string;
-    setMainCode: SetState<string>;
+    mainTopic: string;
+    setMainTopic: SetState<string>;
     additionalInfo?: string;
     setAdditionalInfo: SetState<string>;
     keywords: string[];
@@ -91,8 +91,8 @@ export const CodingContext = createContext<ICodingContext>({
     contextFiles: {},
     addContextFile: () => {},
     removeContextFile: () => {},
-    mainCode: '',
-    setMainCode: () => {},
+    mainTopic: '',
+    setMainTopic: () => {},
     additionalInfo: '',
     setAdditionalInfo: () => {},
     keywords: [],
@@ -357,6 +357,7 @@ const keywordTableReducer = (
     state: KeywordEntry[],
     action: KeywordsTableAction
 ): KeywordEntry[] => {
+    console.log('Action:', action, 'Keyword Table');
     switch (action.type) {
         case 'INITIALIZE':
             return [...action.entries];
@@ -646,7 +647,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         // '1254667'
     ]);
     const [contextFiles, setContextFiles] = useState<IFile>({});
-    const [mainCode, setMainCode] = useState<string>('');
+    const [mainTopic, setMainTopic] = useState<string>('');
     // 'Student life';
     const [additionalInfo, setAdditionalInfo] = useState<string>('');
 
@@ -930,7 +931,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
 
     const updateContext = (updates: Partial<ICodingContext>) => {
         if (updates.contextFiles) setContextFiles(updates.contextFiles);
-        if (updates.mainCode) setMainCode(updates.mainCode);
+        if (updates.mainTopic) setMainTopic(updates.mainTopic);
         if (updates.additionalInfo) setAdditionalInfo(updates.additionalInfo);
         if (updates.keywords) setKeywords(updates.keywords);
         if (updates.selectedKeywords) setSelectedKeywords(updates.selectedKeywords);
@@ -976,7 +977,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
 
     const resetContext = () => {
         setContextFiles({});
-        setMainCode('');
+        setMainTopic('');
         setAdditionalInfo('');
         setFlashcards([]);
         setSelectedFlashcards([]);
@@ -1010,17 +1011,17 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     };
 
     // const selectedKeywordsOrWords = useMemo(() => {
-    //     return [mainCode];
-    // }, [mainCode]);
+    //     return [mainTopic];
+    // }, [mainTopic]);
 
     useEffect(() => {
-        if (!keywords.includes(mainCode)) {
-            setSelectedKeywords([mainCode]);
+        if (!keywords.includes(mainTopic)) {
+            setSelectedKeywords([mainTopic]);
         }
-        if (!words.includes(mainCode)) {
-            setSelectedWords([mainCode]);
+        if (!words.includes(mainTopic)) {
+            setSelectedWords([mainTopic]);
         }
-    }, [mainCode]);
+    }, [mainTopic]);
 
     // useEffect(() => {
     //     console.log('finalCodeResponses', finalCodeResponses);
@@ -1043,8 +1044,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     // }, [codeResponses]);
 
     useEffect(() => {
-        console.log('In dc', currentMode, modeInput);
-    }, [currentMode, modeInput]);
+        console.log('KT update', keywordTable);
+    }, [keywordTable]);
 
     const value = useMemo(
         () => ({
@@ -1053,8 +1054,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             removeContextFile,
             selectedPosts,
             setSelectedPosts,
-            mainCode,
-            setMainCode,
+            mainTopic,
+            setMainTopic,
             additionalInfo,
             setAdditionalInfo,
             keywords,
@@ -1110,7 +1111,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             selectedPosts,
             subreddit,
             contextFiles,
-            mainCode,
+            mainTopic,
             additionalInfo,
             keywords,
             selectedKeywords,

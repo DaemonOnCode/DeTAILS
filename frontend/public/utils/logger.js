@@ -179,7 +179,7 @@ const sendLog = async (level, message, context, loggerContext) => {
 
     const LOGGING_SERVER_URL =
         config?.processing === 'remote'
-            ? 'http://20.51.212.222/logging/api/log'
+            ? `${config.backendServer}/logging/api/log`
             : 'http://localhost:9000/api/log';
 
     let email = config ? config.userEmail : (loggerContext?.userEmail ?? 'Anonymous');

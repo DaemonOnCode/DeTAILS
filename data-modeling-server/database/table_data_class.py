@@ -27,7 +27,7 @@ class WorkspaceState:
     models: Optional[str] = None  # JSON string for list
 
     # Coding Context
-    main_code: Optional[str] = None
+    main_topic: Optional[str] = None
     additional_info: Optional[str] = None
     context_files: Optional[str] = None  # JSON string for dict
     keywords: Optional[str] = None  # JSON string for list

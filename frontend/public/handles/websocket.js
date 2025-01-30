@@ -45,7 +45,7 @@ const websocketHandler = () => {
             wsInstance = new WebSocket(
                 config.processing === 'local'
                     ? 'ws://localhost:8080/api/notifications/ws?app=electron'
-                    : 'ws://20.51.212.222/backend/api/notifications/ws?app=electron'
+                    : `ws://${new URL(config.backendServer).hostname}/backend/api/notifications/ws?app=electron`
             );
             config.websocket = wsInstance;
             wsInstance.binaryType = 'arraybuffer';

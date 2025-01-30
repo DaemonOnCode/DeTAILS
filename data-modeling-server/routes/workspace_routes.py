@@ -17,6 +17,7 @@ async def create_workspace_endpoint(request: WorkspaceCreateRequest):
     """
     try:
         workspace_id = create_workspace(request)
+        print("Workspace ID: ", workspace_id, "Create workspace")
         return {"message": "Workspace created successfully!", "id": workspace_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -4,6 +4,7 @@ from utils.db_helpers import execute_query
 
 def create_workspace(data):
     workspace_id = str(uuid4())
+    print("Created workspace ID: ", workspace_id)
     execute_query(
         "INSERT INTO workspaces (id, name, description, user_email) VALUES (?, ?, ?, ?)",
         (workspace_id, data.name, data.description, data.user_email),

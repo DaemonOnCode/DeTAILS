@@ -23,14 +23,15 @@ const ContextPage = () => {
     const {
         contextFiles,
         addContextFile,
-        mainCode,
+        mainTopic,
         additionalInfo,
         setAdditionalInfo,
-        setMainCode,
+        setMainTopic,
         removeContextFile,
         setKeywords,
         researchQuestions,
-        setResearchQuestions
+        setResearchQuestions,
+        dispatchKeywordsTable
     } = useCodingContext();
 
     const { datasetId } = useCollectionContext();
@@ -76,7 +77,7 @@ const ContextPage = () => {
 
     const hasSavedRef = useRef(false);
 
-    const checkIfReady = Object.keys(contextFiles).length > 0 && mainCode.length > 0;
+    const checkIfReady = Object.keys(contextFiles).length > 0 && mainTopic.length > 0;
 
     useEffect(() => {
         const timer = createTimer();
@@ -117,6 +118,7 @@ const ContextPage = () => {
     };
 
     const handleOnNextClick = async (e: any) => {
+        if (!datasetId) return;
         e.preventDefault();
         await logger.info('Starting Theme Cloud Generation');
         navigate('../loader/' + LOADER_ROUTES.THEME_LOADER);
@@ -130,26 +132,37 @@ const ContextPage = () => {
             const blob = new Blob([fileContent]);
             formData.append('contextFiles', blob, contextFiles[filePath]);
         });
-        formData.append('model', MODEL_LIST.LLAMA_3_2);
-        formData.append('mainCode', mainCode);
+        formData.append('model', MODEL_LIST.DEEPSEEK_R1_32b);
+        formData.append('mainTopic', mainTopic);
         formData.append('additionalInfo', additionalInfo ?? '');
         formData.append('retry', 'false');
-        formData.append('dataset_id', datasetId);
+        formData.append('researchQuestions', JSON.stringify(researchQuestions));
+        formData.append('datasetId', datasetId);
 
         // await ipcRenderer.invoke("connect-ws", datasetId);
-        let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.ADD_DOCUMENTS_AND_GET_THEMES), {
+        let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.BUILD_CONTEXT), {
             method: 'POST',
             body: formData
         });
         let results: {
             message: string;
-            themes: string[];
+            keywords: {
+                word: string;
+                description: string;
+                inclusion_criteria: string[];
+                exclusion_criteria: string[];
+            }[];
         } = await res.json();
         console.log('Response from remote server', results);
 
-        if (results.themes.length > 0) {
-            setKeywords(Array.from(new Set(results.themes)));
+        if (results.keywords.length > 0) {
+            setKeywords(Array.from(new Set(results.keywords.map((keyword) => keyword.word))));
         }
+
+        dispatchKeywordsTable({
+            type: 'INITIALIZE',
+            entries: results.keywords
+        });
 
         // await ipcRenderer.invoke("disconnect-ws", datasetId);
         await logger.info('Theme Cloud generated');
@@ -203,8 +216,8 @@ const ContextPage = () => {
                     <input
                         type="text"
                         className="p-2 border border-gray-300 rounded w-96"
-                        value={mainCode}
-                        onChange={(e) => setMainCode(e.target.value)}
+                        value={mainTopic}
+                        onChange={(e) => setMainTopic(e.target.value)}
                     />
                 </div>
                 <div>

@@ -19,8 +19,9 @@ SQLITE_TYPE_MAPPING = {
     Optional[datetime]: "TIMESTAMP",
 }
 
-def camel_to_snake(name):
+def camel_to_snake(name: str) -> str:
     """Convert CamelCase to snake_case."""
+    name = name.replace("Repository", "")
     return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
 
 def generate_create_table_statement(dataclass_obj):
@@ -29,7 +30,7 @@ def generate_create_table_statement(dataclass_obj):
     primary_keys = []
     foreign_keys = []
 
-    for field in fields(dataclass_obj):
+    for field in fields(dataclass_obj.model):
         column_name = field.name
         column_type = SQLITE_TYPE_MAPPING.get(field.type, "TEXT")
         constraints = []
