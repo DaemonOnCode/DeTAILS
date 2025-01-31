@@ -37,6 +37,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                     onClick={async (e) => {
                         if (!isReady) e.preventDefault();
                         else {
+                            e.preventDefault();
                             console.log('Next page clicked');
                             onNextClick && (await onNextClick(e));
                             console.log('Navigating to next page');

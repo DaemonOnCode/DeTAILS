@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import RedditTableRenderer from '../../components/Shared/reddit_table_renderer';
-import { ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
-import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { LOADER_ROUTES, ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding_context';
 import { useCollectionContext } from '../../context/collection_context';
 import { useLogger } from '../../context/logging_context';
@@ -10,11 +10,22 @@ import useRedditData from '../../hooks/Home/use_reddit_data';
 import useServerUtils from '../../hooks/Shared/get_server_url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';
+import { useNavigate } from 'react-router-dom';
 
 const LoadData = () => {
     const { selectedPosts, datasetId } = useCollectionContext();
     const { data, loadFolderData, loading } = useRedditData();
-    const { setSampledPostIds, setUnseenPostIds } = useCodingContext();
+    const {
+        setSampledPostIds,
+        setUnseenPostIds,
+        keywordTable,
+        mainTopic,
+        additionalInfo,
+        researchQuestions,
+        dispatchSampledPostResponse
+    } = useCodingContext();
+
+    const navigate = useNavigate();
 
     const logger = useLogger();
 
@@ -51,6 +62,8 @@ const LoadData = () => {
         Object.keys(data).length > 0 && selectedPosts.length >= SELECTED_POSTS_MIN_THRESHOLD;
 
     const handleSamplingPosts = async () => {
+        if (!datasetId) return;
+        navigate('../loader/' + LOADER_ROUTES.CODEBOOK_LOADER);
         console.log('Sampling posts:', selectedPosts);
         let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.SAMPLE_POSTS), {
             method: 'POST',
@@ -66,7 +79,16 @@ const LoadData = () => {
         setSampledPostIds(results['sampled']);
         setUnseenPostIds(results['unseen']);
 
-        console.log('Generate initial codes:', results['sampled']);
+        console.log(
+            'Generate initial codes:',
+            results['sampled'],
+            keywordTable
+                .filter((keyword) => keyword.isMarked !== undefined)
+                .map((keyword) => {
+                    delete keyword.isMarked;
+                    return keyword;
+                })
+        );
         res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES), {
             method: 'POST',
             headers: {
@@ -74,12 +96,27 @@ const LoadData = () => {
             },
             body: JSON.stringify({
                 dataset_id: datasetId,
-                post_ids: results['sampled'] ?? []
+                keyword_table: keywordTable
+                    .filter((keyword) => keyword.isMarked !== undefined)
+                    .map((keyword) => {
+                        delete keyword.isMarked;
+                        return keyword;
+                    }),
+                model: MODEL_LIST.DEEPSEEK_R1_32b,
+                main_topic: mainTopic,
+                additional_info: additionalInfo,
+                research_questions: researchQuestions,
+                sampled_post_ids: results['sampled'] ?? []
             })
         });
 
         results = await res.json();
         console.log('Results:', results);
+
+        dispatchSampledPostResponse({
+            type: 'SET_RESPONSES',
+            responses: results['data']
+        });
     };
     return (
         <div className="w-full h-full flex flex-col">

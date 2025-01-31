@@ -117,6 +117,10 @@ export enum REMOTE_SERVER_ROUTES {
     SAMPLE_POSTS = 'coding/sample-posts',
     BUILD_CONTEXT = 'coding/build-context-from-topic',
     GENERATE_INITIAL_CODES = 'coding/generate-initial-codes',
+    DEDUCTIVE_CODING = 'coding/deductive-coding',
+    THEME_GENERATION = 'coding/theme-generation',
+    REGENERATE_KEYWORDS = 'coding/regenerate-keywords',
+    REFINE_CODEBOOK = 'coding/refine-codebook',
 
     CREATE_WORKSPACE = 'workspaces/create-workspace',
     GET_WORKSPACES = 'workspaces/get-workspaces',

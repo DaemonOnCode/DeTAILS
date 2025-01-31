@@ -8,7 +8,12 @@ import { useLogger } from '../../context/logging_context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const CodeReview = () => {
-    const { sampledPostResponse, dispatchSampledPostResponse, sampledPostIds } = useCodingContext();
+    const {
+        sampledPostResponse,
+        dispatchSampledPostResponse,
+        sampledPostIds,
+        setSampledPostResponseCopy
+    } = useCodingContext();
 
     const logger = useLogger();
 
@@ -44,6 +49,9 @@ const CodeReview = () => {
                 previousPage={ROUTES.KEYWORD_TABLE}
                 nextPage={ROUTES.CODEBOOK_REFINEMENT}
                 isReady={true}
+                onNextClick={async () => {
+                    setSampledPostResponseCopy([...sampledPostResponse]);
+                }}
             />
         </div>
     );

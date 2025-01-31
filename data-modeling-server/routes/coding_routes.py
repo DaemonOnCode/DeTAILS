@@ -1,14 +1,16 @@
+import asyncio
 import json
 import os
-from re import L
 import re
 import time
 from typing import List
+from uuid import uuid4
 
 from chromadb import HttpClient
 from fastapi import APIRouter, Form, HTTPException, Request, UploadFile
 import numpy as np
 from pydantic import BaseModel
+from routes.modeling_routes import execute_query
 from routes.websocket_routes import manager
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -25,7 +27,9 @@ from langchain_core.callbacks import StreamingStdOutCallbackHandler
 from langchain_ollama import OllamaLLM
 
 from decorators.execution_time_logger import log_execution_time
-from utils.prompts_v2 import ContextPrompt
+from utils.coding_helpers import generate_transcript
+from utils.db_helpers import get_post_with_comments
+from utils.prompts_v2 import ContextPrompt, DeductiveCoding, InitialCodePrompts, RefineCodebook, ThemeGeneration
 
 
 router = APIRouter()
@@ -158,7 +162,8 @@ async def build_context_from_interests_endpoint(
                 keywords_match = re.search(regex, results["answer"], re.DOTALL)
                 if not keywords_match:
                     await manager.broadcast(f"WARNING: Dataset {dataset_id}: No keywords found.")
-                    return {"keywords": []}
+                    raise Exception("No keywords found.")
+                    # return {"keywords": []}
 
                 if keywords_match.group("keywords"):
                     keywords = keywords_match.group("keywords")
@@ -186,54 +191,240 @@ async def build_context_from_interests_endpoint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
     
+class RegenerateKeywordsRequest(BaseModel):
+    model: str
+    mainTopic: str
+    additionalInfo: str = ""
+    researchQuestions: list
+    selectedKeywords: list
+    unselectedKeywords: list
+    extraFeedback: str = ""
+    datasetId: str 
 
-class GenerateKeywordTableRequest(BaseModel):
-    dataset_id: str
-    keywords: List[str]
-    selected_keywords: List[str]
-
-@router.post("/generate-keyword-table")
+@router.post("/regenerate-keywords")
 @log_execution_time()
-async def generate_keyword_table_endpoint(
-    request_body: GenerateKeywordTableRequest
+async def regenerate_keywords_endpoint(
+    request: RegenerateKeywordsRequest
 ):
-    if not request_body.dataset_id:
+    model = request.model
+    mainTopic = request.mainTopic
+    additionalInfo = request.additionalInfo
+    researchQuestions = request.researchQuestions
+    selectedKeywords = request.selectedKeywords
+    unselectedKeywords = request.unselectedKeywords
+    extraFeedback = request.extraFeedback
+    datasetId = request.datasetId
+
+    if not datasetId:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
     try:
-        # Fetch posts
-        pass
+        print(model, mainTopic, additionalInfo, researchQuestions, selectedKeywords, extraFeedback, datasetId)
+        dataset_id = datasetId
+
+        # Notify clients that processing has started
+        await manager.broadcast(f"Dataset {dataset_id}: Regenerating keywords with feedback...")
+
+        # Initialize embeddings and vector store
+        embeddings = OllamaEmbeddings(model=model)
+        chroma_client = HttpClient(host="localhost", port=8000)
+        vector_store = Chroma(
+            embedding_function=embeddings, 
+            collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", 
+            client=chroma_client
+        )
+        
+        retriever = vector_store.as_retriever()
+
+        # ✅ **Updated prompt template with extra feedback & selected themes**
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("system", "\n".join(ContextPrompt.regenerationPromptTemplate(mainTopic, researchQuestions, additionalInfo, selectedKeywords, unselectedKeywords, extraFeedback))),
+            ("human", "{input}")
+        ])
+
+        await manager.broadcast(f"Dataset {dataset_id}: Generating refined keywords...")
+
+        # Generate refined keywords with retry logic
+        retries = 3
+        success = False
+        parsed_keywords = []
+        while retries > 0 and not success:
+            try:
+                llm = OllamaLLM(
+                    model=model,
+                    num_ctx=8192,
+                    num_predict=8192,
+                    temperature=0.6,
+                    timeout=2,
+                    callbacks=[StreamingStdOutCallbackHandler()]
+                )
+
+                question_answer_chain = create_stuff_documents_chain(llm=llm, prompt=prompt_template)
+                rag_chain = create_retrieval_chain(retriever=retriever, combine_docs_chain=question_answer_chain)
+
+                input_text = ContextPrompt.refined_context_builder(mainTopic, researchQuestions, additionalInfo, selectedKeywords, unselectedKeywords, extraFeedback)
+
+                # Offload LLM chain invocation to thread pool
+                results = rag_chain.invoke({"input": input_text})
+
+                await manager.broadcast(f"Dataset {dataset_id}: Parsing refined keywords...")
+
+                regex = r"```json\s*([\s\S]*?)\s*```"
+
+                keywords_match = re.search(regex, results["answer"], re.DOTALL)
+
+                if not keywords_match:
+                    await manager.broadcast(f"WARNING: Dataset {dataset_id}: No refined keywords found.")
+                    raise Exception("No refined keywords found.")
+
+
+                json_str = keywords_match.group(1).strip().replace("```json", "").replace("```", "")
+                parsed_keywords = json.loads(json_str)["keywords"]
+
+                success = True
+                await manager.broadcast(f"Dataset {dataset_id}: Keywords regenerated successfully.")
+            except Exception as e:
+                retries -= 1
+                await manager.broadcast(f"WARNING: Dataset {dataset_id}: Error regenerating keywords - {str(e)}. Retrying... ({3 - retries}/3)")
+                if retries == 0:
+                    await manager.broadcast(f"ERROR: Dataset {dataset_id}: Failed to regenerate keywords after multiple attempts.")
+                    raise e
+
+        await manager.broadcast(f"Dataset {dataset_id}: Processing complete.")
+        print(parsed_keywords)
+
+        return {
+            "message": "Keywords regenerated successfully!",
+            "keywords": parsed_keywords,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-    
 
-class GenerateCodesRequest(BaseModel):
+
+
+class GenerateInitialCodesRequest(BaseModel):
     dataset_id: str
-    keyword_table: List[str]
+    keyword_table: list
+    model: str
     main_topic: str
     additional_info: str
-    research_questions: List[str]
-    sampled_post_ids: List[str]
+    research_questions: list
+    sampled_post_ids: list
 
-@router.post("/generate-codes")
+@router.post("/generate-initial-codes")
 @log_execution_time()
 async def generate_codes_endpoint(
-    request_body: GenerateCodesRequest
+    request_body: GenerateInitialCodesRequest
 ):
-    if not request_body.dataset_id:
+    if not request_body.dataset_id or len(request_body.sampled_post_ids) == 0:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
     try:
         # Fetch posts
-        pass
+        await manager.broadcast(f"Dataset {request_body.dataset_id}: Code generation process started.")
+
+        # Initialize LLMs
+        llm = OllamaLLM(
+            model=request_body.model,
+            num_ctx=30000,
+            num_predict=30000,
+            temperature=0.6,
+            callbacks=[StreamingStdOutCallbackHandler()]
+        )
+
+        posts = request_body.sampled_post_ids
+        dataset_id = request_body.dataset_id
+
+        function_id = str(uuid4())
+
+        final_results = []
+        
+        print(posts, dataset_id, function_id)
+
+        while len(posts) > 0:
+            post_id = posts[0]
+            await manager.broadcast(f"Dataset {dataset_id}: Processing post {post_id}...")
+
+            try:
+                print("Processing post", post_id)
+                # Fetch post and comments
+                await manager.broadcast(f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+                post_data = get_post_with_comments(dataset_id, post_id)
+
+                print("Generating transcript")
+                # Generate transcript and context
+                await manager.broadcast(f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+                transcript = generate_transcript(post_data)
+
+                # Retry logic for LLM1
+                retries = 3
+                success = False
+                result: str = None
+                while retries > 0 and not success:
+                    try:
+                        await manager.broadcast(f"Dataset {dataset_id}: Generating with LLM1 for post {post_id}...")
+
+                        print("LLM starting generation")
+                        generation_prompt = InitialCodePrompts.initial_code_prompt(
+                            request_body.main_topic,
+                            request_body.additional_info,
+                            request_body.research_questions,
+                            json.dumps(request_body.keyword_table),
+                            transcript
+                        )
+                        print("LLM generation prompt", generation_prompt)
+                        result = await asyncio.to_thread(llm.invoke, generation_prompt)
+                        print("LLM result")
+                        execute_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (dataset_id, post_id, request_body.model, result.lower(), str(uuid4()), "LLM1 response", function_id)
+                        )
+                        print("LLM response saved to database")
+                        success = True
+                        await manager.broadcast(f"Dataset {dataset_id}: LLM1 completed generation for post {post_id}.")
+                    except Exception as e:
+                        retries -= 1
+                        await manager.broadcast(
+                            f"WARNING: Dataset {dataset_id}: Error generating with LLM1 for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)"
+                        )
+                        if retries == 0:
+                            await manager.broadcast(
+                                f"ERROR: Dataset {dataset_id}: LLM1 failed for post {post_id} after multiple attempts."
+                            )
+                            raise e
+                print("LLM completed generation", result)
+                await manager.broadcast(f"Dataset {dataset_id}: Processed post {post_id}.")
+                posts.pop(0)
+
+                regex = r"\"codes\":\s*(\[.*?\])"
+                codes_match = re.search(regex, result, re.DOTALL)
+                if not codes_match:
+                    await manager.broadcast(f"WARNING: Dataset {dataset_id}: No codes found for post {post_id}.")
+                    continue
+
+                codes = json.loads(codes_match.group(1))
+                for code in codes:
+                    code["postId"] = post_id
+                    code["id"] = str(uuid4())
+                    final_results.append(code)
+            except Exception as e:
+                await manager.broadcast(f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
+                posts.pop(0)
+        await manager.broadcast(f"Dataset {dataset_id}: All posts processed successfully.")
+        # return final_results if len(final_results) else []
+
+        print(final_results)
+
+        print("Returning response")
+        return {
+            "message": "Initial codes generated successfully!",
+            "data": final_results
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
     
 class CodebookRefinementRequest(BaseModel):
     dataset_id: str
-    keyword_table: List[str]
-    main_topic: str
-    additional_info: str
-    research_questions: List[str]
-    sampled_post_ids: List[str]
+    model: str
+    prevCodebook: list
+    currentCodebook: list
 
 @router.post("/refine-codebook")
 @log_execution_time()
@@ -244,16 +435,90 @@ async def refine_codebook_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
     try:
         # Fetch posts
-        pass
+        await manager.broadcast(f"Dataset {request_body.dataset_id}: Code generation process started.")
+
+        # Initialize LLMs
+        llm = OllamaLLM(
+            model=request_body.model,
+            num_ctx=30000,
+            num_predict=30000,
+            temperature=0.6,
+            callbacks=[StreamingStdOutCallbackHandler()]
+        )
+
+
+        dataset_id = request_body.dataset_id
+        function_id = str(uuid4())
+
+        prev_codebook_json = json.dumps(request_body.prevCodebook, indent=2)
+        current_codebook_json = json.dumps(request_body.currentCodebook, indent=2)
+
+        retries = 3
+        success = False
+        result = None
+
+        while retries > 0 and not success:
+            try:
+                print(f"Generating refined codebook for dataset {dataset_id}...")
+                
+                generation_prompt = RefineCodebook.refine_codebook_prompt(prev_codebook_json, current_codebook_json)
+                result = await asyncio.to_thread(llm.predict, generation_prompt)
+
+                print("LLM completed refinement.")
+
+                # Store response in database
+                execute_query(
+                    f"INSERT INTO llm_responses (dataset_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    (dataset_id, request_body.model, result.lower(), str(uuid4()), "Refined Codebook", function_id)
+                )
+
+                success = True
+                await manager.broadcast(f"Dataset {dataset_id}: Refinement completed successfully.")
+
+            except Exception as e:
+                retries -= 1
+                await manager.broadcast(
+                    f"WARNING: Dataset {dataset_id}: Error during refinement - {str(e)}. Retrying... ({3 - retries}/3)"
+                )
+                if retries == 0:
+                    await manager.broadcast(
+                        f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts."
+                    )
+                    raise e
+
+        # Extract JSON output from the model response
+        regex = r"```json\s*([\s\S]*?)\s*```"
+        match = re.search(regex, result, re.DOTALL)
+
+        if not match:
+            raise HTTPException(status_code=500, detail="No valid JSON found in AI output.")
+
+        refined_codebook_json = match.group(1).strip()
+        refined_codebook = json.loads(refined_codebook_json)
+
+        final_results = refined_codebook.get("revised_codebook", [])
+
+        for code in final_results:
+            code["id"] = str(uuid4())
+
+        await manager.broadcast(f"Dataset {dataset_id}: Codebook refinement completed.")
+
+        return {
+            "message": "Refined codebook generated successfully!",
+            "agreements": refined_codebook.get("agreements", []),
+            "disagreements": refined_codebook.get("disagreements", []),
+            "data": final_results
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
     
 
 class DeductiveCodingRequest(BaseModel):
     dataset_id: str
-    keyword_table: List[str]
+    model: str
     final_codebook: list
-    unseen_post_ids: List[str]
+    unseen_post_ids: list
 
 @router.post("/deductive-coding")
 @log_execution_time()
@@ -264,7 +529,195 @@ async def deductive_coding_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
     try:
         # Fetch posts
-        pass
+        await manager.broadcast(f"Dataset {request_body.dataset_id}: Code generation process started.")
+
+        # Initialize LLMs
+        llm = OllamaLLM(
+            model=request_body.model,
+            num_ctx=30000,
+            num_predict=30000,
+            temperature=0.6,
+            callbacks=[StreamingStdOutCallbackHandler()]
+        )
+
+        posts = request_body.unseen_post_ids
+        dataset_id = request_body.dataset_id
+
+        function_id = str(uuid4())
+
+        final_results = []
+        
+        print(posts, dataset_id, function_id)
+
+        while len(posts) > 0:
+            post_id = posts[0]
+            await manager.broadcast(f"Dataset {dataset_id}: Processing post {post_id}...")
+
+            try:
+                print("Processing post", post_id)
+                # Fetch post and comments
+                await manager.broadcast(f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+                post_data = get_post_with_comments(dataset_id, post_id)
+
+                print("Generating transcript")
+                # Generate transcript and context
+                await manager.broadcast(f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+                transcript = generate_transcript(post_data)
+
+                # Retry logic for LLM1
+                retries = 3
+                success = False
+                result: str = None
+                while retries > 0 and not success:
+                    try:
+                        await manager.broadcast(f"Dataset {dataset_id}: Generating with LLM1 for post {post_id}...")
+
+                        print("LLM starting generation")
+                        generation_prompt = DeductiveCoding.deductive_coding_prompt(
+                            request_body.final_codebook,
+                            transcript
+                        )
+                        print("LLM generation prompt", generation_prompt)
+                        result = await asyncio.to_thread(llm.invoke, generation_prompt)
+                        print("LLM result")
+                        execute_query(f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                                  (dataset_id, post_id, request_body.model, result.lower(), str(uuid4()), "LLM response deductive coding", function_id)
+                        )
+                        print("LLM response saved to database")
+                        success = True
+                        await manager.broadcast(f"Dataset {dataset_id}: LLM1 completed generation for post {post_id}.")
+                    except Exception as e:
+                        retries -= 1
+                        await manager.broadcast(
+                            f"WARNING: Dataset {dataset_id}: Error generating with LLM1 for post {post_id} - {str(e)}. Retrying... ({3 - retries}/3)"
+                        )
+                        if retries == 0:
+                            await manager.broadcast(
+                                f"ERROR: Dataset {dataset_id}: LLM1 failed for post {post_id} after multiple attempts."
+                            )
+                            raise e
+                print("LLM completed generation", result)
+                await manager.broadcast(f"Dataset {dataset_id}: Processed post {post_id}.")
+                posts.pop(0)
+
+                regex = r"\"codes\":\s*(\[.*?\])"
+                codes_match = re.search(regex, result, re.DOTALL)
+                if not codes_match:
+                    await manager.broadcast(f"WARNING: Dataset {dataset_id}: No codes found for post {post_id}.")
+                    continue
+
+                codes = json.loads(codes_match.group(1))
+                for code in codes:
+                    code["postId"] = post_id
+                    code["id"] = str(uuid4())
+                    final_results.append(code)
+            except Exception as e:
+                await manager.broadcast(f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
+                posts.pop(0)
+        await manager.broadcast(f"Dataset {dataset_id}: All posts processed successfully.")
+        # return final_results if len(final_results) else []
+
+        print(final_results)
+
+        print("Returning response")
+        return {
+            "message": "Initial codes generated successfully!",
+            "data": final_results
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    
+  
+class ThemeGenerationRequest(BaseModel):
+    dataset_id: str
+    model: str
+    sampled_post_responses: list
+    unseen_post_responses: list
+
+@router.post("/theme-generation")
+@log_execution_time()
+async def refine_codebook_endpoint(
+    request_body: ThemeGenerationRequest
+):
+    if not request_body.dataset_id:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+    try:
+         # Fetch posts
+        await manager.broadcast(f"Dataset {request_body.dataset_id}: Code generation process started.")
+
+        # Initialize LLMs
+        llm = OllamaLLM(
+            model=request_body.model,
+            num_ctx=30000,
+            num_predict=30000,
+            temperature=0.6,
+            callbacks=[StreamingStdOutCallbackHandler()]
+        )
+
+        dataset_id = request_body.dataset_id
+
+        retries = 3
+        success = False
+        result: str = None
+        while retries > 0 and not success:
+            try:
+                print("LLM starting generation")
+                qec_table = []
+
+                for row in request_body.sampled_post_responses:
+                    qec_table.append({
+                        "quote": row["quote"],
+                        "explanation": row["explanation"],
+                        "code": row["code"]
+                    })
+                
+                for row in request_body.unseen_post_responses:
+                    qec_table.append({
+                        "quote": row["quote"],
+                        "explanation": row["explanation"],
+                        "code": row["code"]
+                    })
+
+                generation_prompt = ThemeGeneration.theme_generation_prompt(json.dumps({"codes":qec_table}))
+                print("LLM generation prompt", generation_prompt)
+                result = await asyncio.to_thread(llm.invoke, generation_prompt)
+                print("LLM result")
+                success = True
+            except Exception as e:
+                retries -= 1
+                if retries == 0:
+                    raise e
+        print("LLM completed generation", result)
+
+        regex  = r"```json.*?```"
+        themes_match = re.search(regex, result, re.DOTALL)
+        if not themes_match:
+            return {
+                "message": "No themes generated",
+                "data": {
+                    "themes": [],
+                    "unplaced_codes": [row["code"] for row in qec_table]
+                }
+            }
+        
+        themes = json.loads(themes_match.group(0).replace("```json", "").replace("```", ""))
+
+        print(themes)
+        placed_codes = []
+        for theme in themes.get("themes", []):
+            theme["id"] = str(uuid4())  # Assign a unique ID
+            placed_codes.extend(theme["codes"]) 
+        print("Returning response")
+
+        unplaced_codes = list(set(code["code"] for code in qec_table) - set(placed_codes))
+
+        return {
+            "message": "Themes generated successfully!",
+            "data": {
+                "themes": themes["themes"],
+                "unplaced_codes": unplaced_codes
+            }
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
     

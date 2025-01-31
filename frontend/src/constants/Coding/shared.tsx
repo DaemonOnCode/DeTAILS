@@ -31,7 +31,9 @@ export enum LOADER_ROUTES {
     CODING_VALIDATION_LOADER = 'coding-validation-loader',
     FINAL_LOADER = 'final-loader',
     THEME_LOADER = 'theme-loader',
-    KEYWORD_TABLE_LOADER = 'keyword-table-loader'
+    KEYWORD_TABLE_LOADER = 'keyword-table-loader',
+    DEDUCTIVE_CODING_LOADER = 'deductive-coding-loader',
+    THEME_GENERATION_LOADER = 'theme-generation-loader'
 }
 
 export const DB_PATH = '../executables/test.db';

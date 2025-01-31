@@ -17,8 +17,7 @@ const ThemesPage = () => {
         setThemes,
         unplacedCodes,
         setUnplacedCodes,
-        dispatchSampledPostWithThemeResponse,
-        sampledPostWithThemeResponse
+        dispatchSampledPostWithThemeResponse
     } = useCodingContext();
 
     const logger = useLogger();
@@ -83,34 +82,31 @@ const ThemesPage = () => {
     };
 
     useEffect(() => {
-        console.log('sampledPostWithThemeResponse:', sampledPostWithThemeResponse);
-        if (!sampledPostWithThemeResponse) return;
-
-        if (themes.length === 0 && unplacedCodes.length === 0) {
-            const themeSet = Array.from(
-                new Set(sampledPostWithThemeResponse.map((data) => data.theme))
-            ).filter(Boolean);
-
-            setThemes(
-                themeSet.map((theme, idx) => ({
-                    id: idx.toString(),
-                    name: theme,
-                    codes: sampledPostWithThemeResponse
-                        .filter((data) => data.theme === theme)
-                        .map((data) => data.code)
-                }))
-            );
-
-            setUnplacedCodes(
-                Array.from(
-                    new Set(
-                        sampledPostWithThemeResponse
-                            .map((data) => data.code)
-                            .filter((code) => !themeSet.includes(code))
-                    )
-                )
-            );
-        }
+        // console.log('sampledPostWithThemeResponse:', sampledPostResponse);
+        // if (!sampledPostResponse) return;
+        // if (themes.length === 0 && unplacedCodes.length === 0) {
+        //     const themeSet = Array.from(
+        //         new Set(sampledPostWithThemeResponse.map((data) => data.theme))
+        //     ).filter(Boolean);
+        //     setThemes(
+        //         themeSet.map((theme, idx) => ({
+        //             id: idx.toString(),
+        //             name: theme,
+        //             codes: sampledPostWithThemeResponse
+        //                 .filter((data) => data.theme === theme)
+        //                 .map((data) => data.code)
+        //         }))
+        //     );
+        //     setUnplacedCodes(
+        //         Array.from(
+        //             new Set(
+        //                 sampledPostWithThemeResponse
+        //                     .map((data) => data.code)
+        //                     .filter((code) => !themeSet.includes(code))
+        //             )
+        //         )
+        //     );
+        // }
     }, []);
 
     useEffect(() => {
@@ -152,8 +148,8 @@ const ThemesPage = () => {
                 </DndProvider>
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.CODEBOOK_REFINEMENT}
-                nextPage={ROUTES.FINAL_CODEBOOK}
+                previousPage={ROUTES.ENCODED_DATA}
+                nextPage={ROUTES.FINAL}
                 isReady={unplacedCodes.length === 0}
             />
         </div>

@@ -83,10 +83,10 @@ const TranscriptPage = () => {
                 name: 'Review',
                 review: true,
                 codebook: {
-                    responses: sampledPostWithThemeResponse,
+                    responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchSampledPostWithThemeResponse({
+                        dispatchSampledPostResponse({
                             type: 'SET_RESPONSES',
                             responses: args[0]
                         });
@@ -94,10 +94,10 @@ const TranscriptPage = () => {
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: sampledPostWithThemeResponse,
+                    responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchSampledPostWithThemeResponse({
+                        dispatchSampledPostResponse({
                             type: 'SET_RESPONSES',
                             responses: args[0]
                         });
@@ -122,6 +122,39 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchSampledPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                }
+            }
+        ],
+        [
+            JSON.stringify({
+                state: 'review',
+                codebook: 'true',
+                type: null,
+                split: false
+            }),
+            {
+                name: 'Review',
+                review: true,
+                codebook: {
+                    responses: sampledPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchSampledPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review:', args);
+                        dispatchUnseenPostResponse({
                             type: 'SET_RESPONSES',
                             responses: args[0]
                         });
@@ -157,6 +190,42 @@ const TranscriptPage = () => {
                         dispatchSampledPostResponse({
                             type: 'SET_RESPONSES',
                             responses: args[0]
+                        });
+                    }
+                }
+            }
+        ],
+        [
+            JSON.stringify({
+                state: 'refine',
+                codebook: 'false',
+                type: null,
+                split: null
+            }),
+            {
+                name: 'Refine',
+                review: false,
+                codebook: {
+                    responses: sampledPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchSampledPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: sampledPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Refine:', args);
+                        dispatchSampledPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0].map((response: any) => ({
+                                ...response,
+                                type: 'Human'
+                            }))
                         });
                     }
                 }
@@ -245,10 +314,10 @@ const TranscriptPage = () => {
                 name: 'Refine',
                 review: false,
                 codebook: {
-                    responses: unseenPostResponse,
+                    responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchUnseenPostResponse({
+                        dispatchSampledPostResponse({
                             type: 'SET_RESPONSES',
                             responses: args[0]
                         });
@@ -299,6 +368,8 @@ const TranscriptPage = () => {
         type,
         split
     });
+
+    console.log(config.keys());
 
     const [post, setPost] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
@@ -474,8 +545,8 @@ const TranscriptPage = () => {
                                         <ValidationTable
                                             codeResponses={currentConfig?.codebook?.responses ?? []}
                                             onViewTranscript={() => {}}
-                                            review={false}
-                                            showThemes
+                                            review
+                                            // showThemes
                                             onReRunCoding={() => {}}
                                             onUpdateResponses={
                                                 currentConfig?.codebook?.dispatchFunction as any

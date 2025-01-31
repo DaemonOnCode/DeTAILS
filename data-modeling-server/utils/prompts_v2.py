@@ -91,4 +91,464 @@ Your response should be **strictly a JSON object** in the following format:
 
 Proceed with extracting the keywords.
 """
+    @staticmethod
+    def regenerationPromptTemplate(mainTopic: str, researchQuestions: str, additionalInfo: str, selectedKeywords: str, unselectedKeywords: str, extraFeedback: str):
+        return [
+        f"""You are an advanced AI specializing in **qualitative research** and **thematic coding**. Your task is to **refine previously generated keywords** based on **selected themes, unselected themes, and new feedback**.
 
+### **New Inputs:**
+- **Selected Keywords**: {selectedKeywords}
+- **Unselected Keywords** (DO NOT include these keywords): {unselectedKeywords}
+- **Extra Feedback**: {extraFeedback}
+
+### **Process**
+1. **Re-evaluating the Context**
+   - Analyze the **main topic**, **research questions**, and **additional information**.
+   - Use **selected themes** as a basis for improving keyword selection.
+   - **REMOVE any keywords related to unselected themes**.
+
+2. **Improving Keyword Selection**
+   - Modify **existing keywords** based on feedback.
+   - Remove **irrelevant or redundant keywords**.
+   - Introduce **new keywords** if necessary.
+   - Ensure keywords **align with selected themes** while excluding unselected ones.
+
+3. **Providing Updated Information for Each Keyword**
+   - **Description**: Explain the **revised** keyword’s relevance.
+   - **Inclusion Criteria**: When should this keyword be applied?
+   - **Exclusion Criteria**: When should it **not** be applied?
+
+4. **Output Formatting**
+   Your response must be **strictly in JSON format**, following this structure:
+
+```json
+{ContextPrompt.keyword_json_template}
+```
+
+### **Important Notes**
+- **DO NOT** include explanations, summaries, or additional text.
+- Ensure JSON is **valid** and properly formatted.
+- Provide **exactly 5 refined keywords**.
+- **REMOVE keywords related to unselected themes**.
+
+Proceed with refining the keywords.
+""",
+        """\nTextual Data: \n{context}\n\n"""
+    ]
+
+    @staticmethod
+    def refined_context_builder(mainTopic: str, researchQuestions: str, additionalInfo: str, selectedKeywords: str, unselectedKeywords: str, extraFeedback: str):
+        return f"""
+I need **a refined list of 5 keywords** based on the following research inputs:
+
+- **Main Topic**: {mainTopic}
+- **Research Questions**: {researchQuestions}
+- **Additional Information**: {additionalInfo}
+- **Selected Keywords**: {selectedKeywords}
+- **Unselected Keywords** (DO NOT include keywords related to these themes): {unselectedKeywords}
+- **Extra Feedback**: {extraFeedback}
+
+### **Instructions**
+- Modify existing keywords based on feedback.
+- Adjust descriptions, inclusion, and exclusion criteria.
+- **REMOVE any keywords related to unselected themes**.
+- Keep JSON format **strict**.
+
+### **Output Format**
+```json
+{{
+  "keywords": [
+    {{
+      "word": "RefinedKeyword",
+      "description": "Updated explanation...",
+      "inclusion_criteria": ["Criteria 1", "Criteria 2"],
+      "exclusion_criteria": ["Criteria 1", "Criteria 2"]
+    }},
+    ...
+  ]
+}}```
+
+Proceed with the refinement.
+"""
+
+class InitialCodePrompts:
+    @staticmethod
+    def initial_code_prompt(mainTopic: str, additionalInfo: str, researchQuestions: str, keywordTable: str, post_transcript: str):
+        return f"""
+You are an advanced AI model specializing in **qualitative research and deductive thematic analysis**. Your task is to **extract thematic codes** from a given **post transcript** using a predefined **keyword table**.
+
+---
+
+### **Context and Input Information**  
+You will be provided with:
+- **Main Topic**: `{mainTopic}`
+- **Additional Information**: `{additionalInfo}`
+- **Research Questions**: `{researchQuestions}`
+- **Keyword Table**: A structured list of **keywords**, in JSON format, each containing:
+  - **word**: The keyword.
+  - **description**: Explanation of its meaning and relevance.
+  - **inclusion_criteria**: When this keyword should be applied.
+  - **exclusion_criteria**: When this keyword should *not* be applied.
+`{keywordTable}`
+- **Post transcript**: `{post_transcript}`
+
+---
+
+### **Your Task: Extract and Assign Thematic Codes**
+1. **Analyze the Post transcript**  
+   - Carefully read the post transcript and identify **relevant themes** using the **keyword table**.
+   - Match **phrases from the response** to **keywords** based on their **description** and **inclusion criteria**.
+   - Ensure **exclusion criteria** are respected—**do not apply keywords incorrectly**.
+
+2. **Generate Output in Valid JSON Format**  
+   - Each identified code must include:
+     - `"quote"`: The **exact phrase** from the response.
+     - `"explanation"`: A **clear explanation** of how the phrase relates to the keyword.
+     - `"code"`: The **assigned keyword** from the table.
+   - **Strictly return output in this JSON format**:
+   
+   ```json
+   {{
+     "codes": [
+       {{
+         "quote": "Extracted phrase from the response.",
+         "explanation": "Explanation of how this phrase relates to the keyword.",
+         "code": "Assigned code from the keyword table."
+       }},
+       ...
+     ]
+   }}
+   ```
+
+3. **Ensure Comprehensive and Accurate Coding**  
+   - If multiple **keywords** apply to the same **quote**, list each separately.
+   - Only use **keywords that fit the response**—avoid forced classifications.
+   - If no valid codes apply, return an empty JSON object: `{{ "codes": [] }}`.
+
+---
+
+### **Example Response and Expected Output**
+##### **Input Response:**
+> `"I remember really liking this song when it came out and dancing to it."`
+
+##### **Correct JSON Output:**
+```json
+{{
+  "codes": [
+    {{
+      "quote": "I remember really liking this song when it came out and dancing to it",
+      "explanation": "This phrase reflects a positive emotional connection with the song.",
+      "code": "Positive"
+    }},
+    {{
+      "quote": "I remember really liking this song when it came out and dancing to it",
+      "explanation": "This phrase refers to recalling past events related to the song.",
+      "code": "Memory"
+    }},
+    {{
+      "quote": "I remember really liking this song when it came out and dancing to it",
+      "explanation": "This phrase explicitly mentions dancing, which is a form of physical engagement with the music.",
+      "code": "Dancing"
+    }}
+  ]
+}}
+```
+
+---
+
+### **Output Requirements**
+- **Return only the JSON object.** No explanations, summaries, or extra text.
+- **Ensure the JSON is valid and properly formatted.**
+- **Do not generate more than necessary—each quote should have only relevant codes.**
+
+Now, analyze the response and generate the thematic codes in JSON format.
+"""
+    
+
+class DeductiveCoding:
+    @staticmethod
+    def deductive_coding_prompt(codebook: str, post_transcript: str):
+        return f"""
+You are an advanced AI model specializing in **qualitative research and deductive thematic coding**. Your task is to **analyze a post transcript** and apply thematic codes based on a given **codebook**.
+
+---
+
+### **Context and Input Information**  
+You will be provided with:
+- **Codebook**: A structured list of predefined **codes**, in JSON format, each containing:
+  - **word**: The thematic code.
+  - **description**: Explanation of its meaning and relevance.
+  - **inclusion_criteria**: When this code should be applied.
+  - **exclusion_criteria**: When this code should *not* be applied.
+  `{codebook}`
+  
+- **Post Transcript**: The **raw text** that you need to analyze.
+  `{post_transcript}`
+
+---
+
+### **Your Task: Extract and Assign Thematic Codes**
+1. **Analyze the Post Transcript**  
+   - Carefully **read and interpret** the post transcript.
+   - Compare **phrases from the transcript** to the **codebook** using their **description** and **inclusion criteria**.
+   - **Respect exclusion criteria**—do **not** apply a code if it does not fit properly.
+
+2. **Generate Output in Valid JSON Format**  
+   - Each identified code must include:
+     - `"quote"`: The **exact phrase** from the transcript.
+     - `"explanation"`: A **concise rationale** explaining how the phrase relates to the assigned code.
+     - `"code"`: The **assigned thematic code** from the codebook.
+   - **Strictly follow this JSON structure**:
+   
+   ```json
+   {{
+     "codes": [
+       {{
+         "quote": "Extracted phrase from the transcript.",
+         "explanation": "Explanation of how this phrase relates to the assigned code.",
+         "code": "Assigned code from the codebook."
+       }},
+       ...
+     ]
+   }}
+   ```
+
+3. **Ensure Accuracy and Consistency in Coding**  
+   - If a **phrase fits multiple codes**, list each code separately.
+   - Avoid forced classifications—**only use codes that directly match the content**.
+   - If no valid codes apply, return an empty JSON object:  
+     ```json
+     {{ "codes": [] }}
+     ```
+
+---
+
+### **Example Response and Expected Output**
+##### **Post Transcript Example:**
+> `"I always get nervous before public speaking, and I feel like I mess up every time."`
+
+##### **Correct JSON Output:**
+```json
+{{
+  "codes": [
+    {{
+      "quote": "I always get nervous before public speaking",
+      "explanation": "The phrase describes feelings of anxiety before a social activity.",
+      "code": "Social_Anxiety"
+    }},
+    {{
+      "quote": "I feel like I mess up every time",
+      "explanation": "The phrase reflects self-doubt and perceived personal failure.",
+      "code": "Self-Doubt"
+    }}
+  ]
+}}
+```
+
+---
+
+### **Output Requirements**
+- **Return only the JSON object.** No explanations, summaries, or extra text.
+- **Ensure the JSON is valid and correctly formatted.**
+- **Each quote should only have relevant codes—do not over-code or misapply themes.**
+
+Now, analyze the given post transcript and apply the thematic codes from the codebook, returning the results in JSON format.
+"""
+    
+
+class ThemeGeneration:
+    @staticmethod
+    def theme_generation_prompt(qec_table: str):
+        return f"""
+You are an advanced AI model specializing in **qualitative research and thematic analysis**. Your task is to **identify themes** based on a provided Quote-Explanation-Code (QEC) table.
+
+---
+
+### **Context and Input Information**  
+You will be provided with:
+- **QEC Table**: A structured JSON object containing:
+  - **quote**: The exact phrase from the transcript.
+  - **explanation**: The reason why the quote was assigned a specific code.
+  - **code**: The thematic code assigned to the quote.
+  
+  `{qec_table}`
+
+---
+
+### **Your Task: Identify and Organize Themes**
+1. **Group Thematic Codes into Higher-Level Themes**  
+   - Identify **patterns** among the provided codes.
+   - Group similar or related codes into **themes** based on their meaning.
+   - Each **theme** should represent a **broader category** that unifies multiple codes.
+
+2. **Generate Output in Valid JSON Format**  
+   - The output should be a **JSON object** with:
+     - **theme**: The overarching theme name.
+     - **codes**: A list of codes that belong to that theme.
+   - **Strictly follow this JSON structure**:
+   
+   ```json
+   {{
+     "themes": [
+       {{
+         "theme": "Theme Name",
+         "codes": ["Code1", "Code2", "Code3"]
+       }},
+       ...
+     ]
+   }}
+   ```
+
+---
+
+### **Example Input (QEC Table)**  
+```json
+{{
+  "codes": [
+    {{
+      "quote": "I always get nervous before public speaking",
+      "explanation": "The phrase describes feelings of anxiety before a social activity.",
+      "code": "Social Anxiety"
+    }},
+    {{
+      "quote": "I feel like I mess up every time",
+      "explanation": "The phrase reflects self-doubt and perceived personal failure.",
+      "code": "Self Doubt"
+    }},
+    {{
+      "quote": "I hate when people judge me for my mistakes",
+      "explanation": "This reflects the fear of negative social evaluation.",
+      "code": "Fear of Judgment"
+    }},
+    {{
+      "quote": "I need to improve my skills before I apply for the job",
+      "explanation": "This indicates the pressure to meet external expectations.",
+      "code": "Performance Pressure"
+    }}
+  ]
+}}
+```
+
+---
+
+### **Expected Output (Thematic Organization)**  
+```json
+{{
+  "themes": [
+    {{
+      "theme": "Anxiety & Self-Perception",
+      "codes": ["Social Anxiety", "Self Doubt", "Fear of Judgment"]
+    }},
+    {{
+      "theme": "External Pressures",
+      "codes": ["Performance Pressure"]
+    }}
+  ]
+}}
+```
+
+---
+
+### **Output Requirements**
+- **Return only the JSON object.** No explanations, summaries, or extra text.
+- **Ensure the JSON is valid and properly formatted.**
+- **Group codes logically into themes—avoid forced connections.**
+- **Each theme should have at least one code.**
+
+Now, analyze the given QEC Table and generate themes based on the provided codes, returning the results in JSON format.
+"""
+
+
+
+class RefineCodebook:
+    @staticmethod
+    def refine_codebook_prompt(prevCodebook: str, currentCodebook: str):
+        return f"""
+You are an advanced AI specializing in **qualitative research** and **thematic coding**. Your task is to **analyze and refine coding categories** by comparing the previous codebook with the current version.
+
+---
+
+### ** Input Data**
+- **Previous Codebook** (before human revision):
+  ```json
+  {prevCodebook}
+  ```
+- **Current Codebook** (after human revision, including comments for feedback):
+  ```json
+  {currentCodebook}
+  ```
+
+---
+
+## ** Your Tasks**
+1. **Extract Feedback from `currentCodebook.comments`.**
+   - Identify changes made by the human coder.
+   - Understand why each code was added, modified, or removed.
+   - Use this feedback to guide refinements.
+
+2. **Compare `prevCodebook` and `currentCodebook`.**
+   - Identify codes that remained **unchanged**.
+   - Identify codes that were **modified**.
+   - Identify codes that were **added or removed**.
+
+3. **List Agreements and Disagreements in JSON Format.**
+   - Specify which codes the human **agrees with** and why.
+   - Specify which codes the human **disagrees with** and what needs revision.
+   - Justify disagreements using **feedback from `currentCodebook.comments`**.
+
+4. **Generate a Revised Codebook.**
+   - Modify **existing codes** based on human feedback.
+   - Add **new codes** where necessary.
+   - Remove or refine **problematic codes** to improve clarity.
+   - Each revised code should **include a quote and an explanation**.
+
+---
+
+## ** Output Format**
+### **1 Agreements and Disagreements (JSON)**
+```json
+{{
+  "agreements": [
+    {{
+      "code": "Code Name",
+      "reason": "Why the human agrees with this code."
+    }},
+    ...
+  ],
+  "disagreements": [
+    {{
+      "code": "Code Name",
+      "reason": "Why the human disagrees and what changes they proposed (extracted from `currentCodebook.comments`)."
+    }},
+    ...
+  ]
+}}
+```
+
+---
+
+### **2 Revised Codebook (JSON)**
+```json
+{{
+  "revised_codebook": [
+    {{
+      "code": "Refined Code Name",
+      "quote": "Example quote that illustrates this code.",
+      "explanation": "Updated explanation based on feedback."
+    }},
+    ...
+  ]
+}}
+```
+
+---
+
+## ** Important Guidelines**
+- **Extract feedback directly from `currentCodebook.comments`** to guide refinements.
+- **DO NOT** add explanations or comments outside the JSON output.
+- **STRICTLY follow the JSON format.**
+- **Ensure all revised codes align with human feedback.**
+- **Each revised code must include a code name, a quote, and an explanation.**
+
+Proceed with refining the codebook.
+"""

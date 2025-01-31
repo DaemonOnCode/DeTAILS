@@ -1,17 +1,30 @@
 import { useEffect, useRef } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
 import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-coding-section';
-import { ROUTES } from '../../constants/Coding/shared';
+import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding_context';
 import { useLogger } from '../../context/logging_context';
 import { createTimer } from '../../utility/timer';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import { useNavigate } from 'react-router-dom';
+import getServerUtils from '../../hooks/Shared/get_server_url';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { useCollectionContext } from '../../context/collection_context';
 
 const CodebookRefinement = () => {
-    const { sampledPostResponse, dispatchSampledPostResponse, sampledPostIds } = useCodingContext();
+    const {
+        sampledPostResponse,
+        dispatchSampledPostResponse,
+        sampledPostIds,
+        sampledPostResponseCopy,
+        setSampledPostResponseCopy
+    } = useCodingContext();
 
+    const navigate = useNavigate();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
+    const { getServerUrl } = getServerUtils();
+    const { datasetId } = useCollectionContext();
 
     const hasSavedRef = useRef(false);
     useEffect(() => {
@@ -29,6 +42,43 @@ const CodebookRefinement = () => {
         };
     }, []);
 
+    const handleRerun = async () => {
+        navigate('../loader/' + LOADER_ROUTES.CODEBOOK_LOADER);
+
+        console.log('Rerun coding', sampledPostResponseCopy, sampledPostResponse);
+
+        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REFINE_CODEBOOK), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                dataset_id: datasetId,
+                model: MODEL_LIST.DEEPSEEK_R1_32b,
+                prevCodebook: sampledPostResponseCopy,
+                currentCodebook: sampledPostResponse
+            })
+        });
+
+        const results: {
+            message: string;
+            agreements: any;
+            disagreements: any;
+            data: any;
+        } = await res.json();
+
+        console.log('Results: refinement', results);
+
+        setSampledPostResponseCopy([...sampledPostResponse]);
+
+        dispatchSampledPostResponse({
+            type: 'ADD_RESPONSES',
+            responses: results.data
+        });
+
+        navigate('/coding/' + ROUTES.CODEBOOK_REFINEMENT);
+    };
+
     return (
         <div>
             <div className="max-h-[calc(100vh-8rem)]">
@@ -38,11 +88,12 @@ const CodebookRefinement = () => {
                     dispatchFunction={dispatchSampledPostResponse}
                     review={false}
                     showRerunCoding
+                    handleRerun={handleRerun}
                 />
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.CODES_REVIEW}
-                nextPage={ROUTES.THEMES}
+                nextPage={ROUTES.FINAL_CODEBOOK}
                 isReady={true}
             />
         </div>

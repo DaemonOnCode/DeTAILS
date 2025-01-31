@@ -70,6 +70,8 @@ export interface ICodingContext {
     // dispatchHumanCodeResponses: Dispatch<any>;
     sampledPostResponse: IQECResponse[];
     dispatchSampledPostResponse: Dispatch<any>;
+    sampledPostResponseCopy: IQECResponse[];
+    setSampledPostResponseCopy: SetState<IQECResponse[]>;
     sampledPostWithThemeResponse: IQECTResponse[];
     dispatchSampledPostWithThemeResponse: Dispatch<any>;
     unseenPostResponse: IQECTTyResponse[];
@@ -128,6 +130,8 @@ export const CodingContext = createContext<ICodingContext>({
     // dispatchHumanCodeResponses: () => {}
     sampledPostResponse: [],
     dispatchSampledPostResponse: () => {},
+    sampledPostResponseCopy: [],
+    setSampledPostResponseCopy: () => {},
     sampledPostWithThemeResponse: [],
     dispatchSampledPostWithThemeResponse: () => {},
     unseenPostResponse: [],
@@ -425,6 +429,7 @@ function baseResponseHandler<T>(
     config: Record<string, any>
 ): T[] {
     let newResponses: T[] = [];
+    console.log('Action:', action, 'Base');
     switch (action.type) {
         case 'SET_CORRECT':
             return state.map((response, index) =>
@@ -456,7 +461,7 @@ function baseResponseHandler<T>(
                 ...(newResponses.length ? (newResponses[0] as any) : {})
             });
         case 'SET_RESPONSES':
-            newResponses = action.responses.filter(
+            newResponses = (action.responses ?? []).filter(
                 (response: any) => response.code?.trim() !== '' && response.quote?.trim() !== ''
             );
             return [...newResponses];
@@ -769,7 +774,13 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
 
     const [sampledPostResponse, dispatchSampledPostResponse] = useReducer(
         sampleDataResponseReducer,
-        sampleData.map((post) => ({ ...post, isMarked: undefined, comment: '' }))
+        []
+        // sampleData.map((post) => ({ ...post, isMarked: undefined, comment: '' }))
+    );
+
+    const [sampledPostResponseCopy, setSampledPostResponseCopy] = useState<IQECResponse[]>(
+        []
+        // sampleData.map((post) => ({ ...post, isMarked: undefined, comment: '' }))
     );
 
     const [sampledPostWithThemeResponse, dispatchSampledPostWithThemeResponse] = useReducer(
@@ -779,18 +790,19 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
 
     const [unseenPostResponse, dispatchUnseenPostResponse] = useReducer(
         unseenDataResponseReducer,
-        unseenData.map((post) => ({ ...post, isMarked: undefined, comment: '', type: 'LLM' }))
+        []
+        // unseenData.map((post) => ({ ...post, isMarked: undefined, comment: '', type: 'LLM' }))
     );
 
-    useEffect(() => {
-        dispatchSampledPostWithThemeResponse({
-            type: 'SET_RESPONSES',
-            responses: sampledPostResponse.map((post) => ({
-                ...post,
-                theme: ''
-            }))
-        });
-    }, [sampleData]);
+    // useEffect(() => {
+    //     dispatchSampledPostWithThemeResponse({
+    //         type: 'SET_RESPONSES',
+    //         responses: sampledPostResponse.map((post) => ({
+    //             ...post,
+    //             theme: ''
+    //         }))
+    //     });
+    // }, [sampleData]);
 
     const [keywords, setKeywords] = useState<string[]>([]);
     const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
@@ -990,16 +1002,17 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         dispatchSampledPostWithThemeResponse({ type: 'SET_RESPONSES', responses: [] });
         dispatchSampledPostResponse({
             type: 'SET_RESPONSES',
-            responses: sampleData.map((post) => ({ ...post, isMarked: undefined, comment: '' }))
+            responses: [] // sampleData.map((post) => ({ ...post, isMarked: undefined, comment: '' }))
         });
         dispatchUnseenPostResponse({
             type: 'SET_RESPONSES',
-            responses: unseenData.map((post) => ({
-                ...post,
-                isMarked: undefined,
-                comment: '',
-                type: 'LLM'
-            }))
+            responses: []
+            // unseenData.map((post) => ({
+            //     ...post,
+            //     isMarked: undefined,
+            //     comment: '',
+            //     type: 'LLM'
+            // }))
         });
         setThemes([]);
         setUnplacedCodes([]);
@@ -1090,6 +1103,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             // dispatchHumanCodeResponses
             sampledPostResponse,
             dispatchSampledPostResponse,
+            sampledPostResponseCopy,
+            setSampledPostResponseCopy,
             sampledPostWithThemeResponse,
             dispatchSampledPostWithThemeResponse,
             unseenPostResponse,
@@ -1128,6 +1143,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             // llmCodeResponses,
             // humanCodeResponses
             sampledPostResponse,
+            sampledPostResponseCopy,
             sampledPostWithThemeResponse,
             unseenPostResponse,
             themes,

@@ -24,6 +24,7 @@ interface UnifiedCodingPageProps {
     split?: boolean;
     showFilterDropdown?: boolean;
     showRerunCoding?: boolean;
+    handleRerun?: () => void;
 }
 
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
@@ -36,7 +37,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     showCodebook = false,
     split = false,
     showFilterDropdown = false,
-    showRerunCoding = false
+    showRerunCoding = false,
+    handleRerun = () => {}
 }) => {
     console.log('Data:', data);
     const [viewTranscript, setViewTranscript] = useState(false);
@@ -82,11 +84,11 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         //         ]
         //     });
         let params = new URLSearchParams();
-        if (split) {
+        if (split !== undefined) {
             if (selectedTypeFilter !== 'All') {
                 params.append('type', selectedTypeFilter);
             } else {
-                params.append('split', 'true');
+                params.append('split', split.toString());
             }
         }
         if (showCodebook) {
@@ -166,6 +168,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     // Function to re-run the coding with updates
     const handleReRunCoding = () => {
         console.log('Re-running coding with updated responses:', responses);
+        handleRerun();
     };
 
     return (

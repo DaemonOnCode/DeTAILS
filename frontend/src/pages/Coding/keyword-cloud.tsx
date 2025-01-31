@@ -27,7 +27,9 @@ const KeywordCloudPage: FC = () => {
         setKeywords,
         keywords,
         keywordTable,
-        dispatchKeywordsTable
+        dispatchKeywordsTable,
+        researchQuestions,
+        selectedWords
     } = useCodingContext();
     const { datasetId } = useCollectionContext();
 
@@ -98,7 +100,7 @@ const KeywordCloudPage: FC = () => {
         navigate('../loader/' + LOADER_ROUTES.THEME_LOADER);
         // if (!USE_LOCAL_SERVER) {
         // await ipcRenderer.invoke("connect-ws", datasetId);
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.BUILD_CONTEXT), {
+        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -106,9 +108,14 @@ const KeywordCloudPage: FC = () => {
             body: JSON.stringify({
                 model: MODEL_LIST.DEEPSEEK_R1_32b,
                 mainTopic,
+                additionalInfo,
+                researchQuestions,
+                unselectedKeywords: keywords.filter(
+                    (keyword) => !selectedKeywords.includes(keyword)
+                ),
                 selectedKeywords,
-                feedback,
-                dataset_id: datasetId
+                extraFeedback: feedback,
+                datasetId
             })
         });
 

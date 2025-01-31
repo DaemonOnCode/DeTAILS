@@ -3,8 +3,10 @@ import HomePage from '../pages/Coding/home';
 import {
     CodeBookLoaderPage,
     CodingValidationLoaderPage,
+    DeductiveCodingLoaderPage,
     FinalLoaderPage,
     FlashcardsLoaderPage,
+    ThemeGenerationLoaderPage,
     ThemeLoaderPage,
     WordCloudLoaderPage
 } from '../pages/Coding/Loader';
@@ -100,6 +102,14 @@ export const CodingRouter: RouteObject[] = [
             {
                 path: LOADER_ROUTES.FINAL_LOADER,
                 element: <FinalLoaderPage />
+            },
+            {
+                path: LOADER_ROUTES.DEDUCTIVE_CODING_LOADER,
+                element: <DeductiveCodingLoaderPage />
+            },
+            {
+                path: LOADER_ROUTES.THEME_GENERATION_LOADER,
+                element: <ThemeGenerationLoaderPage />
             }
         ]
     }

@@ -36,7 +36,7 @@ const SplitCheckPage = () => {
                     postIds={unseenPostIds}
                     data={unseenPostResponse}
                     dispatchFunction={dispatchUnseenPostResponse}
-                    showThemes
+                    // showThemes
                     split
                     showCodebook
                     review={false}
