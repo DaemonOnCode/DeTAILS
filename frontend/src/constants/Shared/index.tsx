@@ -18,7 +18,8 @@ export enum MODEL_LIST {
     LLAMA_3 = 'llama3',
     LLAMA_3_3 = 'llama3.3',
     NU_EXTRACT_1_5 = 'hf.co/DevQuasar/numind.NuExtract-v1.5-GGUF:Q4_K_M',
-    DEEPSEEK_R1_32b = 'deepseek-r1:32b'
+    DEEPSEEK_R1_32b = 'deepseek-r1:32b',
+    DEEPSEEK_R1_70b_fp16 = 'deepseek-r1:70b-llama-distill-fp16'
 }
 
 export const LOGGING = false;
