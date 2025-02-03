@@ -84,7 +84,28 @@ class BaseRepository(Generic[T]):
             raise InsertError(f"Failed to insert data into table {self.table_name}. Error: {e}")
 
     @handle_db_errors
-    def update(self, filters: Dict[str, Any], updates: T) -> None:
+    def insert_batch(self, data_list: List[T]) -> None:
+        """
+        Inserts multiple rows into the table efficiently using executemany.
+
+        :param data_list: List of dataclass instances to insert.
+        """
+        if not data_list:
+            return
+
+        try:
+            data_dicts = [asdict(data) for data in data_list]
+            query, params_list = self.query_builder_instance.insert_batch(data_dicts)
+
+            with sqlite3.connect(DATABASE_PATH) as conn:
+                cursor = conn.cursor()
+                cursor.executemany(query, params_list)
+                conn.commit()
+        except sqlite3.Error as e:
+            raise InsertError(f"Failed to insert batch data into table {self.table_name}. Error: {e}")
+
+    @handle_db_errors
+    def update(self, filters: Dict[str, Any], updates: Dict[str,Any]) -> None:
         """
         Updates rows in the table based on filters using the QueryBuilder.
 
@@ -92,11 +113,35 @@ class BaseRepository(Generic[T]):
         :param updates: An instance of the dataclass with updated values.
         """
         try:
-            update_dict = asdict(updates)
-            query, params = self.query_builder_instance.update(filters, update_dict)
+            # update_dict = asdict(updates)
+            query, params = self.query_builder_instance.update(filters, updates)
             self.execute_query(query, params)
         except sqlite3.Error as e:
             raise UpdateError(f"Failed to update records in table {self.table_name}. Error: {e}")
+
+    @handle_db_errors
+    def bulk_update(self, updates_list: List[Dict[str, Any]], filters_list: List[Dict[str, Any]]) -> None:
+        """
+        Updates multiple rows efficiently using batch updates.
+
+        :param updates_list: List of update dictionaries.
+        :param filters_list: List of filter conditions corresponding to each update.
+        """
+        if not updates_list or not filters_list:
+            return
+
+        try:
+            query_params_list = [
+                self.query_builder_instance.update(filters, updates)
+                for filters, updates in zip(filters_list, updates_list)
+            ]
+
+            with sqlite3.connect(DATABASE_PATH) as conn:
+                cursor = conn.cursor()
+                cursor.executemany(query_params_list[0][0], [qp[1] for qp in query_params_list])
+                conn.commit()
+        except sqlite3.Error as e:
+            raise UpdateError(f"Failed to perform batch update in table {self.table_name}. Error: {e}")
 
     @handle_db_errors
     def delete(self, filters: Dict[str, Any]) -> None:
@@ -125,7 +170,19 @@ class BaseRepository(Generic[T]):
         query, params = self.query_builder_instance.find(filters)
         return self.fetch_all(query, params)
 
+    @handle_db_errors
+    def count(self, filters: Optional[Dict[str, Any]] = None) -> int:
+        """
+        Counts the number of rows that match the given filters.
 
+        :param filters: Dictionary of filter conditions (keys are column names as strings).
+        :return: Number of matching rows.
+        """
+        query, params = self.query_builder_instance.count(filters)
+        with sqlite3.connect(DATABASE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            return cursor.fetchone()[0]
 
     def _map_to_model(self, row: Row) -> T:
         """

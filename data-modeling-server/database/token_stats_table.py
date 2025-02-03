@@ -1,6 +1,6 @@
 from typing import List
 from .base_class import BaseRepository
-from .table_data_class import TokenStat
+from .table_dataclass import TokenStat
 
 class TokenStatsRepository(BaseRepository[TokenStat]):
     model = TokenStat

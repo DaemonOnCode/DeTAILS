@@ -1,6 +1,6 @@
 from typing import List
 from .base_class import BaseRepository
-from .table_data_class import Model
+from .table_dataclass import Model
 
 class ModelsRepository(BaseRepository[Model]):
     model = Model

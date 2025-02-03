@@ -7,6 +7,7 @@ import sqlite3
 import time
 from typing import List, Dict, Any, Optional, Tuple
 from fastapi import APIRouter, HTTPException, Path, Query, Body
+from httpx import delete, get
 from pydantic import BaseModel
 import spacy
 import sys
@@ -15,6 +16,7 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from constants import DATABASE_PATH
+from controllers.filtering_controller import add_rules_to_dataset, delete_rules_for_dataset, get_rules_for_dataset
 from decorators.execution_time_logger import log_execution_time
 from utils.db_helpers import execute_query, execute_query_with_retry
 
@@ -63,49 +65,75 @@ class DatasetRequest(BaseModel):
     rules: list
     
 
-# Fetch rules for a dataset (Path Param)
 @router.post("/datasets/rules", response_model=List[Rule])
 @log_execution_time()
-def get_rules(payload: DatasetIdRequest):
-    """Fetch rules for a dataset."""
-    dataset_id = payload.dataset_id
-    if dataset_id is None:
-        raise HTTPException(status_code=400, detail="Dataset ID is required.")
-    rows = execute_query("SELECT * FROM rules WHERE dataset_id = ?", (dataset_id,))
-    return [
-        Rule(id=row[0], step=row[2], fields=row[3], words=row[4], pos=row[5], action=row[6])
-        for row in rows
-    ]
+def get_rules_endpoint(payload: DatasetIdRequest):
+    rules = get_rules_for_dataset(payload.dataset_id)
+    return rules
+
+# # Fetch rules for a dataset (Path Param)
+# @router.post("/datasets/rules", response_model=List[Rule])
+# @log_execution_time()
+# def get_rules(payload: DatasetIdRequest):
+#     """Fetch rules for a dataset."""
+#     dataset_id = payload.dataset_id
+#     if dataset_id is None:
+#         raise HTTPException(status_code=400, detail="Dataset ID is required.")
+#     rows = execute_query("SELECT * FROM rules WHERE dataset_id = ?", (dataset_id,))
+#     return [
+#         Rule(id=row[0], step=row[2], fields=row[3], words=row[4], pos=row[5], action=row[6])
+#         for row in rows
+#     ]
 
 
-# Add or replace rules (Body Param)
 @router.post("/datasets/add-rules", response_model=dict)
 @log_execution_time()
-def add_rules(payload: RulesRequest):
-    """Add or replace rules for a dataset."""
+def add_rules_endpoint(payload: RulesRequest):
     dataset_id = payload.dataset_id
+    rules = payload.rules or []
     if dataset_id is None:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
-    rules = payload.rules or []
-    execute_query("DELETE FROM rules WHERE dataset_id = ?", (dataset_id,))
-    for rule in rules:
-        execute_query("""
-            INSERT INTO rules (dataset_id, step, fields, words, pos, action)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (dataset_id, rule["step"], rule["fields"], rule["words"], rule.get("pos"), rule["action"]))
+    add_rules_to_dataset(dataset_id, rules)
     return {"message": "Rules added successfully"}
 
+# Add or replace rules (Body Param)
+# @router.post("/datasets/add-rules", response_model=dict)
+# @log_execution_time()
+# def add_rules(payload: RulesRequest):
+#     """Add or replace rules for a dataset."""
+#     dataset_id = payload.dataset_id
+#     if dataset_id is None:
+#         raise HTTPException(status_code=400, detail="Dataset ID is required.")
+#     rules = payload.rules or []
+#     execute_query("DELETE FROM rules WHERE dataset_id = ?", (dataset_id,))
+#     for rule in rules:
+#         execute_query("""
+#             INSERT INTO rules (dataset_id, step, fields, words, pos, action)
+#             VALUES (?, ?, ?, ?, ?, ?)
+#         """, (dataset_id, rule["step"], rule["fields"], rule["words"], rule.get("pos"), rule["action"]))
+#     return {"message": "Rules added successfully"}
 
-# Delete all rules for a dataset (Path Param)
+
 @router.post("/datasets/delete-rules", response_model=dict)
 @log_execution_time()
-def delete_all_rules(payload: DatasetIdRequest):
+def delete_all_rules_endpoint(payload: DatasetIdRequest):
     """Delete all rules for a dataset."""
     dataset_id = payload.dataset_id
     if dataset_id is None:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
-    execute_query("DELETE FROM rules WHERE dataset_id = ?", (dataset_id,))
+    delete_rules_for_dataset(dataset_id)
     return {"message": "All rules deleted successfully"}
+
+# Delete all rules for a dataset (Path Param)
+# @router.post("/datasets/delete-rules", response_model=dict)
+# @log_execution_time()
+# def delete_all_rules(payload: DatasetIdRequest):
+#     """Delete all rules for a dataset."""
+#     dataset_id = payload.dataset_id
+#     if dataset_id is None:
+#         raise HTTPException(status_code=400, detail="Dataset ID is required.")
+#     execute_query("DELETE FROM rules WHERE dataset_id = ?", (dataset_id,))
+#     return {"message": "All rules deleted successfully"}
 
 
 # Create backup tables (Body Param)

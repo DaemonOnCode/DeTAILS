@@ -1,6 +1,6 @@
 from typing import List
 from .base_class import BaseRepository
-from .table_data_class import LlmResponse
+from .table_dataclass import LlmResponse
 
 class LlmResponsesRepository(BaseRepository[LlmResponse]):
     model = LlmResponse

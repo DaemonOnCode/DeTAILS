@@ -1,10 +1,70 @@
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import Generic, List, Optional, Type, TypeVar
+from typing import Any, Dict, Optional, get_type_hints
+
+
+# T = TypeVar("T", bound="BaseDataclass")
+
 
 
 @dataclass
-class Workspace:
+class BaseDataclass:
+    """Base class for all dataclasses with dictionary-like behavior."""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default) if key in self.keys() else default
+
+    def keys(self):
+        return get_type_hints(self.__class__).keys()
+
+    def values(self):
+        return {key: getattr(self, key) for key in self.keys()}.values()
+
+    def items(self):
+        return {key: getattr(self, key) for key in self.keys()}.items()
+
+    def __getitem__(self, key: str) -> Any:
+        if key in self.keys():
+            return getattr(self, key)
+        raise KeyError(f"{key} not found in {self.__class__.__name__}")
+
+    def __setitem__(self, key: str, value: Any):
+        if key in self.keys():
+            expected_type = get_type_hints(self.__class__).get(key, None)
+            if expected_type and not isinstance(value, expected_type):
+                raise TypeError(f"Expected type {expected_type} for {key}, but got {type(value)}")
+            setattr(self, key, value)
+        else:
+            raise KeyError(f"{key} not found in {self.__class__.__name__}")
+
+    def __delitem__(self, key: str):
+        if key in self.keys():
+            setattr(self, key, None)
+        else:
+            raise KeyError(f"{key} not found in {self.__class__.__name__}")
+
+    def update(self, updates: Dict[str, Any]):
+        for key, value in updates.items():
+            if key in self.keys():
+                expected_type = get_type_hints(self.__class__).get(key, None)
+                if expected_type and not isinstance(value, expected_type):
+                    raise TypeError(f"Expected type {expected_type} for {key}, but got {type(value)}")
+                setattr(self, key, value)
+            else:
+                raise KeyError(f"{key} not found in {self.__class__.__name__}")
+
+    def setdefault(self, key: str, default: Any):
+        if key in self.keys():
+            if getattr(self, key) is None:
+                self[key] = default
+            return self[key]
+        raise KeyError(f"{key} not found in {self.__class__.__name__}")
+
+@dataclass
+class Workspace(BaseDataclass):
     id: str = field(metadata={"not_null": True})
     name: str = field(metadata={"not_null": True})
     user_email: str = field(metadata={"not_null": True})
@@ -13,7 +73,7 @@ class Workspace:
 
 
 @dataclass
-class WorkspaceState:
+class WorkspaceState(BaseDataclass):
     user_email: str = field(metadata={"primary_key": True})
     workspace_id: str = field(metadata={"primary_key": True})
     
@@ -47,7 +107,7 @@ class WorkspaceState:
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
 
 @dataclass
-class Rule:
+class Rule(BaseDataclass):
     dataset_id: str = field(metadata={"not_null": True})
     step: int = field(metadata={"not_null": True})
     fields: str = field(metadata={"not_null": True})
@@ -58,14 +118,14 @@ class Rule:
 
 
 @dataclass
-class TokenStat:
+class TokenStat(BaseDataclass):
     dataset_id: str = field(metadata={"primary_key": True})
     removed_tokens: Optional[str] = None
     included_tokens: Optional[str] = None
 
 
 @dataclass
-class TokenStatDetailed:
+class TokenStatDetailed(BaseDataclass):
     dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
     token: str = field(metadata={"primary_key": True})
     status: str = field(metadata={"primary_key": True})
@@ -77,7 +137,7 @@ class TokenStatDetailed:
 
 
 @dataclass
-class Model:
+class Model(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
     dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
     model_name: Optional[str] = None
@@ -90,7 +150,7 @@ class Model:
 
 
 @dataclass
-class Dataset:
+class Dataset(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
     name: str = field(metadata={"not_null": True})
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
@@ -100,9 +160,9 @@ class Dataset:
 
 
 @dataclass
-class Post:
+class Post(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
-    dataset_id: str = field(metadata={"foreign_key": "datasets(id)", "not_null": True})
+    dataset_id: str = field(metadata={"primary_key": True,"foreign_key": "datasets(id)", "not_null": True})
     title: str = field(metadata={"not_null": True})
     over_18: Optional[int] = None
     subreddit: Optional[str] = None
@@ -121,13 +181,14 @@ class Post:
 
 
 @dataclass
-class Comment:
+class Comment(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
-    dataset_id: str = field(metadata={"foreign_key": "datasets(id)", "not_null": True})
+    dataset_id: str = field(metadata={"primary_key": True,"foreign_key": "datasets(id)", "not_null": True})
     post_id: str = field(metadata={"foreign_key": "posts(id)", "not_null": True})
     body: Optional[str] = None
     author: Optional[str] = None
     created_utc: Optional[int] = None
+    link_id: Optional[str] = None
     parent_id: Optional[str] = None
     controversiality: Optional[int] = None
     score_hidden: Optional[int] = None
@@ -138,7 +199,7 @@ class Comment:
 
 
 @dataclass
-class TokenizedPost:
+class TokenizedPost(BaseDataclass):
     dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
     title: Optional[str] = None
@@ -146,14 +207,14 @@ class TokenizedPost:
 
 
 @dataclass
-class TokenizedComment:
+class TokenizedComment(BaseDataclass):
     dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
     comment_id: str = field(metadata={"primary_key": True, "foreign_key": "comments(id)"})
     body: Optional[str] = None
 
 
 @dataclass
-class LlmResponse:
+class LlmResponse(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
     dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
     model: str = field(metadata={"not_null": True})
@@ -162,105 +223,3 @@ class LlmResponse:
     function_id: str = field(metadata={"not_null": True})
     additional_info: Optional[str] = None
     created_at: Optional[datetime] = field(default_factory=datetime.now)
-
-
-
-
-T = TypeVar("T")  # Generic type for any dataclass
-
-
-@dataclass
-class BasePlural(Generic[T]):
-    items: List[T]  # Stores multiple instances of a dataclass
-
-    def __init__(self, *args: T):
-        """Allow passing multiple objects directly without wrapping in a list."""
-        self.items = list(args)  # Convert args to list
-
-    def to_list(self) -> List[dict]:
-        """Convert list of dataclass objects to a list of dictionaries"""
-        return [asdict(item) for item in self.items]
-
-    @classmethod
-    def from_list(cls, data_list: List[dict]) -> "BasePlural[T]":
-        """Convert a list of dictionaries to a list of dataclass instances"""
-        return cls(*(cls.item_type(**data) for data in data_list))
-
-    @classmethod
-    def item_type(cls) -> Type[T]:
-        """Must be overridden in subclasses to specify the model type"""
-        raise NotImplementedError("Subclasses must define item_type()")
-    
-
-@dataclass
-class Workspaces(BasePlural[Workspace]):
-    @classmethod
-    def item_type(cls) -> Type[Workspace]:
-        return Workspace
-    
-@dataclass
-class WorkspaceStates(BasePlural[WorkspaceState]):
-    @classmethod
-    def item_type(cls) -> Type[WorkspaceState]:
-        return WorkspaceState
-    
-@dataclass
-class Rules(BasePlural[Rule]):
-    @classmethod
-    def item_type(cls) -> Type[Rule]:
-        return Rule
-    
-@dataclass
-class TokenStats(BasePlural[TokenStat]):
-    @classmethod
-    def item_type(cls) -> Type[TokenStat]:
-        return TokenStat
-
-@dataclass
-class TokenStatsDetailed(BasePlural[TokenStatDetailed]):
-    @classmethod
-    def item_type(cls) -> Type[TokenStatDetailed]:
-        return TokenStatDetailed
-
-@dataclass
-class Models(BasePlural[Model]):
-    @classmethod
-    def item_type(cls) -> Type[Model]:
-        return Model
-    
-@dataclass
-class Datasets(BasePlural[Dataset]):
-    @classmethod
-    def item_type(cls) -> Type[Dataset]:
-        return Dataset
-    
-@dataclass
-class Posts(BasePlural[Post]):
-    @classmethod
-    def item_type(cls) -> Type[Post]:
-        return Post
-    
-@dataclass
-class Comments(BasePlural[Comment]):
-    @classmethod
-    def item_type(cls) -> Type[Comment]:
-        return Comment
-    
-@dataclass
-class TokenizedPosts(BasePlural[TokenizedPost]):
-    @classmethod
-    def item_type(cls) -> Type[TokenizedPost]:
-        return TokenizedPost
-    
-@dataclass
-class TokenizedComments(BasePlural[TokenizedComment]):
-    @classmethod
-    def item_type(cls) -> Type[TokenizedComment]:
-        return TokenizedComment
-    
-@dataclass
-class LlmResponses(BasePlural[LlmResponse]):
-    @classmethod
-    def item_type(cls) -> Type[LlmResponse]:
-        return LlmResponse
-    

@@ -35,6 +35,45 @@ from utils.prompts_v2 import ContextPrompt, DeductiveCoding, InitialCodePrompts,
 router = APIRouter()
 
 
+async def process_post_with_llm(dataset_id, post_id, llm, prompt, regex = r"\"codes\":\s*(\[.*?\])"):
+    try:
+        post_data = get_post_with_comments(dataset_id, post_id)
+        transcript = generate_transcript(post_data)
+        response = await asyncio.to_thread(llm.invoke, prompt.format(transcript=transcript))
+
+        codes_match = re.search(regex, response, re.DOTALL)
+        codes = json.loads(codes_match.group(1)) if codes_match else []
+
+        return [{"postId": post_id, "id": str(uuid4()), **code} for code in codes]
+    except Exception as e:
+        await manager.broadcast(f"ERROR: {dataset_id}: Error processing post {post_id} - {str(e)}.")
+        return []
+    
+async def run_coding_pipeline(request_body, prompt_generator):
+    dataset_id, posts, model = request_body.dataset_id, request_body.unseen_post_ids, request_body.model
+    llm = OllamaLLM(model=model, num_ctx=30000, num_predict=30000, temperature=0.6, callbacks=[StreamingStdOutCallbackHandler()])
+
+    final_results = []
+    for post_id in posts:
+        await manager.broadcast(f"Dataset {dataset_id}: Processing post {post_id}...")
+        prompt = prompt_generator(request_body, post_id)
+        final_results.extend(await process_post_with_llm(dataset_id, post_id, llm, prompt))
+
+    await manager.broadcast(f"Dataset {dataset_id}: All posts processed successfully.")
+    return {"message": "Coding completed successfully!", "data": final_results}
+
+
+def initialize_vector_store(dataset_id: str, model: str):
+    """Initialize Chroma vector store."""
+    embeddings = OllamaEmbeddings(model=model)
+    chroma_client = HttpClient(host="localhost", port=8000)
+    vector_store = Chroma(
+        embedding_function=embeddings,
+        collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}",
+        client=chroma_client,
+    )
+    return vector_store
+
 class SamplePostsRequest(BaseModel):
     dataset_id: str
     post_ids: list= []
@@ -81,9 +120,7 @@ async def build_context_from_interests_endpoint(
         await manager.broadcast(f"Dataset {dataset_id}: Processing started.")
 
         # Initialize embeddings and vector store
-        embeddings = OllamaEmbeddings(model=model)
-        chroma_client = HttpClient(host="localhost", port=8000)
-        vector_store = Chroma(embedding_function=embeddings, collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", client=chroma_client)
+        vector_store = initialize_vector_store(dataset_id, model)
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
         await manager.broadcast(f"Dataset {dataset_id}: Uploading files...")
@@ -225,17 +262,10 @@ async def regenerate_keywords_endpoint(
         await manager.broadcast(f"Dataset {dataset_id}: Regenerating keywords with feedback...")
 
         # Initialize embeddings and vector store
-        embeddings = OllamaEmbeddings(model=model)
-        chroma_client = HttpClient(host="localhost", port=8000)
-        vector_store = Chroma(
-            embedding_function=embeddings, 
-            collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}", 
-            client=chroma_client
-        )
+        vector_store = initialize_vector_store(dataset_id, model)
         
         retriever = vector_store.as_retriever()
 
-        # ✅ **Updated prompt template with extra feedback & selected themes**
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", "\n".join(ContextPrompt.regenerationPromptTemplate(mainTopic, researchQuestions, additionalInfo, selectedKeywords, unselectedKeywords, extraFeedback))),
             ("human", "{input}")
