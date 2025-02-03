@@ -57,7 +57,7 @@
         "xlsx": "^0.18.5"
     },
     "homepage": "./",
-    "main": "public/electron.js",
+    "main": "electron",
     "scripts": {
         "dev": "concurrently \"npm run react:dev\" \"npm run electron:wait\"",
         "executables": "cd ../executables && rm -f ./test.db && rm -rf ./chroma_data && concurrently \"./chroma/cli run\" \"./ollama/ollama-darwin serve\"",
