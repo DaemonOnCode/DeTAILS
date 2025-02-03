@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/Shared';
-import { useAuth } from '../../context/auth_context';
-import { useLogger } from '../../context/logging_context';
+import { useAuth } from '../../context/auth-context';
+import { useLogger } from '../../context/logging-context';
 
 const { ipcRenderer } = window.require('electron');
 

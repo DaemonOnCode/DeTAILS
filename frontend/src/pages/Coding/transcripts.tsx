@@ -1,10 +1,10 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import PostCards from '../../components/Coding/CodingOverview/post-cards';
-import { useCodingContext } from '../../context/coding_context';
-import useServerUtils from '../../hooks/Shared/get_server_url';
+import { useCodingContext } from '../../context/coding-context';
+import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import { useCollectionContext } from '../../context/collection_context';
+import { useCollectionContext } from '../../context/collection-context';
 import { createResource } from '../../utility/resource-creator';
 
 const fetchPostData = async (

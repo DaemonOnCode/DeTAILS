@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { REMOTE_SERVER_BASE_URL } from '../../constants/Shared';
-import { useAuth } from '../../context/auth_context';
+import { useAuth } from '../../context/auth-context';
 
 const useServerUtils = () => {
     const { remoteProcessing } = useAuth();

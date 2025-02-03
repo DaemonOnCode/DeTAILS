@@ -4,10 +4,10 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { v4 as uuidv4 } from 'uuid';
 import Bucket from '../../components/Coding/Themes/bucket';
 import UnplacedCodesBox from '../../components/Coding/Themes/unplaced-box';
-import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { ROUTES } from '../../constants/Coding/shared';
-import { useCodingContext } from '../../context/coding_context';
-import { useLogger } from '../../context/logging_context';
+import { useCodingContext } from '../../context/coding-context';
+import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 

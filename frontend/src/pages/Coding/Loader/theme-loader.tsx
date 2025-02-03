@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Variants, motion, useAnimation } from 'framer-motion';
 import { FaLaptop, FaToolbox, FaFileAlt } from 'react-icons/fa';
-import { useLogger } from '../../../context/logging_context';
-import { useWebSocket } from '../../../context/websocket_context';
+import { useLogger } from '../../../context/logging-context';
+import { useWebSocket } from '../../../context/websocket-context';
 
 // Electron's IPC Renderer
 const { ipcRenderer } = window.require('electron');

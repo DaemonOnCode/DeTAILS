@@ -1,12 +1,12 @@
 import Topbar from '../../components/DataModeling/topbar';
 import LeftPanel from '../../components/DataModeling/left-panel';
 import RightPanel from '../../components/DataModeling/right-panel';
-import { useModelingContext } from '../../context/modeling_context';
+import { useModelingContext } from '../../context/modeling-context';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/DataModeling/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useMemo } from 'react';
-import ModelLoader from '../../components/DataModeling/model_loader';
+import ModelLoader from '../../components/DataModeling/model-loader';
 
 const ModelsPage = () => {
     const { models, activeModelId } = useModelingContext();

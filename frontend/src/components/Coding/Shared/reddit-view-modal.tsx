@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RedditViewModalProps } from '../../../types/Coding/props';
-import { useCollectionContext } from '../../../context/collection_context';
+import { useCollectionContext } from '../../../context/collection-context';
 const { ipcRenderer } = window.require('electron');
 
 const RedditViewModal = ({

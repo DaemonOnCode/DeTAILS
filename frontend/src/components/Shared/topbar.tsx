@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useAuth } from '../../context/auth_context';
-import { useWorkspaceContext } from '../../context/workspace_context';
+import { useAuth } from '../../context/auth-context';
+import { useWorkspaceContext } from '../../context/workspace-context';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import useServerUtils from '../../hooks/Shared/get_server_url';
+import useServerUtils from '../../hooks/Shared/get-server-url';
 
 const { ipcRenderer } = window.require('electron');
 

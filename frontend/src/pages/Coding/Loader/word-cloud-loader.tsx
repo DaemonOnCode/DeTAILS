@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useLogger } from '../../../context/logging_context';
+import { useLogger } from '../../../context/logging-context';
 import { createTimer } from '../../../utility/timer';
 
 const WordCloudLoaderPage = () => {

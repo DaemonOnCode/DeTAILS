@@ -1,5 +1,5 @@
 import React, { FC, useEffect } from 'react';
-import { useLogger } from '../../context/logging_context';
+import { useLogger } from '../../context/logging-context';
 
 const SystemMetricsLogger: FC = () => {
     const logger = useLogger();

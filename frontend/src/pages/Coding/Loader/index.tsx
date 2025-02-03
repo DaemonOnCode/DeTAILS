@@ -1,8 +1,8 @@
-export { default as FinalLoaderPage } from './final_loader';
-export { default as FlashcardsLoaderPage } from './flashcards_loader';
-export { default as CodingValidationLoaderPage } from './coding_validation_loader';
-export { default as WordCloudLoaderPage } from './word_cloud_loader';
-export { default as ThemeLoaderPage } from './theme_loader';
-export { default as CodeBookLoaderPage } from './codebook_loader';
-export { default as DeductiveCodingLoaderPage } from './deductive_coding_loader';
-export { default as ThemeGenerationLoaderPage } from './theme_generation_loader';
+export { default as FinalLoaderPage } from './final-loader';
+export { default as FlashcardsLoaderPage } from './flashcards-loader';
+export { default as CodingValidationLoaderPage } from './coding-validation-loader';
+export { default as WordCloudLoaderPage } from './word-cloud-loader';
+export { default as ThemeLoaderPage } from './theme-loader';
+export { default as CodeBookLoaderPage } from './codebook-loader';
+export { default as DeductiveCodingLoaderPage } from './deductive-coding-loader';
+export { default as ThemeGenerationLoaderPage } from './theme-generation-loader';

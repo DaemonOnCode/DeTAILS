@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { createTimer } from '../../../utility/timer';
-import { useLogger } from '../../../context/logging_context';
+import { useLogger } from '../../../context/logging-context';
 
 const FinalLoaderPage = () => {
     const logger = useLogger();
@@ -16,8 +16,8 @@ const FinalLoaderPage = () => {
         };
     }, []);
     return (
-        <div className="h-full w-full flex flex-col gap-6  items-center justify-center">
-            <h1>Generating Final codes...</h1>
+        <div className="h-panel w-full flex flex-col gap-6  items-center justify-center">
+            <h1>Generating themes...</h1>
             <div className="flex justify-center mt-4">
                 <div className="loader animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
             </div>

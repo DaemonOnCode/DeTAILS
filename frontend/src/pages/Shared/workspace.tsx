@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useWorkspaceContext } from '../../context/workspace_context';
+import { useWorkspaceContext } from '../../context/workspace-context';
 import { FiFolder, FiFolderPlus, FiChevronDown, FiChevronRight, FiEdit2 } from 'react-icons/fi';
 import { BsTrash } from 'react-icons/bs';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES as DATA_COLLECTION_ROUTES } from '../../constants/DataCollection/shared';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import useServerUtils from '../../hooks/Shared/get_server_url';
-import { useAuth } from '../../context/auth_context';
+import useServerUtils from '../../hooks/Shared/get-server-url';
+import { useAuth } from '../../context/auth-context';
 
 const WorkspacePage: React.FC = () => {
     const { workspaces, addWorkspace, deleteWorkspace, updateWorkspace, setCurrentWorkspaceById } =

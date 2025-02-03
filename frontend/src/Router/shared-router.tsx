@@ -1,5 +1,5 @@
 import { RouteObject } from 'react-router-dom';
-import NotFoundPage from '../pages/Shared/not_found';
+import NotFoundPage from '../pages/Shared/not-found';
 import { ROUTES } from '../constants/Shared';
 import LoginPage from '../pages/Login';
 import HomePage from '../pages/Shared/home';

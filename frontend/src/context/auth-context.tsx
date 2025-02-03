@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, FC } from 'react';
 import { Token, User } from '../types/Shared';
 import { ILayout } from '../types/Coding/shared';
-import { useLogger } from './logging_context';
+import { useLogger } from './logging-context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -51,6 +51,7 @@ export const AuthProvider: FC<ILayout> = ({ children }) => {
         setUser(user);
         setToken(token);
         logger.setUserEmail(user.email);
+        logger.setType(remoteProcessing ? 'remote' : 'local');
     };
 
     const logout = () => {
@@ -59,6 +60,7 @@ export const AuthProvider: FC<ILayout> = ({ children }) => {
         localStorage.removeItem('isAuthenticated');
         localStorage.removeItem('user');
         logger.setUserEmail('');
+        logger.setType('local');
     };
 
     const setProcessing = async (processing: boolean) => {

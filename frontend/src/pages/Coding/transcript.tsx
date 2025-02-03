@@ -3,13 +3,13 @@ import { useEffect, useRef, useState } from 'react';
 import PostTranscript from '../../components/Coding/CodingOverview/post-transcript';
 import TopToolbar from '../../components/Coding/Shared/top-toolbar';
 import ValidationTable from '../../components/Coding/UnifiedCoding/validation-table';
-import { useCodingContext } from '../../context/coding_context';
-import { useLogger } from '../../context/logging_context';
+import { useCodingContext } from '../../context/coding-context';
+import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import useServerUtils from '../../hooks/Shared/get_server_url';
-import { useCollectionContext } from '../../context/collection_context';
+import useServerUtils from '../../hooks/Shared/get-server-url';
+import { useCollectionContext } from '../../context/collection-context';
 
 const TranscriptPage = () => {
     const { id, state } = useParams<{ id: string; state: 'review' | 'refine' }>();

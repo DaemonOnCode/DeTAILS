@@ -1,5 +1,5 @@
 import { FC, useState, useMemo, useRef, useEffect } from 'react';
-import { useCodingContext } from '../../../context/coding_context';
+import { useCodingContext } from '../../../context/coding-context';
 import { ratio, partial_ratio } from 'fuzzball';
 import { Comments, IComment, IReference } from '../../../types/Coding/shared';
 import RedditComments from './reddit-comments';

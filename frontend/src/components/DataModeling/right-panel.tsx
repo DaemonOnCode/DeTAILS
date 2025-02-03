@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import DiagramPanel from './diagram-panel';
-import { useModelingContext } from '../../context/modeling_context';
+import { useModelingContext } from '../../context/modeling-context';
 
 const RightPanel = () => {
     const [plotType, setPlotType] = useState('chord');

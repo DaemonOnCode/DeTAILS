@@ -1,8 +1,8 @@
 import { FC, useState } from 'react';
-import PaginationControls from './pagination_control';
-import RedditTable from './reddit_table';
+import PaginationControls from './pagination-control';
+import RedditTable from './reddit-table';
 import { RedditPosts } from '../../types/Coding/shared';
-import { useCollectionContext } from '../../context/collection_context';
+import { useCollectionContext } from '../../context/collection-context';
 
 type RedditTableRendererProps = {
     data: RedditPosts;

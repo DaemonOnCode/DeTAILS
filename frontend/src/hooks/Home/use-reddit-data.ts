@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { RedditPosts } from '../../types/Coding/shared';
 import { DB_PATH } from '../../constants/Coding/shared';
-import { useCollectionContext } from '../../context/collection_context';
+import { useCollectionContext } from '../../context/collection-context';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import getServerUtils from '../Shared/get_server_url';
+import getServerUtils from '../Shared/get-server-url';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 const { ipcRenderer } = window.require('electron');
 const FormData = require('form-data');
@@ -18,6 +19,8 @@ const useRedditData = () => {
 
     const { modeInput, setModeInput, subreddit, setSubreddit, setDatasetId, datasetId } =
         useCollectionContext();
+
+    const { currentWorkspace } = useWorkspaceContext();
 
     const { getServerUrl } = getServerUtils();
 
@@ -145,6 +148,7 @@ const useRedditData = () => {
                     formData.append('file', blob, file); // Append the file to the form data
                     formData.append('description', 'Dataset Description');
                     formData.append('dataset_id', dataset_id);
+                    formData.append('workspace_id', currentWorkspace?.id);
 
                     const response = await fetch(
                         getServerUrl(REMOTE_SERVER_ROUTES.UPLOAD_REDDIT_DATA),
@@ -222,7 +226,7 @@ const useRedditData = () => {
             }
         });
         const data = await response.json();
-        console.log(data);
+        console.log(data, 'getRedditPostDataByBatch');
         return data;
         // }
     };
@@ -230,6 +234,9 @@ const useRedditData = () => {
     const loadFolderData = async (addToDb: boolean = false, changeModeInput = false) => {
         setLoading(true);
         try {
+            if (!currentWorkspace || !currentWorkspace.id) {
+                throw new Error('Workspace not found');
+            }
             let folderPath = modeInput;
             if (!modeInput && changeModeInput) {
                 folderPath = await ipcRenderer.invoke('select-folder');
@@ -241,7 +248,7 @@ const useRedditData = () => {
             if (addToDb) {
                 dataset_id = await sendFolderToBackendServer(folderPath);
             }
-            console.log('Data sent to server, dataset_id: ', datasetId);
+            console.log('Data sent to server, dataset_id: ', dataset_id);
             const parsedData = await getRedditPostDataByBatch(dataset_id, 10, 0);
             setData(parsedData);
             setError(null);

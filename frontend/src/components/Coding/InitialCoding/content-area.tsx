@@ -3,8 +3,8 @@ import Comment from './comment';
 import { ContentAreaProps } from '../../../types/Coding/props';
 import { IRedditPostData } from '../../../types/Coding/shared';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import { useCollectionContext } from '../../../context/collection_context';
-import getServerUtils from '../../../hooks/Shared/get_server_url';
+import { useCollectionContext } from '../../../context/collection-context';
+import getServerUtils from '../../../hooks/Shared/get-server-url';
 
 const { ipcRenderer } = window.require('electron');
 

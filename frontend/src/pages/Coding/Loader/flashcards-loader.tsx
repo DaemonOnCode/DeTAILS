@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaLaptop, FaToolbox, FaFileAlt, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
-import { useCollectionContext } from '../../../context/collection_context';
+import { useCollectionContext } from '../../../context/collection-context';
 
 const { ipcRenderer } = window.require('electron');
 

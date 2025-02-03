@@ -1,8 +1,8 @@
 import { FC, Suspense, useEffect, useState } from 'react';
 import PostTab from './post-tab';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import useServerUtils from '../../../hooks/Shared/get_server_url';
-import { useCollectionContext } from '../../../context/collection_context';
+import useServerUtils from '../../../hooks/Shared/get-server-url';
+import { useCollectionContext } from '../../../context/collection-context';
 
 interface LeftPanelProps {
     postIds: string[];

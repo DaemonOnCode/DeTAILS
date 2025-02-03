@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useModelingContext } from '../../context/modeling_context';
-import useServerUtils from '../../hooks/Shared/get_server_url';
+import { useModelingContext } from '../../context/modeling-context';
+import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import { useWorkspaceContext } from '../../context/workspace_context';
-import { useCollectionContext } from '../../context/collection_context';
+import { useWorkspaceContext } from '../../context/workspace-context';
+import { useCollectionContext } from '../../context/collection-context';
 
 const ModelInfo = () => {
     const { datasetId } = useCollectionContext();

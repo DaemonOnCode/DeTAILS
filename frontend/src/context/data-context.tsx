@@ -1,10 +1,10 @@
 import { createContext, useState, FC, Dispatch, useCallback, useReducer, useEffect } from 'react';
 import { useMemo } from 'react';
 import { ILayout } from '../types/Coding/shared';
-import { CollectionProvider } from './collection_context';
-import { FilteringProvider } from './filtering_context';
-import { ModelingProvider } from './modeling_context';
-import { CodingProvider } from './coding_context';
+import { CollectionProvider } from './collection-context';
+import { FilteringProvider } from './filtering-context';
+import { ModelingProvider } from './modeling-context';
+import { CodingProvider } from './coding-context';
 
 interface IDataContext {}
 

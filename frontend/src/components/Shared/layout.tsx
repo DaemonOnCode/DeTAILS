@@ -2,8 +2,8 @@ import { FC, useState } from 'react';
 import Sidebar from './sidebar';
 import Topbar from './topbar'; // Import the Topbar component
 import { ILayout } from '../../types/Coding/shared';
-import { useAuth } from '../../context/auth_context';
-import { useWebSocket } from '../../context/websocket_context';
+import { useAuth } from '../../context/auth-context';
+import { useWebSocket } from '../../context/websocket-context';
 import { motion } from 'framer-motion';
 
 export const Layout: FC<ILayout> = ({ children }) => {

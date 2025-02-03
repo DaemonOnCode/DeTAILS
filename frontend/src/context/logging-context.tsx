@@ -11,6 +11,7 @@ type Logger = {
     health: (message: string, context?: Record<string, any>) => Promise<void>;
     time: (message: string, context?: Record<string, any>) => Promise<void>;
     setUserEmail: (user: string) => void;
+    setType: (type: 'local' | 'remote') => void;
 };
 
 // Create a default logger that does nothing (for cases when the context is not provided)
@@ -21,22 +22,23 @@ const defaultLogger: Logger = {
     debug: async () => {},
     health: async () => {},
     time: async () => {},
-    setUserEmail: () => {}
+    setUserEmail: () => {},
+    setType: () => {}
 };
 
-// Create the LoggingContext
 const LoggingContext = createContext<Logger>(defaultLogger);
 
-// Define the LoggingProvider
 export const LoggingProvider: FC<ILayout> = ({ children }) => {
+    // Updated through auth context
     const [userEmail, setUserEmail] = useState<string>('');
+    const [type, setType] = useState<'local' | 'remote'>('local');
 
     const logger = useMemo<Logger>(() => {
         const log = async (level: string, message: string, context: Record<string, any> = {}) => {
             try {
                 console.log(`[${level.toUpperCase()}]: ${message}`);
                 if (!LOGGING) return;
-                await fetch(LOGGING_API_URL, {
+                await fetch(LOGGING_API_URL[type], {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -62,9 +64,10 @@ export const LoggingProvider: FC<ILayout> = ({ children }) => {
             debug: (message, context) => log('debug', message, context),
             health: (message, context) => log('health', message, context),
             time: (message, context) => log('time', message, context),
-            setUserEmail
+            setUserEmail,
+            setType
         };
-    }, [userEmail]);
+    }, [userEmail, type]);
 
     return <LoggingContext.Provider value={logger}>{children}</LoggingContext.Provider>;
 };

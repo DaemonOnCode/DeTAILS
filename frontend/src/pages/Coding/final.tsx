@@ -1,13 +1,13 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { DB_PATH, ROUTES, exampleData } from '../../constants/Coding/shared';
 import { IFinalCodeResponse } from '../../types/Coding/shared';
-import RedditViewModal from '../../components/Coding/Shared/reddit_view_modal';
-import { DataContext } from '../../context/data_context';
-import { useLogger } from '../../context/logging_context';
+import RedditViewModal from '../../components/Coding/Shared/reddit-view-modal';
+import { DataContext } from '../../context/data-context';
+import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
-import { useCodingContext } from '../../context/coding_context';
-import { useCollectionContext } from '../../context/collection_context';
+import { useCodingContext } from '../../context/coding-context';
+import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const { ipcRenderer } = window.require('electron');

@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
-import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-coding-section';
 import { ROUTES } from '../../constants/Coding/shared';
-import { useCodingContext } from '../../context/coding_context';
+import { useCodingContext } from '../../context/coding-context';
 import { createTimer } from '../../utility/timer';
-import { useLogger } from '../../context/logging_context';
+import { useLogger } from '../../context/logging-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const CodeReview = () => {

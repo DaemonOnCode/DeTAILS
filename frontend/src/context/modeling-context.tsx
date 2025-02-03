@@ -1,13 +1,13 @@
 import { createContext, useState, FC, useCallback, useEffect, useContext } from 'react';
 import { useMemo } from 'react';
 import { ILayout, SetState } from '../types/Coding/shared';
-import { useWebSocket } from './websocket_context';
+import { useWebSocket } from './websocket-context';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useCollectionContext } from './collection_context';
-import { useWorkspaceContext } from './workspace_context';
+import { useCollectionContext } from './collection-context';
+import { useWorkspaceContext } from './workspace-context';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../constants/Shared';
 import { ROUTES } from '../constants/DataModeling/shared';
-import useServerUtils from '../hooks/Shared/get_server_url';
+import useServerUtils from '../hooks/Shared/get-server-url';
 
 // Define the interface for each model's state
 interface IModelState {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { createTimer } from '../../../utility/timer';
-import { useLogger } from '../../../context/logging_context';
+import { useLogger } from '../../../context/logging-context';
 
 const FinalLoaderPage = () => {
     const logger = useLogger();

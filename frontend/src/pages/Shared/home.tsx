@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../../context/auth_context';
+import { useAuth } from '../../context/auth-context';
 import { ROUTES } from '../../constants/Shared';
 
 const HomePage = () => {

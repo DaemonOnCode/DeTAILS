@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useModelingContext } from '../../context/modeling_context';
+import { useModelingContext } from '../../context/modeling-context';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/DataModeling/shared';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import useServerUtils from '../../hooks/Shared/get_server_url';
+import useServerUtils from '../../hooks/Shared/get-server-url';
 import { toast } from 'react-toastify';
-import { useWorkspaceContext } from '../../context/workspace_context';
-import { useCollectionContext } from '../../context/collection_context';
+import { useWorkspaceContext } from '../../context/workspace-context';
+import { useCollectionContext } from '../../context/collection-context';
 
 const Topbar = () => {
     const { models, activeModelId, setActiveModelId, updateModelName, removeModel } =

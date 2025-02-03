@@ -1,15 +1,15 @@
 import { FC, useEffect, useRef, useState } from 'react';
 import { LOADER_ROUTES, ROUTES, WORD_CLOUD_MIN_THRESHOLD } from '../../constants/Coding/shared';
-import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import KeywordCloud from '../../components/Coding/KeywordCloud/index';
-import { useLogger } from '../../context/logging_context';
+import { useLogger } from '../../context/logging-context';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
-import { useCodingContext } from '../../context/coding_context';
+import { useCodingContext } from '../../context/coding-context';
 import { useNavigate } from 'react-router-dom';
-import { useCollectionContext } from '../../context/collection_context';
+import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import getServerUtils from '../../hooks/Shared/get_server_url';
+import getServerUtils from '../../hooks/Shared/get-server-url';
 
 const KeywordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);

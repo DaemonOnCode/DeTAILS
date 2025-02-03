@@ -1,6 +1,6 @@
 import React, { FC, createContext, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import { useAuth } from './auth_context';
+import { useAuth } from './auth-context';
 import { ILayout } from '../types/Coding/shared';
 
 const { ipcRenderer } = window.require('electron');

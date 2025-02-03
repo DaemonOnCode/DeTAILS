@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useWorkspaceContext } from '../../context/workspace_context';
-import { useModelingContext } from '../../context/modeling_context';
-import useServerUtils from '../../hooks/Shared/get_server_url';
+import { useWorkspaceContext } from '../../context/workspace-context';
+import { useModelingContext } from '../../context/modeling-context';
+import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 
 const TopicsTable = () => {

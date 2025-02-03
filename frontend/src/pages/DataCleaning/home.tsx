@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import RulesTable from '../../components/DataCleaning/rules_table';
-import WordPanel, { WordDetail } from '../../components/DataCleaning/word_panel';
-import CreateRuleModal from '../../components/DataCleaning/rule_modal';
+import RulesTable from '../../components/DataCleaning/rules-table';
+import WordPanel, { WordDetail } from '../../components/DataCleaning/word-panel';
+import CreateRuleModal from '../../components/DataCleaning/rule-modal';
 import { Rule } from '../../types/DataCleaning/shared';
-import { useCollectionContext } from '../../context/collection_context';
+import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import useServerUtils from '../../hooks/Shared/get_server_url';
+import useServerUtils from '../../hooks/Shared/get-server-url';
 
 const tryRequest = async (promise: Promise<Response>) => {
     try {

@@ -1,6 +1,6 @@
 import { FC, useState } from 'react';
 import { RedditPosts } from '../../types/Coding/shared';
-import RedditViewModal from '../Coding/Shared/reddit_view_modal';
+import RedditViewModal from '../Coding/Shared/reddit-view-modal';
 import { RedditTableProps } from '../../types/Coding/props';
 
 const RedditTable: FC<RedditTableProps> = ({

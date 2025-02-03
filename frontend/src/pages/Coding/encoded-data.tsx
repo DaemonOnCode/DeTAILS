@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react';
-import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-coding-section';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
-import { useCodingContext } from '../../context/coding_context';
-import { useLogger } from '../../context/logging_context';
+import { useCodingContext } from '../../context/coding-context';
+import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { useNavigate } from 'react-router-dom';
-import { useCollectionContext } from '../../context/collection_context';
-import useServerUtils from '../../hooks/Shared/get_server_url';
+import { useCollectionContext } from '../../context/collection-context';
+import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
 
 const EncodedDataPage = () => {

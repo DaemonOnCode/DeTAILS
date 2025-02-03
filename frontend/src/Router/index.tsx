@@ -1,12 +1,12 @@
 import { FC } from 'react';
 import { RouteObject, useRoutes } from 'react-router-dom';
-import { protectRoutes } from '../utility/protect_routes';
+import { protectRoutes } from '../utility/protect-routes';
 import { ROUTES } from '../constants/Shared';
-import { SharedRouter } from './shared_router';
-import { CodingRouter } from './coding_router';
-import { DataCollectionRouter } from './data_collection_router';
-import { DataModelingRouter } from './data_modeling_router';
-import { DataCleaningRouter } from './data_cleaning_router';
+import { SharedRouter } from './shared-router';
+import { CodingRouter } from './coding-router';
+import { DataCollectionRouter } from './data-collection-router';
+import { DataModelingRouter } from './data-modeling-router';
+import { DataCleaningRouter } from './data-cleaning-router';
 import WorkspacePage from '../pages/Shared/workspace';
 
 export const AppRoutes: RouteObject[] = [

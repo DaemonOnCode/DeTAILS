@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import { useAuth, AuthContextType } from '../../context/auth_context';
-import { useCodingContext, ICodingContext } from '../../context/coding_context';
-import { useCollectionContext, ICollectionContext } from '../../context/collection_context';
-import { IWorkspaceContext, useWorkspaceContext } from '../../context/workspace_context';
+import { useAuth, AuthContextType } from '../../context/auth-context';
+import { useCodingContext, ICodingContext } from '../../context/coding-context';
+import { useCollectionContext, ICollectionContext } from '../../context/collection-context';
+import { IWorkspaceContext, useWorkspaceContext } from '../../context/workspace-context';
 import { toast } from 'react-toastify';
-import useServerUtils from './get_server_url';
-import { useWebSocket } from '../../context/websocket_context';
-import { useModelingContext, IModelingContext } from '../../context/modeling_context';
+import useServerUtils from './get-server-url';
+import { useWebSocket } from '../../context/websocket-context';
+import { useModelingContext, IModelingContext } from '../../context/modeling-context';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();

@@ -1,5 +1,5 @@
 import { FC } from 'react';
-import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { ROUTES } from '../../constants/Coding/shared';
 
 const HomePage: FC = () => {

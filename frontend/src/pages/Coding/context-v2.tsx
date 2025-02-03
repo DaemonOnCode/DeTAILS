@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import FileCard from '../../components/Coding/Shared/file_card';
-import NavigationBottomBar from '../../components/Coding/Shared/navigation_bottom_bar';
+import FileCard from '../../components/Coding/Shared/file-card';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useNavigate } from 'react-router-dom';
-import { useLogger } from '../../context/logging_context';
+import { useLogger } from '../../context/logging-context';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
-import { useCodingContext } from '../../context/coding_context';
-import { useCollectionContext } from '../../context/collection_context';
+import { useCodingContext } from '../../context/coding-context';
+import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import getServerUtils from '../../hooks/Shared/get_server_url';
+import getServerUtils from '../../hooks/Shared/get-server-url';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');

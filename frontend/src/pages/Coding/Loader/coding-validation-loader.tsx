@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaBrain, FaExclamationTriangle, FaTimesCircle } from 'react-icons/fa';
-import { useWebSocket } from '../../../context/websocket_context';
-import { useCollectionContext } from '../../../context/collection_context';
+import { useWebSocket } from '../../../context/websocket-context';
+import { useCollectionContext } from '../../../context/collection-context';
 import { MODEL_LIST } from '../../../constants/Shared';
 
 const { ipcRenderer } = window.require('electron');

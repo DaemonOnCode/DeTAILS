@@ -1,7 +1,7 @@
 import { FC, useContext, useEffect, useRef } from 'react';
-import useRedditData from '../../hooks/Home/use_reddit_data';
-import RedditTableRenderer from '../../components/Shared/reddit_table_renderer';
-import { useCollectionContext } from '../../context/collection_context';
+import useRedditData from '../../hooks/Home/use-reddit-data';
+import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
+import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const LoadReddit: FC = () => {
