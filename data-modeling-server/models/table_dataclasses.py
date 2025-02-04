@@ -5,8 +5,6 @@ from typing import Any, Dict, Optional, get_type_hints
 
 # T = TypeVar("T", bound="BaseDataclass")
 
-
-
 @dataclass
 class BaseDataclass:
     """Base class for all dataclasses with dictionary-like behavior."""
@@ -109,8 +107,8 @@ class WorkspaceState(BaseDataclass):
     sampled_post_with_themes_responses: Optional[str] = None  # JSON string for list
     unseen_post_response: Optional[str] = None  # JSON string for list
     unplaced_codes: Optional[str] = None  # JSON string for list
-    sampled_post_ids: Optional[list] = None  # JSON string for list
-    unseen_post_ids: Optional[list] = None  # JSON string for list
+    sampled_post_ids: Optional[str] = None  # JSON string for list
+    unseen_post_ids: Optional[str] = None  # JSON string for list
 
     # Metadata
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
@@ -244,4 +242,15 @@ class Token(BaseDataclass):
 class Tfidf(BaseDataclass):
     tfidf_min: float
     tfidf_max: float
+    token: str = field(metadata={"primary_key": True})
+
+@dataclass
+class TempTokenStat(BaseDataclass):
+    status: str = field(metadata={"primary_key": True})
+    count_words: int
+    count_docs: int
+    tfidf_min: float
+    tfidf_max: float
+    dataset_id: str = field(metadata={"primary_key": True}),
     token: str = field(metadata={"primary_key": True}),
+    pos: str = field(metadata={"primary_key": True}),

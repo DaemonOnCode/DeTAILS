@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
 
-# Pydantic Models
 class WorkspaceCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None

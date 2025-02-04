@@ -26,11 +26,11 @@ class ModelingContext(BaseModel):
 class CodingContext(BaseModel):
     main_topic: Optional[str] = None
     additional_info: Optional[str] = None
-    context_files: dict = {}  # Dict instead of basis_files for consistency
+    context_files: dict = {}
     keywords: list = []
     selected_keywords: list = []
     keyword_table: list = []
-    references_data: dict = {}  # Renamed to match save/load function
+    references_data: dict = {}
     themes: list = []
     research_questions: list = []
     sampled_post_responses: list = []

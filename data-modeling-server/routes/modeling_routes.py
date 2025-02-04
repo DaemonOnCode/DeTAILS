@@ -1,49 +1,18 @@
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
-import sqlite3
-from typing import List
-from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Path
-from numpy import add
-import psutil
-from pydantic import BaseModel
-import spacy
+
 from controllers.modeling_controller import MODEL_FUNCTIONS, process_topic_modeling
 from database.models_table import ModelsRepository
-from decorators.execution_time_logger import log_execution_time
 from models.modeling_models import MetadataRequest, ModelListRequest, TopicModelingRequest, UpdateMetadataRequest
-from routes.websocket_routes import manager, ConnectionManager
-from constants import DATABASE_PATH
-from utils.topic_modeling import lda_topic_modeling, biterm_topic_modeling, nnmf_topic_modeling, bertopic_modeling, llm_topic_modeling
-from spacy.language import Language
+from routes.websocket_routes import manager
 
 router = APIRouter()
-
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-import pandas as pd
-
 
 models_repo = ModelsRepository()
 # main_event_loop = asyncio.get_event_loop()
 
-# # Batch Tokenization Function
-# def preprocess_tokenization_batch(nlp, data: List[str]) -> List[List[str]]:
-#     """
-#     Tokenize a batch of text data efficiently, skipping stop words.
-#     """
-#     if not data:
-#         return []
-
-#     docs = nlp.pipe(data,  n_process=4)  # Batch process
-#     return [[token.text for token in doc if not token.is_stop] for doc in docs]
-
-
 # Dynamic route to handle topic modeling methods
 @router.post("/model/{method}")
-@log_execution_time()
-async def topic_model(
+async def topic_model_endpoint(
     method: str = Path(..., description="The topic modeling method to use"),
     request: TopicModelingRequest = None
 ):
@@ -57,8 +26,7 @@ async def topic_model(
 
 
 @router.post("/metadata")
-@log_execution_time()
-def get_metadata_for_model(request: MetadataRequest):
+def get_metadata_for_model_endpoint(request: MetadataRequest):
     if not request.dataset_id:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
     try:
@@ -87,8 +55,7 @@ def get_metadata_for_model(request: MetadataRequest):
 
 
 @router.put("/model")
-@log_execution_time()
-def update_metadata_for_model(request: UpdateMetadataRequest):
+def update_metadata_for_model_endpoint(request: UpdateMetadataRequest):
     model_id = request.model_id
     dataset_id = request.dataset_id
     workspace_id = request.workspace_id
@@ -109,8 +76,7 @@ def update_metadata_for_model(request: UpdateMetadataRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/model")
-@log_execution_time()
-def delete_model(request: MetadataRequest):
+def delete_model_endpoint(request: MetadataRequest):
     model_id = request.model_id
     dataset_id = request.dataset_id
     workspace_id = request.workspace_id
@@ -131,8 +97,7 @@ def delete_model(request: MetadataRequest):
 
 
 @router.post("/list-models")
-@log_execution_time()
-def get_models(request: ModelListRequest):
+def get_models_endpoint(request: ModelListRequest):
     if not request.dataset_id or not request.workspace_id:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
     models_result = models_repo.find({"dataset_id": request.dataset_id})

@@ -7,7 +7,7 @@ class PostsRepository(BaseRepository[Post]):
     def __init__(self):
         super().__init__("posts", Post)
     
-    def fetch_unprocessed_posts(self, dataset_id: str, batch_size: int, num_threads: int) -> List[Post]:
+    def fetch_unprocessed_posts(self, dataset_id: str, batch_size: int, num_threads: int):
         """
         Fetch posts that have not been tokenized yet.
         
@@ -16,15 +16,21 @@ class PostsRepository(BaseRepository[Post]):
         :param num_threads: Number of threads processing the posts.
         :return: List of post records that are not yet tokenized.
         """
+
+        tokenized_post_ids = list(map(lambda x: x["post_id"], self.execute_raw_query("SELECT post_id FROM tokenized_posts", keys=True)))
+
+
         query_builder = self.query_builder()
         query, params = query_builder.select("id", "title", "selftext") \
             .where("dataset_id", dataset_id) \
             .where("id", 
-                   self.execute_raw_query("SELECT post_id FROM tokenized_posts", keys=True), 
+                   tokenized_post_ids, 
                    operator="NOT IN") \
             .limit(batch_size * num_threads) \
             .find()
+        
+        print(query, params)
 
-        return self.fetch_all(query, params)
+        return self.fetch_all(query, params, map_to_model=False)
     
 

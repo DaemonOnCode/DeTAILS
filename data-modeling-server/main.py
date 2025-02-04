@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, RulesRepository, TokenStatsRepository, TokenStatsDetailedRepository, ModelsRepository, DatasetsRepository, PostsRepository, CommentsRepository, TokenizedPostsRepository, TokenizedCommentsRepository, LlmResponsesRepository
+from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware
 from routes import coding_routes, modeling_routes, filtering_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
 
 print("Initializing database...")
@@ -25,7 +26,7 @@ print("Database initialized!")
 print("Starting FastAPI server...")
 app = FastAPI()
 
-
+print("Adding middleware...")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,6 +34,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(ExecutionTimeMiddleware)
+app.add_middleware(ErrorHandlingMiddleware)
+print("Middleware added!")
 
 app.include_router(collection_routes.router, prefix="/api/collections", tags=["collections"])
 app.include_router(modeling_routes.router, prefix="/api/data-modeling", tags=["topic-modeling"])

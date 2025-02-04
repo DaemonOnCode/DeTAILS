@@ -2,7 +2,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import json
-from typing import List
+from typing import Any, Dict, List
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -13,6 +13,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
 from database import TokenizedPostsRepository, TokenizedCommentsRepository, PostsRepository, CommentsRepository, ModelsRepository, execute_query
+from decorators import log_execution_time
 from models.modeling_models import TopicModelingRequest
 from models import TokenizedPost, TokenizedComment, Model
 from routes.websocket_routes import ConnectionManager, manager
@@ -23,28 +24,6 @@ comments_repo = CommentsRepository()
 tokenized_posts_repo = TokenizedPostsRepository()
 tokenized_comments_repo = TokenizedCommentsRepository()
 models_repo = ModelsRepository()
-
-# Utility to execute SQL queries
-# def execute_query(query: str, params: tuple = (), keys = False) -> list[tuple]:
-#     """Utility function to execute SQL queries."""
-#     with sqlite3.connect(DATABASE_PATH) as conn:
-#         if keys:
-#             conn.row_factory = sqlite3.Row
-#         cursor = conn.cursor()
-#         cursor.execute(query, params)
-#         result = cursor.fetchall()
-#         conn.commit()
-#         if keys:
-#             return [dict(row) for row in result]
-#         return result
-    
-# def update_query(query: str, params: tuple = ()):
-#     """Utility function to execute SQL queries."""
-#     with sqlite3.connect(DATABASE_PATH) as conn:
-#         cursor = conn.cursor()
-#         cursor.execute(query, params)
-#         conn.commit()
-#         return cursor.rowcount
 
 # Batch Tokenization Function
 def preprocess_tokenization_batch(nlp: Language, data: List[str]) -> List[List[str]]:
@@ -62,12 +41,6 @@ def is_preprocessing_needed(dataset_id: str, table: str) -> bool:
     """
     Check if preprocessing is needed for the given dataset_id and table.
     """
-    # total_records_query = f"SELECT COUNT(*) FROM {table} WHERE dataset_id = ?"
-    # tokenized_records_query = f"SELECT COUNT(*) FROM tokenized_{table} WHERE {table[:-1]}_id IN (SELECT id FROM {table} WHERE dataset_id = ?)"
-
-    # total_records = execute_query(total_records_query, (dataset_id,))[0][0]
-    # tokenized_records = execute_query(tokenized_records_query, (dataset_id,))[0][0]
-
     if table == "posts":
         total_records = posts_repo.count({"dataset_id": dataset_id})
         tokenized_records = tokenized_posts_repo.count({"dataset_id": dataset_id})
@@ -82,28 +55,15 @@ def is_preprocessing_needed(dataset_id: str, table: str) -> bool:
 
 # Function to process posts with higher parallelization
 async def process_posts_batch_parallel(nlp, dataset_id: str, batch_size: int, total_records: int, num_threads: int, request: TopicModelingRequest = {}, type_: str = "", model_name: str = "", model_id: str = ""):
-    def process_batch(batch):
-        post_ids = [row[0] for row in batch]
-        titles = [row[1] or "" for row in batch]  # Use empty string if title is None
-        selftexts = [row[2] or "" for row in batch]
+    def process_batch(batch: List[Dict[str, Any]]):
+        post_ids = [row["id"] for row in batch]
+        titles = [row["title"] or "" for row in batch]  # Use empty string if title is None
+        selftexts = [row["selftext"] or "" for row in batch]
 
         # Tokenize titles and selftexts
         tokenized_titles = preprocess_tokenization_batch(nlp, titles)
         tokenized_selftexts = preprocess_tokenization_batch(nlp, selftexts)
 
-        # Prepare data for insertion
-        # tokenized_posts_data = [
-        #     (post_ids[i], " ".join(tokenized_titles[i]), " ".join(tokenized_selftexts[i]), dataset_id)
-        #     for i in range(len(batch))
-        # ]
-
-        # Insert into tokenized_posts
-        # with sqlite3.connect(DATABASE_PATH) as conn:
-        #     cursor = conn.cursor()
-        #     cursor.executemany(
-        #         "INSERT OR REPLACE INTO tokenized_posts (post_id, title, selftext, dataset_id) VALUES (?, ?, ?, ?)",
-        #         tokenized_posts_data,
-        #     )
         tokenized_posts_repo.insert_batch([
             TokenizedPost(
                 post_id=post_ids[i],
@@ -132,12 +92,7 @@ async def process_posts_batch_parallel(nlp, dataset_id: str, batch_size: int, to
 
     while True:
         print("Fetching posts", batch_size)
-        # posts = execute_query(f"""
-        #     SELECT id, title, selftext FROM posts
-        #     WHERE id NOT IN (SELECT post_id FROM tokenized_posts)
-        #     AND dataset_id = ?
-        #     LIMIT {batch_size * num_threads}
-        # """, (dataset_id,))
+
         posts = posts_repo.fetch_unprocessed_posts(dataset_id, batch_size, num_threads)
         if not posts:
             break
@@ -167,25 +122,13 @@ async def process_posts_batch_parallel(nlp, dataset_id: str, batch_size: int, to
 
 # Function to process comments with higher parallelization
 async def process_comments_batch_parallel(nlp, dataset_id: str, batch_size: int, total_records: int, num_threads: int, request: TopicModelingRequest = {}, type_: str = "", model_name: str = "", model_id: str = ""):
-    def process_batch(batch):
-        comment_ids = [row[0] for row in batch]
-        bodies = [row[1] or "" for row in batch]  # Use empty string if body is None
+    def process_batch(batch: List[Dict[str, Any]]):
+        comment_ids = [row["id"] for row in batch]
+        bodies = [row["body"] or "" for row in batch]  # Use empty string if body is None
 
         # Tokenize bodies
         tokenized_bodies = preprocess_tokenization_batch(nlp, bodies)
 
-        # Prepare data for insertion
-        # tokenized_comments_data = [
-        #     (comment_ids[i], " ".join(tokenized_bodies[i]), dataset_id) for i in range(len(batch))
-        # ]
-
-        # Insert into tokenized_comments
-        # with sqlite3.connect(DATABASE_PATH) as conn:
-        #     cursor = conn.cursor()
-        #     cursor.executemany(
-        #         "INSERT OR REPLACE INTO tokenized_comments (comment_id, body, dataset_id) VALUES (?, ?, ?)",
-        #         tokenized_comments_data,
-        #     )
         tokenized_comments_repo.insert_batch([
             TokenizedComment(
                 comment_id=comment_ids[i],
@@ -211,12 +154,7 @@ async def process_comments_batch_parallel(nlp, dataset_id: str, batch_size: int,
     await asyncio.sleep(0)
     while True:
         print("Fetching comments", batch_size)
-        # comments = execute_query(f"""
-        #     SELECT id, body FROM comments
-        #     WHERE id NOT IN (SELECT comment_id FROM tokenized_comments)
-        #     AND dataset_id = ?
-        #     LIMIT {batch_size * num_threads}
-        # """, (dataset_id,))
+
         comments = comments_repo.fetch_unprocessed_comments(dataset_id, batch_size, num_threads)
         if not comments:
             break
@@ -265,8 +203,6 @@ async def process_and_tokenize(dataset_id: str, batch_size: int = 1000, num_thre
 
     total_posts = posts_repo.count({"dataset_id": dataset_id})
     total_comments = comments_repo.count({"dataset_id": dataset_id})
-    # total_posts = execute_query(f"SELECT COUNT(*) FROM posts WHERE dataset_id = ?", (dataset_id,))[0][0]
-    # total_comments = execute_query(f"SELECT COUNT(*) FROM comments WHERE dataset_id = ?", (dataset_id,))[0][0]
 
     nlp = spacy.load("en_core_web_sm")
     for name in ["tagger", "parser", "ner", "textcat"]:
@@ -280,8 +216,6 @@ async def process_and_tokenize(dataset_id: str, batch_size: int = 1000, num_thre
     if comments_needed:
         await process_comments_batch_parallel_async(nlp, dataset_id, batch_size, total_comments, num_threads, request, type_, model_name, model_id)
 
-    # # Run all tasks concurrently
-    # await asyncio.gather(*tasks)
 
 
 
@@ -314,10 +248,7 @@ def check_preprocessing_done():
 
 def add_model_to_db(dataset_id: str, method: str, num_topics: int) -> tuple[str, str]:
     # Query the database to count models with the same method
-    
-    # count_query = "SELECT COUNT(*) FROM models WHERE method = ? AND dataset_id = ?"
-    # count_result = execute_query(count_query, (method, dataset_id))
-    # count = count_result[0][0] + 1  # Add 1 for the new model
+
     count = models_repo.count({"method": method, "dataset_id": dataset_id}) + 1
 
     # Create a unique model ID
@@ -327,10 +258,6 @@ def add_model_to_db(dataset_id: str, method: str, num_topics: int) -> tuple[str,
     model_name = f"{method} Model {count}"
 
     # Insert the new model into the database
-    # execute_query(
-    #     "INSERT INTO models (id, dataset_id, model_name, method, num_topics, started_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-    #     (model_id, dataset_id, model_name, method, num_topics),
-    # )
     models_repo.insert(Model(
         id=model_id,
         dataset_id=dataset_id,
@@ -344,10 +271,6 @@ def add_model_to_db(dataset_id: str, method: str, num_topics: int) -> tuple[str,
 
 def update_model_in_db(model_id: str, topics: list[dict]):
     # Update the topics in the database
-    # execute_query(
-    #     "UPDATE models SET topics = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?",
-    #     (json.dumps(topics), model_id),
-    # )
     models_repo.update({"id": model_id}, {"topics": json.dumps(topics), "finished_at": datetime.now()})
 
 # Map method names to modeling functions
@@ -363,10 +286,6 @@ MODEL_FUNCTIONS = {
 async def send_broadcast(manager: ConnectionManager, type_: str, dataset_id: str, model_id: str, model_name:str, workspace_id: str, num_topics: int, message: str):
     print(f"Broadcasting {message} for {model_name} ({model_id})")
     models_repo.update({"id": model_id, "dataset_id": dataset_id}, {"stage": message if message != "end" else ""})
-    # execute_query(
-    #     "UPDATE models SET stage = ? WHERE id = ? and dataset_id = ?",
-    #     (message if message != "end" else "", model_id, dataset_id),
-    # )
     await manager.broadcast(json.dumps({
         "type": type_,
         "dataset_id": dataset_id,
@@ -379,6 +298,7 @@ async def send_broadcast(manager: ConnectionManager, type_: str, dataset_id: str
     print(f"Broadcasted {message} for {model_name} ({model_id})")
 
 # Common function to process topic modeling
+@log_execution_time()
 async def process_topic_modeling(
     request: TopicModelingRequest,
     manager,

@@ -1,30 +1,25 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 from controllers.miscellaneous_controller import link_creator, normalize_text, search_slice
 from database import PostsRepository, CommentsRepository
 from database.db_helpers import get_post_and_comments_from_id
-from decorators.execution_time_logger import log_execution_time
 from models.miscellaneous_models import RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest
 
 
 router = APIRouter()
 
-
+posts_repo = PostsRepository()
+comments_repo = CommentsRepository()
 
 @router.post("/get-link-from-post", response_model=dict)
-@log_execution_time()
-async def get_reddit_post_link(request: RedditPostLinkRequest):
+async def get_reddit_post_link_endpoint(request: RedditPostLinkRequest):
     """Retrieve Reddit post link or comment link based on a text slice."""
     if not request.postId or not request.datasetId:
         raise HTTPException(status_code=400, detail="Post ID and Dataset ID are required.")
 
     dataset_id = request.datasetId
     post_id = request.postId
-    comment_slice = request.commentSlice
-
-    posts_repo = PostsRepository()
-    comments_repo = CommentsRepository()
+    comment_slice = request.commentSlice    
 
     post_data = posts_repo.find_one({"id": post_id, "dataset_id": dataset_id}, columns=["id", "selftext", "title", "subreddit", "url", "permalink"])
 
@@ -55,8 +50,7 @@ async def get_reddit_post_link(request: RedditPostLinkRequest):
 
 
 @router.post("/get-post-from-id")
-@log_execution_time()
-async def get_post_from_id(request: RedditPostByIdRequest):
+async def get_post_from_id_endpoint(request: RedditPostByIdRequest):
     """Retrieve a post and its comments, structured in a hierarchical format."""
     if not request.postId or not request.datasetId:
         raise HTTPException(status_code=400, detail="Post ID and Dataset ID are required.")
@@ -68,14 +62,11 @@ async def get_post_from_id(request: RedditPostByIdRequest):
 
 
 @router.post("/get-post-title-from-id-batch")
-@log_execution_time()
-async def get_post_title_from_id_batch(request: RedditPostIDAndTitleRequestBatch):
+async def get_post_title_from_id_batch_endpoint(request: RedditPostIDAndTitleRequestBatch):
     """Retrieve post titles for multiple post IDs in a dataset."""
     if not request.post_ids or not request.dataset_id:
         raise HTTPException(status_code=400, detail="Missing post_ids or dataset_id")
-
-    posts_repo = PostsRepository()
-
+    
     post_titles = posts_repo.find(
         filters={"dataset_id": request.dataset_id, "id": request.post_ids},
         columns=["id", "title", "selftext"]
@@ -85,15 +76,13 @@ async def get_post_title_from_id_batch(request: RedditPostIDAndTitleRequestBatch
 
 
 @router.post("/get-post-title-from-id")
-@log_execution_time()
-async def get_post_title_from_id(
+async def get_post_title_from_id_endpoint(
     request: RedditPostIDAndTitleRequest
 ):
     post_id = request.post_id
     dataset_id = request.dataset_id
     if not post_id or not dataset_id: 
         return HTTPException(status_code=400, detail="Missing post_id or dataset_id")
-    
-    posts_repo = PostsRepository()
+
     post = posts_repo.find_one({"dataset_id": dataset_id, "id": post_id}, columns=["id", "title", "selftext"])
     return post

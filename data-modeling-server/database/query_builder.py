@@ -34,8 +34,17 @@ class QueryBuilder(Generic[T]):
     # SELECT Operations
     def where(self, column: str, value: Any, operator: str = "=") -> "QueryBuilder[T]":
         """ Adds a WHERE condition to the query. """
-        self._validate_column(column)
-        self._validate_value(column, value)
+        if operator not in ("=", "!=", ">", "<", ">=", "<=", "IN", "NOT IN"):
+            raise ValueError(f"Invalid operator: {operator}. Allowed operators: =, !=, >, <, >=, <=, IN, NOT IN")
+        if isinstance(value, list):
+            self._validate_column(column)
+            if not len(value):  # Avoid empty lists causing SQL errors
+                return self
+            for val in value:
+                self._validate_value(column, val)
+        else:    
+            self._validate_column(column)
+            self._validate_value(column, value)
         self.filters.append((column, operator, value))
         return self
 
@@ -101,7 +110,9 @@ class QueryBuilder(Generic[T]):
         where_clause = ""
         params = []
 
-        if filters:
+        filters = filters or {}
+
+        if len(filters.keys()) or len(self.filters):
             clauses = []
             for column, value in filters.items():
                 self._validate_column(column)
@@ -116,6 +127,19 @@ class QueryBuilder(Generic[T]):
                     self._validate_value(column, value)
                     clauses.append(f"{column} = ?")
                     params.append(value)
+            
+            for column, operator, value in self.filters:
+                if isinstance(value, list):  # Handle multi-value search
+                    if not value:  # Avoid empty lists causing SQL errors
+                        raise ValueError(f"Filter for '{column}' cannot be an empty list.")
+                    placeholders = ", ".join(["?"] * len(value))
+                    clauses.append(f"{column} {operator} ({placeholders})")
+                    params.extend(value)
+                else:
+                    self._validate_value(column, value)
+                    clauses.append(f"{column} {operator} ?")
+                    params.append(value)
+
 
             where_clause = "WHERE " + " AND ".join(clauses)
 

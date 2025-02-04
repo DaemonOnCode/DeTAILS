@@ -13,6 +13,7 @@ from .tokenized_posts_table import TokenizedPostsRepository
 from .workspace_states_table import WorkspaceStatesRepository
 from .workspace_table import WorkspacesRepository
 from .token_table import TokensRepository
+from .tfidf_table import TfidfRepository
 from .initialize import initialize_database
 from .db_helpers import execute_query, execute_query_with_retry
 
@@ -32,6 +33,7 @@ __all__ = [
     "WorkspaceStatesRepository",
     "WorkspacesRepository",
     "TokensRepository",
+    "TfidfRepository",
     "initialize_database",
     "execute_query",
     "execute_query_with_retry",

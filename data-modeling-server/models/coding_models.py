@@ -1,0 +1,50 @@
+
+from pydantic import BaseModel
+
+
+class SamplePostsRequest(BaseModel):
+    dataset_id: str
+    post_ids: list= []
+    sample_size: int = 0.5
+
+    
+class RegenerateKeywordsRequest(BaseModel):
+    model: str
+    mainTopic: str
+    additionalInfo: str = ""
+    researchQuestions: list
+    selectedKeywords: list
+    unselectedKeywords: list
+    extraFeedback: str = ""
+    datasetId: str 
+
+
+class GenerateInitialCodesRequest(BaseModel):
+    dataset_id: str
+    keyword_table: list
+    model: str
+    main_topic: str
+    additional_info: str
+    research_questions: list
+    sampled_post_ids: list
+
+    
+class CodebookRefinementRequest(BaseModel):
+    dataset_id: str
+    model: str
+    prevCodebook: list
+    currentCodebook: list
+
+
+class DeductiveCodingRequest(BaseModel):
+    dataset_id: str
+    model: str
+    final_codebook: list
+    unseen_post_ids: list
+
+  
+class ThemeGenerationRequest(BaseModel):
+    dataset_id: str
+    model: str
+    sampled_post_responses: list
+    unseen_post_responses: list

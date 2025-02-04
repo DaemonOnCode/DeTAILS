@@ -83,7 +83,7 @@ class BaseRepository(Generic[T]):
                 return query_result
 
     @handle_db_errors
-    def fetch_all(self, query: str, params: tuple = ()) -> List[T]:
+    def fetch_all(self, query: str, params: tuple = (), map_to_model = True) -> List[T] | List[Dict[str, Any]]:
         """
         Fetches all rows for a given query and maps them to the dataclass model.
         """
@@ -92,10 +92,12 @@ class BaseRepository(Generic[T]):
             cursor = conn.cursor()
             cursor.execute(query, params)
             rows = cursor.fetchall()
-        return [self._map_to_model(row) for row in rows]
+        if map_to_model:
+            return [self._map_to_model(row) for row in rows]
+        return [dict(row) for row in rows]
 
     @handle_db_errors
-    def fetch_one(self, query: str, params: tuple = ()) -> Optional[T]:
+    def fetch_one(self, query: str, params: tuple = (), map_to_model = True) -> Optional[T] | Optional[Dict[str, Any]]:
         """
         Fetches a single row for a given query and maps it to the dataclass model.
         """
@@ -106,6 +108,8 @@ class BaseRepository(Generic[T]):
             row = cursor.fetchone()
         if not row:
             raise RecordNotFoundError(f"Record not found for query: {query} with params: {params}")
+        if not map_to_model:
+            return dict(row)
         return self._map_to_model(row)
 
     @handle_db_errors

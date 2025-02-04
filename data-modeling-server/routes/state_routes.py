@@ -1,36 +1,16 @@
 import os
 import shutil
-import sqlite3
 
-from typing import List
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from constants import DATABASE_PATH
 from controllers.state_controller import delete_state, export_workspace, import_workspace, load_state, save_state
-from decorators.execution_time_logger import log_execution_time
 from models.state_models import LoadStateRequest, SaveStateRequest
 
 
 router = APIRouter()
 
-# Helper function
-def run_query(query: str, params: tuple = ()):
-    with sqlite3.connect(DATABASE_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        print(f"Executed query: {query}", params, cursor.lastrowid)
-        conn.commit()
-
-def run_query_with_columns(query: str, params: tuple = ()) -> List[dict]:
-    with sqlite3.connect(DATABASE_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        return [dict(row) for row in cursor.fetchall()]
-
 @router.post("/save-state")
-@log_execution_time()
 def save_state_endpoint(request: SaveStateRequest):
     if request.workspace_id is None or request.workspace_id == "":
         raise HTTPException(status_code=400, detail="workspace_id is required")
@@ -46,7 +26,6 @@ def save_state_endpoint(request: SaveStateRequest):
 
 
 @router.post("/load-state")
-@log_execution_time()
 def load_state_endpoint(request: LoadStateRequest):
     try:
         result = load_state(request)
@@ -58,7 +37,6 @@ def load_state_endpoint(request: LoadStateRequest):
     
 
 @router.delete("/delete-state")
-@log_execution_time()
 def delete_state_endpoint(request: LoadStateRequest):
     try:
         print("Deleting state", request.workspace_id, request.user_email)
@@ -71,7 +49,6 @@ def delete_state_endpoint(request: LoadStateRequest):
 
 
 @router.post("/export-workspace")
-@log_execution_time()
 def export_workspace_endpoint(request: LoadStateRequest):
     workspace_id = request.workspace_id
     user_email = request.user_email
@@ -100,12 +77,10 @@ def export_workspace_endpoint(request: LoadStateRequest):
 
 
 @router.post("/import-workspace")
-@log_execution_time()
 async def import_workspace_endpoint(
     user_email: str = Form(...),
     file: UploadFile = File(...)
 ):
-        
         if not file.filename.endswith(".zip"):
             raise HTTPException(status_code=400, detail="Uploaded file is not a ZIP file")
 

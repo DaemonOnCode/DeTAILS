@@ -1,8 +1,7 @@
 from typing import List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from controllers.workspace_controller import create_temp_workspace, create_workspace, delete_workspace, get_workspaces, update_workspace, upgrade_workspace_from_temp
-from decorators.execution_time_logger import log_execution_time
 from models.workspace_model import WorkspaceCreateRequest, WorkspaceUpdateRequest
 
 
@@ -10,78 +9,54 @@ router = APIRouter()
 
 # Routes
 @router.post("/create-workspace")
-@log_execution_time()
 async def create_workspace_endpoint(request: WorkspaceCreateRequest):
     """
     Create a new workspace and associate it with the user's email.
     """
-    try:
-        workspace_id = create_workspace(request)
-        print("Workspace ID: ", workspace_id, "Create workspace")
-        return {"message": "Workspace created successfully!", "id": workspace_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    workspace_id = create_workspace(request)
+    print("Workspace ID: ", workspace_id, "Create workspace")
+    return {"message": "Workspace created successfully!", "id": workspace_id}
 
 @router.get("/get-workspaces", response_model=List[dict])
-@log_execution_time()
 async def get_workspaces_endpoint(user_email: str):
     """
     Retrieve all workspaces associated with the user's email.
     """
-    try:
-        workspaces = get_workspaces(user_email)
-        return workspaces
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    workspaces = get_workspaces(user_email)
+    return [workspace.to_dict() for workspace in workspaces]
 
 
 @router.put("/update-workspace")
-@log_execution_time()
 async def update_workspace_endpoint(request: WorkspaceUpdateRequest):
     """
     Update a workspace's name or description.
     """
-    try:
-        update_workspace(request)
-        return {"message": "Workspace updated successfully!"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    update_workspace(request)
+    return {"message": "Workspace updated successfully!"}
 
 
 
 @router.delete("/delete-workspace/{workspace_id}")
-@log_execution_time()
 async def delete_workspace_endpoint(workspace_id: str):
     """
     Delete a workspace by its ID.
     """
-    try:
-        delete_workspace(workspace_id)
-        return {"message": "Workspace deleted successfully!"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    delete_workspace(workspace_id)
+    return {"message": "Workspace deleted successfully!"}
 
 @router.post("/create-temp-workspace")
-@log_execution_time()
 async def create_temp_workspace_endpoint(user_email: str):
     """
     Create a temporary workspace for the user if it doesn't already exist.
     """
-    try:
-        workspace_id = create_temp_workspace(user_email)
-        return {"message": "Temporary workspace created successfully!", "id": workspace_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    workspace_id = create_temp_workspace(user_email)
+    return {"message": "Temporary workspace created successfully!", "id": workspace_id}
 
 
 @router.post("/upgrade-workspace-from-temp")
-@log_execution_time()
 async def upgrade_workspace_from_temp_endpoint(workspace_id: str, new_name: str):
     """
     Upgrade a temporary workspace to a permanent one.
     """
-    try:
-        upgrade_workspace_from_temp(workspace_id, new_name)
-        return {"message": "Workspace upgraded successfully!"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    upgrade_workspace_from_temp(workspace_id, new_name)
+    return {"message": "Workspace upgraded successfully!"}
