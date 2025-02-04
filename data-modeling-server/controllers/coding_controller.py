@@ -137,9 +137,6 @@ def get_llm_and_embeddings(
     try:
         # Initialize LLM based on model type
         if model.startswith("gemini") or model.startswith("google"):
-            google_api_key = os.getenv("GOOGLE_API_KEY")
-            if not google_api_key:
-                raise ValueError("Google API key is required for Gemini models.")
             llm = ChatVertexAI(
                 model_name=model, 
                 num_ctx=num_ctx,
