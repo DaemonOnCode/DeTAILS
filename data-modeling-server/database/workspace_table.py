@@ -1,6 +1,6 @@
 from typing import List
 from .base_class import BaseRepository
-from .table_dataclass import Workspace
+from models import Workspace
 
 class WorkspacesRepository(BaseRepository[Workspace]):
     model = Workspace

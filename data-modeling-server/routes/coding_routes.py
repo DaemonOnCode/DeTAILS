@@ -10,7 +10,7 @@ from chromadb import HttpClient
 from fastapi import APIRouter, Form, HTTPException, Request, UploadFile
 import numpy as np
 from pydantic import BaseModel
-from routes.modeling_routes import execute_query
+# from routes.modeling_routes import execute_query
 from routes.websocket_routes import manager
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -28,7 +28,8 @@ from langchain_ollama import OllamaLLM
 
 from decorators.execution_time_logger import log_execution_time
 from utils.coding_helpers import generate_transcript
-from utils.db_helpers import get_post_with_comments
+from database.db_helpers import execute_query
+from database.db_helpers import get_post_and_comments_from_id
 from utils.prompts_v2 import ContextPrompt, DeductiveCoding, InitialCodePrompts, RefineCodebook, ThemeGeneration
 
 
@@ -37,7 +38,7 @@ router = APIRouter()
 
 async def process_post_with_llm(dataset_id, post_id, llm, prompt, regex = r"\"codes\":\s*(\[.*?\])"):
     try:
-        post_data = get_post_with_comments(dataset_id, post_id)
+        post_data = get_post_and_comments_from_id(dataset_id, post_id)
         transcript = generate_transcript(post_data)
         response = await asyncio.to_thread(llm.invoke, prompt.format(transcript=transcript))
 
@@ -377,7 +378,7 @@ async def generate_codes_endpoint(
                 print("Processing post", post_id)
                 # Fetch post and comments
                 await manager.broadcast(f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-                post_data = get_post_with_comments(dataset_id, post_id)
+                post_data = get_post_and_comments_from_id(dataset_id, post_id)
 
                 print("Generating transcript")
                 # Generate transcript and context
@@ -587,7 +588,7 @@ async def deductive_coding_endpoint(
                 print("Processing post", post_id)
                 # Fetch post and comments
                 await manager.broadcast(f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-                post_data = get_post_with_comments(dataset_id, post_id)
+                post_data = get_post_and_comments_from_id(dataset_id, post_id)
 
                 print("Generating transcript")
                 # Generate transcript and context

@@ -1,6 +1,8 @@
 from typing import List
+
+from models import Dataset
 from .base_class import BaseRepository
-from .table_dataclass import Dataset
+
 
 class DatasetsRepository(BaseRepository[Dataset]):
     model = Dataset

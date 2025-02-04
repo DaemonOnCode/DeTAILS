@@ -1,6 +1,6 @@
 from typing import List
 from .base_class import BaseRepository
-from .table_dataclass import Rule
+from models import Rule
 
 class RulesRepository(BaseRepository[Rule]):
     model = Rule

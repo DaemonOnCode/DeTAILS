@@ -5,19 +5,7 @@ from typing import Optional, Any, Dict
 from datetime import datetime
 
 from constants import DATABASE_PATH
-
-SQLITE_TYPE_MAPPING = {
-    str: "TEXT",
-    int: "INTEGER",
-    float: "REAL",
-    bytes: "BLOB",
-    datetime: "TIMESTAMP",
-    Optional[str]: "TEXT",
-    Optional[int]: "INTEGER",
-    Optional[float]: "REAL",
-    Optional[bytes]: "BLOB",
-    Optional[datetime]: "TIMESTAMP",
-}
+from database.constants import SQLITE_TYPE_MAPPING
 
 def camel_to_snake(name: str) -> str:
     """Convert CamelCase to snake_case."""

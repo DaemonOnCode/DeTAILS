@@ -2,19 +2,7 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from database.comments_table import CommentsRepository
-from database.datasets_table import DatasetsRepository
-from database.initialize import initialize_database
-from database.llm_responses_table import LlmResponsesRepository
-from database.models_table import ModelsRepository
-from database.posts_table import PostsRepository
-from database.rules_table import RulesRepository
-from database.token_stats_detailed_table import TokenStatsDetailedRepository
-from database.token_stats_table import TokenStatsRepository
-from database.tokenized_comments_table import TokenizedCommentsRepository
-from database.tokenized_posts_table import TokenizedPostsRepository
-from database.workspace_states_table import WorkspaceStatesRepository
-from database.workspace_table import WorkspacesRepository
+from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, RulesRepository, TokenStatsRepository, TokenStatsDetailedRepository, ModelsRepository, DatasetsRepository, PostsRepository, CommentsRepository, TokenizedPostsRepository, TokenizedCommentsRepository, LlmResponsesRepository
 from routes import coding_routes, modeling_routes, filtering_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
 
 print("Initializing database...")

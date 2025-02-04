@@ -1,6 +1,6 @@
 from typing import List
 from .base_class import BaseRepository
-from .table_dataclass import TokenizedComment
+from models import TokenizedComment
 
 class TokenizedCommentsRepository(BaseRepository[TokenizedComment]):
     model = TokenizedComment

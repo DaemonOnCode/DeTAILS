@@ -25,7 +25,7 @@ import json
 from chromadb import HttpClient
 from constants import DATABASE_PATH
 from utils.prompts import CodePrompts, ThemePrompts, FlashcardPrompts, WordCloudPrompts, CodebookPrompts
-from utils.db_helpers import get_post_with_comments
+from database.db_helpers import get_post_and_comments_from_id
 from utils.coding_helpers import generate_context, generate_feedback, generate_transcript, generate_context_with_codebook
 from routes.websocket_routes import manager
 
@@ -1490,7 +1490,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
             try:
                 # Fetch post and comments
                 await manager.broadcast(f"Dataset {request_body.datasetId}: Fetching data for post {post_id}...")
-                post_data = await run_blocking_function_with_disconnection(forcibleExecutor, request, get_post_with_comments, request_body.datasetId, post_id)
+                post_data = await run_blocking_function_with_disconnection(forcibleExecutor, request, get_post_and_comments_from_id, request_body.datasetId, post_id)
 
                 # Generate transcript and context
                 await manager.broadcast(f"Dataset {request_body.datasetId}: Generating transcript for post {post_id}...")
@@ -1685,7 +1685,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
             try:
                 # Fetch post and comments
                 await manager.broadcast(f"Dataset {request_body.datasetId}: Fetching data for post {post_id}...")
-                post_data = await run_blocking_function_with_disconnection(forcibleExecutor, request, get_post_with_comments, request_body.datasetId, post_id)
+                post_data = await run_blocking_function_with_disconnection(forcibleExecutor, request, get_post_and_comments_from_id, request_body.datasetId, post_id)
 
                 # Generate transcript and context
                 await manager.broadcast(f"Dataset {request_body.datasetId}: Generating transcript for post {post_id}...")
@@ -1866,7 +1866,7 @@ async def generate_codes_with_feedback(request: Request, request_body: GenerateC
 #             # Fetch post and comments
 #             post_id = posts[0]
 #             # Fetch post and comments
-#             post_data = get_post_with_comments(request_body.datasetId, post_id)
+#             post_data = get_post_and_comments_from_id(request_body.datasetId, post_id)
 #             transcript = generate_transcript(post_data)
 #             context = generate_context(
 #                 request_body.references, 
@@ -1970,7 +1970,7 @@ async def generate_codes_with_themes(request: Request, request_body: GenerateCod
             try:
                 # Fetch post and comments
                 await manager.broadcast(f"Dataset {request_body.datasetId}: Fetching data for post {post_id}...")
-                post_data = await run_blocking_function_with_disconnection(forcibleExecutor, request, get_post_with_comments, request_body.datasetId, post_id)
+                post_data = await run_blocking_function_with_disconnection(forcibleExecutor, request, get_post_and_comments_from_id, request_body.datasetId, post_id)
 
                 # Generate transcript and context
                 await manager.broadcast(f"Dataset {request_body.datasetId}: Generating transcript for post {post_id}...")
@@ -2164,7 +2164,7 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
             try:
                 # Fetch post and comments
                 await manager.broadcast(f"Dataset {request_body.datasetId}: Fetching data for post {post_id}...")
-                post_data = await run_blocking_function_with_disconnection(forcibleExecutor, request, get_post_with_comments, request_body.datasetId, post_id)
+                post_data = await run_blocking_function_with_disconnection(forcibleExecutor, request, get_post_and_comments_from_id, request_body.datasetId, post_id)
 
                 # Generate transcript, context, and feedback
                 await manager.broadcast(f"Dataset {request_body.datasetId}: Generating transcript for post {post_id}...")
@@ -2342,7 +2342,7 @@ async def generate_codes_with_themes_feedback(request: Request, request_body: Ge
 #         print("Selected posts: ", selected_posts)
 #         for post_id in selected_posts:
 
-#             post_data = get_post_with_comments(dataset_id,post_id)
+#             post_data = get_post_and_comments_from_id(dataset_id,post_id)
 #             transcript = generate_transcript(post_data)
 #             print("Transcript: ", transcript)
 #             context = generate_context(request.references, main_code, selected_flashcards, selected_words)
@@ -2411,6 +2411,6 @@ async def sample_posts(request_body: SamplePostsRequest):
 # ):
 #     try:
 #         # Fetch post and comments
-#         post_data = get_post_with_comments(request.datasetId, request.postId)
+#         post_data = get_post_and_comments_from_id(request.datasetId, request.postId)
 #         transcript = generate_transcript(post_data)
 #         keywords

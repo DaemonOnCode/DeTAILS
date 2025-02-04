@@ -16,9 +16,10 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from constants import DATABASE_PATH
-from controllers.filtering_controller import add_rules_to_dataset, delete_rules_for_dataset, get_rules_for_dataset
+from controllers.filtering_controller import add_rules_to_dataset, backup_comment_table, backup_post_table, delete_rules_for_dataset, get_rules_for_dataset
+from database import PostsRepository, CommentsRepository, TokenStatsDetailedRepository
 from decorators.execution_time_logger import log_execution_time
-from utils.db_helpers import execute_query, execute_query_with_retry
+from database.db_helpers import execute_query, execute_query_with_retry
 
 class DatasetIdRequest(BaseModel):
     """Request model to handle dataset_id in the body."""
@@ -65,7 +66,7 @@ class DatasetRequest(BaseModel):
     rules: list
     
 
-@router.post("/datasets/rules", response_model=List[Rule])
+@router.post("/datasets/rules", response_model=list)
 @log_execution_time()
 def get_rules_endpoint(payload: DatasetIdRequest):
     rules = get_rules_for_dataset(payload.dataset_id)
@@ -136,21 +137,30 @@ def delete_all_rules_endpoint(payload: DatasetIdRequest):
 #     return {"message": "All rules deleted successfully"}
 
 
-# Create backup tables (Body Param)
 @router.post("/datasets/backup", response_model=dict)
 @log_execution_time()
 def create_backup(payload: DatasetRequest = Body(...)):
     """Create backups for posts and comments."""
     dataset_id = payload.dataset_id
-    execute_query(f"""
-        CREATE TABLE IF NOT EXISTS posts_backup_{dataset_id} AS
-        SELECT * FROM posts WHERE dataset_id = ?
-    """, (dataset_id,))
-    execute_query(f"""
-        CREATE TABLE IF NOT EXISTS comments_backup_{dataset_id} AS
-        SELECT * FROM comments WHERE dataset_id = ?
-    """, (dataset_id,))
+    backup_post_table(dataset_id)
+    backup_comment_table(dataset_id)
     return {"message": "Backup created successfully"}
+
+# Create backup tables (Body Param)
+# @router.post("/datasets/backup", response_model=dict)
+# @log_execution_time()
+# def create_backup(payload: DatasetRequest = Body(...)):
+#     """Create backups for posts and comments."""
+#     dataset_id = payload.dataset_id
+#     execute_query(f"""
+#         CREATE TABLE IF NOT EXISTS posts_backup_{dataset_id} AS
+#         SELECT * FROM posts WHERE dataset_id = ?
+#     """, (dataset_id,))
+#     execute_query(f"""
+#         CREATE TABLE IF NOT EXISTS comments_backup_{dataset_id} AS
+#         SELECT * FROM comments WHERE dataset_id = ?
+#     """, (dataset_id,))
+#     return {"message": "Backup created successfully"}
     
 
 def fetch_rules_for_dataset(dataset_id: str) -> List[Dict[str, Any]]:
@@ -499,71 +509,70 @@ def apply_rules_to_dataset_parallel(payload: Dict[str, Any]):
     return {"message": "Rules applied successfully"}
 
 
-# Retrieve processed posts (Query Param)
 @router.post("/datasets/processed-posts")
 @log_execution_time()
 def get_processed_posts(payload: DatasetIdRequest):
-    """Retrieve processed posts."""
-    if payload.dataset_id is None:
+    """Retrieve the number of processed posts for a dataset."""
+    if not payload.dataset_id:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
+
     try:
-        dataset_id = payload.dataset_id
-        posts = execute_query(f"SELECT COUNT(*) from posts where dataset_id = ?", (dataset_id,))
-        return posts[0][0]
+        posts_repo = PostsRepository()
+        count = posts_repo.count(filters={"dataset_id": payload.dataset_id})
+        return count
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching processed posts: {str(e)}")
 
-# Retrieve processed comments (Query Param)
 @router.post("/datasets/processed-comments")
 @log_execution_time()
 def get_processed_comments(payload: DatasetIdRequest):
-    """Retrieve processed comments."""
-    if payload.dataset_id is None:
+    """Retrieve the number of processed comments for a dataset."""
+    if not payload.dataset_id:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
+
     try:
-        dataset_id = payload.dataset_id
-        comments = execute_query(f"SELECT COUNT(*) FROM comments where dataset_id = ?", (dataset_id,))
-        return comments[0][0]
+        comments_repo = CommentsRepository() 
+        count = comments_repo.count(filters={"dataset_id": payload.dataset_id})
+        return count
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching processed comments: {str(e)}")
+
 
 @router.post("/datasets/included-words", response_model=dict)
 @log_execution_time()
 def get_included_words(payload: DatasetIdRequest):
     """Retrieve included words for a dataset."""
-    dataset_id = payload.dataset_id
-    if not dataset_id:
+    if not payload.dataset_id:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
+
     try:
-        query = """
-        SELECT token, pos, count_words, count_docs, tfidf_min, tfidf_max
-        FROM token_stats_detailed
-        WHERE dataset_id = ? AND status = 'included'
-        ORDER BY count_words DESC;
-        """
-        result = execute_query(query, (dataset_id,), keys = True)
-        return {"words": result}
+        words_repo = TokenStatsDetailedRepository()
+
+        words = words_repo.find(
+            filters={"dataset_id": payload.dataset_id, "status": "included"},
+            columns=["token", "pos", "count_words", "count_docs", "tfidf_min", "tfidf_max"]
+        )
+        return {"words": words}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching included words: {str(e)}")
-
 
 
 
 @router.post("/datasets/removed-words", response_model=dict)
 @log_execution_time()
 def get_removed_words(payload: DatasetIdRequest):
-    """Retrieve excluded words for a dataset."""
-    dataset_id = payload.dataset_id
-    if not dataset_id:
+    """Retrieve removed words for a dataset."""
+    if not payload.dataset_id:
         raise HTTPException(status_code=400, detail="Dataset ID is required.")
+
     try:
-        query = """
-        SELECT token, pos, count_words, count_docs, tfidf_min, tfidf_max
-        FROM token_stats_detailed
-        WHERE dataset_id = ? AND status = 'removed'
-        ORDER BY count_words DESC;
-        """
-        result = execute_query(query, (dataset_id,), keys = True)
-        return {"words": result}
+        words_repo = TokenStatsDetailedRepository()
+
+        words = words_repo.find(
+            filters={"dataset_id": payload.dataset_id, "status": "removed"},
+            columns=["token", "pos", "count_words", "count_docs", "tfidf_min", "tfidf_max"]
+        )
+
+        return {"words": words}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching removed words: {str(e)}")

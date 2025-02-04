@@ -1,6 +1,6 @@
 from typing import List
 from .base_class import BaseRepository
-from .table_dataclass import TokenStatDetailed
+from models import TokenStatDetailed
 
 class TokenStatsDetailedRepository(BaseRepository[TokenStatDetailed]):
     model = TokenStatDetailed

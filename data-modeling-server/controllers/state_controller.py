@@ -1,14 +1,30 @@
-
+from dataclasses import asdict
+import glob
 import json
+from datetime import datetime
+import os
+import shutil
+import time
+from uuid import uuid4
+from zipfile import ZipFile
+
+from chromadb import HttpClient
+from fastapi import HTTPException, UploadFile
+from models import WorkspaceState, Workspace
+from database import WorkspaceStatesRepository, WorkspacesRepository
 from models.state_models import CodingContext, CollectionContext, ModelingContext
-from routes.modeling_routes import execute_query
+from utils.chroma_export import chroma_export_cli, chroma_import
+
+workspace_state_repo = WorkspaceStatesRepository()
+workspaces_repo = WorkspacesRepository()
 
 def save_state(data):
+    # Create context objects from data
     collection_context = CollectionContext(**data.collection_context)
     coding_context = CodingContext(**data.coding_context)
     modeling_context = ModelingContext(**data.modeling_context)
 
-    # Convert lists and dicts to JSON strings
+    # Convert complex objects to JSON strings for storage
     selected_posts = json.dumps(collection_context.selected_posts)
     models = json.dumps(modeling_context.models)
     context_files = json.dumps(coding_context.context_files)
@@ -25,110 +41,297 @@ def save_state(data):
     sampled_post_ids = json.dumps(coding_context.sampled_post_ids)
     unseen_post_ids = json.dumps(coding_context.unseen_post_ids)
 
-    # Insert or update the user context based on workspace_id and user_email
-    execute_query(
-        """
-        INSERT INTO workspace_states (
-            user_email, workspace_id, dataset_id, mode_input, subreddit, selected_posts, models, 
-            main_topic, additional_info, context_files, keywords, selected_keywords, keyword_table, 
-            references_data, themes, research_questions, sampled_post_responses, 
-            sampled_post_with_themes_responses, unseen_post_response, unplaced_codes, 
-            sampled_post_ids, unseen_post_ids ,updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(workspace_id, user_email) DO UPDATE SET
-            dataset_id = excluded.dataset_id,
-            mode_input = excluded.mode_input,
-            subreddit = excluded.subreddit,
-            selected_posts = excluded.selected_posts,
-            models = excluded.models,
-            main_topic = excluded.main_topic,
-            additional_info = excluded.additional_info,
-            context_files = excluded.context_files,
-            keywords = excluded.keywords,
-            selected_keywords = excluded.selected_keywords,
-            keyword_table = excluded.keyword_table,
-            references_data = excluded.references_data,
-            themes = excluded.themes,
-            research_questions = excluded.research_questions,
-            sampled_post_responses = excluded.sampled_post_responses,
-            sampled_post_with_themes_responses = excluded.sampled_post_with_themes_responses,
-            unseen_post_response = excluded.unseen_post_response,
-            unplaced_codes = excluded.unplaced_codes,
-            sampled_post_ids = excluded.sampled_post_ids,
-            unseen_post_ids = excluded.unseen_post_ids,
-            updated_at = CURRENT_TIMESTAMP
-        """,
-        (
-            data.user_email,
-            data.workspace_id,
-            data.dataset_id,
-            collection_context.mode_input,
-            collection_context.subreddit,
-            selected_posts,
-            models,
-            coding_context.main_topic,
-            coding_context.additional_info,
-            context_files,
-            keywords,
-            selected_keywords,
-            keyword_table,
-            references_data,
-            themes,
-            research_questions,
-            sampled_post_responses,
-            sampled_post_with_themes_responses,
-            unseen_post_response,
-            unplaced_codes,
-            sampled_post_ids,
-            unseen_post_ids
-        ),
+    # Create a workspace state object
+    workspace_state = WorkspaceState(
+        user_email=data.user_email,
+        workspace_id=data.workspace_id,
+        dataset_id=data.dataset_id,
+        mode_input=collection_context.mode_input,
+        subreddit=collection_context.subreddit,
+        selected_posts=selected_posts,
+        models=models,
+        main_topic=coding_context.main_topic,
+        additional_info=coding_context.additional_info,
+        context_files=context_files,
+        keywords=keywords,
+        selected_keywords=selected_keywords,
+        keyword_table=keyword_table,
+        references_data=references_data,
+        themes=themes,
+        research_questions=research_questions,
+        sampled_post_responses=sampled_post_responses,
+        sampled_post_with_themes_responses=sampled_post_with_themes_responses,
+        unseen_post_response=unseen_post_response,
+        unplaced_codes=unplaced_codes,
+        sampled_post_ids=sampled_post_ids,
+        unseen_post_ids=unseen_post_ids,
+        updated_at=datetime.now()
     )
+
+    # Check if the workspace state already exists
+    existing_state = workspace_state_repo.find_one(
+        {"workspace_id": data.workspace_id, "user_email": data.user_email}
+    )
+
+    if existing_state:
+        # Update the existing record
+        workspace_state_repo.update(
+            {"workspace_id": data.workspace_id, "user_email": data.user_email},
+            workspace_state.to_dict()
+        )
+    else:
+        # Insert a new record
+        workspace_state_repo.insert(workspace_state)
 
 
 def load_state(data):
-    workspace_id = data.workspace_id
-    user_email = data.user_email
-    state = execute_query(
-        """
-        SELECT * FROM workspace_states 
-        WHERE workspace_id = ? AND user_email = ?
-        """,
-        (workspace_id, user_email),
-        keys=True
+    # Fetch the workspace state from the database
+    state = workspace_state_repo.find_one(
+        {"workspace_id": data.workspace_id, "user_email": data.user_email}
     )
 
     if not state:
         return {"success": True, "data": None}
 
-    # Process the fetched state and convert JSON strings to Python objects
-    state = state[0]
-    state["selected_posts"] = json.loads(state["selected_posts"])
-    state["models"] = json.loads(state["models"])
-    state["context_files"] = json.loads(state["context_files"])
-    state["keywords"] = json.loads(state["keywords"])
-    state["selected_keywords"] = json.loads(state["selected_keywords"])
-    state["keyword_table"] = json.loads(state["keyword_table"])
-    state["references_data"] = json.loads(state["references_data"])
-    state["themes"] = json.loads(state["themes"])
-    state["research_questions"] = json.loads(state["research_questions"])
-    state["sampled_post_responses"] = json.loads(state["sampled_post_responses"])
-    state["sampled_post_with_themes_responses"] = json.loads(state["sampled_post_with_themes_responses"])
-    state["unseen_post_response"] = json.loads(state["unseen_post_response"])
-    state["unplaced_codes"] = json.loads(state["unplaced_codes"])
-    state["sampled_post_ids"] = json.loads(state["sampled_post_ids"])
-    state["unseen_post_ids"] = json.loads(state["unseen_post_ids"])
+    # Convert JSON strings back to Python objects
+    json_fields = [
+        "selected_posts", "models", "context_files", "keywords", "selected_keywords",
+        "keyword_table", "references_data", "themes", "research_questions",
+        "sampled_post_responses", "sampled_post_with_themes_responses",
+        "unseen_post_response", "unplaced_codes", "sampled_post_ids", "unseen_post_ids"
+    ]
+
+    for field in json_fields:
+        if getattr(state, field, None) is not None:
+            setattr(state, field, json.loads(getattr(state, field)))
 
     return {"success": True, "data": state}
 
-
 def delete_state(data):
-    workspace_id = data.workspace_id
-    user_email = data.user_email
-    execute_query(
-        """
-        DELETE FROM workspace_states 
-        WHERE workspace_id = ? AND user_email = ?
-        """,
-        (workspace_id, user_email)
-    )
+    workspace_state_repo.delete({"workspace_id": data.workspace_id, "user_email": data.user_email})
+
     return {"success": True}
+
+
+def find_file_with_time(folder_path: str, dataset_id: str, file_name: str) -> str:
+    # Construct the search pattern
+    search_pattern = os.path.join(folder_path, f"{dataset_id}_*_{file_name}")
+
+    # Find files matching the pattern
+    matching_files = glob.glob(search_pattern)
+
+    if not matching_files:
+        return None
+    
+    # Return the first matching file (if multiple files, handle based on requirements)
+    return matching_files[0]
+
+def export_workspace(workspace_id: str, user_email: str):
+    """
+    Exports a workspace including its state, Chroma collections, and basis files.
+
+    :param workspace_id: The ID of the workspace.
+    :param user_email: The email of the user.
+    :return: The path to the exported ZIP file and the temporary folder.
+    """
+
+    # Define temporary folder for export
+    temp_folder = f"/export_temp/{workspace_id}"
+    os.makedirs(temp_folder, exist_ok=True)
+
+    # Fetch workspace state from the database
+    state = workspace_state_repo.find_one(
+        {"workspace_id": workspace_id, "user_email": user_email}
+    )
+
+    if not state:
+        raise ValueError("Workspace state not found.")
+
+    # Fetch additional workspace details
+    workspace_details = workspaces_repo.find_one({"id": workspace_id})
+
+    if not workspace_details:
+        raise ValueError("Workspace details not found.")
+
+    # Convert JSON string fields to Python objects
+    json_fields = [
+        "models", "context_files", "themes", "selected_posts",
+        "selected_themes", "references_data", "codebook",
+        "code_responses", "final_code_responses"
+    ]
+
+    for field in json_fields:
+        if getattr(state, field, None) is not None:
+            setattr(state, field, json.loads(getattr(state, field)))
+
+    state = state.to_dict()
+
+    # Rename "references_data" to "references" for consistency
+    state["references"] = state["references_data"]
+    del state["references_data"]
+
+    # Add workspace details
+    state["workspace_name"] = workspace_details.name
+    state["workspace_description"] = workspace_details.description
+
+    # Export Chroma collections
+    chroma_client = HttpClient(host="localhost", port=8000)
+    all_collections = chroma_client.list_collections()
+    chroma_files: list[str] = []
+
+    for collection in all_collections:
+        if state["dataset_id"].replace("-", "_") in collection.name:
+            collection = chroma_client.get_collection(collection.name)
+            export_file = f"{temp_folder}/{collection.name}.jsonl"
+            chroma_export_cli(collection=collection.name, export_file=export_file)
+            chroma_files.append(export_file)
+
+    print(f"Exported Chroma collections: {chroma_files}")
+
+    # Export basis files
+    context_pdf_paths: list[str] = []
+    for context_file in state["context_files"].values():
+        path = find_file_with_time("./context_files", state["dataset_id"], context_file)
+        if path:
+            context_pdf_paths.append(path)
+
+    print(f"Exported basis files: {context_pdf_paths}")
+
+    # Save workspace state to a JSON file
+    workspace_file = f"{temp_folder}/workspace_data.json"
+    with open(workspace_file, "w") as wf:
+        json.dump(state.__dict__, wf, indent=4)
+
+    # Create a ZIP file containing all exported data
+    zip_file = f"/export_temp/{workspace_id}.zip"
+    with ZipFile(zip_file, "w") as zf:
+        zf.write(workspace_file, "workspace_data.json")
+        for chroma_file in chroma_files:
+            zf.write(chroma_file, os.path.basename(chroma_file))
+        for context_pdf_path in context_pdf_paths:
+            zf.write(context_pdf_path, os.path.basename(context_pdf_path))
+
+    return zip_file, temp_folder
+
+async def import_workspace(user_email: str, file: UploadFile):
+    """
+    Imports a workspace from a ZIP file containing a workspace state JSON and related files.
+
+    :param user_email: The email of the user importing the workspace.
+    :param file: The uploaded ZIP file.
+    :return: The new workspace ID, name, and description.
+    """
+
+    # Create a unique temporary directory for processing
+    prefix = f"{str(uuid4())}_{time.time()}"
+    temp_dir = f"./import_temp/{prefix}"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    # Save uploaded ZIP file
+    zip_file_path = os.path.join(temp_dir, f"{prefix}_{file.filename}")
+
+    with open(zip_file_path, "wb") as temp_file:
+        while chunk := await file.read(1024 * 1024):  # Read in 1MB chunks
+            temp_file.write(chunk)
+
+    print(f"Saved streamed file to: {zip_file_path}")
+
+    # Validate and extract ZIP file
+    with ZipFile(zip_file_path, 'r') as zip_ref:
+        zip_ref.testzip()
+        zip_ref.extractall(temp_dir)
+
+    print(f"Extracted ZIP file to: {temp_dir}")
+
+    # Validate workspace_data.json
+    workspace_data_path = os.path.join(temp_dir, "workspace_data.json")
+    if not os.path.exists(workspace_data_path):
+        raise HTTPException(status_code=400, detail="workspace_data.json is missing in the uploaded ZIP file")
+
+    with open(workspace_data_path, "r") as wf:
+        workspace_data = json.load(wf)
+
+    print("Workspace data: ", workspace_data)
+
+    # Extract workspace data
+    workspace_id = workspace_data.get("workspace_id", str(uuid4()))
+    workspace_name = workspace_data.get("workspace_name", "Imported Workspace")
+    workspace_description = workspace_data.get("workspace_description")
+    dataset_id = workspace_data.get("dataset_id")
+
+    models = json.dumps(workspace_data.get("models", []))
+    selected_posts = json.dumps(workspace_data.get("selected_posts", []))
+    main_code = workspace_data.get("main_code")
+    additional_info = workspace_data.get("additional_info")
+    context_files = json.dumps(workspace_data.get("context_files", {}))
+    themes = json.dumps(workspace_data.get("themes", []))
+    selected_themes = json.dumps(workspace_data.get("selected_themes", []))
+    codebook = json.dumps(workspace_data.get("codebook", []))
+    references_data = json.dumps(workspace_data.get("references", []))
+    code_responses = json.dumps(workspace_data.get("code_responses", []))
+    final_code_responses = json.dumps(workspace_data.get("final_code_responses", []))
+
+    print(f"Importing workspace: {workspace_id}, {workspace_name}, {workspace_description}, {dataset_id}")
+
+    # Check if workspace ID and email combination exists
+    existing_workspace = workspace_state_repo.find_one({"workspace_id": workspace_id, "user_email": user_email})
+
+    if existing_workspace:
+        # Generate new workspace ID to avoid conflicts
+        workspace_id = str(uuid4()).replace("-", "_")
+
+    # Insert into `workspace_states` table
+    workspace_state_repo.insert(WorkspaceState(**{
+        "workspace_id": workspace_id,
+        "user_email": user_email,
+        "selected_posts": selected_posts,
+        "models": models,
+        "main_code": main_code,
+        "additional_info": additional_info,
+        "context_files": context_files,
+        "themes": themes,
+        "selected_themes": selected_themes,
+        "codebook": codebook,
+        "references_data": references_data,
+        "code_responses": code_responses,
+        "final_code_responses": final_code_responses,
+        "updated_at": datetime.now(),
+    }))
+
+    # Insert into `workspaces` table
+    workspaces_repo.insert(Workspace(**{
+        "id": workspace_id,
+        "name": workspace_name,
+        "description": workspace_description,
+        "user_email": user_email,
+        "created_at": datetime.now(),
+    }))
+
+    # Ensure basis files directory exists
+    os.makedirs("./context_files", exist_ok=True)
+
+    # Process basis PDFs
+    for context_file in workspace_data.get("context_files", {}).values():
+        print("Processing basis file: ", context_file)
+        context_pdf_path = find_file_with_time(temp_dir, dataset_id, context_file)
+        if context_pdf_path:
+            shutil.copy(context_pdf_path, "./context_files")
+            print(f"Imported basis file: {context_pdf_path}")
+
+    # Locate and import JSONL file for Chroma DB
+    jsonl_file = next(
+        (os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith(".jsonl")),
+        None
+    )
+
+    if jsonl_file:
+        file_name = os.path.basename(jsonl_file).split(".jsonl")[0]
+        collection_name = file_name[:36]  # Extract first part as collection name
+        model_name = file_name[37:].replace("_", ":")  # Extract model name
+
+        print(f"Found JSONL file: {jsonl_file}, Collection: {collection_name}, Model: {model_name}")
+
+        # Import into Chroma DB
+        chroma_import(collection=file_name, import_file=jsonl_file, model=model_name, embedding_function="ollama")
+
+    return workspace_id, workspace_name, workspace_description

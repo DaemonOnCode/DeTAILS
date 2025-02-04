@@ -4,17 +4,6 @@ from datetime import datetime
 
 T = TypeVar("T")  # Represents the dataclass
 
-# SQLite type mapping
-SQLITE_TYPE_MAPPING = {
-    str: "TEXT",
-    int: "INTEGER",
-    float: "REAL",
-    bytes: "BLOB",
-    datetime: "TIMESTAMP",
-    type(None): "NULL",  # For optional fields
-}
-
-
 class QueryBuilder(Generic[T]):
     def __init__(self, table_name: str, model: T):
         """
@@ -106,9 +95,9 @@ class QueryBuilder(Generic[T]):
         query, params = self.find(filters)
         count_query = query.replace(f"SELECT {self.selected_columns}", "SELECT COUNT(*)")
         return count_query, params
-
+    
     def find(self, filters: Optional[Dict[str, Any]] = None) -> Tuple[str, Tuple[Any, ...]]:
-        """ Generates a SELECT query with optional WHERE conditions. """
+        """Generates a SELECT query with optional WHERE conditions, supporting multi-value search."""
         where_clause = ""
         params = []
 
@@ -116,9 +105,18 @@ class QueryBuilder(Generic[T]):
             clauses = []
             for column, value in filters.items():
                 self._validate_column(column)
-                self._validate_value(column, value)
-                clauses.append(f"{column} = ?")
-                params.append(value)
+
+                if isinstance(value, list):  # Handle multi-value search
+                    if not value:  # Avoid empty lists causing SQL errors
+                        raise ValueError(f"Filter for '{column}' cannot be an empty list.")
+                    placeholders = ", ".join(["?"] * len(value))
+                    clauses.append(f"{column} IN ({placeholders})")
+                    params.extend(value)
+                else:
+                    self._validate_value(column, value)
+                    clauses.append(f"{column} = ?")
+                    params.append(value)
+
             where_clause = "WHERE " + " AND ".join(clauses)
 
         query = f"SELECT {self.selected_columns} FROM {self.table_name}"
@@ -132,6 +130,7 @@ class QueryBuilder(Generic[T]):
             query += f" {self.limit_clause}"
 
         return query, tuple(params)
+
 
     # INSERT Operations
     def insert(self, data: Dict[str, Any]) -> Tuple[str, Tuple[Any, ...]]:

@@ -25,6 +25,15 @@ class BaseDataclass:
 
     def items(self):
         return {key: getattr(self, key) for key in self.keys()}.items()
+    
+    def __iter__(self):
+        return iter(self.keys())
+
+    def __len__(self):
+        return len(self.keys())
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.to_dict()})"
 
     def __getitem__(self, key: str) -> Any:
         if key in self.keys():
@@ -113,7 +122,7 @@ class Rule(BaseDataclass):
     fields: str = field(metadata={"not_null": True})
     words: str = field(metadata={"not_null": True})
     action: str = field(metadata={"not_null": True})
-    id: Optional[int] = field(metadata={"primary_key": True})
+    id: str = field(metadata={"primary_key": True})
     pos: Optional[str] = None
 
 
@@ -223,3 +232,16 @@ class LlmResponse(BaseDataclass):
     function_id: str = field(metadata={"not_null": True})
     additional_info: Optional[str] = None
     created_at: Optional[datetime] = field(default_factory=datetime.now)
+
+@dataclass
+class Token(BaseDataclass):
+    count: int
+    doc_id: str = field(metadata={"primary_key": True}),
+    token: str = field(metadata={"primary_key": True}),
+    pos: str = field(metadata={"primary_key": True}),
+
+@dataclass
+class Tfidf(BaseDataclass):
+    tfidf_min: float
+    tfidf_max: float
+    token: str = field(metadata={"primary_key": True}),

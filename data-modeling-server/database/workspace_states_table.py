@@ -1,6 +1,6 @@
 from typing import List
 from .base_class import BaseRepository
-from .table_dataclass import WorkspaceState
+from models import WorkspaceState
 
 class WorkspaceStatesRepository(BaseRepository[WorkspaceState]):
     model = WorkspaceState

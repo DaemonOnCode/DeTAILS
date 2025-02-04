@@ -1,6 +1,6 @@
 from typing import List
 from .base_class import BaseRepository
-from .table_dataclass import TokenizedPost
+from models import TokenizedPost
 
 class TokenizedPostsRepository(BaseRepository[TokenizedPost]):
     model = TokenizedPost

@@ -1,8 +1,10 @@
 import sqlite3
-from typing import Type, TypeVar, List, Optional, Dict, Any, Generic
-from sqlite3 import Row
+from typing import Type, TypeVar, List, Optional, Dict, Any, Generic, get_type_hints
+from sqlite3 import Cursor, Row
 from dataclasses import fields, asdict
+
 from constants import DATABASE_PATH
+from database.initialize import SQLITE_TYPE_MAPPING
 from database.query_builder import QueryBuilder
 from errors.database_errors import (
     RecordNotFoundError,
@@ -32,16 +34,53 @@ class BaseRepository(Generic[T]):
         Returns a type-safe QueryBuilder instance for this repository.
         """
         return self.query_builder_instance
+    
+    @handle_db_errors
+    def create_table(self) -> None:
+        """
+        Creates a table dynamically based on the dataclass model fields.
+
+        The model's field names and types are mapped to SQLite types automatically.
+        """
+        if not self.model:
+            raise ValueError("Model must be defined to create a table dynamically.")
+
+        # Extract field names and types
+        columns = []
+        primary_keys = []
+        for field in fields(self.model):
+            field_name = field.name
+            field_type = get_type_hints(self.model).get(field_name, str)  # Default to TEXT
+            sql_type = SQLITE_TYPE_MAPPING.get(field_type, "TEXT")  # Map Python types to SQLite types
+
+            # Check if the field has a primary key annotation
+            if field.metadata.get("primary_key", False):
+                primary_keys.append(field_name)
+
+            columns.append(f"{field_name} {sql_type}")
+
+        # Add primary key constraints if applicable
+        if primary_keys:
+            columns.append(f"PRIMARY KEY ({', '.join(primary_keys)})")
+
+        # Create SQL query
+        column_definitions = ", ".join(columns)
+        create_query = f"CREATE TABLE IF NOT EXISTS {self.table_name} ({column_definitions});"
+
+        # Execute the query
+        self.execute_query(create_query)
 
     @handle_db_errors
-    def execute_query(self, query: str, params: tuple = ()) -> None:
+    def execute_query(self, query: str, params: tuple = (), result = False)->(Cursor | None):
         """
         Executes a SQL query with the given parameters.
         """
         with sqlite3.connect(DATABASE_PATH) as conn:
             cursor = conn.cursor()
-            cursor.execute(query, params)
+            query_result = cursor.execute(query, params)
             conn.commit()
+            if result:
+                return query_result
 
     @handle_db_errors
     def fetch_all(self, query: str, params: tuple = ()) -> List[T]:
@@ -79,7 +118,7 @@ class BaseRepository(Generic[T]):
         try:
             data_dict = asdict(data)
             query, params = self.query_builder_instance.insert(data_dict)
-            self.execute_query(query, params)
+            return self.execute_query(query, params, result=True)
         except sqlite3.Error as e:
             raise InsertError(f"Failed to insert data into table {self.table_name}. Error: {e}")
 
@@ -115,7 +154,7 @@ class BaseRepository(Generic[T]):
         try:
             # update_dict = asdict(updates)
             query, params = self.query_builder_instance.update(filters, updates)
-            self.execute_query(query, params)
+            return self.execute_query(query, params, result=True)
         except sqlite3.Error as e:
             raise UpdateError(f"Failed to update records in table {self.table_name}. Error: {e}")
 
@@ -144,7 +183,7 @@ class BaseRepository(Generic[T]):
             raise UpdateError(f"Failed to perform batch update in table {self.table_name}. Error: {e}")
 
     @handle_db_errors
-    def delete(self, filters: Dict[str, Any]) -> None:
+    def delete(self, filters: Dict[str, Any]):
         """
         Deletes rows from the table based on filters using the QueryBuilder.
 
@@ -152,7 +191,7 @@ class BaseRepository(Generic[T]):
         """
         try:
             query, params = self.query_builder_instance.delete(filters)
-            self.execute_query(query, params)
+            return self.execute_query(query, params, result=True)
         except sqlite3.Error as e:
             raise DeleteError(f"Failed to delete records from table {self.table_name}. Error: {e}")
 
@@ -169,6 +208,20 @@ class BaseRepository(Generic[T]):
             self.query_builder_instance.select(columns)
         query, params = self.query_builder_instance.find(filters)
         return self.fetch_all(query, params)
+    
+    @handle_db_errors
+    def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None) -> T | None:
+        """
+        Finds rows in the table based on filters and selects specific columns using the QueryBuilder.
+
+        :param filters: Dictionary of filter conditions (keys are column names as strings).
+        :param columns: List of column names to select (optional). If not provided, selects all columns.
+        :return: List of dataclass instances.
+        """
+        if columns:
+            self.query_builder_instance.select(columns)
+        query, params = self.query_builder_instance.find(filters)
+        return self.fetch_one(query, params)
 
     @handle_db_errors
     def count(self, filters: Optional[Dict[str, Any]] = None) -> int:
@@ -183,6 +236,69 @@ class BaseRepository(Generic[T]):
             cursor = conn.cursor()
             cursor.execute(query, params)
             return cursor.fetchone()[0]
+        
+    @handle_db_errors
+    def execute_raw_query(self, query: str, params: tuple = (), keys = False) -> Any:
+        """
+        Executes a raw SQL query with parameters.
+
+        :param query: The SQL query string.
+        :param params: Parameters for the query.
+        """
+        with sqlite3.connect(DATABASE_PATH) as conn:
+            if keys:
+                conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            result = cursor.execute(query, params)
+            conn.commit()
+            if keys:
+                return [dict(row) for row in result]
+            return result
+        
+    @handle_db_errors
+    def backup_table(self, filters: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Creates a backup table by copying rows from the original table based on user-specified filters.
+
+        - If `filters` are provided, only matching rows are backed up.
+        - If no filters are provided, the entire table is backed up.
+
+        :param filters: (Optional) A dictionary where keys are column names and values are filter values.
+                        Example: {"dataset_id": "123", "user_id": "456"}
+        """
+        # Generate a normalized backup table name based on filters
+        if filters:
+            normalized_filters = "_".join(f"{key}_{str(value).replace('-', '_')}" for key, value in filters.items())
+            backup_table_name = f"{self.table_name}_backup_{normalized_filters}"
+            
+            # Generate WHERE conditions dynamically
+            conditions = " AND ".join(f"{key} = ?" for key in filters.keys())
+            where_clause = f"WHERE {conditions}"
+            values = tuple(filters.values())
+        else:
+            backup_table_name = f"{self.table_name}_backup_full"
+            where_clause = ""
+            values = ()
+
+        # SQL query to create the backup table dynamically
+        backup_query = f"""
+            CREATE TABLE IF NOT EXISTS {backup_table_name} AS
+            SELECT * FROM {self.table_name} {where_clause}
+        """
+
+        return self.execute_query(backup_query, values, result=True)
+
+
+    @handle_db_errors
+    def drop_table(self) -> None:
+        """
+        Drops only the table managed by this repository.
+        
+        Prevents deletion of any other tables.
+        """
+        drop_query = f"DROP TABLE IF EXISTS {self.table_name}"
+
+        return self.execute_query(drop_query, result=True)
 
     def _map_to_model(self, row: Row) -> T:
         """

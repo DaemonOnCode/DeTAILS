@@ -2,14 +2,11 @@ import json
 import os
 from uuid import uuid4
 from aiofiles import open as async_open
-from attr import asdict
 from fastapi import HTTPException, UploadFile
 
 from constants import DATASETS_DIR, UPLOAD_DIR
-from database.comments_table import CommentsRepository
-from database.datasets_table import DatasetsRepository
-from database.posts_table import PostsRepository
-from database.table_dataclass import Dataset, Comment, Post
+from database import DatasetsRepository, CommentsRepository, PostsRepository
+from models import Dataset, Comment, Post
 
 
 dataset_repo = DatasetsRepository()
