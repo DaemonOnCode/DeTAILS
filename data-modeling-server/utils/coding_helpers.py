@@ -2,8 +2,6 @@ def generate_transcript(post):
     # Start with the post title and selftext
     transcript = f"Title: {post['title']}\n\n{post['selftext']}\n\n"
 
-    print('post', post)
-
     # Helper function to recursively process comments
     def process_comments(comments, depth=0):
         result = ""

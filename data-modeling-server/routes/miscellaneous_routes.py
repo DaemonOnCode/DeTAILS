@@ -69,7 +69,8 @@ async def get_post_title_from_id_batch_endpoint(request: RedditPostIDAndTitleReq
     
     post_titles = posts_repo.find(
         filters={"dataset_id": request.dataset_id, "id": request.post_ids},
-        columns=["id", "title", "selftext"]
+        columns=["id", "title", "selftext"],
+        map_to_model=False
     )
 
     return post_titles

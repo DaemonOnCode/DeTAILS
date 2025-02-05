@@ -6,3 +6,4 @@ export { default as ThemeLoaderPage } from './theme-loader';
 export { default as CodeBookLoaderPage } from './codebook-loader';
 export { default as DeductiveCodingLoaderPage } from './deductive-coding-loader';
 export { default as ThemeGenerationLoaderPage } from './theme-generation-loader';
+export { default as DetailsLoaderPage } from './details-loader';

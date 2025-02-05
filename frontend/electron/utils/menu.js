@@ -1,7 +1,8 @@
 const { Menu, dialog } = require('electron');
-const config = require('./global-state');
+const { findContextByName } = require('./context');
+// const globalCtx.getState() = require('./global-state');
 
-const menuTemplate = [
+const menuTemplate = (globalCtx) => [
     {
         label: 'File',
         submenu: [
@@ -20,20 +21,26 @@ const menuTemplate = [
                 label: 'Save workspace',
                 accelerator: 'CmdOrCtrl+S',
                 click: () => {
-                    config.mainWindow.webContents.send('menu-save-workspace');
+                    globalCtx.getState().mainWindow.webContents.send('menu-save-workspace');
                 }
             },
             {
                 label: 'Import workspace',
                 accelerator: 'CmdOrCtrl+I',
                 click: async () => {
-                    if (!config.userEmail || config.userEmail === 'Anonymous') return;
+                    if (
+                        !globalCtx.getState().userEmail ||
+                        globalCtx.getState().userEmail === 'Anonymous'
+                    )
+                        return;
                     const { canceled, filePaths } = await dialog.showOpenDialog({
                         properties: ['openFile'],
                         filters: [{ name: 'ZIP', extensions: ['zip'] }]
                     });
                     if (!canceled && filePaths.length > 0) {
-                        config.mainWindow.webContents.send('menu-import-workspace', filePaths[0]);
+                        globalCtx
+                            .getState()
+                            .mainWindow.webContents.send('menu-import-workspace', filePaths[0]);
                     }
                 }
             },
@@ -41,8 +48,12 @@ const menuTemplate = [
                 label: 'Export workspace',
                 accelerator: 'CmdOrCtrl+E',
                 click: async () => {
-                    if (!config.userEmail || config.userEmail === 'Anonymous') return;
-                    config.mainWindow.webContents.send('menu-export-workspace');
+                    if (
+                        !globalCtx.getState().userEmail ||
+                        globalCtx.getState().userEmail === 'Anonymous'
+                    )
+                        return;
+                    globalCtx.getState().mainWindow.webContents.send('menu-export-workspace');
                 }
             },
             { type: 'separator' },
@@ -74,10 +85,13 @@ const menuTemplate = [
     }
 ];
 
-function createMenu() {
-    const isUserLoaded = config.userEmail && config.userEmail !== 'Anonymous';
+function createMenu(...ctxs) {
+    const globalCtx = findContextByName('global', ctxs);
+
+    const isUserLoaded =
+        globalCtx.getState().userEmail && globalCtx.getState().userEmail !== 'Anonymous';
     console.log('Creating menu', isUserLoaded);
-    const menu = Menu.buildFromTemplate(menuTemplate);
+    const menu = Menu.buildFromTemplate(menuTemplate(globalCtx));
     Menu.setApplicationMenu(menu);
 }
 

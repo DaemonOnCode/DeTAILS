@@ -1,10 +1,15 @@
+import os
 import sys
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, RulesRepository, TokenStatsRepository, TokenStatsDetailedRepository, ModelsRepository, DatasetsRepository, PostsRepository, CommentsRepository, TokenizedPostsRepository, TokenizedCommentsRepository, LlmResponsesRepository
 from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware
 from routes import coding_routes, modeling_routes, filtering_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
+
+load_dotenv()
+print(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
 
 print("Initializing database...")
 initialize_database([

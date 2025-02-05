@@ -200,7 +200,7 @@ class BaseRepository(Generic[T]):
             raise DeleteError(f"Failed to delete records from table {self.table_name}. Error: {e}")
 
     @handle_db_errors
-    def find(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None) -> List[T]:
+    def find(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True) -> List[T] | List[Dict[str, Any]]:
         """
         Finds rows in the table based on filters and selects specific columns using the QueryBuilder.
 
@@ -209,12 +209,12 @@ class BaseRepository(Generic[T]):
         :return: List of dataclass instances.
         """
         if columns:
-            self.query_builder_instance.select(columns)
+            self.query_builder_instance.select(*columns)
         query, params = self.query_builder_instance.find(filters)
-        return self.fetch_all(query, params)
+        return self.fetch_all(query, params, map_to_model=map_to_model)
     
     @handle_db_errors
-    def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None) -> T | None:
+    def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True) -> T | Dict[str, Any] | None:
         """
         Finds rows in the table based on filters and selects specific columns using the QueryBuilder.
 
@@ -223,9 +223,9 @@ class BaseRepository(Generic[T]):
         :return: List of dataclass instances.
         """
         if columns:
-            self.query_builder_instance.select(columns)
+            self.query_builder_instance.select(*columns)
         query, params = self.query_builder_instance.find(filters)
-        return self.fetch_one(query, params)
+        return self.fetch_one(query, params, map_to_model=map_to_model)
 
     @handle_db_errors
     def count(self, filters: Optional[Dict[str, Any]] = None) -> int:

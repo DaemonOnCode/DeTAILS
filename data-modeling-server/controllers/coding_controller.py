@@ -9,6 +9,9 @@ from uuid import uuid4
 from chromadb import HttpClient
 from fastapi import UploadFile
 from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
+from google.auth import load_credentials_from_file
+
+import config
 from decorators import log_execution_time
 from models.table_dataclasses import LlmResponse
 from routes.websocket_routes import ConnectionManager, manager
@@ -32,7 +35,7 @@ llm_responses_repo = LlmResponsesRepository()
 
 async def process_post_with_llm(dataset_id, post_id, llm, prompt, regex = r"\"codes\":\s*(\[.*?\])"):
     try:
-        post_data = get_post_and_comments_from_id(dataset_id, post_id)
+        post_data = get_post_and_comments_from_id(post_id, dataset_id)
         transcript = generate_transcript(post_data)
         response = await asyncio.to_thread(llm.invoke, prompt.format(transcript=transcript))
 
@@ -63,7 +66,7 @@ def initialize_vector_store(dataset_id: str, model: str, embeddings: Any):
     chroma_client = HttpClient(host="localhost", port=8000)
     vector_store = Chroma(
         embedding_function=embeddings,
-        collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}",
+        collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}"[:60],
         client=chroma_client,
     )
     return vector_store
@@ -120,6 +123,7 @@ async def save_context_files(dataset_id: str, contextFiles: List[UploadFile], ve
 
 def get_llm_and_embeddings(
     model: str,
+    settings: config.Settings = None,
     num_ctx: int = 30000,
     num_predict: int = 30000,
     temperature: float = 0.6
@@ -137,14 +141,23 @@ def get_llm_and_embeddings(
     try:
         # Initialize LLM based on model type
         if model.startswith("gemini") or model.startswith("google"):
+            print(settings.google_application_credentials)
+            creds, project_id = load_credentials_from_file(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+            print(creds.quota_project_id, project_id)
+            embeddings = VertexAIEmbeddings(
+                model="text-embedding-005",
+                credentials=creds,
+                project=creds.quota_project_id
+            )
             llm = ChatVertexAI(
                 model_name=model, 
                 num_ctx=num_ctx,
                 num_predict=num_predict,
                 temperature=temperature,
-                callbacks=[StreamingStdOutCallbackHandler()]
+                callbacks=[StreamingStdOutCallbackHandler()],
+                credentials = creds,
+                project = creds.quota_project_id
             )
-            embeddings = VertexAIEmbeddings(model=model)
         
         elif model.startswith("ollama"):
             llm = OllamaLLM(
@@ -166,10 +179,10 @@ def get_llm_and_embeddings(
 @log_execution_time()
 async def process_llm_task(
     dataset_id: str,
-    post_id: Optional[str],
     manager: ConnectionManager,
     llm_model: str,
     regex_pattern: str,
+    post_id: Optional[str] = None,
     prompt_builder_func=None,
     rag_prompt_builder_func=None,  
     retriever=None,  
@@ -181,6 +194,7 @@ async def process_llm_task(
     stream_output: bool = False,  
     **prompt_params
 ):
+    max_retries = retries
     success = False
     extracted_data = None
     function_id = function_id or str(uuid4())  
@@ -216,13 +230,17 @@ async def process_llm_task(
 
                 prompt_text = prompt_builder_func(**prompt_params)
 
+
+                print("Prompt Text", prompt_text)
                 if stream_output:
                     async for chunk in llm_instance.stream(prompt_text):
                         await manager.broadcast(f"Dataset {dataset_id}: {chunk}")
                 else:
                     response = await asyncio.to_thread(llm_instance.invoke, prompt_text)
 
-            match = re.search(regex_pattern, response["answer"] if retriever else response, re.DOTALL)
+            response = response["answer"] if retriever else response.content
+            print(response)
+            match = re.search(regex_pattern, response, re.DOTALL)
             if not match:
                 raise Exception("No valid structured data found in LLM response.")
 
@@ -252,7 +270,7 @@ async def process_llm_task(
         except Exception as e:
             retries -= 1
             await manager.broadcast(
-                f"WARNING: Dataset {dataset_id}: Error processing LLM response - {str(e)}. Retrying... ({3 - retries}/{retries})"
+                f"WARNING: Dataset {dataset_id}: Error processing LLM response - {str(e)}. Retrying... ({retries}/{max_retries})"
             )
             if retries == 0:
                 await manager.broadcast(f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")

@@ -57,7 +57,7 @@ def get_reddit_post_by_id(dataset_id: str, post_id: str):
 
 def get_comments_recursive(post_id: str, dataset_id: str):
     """Fetch comments recursively for a given Reddit post."""
-    comments = comment_repo.find({"post_id": post_id, "dataset_id": dataset_id})
+    comments = comment_repo.find({"post_id": post_id, "dataset_id": dataset_id}, map_to_model=False)
 
     comment_map = {comment["id"]: comment for comment in comments}
 

@@ -151,17 +151,18 @@ const websocketHandler = (...ctxs) => {
     });
 
     ipcMain.handle('disconnect-ws', (event, message) => {
-        if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
-            try {
-                wsInstance.send('disconnect');
-                wsInstance.close();
-                wsInstance = null; // Clear the instance on close
-                globalState.websocket = null;
-            } catch (e) {
-                console.log('Application closed');
-                console.log(e);
-            }
+        // if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        try {
+            wsInstance.send('disconnect');
+            wsInstance.close();
+        } catch (e) {
+            console.log('Application closed');
+            console.log(e);
+        } finally {
+            wsInstance = null;
+            globalCtx.setState({ websocket: null });
         }
+        // }
     });
 };
 

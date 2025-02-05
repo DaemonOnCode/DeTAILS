@@ -54,7 +54,7 @@ const CodebookRefinement = () => {
             },
             body: JSON.stringify({
                 dataset_id: datasetId,
-                model: MODEL_LIST.DEEPSEEK_R1_32b,
+                model: MODEL_LIST.GEMINI,
                 prevCodebook: sampledPostResponseCopy,
                 currentCodebook: sampledPostResponse
             })

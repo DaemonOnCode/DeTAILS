@@ -1,4 +1,12 @@
-import React, { FC, createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, {
+    FC,
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useRef,
+    useState
+} from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from './auth-context';
 import { ILayout } from '../types/Coding/shared';
@@ -56,7 +64,7 @@ const WebSocketSingleton = (() => {
 })();
 
 export const WebSocketProvider: FC<ILayout> = ({ children }) => {
-    const { remoteProcessing } = useAuth();
+    const { remoteProcessing, isAuthenticated } = useAuth();
     const messageCallbacks = useRef<{ [key: string]: CallbackFn }>({});
     const [serviceStarting, setServiceStarting] = useState(true);
     const lastPingRef = useRef<Date | null>(null);
@@ -101,24 +109,28 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         });
     };
 
-    const monitorWebSocketStatus = (checkBackend = false) => {
-        ipcRenderer.on('ws-connected', () => {
-            console.log('WebSocket connected');
-            toast.success('Websocket connection established.');
-            WebSocketSingleton.resetRetryCount();
-            lastPingRef.current = new Date();
-            resetPingTimeout();
-            if (checkBackend) {
-                setServiceStarting(false);
-            }
-        });
+    const monitorWebSocketStatus = useCallback(
+        (checkBackend = false) => {
+            ipcRenderer.on('ws-connected', () => {
+                console.log('WebSocket connected');
+                toast.success('Websocket connection established.');
+                WebSocketSingleton.resetRetryCount();
+                lastPingRef.current = new Date();
+                resetPingTimeout();
+                if (checkBackend) {
+                    setServiceStarting(false);
+                }
+            });
 
-        ipcRenderer.on('ws-closed', () => {
-            console.log('WebSocket closed');
-            toast.warning('WebSocket disconnected. Attempting to reconnect...');
-            WebSocketSingleton.attemptReconnect(initiateWebSocketConnection);
-        });
-    };
+            ipcRenderer.on('ws-closed', () => {
+                console.log('WebSocket closed', isAuthenticated);
+                if (!isAuthenticated) return;
+                toast.warning('WebSocket disconnected. Attempting to reconnect...');
+                WebSocketSingleton.attemptReconnect(initiateWebSocketConnection);
+            });
+        },
+        [isAuthenticated]
+    );
 
     const pollBackendServices = () => {
         setServiceStarting(true);
@@ -146,6 +158,15 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
             ipcRenderer.removeListener('service-stopped', handleServiceStopped);
         };
     };
+
+    useEffect(() => {
+        console.log('Auth changed:', isAuthenticated);
+        if (!isAuthenticated) {
+            setServiceStarting(false);
+            ipcRenderer.invoke('stop-services');
+            ipcRenderer.invoke('disconnect-ws');
+        }
+    }, [isAuthenticated]);
 
     useEffect(() => {
         WebSocketSingleton.initialize(handleMessage, monitorWebSocketStatus, !remoteProcessing);

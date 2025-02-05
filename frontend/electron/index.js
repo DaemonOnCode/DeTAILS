@@ -59,7 +59,7 @@ app.whenReady().then(async () => {
         ...config
     });
 
-    createMenu();
+    createMenu(globalCtx);
 
     logger.info('Electron app is ready');
 

@@ -35,7 +35,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     showThemes = false,
     download = false,
     showCodebook = false,
-    split = false,
+    split = undefined,
     showFilterDropdown = false,
     showRerunCoding = false,
     handleRerun = () => {}

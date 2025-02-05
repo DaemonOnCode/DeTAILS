@@ -53,7 +53,7 @@ const FinalThemes = () => {
             },
             body: JSON.stringify({
                 dataset_id: datasetId,
-                model: MODEL_LIST.DEEPSEEK_R1_32b,
+                model: MODEL_LIST.GEMINI,
                 final_codebook: sampledPostResponse
                     .filter((response) => response.isMarked === true)
                     .map((response) => {

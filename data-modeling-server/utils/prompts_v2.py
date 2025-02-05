@@ -173,7 +173,7 @@ Proceed with the refinement.
 
 class InitialCodePrompts:
     @staticmethod
-    def initial_code_prompt(mainTopic: str, additionalInfo: str, researchQuestions: str, keywordTable: str, post_transcript: str):
+    def initial_code_prompt(main_topic: str, additional_info: str, research_questions: str, keyword_table: str, post_transcript: str):
         return f"""
 You are an advanced AI model specializing in **qualitative research and deductive thematic analysis**. Your task is to **extract thematic codes** from a given **post transcript** using a predefined **keyword table**.
 
@@ -181,15 +181,15 @@ You are an advanced AI model specializing in **qualitative research and deductiv
 
 ### **Context and Input Information**  
 You will be provided with:
-- **Main Topic**: `{mainTopic}`
-- **Additional Information**: `{additionalInfo}`
-- **Research Questions**: `{researchQuestions}`
+- **Main Topic**: `{main_topic}`
+- **Additional Information**: `{additional_info}`
+- **Research Questions**: `{research_questions}`
 - **Keyword Table**: A structured list of **keywords**, in JSON format, each containing:
   - **word**: The keyword.
   - **description**: Explanation of its meaning and relevance.
   - **inclusion_criteria**: When this keyword should be applied.
   - **exclusion_criteria**: When this keyword should *not* be applied.
-`{keywordTable}`
+`{keyword_table}`
 - **Post transcript**: `{post_transcript}`
 
 ---
@@ -267,7 +267,7 @@ Now, analyze the response and generate the thematic codes in JSON format.
 
 class DeductiveCoding:
     @staticmethod
-    def deductive_coding_prompt(codebook: str, post_transcript: str):
+    def deductive_coding_prompt(final_codebook: str, post_transcript: str):
         return f"""
 You are an advanced AI model specializing in **qualitative research and deductive thematic coding**. Your task is to **analyze a post transcript** and apply thematic codes based on a given **codebook**.
 
@@ -280,7 +280,7 @@ You will be provided with:
   - **description**: Explanation of its meaning and relevance.
   - **inclusion_criteria**: When this code should be applied.
   - **exclusion_criteria**: When this code should *not* be applied.
-  `{codebook}`
+  `{final_codebook}`
   
 - **Post Transcript**: The **raw text** that you need to analyze.
   `{post_transcript}`
@@ -462,7 +462,7 @@ Now, analyze the given QEC Table and generate themes based on the provided codes
 
 class RefineCodebook:
     @staticmethod
-    def refine_codebook_prompt(prevCodebook: str, currentCodebook: str):
+    def refine_codebook_prompt(prev_codebook_json: str, current_codebook_json: str):
         return f"""
 You are an advanced AI specializing in **qualitative research** and **thematic coding**. Your task is to **analyze and refine coding categories** by comparing the previous codebook with the current version.
 
@@ -471,11 +471,11 @@ You are an advanced AI specializing in **qualitative research** and **thematic c
 ### ** Input Data**
 - **Previous Codebook** (before human revision):
   ```json
-  {prevCodebook}
+  {prev_codebook_json}
   ```
 - **Current Codebook** (after human revision, including comments for feedback):
   ```json
-  {currentCodebook}
+  {current_codebook_json}
   ```
 
 ---

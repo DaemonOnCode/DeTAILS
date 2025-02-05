@@ -20,7 +20,7 @@ const formatRouteName = (path: string) => {
 const IGNORED_KEYWORDS = [
     '*',
     '/',
-    'loader',
+    // 'loader',
     'basis',
     'flashcards',
     'word-cloud',
@@ -110,7 +110,7 @@ const Sidebar: FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
                             </div>
                             <ul
                                 className={`ml-4 border-l border-gray-700 pl-2 mt-2 transition-all duration-300 overflow-hidden ${
-                                    openDropdowns.has(fullPath) ? 'max-h-screen' : 'max-h-0'
+                                    openDropdowns.has(fullPath) ? '' : 'max-h-0'
                                 }`}>
                                 {renderRoutes(route.children, fullPath)}
                             </ul>

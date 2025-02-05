@@ -4,6 +4,7 @@ import {
     CodeBookLoaderPage,
     CodingValidationLoaderPage,
     DeductiveCodingLoaderPage,
+    DetailsLoaderPage,
     FinalLoaderPage,
     FlashcardsLoaderPage,
     ThemeGenerationLoaderPage,
@@ -110,6 +111,10 @@ export const CodingRouter: RouteObject[] = [
             {
                 path: LOADER_ROUTES.THEME_GENERATION_LOADER,
                 element: <ThemeGenerationLoaderPage />
+            },
+            {
+                path: LOADER_ROUTES.DETAILS_LOADER,
+                element: <DetailsLoaderPage />
             }
         ]
     }

@@ -82,12 +82,11 @@ const LoadData = () => {
         console.log(
             'Generate initial codes:',
             results['sampled'],
-            keywordTable
-                .filter((keyword) => keyword.isMarked !== undefined)
-                .map((keyword) => {
-                    delete keyword.isMarked;
-                    return keyword;
-                })
+            keywordTable.filter((keyword) => keyword.isMarked !== undefined)
+            // .map((keyword) => {
+            //     delete keyword.isMarked;
+            //     return keyword;
+            // })
         );
         res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES), {
             method: 'POST',
@@ -96,13 +95,12 @@ const LoadData = () => {
             },
             body: JSON.stringify({
                 dataset_id: datasetId,
-                keyword_table: keywordTable
-                    .filter((keyword) => keyword.isMarked !== undefined)
-                    .map((keyword) => {
-                        delete keyword.isMarked;
-                        return keyword;
-                    }),
-                model: MODEL_LIST.DEEPSEEK_R1_32b,
+                keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
+                // .map((keyword) => {
+                //     delete keyword.isMarked;
+                //     return keyword;
+                // }),
+                model: MODEL_LIST.GEMINI,
                 main_topic: mainTopic,
                 additional_info: additionalInfo,
                 research_questions: researchQuestions,

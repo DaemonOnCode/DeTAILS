@@ -43,10 +43,10 @@ def get_post_and_comments_from_id(post_id: str, dataset_id: str) -> Dict[str, An
     comments_repo = CommentsRepository()
 
     # Fetch post data
-    post = posts_repo.find_one({"id": post_id, "dataset_id": dataset_id}, columns=["id", "title", "selftext"])
+    post = posts_repo.find_one({"id": post_id, "dataset_id": dataset_id}, columns=["id", "title", "selftext"], map_to_model=False)
 
     # Fetch all comments for the post
-    comments = comments_repo.find({"post_id": post_id, "dataset_id": dataset_id}, columns=["id", "body", "parent_id", "author"])
+    comments = comments_repo.find({"post_id": post_id, "dataset_id": dataset_id}, columns=["id", "body", "parent_id", "author"], map_to_model=False)
 
     # Convert comments into hierarchical structure
     comment_map = {comment["id"]: comment for comment in comments}

@@ -51,7 +51,7 @@ const googleOAuthHandler = (...ctxs) => {
                 oauthWindow.close();
             }
             console.log('Google OAuth Token:', token);
-            createMenu();
+            createMenu(...ctxs);
             return {
                 token,
                 user: userInfo

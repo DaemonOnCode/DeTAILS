@@ -47,6 +47,7 @@ class ConnectionManager:
         for app_name, websocket in self.active_connections.items():
             try:
                 # Send message to the WebSocket
+                print(f"Sending message to {app_name}: {message}")
                 await websocket.send_text(message)
             except Exception as e:
                 print(f"Failed to send message to {app_name}: {e}")
