@@ -4,14 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 // We’ll assume N=3 columns, 5 rows => 15 cards
 
 function useResponsiveColumns() {
-    const cardWidth = 128; // w-32 in Tailwind (~32 * 4)
-    const xSpacing = 132; // Given spacing between cards
+    const cardWidth = 224; // w-32 in Tailwind (~32 * 4)
+    const xSpacing = 224 + 8; // Given spacing between cards
 
     const [columns, setColumns] = useState(getColumnCount());
 
     function getColumnCount() {
         const screenWidth = window.innerWidth;
-        return Math.max(1, Math.floor(screenWidth / xSpacing) + 4);
+        return Math.max(1, Math.ceil(screenWidth / xSpacing));
         // Ensures at least 1 column
     }
 
@@ -89,7 +89,7 @@ function App() {
 const LOWER = '-';
 const UPPER = ' ';
 const DIGITS = '-';
-const SYMBOLS = '-';
+const SYMBOLS = ' ';
 
 /**
  * Return one random character according to our weighted probabilities:
@@ -102,18 +102,18 @@ const SYMBOLS = '-';
 function getWeightedRandomChar() {
     const r = Math.random();
 
-    if (r < 0.1) {
+    if (r < 0.01) {
         // 15% => space
-        return ' ';
+        return '\n';
     } else if (r < 0.15) {
         // next 20% => uppercase
         const i = Math.floor(Math.random() * UPPER.length);
         return UPPER[i];
-    } else if (r < 0.16) {
+    } else if (r < 0.19) {
         // next 5% => symbol
         const i = Math.floor(Math.random() * SYMBOLS.length);
         return SYMBOLS[i];
-    } else if (r < 0.18) {
+    } else if (r < 0.3) {
         // next 5% => digit
         const i = Math.floor(Math.random() * DIGITS.length);
         return DIGITS[i];
@@ -138,20 +138,31 @@ function CardContent({
     phase: number;
     num: number;
 }) {
-    const ROWS = 30;
-    const COLS = 20;
+    const ROWS = 20;
+    const COLS = 40;
 
     const charMatrix = useMemo(() => {
         const matrix = [];
         for (let row = 0; row < ROWS; row++) {
             const rowChars = [];
             for (let col = 0; col < COLS; col++) {
-                rowChars.push(getWeightedRandomChar());
+                let randomChar = getWeightedRandomChar();
+                // if (randomChar === '\n') {
+                //     console.log(row, col, ROWS, COLS);
+                //     ' '
+                //         .repeat(COLS - col + 1)
+                //         .split('')
+                //         .forEach(() => rowChars.push(' '));
+                //     break;
+                // }
+                rowChars.push(randomChar);
             }
             matrix.push(rowChars);
         }
         return matrix;
     }, []);
+
+    console.log('charMatrix', charMatrix);
 
     return (
         <div
@@ -164,6 +175,7 @@ function CardContent({
                 // gridTemplateRows: `repeat(${ROWS}, auto)`,
                 fontFamily: 'serif',
                 fontSize: '16px',
+                lineHeight: '0.8',
                 overflow: 'hidden',
                 alignItems: 'center'
             }}>
@@ -176,6 +188,7 @@ function CardContent({
                     return (
                         <span
                             key={`${rowIdx}-${colIdx}`}
+                            className="whitespace-pre"
                             style={{
                                 transition: 'background-color 0.5s ease-in-out',
                                 backgroundColor:
@@ -327,8 +340,8 @@ function CardsPhases({ phase }: { phase: Phase }) {
     console.log('highlight', highlight);
 
     // const VISIBLE_CARDS_RATIO = 0.1; // Show only 40% of cards in Phase 1
-    const xSpacing = 128 + 8;
-    const ySpacing = 176 + 8;
+    const xSpacing = 224 + 8;
+    const ySpacing = 284 + 8;
     const interval = generateIntervals(0, TOTAL_CARDS, 20);
 
     const colOffsets = useMemo(() => {
@@ -381,7 +394,7 @@ function CardsPhases({ phase }: { phase: Phase }) {
                             return (
                                 <motion.div
                                     key={i}
-                                    className="bg-white bg-opacity-50 w-32 h-44 border border-gray-400 shadow-xl absolute rounded-lg "
+                                    className="bg-white bg-opacity-50 w-56 h-[284px] border border-gray-400 shadow-xl absolute rounded-lg "
                                     style={{
                                         zIndex: i % 5,
                                         overflow: 'hidden'
