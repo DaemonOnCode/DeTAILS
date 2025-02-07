@@ -65,10 +65,12 @@ const TranscriptPage = () => {
             topTranscript: {
                 responses: any[];
                 dispatchFunction: (...args: any) => void;
+                conflicts?: any[];
             } | null;
             bottomTranscript: {
                 responses: any[];
                 dispatchFunction: (...args: any) => void;
+                conflicts?: any[];
             };
         }
     >([

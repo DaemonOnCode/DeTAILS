@@ -2,7 +2,11 @@ import { FC, useState } from 'react';
 
 const RelatedCodes: FC<{
     codeSet: string[];
-    conflictingCodes?: string[]; // Optional conflicting codes
+    conflictingCodes?: {
+        code: string;
+        explanation: string;
+        quote: string;
+    }[]; // Optional conflicting codes
     codeColors: Record<string, string>;
     hoveredCodeText: string[] | null;
 }> = ({ codeSet, conflictingCodes = [], codeColors, hoveredCodeText }) => {
@@ -17,7 +21,9 @@ const RelatedCodes: FC<{
     };
 
     // Determine agreed codes (those not in the conflicting codes)
-    const agreedCodes = codeSet.filter((code) => !conflictingCodes.includes(code));
+    const agreedCodes = codeSet.filter((code) =>
+        conflictingCodes.every((conflict) => conflict.code !== code)
+    );
 
     return (
         <div className="space-y-6">
@@ -41,22 +47,24 @@ const RelatedCodes: FC<{
                 <div>
                     <h3 className="text-lg font-bold mb-2">Conflicting Codes</h3>
                     <ul className="space-y-4">
-                        {conflictingCodes.map((code, index) => (
+                        {conflictingCodes.map((conflict, index) => (
                             <li
                                 key={index}
                                 className="p-3 rounded bg-gray-200"
-                                style={{ backgroundColor: codeColors[code] || '#ddd' }}>
+                                style={{ backgroundColor: codeColors[conflict.code] || '#ddd' }}>
                                 <div className="flex justify-between items-center">
-                                    <span>{code}</span>
+                                    <span>{conflict.code}</span>
                                     <button className="text-gray-500 hover:text-black">⋮</button>
                                 </div>
+                                <p>{conflict.quote}</p>
+                                <p>{conflict.explanation}</p>
                                 <div className="mt-2">
                                     <textarea
-                                        placeholder="Reply or add others with @"
+                                        placeholder="Add a comment..."
                                         className="w-full p-2 border rounded"
-                                        value={comments[code] || ''}
+                                        value={comments[conflict.code] || ''}
                                         onChange={(e) =>
-                                            handleCommentChange(code, e.target.value)
+                                            handleCommentChange(conflict.code, e.target.value)
                                         }></textarea>
                                 </div>
                             </li>

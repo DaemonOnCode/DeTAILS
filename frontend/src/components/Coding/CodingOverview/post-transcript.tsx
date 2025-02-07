@@ -24,6 +24,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     dispatchCodeResponse,
     selectedText,
     setSelectedText,
+    conflictingCodes,
     isAddCodeModalOpen,
     setIsAddCodeModalOpen,
     isEditCodeModalOpen,
@@ -497,6 +498,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             codeSet={additionalCodes}
                             codeColors={codeColors}
                             hoveredCodeText={hoveredCodeText}
+                            conflictingCodes={conflictingCodes}
                         />
                     </div>
                 </div>

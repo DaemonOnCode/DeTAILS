@@ -28,81 +28,15 @@ function useResponsiveColumns() {
 /* -----------------------------------------------------
    2. Generate random text array for static cards
 ----------------------------------------------------- */
-function generateRandomTextArray(): Array<' ' | '-'> {
-    return [
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        ' ',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        ' ',
-        '-',
-        '-',
-        ' ',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        ' ',
-        '-',
-        '-',
-        '-',
-        '-',
-        ' ',
-        ' ',
-        ' ',
-        ' ',
-        ' ',
-        ' ',
-        ' ',
-        ' ',
-        ' ',
-        ' ',
-        '-',
-        '-',
-        '-',
-        ' ',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        ' ',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        ' ',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        ' ',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-',
-        '-'
-    ];
+function generateRandomTextArray(idx: number): Array<' ' | '-'> {
+    let t1 = ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'];
+    let t2 = ['-', '-', '-', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '];
+    let partialLineIndex = idx % 8;
+    return Array.from({ length: 8 }, (_, i) => {
+        if (i !== partialLineIndex) return t1;
+        if (i === partialLineIndex) return t2;
+        return t1;
+    }).flat() as Array<' ' | '-'>;
 }
 
 /* -----------------------------------------------------
@@ -111,13 +45,15 @@ function generateRandomTextArray(): Array<' ' | '-'> {
 function TypingEffect({
     word,
     phase,
-    onFinishedTyping
+    onFinishedTyping,
+    idx
 }: {
     word: string;
     phase: number;
     onFinishedTyping?: () => void;
+    idx: number;
 }) {
-    const [textArray, setTextArray] = useState<Array<' ' | '-'>>(generateRandomTextArray());
+    const [textArray, setTextArray] = useState<Array<' ' | '-'>>(generateRandomTextArray(idx));
     const [highlightIndex, setHighlightIndex] = useState(-1);
     const fadeColors = ['#808080', '#ffffff00'];
 
@@ -188,7 +124,7 @@ function TypingEffect({
 /* -----------------------------------------------------
    4. Static Card Content (phases 1–3, unchanged)
 ----------------------------------------------------- */
-function StaticCardContent({ phase }: { phase: number }) {
+function StaticCardContent({ phase, idx }: { phase: number; idx: number }) {
     return (
         <motion.div
             className="grid grid-cols-12 font-mono text-lg"
@@ -200,7 +136,7 @@ function StaticCardContent({ phase }: { phase: number }) {
             //     transition: 'opacity 1s ease-in-out'
             // }}
         >
-            {generateRandomTextArray().map((char, index) => (
+            {generateRandomTextArray(idx).map((char, index) => (
                 <motion.span
                     key={index}
                     initial={{
@@ -296,13 +232,13 @@ function CardsGrid({ phase, words }: { phase: number; words: string[] }) {
                         {isCenterCard ? (
                             <motion.div layoutId={`word-${centerIndex}`}>
                                 {phase === 0 ? (
-                                    <StaticCardContent phase={phase} />
+                                    <StaticCardContent phase={phase} idx={i} />
                                 ) : (
-                                    <TypingEffect word={words[centerIndex]} phase={phase} />
+                                    <TypingEffect word={words[centerIndex]} phase={phase} idx={i} />
                                 )}
                             </motion.div>
                         ) : (
-                            <StaticCardContent phase={phase} />
+                            <StaticCardContent phase={phase} idx={i} />
                         )}
                     </motion.div>
                 );
@@ -320,7 +256,7 @@ function CenterLayout({ words, phase }: { words: string[]; phase: number }) {
     const AnimatedColorSpan = ({ text }: { text: string }) => (
         <motion.span
             initial={{ color: '#000' }}
-            animate={{ color: phase >= 5 ? '#f00' : '#000' }}
+            animate={{ color: '#f00' }}
             transition={{ duration: 0.5 }}
             style={{ whiteSpace: 'pre' }}>
             {text}
@@ -364,45 +300,45 @@ function CenterLayout({ words, phase }: { words: string[]; phase: number }) {
             <div className="flex justify-center space-x-4">
                 <motion.div
                     layoutId="word-0"
-                    className="text-7xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
+                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
                     {highlightAcronym(words[0])}
                 </motion.div>
                 <motion.div
                     layoutId="word-1"
-                    className="text-7xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
+                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
                     {highlightAcronym(words[1])}
                 </motion.div>
                 <motion.div
                     layoutId="word-2"
-                    className="text-7xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
+                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
                     {highlightAcronym(words[2])}
                 </motion.div>
-            </div>
+                {/* </div>
 
-            {/* Row 2: "with" */}
-            <div className="flex justify-center">
+
+            <div className="flex justify-center"> */}
                 <motion.div
                     layoutId="word-3"
-                    className="text-7xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
+                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
                     {words[3]}
                 </motion.div>
-            </div>
+                {/* </div>
 
-            {/* Row 3: Iterative, LLM, Support */}
-            <div className="flex justify-center space-x-4">
+
+            <div className="flex justify-center space-x-4"> */}
                 <motion.div
                     layoutId="word-4"
-                    className="text-7xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
+                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
                     {highlightAcronym(words[4])}
                 </motion.div>
                 <motion.div
                     layoutId="word-5"
-                    className="text-7xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
+                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
                     {highlightAcronym(words[5])}
                 </motion.div>
                 <motion.div
                     layoutId="word-6"
-                    className="text-7xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
+                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
                     {highlightAcronym(words[6])}
                 </motion.div>
             </div>
@@ -411,120 +347,7 @@ function CenterLayout({ words, phase }: { words: string[]; phase: number }) {
 }
 
 /* -----------------------------------------------------
-   7. CenterLayoutFadeOut for phase 6
-   1) Fade out leftover/unhighlighted text
-   2) Fade out the background & container
------------------------------------------------------ */
-function CenterLayoutFadeOut({
-    words,
-    onFadeComplete
-}: {
-    words: string[];
-    onFadeComplete: () => void;
-}) {
-    // Just "Deductive" => "De"
-    // Others => first letter (like "Thematic" => "T" etc.)
-    function getHighlight(word: string) {
-        if (word === 'Deductive') return 'De';
-        return word[0]; // default highlight is first letter
-    }
-
-    return (
-        <motion.div
-            key="centerLayoutFadeOut"
-            className="absolute inset-0 flex flex-col items-center justify-center space-y-4"
-            layout
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }} // fade out entire container
-            transition={{ duration: 0.5 }}
-            onAnimationComplete={onFadeComplete}>
-            {/* Row 1: Deductive, Thematic, Analysis */}
-            <div className="flex justify-center space-x-4">
-                {renderFadingWord(words[0], 'word-0')}
-                {renderFadingWord(words[1], 'word-1')}
-                {renderFadingWord(words[2], 'word-2')}
-            </div>
-
-            {/* Row 2: "with" */}
-            <div className="flex justify-center">{renderFadingWord(words[3], 'word-3')}</div>
-
-            {/* Row 3: Iterative, LLM, Support */}
-            <div className="flex justify-center space-x-4">
-                {renderFadingWord(words[4], 'word-4')}
-                {renderFadingWord(words[5], 'word-5')}
-                {renderFadingWord(words[6], 'word-6')}
-            </div>
-        </motion.div>
-    );
-
-    function renderFadingWord(word: string, layoutId: string) {
-        const highlight = getHighlight(word);
-        const rest = word.slice(highlight.length);
-
-        return (
-            <motion.div
-                layoutId={layoutId}
-                className="text-3xl font-bold bg-blue-200 p-4 rounded-md shadow-md"
-                style={{ overflow: 'hidden' }}>
-                {/* The HIGHLIGHT portion (already red) - same layoutId for the highlight */}
-                <motion.span layoutId={`highlight-${word}`} style={{ whiteSpace: 'pre' }}>
-                    {highlight}
-                </motion.span>
-
-                {/* The leftover portion - fade to 0 at once in phase 6 */}
-                <motion.span
-                    style={{ marginLeft: highlight.length > 1 ? 0 : undefined }}
-                    initial={{ opacity: 1 }}
-                    animate={{ opacity: 0 }}
-                    transition={{ duration: 0.8 }}>
-                    {rest}
-                </motion.span>
-            </motion.div>
-        );
-    }
-}
-
-/* -----------------------------------------------------
-   8. MergeLayoutPhase6 - "DeTAILS" in the center with a subtle 3D effect
------------------------------------------------------ */
-function MergeLayoutPhase6({ words }: { words: string[] }) {
-    const merges = [
-        { word: 'Deductive', text: 'De' },
-        { word: 'Thematic', text: 'T' },
-        { word: 'Analysis', text: 'A' },
-        { word: 'Iterative', text: 'I' },
-        { word: 'LLM', text: 'L' },
-        { word: 'Support', text: 'S' }
-    ];
-
-    return (
-        <motion.div
-            key="mergeLayout"
-            className="absolute inset-0 flex items-center justify-center"
-            layout
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            // Add perspective to the container so that 3d transforms have depth.
-            style={{ perspective: '1000px' }}>
-            <div className="text-8xl font-bold flex space-x-1">
-                {merges.map(({ word, text }) => (
-                    <motion.span
-                        key={word}
-                        layoutId={`highlight-${word}`}
-                        // Apply a subtle 3d rotation to each letter.
-                        style={{ transform: 'rotateX(5deg) rotateY(5deg)' }}>
-                        {text}
-                    </motion.span>
-                ))}
-            </div>
-        </motion.div>
-    );
-}
-
-/* -----------------------------------------------------
-   9. Phase 7: SplitScreen with smaller 'DeTAILS' on top,
+   9. Phase 6: SplitScreen with smaller 'DeTAILS' on top,
        Google Auth on bottom, and a subtle 3D effect to the text
 ----------------------------------------------------- */
 export function SplitScreenPhase6({
@@ -545,26 +368,39 @@ export function SplitScreenPhase6({
     ];
 
     /** Local state controlling whether Google Auth is visible yet */
-    const [googleVisible, setGoogleVisible] = useState(false);
+    const [googleVisible, setGoogleVisible] = useState(true);
+    const [flex, setFlex] = useState(false);
 
     return (
         <div className="relative h-screen w-screen" style={{ perspective: '1000px' }}>
             {/* Background with cards rendered behind all content */}
-            <div className="absolute inset-0 z-0 opacity-50">
+            <motion.div
+                className="absolute inset-0 z-0"
+                initial={{
+                    opacity: 0
+                }}
+                animate={{
+                    opacity: 0.5
+                }}
+                transition={{
+                    duration: 1,
+                    delay: 0.5
+                }}>
                 <BackgroundWithCards />
-            </div>
+            </motion.div>
 
             {/* Foreground split screen content */}
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-10 z-10">
                 {/** 1) DeTAILS text, centered, animates up */}
                 <motion.div
-                    initial={{ x: 0 }}
-                    animate={{ x: 0 }}
-                    transition={{ duration: 5 }}
-                    className="h-1/2 flex items-end justify-end"
+                    initial={{ color: '#f00' }}
+                    animate={{ color: '#000' }}
+                    transition={{ duration: 0.5 }}
+                    className={`h-1/2 flex items-end justify-end`} //${flex ? 'flex items-end justify-end' : 'flex items-center justify-center'}`}
                     onAnimationComplete={() => {
                         // Once DeTAILS has shifted up, show the Google Auth container.
-                        setGoogleVisible(true);
+                        setFlex(true);
+                        // setGoogleVisible(true);
                     }}>
                     <div
                         className="text-9xl font-bold flex"
@@ -666,7 +502,7 @@ export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Eleme
         if (phase === 5) {
             const t = setTimeout(() => {
                 setPhase(6);
-            }, 700);
+            }, 900);
             return () => clearTimeout(t);
         }
     }, [phase]);
@@ -722,25 +558,15 @@ export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Eleme
                     )}
                 </AnimatePresence>
 
-                {/* PHASE 4..5 => show CenterLayout normally */}
-                {phase >= 4 && phase < 6 && <CenterLayout words={typedWords} phase={phase} />}
-
-                {/* PHASE 6 => first we fade out center layout + leftover text */}
                 <AnimatePresence>
-                    {phase === 6 && !mergeVisible && (
-                        <CenterLayoutFadeOut
-                            key="fadeOutContainer"
-                            words={typedWords}
-                            onFadeComplete={handleFadeComplete}
-                        />
+                    {/* PHASE 4..5 => show CenterLayout normally */}
+                    {phase >= 4 && phase < 6 && <CenterLayout words={typedWords} phase={phase} />}
+
+                    {/* PHASE 6 => first we fade out center layout + leftover text */}
+                    {phase === 6 && (
+                        <SplitScreenPhase6 words={typedWords} GoogleOauth={GoogleOauth} />
                     )}
                 </AnimatePresence>
-
-                {/* Once fade is complete => show MergeLayout (DeTAILS) in center */}
-                {/* {phase === 6 && mergeVisible && <MergeLayoutPhase6 words={typedWords} />} */}
-
-                {/* PHASE 7 => Split screen with smaller DeTAILS on top + Google Auth below */}
-                {phase === 6 && <SplitScreenPhase6 words={typedWords} GoogleOauth={GoogleOauth} />}
             </LayoutGroup>
         </div>
     );
@@ -783,9 +609,10 @@ interface WordSpan {
 ===================================================== */
 interface AnimatedCardContentProps {
     wordList: string[];
+    idx: number;
 }
 
-export function AnimatedCardContent({ wordList }: AnimatedCardContentProps) {
+export function AnimatedCardContent({ wordList, idx }: AnimatedCardContentProps) {
     const NUM_CHARS = 72; // Total characters per card.
     const NUM_COLS = 12; // We'll use a 12-column grid.
 
@@ -839,7 +666,7 @@ export function AnimatedCardContent({ wordList }: AnimatedCardContentProps) {
     useEffect(() => {
         setWordSpans(generateWordSpans());
         setHighlightIndex(-1);
-        setBaseText(generateRandomText());
+        setBaseText(generateRandomTextArray(idx));
     }, [wordList]);
 
     // Every 150ms, increment the global highlight pointer.
@@ -850,7 +677,7 @@ export function AnimatedCardContent({ wordList }: AnimatedCardContentProps) {
                 if (prev >= NUM_CHARS - 1) {
                     // When done, reset after a brief pause.
                     setTimeout(() => {
-                        setBaseText(generateRandomText());
+                        setBaseText(generateRandomTextArray(idx));
                         setWordSpans(generateWordSpans());
                         setHighlightIndex(-1);
                     }, 1000);
@@ -925,7 +752,7 @@ export function CardsGridBackground({ rows, columns, wordList }: CardsGridBackgr
                         key={i}
                         className="w-56 h-[284px] flex items-center justify-center text-lg p-2 leading-6 bg-white/50 border border-gray-400 shadow-lg rounded-lg"
                         style={{ transform: `translateY(${displacement}px)` }}>
-                        <AnimatedCardContent wordList={wordList} />
+                        <AnimatedCardContent wordList={wordList} idx={i} />
                     </div>
                 );
             })}

@@ -196,6 +196,11 @@ export type PostTranscriptProps = {
     dispatchCodeResponse: Dispatch<any>;
     selectedText: string | null;
     setSelectedText: SetState<string | null>;
+    conflictingCodes?: {
+        code: string;
+        explanation: string;
+        quote: string;
+    }[];
     isAddCodeModalOpen: boolean;
     setIsAddCodeModalOpen: SetState<boolean>;
     isEditCodeModalOpen: boolean;
