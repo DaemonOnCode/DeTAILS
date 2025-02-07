@@ -100,7 +100,7 @@ const LoadData = () => {
                 //     delete keyword.isMarked;
                 //     return keyword;
                 // }),
-                model: MODEL_LIST.GEMINI,
+                model: MODEL_LIST.GEMINI_FLASH,
                 main_topic: mainTopic,
                 additional_info: additionalInfo,
                 research_questions: researchQuestions,

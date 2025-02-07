@@ -53,7 +53,7 @@ const EncodedDataPage = () => {
             },
             body: JSON.stringify({
                 dataset_id: datasetId,
-                model: MODEL_LIST.GEMINI,
+                model: MODEL_LIST.GEMINI_FLASH,
                 unseen_post_responses: unseenPostResponse,
                 sampled_post_responses: sampledPostResponse
             })

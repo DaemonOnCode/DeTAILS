@@ -13,7 +13,7 @@ const Workflow = () => {
     const llm2Ref = useRef<HTMLDivElement>(null);
     const llm3Ref = useRef<HTMLDivElement>(null);
 
-    const modelName = MODEL_LIST.GEMINI;
+    const modelName = MODEL_LIST.GEMINI_FLASH;
 
     const { registerCallback, unregisterCallback } = useWebSocket();
     const { selectedPosts } = useCollectionContext();

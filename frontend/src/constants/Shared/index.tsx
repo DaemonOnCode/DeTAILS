@@ -23,7 +23,7 @@ export enum MODEL_LIST {
     DEEPSEEK_R1_32b = 'deepseek-r1:32b',
     DEEPSEEK_R1_70b_fp16 = 'deepseek-r1:70b-llama-distill-fp16',
     GEMINI_FLASH_THINKING = 'gemini-2.0-flash-thinking-exp-01-21',
-    GEMINI_FLASH = 'gemini-2.0-flash-exp',
+    GEMINI_FLASH = 'gemini-2.0-flash-001',
     GEMINI = 'gemini-exp-1206'
 }
 

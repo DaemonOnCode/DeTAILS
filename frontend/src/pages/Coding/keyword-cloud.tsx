@@ -106,7 +106,7 @@ const KeywordCloudPage: FC = () => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: MODEL_LIST.GEMINI,
+                model: MODEL_LIST.GEMINI_FLASH,
                 mainTopic,
                 additionalInfo,
                 researchQuestions,
@@ -175,7 +175,7 @@ const KeywordCloudPage: FC = () => {
         //         'Content-Type': 'application/json'
         //     },
         //     body: JSON.stringify({
-        //         model: MODEL_LIST.GEMINI,
+        //         model: MODEL_LIST.GEMINI_FLASH,
         //         mainTopic,
         //         additionalInfo,
         //         selectedKeywords,

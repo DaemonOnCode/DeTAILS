@@ -41,7 +41,7 @@ const KeywordsTablePage: FC = () => {
             },
             body: JSON.stringify({
                 dataset_id: datasetId,
-                model: MODEL_LIST.GEMINI,
+                model: MODEL_LIST.GEMINI_FLASH,
                 mainTopic,
                 additionalInfo,
                 keywordTable,

@@ -132,7 +132,7 @@ const ContextPage = () => {
             const blob = new Blob([fileContent]);
             formData.append('contextFiles', blob, contextFiles[filePath]);
         });
-        formData.append('model', MODEL_LIST.GEMINI);
+        formData.append('model', MODEL_LIST.GEMINI_FLASH);
         formData.append('mainTopic', mainTopic);
         formData.append('additionalInfo', additionalInfo ?? '');
         formData.append('retry', 'false');
