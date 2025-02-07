@@ -29,7 +29,9 @@ const TranscriptPage = () => {
         sampledPostResponse,
         dispatchSampledPostResponse,
         sampledPostWithThemeResponse,
-        dispatchSampledPostWithThemeResponse
+        dispatchSampledPostWithThemeResponse,
+        conflictingResponses,
+        setConflictingResponses
     } = useCodingContext();
 
     const { datasetId } = useCollectionContext();
@@ -61,6 +63,7 @@ const TranscriptPage = () => {
             codebook: {
                 responses: any[];
                 dispatchFunction: (...args: any) => void;
+                showThemes?: boolean;
             } | null;
             topTranscript: {
                 responses: any[];
@@ -136,7 +139,7 @@ const TranscriptPage = () => {
                 state: 'review',
                 codebook: 'true',
                 type: null,
-                split: false
+                split: 'false'
             }),
             {
                 name: 'Review',
@@ -149,7 +152,8 @@ const TranscriptPage = () => {
                             type: 'SET_RESPONSES',
                             responses: args[0]
                         });
-                    }
+                    },
+                    showThemes: false
                 },
                 topTranscript: null,
                 bottomTranscript: {
@@ -224,12 +228,13 @@ const TranscriptPage = () => {
                         console.log('Dispatching to Refine:', args);
                         dispatchSampledPostResponse({
                             type: 'SET_RESPONSES',
-                            responses: args[0].map((response: any) => ({
+                            responses: args?.map((response: any) => ({
                                 ...response,
                                 type: 'Human'
                             }))
                         });
-                    }
+                    },
+                    conflicts: conflictingResponses
                 }
             }
         ],
@@ -259,9 +264,9 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0].map((response: any) => ({
-                                ...response,
+                            type: 'ADD_RESPONSES',
+                            responses: args?.map((response: any) => ({
+                                ...response.response,
                                 type: 'Human'
                             }))
                         });
@@ -296,7 +301,7 @@ const TranscriptPage = () => {
                         console.log('Dispatching to Refine:', args);
                         dispatchUnseenPostResponse({
                             type: 'SET_RESPONSES',
-                            responses: args[0].map((response: any) => ({
+                            responses: args?.map((response: any) => ({
                                 ...response,
                                 type: 'LLM'
                             }))
@@ -330,11 +335,8 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0].map((response: any) => ({
-                                ...response,
-                                type: 'Human'
-                            }))
+                            ...args[0],
+                            responseType: 'Human'
                         });
                     }
                 },
@@ -343,11 +345,8 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0].map((response: any) => ({
-                                ...response,
-                                type: 'LLM'
-                            }))
+                            ...args[0],
+                            responseType: 'LLM'
                         });
                     }
                 }
@@ -371,7 +370,27 @@ const TranscriptPage = () => {
         split
     });
 
-    console.log(config.keys());
+    console.log(
+        config.keys(),
+        Array.from(config.keys()).forEach((key) =>
+            console.log(
+                key,
+                JSON.stringify({
+                    state: state ?? 'review',
+                    codebook: (codebook ?? 'false') as 'true' | 'false',
+                    type,
+                    split
+                }),
+                key ===
+                    JSON.stringify({
+                        state: state ?? 'review',
+                        codebook: (codebook ?? 'false') as 'true' | 'false',
+                        type,
+                        split
+                    })
+            )
+        )
+    );
 
     const [post, setPost] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
@@ -507,7 +526,7 @@ const TranscriptPage = () => {
                             codeResponses={currentConfig?.codebook?.responses ?? []}
                             onViewTranscript={() => {}}
                             review={currentConfig?.review ?? true}
-                            showThemes={true}
+                            showThemes={currentConfig?.codebook?.showThemes}
                             onReRunCoding={() => {}}
                             onUpdateResponses={currentConfig?.codebook?.dispatchFunction as any}
                         />
@@ -566,6 +585,7 @@ const TranscriptPage = () => {
                                         dispatchCodeResponse={
                                             currentConfig?.topTranscript?.dispatchFunction as any
                                         }
+                                        conflictingCodes={currentConfig?.topTranscript?.conflicts}
                                         review={state === 'review'}
                                         selectedText={selectedText}
                                         setSelectedText={setSelectedText}
@@ -609,6 +629,7 @@ const TranscriptPage = () => {
                                 dispatchCodeResponse={
                                     currentConfig?.bottomTranscript?.dispatchFunction as any
                                 }
+                                conflictingCodes={currentConfig?.bottomTranscript?.conflicts}
                                 selectedText={selectedText}
                                 setSelectedText={setSelectedText}
                                 isAddCodeModalOpen={isAddCodeModalOpen}

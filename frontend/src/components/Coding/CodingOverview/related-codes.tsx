@@ -1,4 +1,5 @@
 import { FC, useState } from 'react';
+import { useCodingContext } from '../../../context/coding-context';
 
 const RelatedCodes: FC<{
     codeSet: string[];
@@ -10,6 +11,13 @@ const RelatedCodes: FC<{
     codeColors: Record<string, string>;
     hoveredCodeText: string[] | null;
 }> = ({ codeSet, conflictingCodes = [], codeColors, hoveredCodeText }) => {
+    const {
+        sampledPostResponse,
+        dispatchSampledPostResponse,
+        conflictingResponses,
+        setConflictingResponses
+    } = useCodingContext();
+
     const [comments, setComments] = useState<Record<string, string>>({});
 
     // Handle comment changes
@@ -18,6 +26,24 @@ const RelatedCodes: FC<{
             ...prev,
             [code]: comment
         }));
+    };
+
+    const onAgreeWithLLM = (code: string, quote: string) => {
+        setConflictingResponses([
+            ...conflictingResponses.filter(
+                (response) => response.code !== code && response.quote !== quote
+            )
+        ]);
+    };
+
+    const onAddOwnCode = (code: string, comment: string, index: number) => {
+        dispatchSampledPostResponse({
+            type: 'UPDATE_CODE',
+            // postId: conflictingCodes[index].postId,
+            prevCode: code,
+            newCode: comment,
+            quote: conflictingCodes[index].quote
+        });
     };
 
     // Determine agreed codes (those not in the conflicting codes)
@@ -50,23 +76,51 @@ const RelatedCodes: FC<{
                         {conflictingCodes.map((conflict, index) => (
                             <li
                                 key={index}
-                                className="p-3 rounded bg-gray-200"
+                                className="p-3 rounded bg-gray-200 flex flex-col space-y-2"
                                 style={{ backgroundColor: codeColors[conflict.code] || '#ddd' }}>
                                 <div className="flex justify-between items-center">
-                                    <span>{conflict.code}</span>
-                                    <button className="text-gray-500 hover:text-black">⋮</button>
+                                    <span className="font-bold">{conflict.code}</span>
+                                    {/* <button className="text-gray-500 hover:text-black" onClick={handleDropdownClick}>⋮</button> */}
                                 </div>
-                                <p>{conflict.quote}</p>
-                                <p>{conflict.explanation}</p>
+                                <p>Quote: {conflict.quote}</p>
+                                <p>Disagreement Explanation: {conflict.explanation}</p>
+                                <button
+                                    className="w-full bg-blue-500 p-4 rounded"
+                                    onClick={() => onAgreeWithLLM(conflict.code, conflict.quote)}>
+                                    Agree with LLM
+                                </button>
                                 <div className="mt-2">
                                     <textarea
-                                        placeholder="Add a comment..."
+                                        placeholder="New code..."
                                         className="w-full p-2 border rounded"
-                                        value={comments[conflict.code] || ''}
+                                        value={
+                                            comments[
+                                                JSON.stringify({
+                                                    code: conflict.code,
+                                                    quote: conflict.quote
+                                                })
+                                            ] || ''
+                                        }
                                         onChange={(e) =>
                                             handleCommentChange(conflict.code, e.target.value)
                                         }></textarea>
                                 </div>
+                                <button
+                                    className="w-full bg-blue-500 p-4 rounded"
+                                    onClick={() =>
+                                        onAddOwnCode(
+                                            comments[
+                                                JSON.stringify({
+                                                    code: conflict.code,
+                                                    quote: conflict.quote
+                                                })
+                                            ],
+                                            conflict.code,
+                                            index
+                                        )
+                                    }>
+                                    Add Own Code
+                                </button>
                             </li>
                         ))}
                     </ul>

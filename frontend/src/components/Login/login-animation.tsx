@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 
 /* -----------------------------------------------------
@@ -53,9 +53,30 @@ function TypingEffect({
     onFinishedTyping?: () => void;
     idx: number;
 }) {
-    const [textArray, setTextArray] = useState<Array<' ' | '-'>>(generateRandomTextArray(idx));
     const [highlightIndex, setHighlightIndex] = useState(-1);
     const fadeColors = ['#808080', '#ffffff00'];
+
+    // Define grid dimensions
+    const ROWS = 8;
+    const COLS = 12;
+    const TOTAL_CELLS = ROWS * COLS;
+    const [textArray, setTextArray] = useState<Array<string>>(generateRandomTextArray(idx));
+
+    // Generate random row and column indices ensuring space for full word completion
+    const { rowIndex, startColumnIndex, totalStartIndex } = useMemo(() => {
+        const randomRow = Math.floor(Math.random() * ROWS);
+        let hyphenInARow = generateRandomTextArray(idx)
+            .slice(randomRow * COLS, randomRow * (COLS + 1))
+            .filter((char) => char === '-').length;
+        const maxStart = Math.max(0, hyphenInARow - word.length);
+        const randomColumn = Math.floor(Math.random() * (maxStart + 1));
+        const totalStartIdx = randomRow * COLS + randomColumn;
+        return {
+            rowIndex: randomRow,
+            startColumnIndex: randomColumn,
+            totalStartIndex: totalStartIdx
+        };
+    }, [idx, word]);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -63,7 +84,7 @@ function TypingEffect({
                 const next = prev + 1;
                 if (next >= word.length) {
                     clearInterval(interval);
-                    onFinishedTyping?.();
+                    onFinishedTyping?.(); // 🚀 Transition to Phase 4
                     return prev;
                 }
                 return next;
@@ -71,52 +92,58 @@ function TypingEffect({
 
             setTextArray((prev) => {
                 const newArr = [...prev];
-                const replaceIndex = newArr.findIndex((char) => char === '-' || char === ' ');
-                if (replaceIndex !== -1 && highlightIndex + 1 < word.length) {
-                    newArr[replaceIndex] = word[highlightIndex + 1] as ' ' | '-';
+                if (highlightIndex + 1 < word.length) {
+                    newArr[totalStartIndex + highlightIndex + 1] = word[highlightIndex + 1]; // Ensure correct position
                 }
                 return newArr;
             });
         }, 150);
 
         return () => clearInterval(interval);
-    }, [highlightIndex, word, onFinishedTyping]);
+    }, [highlightIndex, word, totalStartIndex, onFinishedTyping]);
 
     return (
-        <motion.div className="grid grid-cols-12 max-w-[128px] font-mono  text-lg">
-            {textArray.map((char, index) => (
-                <motion.span
-                    key={index}
-                    initial={{
-                        color: index <= highlightIndex ? '#000' : fadeColors[0] // Start with the darkest gray
-                    }}
-                    animate={{
-                        color:
-                            index <= highlightIndex
-                                ? '#000'
-                                : phase === 3
-                                  ? fadeColors // Cycle through shades of gray to transparent
-                                  : fadeColors[0] // If not in phase 3, stay on the darkest gray
-                    }}
-                    transition={{
-                        duration: 0.5,
-                        // delay: phase === 3 ? (index - highlightIndex) * 0.02 : 0,
-                        ease: 'easeInOut'
-                    }}
-                    style={{
-                        backgroundColor:
-                            index <= highlightIndex ? 'rgb(191 219 254)' : 'transparent',
-                        borderRadius:
-                            index <= highlightIndex && index === 0
-                                ? '10px 0 0 10px'
-                                : index === word.length - 1
-                                  ? '0 10px 10px 0'
-                                  : '0px',
-                        padding: '1px 0px'
-                    }}>
-                    {char}
-                </motion.span>
-            ))}
+        <motion.div className="grid grid-cols-12 max-w-[128px] font-mono text-lg">
+            {textArray.map((char, index) => {
+                const isFirstLetter = index === totalStartIndex && phase >= 4 && word !== 'with';
+                const shouldFadeOut = phase === 4 && !isFirstLetter; // 🚀 Fade out all except first letter
+
+                return (
+                    <motion.span
+                        key={index}
+                        initial={{ color: index < totalStartIndex ? fadeColors[0] : '#000' }}
+                        animate={{
+                            color: isFirstLetter
+                                ? '#f00' // 🔴 Highlight first letter in Phase 4
+                                : shouldFadeOut
+                                  ? '#ffffff00' // 🔥 Fade out the rest
+                                  : index >= totalStartIndex &&
+                                      index <= totalStartIndex + highlightIndex
+                                    ? '#000'
+                                    : phase === 3
+                                      ? fadeColors
+                                      : fadeColors[0]
+                        }}
+                        transition={{ duration: isFirstLetter ? 1 : 0.5, ease: 'easeInOut' }}
+                        layoutId={isFirstLetter ? `highlight-${word}` : undefined} // 🚀 Assign layoutId for Phase 5
+                        style={{
+                            backgroundColor:
+                                index >= totalStartIndex &&
+                                index <= totalStartIndex + highlightIndex
+                                    ? 'rgb(191 219 254)'
+                                    : 'transparent',
+                            borderRadius:
+                                index === totalStartIndex
+                                    ? '10px 0 0 10px'
+                                    : index === totalStartIndex + word.length - 1
+                                      ? '0 10px 10px 0'
+                                      : '0px',
+                            padding: '0px 1px'
+                        }}>
+                        {char}
+                    </motion.span>
+                );
+            })}
         </motion.div>
     );
 }
@@ -156,7 +183,15 @@ function StaticCardContent({ phase, idx }: { phase: number; idx: number }) {
 /* -----------------------------------------------------
    5. Card Grid for phases 1–3 (unchanged)
 ----------------------------------------------------- */
-function CardsGrid({ phase, words }: { phase: number; words: string[] }) {
+function CardsGrid({
+    phase,
+    setPhase,
+    words
+}: {
+    phase: number;
+    setPhase: Dispatch<SetStateAction<Phase>>;
+    words: string[];
+}) {
     const TOTAL_COLUMNS = useResponsiveColumns();
     const ROWS = 5;
     const TOTAL_CARDS = TOTAL_COLUMNS * ROWS;
@@ -172,7 +207,7 @@ function CardsGrid({ phase, words }: { phase: number; words: string[] }) {
             middleCol + 1 + middleRow * TOTAL_COLUMNS,
             middleCol - 1 + (middleRow - 1) * TOTAL_COLUMNS,
             middleCol + 1 + (middleRow + 1) * TOTAL_COLUMNS
-        ];
+        ].sort((a, b) => a - b);
     }, [TOTAL_COLUMNS, ROWS]);
 
     return (
@@ -234,8 +269,25 @@ function CardsGrid({ phase, words }: { phase: number; words: string[] }) {
                                 {phase === 0 ? (
                                     <StaticCardContent phase={phase} idx={i} />
                                 ) : (
-                                    <TypingEffect word={words[centerIndex]} phase={phase} idx={i} />
+                                    <TypingEffect
+                                        word={words[centerIndex]}
+                                        phase={phase}
+                                        idx={i}
+                                        onFinishedTyping={() => setPhase(4)} // 🚀 Move to Phase 4
+                                    />
                                 )}
+
+                                {/* Phase 4: Apply Highlight to First Letter */}
+                                {/* {phase === 4 && words[centerIndex] !== 'with' && (
+                                    <motion.span
+                                        layoutId={`highlight-${words[centerIndex]}`} // Keep ID for Phase 5 transition
+                                        initial={{ color: '#000' }}
+                                        animate={{ color: '#f00' }}
+                                        transition={{ duration: 1 }}
+                                        style={{ fontWeight: 'bold' }}>
+                                        {words[centerIndex][0]}
+                                    </motion.span>
+                                )} */}
                             </motion.div>
                         ) : (
                             <StaticCardContent phase={phase} idx={i} />
@@ -296,7 +348,6 @@ function CenterLayout({ words, phase }: { words: string[]; phase: number }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}>
-            {/* Row 1: Deductive Thematic Analysis */}
             <div className="flex justify-center space-x-4">
                 <motion.div
                     layoutId="word-0"
@@ -313,19 +364,13 @@ function CenterLayout({ words, phase }: { words: string[]; phase: number }) {
                     className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
                     {highlightAcronym(words[2])}
                 </motion.div>
-                {/* </div>
 
-
-            <div className="flex justify-center"> */}
                 <motion.div
                     layoutId="word-3"
                     className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
                     {words[3]}
                 </motion.div>
-                {/* </div>
 
-
-            <div className="flex justify-center space-x-4"> */}
                 <motion.div
                     layoutId="word-4"
                     className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
@@ -477,29 +522,29 @@ export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Eleme
         }
     }, [phase]);
 
-    useEffect(() => {
-        if (phase === 3) {
-            const t = setTimeout(() => {
-                setPhase(4);
-            }, 500);
-            return () => clearTimeout(t);
-        }
-    }, [phase]);
+    // useEffect(() => {
+    //     if (phase === 3) {
+    //         const t = setTimeout(() => {
+    //             setPhase(4);
+    //         }, 500);
+    //         return () => clearTimeout(t);
+    //     }
+    // }, [phase]);
 
-    // From phase 4 => 5 after 3s
-    useEffect(() => {
-        if (phase === 4) {
-            const t = setTimeout(() => {
-                setPhase(5);
-            }, 500);
-            return () => clearTimeout(t);
-        }
-    }, [phase]);
+    // // From phase 4 => 5 after 3s
+    // useEffect(() => {
+    //     if (phase === 4) {
+    //         const t = setTimeout(() => {
+    //             setPhase(5);
+    //         }, 500);
+    //         return () => clearTimeout(t);
+    //     }
+    // }, [phase]);
 
     // From phase 5 => 6 after 3s
     useEffect(() => {
         console.log('Phase:', phase);
-        if (phase === 5) {
+        if (phase === 4) {
             const t = setTimeout(() => {
                 setPhase(6);
             }, 900);
@@ -545,7 +590,7 @@ export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Eleme
             <LayoutGroup>
                 {/* PHASES 1..3 => CardsGrid */}
                 <AnimatePresence>
-                    {phase < 4 && (
+                    {phase < 5 && (
                         <motion.div
                             key="cardsContainer"
                             className="relative z-10"
@@ -553,14 +598,14 @@ export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Eleme
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{ duration: 0.5 }}>
-                            <CardsGrid phase={phase} words={typedWords} />
+                            <CardsGrid phase={phase} words={typedWords} setPhase={setPhase} />
                         </motion.div>
                     )}
                 </AnimatePresence>
 
                 <AnimatePresence>
                     {/* PHASE 4..5 => show CenterLayout normally */}
-                    {phase >= 4 && phase < 6 && <CenterLayout words={typedWords} phase={phase} />}
+                    {/* {phase >= 4 && phase < 6 && <CenterLayout words={typedWords} phase={phase} />} */}
 
                     {/* PHASE 6 => first we fade out center layout + leftover text */}
                     {phase === 6 && (

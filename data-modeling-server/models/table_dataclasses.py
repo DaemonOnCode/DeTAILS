@@ -109,6 +109,7 @@ class WorkspaceState(BaseDataclass):
     unplaced_codes: Optional[str] = None  # JSON string for list
     sampled_post_ids: Optional[str] = None  # JSON string for list
     unseen_post_ids: Optional[str] = None  # JSON string for list
+    conflicting_responses: Optional[str] = None  # JSON string for list
 
     # Metadata
     updated_at: Optional[datetime] = field(default_factory=datetime.now)

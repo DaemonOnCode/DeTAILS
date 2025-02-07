@@ -1,3 +1,4 @@
+from calendar import c
 from dataclasses import asdict
 import glob
 import json
@@ -40,6 +41,8 @@ def save_state(data):
     unplaced_codes = json.dumps(coding_context.unplaced_codes)
     sampled_post_ids = json.dumps(coding_context.sampled_post_ids)
     unseen_post_ids = json.dumps(coding_context.unseen_post_ids)
+    conflicting_responses = json.dumps(coding_context.conflicting_responses)
+
 
     # Create a workspace state object
     workspace_state = WorkspaceState(
@@ -65,13 +68,18 @@ def save_state(data):
         unplaced_codes=unplaced_codes,
         sampled_post_ids=sampled_post_ids,
         unseen_post_ids=unseen_post_ids,
-        updated_at=datetime.now()
+        conflicting_responses=conflicting_responses,
+        updated_at=datetime.now(),
     )
 
     # Check if the workspace state already exists
-    existing_state = workspace_state_repo.find_one(
-        {"workspace_id": data.workspace_id, "user_email": data.user_email}
-    )
+    try:
+        existing_state = workspace_state_repo.find_one(
+            {"workspace_id": data.workspace_id, "user_email": data.user_email}
+        )
+    except Exception as e:
+        print(e)
+        existing_state = None
 
     if existing_state:
         # Update the existing record
@@ -86,9 +94,13 @@ def save_state(data):
 
 def load_state(data):
     # Fetch the workspace state from the database
-    state = workspace_state_repo.find_one(
-        {"workspace_id": data.workspace_id, "user_email": data.user_email}
-    )
+    state = None
+    try:
+        state = workspace_state_repo.find_one(
+            {"workspace_id": data.workspace_id, "user_email": data.user_email}
+        )
+    except Exception as e:
+        print(e)
 
     if not state:
         return {"success": True, "data": None}
@@ -98,7 +110,7 @@ def load_state(data):
         "selected_posts", "models", "context_files", "keywords", "selected_keywords",
         "keyword_table", "references_data", "themes", "research_questions",
         "sampled_post_responses", "sampled_post_with_themes_responses",
-        "unseen_post_response", "unplaced_codes", "sampled_post_ids", "unseen_post_ids"
+        "unseen_post_response", "unplaced_codes", "sampled_post_ids", "unseen_post_ids", "conflicting_responses"
     ]
 
     for field in json_fields:

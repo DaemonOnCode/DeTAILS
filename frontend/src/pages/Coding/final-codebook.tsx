@@ -10,6 +10,7 @@ import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useNavigate } from 'react-router-dom';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../context/collection-context';
+import { ToastContainer, toast } from 'react-toastify';
 
 const FinalThemes = () => {
     const {
@@ -42,6 +43,32 @@ const FinalThemes = () => {
             });
         };
     }, []);
+
+    const InfiniteToast = () => {
+        useEffect(() => {
+            const showToast = () => {
+                toast.info('🔥 Infinite Notification!', {
+                    position: 'top-right',
+                    autoClose: 3000, // Auto closes after 3 seconds
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                    progress: undefined
+                });
+            };
+
+            // Show toast immediately
+            showToast();
+
+            // Set interval to continuously show toasts
+            const toastInterval = setInterval(showToast, 5000); // Every 5 seconds
+
+            return () => clearInterval(toastInterval); // Cleanup on unmount
+        }, []);
+
+        return <ToastContainer limit={3} />;
+    };
 
     const handleNextClick = async () => {
         navigate('../loader/' + LOADER_ROUTES.DEDUCTIVE_CODING_LOADER);
@@ -80,6 +107,13 @@ const FinalThemes = () => {
             }[];
         } = await res.json();
         console.log('Results:', results);
+
+        toast.info(
+            'LLM has finished coding data. You can head back to Split Check page to see the results',
+            {
+                autoClose: false
+            }
+        );
 
         dispatchUnseenPostResponse({
             type: 'SET_RESPONSES',

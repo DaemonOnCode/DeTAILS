@@ -25,6 +25,7 @@ interface UnifiedCodingPageProps {
     showFilterDropdown?: boolean;
     showRerunCoding?: boolean;
     handleRerun?: () => void;
+    conflictingResponses?: IQECResponse[];
 }
 
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
@@ -38,7 +39,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     split = undefined,
     showFilterDropdown = false,
     showRerunCoding = false,
-    handleRerun = () => {}
+    handleRerun = () => {},
+    conflictingResponses = []
 }) => {
     console.log('Data:', data);
     const [viewTranscript, setViewTranscript] = useState(false);
@@ -207,6 +209,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             showThemes={isThemesVisible}
                             onReRunCoding={handleReRunCoding}
                             onUpdateResponses={handleUpdateResponses}
+                            conflictingResponses={conflictingResponses}
                         />
                         {showRerunCoding && (
                             <div className="flex justify-center p-6">

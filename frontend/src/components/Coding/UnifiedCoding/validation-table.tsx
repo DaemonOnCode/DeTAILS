@@ -8,6 +8,7 @@ interface ValidationTableProps {
     showThemes?: boolean;
     onReRunCoding: () => void;
     onUpdateResponses: (updatedResponses: any[]) => void;
+    conflictingResponses?: IQECResponse[];
 }
 
 const ValidationTable: FC<ValidationTableProps> = ({
@@ -16,7 +17,8 @@ const ValidationTable: FC<ValidationTableProps> = ({
     review,
     showThemes,
     onReRunCoding,
-    onUpdateResponses
+    onUpdateResponses,
+    conflictingResponses = []
 }) => {
     const [editIndex, setEditIndex] = useState<number | null>(null);
     const [editableRow, setEditableRow] = useState<any>(null);
@@ -92,6 +94,9 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                     <th className="border border-gray-300 p-2">Actions</th>
                                     <th className="border border-gray-300 p-2">Comments</th>
                                 </>
+                            )}
+                            {conflictingResponses.length > 0 && (
+                                <th className="border border-gray-300 p-2">Conflicts</th>
                             )}
                         </tr>
                     </thead>
@@ -278,6 +283,27 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             )}
                                         </td>
                                     </>
+                                )}
+                                {conflictingResponses.length > 0 && (
+                                    <td className="border border-gray-300 p-2">
+                                        {conflictingResponses
+                                            .filter(
+                                                (conflict) =>
+                                                    conflict.code === row.code &&
+                                                    conflict.quote === row.quote
+                                            )
+                                            .map((conflict, i) => (
+                                                <div key={i}>
+                                                    <button
+                                                        className="text-red-500 underline"
+                                                        onClick={() =>
+                                                            onViewTranscript(row.postId)
+                                                        }>
+                                                        Go to Conflict
+                                                    </button>
+                                                </div>
+                                            ))}
+                                    </td>
                                 )}
                             </tr>
                         ))}

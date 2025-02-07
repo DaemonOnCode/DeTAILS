@@ -9,7 +9,7 @@ workspace_repo = WorkspacesRepository()
 def create_workspace(data):
     workspace_id = str(uuid4())
     print("Created workspace ID: ", workspace_id)
-    workspace_repo.insert({"id": workspace_id, "name": data.name, "description": data.description, "user_email": data.user_email})
+    workspace_repo.insert(Workspace(id=workspace_id, name=data.name, description= data.description, user_email=data.user_email))
     # execute_query(
     #     "INSERT INTO workspaces (id, name, description, user_email) VALUES (?, ?, ?, ?)",
     #     (workspace_id, data.name, data.description, data.user_email),
@@ -48,12 +48,16 @@ def delete_workspace(workspace_id: str):
 
 
 def create_temp_workspace(user_email: str):
-    existing_workspace = workspace_repo.find_one(
-        {
-            "user_email": user_email,
-            "name": "Temporary Workspace"
-        }
-    )
+    try:
+        existing_workspace = workspace_repo.find_one(
+            {
+                "user_email": user_email,
+                "name": "Temporary Workspace"
+            }
+        )
+    except Exception as e:
+        print(e)
+        existing_workspace = None
     # existing_workspace = execute_query(
     #     "SELECT id FROM workspaces WHERE user_email = ? AND name = ?",
     #     (user_email, "Temporary Workspace"),

@@ -83,6 +83,7 @@ async def save_context_files(dataset_id: str, contextFiles: List[UploadFile], ve
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     
     await manager.broadcast(f"Dataset {dataset_id}: Uploading files...")
+    await asyncio.sleep(5)
 
     for file in contextFiles:
         retries = 3
@@ -119,6 +120,7 @@ async def save_context_files(dataset_id: str, contextFiles: List[UploadFile], ve
                     raise e
 
     await manager.broadcast(f"Dataset {dataset_id}: Files uploaded successfully.")
+    await asyncio.sleep(5)
 
 
 def get_llm_and_embeddings(

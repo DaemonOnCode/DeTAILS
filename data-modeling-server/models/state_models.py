@@ -39,4 +39,5 @@ class CodingContext(BaseModel):
     unplaced_codes: list = []
     sampled_post_ids: list = []
     unseen_post_ids: list = []
+    conflicting_responses: list = []
 

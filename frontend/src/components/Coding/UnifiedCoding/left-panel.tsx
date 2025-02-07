@@ -125,6 +125,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                             // )
                             .map((postIdTitle) => (
                                 <PostTab
+                                    key={postIdTitle.id}
                                     postIdTitle={postIdTitle}
                                     selectedItem={selectedItem}
                                     handleSelect={handleSelect}

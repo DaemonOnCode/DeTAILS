@@ -490,11 +490,11 @@ You are an advanced AI specializing in **qualitative research** and **thematic c
    - Identify codes that remained **unchanged**.
    - Identify codes that were **modified**.
    - Identify codes that were **added or removed**.
+   - Skip this if previous codebook is not available or empty.
 
-3. **List Agreements and Disagreements in JSON Format.**
-   - Specify which codes the human **agrees with** and why.
-   - Specify which codes the human **disagrees with** and what needs revision.
-   - Justify disagreements using **feedback from `currentCodebook.comments`**.
+3. **List Disagreements in JSON Format.**
+   - Specify which codes and quotes **you disagree with** from the human evaluation and comment and what needs revision.
+   - If you disagree with the human's evaluation or comment, give your disagreements using **feedback from `currentCodebook.comments`** as human explanation and is marked false as human evaluation.
 
 4. **Generate a Revised Codebook.**
    - Modify **existing codes** based on human feedback.
@@ -505,31 +505,17 @@ You are an advanced AI specializing in **qualitative research** and **thematic c
 ---
 
 ## ** Output Format**
-### **1 Agreements and Disagreements (JSON)**
+### **1 Disagreements and new revised codebook (JSON)**
 ```json
 {{
-  "agreements": [
-    {{
-      "code": "Code Name",
-      "reason": "Why the human agrees with this code."
-    }},
-    ...
-  ],
   "disagreements": [
     {{
       "code": "Code Name",
-      "reason": "Why the human disagrees and what changes they proposed (extracted from `currentCodebook.comments`)."
+      "explanation": "Why do you disagree with the human's suggestion if given (extracted from `currentCodebook.comments`) or evaluation (is marked false).",
+      "quote": "The relevant quote."
     }},
     ...
-  ]
-}}
-```
-
----
-
-### **2 Revised Codebook (JSON)**
-```json
-{{
+  ],
   "revised_codebook": [
     {{
       "code": "Refined Code Name",

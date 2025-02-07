@@ -32,9 +32,9 @@ const ThemeLoaderPage = () => {
             setStage('Uploading files');
         } else if (message.includes('Files uploaded successfully')) {
             setStage('Files Uploaded');
-        } else if (message.includes('Generating Themes')) {
-            setStage('Generating Themes');
-        } else if (message.includes('Processing complete')) {
+        } else if (message.includes('Using Retrieval-Augmented Generation (RAG)')) {
+            setStage('Generating Keywords');
+        } else if (message.includes('LLM process completed successfully')) {
             setStage('Processing Complete');
         } else if (message.includes('Error encountered')) {
             setStage('Error: Check Server Logs');
@@ -95,7 +95,7 @@ const ThemeLoaderPage = () => {
 
     return (
         <div className="min-h-panel w-full flex flex-col gap-6 items-center justify-center">
-            {stage !== 'Generating Themes' && (
+            {stage !== 'Generating Keywords' && (
                 <h1 className="text-2xl font-bold text-center mb-6">{stage}</h1>
             )}
 
@@ -128,14 +128,14 @@ const ThemeLoaderPage = () => {
                 </div>
             )}
 
-            {stage === 'Generating Themes' && (
+            {stage === 'Generating Keywords' && (
                 <div className="relative w-full min-h-panel flex items-center justify-center overflow-hidden">
                     <motion.h1
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 1.5 }}
                         className="text-gray-800 text-4xl font-bold tracking-wide z-10">
-                        Generating Words
+                        Generating Keywords
                     </motion.h1>
 
                     {/* Dynamic Rectangles */}
@@ -185,7 +185,7 @@ const ThemeLoaderPage = () => {
                         opacity: [1, 0.8, 1],
                         transition: { duration: 1, repeat: Infinity }
                     }}>
-                    <span className="text-lg font-bold mt-2">Words Generated!</span>
+                    <span className="text-lg font-bold mt-2">Keywords Generated!</span>
                 </motion.div>
             )}
 

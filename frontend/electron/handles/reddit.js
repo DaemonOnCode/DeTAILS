@@ -4,6 +4,7 @@ const { initDatabase, getCommentsRecursive, getPostById } = require('../utils/db
 const logger = require('../utils/logger');
 const path = require('path');
 const { findContextByName } = require('../utils/context');
+const config = require('../../src/config')('electron');
 
 const redditHandler = (...ctxs) => {
     const globalCtx = findContextByName('global', ctxs);

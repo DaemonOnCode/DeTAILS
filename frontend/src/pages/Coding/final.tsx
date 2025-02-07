@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { DB_PATH, ROUTES, exampleData } from '../../constants/Coding/shared';
+import { DB_PATH, ROUTES } from '../../constants/Coding/shared';
 import { IFinalCodeResponse } from '../../types/Coding/shared';
 import RedditViewModal from '../../components/Coding/Shared/reddit-view-modal';
 import { DataContext } from '../../context/data-context';
@@ -14,7 +14,7 @@ const { ipcRenderer } = window.require('electron');
 
 const FinalPage = () => {
     const { subreddit, datasetId } = useCollectionContext();
-    // const { finalCodeResponses } = useCodingContext();
+    const { themes, sampledPostResponse, unseenPostResponse } = useCodingContext();
 
     const [renderedPost, setRenderedPost] = useState<{
         id: string;
@@ -30,10 +30,6 @@ const FinalPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
 
     const hasSavedRef = useRef(false);
-
-    // useEffect(() => {
-    //     console.log('Final Page:', finalCodeResponses);
-    // }, [finalCodeResponses]);
 
     useEffect(() => {
         const timer = createTimer();
@@ -67,6 +63,35 @@ const FinalPage = () => {
         });
     };
 
+    const getThemeByCode = (code: string) => {
+        for (const themeObj of themes) {
+            if (themeObj.codes.includes(code)) {
+                return themeObj.name;
+            }
+        }
+        return 'Unknown Theme'; // Default if no match is found
+    };
+
+    // Combine sampled and unseen posts for table
+    const finalCodeResponses = [
+        ...sampledPostResponse.map((post) => ({
+            postId: post.postId,
+            quote: post.quote,
+            coded_word: post.code,
+            reasoning: post.explanation,
+            theme: getThemeByCode(post.code),
+            id: post.id // Keep ID for modal reference
+        })),
+        ...unseenPostResponse.map((post) => ({
+            postId: post.postId,
+            quote: post.quote,
+            coded_word: post.code,
+            reasoning: post.explanation,
+            theme: getThemeByCode(post.code),
+            id: post.id
+        }))
+    ];
+
     return (
         <div className="h-full flex justify-between flex-col">
             <div>
@@ -80,60 +105,67 @@ const FinalPage = () => {
                     <table className="w-full border-collapse">
                         <thead className="bg-gray-200">
                             <tr>
-                                <th className="border border-gray-400 p-2">Link</th>
-                                <th className="border border-gray-400 p-2">Sentence</th>
-                                <th className="border border-gray-400 p-2">Word</th>
-                                <th className="border border-gray-400 p-2">Reason</th>
-                                {/* <th className="border border-gray-400 p-2">Context</th> */}
+                                <th className="border border-gray-400 p-2">Post ID</th>
+                                <th className="border border-gray-400 p-2">Quote</th>
+                                <th className="border border-gray-400 p-2">Code</th>
+                                <th className="border border-gray-400 p-2">Theme</th>
+                                <th className="border border-gray-400 p-2">Explanation</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {/* {finalCodeResponses.map((item, index) => (
+                            {finalCodeResponses.map((item, index) => (
                                 <tr key={index} className="text-center">
                                     <td className="border border-gray-400 p-2">
                                         <button
-                                            onClick={() => {
-                                                handleViewPost(item);
-                                            }}
+                                            onClick={() =>
+                                                setRenderedPost({
+                                                    id: item.postId,
+                                                    link: `https://reddit.com/${item.postId}`,
+                                                    sentence: item.quote
+                                                })
+                                            }
                                             className="text-blue-500 underline">
                                             {item.postId}
                                         </button>
                                     </td>
                                     <td className="border border-gray-400 p-2 max-w-md">
-                                        {item.sentence}
+                                        {item.quote}
                                     </td>
                                     <td className="border border-gray-400 p-2 max-w-32">
                                         {item.coded_word}
                                     </td>
+                                    <td className="border border-gray-400 p-2 max-w-32">
+                                        {item.theme}
+                                    </td>
                                     <td className="border border-gray-400 p-2 min-w-96">
                                         {item.reasoning}
                                     </td>
-                                    <td className="border border-gray-400 p-2">{item.context}</td>
                                 </tr>
-                            ))} */}
+                            ))}
                         </tbody>
                     </table>
                 </div>
             </div>
 
+            {/* Reddit Post Modal */}
             {renderedPost.link !== '' && (
                 <RedditViewModal
                     isViewOpen={renderedPost.link !== ''}
                     postLink={renderedPost?.link}
                     postText={renderedPost?.sentence}
                     postId={renderedPost?.id}
-                    closeModal={() => {
-                        console.log('Closing modal');
+                    closeModal={() =>
                         setRenderedPost({
                             id: '',
                             link: '',
                             sentence: ''
-                        });
-                    }}
+                        })
+                    }
                 />
             )}
 
-            <NavigationBottomBar previousPage={ROUTES.FINAL_CODEBOOK} />
+            {/* Navigation */}
+            <NavigationBottomBar previousPage={ROUTES.ENCODED_DATA} />
         </div>
     );
 };

@@ -86,6 +86,8 @@ export interface ICodingContext {
     setSampledPostIds: SetState<string[]>;
     unseenPostIds: string[];
     setUnseenPostIds: SetState<string[]>;
+    conflictingResponses: IQECResponse[];
+    setConflictingResponses: Dispatch<any>;
 }
 
 // Create the context
@@ -145,7 +147,9 @@ export const CodingContext = createContext<ICodingContext>({
     sampledPostIds: [],
     setSampledPostIds: () => {},
     unseenPostIds: [],
-    setUnseenPostIds: () => {}
+    setUnseenPostIds: () => {},
+    conflictingResponses: [],
+    setConflictingResponses: () => {}
 });
 
 type Action<T> =
@@ -421,7 +425,17 @@ type baseResponseHandlerActions<T> =
           | { type: 'REMOVE_RESPONSES'; all: boolean; indexes?: never }
       )
     | { type: 'SET_ALL_UNMARKED' }
-    | { type: 'SET_RESPONSES'; responses: T[] };
+    | { type: 'SET_RESPONSES'; responses: T[] }
+    | { type: 'DELETE_CODE'; code: string }
+    | { type: 'EDIT_CODE'; currentCode: string; newCode: string }
+    | { type: 'DELETE_HIGHLIGHT'; postId: string; sentence: string; code: string }
+    | {
+          type: 'EDIT_HIGHLIGHT';
+          postId: string;
+          sentence: string;
+          newSentence: string;
+          code: string;
+      };
 
 function baseResponseHandler<T>(
     state: T[],
@@ -478,12 +492,39 @@ function baseResponseHandler<T>(
                 return state.filter((_, index) => !action.indexes!.includes(index));
             }
             return state;
+        case 'DELETE_CODE':
+            return state.filter((response: any) => response.code !== action.code);
+        case 'EDIT_CODE':
+            return [
+                ...state.map((response: any) =>
+                    response.code === action.currentCode
+                        ? { ...response, code: action.newCode }
+                        : response
+                )
+            ];
+        case 'DELETE_HIGHLIGHT':
+            return state.filter(
+                (response: any) =>
+                    response.postId !== action.postId &&
+                    response.quote !== action.sentence &&
+                    response.code !== action.code
+            );
+        case 'EDIT_HIGHLIGHT':
+            return state.map((response: any) =>
+                response.postId === action.postId &&
+                response.quote === action.sentence &&
+                response.code === action.code
+                    ? { ...response, quote: action.newSentence }
+                    : response
+            );
         default:
             return state;
     }
 }
 
-type sampleDataResponseReducerActions = baseResponseHandlerActions<IQECResponse>;
+type sampleDataResponseReducerActions =
+    | baseResponseHandlerActions<IQECResponse>
+    | { type: 'UPDATE_CODE'; newCode: string; quote: string; prevCode: string };
 
 const sampleDataResponseReducer = (
     state: IQECResponse[],
@@ -502,7 +543,19 @@ const sampleDataResponseReducer = (
         case 'ADD_RESPONSES':
         case 'REMOVE_RESPONSES':
         case 'SET_RESPONSES':
+        case 'DELETE_CODE':
+        case 'EDIT_CODE':
+        case 'DELETE_HIGHLIGHT':
+        case 'EDIT_HIGHLIGHT':
             return baseResponseHandler(state, action, {});
+        case 'UPDATE_CODE':
+            return state.map((response, index) =>
+                response.quote === action.quote &&
+                // response.postId === action.postId &&
+                response.code === action.prevCode
+                    ? { ...response, code: action.newCode }
+                    : response
+            );
         default:
             return state;
     }
@@ -530,6 +583,10 @@ const sampleDataWithThemeResponseReducer = (
         case 'ADD_RESPONSES':
         case 'REMOVE_RESPONSES':
         case 'SET_RESPONSES':
+        case 'DELETE_CODE':
+        case 'EDIT_CODE':
+        case 'DELETE_HIGHLIGHT':
+        case 'EDIT_HIGHLIGHT':
             return baseResponseHandler(state, action, {});
         case 'UPDATE_THEMES':
             console.log('Themes:', action.themes);
@@ -561,78 +618,16 @@ const unseenDataResponseReducer = (state: IQECTTyResponse[], action: any): IQECT
         case 'ADD_RESPONSES':
         case 'REMOVE_RESPONSES':
         case 'SET_RESPONSES':
+        case 'DELETE_CODE':
+        case 'EDIT_CODE':
+        case 'DELETE_HIGHLIGHT':
+        case 'EDIT_HIGHLIGHT':
             return baseResponseHandler(state, action, {});
 
         default:
             return state;
     }
 };
-
-const sampleData = [
-    {
-        postId: '1',
-        quote: 'AI is evolving rapidly.',
-        explanation: 'AI is evolving rapidly.',
-        code: 'AI',
-        id: '1'
-    },
-    {
-        postId: '2',
-        quote: 'React hooks simplify state management.',
-        explanation: 'React hooks simplify state management.',
-        code: 'React',
-        id: '2'
-    },
-    {
-        postId: '3',
-        quote: 'JavaScript is versatile.',
-        explanation: 'JavaScript is versatile.',
-        code: 'JavaScript',
-        id: '3'
-    },
-    {
-        postId: '4',
-        quote: 'JavaScript is versatile.',
-        explanation: 'JavaScript is versatile.',
-        code: 'React',
-        id: '4'
-    }
-];
-
-const unseenData = [
-    {
-        postId: '1',
-        quote: 'AI is evolving rapidly.',
-        explanation: 'AI is evolving rapidly.',
-        code: 'AI',
-        theme: 'AI',
-        id: '1'
-    },
-    {
-        postId: '2',
-        quote: 'React hooks simplify state management.',
-        explanation: 'React hooks simplify state management.',
-        code: 'React',
-        theme: 'JS',
-        id: '2'
-    },
-    {
-        postId: '3',
-        quote: 'JavaScript is versatile.',
-        explanation: 'JavaScript is versatile.',
-        code: 'JavaScript',
-        theme: 'JS',
-        id: '3'
-    },
-    {
-        postId: '4',
-        quote: 'JavaScript is versatile.',
-        explanation: 'JavaScript is versatile.',
-        code: 'React',
-        theme: 'JS',
-        id: '4'
-    }
-];
 
 // Create a provider component
 export const CodingProvider: FC<ILayout> = ({ children }) => {
@@ -793,6 +788,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         []
         // unseenData.map((post) => ({ ...post, isMarked: undefined, comment: '', type: 'LLM' }))
     );
+
+    const [conflictingResponses, setConflictingResponses] = useState<IQECResponse[]>([]);
 
     // useEffect(() => {
     //     dispatchSampledPostWithThemeResponse({
@@ -1118,7 +1115,9 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             sampledPostIds,
             setSampledPostIds,
             unseenPostIds,
-            setUnseenPostIds
+            setUnseenPostIds,
+            conflictingResponses,
+            setConflictingResponses
         }),
         [
             currentMode,
@@ -1150,7 +1149,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             unplacedCodes,
             researchQuestions,
             sampledPostIds,
-            unseenPostIds
+            unseenPostIds,
+            conflictingResponses
         ]
     );
 

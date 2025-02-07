@@ -66,7 +66,8 @@ const useWorkspaceUtils = () => {
                     codingContext.sampledPostWithThemeResponse || [],
                 unseen_post_response: codingContext.unseenPostResponse || [],
                 sampled_post_ids: codingContext.sampledPostIds || [],
-                unseen_post_ids: codingContext.unseenPostIds || []
+                unseen_post_ids: codingContext.unseenPostIds || [],
+                conflicting_responses: codingContext.conflictingResponses || []
             }
         };
     };
@@ -140,7 +141,8 @@ const useWorkspaceUtils = () => {
             unseenPostResponse: data.unseen_post_response ?? [],
             unplacedCodes: data.unplaced_codes ?? [],
             sampledPostIds: data.sampled_post_ids ?? [],
-            unseenPostIds: data.unseen_post_ids ?? []
+            unseenPostIds: data.unseen_post_ids ?? [],
+            conflictingResponses: data.conflicting_responses ?? []
         });
     };
 

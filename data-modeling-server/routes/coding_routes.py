@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Annotated, List
 from uuid import uuid4
@@ -618,7 +619,7 @@ async def refine_codebook_endpoint(
 
     # Extract refined codebook details
     final_results = parsed_response.get("revised_codebook", [])
-    agreements = parsed_response.get("agreements", [])
+    # agreements = parsed_response.get("agreements", [])
     disagreements = parsed_response.get("disagreements", [])
 
     # Assign unique IDs to each refined code
@@ -629,7 +630,7 @@ async def refine_codebook_endpoint(
 
     return {
         "message": "Refined codebook generated successfully!",
-        "agreements": agreements,
+        # "agreements": agreements,
         "disagreements": disagreements,
         "data": final_results
     }
@@ -932,6 +933,8 @@ async def theme_generation_endpoint(
     unplaced_codes = list(set(row["code"] for row in qec_table) - placed_codes)
 
     await manager.broadcast(f"Dataset {dataset_id}: Theme generation completed.")
+
+    await asyncio.sleep(5)
 
     return {
         "message": "Themes generated successfully!",

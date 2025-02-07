@@ -17,7 +17,9 @@ const CodebookRefinement = () => {
         dispatchSampledPostResponse,
         sampledPostIds,
         sampledPostResponseCopy,
-        setSampledPostResponseCopy
+        setSampledPostResponseCopy,
+        setConflictingResponses,
+        conflictingResponses
     } = useCodingContext();
 
     const navigate = useNavigate();
@@ -71,13 +73,17 @@ const CodebookRefinement = () => {
 
         setSampledPostResponseCopy([...sampledPostResponse]);
 
-        dispatchSampledPostResponse({
-            type: 'ADD_RESPONSES',
-            responses: results.data
-        });
+        // dispatchSampledPostResponse({
+        //     type: 'ADD_RESPONSES',
+        //     responses: results.data
+        // });
+
+        setConflictingResponses(results.disagreements);
 
         navigate('/coding/' + ROUTES.CODEBOOK_REFINEMENT);
     };
+
+    const checkIfReady = conflictingResponses.length === 0;
 
     return (
         <div>
@@ -89,12 +95,13 @@ const CodebookRefinement = () => {
                     review={false}
                     showRerunCoding
                     handleRerun={handleRerun}
+                    conflictingResponses={conflictingResponses}
                 />
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.CODES_REVIEW}
                 nextPage={ROUTES.FINAL_CODEBOOK}
-                isReady={true}
+                isReady={checkIfReady}
             />
         </div>
     );
