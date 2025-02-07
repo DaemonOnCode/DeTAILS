@@ -120,7 +120,7 @@ async def save_context_files(dataset_id: str, contextFiles: List[UploadFile], ve
                     raise e
 
     await manager.broadcast(f"Dataset {dataset_id}: Files uploaded successfully.")
-    await asyncio.sleep(5)
+    await asyncio.sleep(1)
 
 
 def get_llm_and_embeddings(

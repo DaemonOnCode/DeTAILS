@@ -216,8 +216,9 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0]
+                            // type: 'SET_RESPONSES',
+                            // responses: args[0]
+                            ...args[0]
                         });
                     }
                 },
@@ -227,11 +228,12 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args?.map((response: any) => ({
-                                ...response,
-                                type: 'Human'
-                            }))
+                            // type: 'SET_RESPONSES',
+                            // responses: args?.map((response: any) => ({
+                            //     ...response
+                            //     // type: 'Human'
+                            // }))
+                            ...args[0]
                         });
                     },
                     conflicts: conflictingResponses
@@ -263,12 +265,20 @@ const TranscriptPage = () => {
                     responses: unseenPostResponse.filter((response) => response.type === 'Human'),
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
+                        let value =
+                            args[0].type === 'ADD_RESPONSE'
+                                ? {
+                                      type: 'ADD_RESPONSE',
+                                      response: {
+                                          ...args[0].response,
+                                          type: 'Human'
+                                      }
+                                  }
+                                : {
+                                      ...args[0]
+                                  };
                         dispatchUnseenPostResponse({
-                            type: 'ADD_RESPONSES',
-                            responses: args?.map((response: any) => ({
-                                ...response.response,
-                                type: 'Human'
-                            }))
+                            ...value
                         });
                     }
                 }
@@ -299,12 +309,20 @@ const TranscriptPage = () => {
                     responses: unseenPostResponse.filter((response) => response.type === 'LLM'),
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
+                        let value =
+                            args[0].type === 'ADD_RESPONSE'
+                                ? {
+                                      type: 'ADD_RESPONSE',
+                                      response: {
+                                          ...args[0].response,
+                                          type: 'LLM'
+                                      }
+                                  }
+                                : {
+                                      ...args[0]
+                                  };
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args?.map((response: any) => ({
-                                ...response,
-                                type: 'LLM'
-                            }))
+                            ...value
                         });
                     }
                 }

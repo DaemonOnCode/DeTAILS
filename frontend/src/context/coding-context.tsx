@@ -939,6 +939,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     }, []);
 
     const updateContext = (updates: Partial<ICodingContext>) => {
+        console.log('Updates:', updates);
         if (updates.contextFiles) setContextFiles(updates.contextFiles);
         if (updates.mainTopic) setMainTopic(updates.mainTopic);
         if (updates.additionalInfo) setAdditionalInfo(updates.additionalInfo);
@@ -973,6 +974,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         if (updates.researchQuestions) setResearchQuestions(updates.researchQuestions);
         if (updates.sampledPostIds) setSampledPostIds(updates.sampledPostIds);
         if (updates.unseenPostIds) setUnseenPostIds(updates.unseenPostIds);
+        if (updates.conflictingResponses) setConflictingResponses(updates.conflictingResponses);
         // if (updates.codeResponses) {
         //     dispatchCodeResponses({ type: 'SET_RESPONSES', responses: updates.codeResponses });
         // }
@@ -1016,6 +1018,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         setResearchQuestions([]);
         setSampledPostIds([]);
         setUnseenPostIds([]);
+        setConflictingResponses([]);
         // dispatchCodeResponses({ type: 'SET_RESPONSES', responses: [] });
         // dispatchFinalCodeResponses({ type: 'SET_RESPONSES', responses: [] });
     };

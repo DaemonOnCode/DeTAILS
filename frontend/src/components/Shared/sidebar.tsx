@@ -20,7 +20,7 @@ const formatRouteName = (path: string) => {
 const IGNORED_KEYWORDS = [
     '*',
     '/',
-    // 'loader',
+    'loader',
     'basis',
     'flashcards',
     'word-cloud',

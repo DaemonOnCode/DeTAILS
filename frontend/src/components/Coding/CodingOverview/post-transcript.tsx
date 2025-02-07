@@ -248,7 +248,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         explanation: reasoning,
                         isMarked: true,
                         comment: '',
-                        type: 'Human',
+                        // type: 'Human',
                         theme: 'Some theme'
                     }
                 });

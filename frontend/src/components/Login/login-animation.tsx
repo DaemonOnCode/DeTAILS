@@ -391,7 +391,7 @@ export function SplitScreenPhase6({
                 {/** 1) DeTAILS text, centered, animates up */}
                 <motion.div
                     initial={{ color: '#15803D' }}
-                    animate={{ color: '#22C55E' }}
+                    animate={{ color: '#1D4ED8' }}
                     transition={{ duration: 0.5 }}
                     className="h-1/2 flex items-end justify-end">
                     <div className="text-9xl font-bold flex" style={{ perspective: '1000px' }}>
@@ -400,12 +400,14 @@ export function SplitScreenPhase6({
                                 key={word}
                                 layoutId={`highlight-${word}`}
                                 initial={{
-                                    textShadow:
-                                        '2px 2px 0 #064E3B, 4px 4px 0 #14532D, 6px 6px 6px rgba(0, 0, 0, 0.4)'
+                                    textShadow: `2px 2px 0 #0F172A, 
+     4px 4px 0 #1E293B, 
+     6px 6px 6px rgba(0, 0, 0, 0.4)`
                                 }}
                                 animate={{
-                                    textShadow:
-                                        '4px 4px 0 #064E3B, 6px 6px 0 #14532D, 8px 8px 10px rgba(0, 0, 0, 0.5)'
+                                    textShadow: `4px 4px 0 #0F172A, 
+     6px 6px 0 #1E293B, 
+     8px 8px 10px rgba(0, 0, 0, 0.5)`
                                 }}
                                 transition={{ duration: 0.5 }}
                                 // Make each letter block-level so boxShadow can apply.

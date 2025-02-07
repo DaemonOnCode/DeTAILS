@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useMemo } from 'react';
 import { ILayout, Mode, SetState } from '../types/Coding/shared';
+import { v4 } from 'uuid';
 
 export interface ICollectionContext {
     currentMode: Mode;
@@ -60,7 +61,7 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         // '1254667'
     ]);
 
-    const [datasetId, setDatasetId] = useState<string>('');
+    const [datasetId, setDatasetId] = useState<string>(v4());
 
     const toggleMode = useCallback(() => {
         setCurrentMode((prevMode: Mode) => {
@@ -75,7 +76,7 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         if (updates.modeInput !== undefined) setModeInput(updates.modeInput);
         if (updates.subreddit !== undefined) setSubreddit(updates.subreddit);
         if (updates.selectedPosts !== undefined) setSelectedPosts(updates.selectedPosts);
-        if (updates.datasetId !== undefined) setDatasetId(updates.datasetId);
+        if (updates.datasetId !== undefined) setDatasetId(updates.datasetId || v4());
     };
 
     const resetContext = () => {
@@ -83,7 +84,7 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         setModeInput('');
         setSubreddit('');
         setSelectedPosts([]);
-        setDatasetId('');
+        setDatasetId(v4());
     };
 
     useEffect(() => {

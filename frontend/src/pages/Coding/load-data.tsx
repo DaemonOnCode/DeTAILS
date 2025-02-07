@@ -44,7 +44,7 @@ const LoadData = () => {
         const timer = createTimer();
         logger.info('Home Page Loaded');
 
-        loadFolderData();
+        loadFolderData(true, true);
 
         return () => {
             if (!hasSavedRef.current) {
