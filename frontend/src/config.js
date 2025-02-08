@@ -1,6 +1,6 @@
 const config = {
     common: {
-        appName: 'CTA Toolkit',
+        appName: 'DeTAILS',
         miscFrontendURL: {
             local: 'http://localhost:4000',
             remote: 'http://34.130.161.42'

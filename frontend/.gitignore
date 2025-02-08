@@ -28,3 +28,4 @@ electron-builder.yaml
 .env
 client_secret_*
 favicon_io*
+out/*

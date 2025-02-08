@@ -9,7 +9,7 @@ function getPlatformIcon() {
         case 'win32':
             return join(__dirname, '..', '..', 'public', 'favicon.ico');
         case 'darwin':
-            return join(__dirname, '..', '..', 'public', 'apple-touch-icon.png'); // Use PNG if .icns is unavailable
+            return join(__dirname, '..', '..', 'public', 'acqa-icon.icns');
         case 'linux':
             return join(__dirname, '..', '..', 'public', 'android-chrome-512x512.png');
         default:
@@ -36,7 +36,7 @@ exports.createMainWindow = async (...ctxs) => {
 
     if (process.platform === 'darwin') {
         const dockIcon = nativeImage.createFromPath(
-            join(__dirname, '..', '..', 'public', 'android-chrome-512x512.png')
+            join(__dirname, '..', '..', 'public', 'acqa-icon.icns')
         );
         app.dock.setIcon(dockIcon);
     }
@@ -44,9 +44,10 @@ exports.createMainWindow = async (...ctxs) => {
     remote.enable(window.webContents);
 
     await window.loadURL(
-        globalState.isDev
-            ? 'http://localhost:3000'
-            : `file://${join(__dirname, '..', '../build/index.html')}`
+        process.env.REACT_APP_URL ||
+            (process.env.NODE_ENV === 'development'
+                ? 'http://localhost:3000'
+                : `file://${join(__dirname, '..', '..', './build/index.html')}`)
     );
 
     window.once('ready-to-show', () => {
