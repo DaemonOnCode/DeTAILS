@@ -21,17 +21,20 @@ module.exports = {
             },
             height: {
                 panel: 'calc(100vh - 64px - 48px)',
-                page: 'calc(100vh - 64px)'
+                page: 'calc(100vh - 48px)',
+                maxPageContent: 'calc(100vh - 7rem)'
             },
             minHeight: {
                 panel: 'calc(100vh - 64px - 48px)',
-                page: 'calc(100vh - 64px)',
+                page: 'calc(100vh - 48px)',
+                maxPageContent: 'calc(100vh - 7rem)',
                 '1/2': '50%',
                 '2/5': '40%'
             },
             maxHeight: {
                 panel: 'calc(100vh - 64px - 48px)',
-                page: 'calc(100vh - 64px)',
+                page: 'calc(100vh - 48px)',
+                maxPageContent: 'calc(100vh - 7rem)',
                 '1/2': '50%',
                 '2/5': '40%'
             }

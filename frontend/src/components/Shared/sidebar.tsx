@@ -2,6 +2,8 @@ import { FC, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AppRoutes } from '../../router';
 import { RouteObject } from 'react-router-dom';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { useAuth } from '../../context/auth-context';
 
 // Format route names for display
 const formatRouteName = (path: string) => {
@@ -21,6 +23,9 @@ const IGNORED_KEYWORDS = [
     '*',
     '/',
     'loader',
+    SHARED_ROUTES.CLEANING,
+    SHARED_ROUTES.DATA_COLLECTION,
+    SHARED_ROUTES.DATA_MODELING,
     'basis',
     'flashcards',
     'word-cloud',
@@ -36,6 +41,9 @@ interface SidebarProps {
 const Sidebar: FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
     const location = useLocation();
     const navigate = useNavigate();
+    const { user, logout } = useAuth();
+    const [userDropdownVisible, setUserDropdownVisible] = useState<boolean>(false);
+
     const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
 
     // Toggle dropdown visibility
@@ -136,14 +144,50 @@ const Sidebar: FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
 
     return (
         <div
-            className={`fixed h-page bg-gray-800 text-white shadow-lg transition-all duration-300 flex ${
+            className={`fixed h-screen bg-gray-800 text-white shadow-lg transition-all duration-300 flex ${
                 isCollapsed ? 'min-w-16' : 'max-w-64'
             }`}>
-            {/* Left Section: Collapsible Navigation */}
-            <div className={`flex-1 overflow-hidden ${isCollapsed ? 'max-w-0' : 'max-w-full'}`}>
-                <nav className="h-full overflow-y-auto">
-                    <ul className="p-4">{renderRoutes(AppRoutes)}</ul>
-                </nav>
+            <div
+                className={`flex flex-col justify-between ${isCollapsed ? 'max-w-0 hidden' : 'max-w-full'}`}>
+                {/* Left Section: Collapsible Navigation */}
+                <div className={`flex-1 overflow-hidden`}>
+                    <nav className="h-full overflow-y-auto">
+                        <ul className="p-4">{renderRoutes(AppRoutes)}</ul>
+                    </nav>
+                </div>
+
+                <div className="p-4">
+                    <div
+                        className="relative"
+                        tabIndex={0}
+                        onBlur={() => setUserDropdownVisible(false)}>
+                        {user?.picture && (
+                            <>
+                                <div className="flex justify-center items-center">
+                                    <img
+                                        src={user.picture}
+                                        alt="User Profile"
+                                        className="w-10 h-10 rounded-full cursor-pointer border-2 border-gray-300"
+                                        onClick={() => setUserDropdownVisible((prev) => !prev)}
+                                    />
+                                    <span className="m-2 break-words max-w-28">{user.name}</span>
+                                </div>
+                                {userDropdownVisible && (
+                                    <div className="absolute right-0 bottom-full mb-2 w-40 bg-white rounded-md shadow-lg z-10">
+                                        <ul className="text-gray-800">
+                                            <li className="px-4 py-2 border-b">Settings</li>
+                                            <li
+                                                className="hover:bg-gray-100 rounded-b-md px-4 py-2 cursor-pointer"
+                                                onClick={() => logout()}>
+                                                Logout
+                                            </li>
+                                        </ul>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Right Section: Collapse Button (Always Visible) */}

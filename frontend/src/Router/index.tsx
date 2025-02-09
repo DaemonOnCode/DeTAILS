@@ -7,7 +7,7 @@ import { CodingRouter } from './coding-router';
 import { DataCollectionRouter } from './data-collection-router';
 import { DataModelingRouter } from './data-modeling-router';
 import { DataCleaningRouter } from './data-cleaning-router';
-import WorkspacePage from '../pages/Shared/workspace';
+import { WorkspaceSelectionPage } from '../pages/Workspaces';
 
 export const AppRoutes: RouteObject[] = [
     {
@@ -18,7 +18,7 @@ export const AppRoutes: RouteObject[] = [
         children: protectRoutes([
             {
                 path: ROUTES.WORKSPACE,
-                element: <WorkspacePage />
+                element: <WorkspaceSelectionPage />
             },
             {
                 path: ROUTES.DATA_COLLECTION,

@@ -94,7 +94,7 @@ const DeductiveCoding = () => {
     }, [currentWordIndex, resetting]);
 
     return (
-        <div className="flex justify-center items-center h-panel px-4">
+        <div className="flex justify-center items-center h-page px-4">
             <div className="bg-white shadow-lg p-6 rounded-lg w-full max-w-3xl text-left border">
                 <h2 className="text-2xl font-semibold mb-4">🔍 Deductive Coding in Progress</h2>
 

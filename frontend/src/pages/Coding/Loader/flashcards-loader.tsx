@@ -69,7 +69,7 @@ const FlashcardsLoaderPage = () => {
     const cardColors = ['bg-blue-700', 'bg-blue-800', 'bg-blue-900', 'bg-blue-950'];
 
     return (
-        <div className="min-h-panel w-full flex flex-col gap-6 items-center justify-center bg-gray-100">
+        <div className="min-h-page w-full flex flex-col gap-6 items-center justify-center bg-gray-100">
             <h1 className="text-2xl font-bold text-center mb-6">{stage}</h1>
 
             {/* Stage 1: Uploading Files */}

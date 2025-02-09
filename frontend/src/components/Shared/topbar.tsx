@@ -16,8 +16,8 @@ const Topbar: React.FC = () => {
         addWorkspaceBatch,
         setCurrentWorkspace,
         updateWorkspace,
-        deleteWorkspace,
-        setCurrentWorkspaceById
+        deleteWorkspace
+        // setCurrentWorkspaceById
     } = useWorkspaceContext();
 
     const [newWorkspaceName, setNewWorkspaceName] = useState<string>('');
@@ -31,245 +31,238 @@ const Topbar: React.FC = () => {
 
     const isLoading = useRef(false);
 
-    useEffect(() => {
-        const fetchWorkspaces = async () => {
-            if (isLoading.current) return; // Prevent concurrent loads
-            isLoading.current = true;
-            const controller = new AbortController();
-            const signal = controller.signal;
+    // useEffect(() => {
+    // const fetchWorkspaces = async () => {
+    //     if (isLoading.current) return; // Prevent concurrent loads
+    //     isLoading.current = true;
+    //     const controller = new AbortController();
+    //     const signal = controller.signal;
+    //     try {
+    //         setLoading(true);
+    //         const response = await fetch(
+    //             getServerUrl(
+    //                 `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
+    //                     user?.email || ''
+    //                 )}`
+    //             ),
+    //             { signal }
+    //         );
+    //         const data = await response.json();
+    //         if (Array.isArray(data) && data.length > 0) {
+    //             console.log('Workspaces:', data);
+    //             const newWorkspaces = data.map((workspace: any) => ({
+    //                 id: workspace.id,
+    //                 name: workspace.name,
+    //                 description: workspace.description || ''
+    //             }));
+    //             // Update only if new workspaces differ from current state
+    //             if (workspaces.length === 0) {
+    //                 console.log(
+    //                     'Adding workspaces:',
+    //                     newWorkspaces,
+    //                     newWorkspaces.find(
+    //                         (workspace) => workspace.name === 'Temporary Workspace'
+    //                     )
+    //                 );
+    //                 addWorkspaceBatch(newWorkspaces);
+    //                 // setCurrentWorkspace(
+    //                 //     newWorkspaces.find(
+    //                 //         (workspace) => workspace.name === 'Temporary Workspace'
+    //                 //     )!
+    //                 // );
+    //             }
+    //         } else {
+    //             console.log('No workspaces found.');
+    //             // Create a temporary workspace only if none exists
+    //             if (workspaces.length === 0) {
+    //                 await handleCreateTempWorkspace();
+    //             }
+    //         }
+    //     } catch (error: any) {
+    //         if (error.name !== 'AbortError') {
+    //             console.error('Error fetching workspaces:', error);
+    //         }
+    //     }
+    //     return () => {
+    //         controller.abort();
+    //     };
+    // };
+    // if (user?.email) fetchWorkspaces();
+    // }, [user?.email, workspaces.length]);
 
-            try {
-                setLoading(true);
+    // useEffect(() => {
+    //     if (workspaces.length > 0 && currentWorkspace) {
+    //         loadWorkspaceData().then(() => {
+    //             isLoading.current = false;
+    //             setLoading(false);
+    //         });
+    //     }
+    // }, [workspaces, currentWorkspace]);
 
-                const response = await fetch(
-                    getServerUrl(
-                        `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
-                            user?.email || ''
-                        )}`
-                    ),
-                    { signal }
-                );
+    // useEffect(() => {
+    //     if (!currentWorkspace) return;
+    //     // Listener for Save Workspace
+    //     const handleSaveWorkspace = async () => {
+    //         console.log('Saving workspace...');
+    //         await saveWorkspaceData();
+    //     };
 
-                const data = await response.json();
+    //     // Listener for Import Workspace
+    //     const handleImportWorkspace = async (e: any, imported_file_path: string) => {
+    //         try {
+    //             console.log('Importing workspace from ZIP file:', imported_file_path);
 
-                if (Array.isArray(data) && data.length > 0) {
-                    console.log('Workspaces:', data);
-                    const newWorkspaces = data.map((workspace: any) => ({
-                        id: workspace.id,
-                        name: workspace.name,
-                        description: workspace.description || ''
-                    }));
+    //             // Use Electron's file system module to read the file
+    //             const fs = window.require('fs');
 
-                    // Update only if new workspaces differ from current state
-                    if (workspaces.length === 0) {
-                        console.log(
-                            'Adding workspaces:',
-                            newWorkspaces,
-                            newWorkspaces.find(
-                                (workspace) => workspace.name === 'Temporary Workspace'
-                            )
-                        );
-                        addWorkspaceBatch(newWorkspaces);
-                        setCurrentWorkspace(
-                            newWorkspaces.find(
-                                (workspace) => workspace.name === 'Temporary Workspace'
-                            )!
-                        );
-                    }
-                } else {
-                    console.log('No workspaces found.');
-                    // Create a temporary workspace only if none exists
-                    if (workspaces.length === 0) {
-                        await handleCreateTempWorkspace();
-                    }
-                }
-            } catch (error: any) {
-                if (error.name !== 'AbortError') {
-                    console.error('Error fetching workspaces:', error);
-                }
-            }
+    //             // Read the file into memory
+    //             const fileBuffer = fs.readFileSync(imported_file_path);
 
-            return () => {
-                controller.abort();
-            };
-        };
+    //             // Use FormData to construct the payload
+    //             const formData = new FormData();
+    //             formData.append('user_email', user?.email || '');
+    //             formData.append(
+    //                 'file',
+    //                 new Blob([fileBuffer], { type: 'application/zip' }),
+    //                 imported_file_path.split('/').pop()
+    //             );
 
-        if (user?.email) fetchWorkspaces();
-    }, [user?.email, workspaces.length]);
+    //             // Send the file to the backend
+    //             const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.IMPORT_WORKSPACE), {
+    //                 method: 'POST',
+    //                 body: formData
+    //             });
 
-    useEffect(() => {
-        if (workspaces.length > 0 && currentWorkspace) {
-            loadWorkspaceData().then(() => {
-                isLoading.current = false;
-                setLoading(false);
-            });
-        }
-    }, [workspaces, currentWorkspace]);
+    //             if (!response.ok) {
+    //                 const errorText = await response.text();
+    //                 console.error('Failed to import workspace:', errorText);
+    //                 alert('Failed to import workspace.');
+    //                 return;
+    //             }
 
-    useEffect(() => {
-        if (!currentWorkspace) return;
-        // Listener for Save Workspace
-        const handleSaveWorkspace = async () => {
-            console.log('Saving workspace...');
-            await saveWorkspaceData();
-        };
+    //             const result = await response.json();
+    //             console.log('Workspace imported successfully:', result);
+    //             addWorkspaceBatch([...workspaces, result.workspace]);
+    //             setCurrentWorkspace(result.workspace);
+    //         } catch (error) {
+    //             console.error('Error importing workspace:', error);
+    //             alert('An error occurred while importing the workspace.');
+    //         }
+    //     };
 
-        // Listener for Import Workspace
-        const handleImportWorkspace = async (e: any, imported_file_path: string) => {
-            try {
-                console.log('Importing workspace from ZIP file:', imported_file_path);
+    //     // Listener for Export Workspace
+    //     const handleExportWorkspace = async (e: any) => {
+    //         console.log('Exporting workspace', currentWorkspace);
 
-                // Use Electron's file system module to read the file
-                const fs = window.require('fs');
+    //         try {
+    //             const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.EXPORT_WORKSPACE), {
+    //                 method: 'POST',
+    //                 headers: { 'Content-Type': 'application/json' },
+    //                 body: JSON.stringify({
+    //                     workspace_id: currentWorkspace?.id ?? '',
+    //                     user_email: user?.email ?? ''
+    //                 })
+    //             });
 
-                // Read the file into memory
-                const fileBuffer = fs.readFileSync(imported_file_path);
+    //             if (!response.ok) {
+    //                 console.error('Failed to export workspace:', await response.text());
+    //                 alert('Failed to export workspace.');
+    //                 return;
+    //             }
 
-                // Use FormData to construct the payload
-                const formData = new FormData();
-                formData.append('user_email', user?.email || '');
-                formData.append(
-                    'file',
-                    new Blob([fileBuffer], { type: 'application/zip' }),
-                    imported_file_path.split('/').pop()
-                );
+    //             // Use ReadableStream to handle the response body
+    //             // const contentDisposition = response.headers.get('Content-Disposition');
+    //             // const fileName = contentDisposition
+    //             //     ? contentDisposition.split('filename=')[1]
+    //             //     : 'exported_workspace.zip';
 
-                // Send the file to the backend
-                const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.IMPORT_WORKSPACE), {
-                    method: 'POST',
-                    body: formData
-                });
+    //             // const filePath = await ipcRenderer.invoke('save-file', {
+    //             //     defaultPath: 'exported_workspace.zip'
+    //             // });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Failed to import workspace:', errorText);
-                    alert('Failed to import workspace.');
-                    return;
-                }
+    //             // if (!filePath) {
+    //             //     console.log('User canceled the save dialog.');
+    //             //     return;
+    //             // }
+    //             // Fallback for unsupported browsers
+    //             console.warn('File System Access API not supported. Using fallback.');
+    //             const reader = response.body?.getReader();
+    //             const stream = new ReadableStream({
+    //                 start(controller) {
+    //                     const pump = async () => {
+    //                         if (!reader) {
+    //                             controller.close();
+    //                             return;
+    //                         }
+    //                         const { done, value } = await reader.read();
+    //                         if (done) {
+    //                             controller.close();
+    //                             return;
+    //                         }
+    //                         controller.enqueue(value);
+    //                         pump();
+    //                     };
+    //                     pump();
+    //                 }
+    //             });
 
-                const result = await response.json();
-                console.log('Workspace imported successfully:', result);
-                addWorkspaceBatch([...workspaces, result.workspace]);
-                setCurrentWorkspace(result.workspace);
-            } catch (error) {
-                console.error('Error importing workspace:', error);
-                alert('An error occurred while importing the workspace.');
-            }
-        };
+    //             const blob = await new Response(stream).blob();
+    //             const url = window.URL.createObjectURL(blob);
 
-        // Listener for Export Workspace
-        const handleExportWorkspace = async (e: any) => {
-            console.log('Exporting workspace', currentWorkspace);
+    //             // Trigger file download
+    //             const a = document.createElement('a');
+    //             a.href = url;
+    //             a.download = 'exported_workspace.zip';
+    //             a.style.display = 'none';
+    //             document.body.appendChild(a);
+    //             a.click();
+    //             window.URL.revokeObjectURL(url);
 
-            try {
-                const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.EXPORT_WORKSPACE), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        workspace_id: currentWorkspace?.id ?? '',
-                        user_email: user?.email ?? ''
-                    })
-                });
+    //             console.log('Workspace exported and file saved successfully.');
+    //         } catch (error) {
+    //             console.error('Error exporting workspace:', error);
+    //             alert('An error occurred while exporting the workspace.');
+    //         }
+    //     };
 
-                if (!response.ok) {
-                    console.error('Failed to export workspace:', await response.text());
-                    alert('Failed to export workspace.');
-                    return;
-                }
+    //     // Register the IPC listeners
+    //     ipcRenderer.on('menu-save-workspace', handleSaveWorkspace);
+    //     ipcRenderer.on('menu-import-workspace', handleImportWorkspace);
+    //     ipcRenderer.on('menu-export-workspace', handleExportWorkspace);
 
-                // Use ReadableStream to handle the response body
-                // const contentDisposition = response.headers.get('Content-Disposition');
-                // const fileName = contentDisposition
-                //     ? contentDisposition.split('filename=')[1]
-                //     : 'exported_workspace.zip';
+    //     // Cleanup function to remove listeners when the component unmounts
+    //     return () => {
+    //         ipcRenderer.removeListener('menu-save-workspace', handleSaveWorkspace);
+    //         ipcRenderer.removeListener('menu-import-workspace', handleImportWorkspace);
+    //         ipcRenderer.removeListener('menu-export-workspace', handleExportWorkspace);
+    //     };
+    // }, [currentWorkspace]);
 
-                // const filePath = await ipcRenderer.invoke('save-file', {
-                //     defaultPath: 'exported_workspace.zip'
-                // });
+    // const handleCreateTempWorkspace = async () => {
+    //     try {
+    //         if (workspaces.some((ws) => ws.name === 'Temporary Workspace')) {
+    //             return; // Skip creating a temporary workspace if one exists
+    //         }
 
-                // if (!filePath) {
-                //     console.log('User canceled the save dialog.');
-                //     return;
-                // }
-                // Fallback for unsupported browsers
-                console.warn('File System Access API not supported. Using fallback.');
-                const reader = response.body?.getReader();
-                const stream = new ReadableStream({
-                    start(controller) {
-                        const pump = async () => {
-                            if (!reader) {
-                                controller.close();
-                                return;
-                            }
-                            const { done, value } = await reader.read();
-                            if (done) {
-                                controller.close();
-                                return;
-                            }
-                            controller.enqueue(value);
-                            pump();
-                        };
-                        pump();
-                    }
-                });
+    //         const response = await fetch(
+    //             getServerUrl(
+    //                 `${REMOTE_SERVER_ROUTES.CREATE_TEMP_WORKSPACE}?user_email=${encodeURIComponent(
+    //                     user?.email || ''
+    //                 )}`
+    //             ),
+    //             {
+    //                 method: 'POST',
+    //                 headers: { 'Content-Type': 'application/json' }
+    //             }
+    //         );
+    //         const tempWorkspace = await response.json();
 
-                const blob = await new Response(stream).blob();
-                const url = window.URL.createObjectURL(blob);
-
-                // Trigger file download
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'exported_workspace.zip';
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-
-                console.log('Workspace exported and file saved successfully.');
-            } catch (error) {
-                console.error('Error exporting workspace:', error);
-                alert('An error occurred while exporting the workspace.');
-            }
-        };
-
-        // Register the IPC listeners
-        ipcRenderer.on('menu-save-workspace', handleSaveWorkspace);
-        ipcRenderer.on('menu-import-workspace', handleImportWorkspace);
-        ipcRenderer.on('menu-export-workspace', handleExportWorkspace);
-
-        // Cleanup function to remove listeners when the component unmounts
-        return () => {
-            ipcRenderer.removeListener('menu-save-workspace', handleSaveWorkspace);
-            ipcRenderer.removeListener('menu-import-workspace', handleImportWorkspace);
-            ipcRenderer.removeListener('menu-export-workspace', handleExportWorkspace);
-        };
-    }, [currentWorkspace]);
-
-    const handleCreateTempWorkspace = async () => {
-        try {
-            if (workspaces.some((ws) => ws.name === 'Temporary Workspace')) {
-                return; // Skip creating a temporary workspace if one exists
-            }
-
-            const response = await fetch(
-                getServerUrl(
-                    `${REMOTE_SERVER_ROUTES.CREATE_TEMP_WORKSPACE}?user_email=${encodeURIComponent(
-                        user?.email || ''
-                    )}`
-                ),
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                }
-            );
-            const tempWorkspace = await response.json();
-
-            addWorkspace({ id: tempWorkspace.id, name: 'Temporary Workspace' });
-            setCurrentWorkspaceById(tempWorkspace.id);
-        } catch (error) {
-            console.error('Error creating temporary workspace:', error);
-        }
-    };
+    //         addWorkspace({ id: tempWorkspace.id, name: 'Temporary Workspace' });
+    //         setCurrentWorkspaceById(tempWorkspace.id);
+    //     } catch (error) {
+    //         console.error('Error creating temporary workspace:', error);
+    //     }
+    // };
 
     // Add workspace
     const handleAddWorkspace = async () => {
@@ -300,7 +293,7 @@ const Topbar: React.FC = () => {
             });
 
             // Set the new workspace as the current workspace
-            setCurrentWorkspace(result);
+            // setCurrentWorkspace(result);
 
             // Clear the input field
             setNewWorkspaceName('');
@@ -367,7 +360,7 @@ const Topbar: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="h-16 bg-gray-800 text-white flex items-center justify-center px-6 shadow-md">
+            <div className="h-full bg-gray-800 text-white flex items-center justify-center px-6 shadow-md">
                 <div className="text-lg font-medium">Loading workspaces...</div>
             </div>
         );
@@ -377,7 +370,7 @@ const Topbar: React.FC = () => {
         <div className="h-16 bg-gray-800 text-white flex items-center justify-between px-6 shadow-md  sticky top-0 z-10">
             {/* Workspace Selector */}
             <div className="flex items-center gap-4">
-                <select
+                {/* <select
                     className="bg-gray-700 text-white px-4 py-2 rounded-md focus:outline-none"
                     value={currentWorkspace?.id || ''}
                     onChange={(e) => setCurrentWorkspaceById(e.target.value)}>
@@ -386,7 +379,7 @@ const Topbar: React.FC = () => {
                             {workspace.name}
                         </option>
                     ))}
-                </select>
+                </select> */}
 
                 {/* Add Workspace */}
                 <div className="flex items-center gap-2">

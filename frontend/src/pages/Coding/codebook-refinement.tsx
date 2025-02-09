@@ -86,8 +86,8 @@ const CodebookRefinement = () => {
     const checkIfReady = conflictingResponses.length === 0;
 
     return (
-        <div>
-            <div className="max-h-[calc(100vh-8rem)]">
+        <div className="min-h-page">
+            <div>
                 <UnifiedCodingPage
                     postIds={sampledPostIds}
                     data={sampledPostResponse}
@@ -99,8 +99,8 @@ const CodebookRefinement = () => {
                 />
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.CODES_REVIEW}
-                nextPage={ROUTES.FINAL_CODEBOOK}
+                previousPage={`${ROUTES.CODEBOOK_CREATION}/${ROUTES.CODES_REVIEW}`}
+                nextPage={`${ROUTES.CODEBOOK_CREATION}/${ROUTES.FINAL_CODEBOOK}`}
                 isReady={checkIfReady}
             />
         </div>

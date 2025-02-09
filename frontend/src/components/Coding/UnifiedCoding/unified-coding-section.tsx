@@ -175,7 +175,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     return (
         <div className="-m-6 overflow-hidden">
-            <div className="flex h-[calc(100vh-8rem)] pb-6">
+            <div className="flex h-[calc(100vh-4rem)] pb-6">
                 {!viewTranscript && (
                     <div className="w-1/4 border-r overflow-auto">
                         <LeftPanel

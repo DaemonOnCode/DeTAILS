@@ -24,7 +24,7 @@ exports.createMainWindow = async (...ctxs) => {
         webPreferences: {
             nodeIntegration: true,
             enableRemoteModule: true,
-            devTools: globalState.isDev,
+            devTools: process.env.NODE_ENV !== 'production',
             contextIsolation: false,
             webSecurity: false,
             nodeIntegrationInWorker: true
@@ -43,6 +43,7 @@ exports.createMainWindow = async (...ctxs) => {
 
     remote.enable(window.webContents);
 
+    console.log('Loading URL:', process.env.REACT_APP_URL, process.env.NODE_ENV);
     await window.loadURL(
         process.env.REACT_APP_URL ||
             (process.env.NODE_ENV === 'development'

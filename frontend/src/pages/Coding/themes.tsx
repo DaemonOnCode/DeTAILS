@@ -118,7 +118,7 @@ const ThemesPage = () => {
 
     return (
         <div>
-            <div className="max-h-[calc(100vh-11rem)] h-[calc(100vh-11rem)]">
+            <div className="max-h-maxPageContent h-maxPageContent">
                 <DndProvider backend={HTML5Backend} context={window}>
                     <div className="container mx-auto">
                         <h1 className="text-2xl font-bold mb-4">Themes and Codes Organizer</h1>
@@ -148,7 +148,7 @@ const ThemesPage = () => {
                 </DndProvider>
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.ENCODED_DATA}
+                previousPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.ENCODED_DATA}`}
                 nextPage={ROUTES.FINAL}
                 isReady={unplacedCodes.length === 0}
             />

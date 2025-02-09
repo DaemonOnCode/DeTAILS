@@ -61,7 +61,7 @@ export default function SmoothCodeFlow(): JSX.Element {
     }, [snippetQueue]);
 
     return (
-        <div className="min-h-panel flex flex-col items-center justify-between p-6 text-gray-800 relative overflow-hidden">
+        <div className="min-h-page flex flex-col items-center justify-between p-6 text-gray-800 relative overflow-hidden">
             <h1 className="text-2xl font-bold mb-6">Sorting Codes into Themes...</h1>
 
             {/* Central Codebook (Hub) */}

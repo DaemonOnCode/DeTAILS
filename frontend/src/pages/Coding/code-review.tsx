@@ -36,8 +36,8 @@ const CodeReview = () => {
     }, []);
 
     return (
-        <div>
-            <div className="max-h-[calc(100vh-8rem)]">
+        <div className="min-h-page">
+            <div>
                 <UnifiedCodingPage
                     postIds={sampledPostIds}
                     data={sampledPostResponse}
@@ -46,8 +46,8 @@ const CodeReview = () => {
                 />
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.KEYWORD_TABLE}
-                nextPage={ROUTES.CODEBOOK_REFINEMENT}
+                previousPage={ROUTES.LOAD_DATA}
+                nextPage={`${ROUTES.CODEBOOK_CREATION}/${ROUTES.CODEBOOK_REFINEMENT}`}
                 isReady={true}
                 onNextClick={async () => {
                     setSampledPostResponseCopy([...sampledPostResponse]);

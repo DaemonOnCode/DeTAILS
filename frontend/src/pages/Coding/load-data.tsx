@@ -120,12 +120,13 @@ const LoadData = () => {
         <div className="w-full h-full flex flex-col">
             <RedditTableRenderer
                 data={data}
-                maxTableHeightClass="max-h-[calc(100vh-22rem)]"
+                maxContainerHeight="min-h-maxPageContent"
+                maxTableHeightClass="max-h-[calc(100vh-18rem)]"
                 loading={loading}
             />
             <NavigationBottomBar
-                previousPage={ROUTES.KEYWORD_TABLE}
-                nextPage={ROUTES.CODES_REVIEW}
+                previousPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.KEYWORD_TABLE}`}
+                nextPage={`${ROUTES.CODEBOOK_CREATION}/${ROUTES.CODES_REVIEW}`}
                 isReady={isReadyCheck}
                 onNextClick={handleSamplingPosts}
             />

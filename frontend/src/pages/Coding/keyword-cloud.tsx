@@ -227,8 +227,8 @@ const KeywordCloudPage: FC = () => {
             </div>
 
             <NavigationBottomBar
-                previousPage={ROUTES.CONTEXT_V2}
-                nextPage={ROUTES.KEYWORD_TABLE}
+                previousPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.CONTEXT_V2}`}
+                nextPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.KEYWORD_TABLE}`}
                 isReady={checkIfReady}
                 onNextClick={(e) => handleNextClick(e)}
             />

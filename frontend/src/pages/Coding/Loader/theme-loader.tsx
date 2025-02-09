@@ -94,7 +94,7 @@ const ThemeLoaderPage = () => {
     };
 
     return (
-        <div className="min-h-panel w-full flex flex-col gap-6 items-center justify-center">
+        <div className="min-h-page w-full flex flex-col gap-6 items-center justify-center">
             {stage !== 'Generating Keywords' && (
                 <h1 className="text-2xl font-bold text-center mb-6">{stage}</h1>
             )}
@@ -129,7 +129,7 @@ const ThemeLoaderPage = () => {
             )}
 
             {stage === 'Generating Keywords' && (
-                <div className="relative w-full min-h-panel flex items-center justify-center overflow-hidden">
+                <div className="relative w-full min-h-page flex items-center justify-center overflow-hidden">
                     <motion.h1
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}

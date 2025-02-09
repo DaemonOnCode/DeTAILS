@@ -125,8 +125,8 @@ const FinalThemes = () => {
     };
 
     return (
-        <div>
-            <div className="max-h-[calc(100vh-8rem)]">
+        <div className="min-h-page">
+            <div className="mb-6">
                 <UnifiedCodingPage
                     postIds={sampledPostIds}
                     data={sampledPostResponse.filter((response) => response.isMarked === true)}
@@ -137,8 +137,8 @@ const FinalThemes = () => {
                 />
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.THEMES}
-                nextPage={ROUTES.SPLIT_CHECK}
+                previousPage={`${ROUTES.CODEBOOK_CREATION}/${ROUTES.CODEBOOK_REFINEMENT}`}
+                nextPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.SPLIT_CHECK}`}
                 isReady={true}
                 onNextClick={handleNextClick}
             />

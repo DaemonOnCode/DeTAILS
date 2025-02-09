@@ -15,7 +15,7 @@ const newConfig = require('../src/config')('electron');
 console.log(newConfig);
 
 // Enable auto-reloading in development mode
-if (config.isDev) {
+if (process.env.NODE_ENV === 'development') {
     require('electron-reloader')(module, {
         ignore: [/\.db$/]
     });
@@ -25,7 +25,7 @@ if (config.isDev) {
 remote.initialize();
 
 // Configure auto-launch for production mode
-if (!config.isDev) {
+if (!process.env.NODE_ENV === 'development') {
     const autoStart = new AutoLaunch({
         name: config.appName
     });

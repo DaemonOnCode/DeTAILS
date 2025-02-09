@@ -49,7 +49,7 @@ const LoginPage = () => {
         <LoginAnimation
             GoogleOauth={
                 <div className="flex h-full w-screen items-start justify-center">
-                    <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-lg">
+                    <div className="w-full max-w-sm sm:max-w-md px-8 py-4 sm:p-8 bg-white rounded-lg shadow-lg">
                         <h1 className="text-2xl font-bold text-gray-700 text-center">
                             Sign in to Your Account
                         </h1>

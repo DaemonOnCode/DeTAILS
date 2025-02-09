@@ -70,8 +70,8 @@ const EncodedDataPage = () => {
     };
 
     return (
-        <div>
-            <div className="max-h-[calc(100vh-8rem)]">
+        <div className="min-h-page">
+            <div>
                 <UnifiedCodingPage
                     postIds={unseenPostIds}
                     data={unseenPostResponse}
@@ -82,8 +82,8 @@ const EncodedDataPage = () => {
                 />
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.SPLIT_CHECK}
-                nextPage={ROUTES.THEMES}
+                previousPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.SPLIT_CHECK}`}
+                nextPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.THEMES}`}
                 isReady={true}
                 onNextClick={handleNextClick}
             />

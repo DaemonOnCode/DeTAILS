@@ -30,8 +30,8 @@ const SplitCheckPage = () => {
     }, []);
 
     return (
-        <div>
-            <div className="max-h-[calc(100vh-8rem)]">
+        <div className="min-h-page">
+            <div>
                 <UnifiedCodingPage
                     postIds={unseenPostIds}
                     data={unseenPostResponse}
@@ -44,8 +44,8 @@ const SplitCheckPage = () => {
                 />
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.FINAL_CODEBOOK}
-                nextPage={ROUTES.ENCODED_DATA}
+                previousPage={`${ROUTES.CODEBOOK_CREATION}/${ROUTES.FINAL_CODEBOOK}`}
+                nextPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.ENCODED_DATA}`}
                 isReady={true}
             />
         </div>

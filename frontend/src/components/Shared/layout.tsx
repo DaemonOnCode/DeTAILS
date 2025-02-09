@@ -1,15 +1,26 @@
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import Sidebar from './sidebar';
 import Topbar from './topbar'; // Import the Topbar component
 import { ILayout } from '../../types/Coding/shared';
 import { useAuth } from '../../context/auth-context';
 import { useWebSocket } from '../../context/websocket-context';
 import { motion } from 'framer-motion';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 export const Layout: FC<ILayout> = ({ children }) => {
     const { serviceStarting } = useWebSocket();
     const { remoteProcessing } = useAuth();
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const { currentWorkspace } = useWorkspaceContext();
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+
+    useEffect(() => {
+        console.log('Current Workspace:', currentWorkspace);
+        if (!currentWorkspace?.id) {
+            setIsSidebarCollapsed(true);
+        } else {
+            setIsSidebarCollapsed(false);
+        }
+    }, [currentWorkspace?.id]);
 
     console.log('Layout remoteProcessing:', remoteProcessing, 'serviceStarting:', serviceStarting);
 
@@ -60,7 +71,7 @@ export const Layout: FC<ILayout> = ({ children }) => {
         return (
             <div>
                 {/* Topbar */}
-                <Topbar />
+                {/* <Topbar /> */}
 
                 <div className="flex flex-1">
                     {/* Sidebar with dynamic width based on collapse state */}

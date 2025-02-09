@@ -174,7 +174,7 @@ const ContextPage = () => {
 
     return (
         <div className="w-full h-full flex justify-between flex-col">
-            <div className="h-[calc(100vh-11rem)]">
+            <div className="h-maxPageContent">
                 <section>
                     {Object.keys(contextFiles).length === 0 ? (
                         <>
@@ -263,7 +263,7 @@ const ContextPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.HOME}
-                nextPage={ROUTES.KEYWORD_CLOUD}
+                nextPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.KEYWORD_CLOUD}`}
                 isReady={checkIfReady}
                 onNextClick={handleOnNextClick}
             />

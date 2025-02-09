@@ -99,7 +99,7 @@ const KeywordsTablePage: FC = () => {
 
     return (
         <div className="flex flex-col justify-between h-full">
-            <div>
+            <div className="min-h-maxPageContent">
                 <p>Please validate and manage the keywordTable entries below:</p>
                 <div className="max-h-[calc(100vh-18rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
                     <table className="w-full border-collapse">
@@ -263,7 +263,7 @@ const KeywordsTablePage: FC = () => {
                 </div>
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.KEYWORD_CLOUD}
+                previousPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.KEYWORD_CLOUD}`}
                 nextPage={ROUTES.LOAD_DATA}
                 isReady={isReadyCheck}
             />

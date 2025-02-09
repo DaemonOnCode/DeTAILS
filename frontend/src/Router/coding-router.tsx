@@ -31,45 +31,57 @@ import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
 
 export const CodingRouter: RouteObject[] = [
     { path: ROUTES.HOME, element: <HomePage />, index: true },
-    { path: ROUTES.CONTEXT_V2, element: <ContextV2Page /> },
-    { path: ROUTES.KEYWORD_CLOUD, element: <KeywordCloudPage /> },
-    { path: ROUTES.KEYWORD_TABLE, element: <KeywordTablePage /> },
+    {
+        path: ROUTES.CONTEXT_BUILDER,
+        children: [
+            { path: ROUTES.CONTEXT_V2, element: <ContextV2Page />, index: true },
+            { path: ROUTES.KEYWORD_CLOUD, element: <KeywordCloudPage /> },
+            { path: ROUTES.KEYWORD_TABLE, element: <KeywordTablePage /> }
+        ]
+    },
     {
         path: ROUTES.LOAD_DATA,
         element: <LoadDataPage />
     },
     {
-        path: ROUTES.CODES_REVIEW,
-        element: <CodeReviewPage />
+        path: ROUTES.CODEBOOK_CREATION,
+        children: [
+            {
+                path: ROUTES.CODES_REVIEW,
+                element: <CodeReviewPage />,
+                index: true
+            },
+            {
+                path: ROUTES.CODEBOOK_REFINEMENT,
+                element: <CodebookRefinementPage />
+            },
+            {
+                path: ROUTES.FINAL_CODEBOOK,
+                element: <FinalCodebookPage />
+            }
+        ]
     },
-    {
-        path: ROUTES.CODEBOOK_REFINEMENT,
-        element: <CodebookRefinementPage />
-    },
-
     {
         path: ROUTES.TRANSCRIPT,
         element: <TranscriptPage />
     },
     {
-        path: ROUTES.FINAL_CODEBOOK,
-        element: <FinalCodebookPage />
-    },
-    // {
-    //     path: ROUTES.CODE_VALIDATION,
-    //     element: <CodeValidationPage />
-    // },
-    {
-        path: ROUTES.SPLIT_CHECK,
-        element: <SplitCheckPage />
-    },
-    {
-        path: ROUTES.ENCODED_DATA,
-        element: <EncodedDataPage />
-    },
-    {
-        path: ROUTES.THEMES,
-        element: <ThemesPage />
+        path: ROUTES.DEDUCTIVE_CODING,
+        children: [
+            {
+                path: ROUTES.SPLIT_CHECK,
+                element: <SplitCheckPage />,
+                index: true
+            },
+            {
+                path: ROUTES.ENCODED_DATA,
+                element: <EncodedDataPage />
+            },
+            {
+                path: ROUTES.THEMES,
+                element: <ThemesPage />
+            }
+        ]
     },
     {
         path: ROUTES.TRANSCRIPTS,

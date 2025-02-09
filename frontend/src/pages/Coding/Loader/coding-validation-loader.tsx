@@ -224,7 +224,7 @@ const Workflow = () => {
     };
 
     return (
-        <div className="w-full min-h-panel flex flex-col items-center justify-center">
+        <div className="w-full min-h-page flex flex-col items-center justify-center">
             {/* Progress Bar */}
             <div className="w-3/4 mb-6">
                 <div className="relative w-full h-6 bg-gray-200 rounded-full overflow-hidden">

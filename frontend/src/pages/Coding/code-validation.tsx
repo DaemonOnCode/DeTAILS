@@ -31,7 +31,7 @@ const CodeValidation = () => {
 
     return (
         <div>
-            <div className="max-h-[calc(100vh-8rem)]">
+            <div className="min-h-page">
                 <UnifiedCodingPage
                     postIds={unseenPostIds}
                     data={unseenPostResponse}

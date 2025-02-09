@@ -226,9 +226,9 @@ const HomePage = () => {
     const handleCloseModal = () => setModalOpen(false);
 
     return (
-        <div className="flex min-h-panel bg-gray-100">
+        <div className="flex min-h-page bg-gray-100">
             {/* Left Panel */}
-            <div className="flex flex-col w-1/2 min-h-panel">
+            <div className="flex flex-col w-1/2 min-h-page">
                 <div className="bg-white shadow-sm p-4">
                     <h2 className="text-lg font-bold mb-2">Rules List</h2>
                     <p className="text-sm text-gray-600 mb-2">Tokenizer: {tokenizer}</p>

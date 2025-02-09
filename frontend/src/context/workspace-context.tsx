@@ -61,11 +61,11 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
             const filteredNewWorkspaces = newWorkspaces.filter((ws) => !existingIds.has(ws.id));
             return [...prevWorkspaces, ...filteredNewWorkspaces];
         });
-        if (!currentWorkspace) {
-            setCurrentWorkspaceState(
-                newWorkspaces.find((ws) => ws.name === 'Temporary Workspace') ?? null
-            );
-        }
+        // if (!currentWorkspace) {
+        //     setCurrentWorkspaceState(
+        //         newWorkspaces.find((ws) => ws.name === 'Temporary Workspace') ?? null
+        //     );
+        // }
     }, []);
 
     // const setCurrentWorkspace = useCallback((workspaceId: string) => {
@@ -81,9 +81,9 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
                 const exists = prevWorkspaces.some((ws) => ws.id === workspace.id);
                 return exists ? prevWorkspaces : [...prevWorkspaces, workspace];
             });
-            if (!currentWorkspace) {
-                setCurrentWorkspaceState(workspace);
-            }
+            // if (!currentWorkspace) {
+            //     setCurrentWorkspaceState(workspace);
+            // }
         },
         [currentWorkspace]
     );

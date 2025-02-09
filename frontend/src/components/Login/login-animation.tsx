@@ -261,8 +261,9 @@ function CardsGrid({ phase, words }: { phase: number; words: string[] }) {
 ----------------------------------------------------- */
 function CenterLayout({ words, phase }: { words: string[]; phase: number }) {
     // Animate color #000 -> red in phase >= 5
-    const AnimatedColorSpan = ({ text }: { text: string }) => (
+    const AnimatedColorSpan = ({ text, layoutId }: { text: string; layoutId: string }) => (
         <motion.span
+            layoutId={layoutId}
             initial={{ color: '#000' }}
             animate={{ color: '#15803D' }}
             transition={{ duration: 0.5 }}
@@ -271,79 +272,72 @@ function CenterLayout({ words, phase }: { words: string[]; phase: number }) {
         </motion.span>
     );
 
-    const highlightAcronym = (word: string) => {
-        if (phase < 5) return word;
+    const highlightAcronym = (char: string, word: string, charIndex: number) => {
+        if (phase < 5 || word === 'with') return <>{char}</>;
         if (word === 'Deductive') {
             // highlight first 2 letters "De"
-            return (
-                <>
-                    <motion.span layoutId="highlight-Deductive">
-                        <AnimatedColorSpan text="De" />
-                    </motion.span>
-                    {word.slice(2)}
-                </>
-            );
+            if (charIndex < 2) {
+                return (
+                    <>
+                        <AnimatedColorSpan layoutId={`highlight-${word}`} text={char} />
+                    </>
+                );
+            } else {
+                return <>{char}</>;
+            }
         } else {
             // highlight first letter
-            return (
-                <>
-                    <motion.span layoutId={`highlight-${word}`}>
-                        <AnimatedColorSpan text={word[0]} />
-                    </motion.span>
-                    {word.slice(1)}
-                </>
-            );
+            // return (
+            if (charIndex === 0) {
+                return (
+                    <>
+                        {/* <motion.span> */}
+                        <AnimatedColorSpan layoutId={`highlight-${word}`} text={char} />
+                        {/* </motion.span>
+                    {word.slice(1)} */}
+                    </>
+                );
+            } else {
+                return <>{char}</>;
+            }
+            // );
         }
     };
 
     return (
         <motion.div
             key="centerLayout"
-            className="absolute inset-0 flex flex-col items-center justify-center space-y-4"
-            layout
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            // GPU hint here:
+            className="absolute inset-0 flex flex-col items-center justify-center space-y-4 px-4"
+            initial="hidden"
+            animate="visible"
+            variants={{
+                visible: {
+                    transition: {
+                        staggerChildren: 0.05 // One character at a time across all words
+                    }
+                }
+            }}
             style={{ willChange: 'transform, opacity' }}>
-            <div className="flex justify-center space-x-4">
-                <motion.div
-                    layoutId="word-0"
-                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
-                    {highlightAcronym(words[0])}
-                </motion.div>
-                <motion.div
-                    layoutId="word-1"
-                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
-                    {highlightAcronym(words[1])}
-                </motion.div>
-                <motion.div
-                    layoutId="word-2"
-                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
-                    {highlightAcronym(words[2])}
-                </motion.div>
-
-                <motion.div
-                    layoutId="word-3"
-                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
-                    {words[3]}
-                </motion.div>
-
-                <motion.div
-                    layoutId="word-4"
-                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
-                    {highlightAcronym(words[4])}
-                </motion.div>
-                <motion.div
-                    layoutId="word-5"
-                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
-                    {highlightAcronym(words[5])}
-                </motion.div>
-                <motion.div
-                    layoutId="word-6"
-                    className="text-4xl font-bold bg-blue-200 p-4 rounded-md shadow-md">
-                    {highlightAcronym(words[6])}
-                </motion.div>
+            <div className="flex justify-center space-x-2 md:space-x-4">
+                {words.map((word, wordIndex) => (
+                    <motion.div
+                        key={wordIndex}
+                        className="font-bold p-2 md:p-4 rounded-md flex"
+                        style={{
+                            fontSize: 'clamp(1rem, 2.5vw, 2.5rem)' // Responsive font size
+                        }}>
+                        {Array.from(word).map((char, charIndex) => (
+                            <motion.span
+                                key={`${wordIndex}-${charIndex}`}
+                                variants={{
+                                    hidden: { opacity: 0, y: 10 },
+                                    visible: { opacity: 1, y: 0, transition: { duration: 0.3 } }
+                                }}>
+                                {highlightAcronym(char, word, charIndex)}
+                            </motion.span>
+                        ))}
+                    </motion.div>
+                ))}
             </div>
         </motion.div>
     );
@@ -376,134 +370,122 @@ export function SplitScreenPhase6({
     const [flex, setFlex] = useState(false);
 
     return (
-        <div className="relative h-screen w-screen" style={{ perspective: '1000px' }}>
-            {/* Background with cards rendered behind all content */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-10 z-10">
+            {/** 1) DeTAILS text, centered, animates up */}
             <motion.div
-                className="absolute inset-0 z-0"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.5 }}
-                transition={{ duration: 1, delay: 0.5 }}>
-                <BackgroundWithCards />
-            </motion.div>
-
-            {/* Foreground split screen content */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-10 z-10">
-                {/** 1) DeTAILS text, centered, animates up */}
-                <motion.div
-                    initial={{ color: '#15803D' }}
-                    animate={{ color: '#1D4ED8' }}
-                    transition={{ duration: 0.5 }}
-                    className="h-1/2 flex items-end justify-end">
-                    <div className="text-9xl font-bold flex" style={{ perspective: '1000px' }}>
-                        {merges.map(({ word, text }) => (
-                            <motion.span
-                                key={word}
-                                layoutId={`highlight-${word}`}
-                                initial={{
-                                    textShadow: `2px 2px 0 #0F172A, 
+                initial={{ color: '#15803D' }}
+                animate={{ color: '#1D4ED8' }}
+                transition={{ duration: 0.5 }}
+                className="h-1/2 flex items-end justify-end">
+                <div className="text-9xl font-bold flex" style={{ perspective: '1000px' }}>
+                    {merges.map(({ word, text }) => (
+                        <motion.span
+                            key={word}
+                            layoutId={`highlight-${word}`}
+                            className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl"
+                            initial={{
+                                textShadow: `2px 2px 0 #0F172A, 
      4px 4px 0 #1E293B, 
      6px 6px 6px rgba(0, 0, 0, 0.4)`
-                                }}
-                                animate={{
-                                    textShadow: `4px 4px 0 #0F172A, 
+                            }}
+                            animate={{
+                                textShadow: `4px 4px 0 #0F172A, 
      6px 6px 0 #1E293B, 
      8px 8px 10px rgba(0, 0, 0, 0.5)`
-                                }}
-                                transition={{ duration: 0.5 }}
-                                // Make each letter block-level so boxShadow can apply.
-                                style={{
-                                    display: 'inline-block',
-                                    transform: 'rotateX(5deg) rotateY(5deg)',
-                                    willChange: 'transform'
-                                    // A subtle 3D text shadow
-                                    // If you want a box shadow behind each letter container:
-                                    // boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
-                                }}>
-                                {text}
-                            </motion.span>
-                        ))}
-                    </div>
-                </motion.div>
+                            }}
+                            transition={{ duration: 0.5 }}
+                            // Make each letter block-level so boxShadow can apply.
+                            style={{
+                                display: 'inline-block',
+                                transform: 'rotateX(5deg) rotateY(5deg)',
+                                willChange: 'transform'
+                            }}>
+                            {text}
+                        </motion.span>
+                    ))}
+                </div>
+            </motion.div>
 
-                {/** 2) Google OAuth container, appears below the text once done moving */}
-                {googleVisible && (
-                    <motion.div
-                        className="h-1/2"
-                        style={{ willChange: 'transform, opacity' }}
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 1 }}
-                        onAnimationComplete={() => setFlex(true)}>
-                        {GoogleOauth}
-                    </motion.div>
-                )}
-            </div>
+            {/** 2) Google OAuth container, appears below the text once done moving */}
+            {googleVisible && (
+                <motion.div
+                    className="h-1/2"
+                    style={{ willChange: 'transform, opacity' }}
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 1 }}
+                    onAnimationComplete={() => setFlex(true)}>
+                    {GoogleOauth}
+                </motion.div>
+            )}
         </div>
+        // </div>
     );
 }
 
 /* -----------------------------------------------------
    10. The main LoginAnimation with phases 1..5 as before, plus 6, plus 7
 ----------------------------------------------------- */
-type Phase = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type Phase = 4 | 5 | 6 | 7;
 const typedWords = ['Deductive', 'Thematic', 'Analysis', 'with', 'Iterative', 'LLM', 'Support'];
 
 export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Element }) {
-    const [phase, setPhase] = useState<Phase>(0);
+    const [phase, setPhase] = useState<Phase>(4);
 
     // Automatic transitions for phases 1..4
-    useEffect(() => {
-        if (phase === 0) {
-            const t = setTimeout(() => {
-                setPhase(1);
-            }, 500);
-            return () => clearTimeout(t);
-        }
-    }, [phase]);
+    // useEffect(() => {
+    //     if (phase === 0) {
+    //         const t = setTimeout(() => {
+    //             setPhase(5);
+    //         }, 500);
+    //         return () => clearTimeout(t);
+    //     }
+    // }, [phase]);
 
-    useEffect(() => {
-        if (phase === 1) {
-            const t = setTimeout(() => {
-                setPhase(2);
-            }, 500);
-            return () => clearTimeout(t);
-        }
-    }, [phase]);
+    // useEffect(() => {
+    //     if (phase === 1) {
+    //         const t = setTimeout(() => {
+    //             setPhase(2);
+    //         }, 500);
+    //         return () => clearTimeout(t);
+    //     }
+    // }, [phase]);
 
-    useEffect(() => {
-        if (phase === 2) {
-            const t = setTimeout(() => {
-                setPhase(3);
-            }, 1000);
-            return () => clearTimeout(t);
-        }
-    }, [phase]);
+    // useEffect(() => {
+    //     if (phase === 2) {
+    //         const t = setTimeout(() => {
+    //             setPhase(3);
+    //         }, 1000);
+    //         return () => clearTimeout(t);
+    //     }
+    // }, [phase]);
 
-    useEffect(() => {
-        if (phase === 3) {
-            const t = setTimeout(() => {
-                setPhase(4);
-            }, 500);
-            return () => clearTimeout(t);
-        }
-    }, [phase]);
+    // useEffect(() => {
+    //     if (phase === 3) {
+    //         const t = setTimeout(() => {
+    //             setPhase(4);
+    //         }, 500);
+    //         return () => clearTimeout(t);
+    //     }
+    // }, [phase]);
 
-    // From phase 4 => 5 after 3s
+    // // From phase 4 => 5 after 3s
     useEffect(() => {
         if (phase === 4) {
             const t = setTimeout(() => {
                 setPhase(5);
-            }, 500);
+            }, 1000);
             return () => clearTimeout(t);
         }
     }, [phase]);
 
     // From phase 5 => 6
     useEffect(() => {
+        console.log('phase', phase);
         if (phase === 5) {
             const t = setTimeout(() => {
                 setPhase(6);
-            }, 900);
+            }, 3500);
             return () => clearTimeout(t);
         }
     }, [phase]);
@@ -534,32 +516,26 @@ export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Eleme
                 )}
             </AnimatePresence>
 
-            <LayoutGroup>
-                {/* PHASES 1..3 => CardsGrid */}
-                <AnimatePresence>
-                    {phase < 4 && (
-                        <motion.div
-                            key="cardsContainer"
-                            className="relative z-10"
-                            initial={phase === 0 ? { opacity: 0 } : { opacity: 1 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.5 }}>
-                            <CardsGrid phase={phase} words={typedWords} />
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+            <div className="relative h-screen w-screen" style={{ perspective: '1000px' }}>
+                <LayoutGroup>
+                    <motion.div
+                        className="absolute inset-0 z-0"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.5 }}
+                        transition={{ duration: 1, delay: 0.5 }}>
+                        <BackgroundWithCards />
+                    </motion.div>
 
-                <AnimatePresence>
-                    {/* PHASE 4..5 => show CenterLayout normally */}
-                    {phase >= 4 && phase < 6 && <CenterLayout words={typedWords} phase={phase} />}
-
-                    {/* PHASE 6 => show SplitScreen */}
-                    {phase === 6 && (
-                        <SplitScreenPhase6 words={typedWords} GoogleOauth={GoogleOauth} />
-                    )}
-                </AnimatePresence>
-            </LayoutGroup>
+                    <AnimatePresence>
+                        {phase >= 5 && phase < 6 && (
+                            <CenterLayout words={typedWords} phase={phase} />
+                        )}
+                        {phase === 6 && (
+                            <SplitScreenPhase6 words={typedWords} GoogleOauth={GoogleOauth} />
+                        )}
+                    </AnimatePresence>
+                </LayoutGroup>
+            </div>
         </div>
     );
 }
@@ -731,7 +707,7 @@ export function CardsGridBackground({ rows, columns, wordList }: CardsGridBackgr
     // Pick some random subset of cards that will do typing. Others remain static.
     // For example, let's type on 10 random cards total:
     const typedIndices = useMemo(() => {
-        const subsetSize = Math.min(5, totalCards); // pick up to 10
+        const subsetSize = Math.min(10, totalCards); // pick up to n
         const chosen = new Set<number>();
         while (chosen.size < subsetSize) {
             const r = Math.floor(Math.random() * totalCards);

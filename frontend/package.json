@@ -76,7 +76,7 @@
         "electron:wait": "wait-on tcp:3000 && npm run electron:dev",
         "prebuild": "rimraf build && rimraf dist",
         "react:build": "react-scripts build",
-        "react:dev": "cross-env NODE_ENV=development BROWSER=none react-scripts start",
+        "react:dev": "cross-env BROWSER=none NODE_ENV=development react-scripts start",
         "electron:build": "electron-builder build --publish never",
         "electron:deploy": "electron-builder build --win --publish always",
         "electron:dev": "cross-env NODE_ENV=development electron .",

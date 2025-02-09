@@ -4,9 +4,12 @@ import { ROUTES } from '../../constants/Coding/shared';
 
 const HomePage: FC = () => {
     return (
-        <div className="w-full h-full flex flex-col">
+        <div className="w-full min-h-page flex flex-col justify-between">
             Home page
-            <NavigationBottomBar nextPage={ROUTES.CONTEXT_V2} isReady={true} />
+            <NavigationBottomBar
+                nextPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.CONTEXT_V2}`}
+                isReady={true}
+            />
         </div>
     );
 };

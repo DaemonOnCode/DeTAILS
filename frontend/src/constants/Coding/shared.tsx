@@ -1,5 +1,8 @@
 export enum ROUTES {
     HOME = 'home',
+    CONTEXT_BUILDER = 'context-builder',
+    CODEBOOK_CREATION = 'codebook-creation',
+    DEDUCTIVE_CODING = 'deductive-coding',
     // BASIS = 'basis',
     CONTEXT_V2 = 'context-v2',
     // FLASHCARDS = 'flashcards',

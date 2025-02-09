@@ -7,11 +7,13 @@ import { useCollectionContext } from '../../context/collection-context';
 type RedditTableRendererProps = {
     data: RedditPosts;
     maxTableHeightClass?: string;
+    maxContainerHeight?: string;
     loading?: boolean;
 };
 
 const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     data,
+    maxContainerHeight = 'min-h-page',
     maxTableHeightClass,
     loading
 }) => {
@@ -92,7 +94,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     };
 
     return (
-        <div className="flex-grow overflow-hidden h-full">
+        <div className={`flex-grow overflow-hidden h-full ${maxContainerHeight}`}>
             {/* Top Bar with Filter and Controls */}
             <div className="mb-4 flex justify-between items-center bg-gray-100 p-4 rounded">
                 {/* Search Filter */}
