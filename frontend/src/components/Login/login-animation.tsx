@@ -375,7 +375,7 @@ export function SplitScreenPhase6({
             <motion.div
                 initial={{ color: '#15803D' }}
                 animate={{ color: '#1D4ED8' }}
-                transition={{ duration: 0.5 }}
+                transition={{ duration: 2 }}
                 className="h-1/2 flex items-end justify-end">
                 <div className="text-9xl font-bold flex" style={{ perspective: '1000px' }}>
                     {merges.map(({ word, text }) => (
@@ -606,7 +606,7 @@ export function AnimatedCardContent({ wordList, idx }: AnimatedCardContentProps)
     // Generate random word spans
     const generateWordSpans = (): WordSpan[] => {
         const spans: WordSpan[] = [];
-        const numWords = Math.floor(Math.random() * 2) + 2; // yields 2 or 3
+        const numWords = 1; // Math.floor(Math.random() * 2) + 2; // yields 2 or 3
         let attempts = 0;
         while (spans.length < numWords && attempts < 20) {
             const randomWord = wordList[Math.floor(Math.random() * wordList.length)];
@@ -707,7 +707,7 @@ export function CardsGridBackground({ rows, columns, wordList }: CardsGridBackgr
     // Pick some random subset of cards that will do typing. Others remain static.
     // For example, let's type on 10 random cards total:
     const typedIndices = useMemo(() => {
-        const subsetSize = Math.min(10, totalCards); // pick up to n
+        const subsetSize = Math.min(30, totalCards); // pick up to n
         const chosen = new Set<number>();
         while (chosen.size < subsetSize) {
             const r = Math.floor(Math.random() * totalCards);

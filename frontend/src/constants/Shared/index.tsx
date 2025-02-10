@@ -12,7 +12,8 @@ export enum ROUTES {
     DATA_COLLECTION = 'data-collection',
     CLEANING = 'cleaning',
     DATA_MODELING = 'modeling',
-    WORKSPACE = 'workspaces'
+    WORKSPACE = 'workspaces',
+    SETTINGS = 'settings'
 }
 
 export enum MODEL_LIST {

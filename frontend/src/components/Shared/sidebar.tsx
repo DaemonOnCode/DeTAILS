@@ -32,6 +32,7 @@ const IGNORED_KEYWORDS = [
     SHARED_ROUTES.CLEANING,
     SHARED_ROUTES.DATA_COLLECTION,
     SHARED_ROUTES.DATA_MODELING,
+    SHARED_ROUTES.SETTINGS,
     'basis',
     'flashcards',
     'word-cloud',
@@ -324,7 +325,11 @@ const Sidebar: FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
                                 {userDropdownVisible && (
                                     <div className="absolute right-0 bottom-full mb-2 w-40 bg-white rounded-md shadow-lg z-10">
                                         <ul className="text-gray-800">
-                                            <li className="px-4 py-2 border-b">Settings</li>
+                                            <li
+                                                className="px-4 py-2 border-b"
+                                                onClick={() => navigate(SHARED_ROUTES.SETTINGS)}>
+                                                Settings
+                                            </li>
                                             <li
                                                 className="hover:bg-gray-100 rounded-b-md px-4 py-2 cursor-pointer"
                                                 onClick={() => logout()}>

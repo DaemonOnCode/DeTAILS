@@ -14,6 +14,7 @@ import { DataProvider } from '../context/data-context';
 import { WebSocketProvider } from '../context/websocket-context';
 import { WorkspaceProvider } from '../context/workspace-context';
 import { WorkspaceProtectedRoute } from '../components/Shared/workpace-protected-routes';
+import { SettingsPage } from '../pages/Settings';
 
 export const AppRoutes: RouteObject[] = [
     {
@@ -49,6 +50,10 @@ export const AppRoutes: RouteObject[] = [
                         ],
                         <WorkspaceProtectedRoute />
                     )
+                },
+                {
+                    path: ROUTES.SETTINGS,
+                    element: <SettingsPage />
                 }
             ],
             <WebSocketProvider>
