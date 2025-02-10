@@ -109,8 +109,10 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     // };
 
     const filteredData = filter
-        ? responses.filter((response) => response.postId === filter || response.code === filter)
-        : responses;
+        ? data.filter((response) => response.postId === filter || response.code === filter)
+        : data;
+
+    console.log('Filtered Data:', filteredData);
 
     // Function to generate and download codebook CSV
     const downloadCodebook = () => {
@@ -204,6 +206,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
                         <ValidationTable
                             codeResponses={filteredData}
+                            dispatchCodeResponses={dispatchFunction}
                             onViewTranscript={handleViewTranscript}
                             review={review}
                             showThemes={isThemesVisible}

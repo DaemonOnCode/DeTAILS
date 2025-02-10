@@ -21,12 +21,12 @@ async def get_reddit_post_link_endpoint(request: RedditPostLinkRequest):
     post_id = request.postId
     comment_slice = request.commentSlice    
 
-    post_data = posts_repo.find_one({"id": post_id, "dataset_id": dataset_id}, columns=["id", "selftext", "title", "subreddit", "url", "permalink"])
+    post_data = posts_repo.find_one({"id": post_id, "dataset_id": dataset_id}, columns=["id", "selftext", "title", "subreddit", "url", "permalink"], map_to_model=False)
 
     if not post_data:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    comment_data = comments_repo.find({"post_id": post_id, "dataset_id": dataset_id}, columns=["parent_id", "body", "id"])
+    comment_data = comments_repo.find({"post_id": post_id, "dataset_id": dataset_id}, columns=["parent_id", "body", "id"], map_to_model=False)
 
     print(f"Post data: {post_data}", f"Comment data: {comment_data}")
 

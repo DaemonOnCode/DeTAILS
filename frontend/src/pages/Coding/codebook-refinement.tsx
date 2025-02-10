@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import getServerUtils from '../../hooks/Shared/get-server-url';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection-context';
+import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const CodebookRefinement = () => {
     const {
@@ -45,7 +46,7 @@ const CodebookRefinement = () => {
     }, []);
 
     const handleRerun = async () => {
-        navigate('../loader/' + LOADER_ROUTES.CODEBOOK_LOADER);
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
 
         console.log('Rerun coding', sampledPostResponseCopy, sampledPostResponse);
 

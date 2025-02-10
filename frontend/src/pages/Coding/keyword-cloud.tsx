@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get-server-url';
+import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const KeywordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -162,7 +163,7 @@ const KeywordCloudPage: FC = () => {
         await logger.info('Starting Codebook Generation');
         console.log('Navigating to codebook');
         // navigate(ROUTES.CODEBOOK);
-        navigate('../loader/' + LOADER_ROUTES.CODEBOOK_LOADER);
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
 
         console.log('Sending request to server');
         // if (!USE_LOCAL_SERVER) {

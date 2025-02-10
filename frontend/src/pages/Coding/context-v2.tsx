@@ -10,6 +10,7 @@ import { useCodingContext } from '../../context/coding-context';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get-server-url';
+import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -121,7 +122,8 @@ const ContextPage = () => {
         if (!datasetId) return;
         e.preventDefault();
         await logger.info('Starting Theme Cloud Generation');
-        navigate('../loader/' + LOADER_ROUTES.THEME_LOADER);
+        console.log('Starting function', getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
 
         console.log('Sending request to server');
         // if (!USE_LOCAL_SERVER) {

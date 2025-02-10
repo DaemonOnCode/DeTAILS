@@ -64,7 +64,7 @@ const WebSocketSingleton = (() => {
 })();
 
 export const WebSocketProvider: FC<ILayout> = ({ children }) => {
-    const { remoteProcessing, isAuthenticated } = useAuth();
+    const { remoteProcessing, isAuthenticated, user } = useAuth();
     const messageCallbacks = useRef<{ [key: string]: CallbackFn }>({});
     const [serviceStarting, setServiceStarting] = useState(true);
     const lastPingRef = useRef<Date | null>(null);
@@ -160,7 +160,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
     };
 
     useEffect(() => {
-        console.log('Auth changed:', isAuthenticated);
+        console.log('Auth changed:', isAuthenticated, user);
         if (!isAuthenticated) {
             setServiceStarting(false);
             ipcRenderer.invoke('stop-services');

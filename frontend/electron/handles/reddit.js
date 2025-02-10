@@ -44,7 +44,7 @@ const redditHandler = (...ctxs) => {
 
                 console.log('postId', postId);
 
-                const url = `${config.backendURL[globalCtx.getState().processing]}/miscellaneous/get-post-from-id`;
+                const url = `${config.backendURL[globalCtx.getState().processing]}/${config.backendRoutes.GET_REDDIT_POST_BY_ID}`;
 
                 const res = await fetch(url, {
                     method: 'POST',
@@ -125,69 +125,69 @@ const redditHandler = (...ctxs) => {
             // view.webContents.openDevTools();
 
             console.log('text', text);
-            if (text) {
-                // view.webContents
-                //     .executeJavaScript(
-                //         `
-                //             (function() {
-                //                 console.log('JavaScript execution started');
-                //                 // Your JavaScript logic here
-                //                 console.log('JavaScript execution finished');
-                //             })();
-                //         `
-                //     )
-                //     .catch((error) => {
-                //         console.error('Error executing JavaScript:', error);
-                // //     });
-                // view.webContents.on('did-stop-loading', (...e) => {
-                //     console.error('Failed to load file', e);
-                // });
+            // view.webContents
+            //     .executeJavaScript(
+            //         `
+            //             (function() {
+            //                 console.log('JavaScript execution started');
+            //                 // Your JavaScript logic here
+            //                 console.log('JavaScript execution finished');
+            //             })();
+            //         `
+            //     )
+            //     .catch((error) => {
+            //         console.error('Error executing JavaScript:', error);
+            // //     });
+            // view.webContents.on('did-stop-loading', (...e) => {
+            //     console.error('Failed to load file', e);
+            // });
 
-                view.webContents.on('did-stop-loading', () => {
-                    console.log('Did finish load event');
-                    if (getFromPostData) {
-                        console.log('Injecting post data:', postData);
-                        function renderComments(comments) {
-                            if (!comments || comments.length === 0) {
-                                return '';
-                            }
-
-                            return `
-                                <div class="comments">
-                                    ${comments
-                                        .map(
-                                            (comment) => `
-                                            <div class="comment">
-                                                <h3 class="comment-author">${comment.author}</h3>
-                                                <p class="comment-body">${comment.body}</p>
-                                                ${renderComments(comment.comments || [])}
-                                            </div>
-                                        `
-                                        )
-                                        .join('')}
-                                </div>
-                            `;
+            view.webContents.on('did-stop-loading', () => {
+                console.log('Did finish load event');
+                if (getFromPostData) {
+                    console.log('Injecting post data:', postData);
+                    function renderComments(comments) {
+                        if (!comments || comments.length === 0) {
+                            return '';
                         }
-                        view.webContents
-                            .executeJavaScript(
-                                `(function() {
-                                    const container = document.getElementById('content');
 
-                                        const postHtml = \`
-                                            <div class="post">
-                                                <h1 class="post-title">${postData.title}</h1>
-                                                <p class="post-body">${postData.selftext}</p>
-                                            </div>
-                                            ${renderComments(postData.comments)}
-                                        \`;
-
-                                        container.innerHTML = postHtml;
-                                    })();`
-                            )
-                            .catch((error) => {
-                                console.error('Error injecting post data:', error);
-                            });
+                        return `
+                            <div class="comments">
+                            ${comments
+                                .map(
+                                    (comment) => `
+                                    <div class="comment">
+                                    <h3 class="comment-author">${comment.author}</h3>
+                                    <p class="comment-body">${comment.body}</p>
+                                    ${renderComments(comment.comments || [])}
+                                    </div>
+                                    `
+                                )
+                                .join('')}
+                                    </div>
+                                    `;
                     }
+                    view.webContents
+                        .executeJavaScript(
+                            `(function() {
+                                const container = document.getElementById('content');
+
+                                const postHtml = \`
+                                <div class="post">
+                                <h1 class="post-title">${postData.title}</h1>
+                                <p class="post-body">${postData.selftext}</p>
+                                </div>
+                                ${renderComments(postData.comments)}
+                                \`;
+                                
+                                container.innerHTML = postHtml;
+                            })();`
+                        )
+                        .catch((error) => {
+                            console.error('Error injecting post data:', error);
+                        });
+                }
+                if (text) {
                     console.log('Injecting sentence:', text);
                     view.webContents
                         .executeJavaScript(
@@ -258,41 +258,41 @@ const redditHandler = (...ctxs) => {
                             await logger.error('Error executing injected script:', error);
                             console.error('Error executing injected script:', error);
                         });
-                });
-                // view.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-                //     console.error(`Failed to load file: ${errorCode} - ${errorDescription}`);
-                // });
-                // const eventsToLog = [
-                //     'did-finish-load',
-                //     'did-fail-load',
-                //     'did-start-loading',
-                //     'did-stop-loading',
-                //     'dom-ready',
-                //     'did-frame-finish-load',
-                //     'did-navigate',
-                //     'did-navigate-in-page',
-                //     'will-navigate',
-                //     'new-window',
-                //     'console-message',
-                //     'crashed',
-                //     'unresponsive',
-                //     'responsive',
-                //     'ipc-message',
-                //     'ipc-message-sync',
-                //     'media-started-playing',
-                //     'media-paused',
-                //     'did-change-theme-color',
-                //     'devtools-opened',
-                //     'devtools-closed',
-                //     'devtools-focused'
-                // ];
+                }
+            });
+            // view.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+            //     console.error(`Failed to load file: ${errorCode} - ${errorDescription}`);
+            // });
+            // const eventsToLog = [
+            //     'did-finish-load',
+            //     'did-fail-load',
+            //     'did-start-loading',
+            //     'did-stop-loading',
+            //     'dom-ready',
+            //     'did-frame-finish-load',
+            //     'did-navigate',
+            //     'did-navigate-in-page',
+            //     'will-navigate',
+            //     'new-window',
+            //     'console-message',
+            //     'crashed',
+            //     'unresponsive',
+            //     'responsive',
+            //     'ipc-message',
+            //     'ipc-message-sync',
+            //     'media-started-playing',
+            //     'media-paused',
+            //     'did-change-theme-color',
+            //     'devtools-opened',
+            //     'devtools-closed',
+            //     'devtools-focused'
+            // ];
 
-                // eventsToLog.forEach((event) => {
-                //     view.webContents.on(event, (...args) => {
-                //         console.log(`[webContents event] ${event}:`, args);
-                //     });
-                // });
-            }
+            // eventsToLog.forEach((event) => {
+            //     view.webContents.on(event, (...args) => {
+            //         console.log(`[webContents event] ${event}:`, args);
+            //     });
+            // });
 
             globalCtx.setState({ browserView: view });
 
@@ -304,9 +304,19 @@ const redditHandler = (...ctxs) => {
     );
 
     ipcMain.handle('close-reddit-webview', async (event) => {
-        if (globalCtx.getState().browserView) {
+        const currentView = globalCtx.getState().browserView;
+        if (currentView) {
             await logger.info('Closing Reddit BrowserView');
-            globalCtx.getState().mainWindow.removeBrowserView(globalCtx.getState().browserView);
+            currentView.setBounds({ x: 0, y: 0, width: 1, height: 1 });
+            globalCtx.getState().mainWindow.removeBrowserView(currentView);
+            globalCtx.getState().mainWindow.setBrowserView(null);
+
+            // Check if the BrowserView’s webContents is still alive, then destroy it
+            if (currentView.webContents && !currentView.webContents.isDestroyed()) {
+                currentView.webContents.destroy();
+            }
+
+            // Finally, clear the reference
             globalCtx.setState({ browserView: null });
         }
     });
@@ -324,7 +334,7 @@ const redditHandler = (...ctxs) => {
 
         if (config.backendURL[globalCtx.getState().processing]) {
             const res = await fetch(
-                `${config.backendURL[globalCtx.getState().processing]}/api/miscellaneous/get-link-from-post`,
+                `${config.backendURL[globalCtx.getState().processing]}/${config.backendRoutes.GET_POST_LINK_FROM_ID}`,
                 {
                     method: 'POST',
                     headers: {
@@ -334,16 +344,18 @@ const redditHandler = (...ctxs) => {
                 }
             );
             const data = await res.json();
+
+            console.log('Data from backend:', data);
             return data.link;
         }
 
-        const db = initDatabase(dbPath);
-        const postData = await getPostById(
-            db,
-            postId,
-            ['selftext', 'title', 'subreddit', 'url', 'permalink'],
-            ['parent_id', 'body', 'id']
-        );
+        // const db = initDatabase(dbPath);
+        // const postData = await getPostById(
+        //     db,
+        //     postId,
+        //     ['selftext', 'title', 'subreddit', 'url', 'permalink'],
+        //     ['parent_id', 'body', 'id']
+        // );
 
         let link = '';
 

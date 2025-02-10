@@ -547,7 +547,9 @@ const sampleDataResponseReducer = (
         case 'EDIT_CODE':
         case 'DELETE_HIGHLIGHT':
         case 'EDIT_HIGHLIGHT':
-            return baseResponseHandler(state, action, {});
+            let baseData = baseResponseHandler(state, action, {});
+            console.log('Base Data:', baseData, state);
+            return baseData;
         case 'UPDATE_CODE':
             return state.map((response, index) =>
                 response.quote === action.quote &&

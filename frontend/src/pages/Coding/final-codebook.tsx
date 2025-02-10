@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../context/collection-context';
 import { ToastContainer, toast } from 'react-toastify';
+import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const FinalThemes = () => {
     const {
@@ -71,7 +72,7 @@ const FinalThemes = () => {
     };
 
     const handleNextClick = async () => {
-        navigate('../loader/' + LOADER_ROUTES.DEDUCTIVE_CODING_LOADER);
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER));
 
         const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING), {
             method: 'POST',

@@ -1,6 +1,7 @@
 import { FC, useState } from 'react';
 import { useDrop } from 'react-dnd';
 import CodeItem from './code-item';
+import { FaTrashAlt } from 'react-icons/fa';
 
 interface BucketProps {
     theme: { id: string; name: string; codes: string[] };
@@ -55,8 +56,8 @@ const Bucket: FC<BucketProps> = ({ theme, onDrop, onDelete }) => {
                 )}
                 <button
                     onClick={() => onDelete(theme.id)}
-                    className="text-red-500 text-sm font-bold">
-                    Delete
+                    className="text-red-500 text-sm font-bold p-2">
+                    <FaTrashAlt />
                 </button>
             </div>
 

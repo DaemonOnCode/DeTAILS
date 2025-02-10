@@ -7,7 +7,7 @@ const NotFoundPage: FC = () => {
     return (
         <div className="p-6">
             404 Not Found
-            <Link to={ROUTES.DATA_COLLECTION}>Go Back</Link>
+            <button onClick={() => window.history.back()}>Go Back</button>
         </div>
     );
 };

@@ -1,42 +1,76 @@
-import { FC } from 'react';
+import React from 'react';
 import HighlightedSegment from './highlighted-segment';
 import { Comments } from '../../../types/Coding/shared';
 
-const RedditComments: FC<{
+interface RedditCommentsProps {
     comments: Comments[];
     processedSegments: any[];
     setHoveredCodeText: (codes: string[] | null) => void;
     level: number;
-}> = ({ comments, processedSegments, setHoveredCodeText, level }) => {
+    showHorizontalConnector?: boolean;
+}
+
+const RedditComments: React.FC<RedditCommentsProps> = ({
+    comments,
+    processedSegments,
+    setHoveredCodeText,
+    level,
+    showHorizontalConnector = true
+}) => {
     if (!comments || comments.length === 0) return null;
 
     return (
-        <div>
-            {comments.map((comment, idx) => (
-                <div key={comment.id} style={{ marginLeft: `${level * 20}px` }}>
-                    <div className="text-gray-700 leading-relaxed break-words py-2">
-                        {processedSegments
-                            .filter(
-                                (segment) => segment.id === comment.id && segment.type === 'comment'
-                            )
-                            .map((segment, index) => (
-                                <HighlightedSegment
-                                    key={index}
-                                    segment={segment}
-                                    setHoveredCodeText={setHoveredCodeText}
-                                />
-                            ))}
-                    </div>
+        <>
+            {comments.map((comment) => {
+                // For indentation, we add `ml-4` if level > 0.
+                const indentClass = level > 0 ? 'ml-4' : '';
 
-                    <RedditComments
-                        comments={comment.comments || []}
-                        processedSegments={processedSegments}
-                        setHoveredCodeText={setHoveredCodeText}
-                        level={level + 1}
-                    />
-                </div>
-            ))}
-        </div>
+                // We'll conditionally add a special class that applies the pseudo-element for the elbow.
+                // We only want that elbow if level > 0 AND showHorizontalConnector = true.
+                const elbowClass =
+                    showHorizontalConnector && level > 0
+                        ? "before:content-[''] before:absolute before:top-3 before:left-0 before:w-4 before:border-t before:border-gray-300 before:-ml-4"
+                        : '';
+
+                return (
+                    <div
+                        key={comment.id}
+                        className={`
+              relative
+              border-l border-gray-300
+              pl-4
+              my-2
+              ${indentClass}
+              ${elbowClass}
+            `}>
+                        {/* The actual comment text using processedSegments */}
+                        <div className="text-gray-700 leading-relaxed break-words py-2">
+                            {processedSegments
+                                .filter(
+                                    (segment) =>
+                                        segment.id === comment.id && segment.type === 'comment'
+                                )
+                                .map((segment, idx) => (
+                                    <HighlightedSegment
+                                        key={idx}
+                                        segment={segment}
+                                        setHoveredCodeText={setHoveredCodeText}
+                                    />
+                                ))}
+                        </div>
+
+                        {/* Recursive call for children */}
+                        <RedditComments
+                            comments={comment.comments || []}
+                            processedSegments={processedSegments}
+                            setHoveredCodeText={setHoveredCodeText}
+                            level={level + 1}
+                            showHorizontalConnector={showHorizontalConnector}
+                        />
+                    </div>
+                );
+            })}
+        </>
     );
 };
 

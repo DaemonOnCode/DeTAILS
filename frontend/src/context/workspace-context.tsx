@@ -7,6 +7,13 @@ import React, {
     useCallback,
     useEffect
 } from 'react';
+import { toast } from 'react-toastify';
+import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
+import useServerUtils from '../hooks/Shared/get-server-url';
+import useWorkspaceUtils from '../hooks/Shared/workspace-utils';
+import { useAuth } from './auth-context';
+
+const { ipcRenderer } = window.require('electron');
 
 interface Workspace {
     id: string;
@@ -109,10 +116,6 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
         setWorkspaces([]);
         setCurrentWorkspaceState(null);
     }, []);
-
-    useEffect(() => {
-        console.log('Workspaces:', workspaces, 'Current Workspace:', currentWorkspace);
-    }, [currentWorkspace]);
 
     const value = useMemo(
         () => ({

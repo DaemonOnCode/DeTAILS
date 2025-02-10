@@ -11,19 +11,22 @@ import { AuthProvider } from './context/auth-context';
 import { LoggingProvider } from './context/logging-context';
 import SystemMetricsLogger from './components/Shared/system-metrics-logger';
 import { ToastContainer } from 'react-toastify';
+import ErrorPage from './pages/Shared/error';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
 root.render(
     <React.StrictMode>
         <HashRouter>
-            <LoggingProvider>
-                <AuthProvider>
-                    <ToastContainer />
-                    <SystemMetricsLogger />
-                    <ApplicationRouter />
-                </AuthProvider>
-            </LoggingProvider>
+            <ErrorPage>
+                <LoggingProvider>
+                    <AuthProvider>
+                        <ToastContainer />
+                        <SystemMetricsLogger />
+                        <ApplicationRouter />
+                    </AuthProvider>
+                </LoggingProvider>
+            </ErrorPage>
         </HashRouter>
     </React.StrictMode>
 );

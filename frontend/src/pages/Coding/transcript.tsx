@@ -541,6 +541,7 @@ const TranscriptPage = () => {
                 {showCodebook && !splitIsTrue && (
                     <div className="h-[40%] overflow-auto border-b border-gray-300 p-4 m-6">
                         <ValidationTable
+                            dispatchCodeResponses={currentConfig?.codebook?.dispatchFunction as any}
                             codeResponses={currentConfig?.codebook?.responses ?? []}
                             onViewTranscript={() => {}}
                             review={currentConfig?.review ?? true}
@@ -582,6 +583,9 @@ const TranscriptPage = () => {
                                 {showCodebook ? (
                                     <>
                                         <ValidationTable
+                                            dispatchCodeResponses={
+                                                currentConfig?.codebook?.dispatchFunction as any
+                                            }
                                             codeResponses={currentConfig?.codebook?.responses ?? []}
                                             onViewTranscript={() => {}}
                                             review

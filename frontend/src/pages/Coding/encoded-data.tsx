@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCollectionContext } from '../../context/collection-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
+import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const EncodedDataPage = () => {
     const {
@@ -44,7 +45,7 @@ const EncodedDataPage = () => {
     }, []);
 
     const handleNextClick = async () => {
-        navigate('../loader/' + LOADER_ROUTES.THEME_GENERATION_LOADER);
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
         const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.THEME_GENERATION), {
             method: 'POST',

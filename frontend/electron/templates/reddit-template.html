@@ -25,18 +25,39 @@
                 font-size: 16px;
                 line-height: 1.5;
             }
+            /* Container for all comments. Each recursion adds another .comments wrapper */
             .comments {
                 padding: 20px;
             }
+
             .comment {
-                padding: 10px;
-                border-bottom: 1px solid #343536;
+                position: relative;
+                margin-left: 20px;
+                padding-left: 10px;
+                margin-bottom: 16px;
+                border-left: 2px solid #343536;
             }
+
+            /* If it's NOT the first child in its parent .comments container,
+       we add a small horizontal connector at the *top* of this comment box. */
+            .comment {
+                position: relative;
+                margin-left: 20px;
+                padding-left: 10px;
+                margin-bottom: 16px;
+                border-left: 2px solid #343536;
+            }
+
+            /*
+      If not the first sibling, draw a short horizontal connector at the top,
+      with a small vertical offset (top: 2px) so it aligns with the 2px line thickness.
+    */
             .comment-author {
                 font-weight: bold;
             }
             .comment-body {
                 margin-top: 5px;
+                line-height: 1.5;
             }
         </style>
     </head>

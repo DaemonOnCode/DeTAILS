@@ -10,6 +10,7 @@ import { saveCSV, saveExcel } from '../../utility/convert-js-object';
 import { useLogger } from '../../context/logging-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get-server-url';
+import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -26,7 +27,7 @@ const KeywordsTablePage: FC = () => {
 
     const handleGenerateMore = async () => {
         await logger.info('Generate more codes');
-        navigate('../loader/' + LOADER_ROUTES.KEYWORD_TABLE_LOADER);
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.KEYWORD_TABLE_LOADER));
         const filteredKeywordTable = keywordTable.filter((entry) => entry.isMarked === undefined);
         if (keywordTable.length !== 0 && filteredKeywordTable.length === keywordTable.length) {
             navigate('/coding/' + ROUTES.KEYWORD_TABLE);

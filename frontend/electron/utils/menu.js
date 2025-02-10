@@ -21,6 +21,12 @@ const menuTemplate = (globalCtx) => [
                 label: 'Save workspace',
                 accelerator: 'CmdOrCtrl+S',
                 click: () => {
+                    console.log(
+                        'Save workspace',
+                        globalCtx.getState(),
+                        globalCtx.getState().mainWindow,
+                        globalCtx.getState().mainWindow.webContents
+                    );
                     globalCtx.getState().mainWindow.webContents.send('menu-save-workspace');
                 }
             },
