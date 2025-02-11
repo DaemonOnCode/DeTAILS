@@ -54,12 +54,36 @@ const WebSocketSingleton = (() => {
         setTimeout(initiateWebSocketConnection, retryDelay);
     };
 
+    const deinitialize = () => {
+        console.log('Deinitializing WebSocket Singleton...');
+
+        // Stop WebSocket connection
+        ipcRenderer
+            .invoke('disconnect-ws')
+            .catch((err: any) => console.error('Error disconnecting WebSocket:', err));
+
+        // Remove all event listeners related to WebSocket
+        ipcRenderer.removeAllListeners('ws-message');
+        ipcRenderer.removeAllListeners('ws-connected');
+        ipcRenderer.removeAllListeners('ws-closed');
+        ipcRenderer.removeAllListeners('service-started');
+        ipcRenderer.removeAllListeners('service-stopped');
+
+        // Reset internal state
+        retryCount = 0;
+        isInitialized = false;
+
+        console.log('WebSocket Singleton successfully deinitialized.');
+    };
+
     return {
+        isInitialized,
         initialize,
         resetRetryCount: () => {
             retryCount = 0;
         },
-        attemptReconnect
+        attemptReconnect,
+        deinitialize
     };
 })();
 
@@ -123,8 +147,8 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
             });
 
             ipcRenderer.on('ws-closed', () => {
-                console.log('WebSocket closed', isAuthenticated);
-                if (!isAuthenticated) return;
+                // console.log('WebSocket closed', isAuthenticated);
+                // if (!isAuthenticated) return;
                 toast.warning('WebSocket disconnected. Attempting to reconnect...');
                 WebSocketSingleton.attemptReconnect(initiateWebSocketConnection);
             });
@@ -162,16 +186,23 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
     useEffect(() => {
         console.log('Auth changed:', isAuthenticated, user);
         if (!isAuthenticated) {
+            console.log('User logged out. De-initializing WebSocket...');
+
+            //
+            WebSocketSingleton.deinitialize();
+
             setServiceStarting(false);
-            ipcRenderer.invoke('stop-services');
-            ipcRenderer.invoke('disconnect-ws');
         }
     }, [isAuthenticated]);
 
     useEffect(() => {
         WebSocketSingleton.initialize(handleMessage, monitorWebSocketStatus, !remoteProcessing);
 
-        let cleanup = () => {};
+        let cleanup = () => {
+            console.log('User logged out. De-initializing WebSocket...');
+            WebSocketSingleton.deinitialize();
+            setServiceStarting(false);
+        };
         if (remoteProcessing) {
             setServiceStarting(false);
             initiateWebSocketConnection();

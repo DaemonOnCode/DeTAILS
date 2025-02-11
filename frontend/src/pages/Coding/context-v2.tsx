@@ -176,7 +176,7 @@ const ContextPage = () => {
 
     return (
         <div className="w-full h-full flex justify-between flex-col">
-            <div className="h-maxPageContent">
+            <div className="max-h-maxPageContent h-maxPageContent overflow-auto">
                 <section>
                     {Object.keys(contextFiles).length === 0 ? (
                         <>
