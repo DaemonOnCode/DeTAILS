@@ -98,7 +98,7 @@ const KeywordCloudPage: FC = () => {
 
     const refreshKeywordCloud = async () => {
         await logger.info('Regenerating Keyword Cloud');
-        navigate('../loader/' + LOADER_ROUTES.THEME_LOADER);
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
         // if (!USE_LOCAL_SERVER) {
         // await ipcRenderer.invoke("connect-ws", datasetId);
         const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS), {
@@ -144,7 +144,7 @@ const KeywordCloudPage: FC = () => {
         });
 
         // await ipcRenderer.invoke("disconnect-ws", datasetId);
-        navigate('/coding/' + ROUTES.KEYWORD_CLOUD);
+        navigate(`/coding/${ROUTES.CONTEXT_BUILDER}/${ROUTES.KEYWORD_CLOUD}`);
         await logger.info('Keyword Cloud refreshed');
         //     return;
         // }
@@ -205,19 +205,7 @@ const KeywordCloudPage: FC = () => {
 
     return (
         <div className="h-full flex justify-between flex-col">
-            <div className="flex justify-center items-center flex-col">
-                <div className="my-6 text-center">
-                    <p>
-                        Select all of the words which you feel are similar to the main topic of
-                        interest
-                    </p>
-                    <button
-                        onClick={refreshKeywords}
-                        className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600  my-4">
-                        Refresh keyword cloud
-                    </button>
-                </div>
-
+            <div className="relative flex justify-center items-center flex-col">
                 <KeywordCloud
                     mainTopic={mainTopic}
                     keywords={keywords}
@@ -225,6 +213,13 @@ const KeywordCloudPage: FC = () => {
                     toggleKeywordSelection={toggleKeywordSelection}
                     setKeywords={setKeywords}
                 />
+                <div className="absolute bottom-0 right-0">
+                    <button
+                        onClick={refreshKeywords}
+                        className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600  my-2">
+                        Refresh keyword cloud
+                    </button>
+                </div>
             </div>
 
             <NavigationBottomBar

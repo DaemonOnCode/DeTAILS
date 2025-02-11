@@ -548,6 +548,7 @@ const TranscriptPage = () => {
                             showThemes={currentConfig?.codebook?.showThemes}
                             onReRunCoding={() => {}}
                             onUpdateResponses={currentConfig?.codebook?.dispatchFunction as any}
+                            tableHeight="calc(100vh - 10rem)"
                         />
                     </div>
                 )}
@@ -594,6 +595,7 @@ const TranscriptPage = () => {
                                             onUpdateResponses={
                                                 currentConfig?.codebook?.dispatchFunction as any
                                             }
+                                            tableHeight="calc(100vh - 10rem)"
                                         />
                                     </>
                                 ) : (

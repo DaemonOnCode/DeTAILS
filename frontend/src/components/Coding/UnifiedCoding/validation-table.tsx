@@ -11,6 +11,7 @@ interface ValidationTableProps {
     onReRunCoding: () => void;
     onUpdateResponses: (updatedResponses: any[]) => void;
     conflictingResponses?: IQECResponse[];
+    tableHeight: string;
 }
 
 function groupByPostId<T extends { postId: string }>(items: T[]): Record<string, T[]> {
@@ -32,7 +33,8 @@ const ValidationTable: FC<ValidationTableProps> = ({
     showThemes,
     onReRunCoding,
     onUpdateResponses,
-    conflictingResponses = []
+    conflictingResponses = [],
+    tableHeight
 }) => {
     console.log('ValidationTable codeResponses:', codeResponses);
 
@@ -169,7 +171,12 @@ const ValidationTable: FC<ValidationTableProps> = ({
 
     return (
         <div className="relative border border-gray-300 rounded-md m-6">
-            <div className="max-h-page overflow-auto">
+            <div
+                className="overflow-auto flex-grow"
+                style={{
+                    maxHeight: tableHeight, // Dynamically adjusts height
+                    minHeight: '300px' // Ensures visibility with less content
+                }}>
                 <table className="w-full border-collapse relative">
                     {/* The main table header row (always at the top) */}
                     <thead className="sticky top-0 z-30 bg-gray-100">
@@ -276,7 +283,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                         </td>
 
                                         {/* ========== Quote ========== */}
-                                        <td className="border border-gray-300 p-2">
+                                        <td className="border border-gray-300 p-2 max-w-64">
                                             {editIndex === row.id ? (
                                                 <input
                                                     type="text"
@@ -292,7 +299,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                         </td>
 
                                         {/* ===== Explanation ===== */}
-                                        <td className="border border-gray-300 p-2">
+                                        <td className="border border-gray-300 p-2 max-w-64">
                                             {editIndex === row.id ? (
                                                 <input
                                                     type="text"

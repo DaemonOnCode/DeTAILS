@@ -9,11 +9,11 @@ function getPlatformIcon() {
         case 'win32':
             return join(__dirname, '..', '..', 'public', 'favicon.ico');
         case 'darwin':
-            return join(__dirname, '..', '..', 'public', 'acqa-icon.icns');
+            return join(__dirname, '..', '..', 'public', 'details-dock-icon.icns');
         case 'linux':
-            return join(__dirname, '..', '..', 'public', 'android-chrome-512x512.png');
+            return join(__dirname, '..', '..', 'public', 'details-dock-icon.png');
         default:
-            return join(__dirname, '..', '..', 'public', 'android-chrome-512x512.png');
+            return join(__dirname, '..', '..', 'public', 'details-dock-icon.png');
     }
 }
 
@@ -36,7 +36,7 @@ exports.createMainWindow = async (...ctxs) => {
 
     if (process.platform === 'darwin') {
         const dockIcon = nativeImage.createFromPath(
-            join(__dirname, '..', '..', 'public', 'acqa-icon.icns')
+            join(__dirname, '..', '..', 'public', 'final', 'details-dock-icon.png')
         );
         app.dock.setIcon(dockIcon);
     }

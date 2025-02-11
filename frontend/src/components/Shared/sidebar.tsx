@@ -1,15 +1,9 @@
-import { FC, useEffect, useRef, useState } from 'react';
+import { FC, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AppRoutes } from '../../router';
 import { RouteObject } from 'react-router-dom';
-import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { RouteIcons, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth-context';
-import { toast } from 'react-toastify';
-import useServerUtils from '../../hooks/Shared/get-server-url';
-import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import { useWorkspaceContext } from '../../context/workspace-context';
-
-const { ipcRenderer } = window.require('electron');
+import { AppRouteArray } from '../../types/Shared';
 
 // Format route names for display
 const formatRouteName = (path: string) => {
@@ -28,7 +22,7 @@ const formatRouteName = (path: string) => {
 const IGNORED_KEYWORDS = [
     '*',
     '/',
-    'loader',
+    // 'loader',
     SHARED_ROUTES.CLEANING,
     SHARED_ROUTES.DATA_COLLECTION,
     SHARED_ROUTES.DATA_MODELING,
@@ -41,160 +35,18 @@ const IGNORED_KEYWORDS = [
 ];
 
 interface SidebarProps {
+    routes: AppRouteArray;
     isCollapsed: boolean;
     onToggleCollapse: () => void;
 }
 
-const Sidebar: FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
+const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const [userDropdownVisible, setUserDropdownVisible] = useState<boolean>(false);
 
     const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
-
-    const { workspaces, currentWorkspace, addWorkspaceBatch } = useWorkspaceContext();
-    const { saveWorkspaceData, loadWorkspaceData } = useWorkspaceUtils();
-    const { getServerUrl } = useServerUtils();
-
-    useEffect(() => {
-        console.log('Workspaces:', workspaces, 'Current Workspace:', currentWorkspace);
-    }, [currentWorkspace]);
-
-    const isLoading = useRef(false);
-
-    useEffect(() => {
-        if (workspaces.length > 0 && currentWorkspace) {
-            isLoading.current = true;
-            loadWorkspaceData().then(() => {
-                isLoading.current = false;
-            });
-        }
-    }, [workspaces, currentWorkspace]);
-
-    useEffect(() => {
-        if (!currentWorkspace) return;
-        // Listener for Save Workspace
-        const handleSaveWorkspace = async () => {
-            console.log('Saving workspace...');
-            await saveWorkspaceData();
-        };
-
-        // Listener for Import Workspace
-        const handleImportWorkspace = async (e: any, imported_file_path: string) => {
-            try {
-                console.log('Importing workspace from ZIP file:', imported_file_path);
-
-                // Use Electron's file system module to read the file
-                const fs = window.require('fs');
-
-                // Read the file into memory
-                const fileBuffer = fs.readFileSync(imported_file_path);
-
-                // Use FormData to construct the payload
-                const formData = new FormData();
-                formData.append('user_email', user?.email || '');
-                formData.append(
-                    'file',
-                    new Blob([fileBuffer], { type: 'application/zip' }),
-                    imported_file_path.split('/').pop()
-                );
-
-                // Send the file to the backend
-                const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.IMPORT_WORKSPACE), {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Failed to import workspace:', errorText);
-                    toast.warning('Failed to import workspace.');
-                    return;
-                }
-
-                const result = await response.json();
-                console.log('Workspace imported successfully:', result);
-                addWorkspaceBatch([...workspaces, result.workspace]);
-                // setCurrentWorkspace(result.workspace);
-            } catch (error) {
-                console.error('Error importing workspace:', error);
-                toast.warning('An error occurred while importing the workspace.');
-            }
-        };
-
-        // Listener for Export Workspace
-        const handleExportWorkspace = async (e: any) => {
-            console.log('Exporting workspace', currentWorkspace);
-
-            try {
-                const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.EXPORT_WORKSPACE), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        workspace_id: currentWorkspace?.id ?? '',
-                        user_email: user?.email ?? ''
-                    })
-                });
-
-                if (!response.ok) {
-                    console.error('Failed to export workspace:', await response.text());
-                    toast.warning('Failed to export workspace.');
-                    return;
-                }
-
-                console.warn('File System Access API not supported. Using fallback.');
-                const reader = response.body?.getReader();
-                const stream = new ReadableStream({
-                    start(controller) {
-                        const pump = async () => {
-                            if (!reader) {
-                                controller.close();
-                                return;
-                            }
-                            const { done, value } = await reader.read();
-                            if (done) {
-                                controller.close();
-                                return;
-                            }
-                            controller.enqueue(value);
-                            pump();
-                        };
-                        pump();
-                    }
-                });
-
-                const blob = await new Response(stream).blob();
-                const url = window.URL.createObjectURL(blob);
-
-                // Trigger file download
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'exported_workspace.zip';
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-
-                console.log('Workspace exported and file saved successfully.');
-            } catch (error) {
-                console.error('Error exporting workspace:', error);
-                toast.warning('An error occurred while exporting the workspace.');
-            }
-        };
-
-        // Register the IPC listeners
-        ipcRenderer.on('menu-save-workspace', handleSaveWorkspace);
-        ipcRenderer.on('menu-import-workspace', handleImportWorkspace);
-        ipcRenderer.on('menu-export-workspace', handleExportWorkspace);
-
-        // Cleanup function to remove listeners when the component unmounts
-        return () => {
-            ipcRenderer.removeListener('menu-save-workspace', handleSaveWorkspace);
-            ipcRenderer.removeListener('menu-import-workspace', handleImportWorkspace);
-            ipcRenderer.removeListener('menu-export-workspace', handleExportWorkspace);
-        };
-    }, [currentWorkspace]);
 
     // Toggle dropdown visibility
     const toggleDropdown = (path: string) => {
@@ -221,12 +73,17 @@ const Sidebar: FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
     };
 
     // Render the routes recursively
-    const renderRoutes = (routes: RouteObject[], parentPath = ''): JSX.Element[] => {
+    const renderRoutes = (routes: AppRouteArray, parentPath = ''): JSX.Element[] => {
         return routes
-            .filter((route) => !shouldIgnoreRoute(route.path))
+            .filter((route) => !shouldIgnoreRoute(route.path) && route.hidden !== true)
             .map((route, idx) => {
                 if (route.path === undefined && route.children) {
-                    return <div key={idx}>{renderRoutes(route.children, parentPath)}</div>;
+                    return (
+                        <div key={idx}>
+                            {/* {RouteIcons[route.path ?? ''] ? RouteIcons[route.path ?? ''] : <></>} */}
+                            {renderRoutes(route.children, parentPath)}
+                        </div>
+                    );
                 }
 
                 const fullPath = `${parentPath}/${route.path || ''}`.replace(/\/+/g, '/');
@@ -237,21 +94,28 @@ const Sidebar: FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
 
                     return (
                         <li key={idx} className="mb-2">
-                            <div className="flex justify-between items-center">
-                                <button
-                                    className={`flex-grow text-left p-2 rounded-lg transition font-medium ${
-                                        isCurrentPath(fullPath)
-                                            ? 'bg-blue-500 text-white'
-                                            : 'hover:bg-gray-700'
-                                    }`}
-                                    onClick={() => {
-                                        if (defaultChildPath) {
-                                            navigate(defaultPath);
-                                        }
-                                        toggleDropdown(fullPath);
-                                    }}>
-                                    {formatRouteName(route.path || '')}
-                                </button>
+                            <div className="flex justify-between items-center w-full">
+                                <div className="flex justify-start items-center w-full">
+                                    {RouteIcons[route.path ?? ''] ? (
+                                        RouteIcons[route.path ?? '']
+                                    ) : (
+                                        <></>
+                                    )}
+                                    <button
+                                        className={`flex-grow text-left p-2 rounded-lg transition font-medium ${
+                                            isCurrentPath(fullPath)
+                                                ? 'bg-blue-500 text-white'
+                                                : 'hover:bg-gray-700'
+                                        }`}
+                                        onClick={() => {
+                                            if (defaultChildPath) {
+                                                navigate(defaultPath);
+                                            }
+                                            toggleDropdown(fullPath);
+                                        }}>
+                                        {formatRouteName(route.path || '')}
+                                    </button>
+                                </div>
                                 <button
                                     className="p-2 text-gray-400 hover:text-white transition-transform transform duration-300"
                                     onClick={(e) => {
@@ -280,11 +144,12 @@ const Sidebar: FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
                     <li key={idx} className="mb-2">
                         <Link
                             to={fullPath}
-                            className={`block p-2 rounded-lg transition font-medium ${
+                            className={`p-2 rounded-lg transition font-medium flex justify-start items-center gap-x-2 ${
                                 isCurrentPath(fullPath)
                                     ? 'bg-blue-500 text-white'
                                     : 'hover:bg-gray-700'
                             }`}>
+                            {RouteIcons[route.path ?? ''] ? RouteIcons[route.path ?? ''] : <></>}
                             {formatRouteName(route.path || 'Home')}
                         </Link>
                     </li>
@@ -302,7 +167,7 @@ const Sidebar: FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
                 {/* Left Section: Collapsible Navigation */}
                 <div className={`flex-1 overflow-hidden`}>
                     <nav className="h-full overflow-y-auto">
-                        <ul className="p-4">{renderRoutes(AppRoutes)}</ul>
+                        <ul className="p-4">{renderRoutes(routes)}</ul>
                     </nav>
                 </div>
 

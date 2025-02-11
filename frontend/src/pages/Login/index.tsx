@@ -36,8 +36,8 @@ const LoginPage = () => {
         }
     };
 
-    const toggleProcessingMode = async () => {
-        await setProcessing(!remoteProcessing);
+    const toggleProcessingMode = async (processingBool: boolean) => {
+        await setProcessing(processingBool);
 
         // Notify Electron's main process about the change
         // await ipcRenderer.invoke('set-processing-mode', !remoteProcessing);
@@ -49,44 +49,50 @@ const LoginPage = () => {
         <LoginAnimation
             GoogleOauth={
                 <div className="flex h-full w-screen items-start justify-center">
-                    <div className="w-full max-w-sm sm:max-w-md px-8 py-4 sm:p-8 bg-white rounded-lg shadow-lg">
-                        <h1 className="text-2xl font-bold text-gray-700 text-center">
-                            Sign in to Your Account
-                        </h1>
-                        <p className="mt-2 text-sm text-gray-500 text-center">
-                            Use your Google account to continue.
-                        </p>
-                        <div className="mt-6">
-                            <button
-                                onClick={handleGoogleLogin}
-                                className="w-full flex items-center justify-center bg-white border border-gray-300 rounded-lg py-2 px-4 hover:bg-gray-100 transition duration-150">
-                                <img
-                                    src="https://www.svgrepo.com/show/475656/google-color.svg"
-                                    alt="Google logo"
-                                    className="w-6 h-6 mr-2"
-                                />
-                                <span className="text-gray-700 font-medium">
-                                    Sign in with Google
-                                </span>
-                            </button>
+                    <div className=" max-w-sm sm:max-w-md px-8 py- sm:p-3 bg-white rounded shadow-lg flex flex-col gap-y-4">
+                        {/* <div>
+                            <p className="mb-4 text-lg text-gray-500 text-center">
+                                Processing Mode
+                            </p>
+                            <div className="mb-4 flex justify-center items-center gap-x-4 w-full">
+                                <button
+                                    onClick={() => toggleProcessingMode(false)}
+                                    className={` max-w-48 py-2 px-4 rounded-lg transition duration-150 font-semibold ${
+                                        !remoteProcessing
+                                            ? 'bg-green-600 text-white hover:bg-green-700'
+                                            : 'hover:bg-gray-200'
+                                    }`}>
+                                    Local
+                                </button>
+                                <button
+                                    onClick={() => toggleProcessingMode(true)}
+                                    className={` py-2 px-4 rounded-lg transition duration-150 font-semibold ${
+                                        remoteProcessing
+                                            ? 'bg-green-600 text-white hover:bg-green-700'
+                                            : 'hover:bg-gray-200'
+                                    }`}>
+                                    Remote
+                                </button>
+                            </div>
+                        </div> */}
+                        <div
+                            className="flex justify-center items-center gap-x-4 cursor-pointer"
+                            onClick={handleGoogleLogin}>
+                            <div className=" flex justify-center items-center">
+                                <button
+                                    // className="max-w-12 flex items-center justify-center bg-white border border-gray-300 rounded-lg py-2 px-4 hover:bg-gray-100 transition duration-150">
+                                    className="max-w-12">
+                                    <img
+                                        src="https://www.svgrepo.com/show/475656/google-color.svg"
+                                        alt="Google logo"
+                                        className="w-8 h-8"
+                                    />
+                                </button>
+                            </div>
+                            <h1 className="text-2xl font-bold text-gray-700 text-center">
+                                Log in with Google
+                            </h1>
                         </div>
-                        <div className="mt-4">
-                            <button
-                                onClick={toggleProcessingMode}
-                                className={`w-full py-2 px-4 rounded-lg transition duration-150 font-semibold ${
-                                    remoteProcessing
-                                        ? 'bg-blue-500 text-white hover:bg-blue-600'
-                                        : 'bg-green-500 text-white hover:bg-green-600'
-                                }`}>
-                                Switch to {remoteProcessing ? 'Local' : 'Remote'} Processing
-                            </button>
-                        </div>
-                        <p className="mt-4 text-sm text-gray-500 text-center">
-                            Current Processing Mode:{' '}
-                            <strong>
-                                {remoteProcessing ? 'Remote Processing' : 'Local processing'}
-                            </strong>
-                        </p>
                     </div>
                 </div>
             }

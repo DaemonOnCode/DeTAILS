@@ -143,7 +143,7 @@ def get_llm_and_embeddings(
     try:
         # Initialize LLM based on model type
         if model.startswith("gemini") or model.startswith("google"):
-            print(settings.google_application_credentials)
+            # print(settings.google_application_credentials)
             creds, project_id = load_credentials_from_file(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
             print(creds.quota_project_id, project_id)
             embeddings = VertexAIEmbeddings(
@@ -240,8 +240,8 @@ async def process_llm_task(
                 else:
                     response = await asyncio.to_thread(llm_instance.invoke, prompt_text)
 
+            print("Response", response)
             response = response["answer"] if retriever else response.content
-            print(response)
             match = re.search(regex_pattern, response, re.DOTALL)
             if not match:
                 raise Exception("No valid structured data found in LLM response.")

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { SetState } from '../../types/Coding/shared';
 
 /* -----------------------------------------------------
    1. Responsive columns (same as your code)
@@ -31,8 +32,8 @@ function useResponsiveColumns() {
 function generateRandomTextArray(idx: number): Array<' ' | '-'> {
     let t1 = ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'];
     let t2 = ['-', '-', '-', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '];
-    let partialLineIndex = idx % 8;
-    return Array.from({ length: 8 }, (_, i) => {
+    let partialLineIndex = idx % 7;
+    return Array.from({ length: 7 }, (_, i) => {
         if (i !== partialLineIndex) return t1;
         if (i === partialLineIndex) return t2;
         return t1;
@@ -372,37 +373,21 @@ export function SplitScreenPhase6({
     return (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-10 z-10">
             {/** 1) DeTAILS text, centered, animates up */}
-            <motion.div
-                initial={{ color: '#15803D' }}
-                animate={{ color: '#1D4ED8' }}
-                transition={{ duration: 2 }}
-                className="h-1/2 flex items-end justify-end">
-                <div className="text-9xl font-bold flex" style={{ perspective: '1000px' }}>
-                    {merges.map(({ word, text }) => (
-                        <motion.span
-                            key={word}
-                            layoutId={`highlight-${word}`}
-                            className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl"
-                            initial={{
-                                textShadow: `2px 2px 0 #0F172A, 
-     4px 4px 0 #1E293B, 
-     6px 6px 6px rgba(0, 0, 0, 0.4)`
-                            }}
-                            animate={{
-                                textShadow: `4px 4px 0 #0F172A, 
-     6px 6px 0 #1E293B, 
-     8px 8px 10px rgba(0, 0, 0, 0.5)`
-                            }}
-                            transition={{ duration: 0.5 }}
-                            // Make each letter block-level so boxShadow can apply.
-                            style={{
-                                display: 'inline-block',
-                                transform: 'rotateX(5deg) rotateY(5deg)',
-                                willChange: 'transform'
-                            }}>
-                            {text}
-                        </motion.span>
-                    ))}
+            <motion.div className="h-1/2 flex items-end justify-end">
+                <div className="font-bold flex" style={{ perspective: '1000px' }}>
+                    <motion.img
+                        src="/final/details-full-logo.png"
+                        alt="DeTAILS"
+                        className="
+                        w-[18rem] h-auto 
+                        sm:w-[24rem] 
+                        md:w-[30rem] 
+                        lg:w-[36rem] 
+                        xl:w-[42rem]"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 1, ease: 'easeOut' }}
+                    />
                 </div>
             </motion.div>
 
@@ -426,11 +411,11 @@ export function SplitScreenPhase6({
 /* -----------------------------------------------------
    10. The main LoginAnimation with phases 1..5 as before, plus 6, plus 7
 ----------------------------------------------------- */
-type Phase = 4 | 5 | 6 | 7;
+type Phase = 5 | 6 | 7;
 const typedWords = ['Deductive', 'Thematic', 'Analysis', 'with', 'Iterative', 'LLM', 'Support'];
 
 export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Element }) {
-    const [phase, setPhase] = useState<Phase>(4);
+    const [phase, setPhase] = useState<Phase>(5);
 
     // Automatic transitions for phases 1..4
     // useEffect(() => {
@@ -470,14 +455,14 @@ export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Eleme
     // }, [phase]);
 
     // // From phase 4 => 5 after 3s
-    useEffect(() => {
-        if (phase === 4) {
-            const t = setTimeout(() => {
-                setPhase(5);
-            }, 1000);
-            return () => clearTimeout(t);
-        }
-    }, [phase]);
+    // useEffect(() => {
+    //     if (phase === 4) {
+    //         const t = setTimeout(() => {
+    //             setPhase(5);
+    //         }, 1000);
+    //         return () => clearTimeout(t);
+    //     }
+    // }, [phase]);
 
     // From phase 5 => 6
     useEffect(() => {
@@ -485,7 +470,7 @@ export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Eleme
         if (phase === 5) {
             const t = setTimeout(() => {
                 setPhase(6);
-            }, 3500);
+            }, 1000);
             return () => clearTimeout(t);
         }
     }, [phase]);
@@ -521,15 +506,15 @@ export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Eleme
                     <motion.div
                         className="absolute inset-0 z-0"
                         initial={{ opacity: 0 }}
-                        animate={{ opacity: 0.5 }}
+                        animate={{ opacity: 0.75 }}
                         transition={{ duration: 1, delay: 0.5 }}>
                         <BackgroundWithCards />
                     </motion.div>
 
                     <AnimatePresence>
-                        {phase >= 5 && phase < 6 && (
+                        {/* {phase >= 5 && phase < 6 && (
                             <CenterLayout words={typedWords} phase={phase} />
-                        )}
+                        )} */}
                         {phase === 6 && (
                             <SplitScreenPhase6 words={typedWords} GoogleOauth={GoogleOauth} />
                         )}
@@ -545,7 +530,7 @@ export default function LoginAnimation({ GoogleOauth }: { GoogleOauth: JSX.Eleme
    either '-' or ' ' (spaces)
 ===================================================== */
 function generateRandomText(): Array<' ' | '-'> {
-    return Array.from({ length: 72 }, () => (Math.random() > 0.3 ? '-' : ' '));
+    return Array.from({ length: 8 * 12 }, () => (Math.random() > 0.3 ? '-' : ' '));
 }
 
 /* =====================================================
@@ -591,54 +576,94 @@ function StaticCard({ idx }: { idx: number }) {
 interface AnimatedCardContentProps {
     wordList: string[];
     idx: number;
+    handleAnimationDone: SetState<number>;
 }
-export function AnimatedCardContent({ wordList, idx }: AnimatedCardContentProps) {
-    const NUM_CHARS = 72;
+export function AnimatedCardContent({
+    wordList,
+    idx,
+    handleAnimationDone
+}: AnimatedCardContentProps) {
     const NUM_COLS = 12;
+    const NUM_CHARS = NUM_COLS * 7;
+    const palette = ['#f87171', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa'];
 
     // States
     const [baseText, setBaseText] = useState<Array<' ' | '-'>>(generateRandomText());
-    const [wordSpans, setWordSpans] = useState<WordSpan[]>([]);
+    const [wordSpans, setWordSpans] = useState<WordSpan[]>([
+        {
+            start: NUM_COLS * 0,
+            word: 'Deductive',
+            color: palette[Math.floor(Math.random() * palette.length)]
+        },
+        {
+            start: NUM_COLS * 1,
+            word: 'Thematic',
+            color: palette[Math.floor(Math.random() * palette.length)]
+        },
+        {
+            start: NUM_COLS * 2,
+            word: 'Analysis',
+            color: palette[Math.floor(Math.random() * palette.length)]
+        },
+        {
+            start: NUM_COLS * 3,
+            word: 'with',
+            color: palette[Math.floor(Math.random() * palette.length)]
+        },
+        {
+            start: NUM_COLS * 4,
+            word: 'Iterative',
+            color: palette[Math.floor(Math.random() * palette.length)]
+        },
+        {
+            start: NUM_COLS * 5,
+            word: 'LLM',
+            color: palette[Math.floor(Math.random() * palette.length)]
+        },
+        {
+            start: NUM_COLS * 6,
+            word: 'Support',
+            color: palette[Math.floor(Math.random() * palette.length)]
+        }
+    ]);
     const [highlightIndex, setHighlightIndex] = useState<number>(-1);
 
-    const palette = ['#f87171', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa'];
-
     // Generate random word spans
-    const generateWordSpans = (): WordSpan[] => {
-        const spans: WordSpan[] = [];
-        const numWords = 1; // Math.floor(Math.random() * 2) + 2; // yields 2 or 3
-        let attempts = 0;
-        while (spans.length < numWords && attempts < 20) {
-            const randomWord = wordList[Math.floor(Math.random() * wordList.length)];
-            const maxStart = NUM_CHARS - randomWord.length;
-            if (maxStart < 0) {
-                attempts++;
-                continue;
-            }
-            const start = Math.floor(Math.random() * (maxStart + 1));
-            // Check for overlap
-            const overlap = spans.some((span) => {
-                const s = span.start;
-                const e = span.start + span.word.length - 1;
-                const candidateEnd = start + randomWord.length - 1;
-                return !(candidateEnd <= s - 2 || start >= e + 2);
-            });
+    // const generateWordSpans = (): WordSpan[] => {
+    //     const spans: WordSpan[] = [];
+    //     const numWords = 1; // Math.floor(Math.random() * 2) + 2; // yields 2 or 3
+    //     let attempts = 0;
+    //     while (spans.length < numWords && attempts < 20) {
+    //         const randomWord = wordList[Math.floor(Math.random() * wordList.length)];
+    //         const maxStart = NUM_CHARS - randomWord.length;
+    //         if (maxStart < 0) {
+    //             attempts++;
+    //             continue;
+    //         }
+    //         const start = Math.floor(Math.random() * (maxStart + 1));
+    //         // Check for overlap
+    //         const overlap = spans.some((span) => {
+    //             const s = span.start;
+    //             const e = span.start + span.word.length - 1;
+    //             const candidateEnd = start + randomWord.length - 1;
+    //             return !(candidateEnd <= s - 2 || start >= e + 2);
+    //         });
 
-            if (!overlap) {
-                spans.push({
-                    start,
-                    word: randomWord,
-                    color: palette[Math.floor(Math.random() * palette.length)]
-                });
-            }
-            attempts++;
-        }
-        return spans;
-    };
+    //         if (!overlap) {
+    //             spans.push({
+    //                 start,
+    //                 word: randomWord,
+    //                 color: palette[Math.floor(Math.random() * palette.length)]
+    //             });
+    //         }
+    //         attempts++;
+    //     }
+    //     return spans;
+    // };
 
     // On mount or wordList change => reset
     useEffect(() => {
-        setWordSpans(generateWordSpans());
+        // setWordSpans(generateWordSpans());
         setHighlightIndex(-1);
         setBaseText(generateRandomTextArray(idx));
     }, [wordList]);
@@ -648,12 +673,13 @@ export function AnimatedCardContent({ wordList, idx }: AnimatedCardContentProps)
         const interval = setInterval(() => {
             setHighlightIndex((prev) => {
                 if (prev >= NUM_CHARS - 1) {
+                    handleAnimationDone((prev) => prev + 1);
                     // reset after a pause
                     setTimeout(() => {
                         setBaseText(generateRandomTextArray(idx));
-                        setWordSpans(generateWordSpans());
+                        // setWordSpans(generateWordSpans());
                         setHighlightIndex(-1);
-                    }, 1000);
+                    }, 1500);
                     return prev;
                 }
                 return prev + 1;
@@ -704,17 +730,18 @@ interface CardsGridBackgroundProps {
 export function CardsGridBackground({ rows, columns, wordList }: CardsGridBackgroundProps) {
     const totalCards = rows * columns;
 
+    const [runCount, setRunCount] = useState<number>(0);
+
     // Pick some random subset of cards that will do typing. Others remain static.
-    // For example, let's type on 10 random cards total:
     const typedIndices = useMemo(() => {
-        const subsetSize = Math.min(30, totalCards); // pick up to n
+        const subsetSize = Math.min(Math.floor(totalCards / 3), totalCards); // pick up to n
         const chosen = new Set<number>();
         while (chosen.size < subsetSize) {
             const r = Math.floor(Math.random() * totalCards);
             chosen.add(r);
         }
         return chosen;
-    }, [rows, columns]);
+    }, [rows, columns, runCount]);
 
     return (
         <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
@@ -728,7 +755,11 @@ export function CardsGridBackground({ rows, columns, wordList }: CardsGridBackgr
                         className="w-56 h-[284px] flex items-center justify-center text-lg p-2 leading-6 bg-white/50 border border-gray-400 shadow-lg rounded-lg"
                         style={{ transform: `translateY(${displacement}px)` }}>
                         {typedIndices.has(i) ? (
-                            <AnimatedCardContent wordList={wordList} idx={i} />
+                            <AnimatedCardContent
+                                wordList={wordList}
+                                idx={i}
+                                handleAnimationDone={setRunCount}
+                            />
                         ) : (
                             <StaticCard idx={i} />
                         )}
@@ -747,77 +778,13 @@ export function CardsGridBackground({ rows, columns, wordList }: CardsGridBackgr
    and type them into the card.
 ===================================================== */
 const exampleWordList = [
-    'Lorem',
-    'Ipsum',
-    'is',
-    'simply',
-    'dummy',
-    'text',
-    'of',
-    'the',
-    'printing',
-    'and',
-    'typesetting',
-    'industry',
-    'has',
-    'been',
-    "industry's",
-    'standard',
-    'ever',
-    'since',
-    '1500s',
-    'when',
-    'an',
-    'unknown',
-    'printer',
-    'took',
-    'a',
-    'galley',
-    'type',
-    'scrambled',
-    'it',
-    'to',
-    'make',
-    'specimen',
-    'book.',
-    'It',
-    'survived',
-    'not',
-    'only',
-    'five',
-    'centuries,',
-    'but',
-    'also',
-    'leap',
-    'into',
-    'electronic',
-    'typesetting,',
-    'remaining',
-    'essentially',
-    'unchanged.',
-    'was',
-    'popularised',
-    'in',
-    '1960s',
+    'Deductive',
+    'Thematic',
+    'Analysis',
     'with',
-    'release',
-    'Letraset',
-    'sheets',
-    'containing',
-    'passages,',
-    'more',
-    'recently',
-    'desktop',
-    'publishing',
-    'software',
-    'like',
-    'Aldus',
-    'PageMaker',
-    'including',
-    'versions',
-    'Ipsum.',
-    'industry.',
-    '1500s,'
+    'Iterative',
+    'LLM',
+    'Support'
 ];
 
 export function BackgroundWithCards() {

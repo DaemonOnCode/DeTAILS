@@ -230,7 +230,7 @@ async def regenerate_keywords_endpoint(
 
     # Initialize Vector Store & Retriever
     vector_store = initialize_vector_store(dataset_id, request.model, embeddings)
-    retriever = vector_store.as_retriever()
+    retriever = vector_store.as_retriever(search_kwargs={'k': 10})
 
     parsed_keywords = await process_llm_task(
         dataset_id=dataset_id,
@@ -406,30 +406,25 @@ async def regenerate_keywords_endpoint(
 @router.post("/generate-initial-codes")
 async def generate_codes_endpoint(
     request_body: GenerateInitialCodesRequest,
-    # settings: Annotated[config.Settings, Depends(config.get_settings)],
+    batch_size: int = 10  # Default batch size (can be overridden in request)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id or len(request_body.sampled_post_ids) == 0:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
-    print(request_body.keyword_table)
     await manager.broadcast(f"Dataset {dataset_id}: Code generation process started.")
 
-    # Initialize LLM and Embeddings
-    llm, _ = get_llm_and_embeddings(request_body.model, settings=settings)
-
+    # Initialize LLM
+    llm, _ = get_llm_and_embeddings(request_body.model)
     final_results = []
     function_id = str(uuid4())
 
-    for post_id in request_body.sampled_post_ids:
-        await manager.broadcast(f"Dataset {dataset_id}: Processing post {post_id}...")
-
+    async def process_post(post_id: str):
+        """Processes a single post asynchronously."""
         try:
-            # Fetch post and comments
             await manager.broadcast(f"Dataset {dataset_id}: Fetching data for post {post_id}...")
             post_data = get_post_and_comments_from_id(post_id, dataset_id)
 
-            # Generate transcript
             await manager.broadcast(f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
             transcript = generate_transcript(post_data)
 
@@ -439,7 +434,7 @@ async def generate_codes_endpoint(
                 manager=manager,
                 llm_model=request_body.model,
                 regex_pattern=r"\"codes\":\s*(\[.*?\])",
-                prompt_builder_func=InitialCodePrompts.initial_code_prompt,  # Uses correct function
+                prompt_builder_func=InitialCodePrompts.initial_code_prompt,
                 llm_instance=llm,
                 main_topic=request_body.main_topic,
                 additional_info=request_body.additional_info,
@@ -450,26 +445,33 @@ async def generate_codes_endpoint(
                 store_response=True,
             )
 
-            print(parsed_response)
-
-            # Process extracted codes
             if isinstance(parsed_response, list):
                 parsed_response = {"codes": parsed_response}
+
             codes = parsed_response.get("codes", [])
             for code in codes:
                 code["postId"] = post_id
                 code["id"] = str(uuid4())
-                final_results.append(code)
 
-            # Save response in database
-            # execute_query(
-            #     f"INSERT INTO llm_responses (dataset_id, post_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?, ?)", 
-            #     (dataset_id, post_id, request_body.model, json.dumps(parsed_response), str(uuid4()), "LLM1 response", function_id)
-            # )
+            return codes
 
-            await manager.broadcast(f"Dataset {dataset_id}: LLM1 completed generation for post {post_id}.")
         except Exception as e:
             await manager.broadcast(f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
+            return []
+
+    # Split posts into batches of `batch_size`
+    sampled_posts = request_body.sampled_post_ids
+    batches = [sampled_posts[i:i + batch_size] for i in range(0, len(sampled_posts), batch_size)]
+
+    for batch in batches:
+        await manager.broadcast(f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+        
+        # Process posts in the batch concurrently
+        batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+
+        # Flatten results since `gather` returns a list of lists
+        for codes in batch_results:
+            final_results.extend(codes)
 
     await manager.broadcast(f"Dataset {dataset_id}: All posts processed successfully.")
 
@@ -727,7 +729,7 @@ async def refine_codebook_endpoint(
 @router.post("/deductive-coding")
 async def deductive_coding_endpoint(
     request_body: DeductiveCodingRequest,
-    # settings: Annotated[config.Settings, Depends(config.get_settings)],
+    batch_size: int = 10  # Default batch size (can be overridden in request)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -737,16 +739,13 @@ async def deductive_coding_endpoint(
 
     final_results = []
     posts = request_body.unseen_post_ids
-    llm, _ = get_llm_and_embeddings(request_body.model, settings=settings)
+    llm, _ = get_llm_and_embeddings(request_body.model)
 
-    for post_id in posts:
-        await manager.broadcast(f"Dataset {dataset_id}: Processing post {post_id}...")
-
-        # Fetch post and comments
+    async def process_post(post_id: str):
+        """Processes a single post asynchronously."""
         await manager.broadcast(f"Dataset {dataset_id}: Fetching data for post {post_id}...")
         post_data = get_post_and_comments_from_id(post_id, dataset_id)
 
-        # Generate transcript
         await manager.broadcast(f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
         transcript = generate_transcript(post_data)
 
@@ -755,15 +754,18 @@ async def deductive_coding_endpoint(
             post_id=post_id,
             manager=manager,
             llm_model=request_body.model,
-            regex_pattern=r"\"codes\":\s*(\[.*?\])",
-            prompt_builder_func=DeductiveCoding.deductive_coding_prompt,  # Uses correct function
+            regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+            prompt_builder_func=DeductiveCoding.deductive_coding_prompt,
             llm_instance=llm,
-            final_codebook=request_body.final_codebook,
+            final_codebook=json.dumps(request_body.final_codebook, indent=2),
+            keyword_table=json.dumps(request_body.keyword_table, indent=2),
+            main_topic=request_body.main_topic,
+            additional_info=request_body.additional_info,
+            research_questions=json.dumps(request_body.research_questions),
             post_transcript=transcript,
             store_response=True,
         )
 
-        print(parsed_response)
         # Process extracted codes
         if isinstance(parsed_response, list):
             parsed_response = {"codes": parsed_response}
@@ -772,7 +774,23 @@ async def deductive_coding_endpoint(
         for code in codes:
             code["postId"] = post_id
             code["id"] = str(uuid4())
-            final_results.append(code)
+
+        return codes
+
+    # Split posts into batches of `batch_size`
+    batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
+
+    for batch in batches:
+        await manager.broadcast(f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+        
+        # Process posts in the batch concurrently
+        batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+        
+        # Flatten results since `gather` returns a list of lists
+        for codes in batch_results:
+            final_results.extend(codes)
+
+        # await asyncio.sleep(30)
 
     await manager.broadcast(f"Dataset {dataset_id}: All posts processed successfully.")
 

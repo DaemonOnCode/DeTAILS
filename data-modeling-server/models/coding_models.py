@@ -1,4 +1,5 @@
 
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -40,6 +41,10 @@ class DeductiveCodingRequest(BaseModel):
     dataset_id: str
     model: str
     final_codebook: list
+    keyword_table: list
+    main_topic: str
+    additional_info: Optional[str] = ""
+    research_questions: Optional[list] = []
     unseen_post_ids: list
 
   

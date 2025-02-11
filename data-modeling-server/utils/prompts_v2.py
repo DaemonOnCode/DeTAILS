@@ -97,7 +97,7 @@ Proceed with extracting the keywords.
         f"""You are an advanced AI specializing in **qualitative research** and **thematic coding**. Your task is to **refine previously generated keywords** based on **selected themes, unselected themes, and new feedback**.
 
 ### **New Inputs:**
-- **Selected Keywords**: {selectedKeywords}
+- **Selected Keywords** (DO NOT include these keywords): {selectedKeywords}
 - **Unselected Keywords** (DO NOT include these keywords): {unselectedKeywords}
 - **Extra Feedback**: {extraFeedback}
 
@@ -114,7 +114,7 @@ Proceed with extracting the keywords.
    - Ensure keywords **align with selected themes** while excluding unselected ones.
 
 3. **Providing Updated Information for Each Keyword**
-   - **Description**: Explain the **revised** keyword’s relevance.
+   - **Description**: Explain the **revised** keyword's relevance.
    - **Inclusion Criteria**: When should this keyword be applied?
    - **Exclusion Criteria**: When should it **not** be applied?
 
@@ -267,46 +267,68 @@ Now, analyze the response and generate the thematic codes in JSON format.
 
 class DeductiveCoding:
     @staticmethod
-    def deductive_coding_prompt(final_codebook: str, post_transcript: str):
+    def deductive_coding_prompt(final_codebook: str, post_transcript: str, keyword_table: str, main_topic: str, additional_info: str = "", research_questions: str = ""):
+        
+        print(final_codebook, post_transcript, keyword_table, main_topic, additional_info, research_questions)
         return f"""
-You are an advanced AI model specializing in **qualitative research and deductive thematic coding**. Your task is to **analyze a post transcript** and apply thematic codes based on a given **codebook**.
+You are an advanced AI model specializing in **qualitative research and deductive thematic coding**. Your task is to **analyze a post transcript** and apply thematic codes based on predefined criteria.
 
 ---
 
 ### **Context and Input Information**  
 You will be provided with:
-- **Codebook**: A structured list of predefined **codes**, in JSON format, each containing:
-  - **word**: The thematic code.
+
+- **Main Topic of Interest**:  
+  `{main_topic}`
+
+- **Additional Information** *(for deeper context of the main topic of interest)*:  
+  `{additional_info}`
+
+- **Research Questions** *(to guide the analysis)*:  
+  {research_questions}
+
+- **Codebook** *(Structured thematic codes in JSON format)*:
+  - **code**: The thematic code.
+  - **quote**: The quote related to the code
+  - **explanation**: An explanation on why the code was chosen for the quote
+  {final_codebook}
+
+- **Keyword Table** *(Structured list of keywords in JSON format)*:
+  - **word**: The keyword.
   - **description**: Explanation of its meaning and relevance.
-  - **inclusion_criteria**: When this code should be applied.
-  - **exclusion_criteria**: When this code should *not* be applied.
-  `{final_codebook}`
-  
-- **Post Transcript**: The **raw text** that you need to analyze.
-  `{post_transcript}`
+  - **inclusion_criteria**: When this keyword should be applied.
+  - **exclusion_criteria**: When this keyword should *not* be applied.
+  {keyword_table}
+
+- **Post Transcript** *(The raw text that needs to be analyzed)*:  
+  {post_transcript}
 
 ---
 
 ### **Your Task: Extract and Assign Thematic Codes**
 1. **Analyze the Post Transcript**  
-   - Carefully **read and interpret** the post transcript.
-   - Compare **phrases from the transcript** to the **codebook** using their **description** and **inclusion criteria**.
-   - **Respect exclusion criteria**—do **not** apply a code if it does not fit properly.
+   - Carefully **read and interpret** the transcript.
+   - Compare **phrases from the transcript** with:
+     - **Thematic codes (from the codebook)**
+     - **Relevant keywords (from the keyword table)**
+   - Use the **inclusion/exclusion criteria** of the keyword table to ensure accurate application.
+   - Consider the **main topic and research questions** when extracting codes.
 
 2. **Generate Output in Valid JSON Format**  
-   - Each identified code must include:
+   - Each identified **code and keyword** must include:
      - `"quote"`: The **exact phrase** from the transcript.
      - `"explanation"`: A **concise rationale** explaining how the phrase relates to the assigned code.
-     - `"code"`: The **assigned thematic code** from the codebook.
+     - `"code"` *(if applicable)*: The **assigned thematic code** from the codebook or assign new and relevant code
+     for the quote derived from the Keyword table, main topic of interest, additional information about the main topic, and research questions.
+
    - **Strictly follow this JSON structure**:
-   
    ```json
    {{
      "codes": [
        {{
          "quote": "Extracted phrase from the transcript.",
          "explanation": "Explanation of how this phrase relates to the assigned code.",
-         "code": "Assigned code from the codebook."
+         "code": "Assigned code from the codebook (if applicable).",
        }},
        ...
      ]
@@ -314,9 +336,9 @@ You will be provided with:
    ```
 
 3. **Ensure Accuracy and Consistency in Coding**  
-   - If a **phrase fits multiple codes**, list each code separately.
-   - Avoid forced classifications—**only use codes that directly match the content**.
-   - If no valid codes apply, return an empty JSON object:  
+   - If a **phrase fits multiple codes**, list them separately.
+   - Avoid forced classifications—**only use codes/keywords that directly match the content**.
+   - If no valid codes or keywords apply, return an empty JSON object:  
      ```json
      {{ "codes": [] }}
      ```
@@ -334,12 +356,12 @@ You will be provided with:
     {{
       "quote": "I always get nervous before public speaking",
       "explanation": "The phrase describes feelings of anxiety before a social activity.",
-      "code": "Social_Anxiety"
+      "code": "Social Anxiety",
     }},
     {{
       "quote": "I feel like I mess up every time",
       "explanation": "The phrase reflects self-doubt and perceived personal failure.",
-      "code": "Self-Doubt"
+      "code": "Self-Doubt",
     }}
   ]
 }}
@@ -350,11 +372,10 @@ You will be provided with:
 ### **Output Requirements**
 - **Return only the JSON object.** No explanations, summaries, or extra text.
 - **Ensure the JSON is valid and correctly formatted.**
-- **Each quote should only have relevant codes—do not over-code or misapply themes.**
+- **Each quote should only have relevant codes—do not over-code or misapply them.**
 
-Now, analyze the given post transcript and apply the thematic codes from the codebook, returning the results in JSON format.
+Now, analyze the given post transcript and apply the thematic codes based on the provided criteria, returning the results in JSON format.
 """
-    
 
 class ThemeGeneration:
     @staticmethod

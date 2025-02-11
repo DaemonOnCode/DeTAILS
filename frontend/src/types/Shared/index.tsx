@@ -1,3 +1,5 @@
+import { RouteObject } from 'react-router-dom';
+
 export interface User {
     id: string;
     email: string;
@@ -16,3 +18,5 @@ export interface Token {
     id_token: string;
     expiry_date: number;
 }
+
+export type AppRouteArray = (RouteObject & { hidden?: boolean; icon?: React.ReactNode })[];

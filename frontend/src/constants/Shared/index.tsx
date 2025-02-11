@@ -1,3 +1,4 @@
+import { FaHome } from 'react-icons/fa';
 import config from '../../config';
 
 const reactConfig = config('react');
@@ -39,3 +40,11 @@ export const LOGGING_API_URL = Object.freeze(reactConfig.loggingURL);
 export const REMOTE_SERVER_ROUTES = Object.freeze(reactConfig.backendRoutes);
 
 export const USE_NEW_FLOW = true;
+
+export const RouteIcons: Record<string, JSX.Element> = {
+    [ROUTES.WORKSPACE]: (
+        <span className="w-4 h-6 flex items-center justify-center">
+            <FaHome size="16px" />
+        </span>
+    )
+};

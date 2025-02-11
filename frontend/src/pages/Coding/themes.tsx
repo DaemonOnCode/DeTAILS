@@ -117,8 +117,8 @@ const ThemesPage = () => {
     }, [themes]);
 
     return (
-        <div>
-            <div className="max-h-maxPageContent h-maxPageContent">
+        <div className="h-page">
+            <div className="max-h-maxPageContent h-maxPageContent overflow-auto pb-6">
                 <DndProvider backend={HTML5Backend} context={window}>
                     <div className="container mx-auto">
                         <h1 className="text-2xl font-bold mb-4">Themes and Codes Organizer</h1>

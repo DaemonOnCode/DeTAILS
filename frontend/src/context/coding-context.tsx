@@ -359,7 +359,10 @@ type KeywordsTableAction =
     | { type: 'UPDATE_FIELD'; index: number; field: keyof KeywordEntry; value: string | string[] }
     | { type: 'TOGGLE_MARK'; index: number; isMarked?: boolean }
     | { type: 'ADD_ROW' }
-    | { type: 'DELETE_ROW'; index: number };
+    | { type: 'DELETE_ROW'; index: number }
+    | { type: 'SET_ALL_CORRECT' }
+    | { type: 'SET_ALL_INCORRECT' }
+    | { type: 'SET_ALL_UNMARKED' };
 
 const keywordTableReducer = (
     state: KeywordEntry[],
@@ -369,6 +372,12 @@ const keywordTableReducer = (
     switch (action.type) {
         case 'INITIALIZE':
             return [...action.entries];
+        case 'SET_ALL_CORRECT':
+            return [...state.map((response) => ({ ...response, isMarked: true }))];
+        case 'SET_ALL_INCORRECT':
+            return [...state.map((response) => ({ ...response, isMarked: false }))];
+        case 'SET_ALL_UNMARKED':
+            return [...state.map((response) => ({ ...response, isMarked: undefined }))];
         case 'ADD_MANY':
             return [...state.filter((entry) => entry.isMarked === true), ...action.entries];
         case 'UPDATE_FIELD':
@@ -410,8 +419,9 @@ const keywordTableReducer = (
 type baseResponseHandlerActions<T> =
     | { type: 'SET_CORRECT'; index: number }
     | { type: 'SET_ALL_CORRECT' }
-    | { type: 'SET_INCORRECT'; index: number }
     | { type: 'SET_ALL_INCORRECT' }
+    | { type: 'SET_ALL_UNMARKED' }
+    | { type: 'SET_INCORRECT'; index: number }
     | { type: 'UPDATE_COMMENT'; index: number; comment: string }
     | { type: 'MARK_RESPONSE'; index: number; isMarked?: boolean }
     | { type: 'RERUN_CODING'; indexes: number[]; newResponses: T[] }
@@ -424,7 +434,6 @@ type baseResponseHandlerActions<T> =
           | { type: 'REMOVE_RESPONSES'; indexes: number[]; all?: never }
           | { type: 'REMOVE_RESPONSES'; all: boolean; indexes?: never }
       )
-    | { type: 'SET_ALL_UNMARKED' }
     | { type: 'SET_RESPONSES'; responses: T[] }
     | { type: 'DELETE_CODE'; code: string }
     | { type: 'EDIT_CODE'; currentCode: string; newCode: string }

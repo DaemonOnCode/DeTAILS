@@ -19,7 +19,11 @@ const FinalThemes = () => {
         dispatchSampledPostResponse,
         sampledPostIds,
         unseenPostIds,
-        dispatchUnseenPostResponse
+        dispatchUnseenPostResponse,
+        mainTopic,
+        additionalInfo,
+        researchQuestions,
+        keywordTable
     } = useCodingContext();
 
     const logger = useLogger();
@@ -93,6 +97,12 @@ const FinalThemes = () => {
                             id: response.id
                         };
                     }),
+                main_topic: mainTopic,
+                additional_info: additionalInfo,
+                research_questions: researchQuestions,
+                keyword_table: keywordTable.filter(
+                    (keywordRow) => keywordRow.isMarked !== undefined
+                ),
                 unseen_post_ids: unseenPostIds
             })
         });

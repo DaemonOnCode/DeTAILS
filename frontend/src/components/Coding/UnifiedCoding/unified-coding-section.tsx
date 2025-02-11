@@ -175,6 +175,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         handleRerun();
     };
 
+    const hasActionButton = download || showRerunCoding; // Only one will be true at a time
+    const tableHeight: string = hasActionButton ? 'calc(100vh - 16rem)' : 'calc(100vh - 10rem)';
+
     return (
         <div className="-m-6 overflow-hidden">
             <div className="flex h-[calc(100vh-4rem)] pb-6">
@@ -195,7 +198,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                     {/* {!viewTranscript ? ( */}
                     <>
                         {download && (
-                            <div className="flex justify-between items-center px-6 py-2">
+                            <div className="flex justify-between items-center p-6">
                                 <button
                                     onClick={downloadCodebook}
                                     className="px-4 py-2 bg-green-500 text-white rounded">
@@ -213,6 +216,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             onReRunCoding={handleReRunCoding}
                             onUpdateResponses={handleUpdateResponses}
                             conflictingResponses={conflictingResponses}
+                            tableHeight={tableHeight}
                         />
                         {showRerunCoding && (
                             <div className="flex justify-center p-6">

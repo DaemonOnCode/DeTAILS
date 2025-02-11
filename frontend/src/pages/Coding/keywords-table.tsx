@@ -96,13 +96,26 @@ const KeywordsTablePage: FC = () => {
         };
     }, []);
 
+    const handleToggleAllSelectOrReject = (isSelect: boolean) => {
+        const allAlreadySetTo = keywordTable.every((r) => r.isMarked === isSelect);
+        const finalDecision = allAlreadySetTo ? undefined : isSelect;
+
+        if (finalDecision === undefined) {
+            dispatchKeywordsTable({ type: 'SET_ALL_UNMARKED' });
+        } else {
+            dispatchKeywordsTable({
+                type: finalDecision ? 'SET_ALL_CORRECT' : 'SET_ALL_INCORRECT'
+            });
+        }
+    };
+
     const isReadyCheck = keywordTable.some((entry) => entry.isMarked === true);
 
     return (
         <div className="flex flex-col justify-between h-full">
             <div className="min-h-maxPageContent">
-                <p>Please validate and manage the keywordTable entries below:</p>
-                <div className="max-h-[calc(100vh-18rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
+                <p>Please validate and manage the keyword table entries below:</p>
+                <div className="max-h-[calc(100vh-14rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-gray-200">
@@ -111,7 +124,25 @@ const KeywordsTablePage: FC = () => {
                                 {/* <th className="border border-gray-400 p-2">Codes</th> */}
                                 <th className="border border-gray-400 p-2">Inclusion Criteria</th>
                                 <th className="border border-gray-400 p-2">Exclusion Criteria</th>
-                                <th className="border border-gray-400 p-2">Actions</th>
+                                <>
+                                    <th className="p-2 border border-gray-400">
+                                        Actions
+                                        <div className="mt-2 flex justify-center gap-x-2">
+                                            <button
+                                                className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 text-sm"
+                                                onClick={() => handleToggleAllSelectOrReject(true)}>
+                                                ✓
+                                            </button>
+                                            <button
+                                                className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
+                                                onClick={() =>
+                                                    handleToggleAllSelectOrReject(false)
+                                                }>
+                                                ✕
+                                            </button>
+                                        </div>
+                                    </th>
+                                </>
                                 {/* <th className="border border-gray-400 p-2">Comments</th> */}
                             </tr>
                         </thead>
