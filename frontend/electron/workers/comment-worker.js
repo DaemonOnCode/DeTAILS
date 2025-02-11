@@ -1,6 +1,7 @@
 const { parentPort } = require('worker_threads');
 const fs = require('fs');
 const path = require('path');
+const { electronLogger } = require('../utils/electron-logger');
 
 // Helper to omit the first element if it doesn't match the required structure
 const omitFirstIfMatchesStructure = (data) => {
@@ -104,7 +105,7 @@ const loadCommentsForPosts = async (folderPath, parsedData) => {
 // Listen for messages from the main thread
 parentPort?.on('message', async ({ folderPath, parsedData }) => {
     try {
-        console.log('Worker received data:', folderPath);
+        electronLogger.log('Worker received data:', folderPath);
 
         const fullData = await loadCommentsForPosts(folderPath, parsedData);
         parentPort.postMessage({ fullData });

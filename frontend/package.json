@@ -1,6 +1,6 @@
 {
-    "name": "cta",
-    "description": "DeTAILS",
+    "name": "details",
+    "description": "DeTAILS - Deductive Thematic Analysis with Iterative LLM Support",
     "version": "1.0.0",
     "devDependencies": {
         "@electron-forge/cli": "^7.6.1",
@@ -44,6 +44,7 @@
         "core-js": "^3.39.0",
         "d3": "^7.9.0",
         "electron-is-dev": "^3.0.1",
+        "electron-log": "^5.3.0",
         "electron-reloader": "^1.2.3",
         "electron-squirrel-startup": "^1.0.1",
         "electron-updater": "^6.3.9",
@@ -87,7 +88,7 @@
         "serve:chroma": "chroma run --path ${DB_PATH:-../chroma}",
         "start": "cross-env NODE_ENV=production electron-forge start",
         "package": "cross-env NODE_ENV=production electron-forge package",
-        "make": "cross-env NODE_ENV=production electron-forge make"
+        "make": "npm run build; cross-env NODE_ENV=production electron-forge make"
     },
     "eslintConfig": {
         "extends": [

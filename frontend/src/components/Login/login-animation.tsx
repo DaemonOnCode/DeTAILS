@@ -376,7 +376,7 @@ export function SplitScreenPhase6({
             <motion.div className="h-1/2 flex items-end justify-end">
                 <div className="font-bold flex" style={{ perspective: '1000px' }}>
                     <motion.img
-                        src="/final/details-full-logo.png"
+                        src="details-full-logo.png"
                         alt="DeTAILS"
                         className="
                         w-[18rem] h-auto 

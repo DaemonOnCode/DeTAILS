@@ -1,5 +1,6 @@
 const { exec } = require('child_process');
 const path = require('path');
+const { electronLogger } = require('./electron-logger');
 
 exports.executeOllama = async (app) => {
     const ollamaPath = path.resolve(__dirname, '..', '..', '..', 'ollama-0.4.2');
@@ -19,12 +20,12 @@ exports.executeOllama = async (app) => {
             if (stderr) {
                 console.error(`Ollama server stderr: ${stderr}`);
             }
-            console.log(`Ollama server stdout: ${stdout}`);
+            electronLogger.log(`Ollama server stdout: ${stdout}`);
         }
     );
 
     ollamaProcess.stdout.on('data', (data) => {
-        console.log(`Ollama stdout: ${data}`);
+        electronLogger.log(`Ollama stdout: ${data}`);
     });
 
     // Cleanup on app close

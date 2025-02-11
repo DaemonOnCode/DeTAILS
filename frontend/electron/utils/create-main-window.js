@@ -3,6 +3,7 @@ const { join } = require('path');
 const { autoUpdater } = require('electron-updater');
 const remote = require('@electron/remote/main');
 const globalState = require('./global-state');
+const { electronLogger } = require('./electron-logger');
 
 function getPlatformIcon() {
     switch (process.platform) {
@@ -24,7 +25,7 @@ exports.createMainWindow = async (...ctxs) => {
         webPreferences: {
             nodeIntegration: true,
             enableRemoteModule: true,
-            devTools: process.env.NODE_ENV !== 'production',
+            devTools: true, //process.env.NODE_ENV !== 'production',
             contextIsolation: false,
             webSecurity: false,
             nodeIntegrationInWorker: true
@@ -34,7 +35,7 @@ exports.createMainWindow = async (...ctxs) => {
         title: globalState.appName
     });
 
-    if (process.platform === 'darwin') {
+    if (process.platform === 'darwin' && process.env.NODE_ENV === 'development') {
         const dockIcon = nativeImage.createFromPath(
             join(__dirname, '..', '..', 'public', 'final', 'details-dock-icon.png')
         );
@@ -43,7 +44,7 @@ exports.createMainWindow = async (...ctxs) => {
 
     remote.enable(window.webContents);
 
-    console.log('Loading URL:', process.env.REACT_APP_URL, process.env.NODE_ENV);
+    electronLogger.log('Loading URL:', process.env.REACT_APP_URL, process.env.NODE_ENV);
     await window.loadURL(
         process.env.REACT_APP_URL ||
             (process.env.NODE_ENV === 'development'
@@ -52,6 +53,9 @@ exports.createMainWindow = async (...ctxs) => {
     );
 
     window.once('ready-to-show', () => {
+        if (process.env.NODE_ENV !== 'development') {
+            return;
+        }
         autoUpdater.checkForUpdatesAndNotify();
     });
 

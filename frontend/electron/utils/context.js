@@ -1,4 +1,5 @@
 const { ipcMain } = require('electron');
+const { electronLogger } = require('./electron-logger');
 
 // 🟢 Scoped Contexts Storage
 const contexts = {};
@@ -7,7 +8,7 @@ const contexts = {};
 const createContext = (contextName, initialState = {}) => {
     contexts[contextName] = { ...initialState };
 
-    console.log(`✅ Electron Context "${contextName}" created.`);
+    electronLogger.log(`✅ Electron Context "${contextName}" created.`);
 
     ipcMain.handle(`getContext_${contextName}`, () => contexts[contextName]);
 
@@ -37,7 +38,7 @@ const createContext = (contextName, initialState = {}) => {
 };
 
 const findContextByName = (contextName, ctxs) => {
-    console.log(`🔍 Finding context "${contextName}"`, ctxs);
+    electronLogger.log(`🔍 Finding context "${contextName}"`, ctxs);
     return ctxs.find((ctx) => ctx.name === contextName);
 };
 

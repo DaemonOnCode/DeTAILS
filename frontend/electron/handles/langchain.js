@@ -15,6 +15,7 @@ const { codePrompts } = require('../utils/code-helper');
 const { getPostById, initDatabase } = require('../utils/db-helpers');
 const logger = require('../utils/logger');
 const { createTimer } = require('../utils/timer');
+const { electronLogger } = require('../utils/electron-logger');
 
 const systemTemplateFlashcards = [
     `
@@ -57,12 +58,12 @@ const generateTranscript = (post) => {
     // Start with the post title and selftext
     let transcript = `Title: ${post.title}\n\n${post.selftext}\n\n`;
 
-    console.log('post', post);
+    electronLogger.log('post', post);
 
     // Helper function to recursively process comments
     const processComments = (comments, depth = 0) => {
         let result = '';
-        console.log('comments', comments, typeof comments);
+        electronLogger.log('comments', comments, typeof comments);
 
         if (!comments) {
             return '';
@@ -109,10 +110,10 @@ const generateContext = (references, mainCode, selectedFlashcards, selectedWords
     // Add references
     if (references && Object.keys(references).length > 0) {
         context += `References:\n`;
-        console.log('references', references);
+        electronLogger.log('references', references);
         for (const [code, refList] of Object.entries(references)) {
             context += `Code: ${code}\n`;
-            console.log('refList', refList, refList.length, typeof refList);
+            electronLogger.log('refList', refList, refList.length, typeof refList);
             refList.forEach((ref) => {
                 context += `- ${ref.text}\n`;
             });
@@ -157,28 +158,33 @@ const langchainHandler = (...ctxs) => {
 
             if (!regenerate) {
                 await logger.info('Adding documents to vector store:', { documents });
-                console.log('documentPaths', documents);
+                electronLogger.log('documentPaths', documents);
                 if (!documents || typeof documents !== 'object') {
                     return;
                 }
 
                 for (const key in documents) {
-                    console.log('document', documents[key]);
+                    electronLogger.log('document', documents[key]);
                     const loader = new PDFLoader(key);
 
                     const docs = await loader.load();
 
-                    console.log(key, docs.length);
+                    electronLogger.log(key, docs.length);
 
-                    console.log('docs', docs, 'docs.length', docs.length);
+                    electronLogger.log('docs', docs, 'docs.length', docs.length);
 
                     const splits = await textSplitter.splitDocuments(docs);
 
-                    console.log('splits', splits, 'splits.length', splits.length);
+                    electronLogger.log('splits', splits, 'splits.length', splits.length);
 
                     const addedDocs = await vectorStore.addDocuments(splits);
 
-                    console.log('addedDocs', addedDocs, 'addedDocs.length', addedDocs.length);
+                    electronLogger.log(
+                        'addedDocs',
+                        addedDocs,
+                        'addedDocs.length',
+                        addedDocs.length
+                    );
                 }
                 await logger.info('Documents added to vector store.');
                 await logger.time('Adding all documents to vector store', { time: timer.end() });
@@ -200,7 +206,7 @@ const langchainHandler = (...ctxs) => {
                     callbacks: [
                         {
                             handleLLMNewToken: (token) => {
-                                console.log('token', token);
+                                electronLogger.log('token', token);
                             }
                         }
                     ]
@@ -238,21 +244,21 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
             });
 
             await logger.time('Flashcards generated', { time: timer.end() });
-            console.log('results', results);
+            electronLogger.log('results', results);
             await logger.info('Flashcards generated:', { results });
 
             const combinedMatch = results.answer.match(
                 /(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*"flashcards"\s*:\s*\[(?<flashcards>(?:\{\s*"question"\s*:\s*".*?"\s*,\s*"answer"\s*:\s*".*?"\s*\},?\s*)+)\]\s*\}|\[\s*(?<standalone>(?:\{\s*"question"\s*:\s*".*?"\s*,\s*"answer"\s*:\s*".*?"\s*\},?\s*)+)\s*\])(?:\n```)?/
             );
 
-            console.log(1);
+            electronLogger.log(1);
 
             if (!combinedMatch) {
                 // Return an empty flashcards array if no match is found
                 return JSON.stringify({ flashcards: [] });
             }
 
-            console.log(2);
+            electronLogger.log(2);
 
             // Determine which group matched: `flashcards` or `standalone`
             let rawEntries;
@@ -265,7 +271,7 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
                 return JSON.stringify({ flashcards: [] });
             }
 
-            console.log(3);
+            electronLogger.log(3);
 
             // Parse the matched entries
             let parsedFlashcards = [];
@@ -277,7 +283,7 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
                 return JSON.stringify({ flashcards: [] }); // Return empty flashcards array on error
             }
 
-            console.log(4);
+            electronLogger.log(4);
 
             // Return the reconstructed JSON object with the parsed flashcards
             return JSON.stringify({
@@ -289,7 +295,7 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
     ipcMain.handle(
         'generate-additional-flashcards',
         async (event, model, mainCode, additionalInfo, selectedFlashcards, feedback) => {
-            console.log(
+            electronLogger.log(
                 'selectedFlashcards',
                 selectedFlashcards,
                 mainCode,
@@ -323,7 +329,7 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
                     callbacks: [
                         {
                             handleLLMNewToken: (token) => {
-                                console.log('token', token);
+                                electronLogger.log('token', token);
                             }
                         }
                     ]
@@ -387,7 +393,7 @@ Respond ONLY with the JSON object, nothing else.
             });
             await logger.time('Additional flashcards generated', { time: timer.end() });
 
-            console.log(
+            electronLogger.log(
                 'results all',
                 results,
                 model,
@@ -399,20 +405,20 @@ Respond ONLY with the JSON object, nothing else.
 
             await logger.info('Additional flashcards generated:', { results });
 
-            // console.log('results', results.answer);
+            // electronLogger.log('results', results.answer);
 
             const combinedMatch = results.answer.match(
                 /(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*"flashcards"\s*:\s*\[(?<flashcards>(?:\{\s*"question"\s*:\s*".*?"\s*,\s*"answer"\s*:\s*".*?"\s*\},?\s*)+)\]\s*\}|\[\s*(?<standalone>(?:\{\s*"question"\s*:\s*".*?"\s*,\s*"answer"\s*:\s*".*?"\s*\},?\s*)+)\s*\])(?:\n```)?/
             );
 
-            console.log(1);
+            electronLogger.log(1);
 
             if (!combinedMatch) {
                 // Return an empty flashcards array if no match is found
                 return JSON.stringify({ flashcards: [] });
             }
 
-            console.log(2);
+            electronLogger.log(2);
 
             // Determine which group matched: `flashcards` or `standalone`
             let rawEntries;
@@ -425,7 +431,7 @@ Respond ONLY with the JSON object, nothing else.
                 return JSON.stringify({ flashcards: [] });
             }
 
-            console.log(3);
+            electronLogger.log(3);
 
             // Parse the matched entries
             let parsedFlashcards = [];
@@ -437,7 +443,7 @@ Respond ONLY with the JSON object, nothing else.
                 return JSON.stringify({ flashcards: [] }); // Return empty flashcards array on error
             }
 
-            console.log(4);
+            electronLogger.log(4);
 
             // Return the reconstructed JSON object with the parsed flashcards
             return JSON.stringify({
@@ -506,7 +512,7 @@ Respond ONLY with the JSON object. Avoid any additional text, explanations, or c
                     callbacks: [
                         {
                             handleLLMNewToken: (token) => {
-                                console.log('token', token);
+                                electronLogger.log('token', token);
                             }
                         }
                     ]
@@ -580,14 +586,14 @@ Return only the JSON object and ensure it is correctly formatted.
                 /(?<!\S)(?:```(?:json)?\n)?\s*(?:\{\s*"words"\s*:\s*\[(?<words>(?:\s*".*?"\s*,?)*?)\s*\}|\[\s*(?<standalone>(?:\s*".*?"\s*,?)*?)\s*\])(?:\n```)?/
             );
 
-            console.log(1);
+            electronLogger.log(1);
 
             if (!wordsMatch) {
                 // Return an empty words array if no match is found
                 return JSON.stringify({ words: [] });
             }
 
-            console.log(2);
+            electronLogger.log(2);
 
             // Determine which group matched: `words` or `standalone`
             let rawEntries;
@@ -600,7 +606,7 @@ Return only the JSON object and ensure it is correctly formatted.
                 return JSON.stringify({ words: [] });
             }
 
-            console.log(3);
+            electronLogger.log(3);
 
             // Parse the matched entries
             let parsedWords = [];
@@ -612,7 +618,7 @@ Return only the JSON object and ensure it is correctly formatted.
                 return JSON.stringify({ words: [] }); // Return empty words array on error
             }
 
-            console.log(4);
+            electronLogger.log(4);
 
             // Return the reconstructed JSON object with the parsed words
             return JSON.stringify({
@@ -633,7 +639,7 @@ Return only the JSON object and ensure it is correctly formatted.
             selectedPosts,
             dbPath
         ) => {
-            console.log(
+            electronLogger.log(
                 model,
                 references,
                 mainCode,
@@ -652,7 +658,7 @@ Return only the JSON object and ensure it is correctly formatted.
                 callbacks: [
                     {
                         handleLLMNewToken: (token) => {
-                            console.log('token', token);
+                            electronLogger.log('token', token);
                         }
                     }
                 ]
@@ -666,7 +672,7 @@ Return only the JSON object and ensure it is correctly formatted.
                 callbacks: [
                     {
                         handleLLMNewToken: (token) => {
-                            console.log('token', token);
+                            electronLogger.log('token', token);
                         }
                     }
                 ]
@@ -680,7 +686,7 @@ Return only the JSON object and ensure it is correctly formatted.
                 callbacks: [
                     {
                         handleLLMNewToken: (token) => {
-                            console.log('token', token);
+                            electronLogger.log('token', token);
                         }
                     }
                 ]
@@ -691,7 +697,7 @@ Return only the JSON object and ensure it is correctly formatted.
             const totalTimer = createTimer();
             for (const postId of selectedPosts) {
                 await logger.info('Generating codes for post:', { postId });
-                console.log('post', postId);
+                electronLogger.log('post', postId);
                 const timer = createTimer();
 
                 const db = await initDatabase(dbPath);
@@ -712,7 +718,7 @@ Return only the JSON object and ensure it is correctly formatted.
                     selectedWords
                 );
 
-                console.log('transcript', transcript, 'context', context);
+                electronLogger.log('transcript', transcript, 'context', context);
 
                 let generationPrompt1 = codePrompts.generate(transcript, context);
                 const promptGenerator1 = ChatPromptTemplate.fromMessages([
@@ -728,7 +734,7 @@ Return only the JSON object and ensure it is correctly formatted.
                     time: timer.end()
                 });
 
-                console.log('results 1', results1);
+                electronLogger.log('results 1', results1);
 
                 let generatePrompt2 = codePrompts.generate(transcript, context);
 
@@ -746,7 +752,7 @@ Return only the JSON object and ensure it is correctly formatted.
                     time: timer.end()
                 });
 
-                console.log('results 2', results2);
+                electronLogger.log('results 2', results2);
 
                 let validatePromptFromResults = codePrompts.judgeValidate(
                     results1,
@@ -768,15 +774,17 @@ Return only the JSON object and ensure it is correctly formatted.
                     time: timer.end()
                 });
 
-                console.log('results 3', results3);
+                electronLogger.log('results 3', results3);
 
                 const match = results3.match(
                     /(?:```json\s*)?\{\s*"unified_codebook":\s*(?<codebook>\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(?<transcript>\[[\s\S]*?\])?\s*\}?/
                 );
 
                 if (!match) {
-                    console.log('No match found.');
-                    console.log(JSON.stringify({ unified_codebook: [], recoded_transcript: [] }));
+                    electronLogger.log('No match found.');
+                    electronLogger.log(
+                        JSON.stringify({ unified_codebook: [], recoded_transcript: [] })
+                    );
                 } else {
                     const { codebook, transcript } = match.groups; // Access named groups
 
@@ -793,7 +801,7 @@ Return only the JSON object and ensure it is correctly formatted.
                     } catch (error) {
                         console.error('Error parsing JSON:', error);
                         await logger.error('Error parsing JSON in coding:', { error, postId });
-                        console.log(
+                        electronLogger.log(
                             JSON.stringify({ unified_codebook: [], recoded_transcript: [] })
                         );
                     }
@@ -824,7 +832,7 @@ Return only the JSON object and ensure it is correctly formatted.
             feedback,
             dbPath
         ) => {
-            console.log(
+            electronLogger.log(
                 model,
                 references,
                 mainCode,
@@ -849,7 +857,7 @@ Return only the JSON object and ensure it is correctly formatted.
                 callbacks: [
                     {
                         handleLLMNewToken: (token) => {
-                            console.log('token', token);
+                            electronLogger.log('token', token);
                         }
                     }
                 ]
@@ -863,7 +871,7 @@ Return only the JSON object and ensure it is correctly formatted.
                 callbacks: [
                     {
                         handleLLMNewToken: (token) => {
-                            console.log('token', token);
+                            electronLogger.log('token', token);
                         }
                     }
                 ]
@@ -877,7 +885,7 @@ Return only the JSON object and ensure it is correctly formatted.
                 callbacks: [
                     {
                         handleLLMNewToken: (token) => {
-                            console.log('token', token);
+                            electronLogger.log('token', token);
                         }
                     }
                 ]
@@ -889,7 +897,7 @@ Return only the JSON object and ensure it is correctly formatted.
             for (const postId of selectedPosts) {
                 const timer = createTimer();
                 await logger.info('Generating codes with feedback for post:', { postId });
-                console.log('post', postId);
+                electronLogger.log('post', postId);
 
                 const db = await initDatabase(dbPath);
                 const postData = await getPostById(
@@ -911,7 +919,7 @@ Return only the JSON object and ensure it is correctly formatted.
 
                 const feedbackText = generateFeedback(feedback);
 
-                console.log('transcript', transcript, 'context', context);
+                electronLogger.log('transcript', transcript, 'context', context);
 
                 let generationPrompt1 = codePrompts.generateWithFeedback(
                     transcript,
@@ -933,7 +941,7 @@ Return only the JSON object and ensure it is correctly formatted.
                     time: timer.end()
                 });
 
-                console.log('results 1', results1);
+                electronLogger.log('results 1', results1);
 
                 let generatePrompt2 = codePrompts.generateWithFeedback(
                     transcript,
@@ -957,7 +965,7 @@ Return only the JSON object and ensure it is correctly formatted.
                     time: timer.end()
                 });
 
-                console.log('results 2', results2);
+                electronLogger.log('results 2', results2);
 
                 let validatePromptFromResults = codePrompts.judgeValidateWithFeedback(
                     results1,
@@ -982,15 +990,17 @@ Return only the JSON object and ensure it is correctly formatted.
                     time: timer.end()
                 });
 
-                console.log('results 3', results3);
+                electronLogger.log('results 3', results3);
 
                 const match = results3.match(
                     /(?:```json\s*)?\{\s*"unified_codebook":\s*(?<codebook>\[[\s\S]*?\])\s*,?\s*"recoded_transcript":\s*(?<transcript>\[[\s\S]*?\])?\s*\}?/
                 );
 
                 if (!match) {
-                    console.log('No match found.');
-                    console.log(JSON.stringify({ unified_codebook: [], recoded_transcript: [] }));
+                    electronLogger.log('No match found.');
+                    electronLogger.log(
+                        JSON.stringify({ unified_codebook: [], recoded_transcript: [] })
+                    );
                 } else {
                     const { codebook, transcript } = match.groups; // Access named groups
 
@@ -1007,7 +1017,7 @@ Return only the JSON object and ensure it is correctly formatted.
                     } catch (error) {
                         console.error('Error parsing JSON:', error);
                         await logger.error('Error parsing JSON in recoding:', { error, postId });
-                        console.log(
+                        electronLogger.log(
                             JSON.stringify({ unified_codebook: [], recoded_transcript: [] })
                         );
                     }

@@ -1,5 +1,6 @@
 const { Menu, dialog } = require('electron');
 const { findContextByName } = require('./context');
+const { electronLogger } = require('./electron-logger');
 // const globalCtx.getState() = require('./global-state');
 
 const menuTemplate = (globalCtx) => [
@@ -9,19 +10,19 @@ const menuTemplate = (globalCtx) => [
             {
                 label: 'New File',
                 accelerator: 'CmdOrCtrl+N',
-                click: () => console.log('New File')
+                click: () => electronLogger.log('New File')
             },
             {
                 label: 'Open File',
                 accelerator: 'CmdOrCtrl+O',
-                click: () => console.log('Open File')
+                click: () => electronLogger.log('Open File')
             },
             { type: 'separator' },
             {
                 label: 'Save workspace',
                 accelerator: 'CmdOrCtrl+S',
                 click: () => {
-                    console.log(
+                    electronLogger.log(
                         'Save workspace',
                         globalCtx.getState(),
                         globalCtx.getState().mainWindow,
@@ -87,7 +88,7 @@ const menuTemplate = (globalCtx) => [
     },
     {
         label: 'Help',
-        submenu: [{ label: 'About', click: () => console.log('About clicked') }]
+        submenu: [{ label: 'About', click: () => electronLogger.log('About clicked') }]
     }
 ];
 
@@ -96,7 +97,7 @@ function createMenu(...ctxs) {
 
     const isUserLoaded =
         globalCtx.getState().userEmail && globalCtx.getState().userEmail !== 'Anonymous';
-    console.log('Creating menu', isUserLoaded);
+    electronLogger.log('Creating menu', isUserLoaded);
     const menu = Menu.buildFromTemplate(menuTemplate(globalCtx));
     Menu.setApplicationMenu(menu);
 }

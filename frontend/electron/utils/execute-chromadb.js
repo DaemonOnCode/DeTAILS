@@ -1,5 +1,6 @@
 const { exec } = require('child_process');
 const path = require('path');
+const { electronLogger } = require('./electron-logger');
 
 exports.executeChromadb = async (app) => {
     const chromadbPath = path.resolve(__dirname, '..', '..', '..', 'chroma', 'chromadb', 'cli');
@@ -18,12 +19,12 @@ exports.executeChromadb = async (app) => {
             if (stderr) {
                 console.error(`Chromadb server stderr: ${stderr}`);
             }
-            console.log(`Chromadb server stdout: ${stdout}`);
+            electronLogger.log(`Chromadb server stdout: ${stdout}`);
         }
     );
 
     chromadbProcess.stdout.on('data', (data) => {
-        console.log(`Chromadb stdout: ${data}`);
+        electronLogger.log(`Chromadb stdout: ${data}`);
     });
 
     // Cleanup on app close

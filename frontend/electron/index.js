@@ -9,10 +9,11 @@ const logger = require('./utils/logger');
 const { spawnedProcesses } = require('./utils/spawn-services');
 const { createMenu } = require('./utils/menu');
 const { createContext } = require('./utils/context');
+const { electronLogger } = require('./utils/electron-logger');
 
 const newConfig = require('../src/config')('electron');
 
-console.log(newConfig);
+electronLogger.log(newConfig);
 
 // Enable auto-reloading in development mode
 if (process.env.NODE_ENV === 'development') {
@@ -34,10 +35,10 @@ if (!process.env.NODE_ENV === 'development') {
 
 // Function to clean up and gracefully exit
 const cleanupAndExit = async (signal) => {
-    console.log(`Received signal: ${signal}`);
+    electronLogger.log(`Received signal: ${signal}`);
     await logger.info('Process exited', { signal });
     for (const { name, process } of spawnedProcesses) {
-        console.log(`Terminating process: ${name}`);
+        electronLogger.log(`Terminating process: ${name}`);
         try {
             process.kill(); // Sends SIGTERM to the process
         } catch (err) {
@@ -47,7 +48,7 @@ const cleanupAndExit = async (signal) => {
     try {
         config.websocket.close();
     } catch (e) {
-        console.log('Error closing websocket');
+        electronLogger.log('Error closing websocket');
     }
     // Perform cleanup tasks here if needed
     app.quit();
@@ -78,9 +79,9 @@ app.whenReady().then(async () => {
 
     // Register signal handlers for SIGINT, SIGTERM, and SIGABRT
     ['SIGINT', 'SIGTERM', 'SIGABRT', 'SIGHUP'].forEach((signal) => {
-        console.log(`Registering handler for signal: ${signal}`);
+        electronLogger.log(`Registering handler for signal: ${signal}`);
         process.on(signal, () => {
-            console.log(`Handler triggered for signal: ${signal}`);
+            electronLogger.log(`Handler triggered for signal: ${signal}`);
             cleanupAndExit(signal);
         });
     });
@@ -98,15 +99,17 @@ app.whenReady().then(async () => {
     });
 
     // AutoUpdater events
-    autoUpdater.on('update-available', () => {
-        logger.info('Update available');
-        globalCtx.getState().mainWindow.webContents.send('update_available');
-    });
+    if (process.env.NODE_ENV === 'development') {
+        autoUpdater.on('update-available', () => {
+            logger.info('Update available');
+            globalCtx.getState().mainWindow.webContents.send('update_available');
+        });
 
-    autoUpdater.on('update-downloaded', () => {
-        logger.info('Update downloaded');
-        globalCtx.getState().mainWindow.webContents.send('update_downloaded');
-    });
+        autoUpdater.on('update-downloaded', () => {
+            logger.info('Update downloaded');
+            globalCtx.getState().mainWindow.webContents.send('update_downloaded');
+        });
+    }
 
     // app.on('web-contents-created', (event, contents) => {
     //     contents.session.webRequest.onHeadersReceived((details, callback) => {
@@ -129,7 +132,7 @@ app.whenReady().then(async () => {
         const ses = session.defaultSession;
         try {
             await ses.clearStorageData({ storages: ['localstorage'] });
-            console.log('LocalStorage cleared via session API.');
+            electronLogger.log('LocalStorage cleared via session API.');
         } catch (err) {
             console.error('Error clearing localStorage via session API:', err);
         }

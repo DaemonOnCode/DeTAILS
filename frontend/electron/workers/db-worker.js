@@ -3,6 +3,7 @@
 const { parentPort, workerData } = require('worker_threads');
 const path = require('path');
 const fs = require('fs');
+const { electronLogger } = require('../utils/electron-logger');
 
 const {
     initDatabase,
@@ -20,16 +21,16 @@ const loggerContext = workerData?.loggerContext;
 const loadCommentsForPosts = async (folderPath, parsedData, db) => {
     try {
         await logger.info('Starting to batch insert posts and comments...', {}, loggerContext);
-        console.log('Starting to batch insert posts...');
+        electronLogger.log('Starting to batch insert posts...');
 
         const posts = Object.entries(parsedData).map(([postId, post]) => ({ id: postId, ...post }));
         await insertPostsBatch(db, posts, loggerContext);
 
         await logger.info('Posts batch inserted successfully.', {}, loggerContext);
-        console.log('Posts batch inserted successfully.');
+        electronLogger.log('Posts batch inserted successfully.');
 
         await logger.info('Processing files for comments...', {}, loggerContext);
-        console.log('Processing files for comments...');
+        electronLogger.log('Processing files for comments...');
 
         const files = fs
             .readdirSync(folderPath)
@@ -39,18 +40,18 @@ const loadCommentsForPosts = async (folderPath, parsedData, db) => {
 
         for (const file of files) {
             const filePath = path.join(folderPath, file);
-            console.log(`Processing file: ${filePath}`);
+            electronLogger.log(`Processing file: ${filePath}`);
 
             const content = fs.readFileSync(filePath, 'utf-8');
             const comments = JSON.parse(content).filter((item) => item.id); // Ensure items have an ID
 
             await insertCommentsBatch(db, comments, loggerContext);
             await logger.info(`Batch inserted comments from file: ${file}`, {}, loggerContext);
-            console.log(`Batch inserted comments from file: ${file}`);
+            electronLogger.log(`Batch inserted comments from file: ${file}`);
         }
 
         await logger.info('All comments batch inserted successfully.', {}, loggerContext);
-        console.log('All comments batch inserted successfully.');
+        electronLogger.log('All comments batch inserted successfully.');
     } catch (err) {
         await logger.error(
             'Error during batch insert of posts and comments.',
@@ -65,21 +66,21 @@ const loadCommentsForPosts = async (folderPath, parsedData, db) => {
 const main = async () => {
     if (workerData) {
         const timer = createTimer();
-        console.log('Worker data');
+        electronLogger.log('Worker data');
 
         let db;
         try {
             db = await initDatabase(workerData.dbPath, loggerContext);
-            console.log('Database initialized.');
+            electronLogger.log('Database initialized.');
 
             await createTables(db, loggerContext);
             await logger.info('Tables created or already exist.', {}, loggerContext);
-            console.log('Tables created or already exist.');
+            electronLogger.log('Tables created or already exist.');
 
             await loadCommentsForPosts(workerData.folderPath, workerData.parsedData, db);
 
             await logger.info('All data loaded successfully.', {}, loggerContext);
-            console.log('All data loaded successfully.');
+            electronLogger.log('All data loaded successfully.');
         } catch (err) {
             await logger.error('Error during data load.', { err }, loggerContext);
             console.error(`Error: ${err.message}`);
@@ -103,7 +104,7 @@ const main = async () => {
                     });
                 } else {
                     logger.info('Database closed.', {}, loggerContext).catch(console.error);
-                    console.log('Database closed.');
+                    electronLogger.log('Database closed.');
                     parentPort.postMessage({
                         success: true,
                         message: 'Data loaded successfully.'

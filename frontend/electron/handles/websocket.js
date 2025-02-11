@@ -5,6 +5,7 @@ const WebSocket = require('ws');
 const globalState = require('../utils/global-state');
 const config = require('../../src/config')('electron');
 const { findContextByName } = require('../utils/context');
+const { electronLogger } = require('../utils/electron-logger');
 
 let wsInstance = null;
 
@@ -34,7 +35,7 @@ const websocketHandler = (...ctxs) => {
 
     ipcMain.handle('connect-ws', (event) => {
         if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
-            console.log('WebSocket already connected.');
+            electronLogger.log('WebSocket already connected.');
             return 'WebSocket already connected.';
         }
 
@@ -44,9 +45,9 @@ const websocketHandler = (...ctxs) => {
 
         // Create a new WebSocket instance if not already connected
         try {
-            console.log('Connecting to WebSocket...', globalCtx.getState());
+            electronLogger.log('Connecting to WebSocket...', globalCtx.getState());
             const url = new URL(config.backendURL[globalCtx.getState().processing]);
-            console.log(
+            electronLogger.log(
                 'URL:',
                 url,
                 `ws://${url.host}${url.pathname}/notifications/ws?app=electron`
@@ -57,19 +58,19 @@ const websocketHandler = (...ctxs) => {
             globalCtx.setState({ websocket: wsInstance });
             wsInstance.binaryType = 'arraybuffer';
         } catch (e) {
-            console.log('Application closed');
-            console.log(e);
+            electronLogger.log('Application closed');
+            electronLogger.log(e);
             wsInstance = null; // Clear the instance on close
             return;
         }
 
         wsInstance.on('open', () => {
-            console.log('WebSocket connected');
+            electronLogger.log('WebSocket connected');
             try {
                 globalCtx.getState().mainWindow.webContents.send('ws-connected');
             } catch (e) {
-                console.log('Application closed');
-                console.log(e);
+                electronLogger.log('Application closed');
+                electronLogger.log(e);
             }
         });
 
@@ -81,15 +82,15 @@ const websocketHandler = (...ctxs) => {
                 message = reason ? reason.toString() : 'No reason provided'; // Fallback for non-ArrayBuffer reasons
             }
 
-            console.log('WebSocket closed:', code, message);
+            electronLogger.log('WebSocket closed:', code, message);
             // wsInstance.close();
             try {
                 wsInstance = null; // Clear the instance on close
                 globalCtx.setState({ websocket: null });
                 globalCtx.getState().mainWindow.webContents.send('ws-closed', { code, message });
             } catch (e) {
-                console.log('Application closed');
-                console.log(e);
+                electronLogger.log('Application closed');
+                electronLogger.log(e);
             }
         });
 
@@ -98,8 +99,8 @@ const websocketHandler = (...ctxs) => {
             try {
                 globalCtx.getState().mainWindow.webContents.send('ws-error', error.message);
             } catch (e) {
-                console.log('Application closed');
-                console.log(e);
+                electronLogger.log('Application closed');
+                electronLogger.log(e);
             }
         });
 
@@ -117,13 +118,13 @@ const websocketHandler = (...ctxs) => {
                         message: 'WebSocket not connected'
                     });
                 } catch (e) {
-                    console.log('Application closed');
-                    console.log(e);
+                    electronLogger.log('Application closed');
+                    electronLogger.log(e);
                 }
                 return;
             }
 
-            console.log('Raw data received:', data);
+            electronLogger.log('Raw data received:', data);
 
             const message = decodeMessage(data);
             if (message === null) {
@@ -131,7 +132,7 @@ const websocketHandler = (...ctxs) => {
                 return;
             }
 
-            console.log('Decoded message from server:', message);
+            electronLogger.log('Decoded message from server:', message);
 
             // Handle ping-pong
             if (message === 'ping') {
@@ -142,8 +143,8 @@ const websocketHandler = (...ctxs) => {
             try {
                 globalCtx.getState().mainWindow.webContents.send('ws-message', message);
             } catch (e) {
-                console.log('Application closed');
-                console.log(e);
+                electronLogger.log('Application closed');
+                electronLogger.log(e);
             }
         });
 
@@ -156,8 +157,8 @@ const websocketHandler = (...ctxs) => {
             wsInstance.send('disconnect');
             wsInstance.close();
         } catch (e) {
-            console.log('Application closed');
-            console.log(e);
+            electronLogger.log('Application closed');
+            electronLogger.log(e);
         } finally {
             wsInstance = null;
             globalCtx.setState({ websocket: null });

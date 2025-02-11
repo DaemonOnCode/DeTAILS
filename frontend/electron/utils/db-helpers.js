@@ -2,6 +2,7 @@
 
 const logger = require('./logger');
 const sqlite3 = require('sqlite3').verbose();
+const { electronLogger } = require('./electron-logger');
 
 // Helper function to promisify db.run
 const runAsync = (db, sql, params = []) => {
@@ -65,7 +66,7 @@ const finalizeAsync = (stmt) => {
 
 // Initialize the database connection
 const initDatabase = async (dbPath, loggerContext = {}) => {
-    console.log('Database connection:', dbPath);
+    electronLogger.log('Database connection:', dbPath);
     await logger.info('Database connection initialized', { dbPath }, loggerContext);
 
     return new Promise((resolve, reject) => {
@@ -78,7 +79,7 @@ const initDatabase = async (dbPath, loggerContext = {}) => {
                 //     .finally(() => reject(err));
                 reject(err);
             } else {
-                console.log('Database connection successful.');
+                electronLogger.log('Database connection successful.');
                 await logger.info('Database connection successful', {}, loggerContext);
                 // logger.info('Database connection successful').finally(() => resolve(db));
                 resolve(db);
@@ -89,11 +90,11 @@ const initDatabase = async (dbPath, loggerContext = {}) => {
 
 // Create tables if they do not exist
 const createTables = async (db, loggerContext = {}) => {
-    console.log('Starting to create tables...');
+    electronLogger.log('Starting to create tables...');
     try {
-        console.log('Logger test before creating posts table...');
+        electronLogger.log('Logger test before creating posts table...');
         await logger.info('Creating posts table...', {}, loggerContext);
-        console.log('Logger test passed.');
+        electronLogger.log('Logger test passed.');
 
         await runAsync(
             db,
@@ -117,11 +118,11 @@ const createTables = async (db, loggerContext = {}) => {
             )`
         );
 
-        console.log('Posts table created.');
+        electronLogger.log('Posts table created.');
 
-        console.log('Logger test before creating comments table...');
+        electronLogger.log('Logger test before creating comments table...');
         await logger.info('Creating comments table...', {}, loggerContext);
-        console.log('Logger test passed.');
+        electronLogger.log('Logger test passed.');
 
         await runAsync(
             db,
@@ -142,10 +143,10 @@ const createTables = async (db, loggerContext = {}) => {
             )`
         );
 
-        console.log('Comments table created.');
+        electronLogger.log('Comments table created.');
 
         await logger.info('Tables created successfully.', {}, loggerContext);
-        console.log('Tables created successfully.');
+        electronLogger.log('Tables created successfully.');
     } catch (err) {
         console.error('Error while creating tables:', err);
         await logger.error(`Error while creating tables: ${err.message}`, { err }, loggerContext);
@@ -155,7 +156,7 @@ const createTables = async (db, loggerContext = {}) => {
 
 // Batch insert posts
 const insertPostsBatch = async (db, posts, loggerContext = {}) => {
-    console.log('Inserting posts batch:', posts.length);
+    electronLogger.log('Inserting posts batch:', posts.length);
     await logger.info('Inserting posts batch...', {}, loggerContext);
 
     try {
@@ -200,7 +201,7 @@ const insertPostsBatch = async (db, posts, loggerContext = {}) => {
 
 // Batch insert comments
 const insertCommentsBatch = async (db, comments, loggerContext = {}) => {
-    console.log('Inserting comments batch:', comments.length);
+    electronLogger.log('Inserting comments batch:', comments.length);
     await logger.info('Inserting comments batch...', {}, loggerContext);
 
     try {
@@ -308,7 +309,7 @@ const getPostById = async (
     commentFields = ['*'],
     loggerContext = {}
 ) => {
-    console.log('Fetching post by ID:', postId);
+    electronLogger.log('Fetching post by ID:', postId);
 
     try {
         const postQuery = `SELECT ${postFields.join(', ')} FROM posts WHERE id = ?`;
@@ -334,7 +335,7 @@ const getPostById = async (
 
 // Get comments recursively for a post
 const getCommentsRecursive = async (db, postId, commentFields = ['*'], loggerContext = {}) => {
-    console.log('Fetching comments for post:', postId);
+    electronLogger.log('Fetching comments for post:', postId);
 
     try {
         const commentQuery = `SELECT ${commentFields.join(', ')} FROM comments WHERE post_id = ?`;

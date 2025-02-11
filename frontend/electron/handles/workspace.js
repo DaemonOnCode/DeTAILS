@@ -1,12 +1,13 @@
 const { ipcMain } = require('electron');
+const { electronLogger } = require('../utils/electron-logger');
 
 const workspaceHandler = (...ctxs) => {
     ipcMain.handle('import-workspace', (event, workspacePath) => {
-        console.log(workspacePath);
+        electronLogger.log(workspacePath);
     });
 
     ipcMain.handle('export-workspace', (event, data) => {
-        console.log(data);
+        electronLogger.log(data);
     });
 };
 

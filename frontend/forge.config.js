@@ -19,7 +19,7 @@ module.exports = {
         name: 'DeTAILS',
         asar: true,
         appCategoryType: 'public.app-category.developer-tools',
-        icon: 'public/acqa-icon',
+        icon: 'public/details-icon',
         extraResource: [path.resolve(__dirname, '..', 'executables')]
     },
     rebuildConfig: {},
@@ -27,7 +27,7 @@ module.exports = {
         {
             name: '@electron-forge/maker-squirrel',
             config: {
-                setupIcon: 'public/icon.ico'
+                setupIcon: 'public/favicon.ico'
             }
         },
         {
@@ -39,10 +39,10 @@ module.exports = {
             config: {
                 // background: './public/acqa-icon.icns',
                 format: 'ULFO',
-                icon: 'public/acqa-icon.icns',
+                icon: 'public/details-icon.icns',
                 overwrite: true,
                 additionalDMGOptions: {
-                    icon: 'public/acqa-icon.icns' // Volume icon
+                    icon: 'public/details-icon.icns' // Volume icon
                 }
             }
         },
@@ -52,7 +52,7 @@ module.exports = {
                 options: {
                     maintainer: 'Ansh Sharma',
                     categories: ['Utility'],
-                    icon: 'public/acqa-icon.png',
+                    icon: 'public/details-icon.png',
                     section: 'utility'
                 }
             }
@@ -65,7 +65,7 @@ module.exports = {
                     description: 'A developer tool for CTA',
                     license: 'MIT',
                     group: 'Development',
-                    icon: 'public/acqa-icon.png'
+                    icon: 'public/details-icon.png'
                 }
             }
         }

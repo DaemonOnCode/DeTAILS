@@ -7,15 +7,16 @@ const logger = require('../utils/logger');
 const { createMenu } = require('../utils/menu');
 const { findContextByName } = require('../utils/context');
 const config = require('../../src/config')('electron');
+const { electronLogger } = require('../utils/electron-logger');
 
 const googleOAuthHandler = (...ctxs) => {
     ipcMain.handle('google-oauth-login', async () => {
-        console.log(ctxs);
+        electronLogger.log(ctxs);
         const globalCtx = findContextByName('global', ctxs);
 
-        console.log(globalCtx.getState());
+        electronLogger.log(globalCtx.getState());
 
-        console.log('Google OAuth Login');
+        electronLogger.log('Google OAuth Login');
         const googleOAuth = new ElectronGoogleOAuth2(
             clientData['installed']['client_id'],
             clientData['installed']['client_secret'],
@@ -26,7 +27,7 @@ const googleOAuthHandler = (...ctxs) => {
         );
 
         try {
-            console.log('Starting Google OAuth');
+            electronLogger.log('Starting Google OAuth');
             await logger.info('Starting Google OAuth');
             const token = await googleOAuth.openAuthWindowAndGetTokens();
 
@@ -35,22 +36,22 @@ const googleOAuthHandler = (...ctxs) => {
                     Authorization: `Bearer ${token.access_token}`
                 }
             });
-            console.log('Google OAuth Response:', response);
+            electronLogger.log('Google OAuth Response:', response);
 
-            console.log('Ctx State:', globalCtx.getState());
+            electronLogger.log('Ctx State:', globalCtx.getState());
 
             const userInfo = await response.json(); // Contains user information including email
-            console.log('User Info:', userInfo);
+            electronLogger.log('User Info:', userInfo);
             await logger.info('Google OAuth successful:', { userInfo });
 
             globalCtx.setState({ email: userInfo.email });
 
             const oauthWindow = googleOAuth.authWindow;
-            console.log('oauthWindow:', oauthWindow);
+            electronLogger.log('oauthWindow:', oauthWindow);
             if (oauthWindow && !oauthWindow.isDestroyed()) {
                 oauthWindow.close();
             }
-            console.log('Google OAuth Token:', token);
+            electronLogger.log('Google OAuth Token:', token);
             createMenu(...ctxs);
             return {
                 token,

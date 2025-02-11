@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
 const { findContextByName } = require('../utils/context');
+const { electronLogger } = require('../utils/electron-logger');
 
 function flattenObject(obj, parentKey = '', separator = '.') {
     const flattened = {};
@@ -51,7 +52,7 @@ const fileHandler = (...ctxs) => {
             };
         });
         await logger.info('Full result:', { fullResult });
-        console.log(fullResult);
+        electronLogger.log(fullResult);
         return fullResult; // Return the selected file paths
     });
 

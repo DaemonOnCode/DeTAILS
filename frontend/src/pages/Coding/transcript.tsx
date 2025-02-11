@@ -490,11 +490,18 @@ const TranscriptPage = () => {
     }, [activeTranscript]);
 
     if (loading) {
-        return <div>Loading transcript...</div>;
+        return (
+            <div className="w-full h-maxPageContent flex flex-col justify-center items-center">
+                Loading transcript...
+                <div className="flex justify-center mt-4">
+                    <div className="loader animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+                </div>
+            </div>
+        );
     }
 
     if (!post) {
-        return <div>Post not found</div>;
+        return <div className="w-full h-full flex justify-center items-center">Post not found</div>;
     }
 
     // const humanCodeResponses = unseenPostResponse.filter((response) => response.type === 'Human');

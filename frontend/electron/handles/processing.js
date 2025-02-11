@@ -1,12 +1,13 @@
 const { ipcMain } = require('electron');
 const { spawnServices, spawnedProcesses } = require('../utils/spawn-services');
 const { findContextByName } = require('../utils/context');
+const { electronLogger } = require('../utils/electron-logger');
 
 const processingHandler = (...ctxs) => {
     const globalCtx = findContextByName('global', ctxs);
 
     ipcMain.handle('set-processing-mode', (event, arg) => {
-        console.log(arg);
+        electronLogger.log(arg);
         let value = arg ? 'remote' : 'local';
         globalCtx.setState({ processing: value });
         return value;
@@ -18,7 +19,7 @@ const processingHandler = (...ctxs) => {
 
     ipcMain.handle('stop-services', async (event) => {
         for (const { name, process } of spawnedProcesses) {
-            console.log(`Terminating process: ${name}`);
+            electronLogger.log(`Terminating process: ${name}`);
             try {
                 process.kill(); // Sends SIGTERM to the process
             } catch (err) {

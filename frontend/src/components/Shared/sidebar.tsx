@@ -163,7 +163,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                 isCollapsed ? 'min-w-16' : 'max-w-64'
             }`}>
             <div
-                className={`flex flex-col justify-between ${isCollapsed ? 'max-w-0 hidden' : 'max-w-full'}`}>
+                className={`flex flex-col justify-between ${isCollapsed ? 'max-w-0 hidden' : 'max-w-48'}`}>
                 {/* Left Section: Collapsible Navigation */}
                 <div className={`flex-1 overflow-hidden`}>
                     <nav className="h-full overflow-y-auto">

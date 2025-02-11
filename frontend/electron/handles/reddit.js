@@ -5,6 +5,7 @@ const logger = require('../utils/logger');
 const path = require('path');
 const { findContextByName } = require('../utils/context');
 const config = require('../../src/config')('electron');
+const { electronLogger } = require('../utils/electron-logger');
 
 const redditHandler = (...ctxs) => {
     const globalCtx = findContextByName('global', ctxs);
@@ -23,7 +24,7 @@ const redditHandler = (...ctxs) => {
     ipcMain.handle(
         'render-reddit-webview',
         async (event, url, text, postId = '', datasetId = '', getFromPostData = true) => {
-            console.log('url', url, globalCtx.getState());
+            electronLogger.log('url', url, globalCtx.getState());
             if (url.startsWith('/r/')) {
                 url = 'https://www.reddit.com' + url;
             }
@@ -31,18 +32,18 @@ const redditHandler = (...ctxs) => {
             //     url = 'https://www.reddit.com/r/' + url;
             // }
             // Remove existing BrowserView if it exists
-            console.log('sentence', text);
+            electronLogger.log('sentence', text);
 
             let postData = null;
             if (getFromPostData) {
                 if (!postId) {
-                    console.log('URL', url);
+                    electronLogger.log('URL', url);
                     filteredUrl = url.split('https://www.reddit.com/r/uwaterloo/comments/');
 
                     postId = filteredUrl[1].split('/')[0];
                 }
 
-                console.log('postId', postId);
+                electronLogger.log('postId', postId);
 
                 const url = `${config.backendURL[globalCtx.getState().processing]}/${config.backendRoutes.GET_REDDIT_POST_BY_ID}`;
 
@@ -57,7 +58,7 @@ const redditHandler = (...ctxs) => {
                 // return data.link;
             }
 
-            console.log('postData', postData);
+            electronLogger.log('postData', postData);
 
             if (globalCtx.getState().browserView) {
                 globalCtx.getState().mainWindow.removeBrowserView(globalCtx.getState().browserView);
@@ -90,13 +91,13 @@ const redditHandler = (...ctxs) => {
             view.setAutoResize({ width: true, height: true, x: true, y: true });
 
             const handleRedirect = (event, newUrl) => {
-                console.log('Redirect detected to:', newUrl);
+                electronLogger.log('Redirect detected to:', newUrl);
                 url = newUrl; // Update the URL to reflect the redirected URL
             };
 
             // Listen for redirects and navigation events
             view.webContents.session.webRequest.onBeforeRedirect((details) => {
-                console.log('Redirect detected via webRequest:', details.redirectURL);
+                electronLogger.log('Redirect detected via webRequest:', details.redirectURL);
                 url = details.redirectURL; // Update the URL with the redirect destination
             });
 
@@ -111,7 +112,7 @@ const redditHandler = (...ctxs) => {
                     'templates',
                     'reddit-template.html'
                 );
-                console.log('Loading template from:', templatePath);
+                electronLogger.log('Loading template from:', templatePath);
                 try {
                     await view.webContents.loadFile(templatePath);
                 } catch (error) {
@@ -119,19 +120,19 @@ const redditHandler = (...ctxs) => {
                 }
             }
             // view.webContents.on('console-message', (event, level, message) => {
-            //     console.log(`BrowserView log [${level}]: ${message}`);
+            //     electronLogger.log(`BrowserView log [${level}]: ${message}`);
             // });
 
             // view.webContents.openDevTools();
 
-            console.log('text', text);
+            electronLogger.log('text', text);
             // view.webContents
             //     .executeJavaScript(
             //         `
             //             (function() {
-            //                 console.log('JavaScript execution started');
+            //                 electronLogger.log('JavaScript execution started');
             //                 // Your JavaScript logic here
-            //                 console.log('JavaScript execution finished');
+            //                 electronLogger.log('JavaScript execution finished');
             //             })();
             //         `
             //     )
@@ -143,9 +144,9 @@ const redditHandler = (...ctxs) => {
             // });
 
             view.webContents.on('did-stop-loading', () => {
-                console.log('Did finish load event');
+                electronLogger.log('Did finish load event');
                 if (getFromPostData) {
-                    console.log('Injecting post data:', postData);
+                    electronLogger.log('Injecting post data:', postData);
                     function renderComments(comments) {
                         if (!comments || comments.length === 0) {
                             return '';
@@ -188,7 +189,7 @@ const redditHandler = (...ctxs) => {
                         });
                 }
                 if (text) {
-                    console.log('Injecting sentence:', text);
+                    electronLogger.log('Injecting sentence:', text);
                     view.webContents
                         .executeJavaScript(
                             `
@@ -290,7 +291,7 @@ const redditHandler = (...ctxs) => {
 
             // eventsToLog.forEach((event) => {
             //     view.webContents.on(event, (...args) => {
-            //         console.log(`[webContents event] ${event}:`, args);
+            //         electronLogger.log(`[webContents event] ${event}:`, args);
             //     });
             // });
 
@@ -330,7 +331,13 @@ const redditHandler = (...ctxs) => {
     };
 
     ipcMain.handle('get-link-from-post', async (event, postId, commentSlice, datasetId, dbPath) => {
-        console.log('get-link-from-post', postId, commentSlice, datasetId, globalCtx.getState());
+        electronLogger.log(
+            'get-link-from-post',
+            postId,
+            commentSlice,
+            datasetId,
+            globalCtx.getState()
+        );
 
         if (config.backendURL[globalCtx.getState().processing]) {
             const res = await fetch(
@@ -345,7 +352,7 @@ const redditHandler = (...ctxs) => {
             );
             const data = await res.json();
 
-            console.log('Data from backend:', data);
+            electronLogger.log('Data from backend:', data);
             return data.link;
         }
 
@@ -360,7 +367,7 @@ const redditHandler = (...ctxs) => {
         let link = '';
 
         await logger.info('Getting link from post:', postId);
-        console.log('Post Data:', postData, commentSlice);
+        electronLogger.log('Post Data:', postData, commentSlice);
 
         const normalizeText = (text) => text.toLowerCase().replace(/\s+/g, ' ').trim();
 
@@ -371,7 +378,7 @@ const redditHandler = (...ctxs) => {
             normalizeText(postData.title).includes(normalizedCommentSlice) ||
             normalizeText(postData.selftext).includes(normalizedCommentSlice)
         ) {
-            console.log('Found in post:', postId);
+            electronLogger.log('Found in post:', postId);
             await logger.info('Link found (post):', postId);
             link = linkCreator(postId, 'post', postId, postData.subreddit);
         } else {
@@ -385,7 +392,7 @@ const redditHandler = (...ctxs) => {
                 const normalizedBody = normalizeText(comment?.body || '');
 
                 if (normalizedBody.includes(normalizedCommentSlice)) {
-                    console.log('Found in comment:', comment.body);
+                    electronLogger.log('Found in comment:', comment.body);
                     return comment.id;
                 }
 
@@ -414,12 +421,12 @@ const redditHandler = (...ctxs) => {
             }
 
             if (commentId) {
-                console.log('Found in comment:', commentId);
+                electronLogger.log('Found in comment:', commentId);
                 link = linkCreator(commentId, 'comment', postId, postData.subreddit);
             }
         }
 
-        console.log('Link:', link);
+        electronLogger.log('Link:', link);
 
         if (link) {
             await logger.info('Link found (Comment):-', link);

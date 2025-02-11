@@ -412,7 +412,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 const codeSegments = splitIntoSegments(text);
 
                 codeSegments.forEach((codeSegment) => {
-                    const partialSimilarity = partial_ratio(segment.line, codeSegment);
+                    const partialSimilarity = ratio(segment.line, codeSegment);
                     if (partialSimilarity >= 90) {
                         segment.backgroundColours.push(codeColors[code]);
                         segment.relatedCodeText.push(code);

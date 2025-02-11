@@ -1,10 +1,11 @@
 // const config = require('./config');
 let config;
+const { electronLogger } = require('./electron-logger');
 
 // try {
 //     config = require('./config');
 // } catch (e) {
-//     console.log('Error loading config: ', e);
+//     electronLogger.log('Error loading config: ', e);
 // }
 
 const LOGGING = false;
@@ -22,7 +23,7 @@ const sendLog = async (level, message, context, loggerContext) => {
         try {
             config = require('./global-state');
         } catch (e) {
-            console.log('Error loading config: ', e);
+            electronLogger.log('Error loading config: ', e);
         }
     }
 
@@ -32,7 +33,7 @@ const sendLog = async (level, message, context, loggerContext) => {
             : 'http://localhost:9000/api/log';
 
     let email = config ? config.userEmail : (loggerContext?.userEmail ?? 'Anonymous');
-    console.log('Email:', email);
+    electronLogger.log('Email:', email);
     const logEntry = {
         sender: 'ELECTRON',
         email,
@@ -43,7 +44,7 @@ const sendLog = async (level, message, context, loggerContext) => {
     };
 
     try {
-        console.log(`[${level.toUpperCase()}]: ${message}`);
+        electronLogger.log(`[${level.toUpperCase()}]: ${message}`);
         if (!LOGGING) {
             return;
         }
@@ -127,8 +128,8 @@ const logSystemAndProcessMetrics = () => {
     };
 
     // Example usage
-    console.log(getSystemCpuUsage());
-    console.log(getSystemMemoryUsage());
+    electronLogger.log(getSystemCpuUsage());
+    electronLogger.log(getSystemMemoryUsage());
 
     setInterval(() => {
         const systemMemoryUsage = getSystemMemoryUsage();
