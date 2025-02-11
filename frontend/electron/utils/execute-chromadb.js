@@ -13,11 +13,11 @@ exports.executeChromadb = async (app) => {
         `cd ${escapedPath} && ${chromadbExecutable} run`,
         (error, stdout, stderr) => {
             if (error) {
-                console.error(`Chromadb failed to start: ${error.message}`);
+                electronLogger.error(`Chromadb failed to start: ${error.message}`);
                 return;
             }
             if (stderr) {
-                console.error(`Chromadb server stderr: ${stderr}`);
+                electronLogger.error(`Chromadb server stderr: ${stderr}`);
             }
             electronLogger.log(`Chromadb server stdout: ${stdout}`);
         }

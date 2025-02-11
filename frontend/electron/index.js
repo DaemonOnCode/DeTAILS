@@ -42,7 +42,7 @@ const cleanupAndExit = async (signal) => {
         try {
             process.kill(); // Sends SIGTERM to the process
         } catch (err) {
-            console.error(`Error terminating process ${name}:`, err);
+            electronLogger.error(`Error terminating process ${name}:`, err);
         }
     }
     try {
@@ -134,8 +134,18 @@ app.whenReady().then(async () => {
             await ses.clearStorageData({ storages: ['localstorage'] });
             electronLogger.log('LocalStorage cleared via session API.');
         } catch (err) {
-            console.error('Error clearing localStorage via session API:', err);
+            electronLogger.error('Error clearing localStorage via session API:', err);
         }
+    });
+
+    app.on('will-quit', (event) => {
+        electronLogger.log('will-quit event triggered');
+        cleanupAndExit();
+    });
+
+    app.on('quit', (event, exitCode) => {
+        electronLogger.log(`App is quitting with exit code: ${exitCode}`);
+        cleanupAndExit();
     });
 
     // Register other IPC handlers

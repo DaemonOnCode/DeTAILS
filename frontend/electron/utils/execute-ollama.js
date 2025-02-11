@@ -14,11 +14,11 @@ exports.executeOllama = async (app) => {
         `cd ${escapedPath} && ${ollamaExecutable} serve`,
         (error, stdout, stderr) => {
             if (error) {
-                console.error(`Ollama failed to start: ${error.message}`);
+                electronLogger.error(`Ollama failed to start: ${error.message}`);
                 return;
             }
             if (stderr) {
-                console.error(`Ollama server stderr: ${stderr}`);
+                electronLogger.error(`Ollama server stderr: ${stderr}`);
             }
             electronLogger.log(`Ollama server stdout: ${stdout}`);
         }

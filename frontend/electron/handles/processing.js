@@ -23,7 +23,7 @@ const processingHandler = (...ctxs) => {
             try {
                 process.kill(); // Sends SIGTERM to the process
             } catch (err) {
-                console.error(`Error terminating process ${name}:`, err);
+                electronLogger.error(`Error terminating process ${name}:`, err);
             }
         }
     });

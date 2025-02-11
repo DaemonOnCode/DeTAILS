@@ -43,7 +43,7 @@ const dbHandler = (...ctxs) => {
             });
 
             worker.stderr.on('data', (data) => {
-                console.error(`[Worker ERROR] ${data}`);
+                electronLogger.error(`[Worker ERROR] ${data}`);
             });
 
             worker.on('message', async (message) => {
@@ -54,14 +54,14 @@ const dbHandler = (...ctxs) => {
                     resolve(message);
                 } else {
                     await logger.error('Error loading data:', { err: message.error });
-                    console.error('Error loading data:', message.error);
+                    electronLogger.error('Error loading data:', message.error);
                     reject(new Error(message.error));
                 }
             });
 
             worker.on('error', async (err) => {
                 await logger.error('Error in worker:', { err: err.message });
-                console.error('Error in worker:', err.message);
+                electronLogger.error('Error in worker:', err.message);
                 reject(err);
             });
 
@@ -79,7 +79,7 @@ const dbHandler = (...ctxs) => {
             await logger.info('Worker created:', { workerPath });
             electronLogger.log('Worker created:', workerPath);
         }).catch((err) => {
-            console.error('Error in promise:', err.message);
+            electronLogger.error('Error in promise:', err.message);
             return { success: false, error: err.message };
         });
     });
@@ -99,7 +99,7 @@ const dbHandler = (...ctxs) => {
             return result;
         } catch (err) {
             await logger.error('Error getting post IDs and titles:', { err });
-            console.error('Error getting post IDs and titles:', err.message);
+            electronLogger.error('Error getting post IDs and titles:', err.message);
             return [];
         }
     });
@@ -116,7 +116,7 @@ const dbHandler = (...ctxs) => {
             return result;
         } catch (err) {
             await logger.error('Error getting posts by batch:', { err });
-            console.error('Error getting posts by batch:', err.message);
+            electronLogger.error('Error getting posts by batch:', err.message);
             return [];
         }
     });
@@ -139,7 +139,7 @@ const dbHandler = (...ctxs) => {
             return result;
         } catch (err) {
             await logger.error('Error getting post by ID:', { err });
-            console.error('Error getting post by ID:', err.message);
+            electronLogger.error('Error getting post by ID:', err.message);
             return [];
         }
     });

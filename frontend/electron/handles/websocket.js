@@ -23,7 +23,7 @@ const decodeMessage = (data) => {
             return null; // Or handle as needed
         }
     } catch (error) {
-        console.error('Error decoding message:', error);
+        electronLogger.error('Error decoding message:', error);
         return null; // Or throw error depending on use case
     }
 };
@@ -95,7 +95,7 @@ const websocketHandler = (...ctxs) => {
         });
 
         wsInstance.on('error', (error) => {
-            console.error('WebSocket error:', error.message);
+            electronLogger.error('WebSocket error:', error.message);
             try {
                 globalCtx.getState().mainWindow.webContents.send('ws-error', error.message);
             } catch (e) {
@@ -106,7 +106,7 @@ const websocketHandler = (...ctxs) => {
 
         wsInstance.on('message', (data) => {
             if (!wsInstance || wsInstance.readyState !== WebSocket.OPEN) {
-                console.error('WebSocket not connected');
+                electronLogger.error('WebSocket not connected');
                 if (wsInstance) {
                     wsInstance.close();
                 }
@@ -128,7 +128,7 @@ const websocketHandler = (...ctxs) => {
 
             const message = decodeMessage(data);
             if (message === null) {
-                console.error('Failed to decode message.');
+                electronLogger.error('Failed to decode message.');
                 return;
             }
 

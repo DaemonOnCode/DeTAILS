@@ -16,7 +16,7 @@ const redditHandler = (...ctxs) => {
             return content;
         } catch (error) {
             await logger.error('Error fetching Reddit content:', error);
-            console.error('Error fetching Reddit content:', error);
+            electronLogger.error('Error fetching Reddit content:', error);
             return { error: 'Failed to fetch content' };
         }
     });
@@ -116,7 +116,7 @@ const redditHandler = (...ctxs) => {
                 try {
                     await view.webContents.loadFile(templatePath);
                 } catch (error) {
-                    console.error('Error loading template:', error);
+                    electronLogger.error('Error loading template:', error);
                 }
             }
             // view.webContents.on('console-message', (event, level, message) => {
@@ -137,10 +137,10 @@ const redditHandler = (...ctxs) => {
             //         `
             //     )
             //     .catch((error) => {
-            //         console.error('Error executing JavaScript:', error);
+            //         electronLogger.error('Error executing JavaScript:', error);
             // //     });
             // view.webContents.on('did-stop-loading', (...e) => {
-            //     console.error('Failed to load file', e);
+            //     electronLogger.error('Failed to load file', e);
             // });
 
             view.webContents.on('did-stop-loading', () => {
@@ -185,7 +185,7 @@ const redditHandler = (...ctxs) => {
                             })();`
                         )
                         .catch((error) => {
-                            console.error('Error injecting post data:', error);
+                            electronLogger.error('Error injecting post data:', error);
                         });
                 }
                 if (text) {
@@ -250,19 +250,19 @@ const redditHandler = (...ctxs) => {
                                 searchAndHighlight(document.body, sentence);
                         
                                 } catch (error) {
-                                console.error('Error in injected script:', error);
+                                electronLogger.error('Error in injected script:', error);
                                 }
                             })();
                         `
                         )
                         .catch(async (error) => {
                             await logger.error('Error executing injected script:', error);
-                            console.error('Error executing injected script:', error);
+                            electronLogger.error('Error executing injected script:', error);
                         });
                 }
             });
             // view.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-            //     console.error(`Failed to load file: ${errorCode} - ${errorDescription}`);
+            //     electronLogger.error(`Failed to load file: ${errorCode} - ${errorDescription}`);
             // });
             // const eventsToLog = [
             //     'did-finish-load',
@@ -385,7 +385,7 @@ const redditHandler = (...ctxs) => {
             // Adjusted searchSlice function to return the commentId
             const searchSlice = (comment, normalizedCommentSlice) => {
                 if (!normalizedCommentSlice) {
-                    console.error('Selected text is empty or null');
+                    electronLogger.error('Selected text is empty or null');
                     return null;
                 }
 
@@ -477,7 +477,7 @@ const redditHandler = (...ctxs) => {
                 buffer: screenshotBuffer
             };
         } catch (error) {
-            console.error('Error capturing Reddit screenshot:', error);
+            electronLogger.error('Error capturing Reddit screenshot:', error);
             await browser.close();
             return { success: false, error: error.message };
         }

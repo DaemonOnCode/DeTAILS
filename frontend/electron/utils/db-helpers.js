@@ -72,7 +72,7 @@ const initDatabase = async (dbPath, loggerContext = {}) => {
     return new Promise((resolve, reject) => {
         const db = new sqlite3.Database(dbPath, async (err) => {
             if (err) {
-                console.error(`Database connection failed: ${err.message}`);
+                electronLogger.error(`Database connection failed: ${err.message}`);
                 await logger.error(`Database connection failed: ${err.message}`, {}, loggerContext);
                 // logger
                 //     .error(`Database connection failed: ${err.message}`)
@@ -148,7 +148,7 @@ const createTables = async (db, loggerContext = {}) => {
         await logger.info('Tables created successfully.', {}, loggerContext);
         electronLogger.log('Tables created successfully.');
     } catch (err) {
-        console.error('Error while creating tables:', err);
+        electronLogger.error('Error while creating tables:', err);
         await logger.error(`Error while creating tables: ${err.message}`, { err }, loggerContext);
         throw err;
     }
@@ -193,7 +193,7 @@ const insertPostsBatch = async (db, posts, loggerContext = {}) => {
         await runAsync(db, 'COMMIT');
         await logger.info('Posts batch inserted successfully', {}, loggerContext);
     } catch (err) {
-        await runAsync(db, 'ROLLBACK').catch(console.error);
+        await runAsync(db, 'ROLLBACK').catch(electronLogger.error);
         await logger.error(`Failed to batch insert posts: ${err.message}`, { err }, loggerContext);
         throw err;
     }
@@ -234,7 +234,7 @@ const insertCommentsBatch = async (db, comments, loggerContext = {}) => {
         await runAsync(db, 'COMMIT');
         await logger.info('Comments batch inserted successfully', {}, loggerContext);
     } catch (err) {
-        await runAsync(db, 'ROLLBACK').catch(console.error);
+        await runAsync(db, 'ROLLBACK').catch(electronLogger.error);
         await logger.error(
             `Failed to batch insert comments: ${err.message}`,
             { err },

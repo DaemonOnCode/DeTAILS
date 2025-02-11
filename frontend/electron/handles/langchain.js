@@ -278,7 +278,7 @@ Ensure the JSON is valid, properly formatted, and includes diverse, relevant que
             try {
                 parsedFlashcards = JSON.parse(rawEntries);
             } catch (e) {
-                console.error('Error parsing entries:', e);
+                electronLogger.error('Error parsing entries:', e);
                 await logger.error('Error parsing flashcards:', { error: e });
                 return JSON.stringify({ flashcards: [] }); // Return empty flashcards array on error
             }
@@ -438,7 +438,7 @@ Respond ONLY with the JSON object, nothing else.
             try {
                 parsedFlashcards = JSON.parse(rawEntries);
             } catch (e) {
-                console.error('Error parsing entries:', e);
+                electronLogger.error('Error parsing entries:', e);
                 await logger.error('Error parsing regenerated flashcards:', { error: e });
                 return JSON.stringify({ flashcards: [] }); // Return empty flashcards array on error
             }
@@ -613,7 +613,7 @@ Return only the JSON object and ensure it is correctly formatted.
             try {
                 parsedWords = JSON.parse(rawEntries);
             } catch (e) {
-                console.error('Error parsing words entries:', e);
+                electronLogger.error('Error parsing words entries:', e);
                 await logger.error('Error parsing words entries:', { error: e });
                 return JSON.stringify({ words: [] }); // Return empty words array on error
             }
@@ -799,7 +799,7 @@ Return only the JSON object and ensure it is correctly formatted.
                             parsedTranscript = JSON.parse(transcript);
                         }
                     } catch (error) {
-                        console.error('Error parsing JSON:', error);
+                        electronLogger.error('Error parsing JSON:', error);
                         await logger.error('Error parsing JSON in coding:', { error, postId });
                         electronLogger.log(
                             JSON.stringify({ unified_codebook: [], recoded_transcript: [] })
@@ -1015,7 +1015,7 @@ Return only the JSON object and ensure it is correctly formatted.
                             parsedTranscript = JSON.parse(transcript);
                         }
                     } catch (error) {
-                        console.error('Error parsing JSON:', error);
+                        electronLogger.error('Error parsing JSON:', error);
                         await logger.error('Error parsing JSON in recoding:', { error, postId });
                         electronLogger.log(
                             JSON.stringify({ unified_codebook: [], recoded_transcript: [] })

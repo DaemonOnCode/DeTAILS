@@ -4,6 +4,29 @@ echo "Current directory: $(pwd)"
 
 if [ -d "./executables" ]; then
     echo "executables directory exists"
+    cd executables
+    echo "Cleaning up previous builds"
+    echo "Cleaning Chromadb"
+    rm -rf ./chroma_data
+    cd ./chroma
+    rm -rf chroma_data
+    rm cli
+    cd ..
+    echo "Cleaned Chromadb"
+    echo "Cleaning ollama"
+    # cd ollama
+    # cd ..
+    rm -rf ./ollama
+    echo "Cleaned ollama"
+    echo "Cleaning backend server"
+    cd data-modeling-server
+    rm ./main
+    rm -rf datasets
+    rm -rf uploaded_jsons
+    rm -f *.db
+    cd ..
+    echo "Cleaned backend server"
+    cd ..
 else
     echo "executables directory does not exist"
     mkdir executables
@@ -43,7 +66,9 @@ cd ./ollama-0.4.2
 echo "Building ollama"
 ./scripts/build.sh 0.4.2
 echo "Copying the built ollama"
+mkdir -p ../executables/ollama/
 cp .env ../executables/ollama/
+cp ./ollama ../executables/ollama/
 
 if [ -d "dist" ]; then
     echo "Folder 'dist' exists. Proceeding with commands..."

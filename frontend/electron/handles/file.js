@@ -73,7 +73,7 @@ const fileHandler = (...ctxs) => {
             }
             return { success: false, message: 'No file selected' };
         } catch (error) {
-            console.error('Error saving CSV:', error);
+            electronLogger.error('Error saving CSV:', error);
             return { success: false, message: error.message };
         }
     });
@@ -103,7 +103,7 @@ const fileHandler = (...ctxs) => {
             }
             return { success: false, message: 'No file selected' };
         } catch (error) {
-            console.error('Error saving Excel:', error);
+            electronLogger.error('Error saving Excel:', error);
             return { success: false, message: error.message };
         }
     });

@@ -78,7 +78,7 @@ const spawnService = async (config, mainWindow) => {
         });
 
         service.on('error', (err) => {
-            console.error(`${config.name} encountered an error:`, err);
+            electronLogger.error(`${config.name} encountered an error:`, err);
             mainWindow.webContents.send('service-stopped', config.name);
             if (config.name === 'backend' && err.message.includes('Address already in use')) {
                 electronLogger.log(
@@ -122,14 +122,35 @@ const copyBinariesIfNotExists = (resourceBinariesPath, binariesPath) => {
         fs.mkdirSync(binariesPath, { recursive: true }); // Ensure destination exists
     }
 
-    try {
-        fs.cpSync(resourceBinariesPath, binariesPath, { recursive: true, force: false });
-        electronLogger.log(
-            `Binaries copied successfully from ${resourceBinariesPath} to ${binariesPath}`
-        );
-    } catch (error) {
-        electronLogger.error(`Error copying binaries: ${error.message}`);
-    }
+    const copyMissingFilesRecursively = (src, dest) => {
+        const items = fs.readdirSync(src, { withFileTypes: true });
+
+        items.forEach((item) => {
+            const srcPath = path.join(src, item.name);
+            const destPath = path.join(dest, item.name);
+
+            if (item.isDirectory()) {
+                if (!fs.existsSync(destPath)) {
+                    fs.mkdirSync(destPath, { recursive: true });
+                }
+                copyMissingFilesRecursively(srcPath, destPath);
+            } else {
+                if (!fs.existsSync(destPath)) {
+                    try {
+                        fs.copyFileSync(srcPath, destPath);
+                        electronLogger.log(`Copied missing file: ${destPath}`);
+                    } catch (error) {
+                        electronLogger.error(`Error copying file ${destPath}: ${error.message}`);
+                    }
+                } else {
+                    electronLogger.log(`Skipped existing file: ${destPath}`);
+                }
+            }
+        });
+    };
+
+    copyMissingFilesRecursively(resourceBinariesPath, binariesPath);
+    electronLogger.log(`Binaries verification completed at: ${binariesPath}`);
 };
 
 // Function to spawn all services
@@ -159,12 +180,12 @@ const spawnServices = async (globalCtx) => {
         await Promise.all([
             spawnService(serviceConfig.chroma, globalCtx.getState().mainWindow),
             spawnService(serviceConfig.backend, globalCtx.getState().mainWindow),
-            spawnService(serviceConfig.miscFrontend, globalCtx.getState().mainWindow),
-            spawnService(serviceConfig.ollama, globalCtx.getState().mainWindow)
+            spawnService(serviceConfig.ollama, globalCtx.getState().mainWindow),
+            spawnService(serviceConfig.miscFrontend, globalCtx.getState().mainWindow)
         ]);
         electronLogger.log('All services started successfully.');
     } catch (error) {
-        console.error('Error starting services:', error);
+        electronLogger.error('Error starting services:', error);
     }
 };
 

@@ -58,7 +58,7 @@ const loadCommentsForPosts = async (folderPath, parsedData, db) => {
             { err },
             loggerContext
         );
-        console.error(err);
+        electronLogger.error(err);
         throw err;
     }
 };
@@ -83,7 +83,7 @@ const main = async () => {
             electronLogger.log('All data loaded successfully.');
         } catch (err) {
             await logger.error('Error during data load.', { err }, loggerContext);
-            console.error(`Error: ${err.message}`);
+            electronLogger.error(`Error: ${err.message}`);
             parentPort.postMessage({ success: false, error: err.message });
             if (db) {
                 db.close();
@@ -96,14 +96,14 @@ const main = async () => {
                 if (err) {
                     logger
                         .error(`Failed to close database: ${err.message}`, { err }, loggerContext)
-                        .catch(console.error);
-                    console.error(`Failed to close database: ${err.message}`);
+                        .catch(electronLogger.error);
+                    electronLogger.error(`Failed to close database: ${err.message}`);
                     parentPort.postMessage({
                         success: false,
                         error: `Failed to close database: ${err.message}`
                     });
                 } else {
-                    logger.info('Database closed.', {}, loggerContext).catch(console.error);
+                    logger.info('Database closed.', {}, loggerContext).catch(electronLogger.error);
                     electronLogger.log('Database closed.');
                     parentPort.postMessage({
                         success: true,
@@ -113,7 +113,7 @@ const main = async () => {
             });
         } catch (err) {
             await logger.error('Error closing database.', { err }, loggerContext);
-            console.error(`Error closing database: ${err.message}`);
+            electronLogger.error(`Error closing database: ${err.message}`);
             parentPort.postMessage({ success: false, error: err.message });
         }
 
@@ -123,6 +123,6 @@ const main = async () => {
 
 // Run the main function
 main().catch((err) => {
-    console.error(`Unhandled error: ${err.message}`);
+    electronLogger.error(`Unhandled error: ${err.message}`);
     parentPort.postMessage({ success: false, error: err.message });
 });

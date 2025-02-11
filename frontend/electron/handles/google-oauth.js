@@ -59,7 +59,7 @@ const googleOAuthHandler = (...ctxs) => {
             };
         } catch (error) {
             await logger.error('Error during Google OAuth:', { error });
-            console.error('Error during Google OAuth:', error);
+            electronLogger.error('Error during Google OAuth:', error);
             throw error;
         }
     });

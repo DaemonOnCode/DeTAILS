@@ -81,14 +81,15 @@
         "electron:build": "electron-builder build --publish never",
         "electron:deploy": "electron-builder build --win --publish always",
         "electron:dev": "cross-env NODE_ENV=development electron .",
-        "build": "npm run react:build && npm run electron:build",
+        "build": "npm run react:build",
         "deploy": "npm run react:build && npm run electron:deploy",
         "format": "prettier --write .",
         "update": "taze latest -w",
         "serve:chroma": "chroma run --path ${DB_PATH:-../chroma}",
+        "executable:build": "cd ../executables && ./build.sh",
         "start": "cross-env NODE_ENV=production electron-forge start",
         "package": "cross-env NODE_ENV=production electron-forge package",
-        "make": "npm run build; cross-env NODE_ENV=production electron-forge make"
+        "make": "npm run executable:build && npm run build && cross-env NODE_ENV=production electron-forge make"
     },
     "eslintConfig": {
         "extends": [

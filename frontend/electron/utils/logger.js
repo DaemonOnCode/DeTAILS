@@ -16,7 +16,7 @@ const LOG_LEVELS = ['info', 'warning', 'error', 'debug', 'health', 'time'];
 
 const sendLog = async (level, message, context, loggerContext) => {
     if (!LOG_LEVELS.includes(level)) {
-        console.error(`Invalid log level: ${level}`);
+        electronLogger.error(`Invalid log level: ${level}`);
     }
 
     if (!loggerContext) {
@@ -57,7 +57,7 @@ const sendLog = async (level, message, context, loggerContext) => {
             throw new Error(`Failed to send log: ${response.statusText}`);
         }
     } catch (error) {
-        console.error(`Failed to send log to server: ${error.message}`);
+        electronLogger.error(`Failed to send log to server: ${error.message}`);
     }
 };
 

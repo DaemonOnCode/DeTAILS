@@ -95,7 +95,7 @@ const loadCommentsForPosts = async (folderPath, parsedData) => {
                 }
             });
         } catch (error) {
-            console.error(`Error processing file ${file}:`, error.message);
+            electronLogger.error(`Error processing file ${file}:`, error.message);
         }
     }
 
@@ -110,7 +110,7 @@ parentPort?.on('message', async ({ folderPath, parsedData }) => {
         const fullData = await loadCommentsForPosts(folderPath, parsedData);
         parentPort.postMessage({ fullData });
     } catch (error) {
-        console.error('Error in worker:', error.message);
+        electronLogger.error('Error in worker:', error.message);
         parentPort.postMessage({ error: error.message });
     }
 });
