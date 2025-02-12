@@ -33,93 +33,24 @@ const WorkspaceSelectionPage: React.FC = () => {
         workspaces,
         currentWorkspace,
         addWorkspace,
+        setWorkspaces,
         addWorkspaceBatch,
         // setCurrentWorkspace,
         updateWorkspace,
         deleteWorkspace,
-        setCurrentWorkspaceById
+        setCurrentWorkspaceById,
+        setWorkspaceLoading,
+        workspaceLoading: loading
     } = useWorkspaceContext();
 
     const [newWorkspaceName, setNewWorkspaceName] = useState<string>('');
     // const [renameMode, setRenameMode] = useState<boolean>(false);
     const [renameWorkspaceName, setRenameWorkspaceName] = useState<string>('');
-    const [loading, setLoading] = useState<boolean>(true);
+
     // const [dropdownVisible, setDropdownVisible] = useState<boolean>(false);
 
     const { loadWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = useServerUtils();
-
-    const isLoading = useRef(false);
-
-    useEffect(() => {
-        const fetchWorkspaces = async () => {
-            if (isLoading.current) return;
-            isLoading.current = true;
-            const controller = new AbortController();
-            const signal = controller.signal;
-
-            try {
-                setLoading(true);
-
-                const response = await fetch(
-                    getServerUrl(
-                        `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
-                            user?.email || ''
-                        )}`
-                    ),
-                    { signal }
-                );
-
-                const data = await response.json();
-
-                if (Array.isArray(data) && data.length > 0) {
-                    console.log('Workspaces:', data);
-                    const newWorkspaces = data.map((workspace: any) => ({
-                        id: workspace.id,
-                        name: workspace.name,
-                        description: workspace.description || ''
-                    }));
-
-                    // Update only if new workspaces differ from current state
-                    if (workspaces.length === 0) {
-                        console.log(
-                            'Adding workspaces:',
-                            newWorkspaces,
-                            newWorkspaces.find(
-                                (workspace) => workspace.name === 'Temporary Workspace'
-                            )
-                        );
-                        addWorkspaceBatch(newWorkspaces);
-                        // setCurrentWorkspace(
-                        //     newWorkspaces.find(
-                        //         (workspace) => workspace.name === 'Temporary Workspace'
-                        //     )!
-                        // );
-                        setLoading(false);
-                    }
-                } else {
-                    console.log('No workspaces found.');
-                    // Create a temporary workspace only if none exists
-                    if (workspaces.length === 0) {
-                        await handleCreateTempWorkspace();
-                    }
-                }
-            } catch (error: any) {
-                if (error.name !== 'AbortError') {
-                    console.error('Error fetching workspaces:', error);
-                }
-            } finally {
-                isLoading.current = false;
-                setLoading(false);
-            }
-
-            return () => {
-                controller.abort();
-            };
-        };
-
-        if (user?.email) fetchWorkspaces();
-    }, [user?.email, workspaces.length]);
 
     const handleCreateTempWorkspace = async () => {
         try {
@@ -147,6 +78,80 @@ const WorkspaceSelectionPage: React.FC = () => {
         }
     };
 
+    const isLoading = useRef(false);
+
+    useEffect(() => {
+        const fetchWorkspaces = async () => {
+            if (isLoading.current) return;
+            isLoading.current = true;
+            const controller = new AbortController();
+            const signal = controller.signal;
+
+            try {
+                setWorkspaceLoading(true);
+
+                const response = await fetch(
+                    getServerUrl(
+                        `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
+                            user?.email || ''
+                        )}`
+                    ),
+                    { signal }
+                );
+
+                const data = await response.json();
+
+                if (Array.isArray(data) && data.length > 0) {
+                    console.log('Workspaces:', data);
+                    const newWorkspaces = data.map((workspace: any) => ({
+                        id: workspace.id,
+                        name: workspace.name,
+                        description: workspace.description || '',
+                        updatedAt: workspace.updated_at || ''
+                    }));
+
+                    // Update only if new workspaces differ from current state
+                    setWorkspaces(newWorkspaces);
+                    // if (workspaces.length === 0) {
+                    //     console.log(
+                    //         'Adding workspaces:',
+                    //         newWorkspaces,
+                    //         newWorkspaces.find(
+                    //             (workspace) => workspace.name === 'Temporary Workspace'
+                    //         )
+                    //     );
+                    //     // addWorkspaceBatch(newWorkspaces);
+                    //     // setCurrentWorkspace(
+                    //     //     newWorkspaces.find(
+                    //     //         (workspace) => workspace.name === 'Temporary Workspace'
+                    //     //     )!
+                    //     // );
+                    // }
+                    setWorkspaceLoading(false);
+                } else {
+                    console.log('No workspaces found.');
+                    // Create a temporary workspace only if none exists
+                    if (workspaces.length === 0) {
+                        await handleCreateTempWorkspace();
+                    }
+                }
+            } catch (error: any) {
+                if (error.name !== 'AbortError') {
+                    console.error('Error fetching workspaces:', error);
+                }
+            } finally {
+                isLoading.current = false;
+                setWorkspaceLoading(false);
+            }
+
+            return () => {
+                controller.abort();
+            };
+        };
+
+        if (user?.email) fetchWorkspaces();
+    }, []);
+
     // Add workspace
     const handleAddWorkspace = async () => {
         if (!newWorkspaceName.trim()) {
@@ -172,7 +177,8 @@ const WorkspaceSelectionPage: React.FC = () => {
             addWorkspace({
                 id: result.id,
                 name: newWorkspaceName, // Use the name entered by the user
-                description: '' // Placeholder description if none provided
+                description: '', // Placeholder description if none provided
+                updatedAt: result.updated_at
             });
 
             // Set the new workspace as the current workspace
@@ -213,10 +219,10 @@ const WorkspaceSelectionPage: React.FC = () => {
 
     // Delete workspace
     const handleDeleteWorkspace = async (workspaceId: string) => {
-        if (workspaces.length <= 1) {
-            toast.warning('You must have at least one workspace.');
-            return;
-        }
+        // if (workspaces.length <= 1) {
+        //     toast.warning('You must have at least one workspace.');
+        //     return;
+        // }
 
         try {
             const res = await Promise.allSettled([
@@ -304,6 +310,15 @@ const WorkspaceSelectionPage: React.FC = () => {
         navigate(`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.HOME}`);
     };
 
+    function sortWorkspacesByUpdatedAt(unsortedWorkspaces: typeof workspaces, order = 'desc') {
+        return unsortedWorkspaces.sort((a, b) => {
+            const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+            const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+
+            return order === 'desc' ? dateB - dateA : dateA - dateB;
+        });
+    }
+
     if (loading) {
         return (
             <div className="h-page flex items-center justify-center px-6">
@@ -313,7 +328,7 @@ const WorkspaceSelectionPage: React.FC = () => {
     }
 
     return (
-        <div className="h-screen">
+        <div className="h-page">
             <div className="flex justify-between items-center mb-4">
                 <h1 className="text-2xl font-bold">Workspace Management</h1>
                 <div className="flex items-center gap-2">
@@ -337,7 +352,10 @@ const WorkspaceSelectionPage: React.FC = () => {
                     <h2 className="text-lg font-semibold">All Workspaces</h2>
                 </div>
                 <div className="p-4">
-                    {workspaces.map((workspace) => (
+                    {workspaces.length === 0 && (
+                        <div className="text-gray-600 text-center">No workspaces found.</div>
+                    )}
+                    {sortWorkspacesByUpdatedAt(workspaces).map((workspace) => (
                         <div key={workspace.id} className="mb-2">
                             <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2 rounded">
                                 <span onClick={() => toggleExpand(workspace.id)}>
@@ -388,6 +406,11 @@ const WorkspaceSelectionPage: React.FC = () => {
                                 <div className="ml-6 mt-2">
                                     <p className="text-sm text-gray-600">
                                         Workspace ID: {workspace.id}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                        Last Updated:{' '}
+                                        {new Date(workspace.updatedAt ?? '').toLocaleDateString()}{' '}
+                                        {new Date(workspace.updatedAt ?? '').toLocaleTimeString()}
                                     </p>
                                     {editingDescription === workspace.id ? (
                                         <textarea

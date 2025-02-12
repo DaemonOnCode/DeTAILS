@@ -11,6 +11,7 @@ from zipfile import ZipFile
 
 from chromadb import HttpClient
 from fastapi import HTTPException, UploadFile
+from controllers.workspace_controller import upgrade_workspace_from_temp
 from models import WorkspaceState, Workspace
 from database import WorkspaceStatesRepository, WorkspacesRepository
 from models.state_models import CodingContext, CollectionContext, ModelingContext
@@ -82,6 +83,32 @@ def save_state(data):
         existing_state = None
 
     if existing_state:
+
+        if workspace_state == existing_state:
+            # No changes to the workspace state
+            print("No changes to the workspace state.")
+            return
+        
+        current_workspace = workspaces_repo.find_one(
+            {"id": data.workspace_id}
+        )
+
+        emptyToFilled = False
+        for field in workspace_state.to_dict():
+            if field == "updated_at" or field == "user_email" or field == "workspace_id" or field == "dataset_id":
+                continue
+            current_value = getattr(workspace_state, field)
+            previous_value = getattr(existing_state, field)
+            print(f"Field: {field}, Current: {current_value}, Previous: {previous_value}")
+            if (current_value is not None and current_value != "") and (previous_value is None or previous_value == ""):
+                print("Empty to Filled")
+                emptyToFilled = True
+                break
+
+        if current_workspace.name == "Temporary Workspace" and emptyToFilled:
+            upgrade_workspace_from_temp(data.workspace_id, "Untitled Workspace")
+        
+
         # Update the existing record
         workspace_state_repo.update(
             {"workspace_id": data.workspace_id, "user_email": data.user_email},
@@ -90,6 +117,11 @@ def save_state(data):
     else:
         # Insert a new record
         workspace_state_repo.insert(workspace_state)
+
+    workspaces_repo.update(
+        {"id": data.workspace_id},
+        {"updated_at": datetime.now()}
+    )
 
 
 def load_state(data):

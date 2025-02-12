@@ -4,9 +4,9 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, RulesRepository, TokenStatsRepository, TokenStatsDetailedRepository, ModelsRepository, DatasetsRepository, PostsRepository, CommentsRepository, TokenizedPostsRepository, TokenizedCommentsRepository, LlmResponsesRepository
+from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, DatasetsRepository, PostsRepository, CommentsRepository, LlmResponsesRepository
 from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware
-from routes import coding_routes, modeling_routes, filtering_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
+from routes import coding_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
 
 load_dotenv()
 print(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
@@ -15,15 +15,15 @@ print("Initializing database...")
 initialize_database([
     WorkspacesRepository, 
     WorkspaceStatesRepository, 
-    RulesRepository,
-    TokenStatsRepository,
-    TokenStatsDetailedRepository,
-    ModelsRepository,
+    # RulesRepository,
+    # TokenStatsRepository,
+    # TokenStatsDetailedRepository,
+    # ModelsRepository,
     DatasetsRepository, 
     PostsRepository, 
     CommentsRepository,
-    TokenizedPostsRepository,
-    TokenizedCommentsRepository,
+    # TokenizedPostsRepository,
+    # TokenizedCommentsRepository,
     LlmResponsesRepository
 ])
 
@@ -45,8 +45,8 @@ app.add_middleware(ErrorHandlingMiddleware)
 print("Middleware added!")
 
 app.include_router(collection_routes.router, prefix="/api/collections", tags=["collections"])
-app.include_router(modeling_routes.router, prefix="/api/data-modeling", tags=["topic-modeling"])
-app.include_router(filtering_routes.router, prefix="/api/data-filtering", tags=["data-filtering"])
+# app.include_router(modeling_routes.router, prefix="/api/data-modeling", tags=["topic-modeling"])
+# app.include_router(filtering_routes.router, prefix="/api/data-filtering", tags=["data-filtering"])
 app.include_router(websocket_routes.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(coding_routes.router, prefix="/api/coding", tags=["coding"])
 app.include_router(miscellaneous_routes.router, prefix="/api/miscellaneous", tags=["miscellaneous"])

@@ -19,7 +19,8 @@ const { ipcRenderer } = window.require('electron');
 export const Layout: FC<ILayout> = ({ children }) => {
     const { serviceStarting } = useWebSocket();
     const { remoteProcessing, user } = useAuth();
-    const { workspaces, currentWorkspace, addWorkspaceBatch } = useWorkspaceContext();
+    const { workspaces, currentWorkspace, addWorkspaceBatch, addWorkspace, setWorkspaceLoading } =
+        useWorkspaceContext();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
     useEffect(() => {

@@ -4,7 +4,7 @@ dist
 build
 env
 new_env
-.venv
+.venv*
 import_temp
 basis_files
 context_files

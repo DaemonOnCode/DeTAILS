@@ -12,25 +12,28 @@ import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
 import useServerUtils from '../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../hooks/Shared/workspace-utils';
 import { useAuth } from './auth-context';
-
-const { ipcRenderer } = window.require('electron');
+import { SetState } from '../types/Coding/shared';
 
 interface Workspace {
     id: string;
     name: string;
     description?: string;
+    updatedAt?: string;
 }
 
 export interface IWorkspaceContext {
     workspaces: Workspace[];
     currentWorkspace: Workspace | null;
     addWorkspace: (workspace: Workspace) => void;
+    setWorkspaces: SetState<Workspace[]>;
     updateWorkspace: (id: string, name?: string, description?: string) => void;
     deleteWorkspace: (id: string) => void;
     setCurrentWorkspace: (workspace: Workspace) => void;
     resetWorkspaces: () => void;
     addWorkspaceBatch: (newWorkspaces: Workspace[]) => void;
     setCurrentWorkspaceById: (workspaceId: string) => void;
+    workspaceLoading: boolean;
+    setWorkspaceLoading: SetState<boolean>;
 }
 
 const WorkspaceContext = createContext<IWorkspaceContext | undefined>(undefined);
@@ -38,6 +41,7 @@ const WorkspaceContext = createContext<IWorkspaceContext | undefined>(undefined)
 export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
     const [currentWorkspace, setCurrentWorkspaceState] = useState<Workspace | null>(null);
+    const [workspaceLoading, setWorkspaceLoading] = useState(false);
 
     // Add workspace
 
@@ -57,7 +61,7 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
         setCurrentWorkspaceState(null);
         setWorkspaces((prev) => {
             let newWorkspaces = prev.filter((ws) => ws.id !== id);
-            setCurrentWorkspaceState(newWorkspaces[0] ?? null);
+            setCurrentWorkspaceState(null);
             return newWorkspaces.length > 0 ? newWorkspaces : [];
         });
     }, []);
@@ -120,6 +124,7 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
     const value = useMemo(
         () => ({
             workspaces,
+            setWorkspaces,
             currentWorkspace,
             addWorkspace,
             addWorkspaceBatch, // Add the batched update function
@@ -127,9 +132,11 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
             deleteWorkspace,
             setCurrentWorkspace,
             resetWorkspaces,
-            setCurrentWorkspaceById
+            setCurrentWorkspaceById,
+            workspaceLoading,
+            setWorkspaceLoading
         }),
-        [workspaces, currentWorkspace]
+        [workspaces, currentWorkspace, workspaceLoading]
     );
 
     return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

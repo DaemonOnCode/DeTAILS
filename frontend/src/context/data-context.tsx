@@ -18,13 +18,13 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
     }, []);
     return (
         <CollectionProvider>
-            <FilteringProvider>
-                <ModelingProvider>
-                    <CodingProvider>
-                        <DataContext.Provider value={value}>{children}</DataContext.Provider>
-                    </CodingProvider>
-                </ModelingProvider>
-            </FilteringProvider>
+            {/* <FilteringProvider> */}
+            {/* <ModelingProvider> */}
+            <CodingProvider>
+                <DataContext.Provider value={value}>{children}</DataContext.Provider>
+            </CodingProvider>
+            {/* </ModelingProvider>
+            </FilteringProvider> */}
         </CollectionProvider>
     );
 };

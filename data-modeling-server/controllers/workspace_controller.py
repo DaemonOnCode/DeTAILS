@@ -10,11 +10,14 @@ def create_workspace(data):
     workspace_id = str(uuid4())
     print("Created workspace ID: ", workspace_id)
     workspace_repo.insert(Workspace(id=workspace_id, name=data.name, description= data.description, user_email=data.user_email))
+
     # execute_query(
     #     "INSERT INTO workspaces (id, name, description, user_email) VALUES (?, ?, ?, ?)",
     #     (workspace_id, data.name, data.description, data.user_email),
     # )
-    return workspace_id
+    return workspace_repo.find_one({
+        "id": workspace_id
+    }).to_dict()
 
 def get_workspaces(user_email: str):
     return workspace_repo.find({"user_email": user_email})
@@ -86,7 +89,7 @@ def create_temp_workspace(user_email: str):
 def upgrade_workspace_from_temp(workspace_id: str, new_name: str):
     workspace_repo.update({"id": workspace_id}, {
         "name":new_name,
-        "description": 'Upgraded workspace'
+        "description": 'Upgraded from temporary workspace'
     })
     # execute_query(
     #     "UPDATE workspaces SET name = ?, description = 'Upgraded workspace' WHERE id = ?",

@@ -54,14 +54,8 @@ const WebSocketSingleton = (() => {
         setTimeout(initiateWebSocketConnection, retryDelay);
     };
 
-    const deinitialize = () => {
+    const deinitialize = async () => {
         console.log('Deinitializing WebSocket Singleton...');
-
-        // Stop WebSocket connection
-        ipcRenderer
-            .invoke('disconnect-ws')
-            .catch((err: any) => console.error('Error disconnecting WebSocket:', err));
-
         // Remove all event listeners related to WebSocket
         ipcRenderer.removeAllListeners('ws-message');
         ipcRenderer.removeAllListeners('ws-connected');
@@ -72,6 +66,13 @@ const WebSocketSingleton = (() => {
         // Reset internal state
         retryCount = 0;
         isInitialized = false;
+
+        // Stop WebSocket connection
+        try {
+            await ipcRenderer.invoke('disconnect-ws');
+        } catch (error) {
+            console.error('Failed to disconnect WebSocket:', error);
+        }
 
         console.log('WebSocket Singleton successfully deinitialized.');
     };
@@ -148,7 +149,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
 
             ipcRenderer.on('ws-closed', () => {
                 // console.log('WebSocket closed', isAuthenticated);
-                // if (!isAuthenticated) return;
+                if (!isAuthenticated) return;
                 toast.warning('WebSocket disconnected. Attempting to reconnect...');
                 WebSocketSingleton.attemptReconnect(initiateWebSocketConnection);
             });
@@ -157,17 +158,20 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
     );
 
     const pollBackendServices = () => {
+        console.log('Polling backend services...');
         setServiceStarting(true);
 
         const handleServiceStarted = (event: any, serviceName: string) => {
+            console.log('Service started:', serviceName);
             if (serviceName === 'backend') {
                 console.log('Backend service started');
                 toast.info('Backend service started');
-                initiateWebSocketConnection();
             }
+            initiateWebSocketConnection();
         };
 
         const handleServiceStopped = (event: any, serviceName: string) => {
+            console.log('Service stopped:', serviceName);
             if (serviceName === 'backend') {
                 console.log('Backend service stopped');
                 toast.error('Backend service stopped. Restart the application.');
@@ -178,6 +182,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         ipcRenderer.on('service-stopped', handleServiceStopped);
 
         return () => {
+            // WebSocketSingleton.deinitialize();
             ipcRenderer.removeListener('service-started', handleServiceStarted);
             ipcRenderer.removeListener('service-stopped', handleServiceStopped);
         };
@@ -200,8 +205,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
 
         let cleanup = () => {
             console.log('User logged out. De-initializing WebSocket...');
-            WebSocketSingleton.deinitialize();
-            setServiceStarting(false);
+            // setServiceStarting(false);
         };
         if (remoteProcessing) {
             setServiceStarting(false);
@@ -211,7 +215,12 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         }
 
         return () => {
+            console.log('WebSocketProvider cleanup');
             cleanup();
+            if (!isAuthenticated) {
+                WebSocketSingleton.deinitialize();
+            }
+            setServiceStarting(false);
             if (pingTimeoutRef.current) clearTimeout(pingTimeoutRef.current);
             ipcRenderer.invoke('disconnect-ws');
         };

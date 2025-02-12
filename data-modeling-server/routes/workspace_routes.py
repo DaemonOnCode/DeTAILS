@@ -13,9 +13,9 @@ async def create_workspace_endpoint(request: WorkspaceCreateRequest):
     """
     Create a new workspace and associate it with the user's email.
     """
-    workspace_id = create_workspace(request)
-    print("Workspace ID: ", workspace_id, "Create workspace")
-    return {"message": "Workspace created successfully!", "id": workspace_id}
+    workspace_details = create_workspace(request)
+    print("Workspace ID: ", workspace_details, "Create workspace")
+    return {"message": "Workspace created successfully!", **workspace_details}
 
 @router.get("/get-workspaces", response_model=List[dict])
 async def get_workspaces_endpoint(user_email: str):

@@ -70,6 +70,19 @@ class BaseDataclass:
             return self[key]
         raise KeyError(f"{key} not found in {self.__class__.__name__}")
 
+    def __eq__(self, other: Any) -> bool:
+        """Check if two dataclass instances are equal based on string values."""
+        if not isinstance(other, self.__class__):
+            return False
+        for key in self.keys():
+            if self[key] != other[key]:
+                return False
+        return True
+
+    def __ne__(self, other: Any) -> bool:
+        """Check if two dataclass instances are not equal."""
+        return not self.__eq__(other)
+
 @dataclass
 class Workspace(BaseDataclass):
     id: str = field(metadata={"not_null": True})
@@ -77,6 +90,7 @@ class Workspace(BaseDataclass):
     user_email: str = field(metadata={"not_null": True})
     description: Optional[str] = None
     created_at: Optional[datetime] = field(default_factory=datetime.now)
+    updated_at: Optional[datetime] = field(default_factory=datetime.now)
 
 
 @dataclass

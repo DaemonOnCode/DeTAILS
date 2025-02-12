@@ -34,7 +34,15 @@ if (!process.env.NODE_ENV === 'development') {
 }
 
 // Function to clean up and gracefully exit
-const cleanupAndExit = async (signal) => {
+const cleanupAndExit = async (globalCtx, signal) => {
+    const ses = session.defaultSession;
+    try {
+        await ses.clearStorageData({ storages: ['localstorage'] });
+        electronLogger.log('LocalStorage cleared via session API.');
+    } catch (err) {
+        electronLogger.error('Error clearing localStorage via session API:', err);
+    }
+
     electronLogger.log(`Received signal: ${signal}`);
     await logger.info('Process exited', { signal });
     for (const { name, process } of spawnedProcesses) {
@@ -46,7 +54,8 @@ const cleanupAndExit = async (signal) => {
         }
     }
     try {
-        config.websocket.close();
+        globalCtx.getState().websocket.close();
+        globalCtx.setState({ websocket: null });
     } catch (e) {
         electronLogger.log('Error closing websocket');
     }
@@ -78,18 +87,21 @@ app.whenReady().then(async () => {
     // });
 
     // Register signal handlers for SIGINT, SIGTERM, and SIGABRT
-    ['SIGINT', 'SIGTERM', 'SIGABRT', 'SIGHUP'].forEach((signal) => {
+    ['SIGINT', 'SIGTERM', 'SIGABRT', 'SIGHUP', 'SIGSEGV'].forEach((signal) => {
         electronLogger.log(`Registering handler for signal: ${signal}`);
         process.on(signal, () => {
             electronLogger.log(`Handler triggered for signal: ${signal}`);
-            cleanupAndExit(signal);
+            cleanupAndExit(globalCtx, signal);
         });
     });
 
     // Handle app activation (specific to macOS)
     app.on('activate', async () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            globalCtx.getState().mainWindow = await createMainWindow();
+        // if (BrowserWindow.getAllWindows().length === 0) {
+        //     globalCtx.getState().mainWindow = await createMainWindow();
+        // }
+        if (globalCtx.getState().mainWindow) {
+            globalCtx.getState().mainWindow.show();
         }
     });
 
@@ -128,33 +140,43 @@ app.whenReady().then(async () => {
         autoUpdater.quitAndInstall();
     });
 
+    ipcMain.on('close', (event) => {
+        electronLogger.log('closed app with x');
+    });
+
     app.on('before-quit', async () => {
-        const ses = session.defaultSession;
-        try {
-            await ses.clearStorageData({ storages: ['localstorage'] });
-            electronLogger.log('LocalStorage cleared via session API.');
-        } catch (err) {
-            electronLogger.error('Error clearing localStorage via session API:', err);
-        }
+        electronLogger.log('before-quit');
+        // cleanupAndExit(globalCtx);
+        globalCtx.setState({ isQuitting: true });
     });
 
     app.on('will-quit', (event) => {
         electronLogger.log('will-quit event triggered');
-        cleanupAndExit();
+        // cleanupAndExit(globalCtx);
     });
 
     app.on('quit', (event, exitCode) => {
+        cleanupAndExit(globalCtx);
         electronLogger.log(`App is quitting with exit code: ${exitCode}`);
-        cleanupAndExit();
     });
+
+    // Handle all windows being closed
 
     // Register other IPC handlers
     registerIpcHandlers(globalCtx);
 });
 
-// Handle all windows being closed
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        cleanupAndExit();
-    }
+    console.log('window-all-closed');
+    // if (process.platform !== 'darwin') {
+    //     cleanupAndExit(globalCtx);
+    // } else {
+    //     // globalCtx.getState().mainWindow.hide();
+    //     // try {
+    //     //     globalCtx.getState().websocket.close();
+    //     //     globalCtx.setState({ websocket: null });
+    //     // } catch (e) {
+    //     //     electronLogger.log('Error closing websocket', e);
+    //     // }
+    // }
 });

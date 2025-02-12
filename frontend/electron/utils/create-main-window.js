@@ -19,6 +19,8 @@ function getPlatformIcon() {
 }
 
 exports.createMainWindow = async (...ctxs) => {
+    const globalCtx = ctxs.find((ctx) => ctx.name === 'global');
+
     const window = new BrowserWindow({
         width: 800,
         height: 600,
@@ -60,10 +62,17 @@ exports.createMainWindow = async (...ctxs) => {
     });
 
     window.on('close', (e) => {
-        if (!globalState.isQuiting) {
-            e.preventDefault();
-
-            window.hide();
+        console.log('close event');
+        if (process.platform === 'darwin' && !globalCtx.getState().isQuitting) {
+            e.preventDefault(); // Prevent close on macOS
+            if (window.isFullScreen()) {
+                window.once('leave-full-screen', () => window.hide());
+                window.setFullScreen(false);
+                window.once('show', () => window.setFullScreen(true)); // when it's time to show the window again, some code will call window.show() and trigger this
+            } else {
+                window.hide();
+            }
+            // window.minimize();
         }
     });
 

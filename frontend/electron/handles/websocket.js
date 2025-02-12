@@ -152,12 +152,13 @@ const websocketHandler = (...ctxs) => {
     });
 
     ipcMain.handle('disconnect-ws', (event, message) => {
+        console.log('Disconnecting WebSocket...');
         // if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
         try {
             wsInstance.send('disconnect');
             wsInstance.close();
         } catch (e) {
-            electronLogger.log('Application closed');
+            electronLogger.log('Application closed, disconnect');
             electronLogger.log(e);
         } finally {
             wsInstance = null;

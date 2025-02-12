@@ -39,7 +39,7 @@ const servicesConfig = (executablesPath) => {
 };
 
 // Helper function to spawn a process
-const spawnService = async (config, mainWindow) => {
+const spawnService = async (config, globalCtx) => {
     return new Promise((resolve, reject) => {
         electronLogger.log(`Starting ${config.name}...`);
         const extraConfig = {
@@ -53,13 +53,13 @@ const spawnService = async (config, mainWindow) => {
 
         service.on('spawn', (data) => {
             electronLogger.log(`Spawned ${config.name}`);
-            mainWindow.webContents.send('service-started', config.name);
+            globalCtx.getState().mainWindow.webContents.send('service-started', config.name);
         });
 
         service.on('exit', (code) => {
             electronLogger.log(`${config.name} exited with code ${code}`);
             try {
-                mainWindow.webContents.send('service-stopped', config.name);
+                globalCtx.getState().mainWindow.webContents.send('service-stopped', config.name);
             } catch (e) {
                 electronLogger.log(e);
             }
@@ -79,7 +79,7 @@ const spawnService = async (config, mainWindow) => {
 
         service.on('error', (err) => {
             electronLogger.error(`${config.name} encountered an error:`, err);
-            mainWindow.webContents.send('service-stopped', config.name);
+            globalCtx.getState().mainWindow.webContents.send('service-stopped', config.name);
             if (config.name === 'backend' && err.message.includes('Address already in use')) {
                 electronLogger.log(
                     `The ${config.name} service failed to start due to port conflict.`
@@ -92,7 +92,7 @@ const spawnService = async (config, mainWindow) => {
 
         service.on('disconnect', (code) => {
             electronLogger.log(`${config.name} disconnected with code ${code}`);
-            // mainWindow.webContents.send('service-stopped', config.name);
+            // globalCtx.getState().mainWindow.webContents.send('service-stopped', config.name);
             reject(new Error(`${config.name} disconnected with code ${code}`));
         });
     });
@@ -176,12 +176,18 @@ const spawnServices = async (globalCtx) => {
             : resourceBinariesPath;
     const serviceConfig = servicesConfig(executablesPath);
 
+    if (spawnedProcesses.length > 0) {
+        electronLogger.log('Services already started.');
+        globalCtx.getState().mainWindow.webContents.send('service-started', 'all');
+        return;
+    }
+
     try {
         await Promise.all([
-            spawnService(serviceConfig.chroma, globalCtx.getState().mainWindow),
-            spawnService(serviceConfig.backend, globalCtx.getState().mainWindow),
-            spawnService(serviceConfig.ollama, globalCtx.getState().mainWindow),
-            spawnService(serviceConfig.miscFrontend, globalCtx.getState().mainWindow)
+            spawnService(serviceConfig.chroma, globalCtx),
+            spawnService(serviceConfig.backend, globalCtx),
+            spawnService(serviceConfig.ollama, globalCtx),
+            spawnService(serviceConfig.miscFrontend, globalCtx)
         ]);
         electronLogger.log('All services started successfully.');
     } catch (error) {
