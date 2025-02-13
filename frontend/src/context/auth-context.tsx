@@ -1,18 +1,9 @@
 import { createContext, useContext, useState, useEffect, FC } from 'react';
-import { Token, User } from '../types/Shared';
+import { AuthContextType, UserToken, User } from '../types/Shared';
 import { ILayout } from '../types/Coding/shared';
 import { useLogger } from './logging-context';
 
 const { ipcRenderer } = window.require('electron');
-
-export interface AuthContextType {
-    isAuthenticated: boolean;
-    user: User | null;
-    login: (user: User, token: Token) => void;
-    logout: () => void;
-    remoteProcessing: boolean;
-    setProcessing: (processing: boolean) => Promise<void>;
-}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -25,7 +16,7 @@ export const AuthProvider: FC<ILayout> = ({ children }) => {
     const [user, setUser] = useState<User | null>(() => {
         return JSON.parse(localStorage.getItem('user') || 'null');
     });
-    const [token, setToken] = useState<Token | null>(() => {
+    const [token, setToken] = useState<UserToken | null>(() => {
         return JSON.parse(localStorage.getItem('token') || 'null');
     });
 
@@ -45,7 +36,7 @@ export const AuthProvider: FC<ILayout> = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(user));
     }, [isAuthenticated, user]);
 
-    const login = (user: User, token: Token) => {
+    const login = (user: User, token: UserToken) => {
         console.log('Logging in', user);
         setIsAuthenticated(true);
         setUser(user);

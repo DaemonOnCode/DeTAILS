@@ -3,6 +3,7 @@ import { ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth-context';
 import { useLogger } from '../../context/logging-context';
 import LoginAnimation from '../../components/Login/login-animation';
+import { GoogleIcon } from '../../components/Shared/Icons';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -82,11 +83,7 @@ const LoginPage = () => {
                                 <button
                                     // className="max-w-12 flex items-center justify-center bg-white border border-gray-300 rounded-lg py-2 px-4 hover:bg-gray-100 transition duration-150">
                                     className="max-w-12">
-                                    <img
-                                        src="https://www.svgrepo.com/show/475656/google-color.svg"
-                                        alt="Google logo"
-                                        className="w-8 h-8"
-                                    />
+                                    <GoogleIcon className="h-8 w-8" />
                                 </button>
                             </div>
                             <h1 className="text-2xl font-bold text-gray-700 text-center">

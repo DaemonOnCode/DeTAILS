@@ -1729,20 +1729,20 @@ static void tokenizer_st_partition(const llama_vocab &vocab, std::forward_list<f
 
 void logMessage(const char *format, ...)
 {
-    static FILE *logFile = fopen("./log.txt", "a"); // Open in append mode
-    if (!logFile)
-    {
-        fprintf(stderr, "Error opening log file.\n");
-        return;
-    }
+    // static FILE *logFile = fopen("./log.txt", "a"); 
+    // if (!logFile)
+    // {
+    //     fprintf(stderr, "Error opening log file.\n");
+    //     return;
+    // }
 
-    va_list args;
-    va_start(args, format);
-    vfprintf(logFile, format, args); // Write the formatted message to the file
-    fprintf(logFile, "\n");          // Add a newline
-    va_end(args);
+    // va_list args;
+    // va_start(args, format);
+    // vfprintf(logFile, format, args);
+    // fprintf(logFile, "\n");          
+    // va_end(args);
 
-    fflush(logFile); // Ensure the message is immediately written to the file
+    // fflush(logFile); 
 }
 
 std::vector<llama_vocab::id> llama_tokenize_internal(

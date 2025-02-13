@@ -53,6 +53,16 @@ function interleaveArray<T>(arr: T[]): T[] {
     return result;
 }
 
+interface DraggingKeyword {
+    text: string;
+    startX: number;
+    startY: number;
+    mouseStartX: number;
+    mouseStartY: number;
+    width: number;
+    height: number;
+}
+
 const KeywordCloud: FC<KeywordCloudProps> = ({
     mainTopic,
     keywords,
@@ -74,6 +84,9 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
     // State for hovered keyword
     const [hoveredKeyword, setHoveredKeyword] = useState<string | null>(null);
 
+    // New state to track the keyword currently being dragged.
+    const [draggingKeyword, setDraggingKeyword] = useState<DraggingKeyword | null>(null);
+
     const handleEdit = (word: string) => {
         setEditingWord(word);
         setNewWord(word);
@@ -89,14 +102,104 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
         setKeywords((prev) => prev.filter((w) => w !== word));
     };
 
-    useEffect(() => {
-        if (!svgRef.current) return;
+    // Update a keyword’s position in state.
+    const updateKeywordPosition = (text: string, newX: number, newY: number) => {
+        setPlacedKeywords((prev) =>
+            prev.map((k) => (k.text === text ? { ...k, x: newX, y: newY } : k))
+        );
+    };
 
-        // Determine the dimensions and effective circle radius
-        const { width, height } = svgRef.current.getBoundingClientRect();
-        const diameter = Math.min(width, height);
-        const r = diameter / 2;
-        setRadius(r);
+    // --- DRAG HANDLERS (Additional logic)
+
+    // When a drag starts, record the keyword's starting position and the mouse's SVG coordinates.
+    const handleDragStart = (e: React.MouseEvent, keyword: IKeywordBox & { rotation: number }) => {
+        // Only allow drag for non–main keywords.
+        if (keyword.text === mainTopic) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (svgRef.current) {
+            const pt = svgRef.current.createSVGPoint();
+            pt.x = e.clientX;
+            pt.y = e.clientY;
+            const svgCTM = svgRef.current.getScreenCTM();
+            if (!svgCTM) return;
+            const inverseCTM = svgCTM.inverse();
+            const svgPoint = pt.matrixTransform(inverseCTM);
+            setDraggingKeyword({
+                text: keyword.text,
+                startX: keyword.x,
+                startY: keyword.y,
+                mouseStartX: svgPoint.x,
+                mouseStartY: svgPoint.y,
+                width: keyword.width,
+                height: keyword.height
+            });
+        }
+    };
+
+    // When a drag is in progress, update the keyword's position.
+    useEffect(() => {
+        if (!draggingKeyword || !svgRef.current) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const pt = svgRef.current!.createSVGPoint();
+            pt.x = e.clientX;
+            pt.y = e.clientY;
+            const svgCTM = svgRef.current!.getScreenCTM();
+            if (!svgCTM) return;
+            const inverseCTM = svgCTM.inverse();
+            const svgPoint = pt.matrixTransform(inverseCTM);
+            const deltaX = svgPoint.x - draggingKeyword.mouseStartX;
+            const deltaY = svgPoint.y - draggingKeyword.mouseStartY;
+            const newX = draggingKeyword.startX + deltaX;
+            const newY = draggingKeyword.startY + deltaY;
+            updateKeywordPosition(draggingKeyword.text, newX, newY);
+        };
+
+        const handleMouseUp = (e: MouseEvent) => {
+            if (!svgRef.current || !draggingKeyword) return;
+            const pt = svgRef.current.createSVGPoint();
+            pt.x = e.clientX;
+            pt.y = e.clientY;
+            const svgCTM = svgRef.current.getScreenCTM();
+            if (!svgCTM) return;
+            const inverseCTM = svgCTM.inverse();
+            const svgPoint = pt.matrixTransform(inverseCTM);
+            const deltaX = svgPoint.x - draggingKeyword.mouseStartX;
+            const deltaY = svgPoint.y - draggingKeyword.mouseStartY;
+            const newX = draggingKeyword.startX + deltaX;
+            const newY = draggingKeyword.startY + deltaY;
+            // Calculate the keyword's center.
+            const centerX = newX + draggingKeyword.width / 2;
+            const centerY = newY + draggingKeyword.height / 2;
+            // If the new center is outside the circle, revert to the original position.
+            if (Math.sqrt(centerX * centerX + centerY * centerY) > radius) {
+                updateKeywordPosition(
+                    draggingKeyword.text,
+                    draggingKeyword.startX,
+                    draggingKeyword.startY
+                );
+            }
+            setDraggingKeyword(null);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [draggingKeyword, radius]);
+
+    // --- END OF DRAG HANDLERS
+
+    useEffect(() => {
+        // Instead of using the current container size, use the device's full screen size.
+        const deviceWidth = window.screen.width;
+        const deviceHeight = window.screen.height;
+        const deviceDiameter = Math.min(deviceWidth, deviceHeight);
+        const baseRadius = deviceDiameter / 2;
+        setRadius(baseRadius);
 
         // 1. Place the main topic at the center.
         const mainW = measureTextWidth(mainTopic, MAIN_TOPIC_FONT_SIZE) + 30;
@@ -121,7 +224,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             height: OTHER_KEYWORD_FONT_SIZE + 10
         }));
 
-        // 4. Sort measured words descending by width and interleave them
+        // 4. Sort measured words descending by width and interleave them.
         measured.sort((a, b) => b.width - a.width);
         const orderedWords = interleaveArray(measured);
         const totalWords = orderedWords.length;
@@ -133,7 +236,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
         // 5. For each other keyword, try to find a collision-free spot.
         orderedWords.forEach((item, sortedIndex) => {
             const halfDiagonal = Math.sqrt((item.width / 2) ** 2 + (item.height / 2) ** 2);
-            const allowedCandidateRadius = r - EDGE_PADDING - halfDiagonal;
+            const allowedCandidateRadius = baseRadius - EDGE_PADDING - halfDiagonal;
             const lowerBoundRadius = mainRadius + halfDiagonal + PADDING_BETWEEN_WORDS;
             let candidateRadius = allowedCandidateRadius;
             const baseAngle = (2 * Math.PI * sortedIndex) / totalWords - Math.PI / 2;
@@ -167,7 +270,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                     };
 
                     // Ensure the word doesn't come too near the edge.
-                    if (rCandidate + halfDiagonal > r - EDGE_PADDING) {
+                    if (rCandidate + halfDiagonal > baseRadius - EDGE_PADDING) {
                         continue;
                     }
 
@@ -196,7 +299,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
         setPlacedKeywords(placedPhrases);
     }, [keywords, mainTopic]);
 
-    // Reorder keywords so that the hovered one is rendered last (on top)
+    // Reorder keywords so that the hovered one is rendered last (on top).
     const sortedKeywords = [...placedKeywords].sort((a, b) => {
         if (a.text === hoveredKeyword) return 1;
         if (b.text === hoveredKeyword) return -1;
@@ -284,11 +387,20 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                             height={kw.height}
                             style={{ overflow: 'visible' }}>
                             <div
+                                // Add onMouseDown only for non–main keywords to initiate drag.
+                                onMouseDown={
+                                    !isMain
+                                        ? (e) => {
+                                              handleDragStart(e, kw);
+                                          }
+                                        : undefined
+                                }
                                 onMouseEnter={() => setHoveredKeyword(kw.text)}
                                 onMouseLeave={() => setHoveredKeyword(null)}
-                                onClick={() =>
-                                    toggleKeywordSelection && toggleKeywordSelection(kw.text)
-                                }
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleKeywordSelection && toggleKeywordSelection(kw.text);
+                                }}
                                 className={`cursor-pointer group relative flex items-center justify-center w-full h-full rounded-lg font-bold transition duration-200 transform hover:scale-125 ${bgClass}`}
                                 style={{
                                     fontSize: isMain

@@ -1,7 +1,7 @@
 import { FC, useEffect, useRef, useState } from 'react';
 import { LOADER_ROUTES, ROUTES, WORD_CLOUD_MIN_THRESHOLD } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import KeywordCloud from '../../components/Coding/KeywordCloud/index';
+import KeywordCloud from '../../components/Coding/KeywordCloud/cloud';
 import { useLogger } from '../../context/logging-context';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
@@ -52,9 +52,6 @@ const KeywordCloudPage: FC = () => {
         }))
     );
 
-    // useEffect(() => {
-    //     setSelectedKeywords([mainTopic]);
-    // }, []);
     const { getServerUrl } = getServerUtils();
 
     const hasSavedRef = useRef(false);
@@ -144,7 +141,7 @@ const KeywordCloudPage: FC = () => {
         });
 
         // await ipcRenderer.invoke("disconnect-ws", datasetId);
-        navigate(`/coding/${ROUTES.CONTEXT_BUILDER}/${ROUTES.KEYWORD_CLOUD}`);
+        navigate(`/coding/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
         await logger.info('Keyword Cloud refreshed');
         //     return;
         // }
@@ -216,15 +213,15 @@ const KeywordCloudPage: FC = () => {
                 <div className="absolute bottom-0 right-0">
                     <button
                         onClick={refreshKeywords}
-                        className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600  my-2 lg:text-base text-xs">
-                        Refresh keyword cloud
+                        className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs">
+                        Refresh keywords
                     </button>
                 </div>
             </div>
 
             <NavigationBottomBar
-                previousPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.CONTEXT_V2}`}
-                nextPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.KEYWORD_TABLE}`}
+                previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.CONTEXT_V2}`}
+                nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
                 isReady={checkIfReady}
                 onNextClick={(e) => handleNextClick(e)}
             />

@@ -1,5 +1,6 @@
 import { FC, useState } from 'react';
 import { useCodingContext } from '../../../context/coding-context';
+import { SetState } from '../../../types/Coding/shared';
 
 const RelatedCodes: FC<{
     codeSet: string[];
@@ -10,7 +11,18 @@ const RelatedCodes: FC<{
     }[]; // Optional conflicting codes
     codeColors: Record<string, string>;
     hoveredCodeText: string[] | null;
-}> = ({ codeSet, conflictingCodes = [], codeColors, hoveredCodeText }) => {
+    codeCounts: Record<string, number>;
+    hoveredCode: string | null;
+    setHoveredCode: SetState<string | null>;
+}> = ({
+    codeSet,
+    conflictingCodes = [],
+    codeColors,
+    hoveredCodeText,
+    codeCounts,
+    hoveredCode,
+    setHoveredCode
+}) => {
     const {
         sampledPostResponse,
         dispatchSampledPostResponse,
@@ -61,8 +73,13 @@ const RelatedCodes: FC<{
                         <li
                             key={index}
                             className="p-2 rounded bg-gray-200"
+                            onMouseEnter={() => code && setHoveredCode(code)}
+                            onMouseLeave={() => setHoveredCode(null)}
                             style={{ backgroundColor: codeColors[code] || '#ddd' }}>
-                            {code}
+                            {code}{' '}
+                            <span className="font-bold">
+                                {codeCounts[code] > 0 && `(${codeCounts[code]})`}
+                            </span>
                         </li>
                     ))}
                 </ul>

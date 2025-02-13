@@ -1,5 +1,5 @@
 export { default as HomePage } from './home';
-export { default as FinalPage } from './final';
+export { default as AnalysisPage } from './analysis';
 
 export { default as ContextV2Page } from './context-v2';
 export { default as KeywordCloudPage } from './keyword-cloud';

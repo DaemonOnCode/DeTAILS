@@ -19,7 +19,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                 to={'/coding/' + previousPage || ''}
                 className={`${
                     previousPage === undefined && 'invisible'
-                } px-4 py-2 rounded transition duration-200 bg-blue-500 text-white hover:bg-blue-600`}
+                } px-2 lg:px-4 py-2 rounded transition duration-200 bg-blue-500 text-white hover:bg-blue-600`}
                 onClick={(e) => {
                     if (!previousPage) e.preventDefault();
                     else onPreviousClick && onPreviousClick();
@@ -29,7 +29,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
             {nextPage && (
                 <Link
                     to={'/coding/' + nextPage}
-                    className={`px-4 py-2 rounded transition duration-200 ${
+                    className={`px-2 lg:px-4 py-2 rounded transition duration-200 ${
                         isReady
                             ? 'bg-green-500 text-white hover:bg-green-600'
                             : 'bg-gray-400 text-gray-200 cursor-not-allowed'

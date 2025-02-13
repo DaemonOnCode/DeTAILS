@@ -1,17 +1,13 @@
-import { createContext, useState, FC, Dispatch, useCallback, useReducer, useEffect } from 'react';
+import { createContext, FC } from 'react';
 import { useMemo } from 'react';
 import { ILayout } from '../types/Coding/shared';
 import { CollectionProvider } from './collection-context';
-import { FilteringProvider } from './filtering-context';
-import { ModelingProvider } from './modeling-context';
 import { CodingProvider } from './coding-context';
 
 interface IDataContext {}
 
-// Create the context
 export const DataContext = createContext<IDataContext>({});
 
-// Create a provider component
 export const DataProvider: FC<ILayout> = ({ children }) => {
     const value = useMemo(() => {
         return {};

@@ -1,4 +1,5 @@
-import { FC } from 'react';
+import { FC, useState } from 'react';
+import { generateColor } from '../../../utility/color-generator';
 
 interface HighlightedSegmentProps {
     segment: {
@@ -6,10 +7,17 @@ interface HighlightedSegmentProps {
         backgroundColours: string[];
         relatedCodeText: string[];
     };
+    hoveredCode: string | null;
     setHoveredCodeText: (codes: string[] | null) => void;
 }
 
-const HighlightedSegment: FC<HighlightedSegmentProps> = ({ segment, setHoveredCodeText }) => {
+const HighlightedSegment: FC<HighlightedSegmentProps> = ({
+    segment,
+    setHoveredCodeText,
+    hoveredCode
+}) => {
+    const [isHovered, setIsHovered] = useState(false);
+
     if (segment.backgroundColours.length === 0) {
         return <span>{segment.line}</span>;
     }
@@ -17,22 +25,35 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({ segment, setHoveredCo
     return (
         <span
             style={{
-                /* This parent is the stacking context */
                 position: 'relative',
                 display: 'inline-block',
-                zIndex: 0 /* so children can go behind with negative z-index */,
-                background: 'transparent'
+                zIndex: 0,
+                background: 'transparent',
+                transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+                transition: 'transform 0.2s'
             }}
-            onMouseEnter={() => setHoveredCodeText(segment.relatedCodeText)}
-            onMouseLeave={() => setHoveredCodeText(null)}>
-            {/* The actual text, forced to be on top */}
-            <span style={{ position: 'relative', zIndex: 1 }}>{segment.line}</span>
+            onMouseEnter={() => {
+                setIsHovered(true);
+                setHoveredCodeText(segment.relatedCodeText);
+            }}
+            onMouseLeave={() => {
+                setIsHovered(false);
+                setHoveredCodeText(null);
+            }}>
+            {/* Text, always on top */}
+            <span style={{ position: 'relative', zIndex: 5 }}>{segment.line}</span>
 
             {/* Absolutely positioned color layers, each behind the text. */}
             {segment.backgroundColours.map((bgColor, i) => {
-                // Optional offset to see each layer a bit "shifted"
-                const verticalOffset = i * 4;
+                // Determine if this layer should be visible
+                const isMatch = hoveredCode !== null && generateColor(hoveredCode) === bgColor;
 
+                // When hoveredCode exists, hide all non-matching colours.
+                if (hoveredCode !== null && !isMatch) {
+                    return null;
+                }
+
+                const verticalOffset = i * 4;
                 return (
                     <span
                         key={i}
@@ -43,11 +64,10 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({ segment, setHoveredCo
                             right: 0,
                             height: '100%',
                             backgroundColor: bgColor,
-
-                            /* Put them behind the text */
-                            zIndex: -1,
+                            zIndex: 1, // Always below the text
                             pointerEvents: 'none',
-                            opacity: 0.8
+                            opacity: 1, // Fully visible for the matching layer
+                            transition: 'opacity 0.2s, z-index 0.2s'
                         }}
                     />
                 );

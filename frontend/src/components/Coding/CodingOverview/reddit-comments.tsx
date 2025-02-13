@@ -8,6 +8,7 @@ interface RedditCommentsProps {
     setHoveredCodeText: (codes: string[] | null) => void;
     level: number;
     showHorizontalConnector?: boolean;
+    hoveredCode: string | null;
 }
 
 const RedditComments: React.FC<RedditCommentsProps> = ({
@@ -15,7 +16,8 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
     processedSegments,
     setHoveredCodeText,
     level,
-    showHorizontalConnector = true
+    showHorizontalConnector = true,
+    hoveredCode
 }) => {
     if (!comments || comments.length === 0) return null;
 
@@ -53,6 +55,7 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
                                 .map((segment, idx) => (
                                     <HighlightedSegment
                                         key={idx}
+                                        hoveredCode={hoveredCode}
                                         segment={segment}
                                         setHoveredCodeText={setHoveredCodeText}
                                     />
@@ -62,6 +65,7 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
                         {/* Recursive call for children */}
                         <RedditComments
                             comments={comment.comments || []}
+                            hoveredCode={hoveredCode}
                             processedSegments={processedSegments}
                             setHoveredCodeText={setHoveredCodeText}
                             level={level + 1}

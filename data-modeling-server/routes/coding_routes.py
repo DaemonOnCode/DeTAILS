@@ -59,7 +59,7 @@ async def build_context_from_interests_endpoint(
     retriever = vector_store.as_retriever()
 
     # Build input for LLM
-    input_text = ContextPrompt.context_builder(mainTopic, researchQuestions, additionalInfo)
+    input_text = ContextPrompt.BACKGROUND_RESEARCH(mainTopic, researchQuestions, additionalInfo)
 
     parsed_keywords = await process_llm_task(
         dataset_id=dataset_id,
@@ -173,7 +173,7 @@ async def build_context_from_interests_endpoint(
 #                 question_answer_chain = create_stuff_documents_chain(llm=llm, prompt=prompt_template)
 #                 rag_chain = create_retrieval_chain(retriever=retriever, combine_docs_chain=question_answer_chain)
 
-#                 input_text = ContextPrompt.context_builder(mainTopic, researchQuestions, additionalInfo)
+#                 input_text = ContextPrompt.BACKGROUND_RESEARCH(mainTopic, researchQuestions, additionalInfo)
 
 #                 # Offload LLM chain invocation to thread pool
 #                 results = rag_chain.invoke({"input": input_text})
@@ -240,7 +240,7 @@ async def regenerate_keywords_endpoint(
         rag_prompt_builder_func=ContextPrompt.regenerationPromptTemplate,  # Uses correct RAG function
         retriever=retriever,  # Enables retrieval-augmented generation
         llm_instance=llm,
-        input_text=ContextPrompt.refined_context_builder( 
+        input_text=ContextPrompt.refined_BACKGROUND_RESEARCH( 
             request.mainTopic, 
             request.researchQuestions, 
             request.additionalInfo, 
@@ -316,7 +316,7 @@ async def regenerate_keywords_endpoint(
 #                 question_answer_chain = create_stuff_documents_chain(llm=llm, prompt=prompt_template)
 #                 rag_chain = create_retrieval_chain(retriever=retriever, combine_docs_chain=question_answer_chain)
 
-#                 input_text = ContextPrompt.refined_context_builder(mainTopic, researchQuestions, additionalInfo, selectedKeywords, unselectedKeywords, extraFeedback)
+#                 input_text = ContextPrompt.refined_BACKGROUND_RESEARCH(mainTopic, researchQuestions, additionalInfo, selectedKeywords, unselectedKeywords, extraFeedback)
 
 #                 # Offload LLM chain invocation to thread pool
 #                 results = rag_chain.invoke({"input": input_text})
@@ -380,7 +380,7 @@ async def regenerate_keywords_endpoint(
 #         rag_prompt_builder_func=ContextPrompt.regenerationPromptTemplate,  # Uses correct RAG function
 #         retriever=retriever,  # Enables Retrieval-Augmented Generation
 #         llm_instance=llm,
-#         input_text=ContextPrompt.refined_context_builder( 
+#         input_text=ContextPrompt.refined_BACKGROUND_RESEARCH( 
 #             request.mainTopic, 
 #             request.researchQuestions, 
 #             request.additionalInfo, 

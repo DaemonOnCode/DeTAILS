@@ -190,7 +190,7 @@ const ContextPage = () => {
                     ) : (
                         <>
                             <h1>Selected Context files</h1>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 py-10">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 py-6 lg:py-10">
                                 {Object.keys(contextFiles).map((filePath, index) => (
                                     <FileCard
                                         key={index}
@@ -265,7 +265,7 @@ const ContextPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.HOME}
-                nextPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.KEYWORD_CLOUD}`}
+                nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
                 isReady={checkIfReady}
                 onNextClick={handleOnNextClick}
             />

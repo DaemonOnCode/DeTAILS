@@ -1,14 +1,22 @@
 export const generateColor = (key: string): string => {
-    // Basic hash
-    const hash = Array.from(key).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    // Use the djb2 algorithm for a better hash distribution.
+    let hash = 5381;
+    for (let i = 0; i < key.length; i++) {
+        hash = (hash << 5) + hash + key.charCodeAt(i); // hash * 33 + charCode
+    }
+    // Ensure the hash is positive.
+    hash = Math.abs(hash);
 
-    // Generate a hue in [0..359]
-    const hue = (hash * 37) % 360;
+    // Hue: Generate a hue between 0 and 359.
+    const hue = hash % 360;
 
-    // Choose a moderate saturation (say 40–60%) and high lightness (60–80%)
-    // so the color is light and works well with black text.
-    const saturation = 50;
-    const lightness = 75;
+    // Saturation: Generate a value between 55% and 75%.
+    // (hash * 3) % 21 produces a value between 0 and 20.
+    const saturation = 55 + ((hash * 3) % 21);
+
+    // Lightness: Generate a value between 65% and 80%.
+    // (hash * 5) % 16 produces a value between 0 and 15.
+    const lightness = 65 + ((hash * 5) % 16);
 
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };

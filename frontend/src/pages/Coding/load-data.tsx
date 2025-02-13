@@ -57,7 +57,6 @@ const LoadData = () => {
         };
     }, []);
 
-    // Pagination Logic
     const isReadyCheck =
         Object.keys(data).length > 0 && selectedPosts.length >= SELECTED_POSTS_MIN_THRESHOLD;
 
@@ -125,7 +124,7 @@ const LoadData = () => {
                 loading={loading}
             />
             <NavigationBottomBar
-                previousPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.KEYWORD_TABLE}`}
+                previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
                 nextPage={`${ROUTES.CODEBOOK_CREATION}/${ROUTES.CODES_REVIEW}`}
                 isReady={isReadyCheck}
                 onNextClick={handleSamplingPosts}

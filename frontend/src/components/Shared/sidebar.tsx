@@ -78,12 +78,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
             .filter((route) => !shouldIgnoreRoute(route.path) && route.hidden !== true)
             .map((route, idx) => {
                 if (route.path === undefined && route.children) {
-                    return (
-                        <div key={idx}>
-                            {/* {RouteIcons[route.path ?? ''] ? RouteIcons[route.path ?? ''] : <></>} */}
-                            {renderRoutes(route.children, parentPath)}
-                        </div>
-                    );
+                    return <div key={idx}>{renderRoutes(route.children, parentPath)}</div>;
                 }
 
                 const fullPath = `${parentPath}/${route.path || ''}`.replace(/\/+/g, '/');
@@ -96,13 +91,11 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                         <li key={idx} className="mb-2">
                             <div className="flex justify-between items-center w-full">
                                 <div className="flex justify-start items-center w-full">
-                                    {RouteIcons[route.path ?? ''] ? (
-                                        RouteIcons[route.path ?? '']
-                                    ) : (
-                                        <></>
-                                    )}
+                                    {RouteIcons[route.path ?? '']
+                                        ? RouteIcons[route.path ?? '']
+                                        : null}
                                     <button
-                                        className={`flex-grow text-left p-2 rounded-lg transition font-medium ${
+                                        className={`flex-grow text-left p-2 rounded-lg transition font-medium responsive-text ${
                                             isCurrentPath(fullPath)
                                                 ? 'bg-blue-500 text-white'
                                                 : 'hover:bg-gray-700'
@@ -131,7 +124,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                                 </button>
                             </div>
                             <ul
-                                className={`ml-4 border-l border-gray-700 pl-2 mt-2 transition-all duration-300 overflow-hidden ${
+                                className={`ml-2 lg:ml-4 border-l border-gray-700 pl-2 mt-2 transition-all duration-300 overflow-hidden ${
                                     openDropdowns.has(fullPath) ? '' : 'max-h-0'
                                 }`}>
                                 {renderRoutes(route.children, fullPath)}
@@ -144,12 +137,12 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                     <li key={idx} className="mb-2">
                         <Link
                             to={fullPath}
-                            className={`p-2 rounded-lg transition font-medium flex justify-start items-center gap-x-2 ${
+                            className={`p-2 rounded-lg transition font-medium flex justify-start items-center gap-x-2 responsive-text ${
                                 isCurrentPath(fullPath)
                                     ? 'bg-blue-500 text-white'
                                     : 'hover:bg-gray-700'
                             }`}>
-                            {RouteIcons[route.path ?? ''] ? RouteIcons[route.path ?? ''] : <></>}
+                            {RouteIcons[route.path ?? ''] ? RouteIcons[route.path ?? ''] : null}
                             {formatRouteName(route.path || 'Home')}
                         </Link>
                     </li>
@@ -160,18 +153,18 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
     return (
         <div
             className={`fixed h-screen bg-gray-800 text-white shadow-lg transition-all duration-300 flex ${
-                isCollapsed ? 'min-w-16' : 'max-w-64'
+                isCollapsed ? 'min-w-12 lg:min-w-16' : 'max-w-48 lg:max-w-64'
             }`}>
             <div
-                className={`flex flex-col justify-between ${isCollapsed ? 'max-w-0 hidden' : 'max-w-48'}`}>
+                className={`flex flex-col justify-between ${isCollapsed ? 'max-w-0 hidden' : 'max-w-36 lg:max-w-48'}`}>
                 {/* Left Section: Collapsible Navigation */}
                 <div className={`flex-1 overflow-hidden`}>
                     <nav className="h-full overflow-y-auto">
-                        <ul className="p-4">{renderRoutes(routes)}</ul>
+                        <ul className="p-2 lg:p-4">{renderRoutes(routes)}</ul>
                     </nav>
                 </div>
 
-                <div className="p-4 border-t-2 border-gray-500">
+                <div className="p-2 lg:p-4 border-t-2 border-gray-500">
                     <div
                         className="relative cursor-pointer"
                         tabIndex={0}
@@ -183,13 +176,15 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                                     <img
                                         src={user.picture}
                                         alt="User Profile"
-                                        className="w-10 h-10 rounded-full border-2 border-gray-300"
+                                        className="w-6 lg:w-10 h-6 lg:h-10 rounded-full border-2 border-gray-300"
                                     />
-                                    <span className="m-2 break-words max-w-28">{user.name}</span>
+                                    <span className="m-2 break-words max-w-28  responsive-text">
+                                        {user.name}
+                                    </span>
                                 </div>
                                 {userDropdownVisible && (
-                                    <div className="absolute right-0 bottom-full mb-2 w-40 bg-white rounded-md shadow-lg z-10">
-                                        <ul className="text-gray-800">
+                                    <div className="absolute left-0 bottom-full mb-2 w-40 bg-white rounded-md shadow-lg z-10">
+                                        <ul className="text-gray-800  responsive-text">
                                             <li
                                                 className="px-4 py-2 border-b"
                                                 onClick={() => navigate(SHARED_ROUTES.SETTINGS)}>
@@ -210,12 +205,14 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
             </div>
 
             {/* Right Section: Collapse Button (Always Visible) */}
-            <div className="w-16 flex justify-center items-center bg-gray-900">
+            <div className="min-w-12 lg:min-w-16 flex justify-center items-center bg-gray-900">
                 <button
-                    onClick={() => onToggleCollapse()}
-                    className="text-white p-3 rounded-full bg-blue-500 hover:bg-blue-700 transition-transform">
+                    onClick={onToggleCollapse}
+                    className="text-white p-2 lg:p-3 rounded-full bg-blue-500 hover:bg-blue-700 transition-transform">
                     <p
-                        className={`text-2xl transform transition-transform ${isCollapsed ? 'rotate-180' : 'rotate-0'}`}>
+                        className={`text:base lg:text-2xl transform transition-transform ${
+                            isCollapsed ? 'rotate-180' : 'rotate-0'
+                        }`}>
                         ◀
                     </p>
                 </button>

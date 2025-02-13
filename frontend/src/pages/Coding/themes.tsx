@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { DndProvider, useDrop } from 'react-dnd';
+import { useEffect, useRef } from 'react';
+import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { v4 as uuidv4 } from 'uuid';
 import Bucket from '../../components/Coding/Themes/bucket';
 import UnplacedCodesBox from '../../components/Coding/Themes/unplaced-box';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
@@ -149,7 +148,7 @@ const ThemesPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.ENCODED_DATA}`}
-                nextPage={ROUTES.FINAL}
+                nextPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.ANALYSIS}`}
                 isReady={unplacedCodes.length === 0}
             />
         </div>

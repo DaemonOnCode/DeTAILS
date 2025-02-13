@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useEffect, useRef } from 'react';
 
 interface PostTabProps {
     postIdTitle: {
@@ -7,14 +7,15 @@ interface PostTabProps {
     };
     selectedItem: string | null;
     handleSelect: (postId: string) => void;
+    containerRef: React.RefObject<HTMLUListElement>;
 }
 
-const PostTab: FC<PostTabProps> = ({ postIdTitle, selectedItem, handleSelect }) => {
+const PostTab: FC<PostTabProps> = ({ postIdTitle, selectedItem, handleSelect, containerRef }) => {
+    const selectedPostId = selectedItem?.split('|')[0];
     return (
         <li
-            key={postIdTitle.id}
             className={`p-3 border rounded shadow cursor-pointer transition-all truncate ${
-                selectedItem === postIdTitle.id ? 'bg-blue-200 font-bold' : 'hover:bg-blue-100'
+                selectedPostId === postIdTitle.id ? 'bg-blue-200 font-bold' : 'hover:bg-blue-100'
             }`}
             onClick={() => handleSelect(postIdTitle.id)}>
             {postIdTitle.title}

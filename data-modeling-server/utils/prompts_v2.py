@@ -47,7 +47,7 @@ Each keyword should come with:
     ]
 
     @staticmethod
-    def context_builder(mainTopic: str, researchQuestions: str, additionalInfo: str):
+    def BACKGROUND_RESEARCH(mainTopic: str, researchQuestions: str, additionalInfo: str):
         return f"""
 I need **a structured list of 20 keywords** with coding guidelines to establish context for **deductive thematic analysis**, based on the following research inputs:
 
@@ -137,7 +137,7 @@ Proceed with refining the keywords.
     ]
 
     @staticmethod
-    def refined_context_builder(mainTopic: str, researchQuestions: str, additionalInfo: str, selectedKeywords: str, unselectedKeywords: str, extraFeedback: str):
+    def refined_BACKGROUND_RESEARCH(mainTopic: str, researchQuestions: str, additionalInfo: str, selectedKeywords: str, unselectedKeywords: str, extraFeedback: str):
         return f"""
 I need **a refined list of 5 keywords** based on the following research inputs:
 

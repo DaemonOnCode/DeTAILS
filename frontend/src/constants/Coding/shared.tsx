@@ -1,6 +1,6 @@
 export enum ROUTES {
     HOME = 'home',
-    CONTEXT_BUILDER = 'context-builder',
+    BACKGROUND_RESEARCH = 'background-research',
     CODEBOOK_CREATION = 'codebook-creation',
     DEDUCTIVE_CODING = 'deductive-coding',
     // BASIS = 'basis',
@@ -22,7 +22,8 @@ export enum ROUTES {
     // CODE_VALIDATION = 'code-validation',
     SPLIT_CHECK = 'split-check',
     ENCODED_DATA = 'encoded-data',
-    FINAL = 'final',
+    THEMATIC_ANALYSIS = 'thematic-analysis',
+    ANALYSIS = 'analysis',
     TRANSCRIPT = 'transcript/:id/:state',
     TRANSCRIPTS = 'transcripts'
 }
@@ -42,7 +43,7 @@ export enum LOADER_ROUTES {
 
 export const DB_PATH = '../executables/test.db';
 
-export const WORD_CLOUD_MIN_THRESHOLD = 10;
+export const WORD_CLOUD_MIN_THRESHOLD = 5;
 
 export const FLASHCARDS_MIN_THRESHOLD = 10;
 

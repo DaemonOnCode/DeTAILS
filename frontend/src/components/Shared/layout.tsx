@@ -1,6 +1,5 @@
-import { FC, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import Sidebar from './sidebar';
-import Topbar from './topbar'; // Import the Topbar component
 import { ILayout } from '../../types/Coding/shared';
 import { useAuth } from '../../context/auth-context';
 import { useWebSocket } from '../../context/websocket-context';
@@ -62,14 +61,8 @@ export const Layout: FC<ILayout> = ({ children }) => {
         const handleImportWorkspace = async (e: any, imported_file_path: string) => {
             try {
                 console.log('Importing workspace from ZIP file:', imported_file_path);
-
-                // Use Electron's file system module to read the file
                 const fs = window.require('fs');
-
-                // Read the file into memory
                 const fileBuffer = fs.readFileSync(imported_file_path);
-
-                // Use FormData to construct the payload
                 const formData = new FormData();
                 formData.append('user_email', user?.email || '');
                 formData.append(
@@ -77,24 +70,19 @@ export const Layout: FC<ILayout> = ({ children }) => {
                     new Blob([fileBuffer], { type: 'application/zip' }),
                     imported_file_path.split('/').pop()
                 );
-
-                // Send the file to the backend
                 const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.IMPORT_WORKSPACE), {
                     method: 'POST',
                     body: formData
                 });
-
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('Failed to import workspace:', errorText);
                     toast.warning('Failed to import workspace.');
                     return;
                 }
-
                 const result = await response.json();
                 console.log('Workspace imported successfully:', result);
                 addWorkspaceBatch([...workspaces, result.workspace]);
-                // setCurrentWorkspace(result.workspace);
             } catch (error) {
                 console.error('Error importing workspace:', error);
                 toast.warning('An error occurred while importing the workspace.');
@@ -104,7 +92,6 @@ export const Layout: FC<ILayout> = ({ children }) => {
         // Listener for Export Workspace
         const handleExportWorkspace = async (e: any) => {
             console.log('Exporting workspace', currentWorkspace);
-
             try {
                 const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.EXPORT_WORKSPACE), {
                     method: 'POST',
@@ -114,13 +101,11 @@ export const Layout: FC<ILayout> = ({ children }) => {
                         user_email: user?.email ?? ''
                     })
                 });
-
                 if (!response.ok) {
                     console.error('Failed to export workspace:', await response.text());
                     toast.warning('Failed to export workspace.');
                     return;
                 }
-
                 console.warn('File System Access API not supported. Using fallback.');
                 const reader = response.body?.getReader();
                 const stream = new ReadableStream({
@@ -141,11 +126,8 @@ export const Layout: FC<ILayout> = ({ children }) => {
                         pump();
                     }
                 });
-
                 const blob = await new Response(stream).blob();
                 const url = window.URL.createObjectURL(blob);
-
-                // Trigger file download
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = 'exported_workspace.zip';
@@ -153,7 +135,6 @@ export const Layout: FC<ILayout> = ({ children }) => {
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
-
                 console.log('Workspace exported and file saved successfully.');
             } catch (error) {
                 console.error('Error exporting workspace:', error);
@@ -175,15 +156,12 @@ export const Layout: FC<ILayout> = ({ children }) => {
     }, [currentWorkspace]);
 
     let filteredRoutes: AppRouteArray = AppRoutes;
-
-    // Example usage:
     const SHARED_ROUTES_TO_EXCLUDE = [
         SHARED_ROUTES.CODING,
         SHARED_ROUTES.CLEANING,
         SHARED_ROUTES.DATA_COLLECTION,
         SHARED_ROUTES.DATA_MODELING
     ];
-
     if (!currentWorkspace) {
         filteredRoutes = recursivePathHider(filteredRoutes, SHARED_ROUTES_TO_EXCLUDE);
     }
@@ -194,7 +172,6 @@ export const Layout: FC<ILayout> = ({ children }) => {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen">
                 <div className="flex space-x-4 mb-6">
-                    {/* Animated Loader */}
                     <motion.div
                         className="h-5 w-5 bg-black rounded-full"
                         animate={{ y: [0, -20, 0] }}
@@ -236,13 +213,12 @@ export const Layout: FC<ILayout> = ({ children }) => {
     } else {
         return (
             <div>
-                {/* Topbar */}
+                {/* Optionally include the Topbar */}
                 {/* <Topbar /> */}
 
                 <div className="flex flex-1">
-                    {/* Sidebar with dynamic width based on collapse state */}
                     <div
-                        className={`transition-all duration-300 ${isSidebarCollapsed ? 'w-16' : 'w-64'}`}>
+                        className={`transition-all duration-300 ${isSidebarCollapsed ? 'w-12 lg:w-16' : 'w-48 lg:w-64'}`}>
                         <Sidebar
                             routes={filteredRoutes}
                             isCollapsed={isSidebarCollapsed}
@@ -250,9 +226,10 @@ export const Layout: FC<ILayout> = ({ children }) => {
                         />
                     </div>
 
-                    {/* Main Content Area dynamically adjusting */}
                     <div className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
-                        <div className="p-6 h-full overflow-auto">{children}</div>
+                        <div className="responsive-page-padding h-full overflow-auto responsive-text">
+                            {children}
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import { useAuth, AuthContextType } from '../../context/auth-context';
-import { useCodingContext, ICodingContext } from '../../context/coding-context';
-import { useCollectionContext, ICollectionContext } from '../../context/collection-context';
-import { IWorkspaceContext, useWorkspaceContext } from '../../context/workspace-context';
+import { useAuth } from '../../context/auth-context';
+import { useCodingContext } from '../../context/coding-context';
+import { useCollectionContext } from '../../context/collection-context';
+import { useWorkspaceContext } from '../../context/workspace-context';
 import { toast } from 'react-toastify';
 import useServerUtils from './get-server-url';
 import { useWebSocket } from '../../context/websocket-context';
-import { useModelingContext, IModelingContext } from '../../context/modeling-context';
+import { useModelingContext } from '../../context/modeling-context';
+import {
+    IWorkspaceContext,
+    AuthContextType,
+    ICollectionContext,
+    ICodingContext,
+    IModelingContext
+} from '../../types/Shared';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
@@ -18,18 +25,6 @@ const useWorkspaceUtils = () => {
     const { serviceStarting } = useWebSocket();
 
     const { getServerUrl } = useServerUtils();
-
-    // useEffect(() => {
-    //     console.log('Current workspace updated:', currentWorkspace);
-    // }, [currentWorkspace]);
-
-    // useEffect(() => {
-    //     console.log('Collection context updated:', collectionContext);
-    // }, [collectionContext]);
-
-    // useEffect(() => {
-    //     console.log('Coding context updated:', codingContext);
-    // }, [codingContext]);
 
     const getPayload = (
         currentWorkspace: IWorkspaceContext['currentWorkspace'],

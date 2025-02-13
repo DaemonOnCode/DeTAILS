@@ -1,33 +1,9 @@
-import {
-    createContext,
-    useState,
-    FC,
-    Dispatch,
-    useCallback,
-    useReducer,
-    useEffect,
-    useContext
-} from 'react';
+import { createContext, useState, FC, useCallback, useContext } from 'react';
 import { useMemo } from 'react';
-import { ILayout, Mode, SetState } from '../types/Coding/shared';
+import { ILayout, Mode } from '../types/Coding/shared';
 import { v4 } from 'uuid';
+import { ICollectionContext } from '../types/Shared';
 
-export interface ICollectionContext {
-    currentMode: Mode;
-    toggleMode: () => void;
-    modeInput: string;
-    setModeInput: SetState<string>;
-    subreddit: string;
-    setSubreddit: SetState<string>;
-    selectedPosts: string[];
-    setSelectedPosts: SetState<string[]>;
-    datasetId: string;
-    setDatasetId: SetState<string>;
-    updateContext: (updates: Partial<ICollectionContext>) => void;
-    resetContext: () => void;
-}
-
-// Create the context
 export const CollectionContext = createContext<ICollectionContext>({
     currentMode: 'folder',
     modeInput: '',
@@ -43,23 +19,11 @@ export const CollectionContext = createContext<ICollectionContext>({
     resetContext: () => {}
 });
 
-// Create a provider component
 export const CollectionProvider: FC<ILayout> = ({ children }) => {
     const [currentMode, setCurrentMode] = useState<Mode>('folder');
     const [modeInput, setModeInput] = useState<string>('');
     const [subreddit, setSubreddit] = useState<string>('');
-    const [selectedPosts, setSelectedPosts] = useState<string[]>([
-        // '1019969',
-        // '1069046',
-        // '1076923',
-        // '1093101',
-        // '1141939',
-        // '1145299',
-        // '1193887',
-        // '1194945',
-        // '1253598',
-        // '1254667'
-    ]);
+    const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
 
     const [datasetId, setDatasetId] = useState<string>(v4());
 
@@ -70,7 +34,6 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         });
     }, []);
 
-    // Function to update context state
     const updateContext = (updates: Partial<ICollectionContext>) => {
         if (updates.currentMode !== undefined) setCurrentMode(updates.currentMode);
         if (updates.modeInput !== undefined) setModeInput(updates.modeInput);
@@ -86,10 +49,6 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         setSelectedPosts([]);
         setDatasetId(v4());
     };
-
-    useEffect(() => {
-        console.log('In dc', datasetId);
-    }, [datasetId]);
 
     const value = useMemo(
         () => ({

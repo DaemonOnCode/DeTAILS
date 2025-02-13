@@ -1,6 +1,5 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense } from 'react';
 import PostCards from '../../components/Coding/CodingOverview/post-cards';
-import { useCodingContext } from '../../context/coding-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';

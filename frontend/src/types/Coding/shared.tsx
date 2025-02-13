@@ -188,3 +188,83 @@ export type ThemeBucket = {
     name: string;
     codes: string[];
 };
+
+type Action<T> =
+    | { type: 'SET_CORRECT'; index: number }
+    | { type: 'SET_ALL_CORRECT' }
+    | { type: 'SET_INCORRECT'; index: number }
+    | { type: 'SET_ALL_INCORRECT' }
+    | { type: 'UPDATE_COMMENT'; index: number; comment: string }
+    | { type: 'MARK_RESPONSE'; index: number; isMarked?: boolean }
+    | { type: 'RERUN_CODING'; indexes: number[]; newResponses: T[] }
+    | {
+          type: 'ADD_RESPONSE';
+          response: T;
+      }
+    | { type: 'ADD_RESPONSES'; responses: T[] }
+    | (
+          | { type: 'REMOVE_RESPONSES'; indexes: number[]; all?: never }
+          | { type: 'REMOVE_RESPONSES'; all: boolean; indexes?: never }
+      )
+    | { type: 'SET_ALL_UNMARKED' }
+    | { type: 'SET_RESPONSES'; responses: T[] }
+    | { type: 'DELETE_CODE'; code: string }
+    | { type: 'EDIT_CODE'; currentCode: string; newCode: string }
+    | { type: 'DELETE_HIGHLIGHT'; postId: string; sentence: string; code: string }
+    | {
+          type: 'EDIT_HIGHLIGHT';
+          postId: string;
+          sentence: string;
+          newSentence: string;
+          code: string;
+      };
+
+export type KeywordsTableAction =
+    | { type: 'INITIALIZE'; entries: KeywordEntry[] }
+    | { type: 'ADD_MANY'; entries: KeywordEntry[] }
+    | { type: 'UPDATE_FIELD'; index: number; field: keyof KeywordEntry; value: string | string[] }
+    | { type: 'TOGGLE_MARK'; index: number; isMarked?: boolean }
+    | { type: 'ADD_ROW' }
+    | { type: 'DELETE_ROW'; index: number }
+    | { type: 'SET_ALL_CORRECT' }
+    | { type: 'SET_ALL_INCORRECT' }
+    | { type: 'SET_ALL_UNMARKED' };
+
+export type baseResponseHandlerActions<T> =
+    | { type: 'SET_CORRECT'; index: number }
+    | { type: 'SET_ALL_CORRECT' }
+    | { type: 'SET_ALL_INCORRECT' }
+    | { type: 'SET_ALL_UNMARKED' }
+    | { type: 'SET_INCORRECT'; index: number }
+    | { type: 'UPDATE_COMMENT'; index: number; comment: string }
+    | { type: 'MARK_RESPONSE'; index: number; isMarked?: boolean }
+    | { type: 'RERUN_CODING'; indexes: number[]; newResponses: T[] }
+    | {
+          type: 'ADD_RESPONSE';
+          response: T;
+      }
+    | { type: 'ADD_RESPONSES'; responses: T[] }
+    | (
+          | { type: 'REMOVE_RESPONSES'; indexes: number[]; all?: never }
+          | { type: 'REMOVE_RESPONSES'; all: boolean; indexes?: never }
+      )
+    | { type: 'SET_RESPONSES'; responses: T[] }
+    | { type: 'DELETE_CODE'; code: string }
+    | { type: 'EDIT_CODE'; currentCode: string; newCode: string }
+    | { type: 'DELETE_HIGHLIGHT'; postId: string; sentence: string; code: string }
+    | {
+          type: 'EDIT_HIGHLIGHT';
+          postId: string;
+          sentence: string;
+          newSentence: string;
+          code: string;
+      };
+
+export type sampleDataResponseReducerActions =
+    | baseResponseHandlerActions<IQECResponse>
+    | { type: 'UPDATE_CODE'; newCode: string; quote: string; prevCode: string };
+
+export type sampleDataWithThemeResponseReducerActions =
+    | baseResponseHandlerActions<IQECTResponse>
+    | { type: 'UPDATE_THEMES'; themes: ThemeBucket[] }
+    | { type: 'DELETE_THEME'; name: string };

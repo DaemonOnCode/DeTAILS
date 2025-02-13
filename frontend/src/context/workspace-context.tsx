@@ -1,40 +1,5 @@
-import React, {
-    createContext,
-    useContext,
-    useState,
-    FC,
-    useMemo,
-    useCallback,
-    useEffect
-} from 'react';
-import { toast } from 'react-toastify';
-import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
-import useServerUtils from '../hooks/Shared/get-server-url';
-import useWorkspaceUtils from '../hooks/Shared/workspace-utils';
-import { useAuth } from './auth-context';
-import { SetState } from '../types/Coding/shared';
-
-interface Workspace {
-    id: string;
-    name: string;
-    description?: string;
-    updatedAt?: string;
-}
-
-export interface IWorkspaceContext {
-    workspaces: Workspace[];
-    currentWorkspace: Workspace | null;
-    addWorkspace: (workspace: Workspace) => void;
-    setWorkspaces: SetState<Workspace[]>;
-    updateWorkspace: (id: string, name?: string, description?: string) => void;
-    deleteWorkspace: (id: string) => void;
-    setCurrentWorkspace: (workspace: Workspace) => void;
-    resetWorkspaces: () => void;
-    addWorkspaceBatch: (newWorkspaces: Workspace[]) => void;
-    setCurrentWorkspaceById: (workspaceId: string) => void;
-    workspaceLoading: boolean;
-    setWorkspaceLoading: SetState<boolean>;
-}
+import React, { createContext, useContext, useState, FC, useMemo, useCallback } from 'react';
+import { IWorkspaceContext, Workspace } from '../types/Shared';
 
 const WorkspaceContext = createContext<IWorkspaceContext | undefined>(undefined);
 
@@ -43,9 +8,6 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
     const [currentWorkspace, setCurrentWorkspaceState] = useState<Workspace | null>(null);
     const [workspaceLoading, setWorkspaceLoading] = useState(false);
 
-    // Add workspace
-
-    // Update workspace
     const updateWorkspace = useCallback((id: string, name?: string, description?: string) => {
         setWorkspaces((prev) =>
             prev.map((ws) =>
@@ -56,7 +18,6 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
         );
     }, []);
 
-    // Delete workspace
     const deleteWorkspace = useCallback((id: string) => {
         setCurrentWorkspaceState(null);
         setWorkspaces((prev) => {
@@ -72,18 +33,7 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
             const filteredNewWorkspaces = newWorkspaces.filter((ws) => !existingIds.has(ws.id));
             return [...prevWorkspaces, ...filteredNewWorkspaces];
         });
-        // if (!currentWorkspace) {
-        //     setCurrentWorkspaceState(
-        //         newWorkspaces.find((ws) => ws.name === 'Temporary Workspace') ?? null
-        //     );
-        // }
     }, []);
-
-    // const setCurrentWorkspace = useCallback((workspaceId: string) => {
-    //   setCurrentWorkspaceState((prev) =>
-    //     workspaces.find((ws) => ws.id === workspaceId) || prev
-    //   );
-    // }, [workspaces]);
 
     const addWorkspace = useCallback(
         (workspace: Workspace) => {
@@ -92,9 +42,6 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
                 const exists = prevWorkspaces.some((ws) => ws.id === workspace.id);
                 return exists ? prevWorkspaces : [...prevWorkspaces, workspace];
             });
-            // if (!currentWorkspace) {
-            //     setCurrentWorkspaceState(workspace);
-            // }
         },
         [currentWorkspace]
     );
@@ -115,7 +62,7 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
         },
         [workspaces]
     );
-    // Reset all workspaces
+
     const resetWorkspaces = useCallback(() => {
         setWorkspaces([]);
         setCurrentWorkspaceState(null);
@@ -127,7 +74,7 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
             setWorkspaces,
             currentWorkspace,
             addWorkspace,
-            addWorkspaceBatch, // Add the batched update function
+            addWorkspaceBatch,
             updateWorkspace,
             deleteWorkspace,
             setCurrentWorkspace,

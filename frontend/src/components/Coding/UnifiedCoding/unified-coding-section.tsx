@@ -109,10 +109,20 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     // };
 
     const filteredData = filter
-        ? data.filter((response) => response.postId === filter || response.code === filter)
+        ? filter === 'coded-data'
+            ? data
+            : filter?.split('|')?.[1] === 'coded-data'
+              ? data.filter((response) => response.postId === filter.split('|')[0])
+              : data.filter((response) => response.postId === filter || response.code === filter)
         : data;
 
+    const filteredPostIds =
+        filter === 'coded-data' || filter?.split('|')?.[1] === 'coded-data'
+            ? postIds.filter((postId) => data.some((item) => item.postId === postId))
+            : postIds;
+
     console.log('Filtered Data:', filteredData);
+    console.log('Filtered Post IDs:', filteredPostIds);
 
     // Function to generate and download codebook CSV
     const downloadCodebook = () => {
@@ -179,12 +189,12 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     const tableHeight: string = hasActionButton ? 'calc(100vh - 16rem)' : 'calc(100vh - 10rem)';
 
     return (
-        <div className="-m-6 overflow-hidden">
+        <div className="-m-6 overflow-hidden responsive-text">
             <div className="flex h-[calc(100vh-4rem)] pb-6">
                 {!viewTranscript && (
-                    <div className="w-1/4 border-r overflow-auto">
+                    <div className="w-1/4 border-r">
                         <LeftPanel
-                            postIds={postIds}
+                            postIds={filteredPostIds}
                             codes={Array.from(new Set(responses.map((item) => item.code)))}
                             onFilterSelect={setFilter}
                             showTypeFilterDropdown={showFilterDropdown}

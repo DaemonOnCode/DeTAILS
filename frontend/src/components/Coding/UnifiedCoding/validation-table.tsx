@@ -263,10 +263,8 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                 {rowItems.map((row) => (
                                     <tr
                                         key={row.id}
-                                        className={`transition-all duration-200 ${
-                                            editIndex === row.id ? 'bg-yellow-100' : ''
-                                        }`}>
-                                        {/* =========== Code ========== */}
+                                        className={`transition-all duration-200 hover:bg-gray-100 cursor-pencil hover:cursor-pencil ${editIndex === row.id ? 'bg-yellow-100' : ''}`}>
+                                        {/* ===== Code ===== */}
                                         <td className="border border-gray-300 p-2">
                                             {editIndex === row.id ? (
                                                 <input
@@ -278,11 +276,18 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                                     className="border border-gray-400 p-1 w-full rounded outline-none focus:ring-2 ring-blue-400"
                                                 />
                                             ) : (
-                                                row.code
+                                                <span
+                                                    className={
+                                                        row.isMarked === false
+                                                            ? ' line-through decoration-red-500'
+                                                            : ''
+                                                    }>
+                                                    {row.code}
+                                                </span>
                                             )}
                                         </td>
 
-                                        {/* ========== Quote ========== */}
+                                        {/* ===== Quote ===== */}
                                         <td className="border border-gray-300 p-2 max-w-64">
                                             {editIndex === row.id ? (
                                                 <input
@@ -294,7 +299,14 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                                     className="border border-gray-400 p-1 w-full rounded outline-none focus:ring-2 ring-blue-400"
                                                 />
                                             ) : (
-                                                row.quote
+                                                <span
+                                                    className={
+                                                        row.isMarked === false
+                                                            ? ' line-through decoration-red-500'
+                                                            : ''
+                                                    }>
+                                                    {row.quote}
+                                                </span>
                                             )}
                                         </td>
 
@@ -313,7 +325,14 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                                     className="border border-gray-400 p-1 w-full rounded outline-none focus:ring-2 ring-blue-400"
                                                 />
                                             ) : (
-                                                row.explanation
+                                                <span
+                                                    className={
+                                                        row.isMarked === false
+                                                            ? ' line-through decoration-red-500'
+                                                            : ''
+                                                    }>
+                                                    {row.explanation}
+                                                </span>
                                             )}
                                         </td>
 
@@ -418,14 +437,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                                                         )
                                                                     }>
                                                                     ✕
-                                                                </button>
-                                                                <button
-                                                                    className="px-3 py-2 bg-yellow-500 text-white rounded-md"
-                                                                    onClick={() =>
-                                                                        handleEditRow(row.id)
-                                                                    }
-                                                                    title="Click to edit">
-                                                                    ✏️
                                                                 </button>
                                                             </>
                                                         )}

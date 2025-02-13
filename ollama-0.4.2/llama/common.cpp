@@ -1778,13 +1778,13 @@ std::vector<llama_token> llama_tokenize(
 
 void logMessage(const std::string &message)
 {
-    static std::ofstream logFile("./log.txt", std::ios_base::app); // Open in append mode
-    if (!logFile.is_open())
-    {
-        std::cerr << "Error opening log file." << std::endl;
-        return;
-    }
-    logFile << message << std::endl;
+    // static std::ofstream logFile("./log.txt", std::ios_base::app); // Open in append mode
+    // if (!logFile.is_open())
+    // {
+    //     std::cerr << "Error opening log file." << std::endl;
+    //     return;
+    // }
+    // logFile << message << std::endl;
 }
 
 std::vector<llama_token> llama_tokenize(

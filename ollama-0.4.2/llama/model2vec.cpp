@@ -1046,20 +1046,20 @@ using json = nlohmann::json;
 
 void logBMessage(const char *format, ...)
 {
-    static FILE *logFile = fopen("./log.txt", "a"); // Open in append mode
-    if (!logFile)
-    {
-        fprintf(stderr, "Error opening log file.\n");
-        return;
-    }
+    // static FILE *logFile = fopen("./log.txt", "a"); // Open in append mode
+    // if (!logFile)
+    // {
+    //     fprintf(stderr, "Error opening log file.\n");
+    //     return;
+    // }
 
-    va_list args;
-    va_start(args, format);
-    vfprintf(logFile, format, args); // Write the formatted message to the file
-    fprintf(logFile, "\n");          // Add a newline
-    va_end(args);
+    // va_list args;
+    // va_start(args, format);
+    // vfprintf(logFile, format, args); // Write the formatted message to the file
+    // fprintf(logFile, "\n");          // Add a newline
+    // va_end(args);
 
-    fflush(logFile); // Ensure the message is immediately written to the file
+    // fflush(logFile); // Ensure the message is immediately written to the file
 }
 
 // vectorf struct

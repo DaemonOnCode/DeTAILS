@@ -1,6 +1,13 @@
 ::-webkit-scrollbar {
     width: 0.5rem;
 }
+
+@media (max-width: 1023px) {
+    ::-webkit-scrollbar {
+        width: 0.25rem;
+    }
+}
+
 ::-webkit-scrollbar-track {
     background: transparent;
 }

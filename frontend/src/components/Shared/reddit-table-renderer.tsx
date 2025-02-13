@@ -23,7 +23,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
     const { selectedPosts, setSelectedPosts } = useCollectionContext();
 
-    // Filtered Data
     const filteredData = Object.entries(data).filter(
         ([, { title, selftext, url }]) =>
             title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -54,7 +53,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
     const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setItemsPerPage(parseInt(e.target.value, 10));
-        setCurrentPage(1); // Reset to the first page when changing items per page
+        setCurrentPage(1);
     };
 
     const togglePostSelection = (id: string) => {
@@ -97,7 +96,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         <div className={`flex-grow overflow-hidden h-full ${maxContainerHeight}`}>
             {/* Top Bar with Filter and Controls */}
             <div className="mb-4 flex justify-between items-center bg-gray-100 p-4 rounded">
-                {/* Search Filter */}
                 <input
                     type="text"
                     placeholder="Search by title, text, or URL..."
@@ -106,7 +104,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                     className="p-2 border border-gray-300 rounded w-1/3"
                 />
 
-                {/* Select All Posts */}
                 <button
                     onClick={toggleSelectAllPosts}
                     className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
@@ -115,7 +112,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                         : 'Deselect All Posts'}
                 </button>
 
-                {/* Items Per Page */}
                 <div className="flex items-center">
                     <label htmlFor="itemsPerPage" className="mr-2">
                         Rows per page:
@@ -133,7 +129,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                     </select>
                 </div>
 
-                {/* Go to Page */}
                 <div className="flex items-center">
                     <label htmlFor="pageNumber" className="mr-2">
                         Page:
@@ -151,12 +146,11 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 </div>
             </div>
 
-            {/* Table */}
             <div
                 className={`overflow-y-auto ${maxTableHeightClass ? maxTableHeightClass : 'max-h-[calc(100vh-18rem)]'}`}>
                 <RedditTable
                     data={displayedData}
-                    isLoading={loading ?? false} // Pass loading state to the table
+                    isLoading={loading ?? false}
                     selectedPosts={selectedPosts}
                     togglePostSelection={togglePostSelection}
                     toggleSelectPage={toggleSelectPage}
@@ -167,7 +161,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 <p>{selectedPosts.length} posts selected</p>
             </div>
 
-            {/* Pagination Controls */}
             <PaginationControls
                 currentPage={currentPage}
                 totalPages={totalPages}

@@ -295,7 +295,7 @@ const KeywordsTablePage: FC = () => {
                 </div>
             </div>
             <NavigationBottomBar
-                previousPage={`${ROUTES.CONTEXT_BUILDER}/${ROUTES.KEYWORD_CLOUD}`}
+                previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
                 nextPage={ROUTES.LOAD_DATA}
                 isReady={isReadyCheck}
             />

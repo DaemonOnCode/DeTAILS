@@ -13,7 +13,6 @@ import {
 import {
     ContextV2Page,
     KeywordTablePage,
-    FinalPage,
     KeywordCloudPage,
     CodeReviewPage,
     CodebookRefinementPage,
@@ -24,7 +23,8 @@ import {
     SplitCheckPage,
     EncodedDataPage,
     TranscriptsPage,
-    LoadDataPage
+    LoadDataPage,
+    AnalysisPage
 } from '../pages/Coding';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
@@ -32,7 +32,7 @@ import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
 export const CodingRouter: RouteObject[] = [
     { path: ROUTES.HOME, element: <HomePage />, index: true },
     {
-        path: ROUTES.CONTEXT_BUILDER,
+        path: ROUTES.BACKGROUND_RESEARCH,
         children: [
             { path: ROUTES.CONTEXT_V2, element: <ContextV2Page />, index: true },
             { path: ROUTES.KEYWORD_CLOUD, element: <KeywordCloudPage /> },
@@ -76,18 +76,25 @@ export const CodingRouter: RouteObject[] = [
             {
                 path: ROUTES.ENCODED_DATA,
                 element: <EncodedDataPage />
-            },
+            }
+        ]
+    },
+    {
+        path: ROUTES.THEMATIC_ANALYSIS,
+        children: [
             {
+                index: true,
                 path: ROUTES.THEMES,
                 element: <ThemesPage />
-            }
+            },
+            { path: ROUTES.ANALYSIS, element: <AnalysisPage /> }
         ]
     },
     {
         path: ROUTES.TRANSCRIPTS,
         element: <TranscriptsPage />
     },
-    { path: ROUTES.FINAL, element: <FinalPage /> },
+
     {
         path: 'loader',
         children: [

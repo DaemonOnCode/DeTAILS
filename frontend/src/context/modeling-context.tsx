@@ -1,6 +1,6 @@
 import { createContext, useState, FC, useCallback, useEffect, useContext } from 'react';
 import { useMemo } from 'react';
-import { ILayout, SetState } from '../types/Coding/shared';
+import { ILayout } from '../types/Coding/shared';
 import { useWebSocket } from './websocket-context';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCollectionContext } from './collection-context';
@@ -8,36 +8,9 @@ import { useWorkspaceContext } from './workspace-context';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../constants/Shared';
 import { ROUTES } from '../constants/DataModeling/shared';
 import useServerUtils from '../hooks/Shared/get-server-url';
+import { IModelingContext } from '../types/Shared';
+import { IModelState } from '../types/DataModeling/shared';
 
-// Define the interface for each model's state
-interface IModelState {
-    id: string;
-    name: string;
-    type: 'lda' | 'nmf' | 'bertopic' | 'biterm';
-    isProcessing: boolean;
-    numTopics: number;
-    state?: 'known' | 'unknown';
-    stage: string | null;
-}
-
-// Define the interface for the ModelingContext
-export interface IModelingContext {
-    models: IModelState[];
-    addModel: (id: string, modelName: string, type: string) => void;
-    updateModelName: (id: string, newName: string) => void;
-    removeModel: (id: string) => void;
-    toggleProcessing: (id: string) => void;
-    activeModelId: string | null;
-    setActiveModelId: (id: string) => void;
-    addNewModel: boolean;
-    setAddNewModel: SetState<boolean>;
-    updateContext: (updates: Partial<IModelingContext>) => void;
-    resetContext: () => void;
-    startListening: () => void;
-    stopListening: () => void;
-}
-
-// Create the context
 export const ModelingContext = createContext<IModelingContext>({
     models: [],
     addModel: () => {},
@@ -54,7 +27,6 @@ export const ModelingContext = createContext<IModelingContext>({
     stopListening: () => {}
 });
 
-// Create a provider component
 export const ModelingProvider: FC<ILayout> = ({ children }) => {
     const { registerCallback, unregisterCallback } = useWebSocket();
     const location = useLocation();
@@ -63,18 +35,12 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
     const { getServerUrl } = useServerUtils();
     const navigate = useNavigate();
 
-    const [models, setModels] = useState<IModelState[]>([
-        // { id: '1', name: 'Model 1', isProcessing: false, type: 'lda' },
-        // { id: '2', name: 'Model 2', isProcessing: true, type: 'nmf' },
-        // { id: '3', name: 'Model 3', isProcessing: false, type: 'bertopic' }
-    ]);
+    const [models, setModels] = useState<IModelState[]>([]);
     const [activeModelId, setActiveModelId] = useState<string | null>(null);
     const [addNewModel, setAddNewModel] = useState<boolean>(false);
 
-    // Add a model to the list
     const addModel = useCallback((id: string, modelName: string, type: string) => {
         setModels((prevModels) => {
-            // if (prevModels.some((model) => model.name === modelName)) return prevModels;
             return [
                 ...prevModels,
                 { id, name: modelName, isProcessing: false, type, state: 'known' } as IModelState
@@ -82,7 +48,6 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
         });
     }, []);
 
-    // Remove a model from the list
     const removeModel = useCallback(
         (id: string) => {
             console.log('Removing model:', id);
@@ -102,7 +67,6 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
         [activeModelId]
     );
 
-    // Toggle processing state for a specific model
     const toggleProcessing = useCallback((id: string) => {
         setModels((prevModels) =>
             prevModels.map((model) =>
@@ -111,7 +75,6 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
         );
     }, []);
 
-    // Reset all modeling context state
     const resetContext = useCallback(() => {
         setModels([]);
         setActiveModelId(null);
@@ -350,5 +313,4 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
     return <ModelingContext.Provider value={value}>{children}</ModelingContext.Provider>;
 };
 
-// Hook to use the ModelingContext
 export const useModelingContext = () => useContext(ModelingContext);

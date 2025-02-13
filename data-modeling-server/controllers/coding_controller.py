@@ -288,7 +288,7 @@ async def process_llm_task(
 #     parsed_keywords = await process_llm_task(
 #         dataset_id=dataset_id,
 #         manager=manager,
-#         prompt_builder_func=ContextPrompt.context_builder,
+#         prompt_builder_func=ContextPrompt.BACKGROUND_RESEARCH,
 #         llm_model=model,
 #         regex_pattern=r"(?<!\S)(?:```(?:json)?\n)?\s*\{.*?\"keywords\"\s*:\s*\[.*?\]\s*\}",
 #         mainTopic=mainTopic,

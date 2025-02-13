@@ -58,6 +58,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     const [additionalCodes, setAdditionalCodes] = useState<string[]>([...codeSet]);
 
     const [hoveredCodeText, setHoveredCodeText] = useState<string[] | null>(null);
+    const [hoveredCode, setHoveredCode] = useState<string | null>(null);
 
     // const [hoveredLines, setHoveredLines] = useState<
     //     { x1: number; y1: number; x2: number; y2: number; color: string }[]
@@ -76,7 +77,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         codeSet.map((code) => [
             code,
             codeResponses
-                .filter((response) => response.code === code)
+                .filter((response) => response.code === code && response.postId === post.id)
                 .map((response) => ({
                     text: response.quote,
                     isComment: true,
@@ -457,6 +458,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                                     .map((segment, index) => (
                                         <HighlightedSegment
                                             key={index}
+                                            hoveredCode={hoveredCode}
                                             segment={segment}
                                             setHoveredCodeText={setHoveredCodeText}
                                         />
@@ -471,6 +473,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                                     .map((segment, index) => (
                                         <HighlightedSegment
                                             key={index}
+                                            hoveredCode={hoveredCode}
                                             segment={segment}
                                             setHoveredCodeText={setHoveredCodeText}
                                         />
@@ -483,6 +486,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         <div className="max-h-full">
                             <RedditComments
                                 comments={post.comments}
+                                hoveredCode={hoveredCode}
                                 processedSegments={processedSegments}
                                 setHoveredCodeText={setHoveredCodeText}
                                 level={0}
@@ -499,6 +503,18 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             codeColors={codeColors}
                             hoveredCodeText={hoveredCodeText}
                             conflictingCodes={conflictingCodes}
+                            codeCounts={additionalCodes.reduce(
+                                (acc, code) => {
+                                    acc[code] = codeResponses.filter(
+                                        (response) =>
+                                            response.code === code && response.postId === post.id
+                                    ).length;
+                                    return acc;
+                                },
+                                {} as Record<string, number>
+                            )}
+                            hoveredCode={hoveredCode}
+                            setHoveredCode={setHoveredCode}
                         />
                     </div>
                 </div>

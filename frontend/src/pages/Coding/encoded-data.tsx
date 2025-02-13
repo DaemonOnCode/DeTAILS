@@ -84,7 +84,7 @@ const EncodedDataPage = () => {
             </div>
             <NavigationBottomBar
                 previousPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.SPLIT_CHECK}`}
-                nextPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.THEMES}`}
+                nextPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`}
                 isReady={true}
                 onNextClick={handleNextClick}
             />

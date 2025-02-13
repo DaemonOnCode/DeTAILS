@@ -8,6 +8,8 @@ import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding-context';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import PostView from '../../components/Coding/Final/post-view';
+import CodeView from '../../components/Coding/Final/code-view';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -19,6 +21,19 @@ function groupByPostId<T extends { postId: string }>(items: T[]): Record<string,
                 acc[item.postId] = [];
             }
             acc[item.postId].push(item);
+            return acc;
+        },
+        {} as Record<string, T[]>
+    );
+}
+
+function groupByCode<T extends { coded_word: string }>(items: T[]): Record<string, T[]> {
+    return items.reduce(
+        (acc, item) => {
+            if (!acc[item.coded_word]) {
+                acc[item.coded_word] = [];
+            }
+            acc[item.coded_word].push(item);
             return acc;
         },
         {} as Record<string, T[]>
@@ -81,6 +96,11 @@ const FinalPage = () => {
         }
         return 'Unknown Theme';
     };
+    const [isCodeView, setIsCodeView] = useState(false);
+
+    const toggleView = () => {
+        setIsCodeView((prev) => !prev);
+    };
 
     // Combine sampled & unseen post data
     const finalCodeResponses = [
@@ -106,6 +126,9 @@ const FinalPage = () => {
     const grouped = useMemo(() => groupByPostId(finalCodeResponses), [finalCodeResponses]);
     const allPostIds = Object.keys(grouped);
 
+    const groupedByCode = useMemo(() => groupByCode(finalCodeResponses), [finalCodeResponses]);
+    const allCodes = Object.keys(groupedByCode);
+
     // If no data
     if (finalCodeResponses.length === 0) {
         return (
@@ -128,77 +151,62 @@ const FinalPage = () => {
         <div className="h-page flex flex-col justify-between">
             <div>
                 <h2 className="text-xl font-bold mb-4">Final Page</h2>
-                <p className="mb-6">
+                <p className="mb-2">
                     Below is the data extracted from Reddit posts with related words and contexts:
                 </p>
+                <div className="flex justify-center items-center p-4 space-x-2">
+                    {/* Left Label: Post View */}
+                    <span
+                        className={`cursor-pointer select-none ${
+                            !isCodeView ? 'font-bold text-blue-500' : 'text-gray-700'
+                        }`}
+                        onClick={() => setIsCodeView(false)}>
+                        Post View
+                    </span>
 
-                {/* Outer border container */}
-                <div className="relative border border-gray-300 rounded-lg">
-                    {/* Scrollable area */}
-                    <div className="overflow-auto max-h-[calc(100vh-13rem)]">
-                        <table className="w-full border-collapse relative">
-                            {/* Sticky main table header: Code, Theme, Quote, Explanation */}
-                            <thead className="sticky top-0 z-30 bg-gray-200 border-b-2 border-gray-400 shadow-md">
-                                <tr>
-                                    <th className="p-2 border border-gray-400 bg-gray-200 outline outline-1 outline-gray-400">
-                                        Code
-                                    </th>
-                                    <th className="p-2 border border-gray-400 bg-gray-200 outline outline-1 outline-gray-400">
-                                        Theme
-                                    </th>
-                                    <th className="p-2 border border-gray-400 bg-gray-200 outline outline-1 outline-gray-400">
-                                        Quote
-                                    </th>
-                                    <th className="p-2 border border-gray-400 bg-gray-200 outline outline-1 outline-gray-400">
-                                        Explanation
-                                    </th>
-                                </tr>
-                            </thead>
+                    {/* Toggle Switch */}
+                    <label
+                        htmlFor="toggleView"
+                        className="relative inline-block w-12 h-6 cursor-pointer">
+                        <input
+                            id="toggleView"
+                            type="checkbox"
+                            className="sr-only"
+                            checked={isCodeView}
+                            onChange={toggleView}
+                        />
+                        <div className="block bg-gray-300 w-12 h-6 rounded-full"></div>
+                        <div
+                            className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                                isCodeView ? 'translate-x-6 bg-blue-500' : ''
+                            }`}></div>
+                    </label>
 
-                            {/* For each postId group, render a subheader row and the group's rows */}
-                            {allPostIds.map((pid) => {
-                                const rows = grouped[pid];
-                                return (
-                                    <tbody key={pid}>
-                                        {/* Subheader row for Post ID, sticky below main thead.
-                        Adjust top offset if your thead is larger or smaller. */}
-                                        <tr className="sticky top-[36px] bg-gray-50 z-20 border-b border-gray-300">
-                                            <td
-                                                colSpan={totalColumns}
-                                                className="p-2 font-semibold border border-gray-300 outline outline-1 outline-gray-300 bg-gray-50">
-                                                <button
-                                                    onClick={() => {
-                                                        handleViewPost(pid, '');
-                                                    }}
-                                                    className="text-blue-500 underline">
-                                                    Post ID: {pid}
-                                                </button>
-                                            </td>
-                                        </tr>
-
-                                        {/* Rows for this postId */}
-                                        {rows.map((item) => (
-                                            <tr key={item.id} className="hover:bg-gray-50">
-                                                <td className="border border-gray-400 p-2 max-w-32">
-                                                    {item.coded_word}
-                                                </td>
-                                                <td className="border border-gray-400 p-2 max-w-32">
-                                                    {item.theme}
-                                                </td>
-                                                <td className="border border-gray-400 p-2 max-w-md">
-                                                    {item.quote}
-                                                </td>
-                                                <td className="border border-gray-400 p-2 min-w-96">
-                                                    {item.reasoning}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                );
-                            })}
-                        </table>
-                    </div>
+                    {/* Right Label: Code View */}
+                    <span
+                        className={`cursor-pointer select-none ${
+                            isCodeView ? 'font-bold text-blue-500' : 'text-gray-700'
+                        }`}
+                        onClick={() => setIsCodeView(true)}>
+                        Code View
+                    </span>
                 </div>
+
+                {!isCodeView ? (
+                    <PostView
+                        allPostIds={allPostIds}
+                        grouped={grouped}
+                        handleViewPost={handleViewPost}
+                        totalColumns={totalColumns}
+                    />
+                ) : (
+                    <CodeView
+                        allCodes={allCodes}
+                        groupedByCode={groupedByCode}
+                        totalColumns={totalColumns}
+                        handleViewPost={handleViewPost}
+                    />
+                )}
             </div>
 
             {/* Reddit Post Modal */}

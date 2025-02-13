@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+    .responsive-text {
+        @apply text-xs sm:text-sm lg:text-base;
+    }
+
+    .responsive-page-padding {
+        @apply p-1.5 sm:p-3 lg:p-6;
+    }
+}

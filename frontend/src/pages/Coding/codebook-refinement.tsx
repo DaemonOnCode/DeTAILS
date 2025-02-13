@@ -81,7 +81,7 @@ const CodebookRefinement = () => {
 
         setConflictingResponses(results.disagreements);
 
-        navigate('/coding/' + ROUTES.CODEBOOK_REFINEMENT);
+        navigate(`/coding/${ROUTES.CODEBOOK_CREATION}/${ROUTES.CODEBOOK_REFINEMENT}`);
     };
 
     const checkIfReady = conflictingResponses.length === 0;
