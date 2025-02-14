@@ -10,6 +10,8 @@ interface ValidationTableProps {
     onReRunCoding: () => void;
     onUpdateResponses: (updatedResponses: any[]) => void;
     conflictingResponses?: IQECResponse[];
+    currentPostId?: string | null;
+    showCoderType?: boolean;
 }
 
 function groupByPostId<T extends { postId: string }>(items: T[]): Record<string, T[]> {
@@ -31,7 +33,9 @@ const ValidationTable: FC<ValidationTableProps> = ({
     showThemes,
     onReRunCoding,
     onUpdateResponses,
-    conflictingResponses = []
+    conflictingResponses = [],
+    currentPostId,
+    showCoderType = true
 }) => {
     console.log('ValidationTable codeResponses:', codeResponses);
 
@@ -114,7 +118,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
         totalColumns += 1;
     }
 
-    if (codeResponses.some((row) => 'type' in row)) {
+    if (showCoderType && codeResponses.some((row) => 'type' in row)) {
         totalColumns += 1;
     }
 
@@ -135,9 +139,9 @@ const ValidationTable: FC<ValidationTableProps> = ({
                 <p className="text-gray-600">
                     You can{' '}
                     <button
-                        onClick={() => onViewTranscript(null)}
+                        onClick={() => onViewTranscript(currentPostId ?? null)}
                         className="text-blue-500 underline">
-                        visit a transcript
+                        {currentPostId ? 'visit this transcript' : 'visit a transcript'}
                     </button>{' '}
                     to add codes, or wait for the LLM to generate responses.
                 </p>
@@ -167,7 +171,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                 </th>
                             )}
 
-                            {codeResponses.some((r) => 'type' in r) && (
+                            {showCoderType && codeResponses.some((r) => 'type' in r) && (
                                 <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
                                     Type
                                 </th>
@@ -319,7 +323,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             </td>
                                         )}
 
-                                        {'type' in row && (
+                                        {showCoderType && 'type' in row && (
                                             <td className="border border-gray-300 p-2">
                                                 {editIndex === row.id ? (
                                                     <input

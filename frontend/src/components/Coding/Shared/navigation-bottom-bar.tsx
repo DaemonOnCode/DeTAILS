@@ -8,6 +8,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     previousPage,
     nextPage,
     onNextClick,
+    autoNavigateToNext = true,
     onPreviousClick
 }) => {
     const navigate = useNavigate();
@@ -41,7 +42,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             console.log('Next page clicked');
                             onNextClick && (await onNextClick(e));
                             console.log('Navigating to next page');
-                            navigate('/coding/' + nextPage);
+                            autoNavigateToNext && navigate('/coding/' + nextPage);
                         }
                     }}>
                     Proceed →

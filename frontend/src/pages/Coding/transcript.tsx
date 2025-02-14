@@ -369,6 +369,40 @@ const TranscriptPage = () => {
                     }
                 }
             }
+        ],
+        [
+            JSON.stringify({
+                state: 'review',
+                codebook: 'true',
+                type: 'LLM',
+                split: null
+            }),
+            {
+                name: 'Review',
+                review: true,
+                codebook: {
+                    responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    },
+                    showThemes: false
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                }
+            }
         ]
     ]);
 
@@ -503,14 +537,6 @@ const TranscriptPage = () => {
     if (!post) {
         return <div className="w-full h-full flex justify-center items-center">Post not found</div>;
     }
-
-    // const humanCodeResponses = unseenPostResponse.filter((response) => response.type === 'Human');
-
-    // const llmCodeResponses = unseenPostResponse.filter((response) => response.type === 'LLM');
-
-    // // const filteredData = unseenPostWithThemeData;
-
-    // const [topTranscript, bottomTranscript] = splitIsTrue ? ['Human', 'LLM'] : [null, type];
 
     return (
         <div className="h-page flex flex-col -m-6">

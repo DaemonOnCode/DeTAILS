@@ -19,7 +19,7 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({
     const [isHovered, setIsHovered] = useState(false);
 
     if (segment.backgroundColours.length === 0) {
-        return <span>{segment.line}</span>;
+        return <span>{segment.line} </span>;
     }
 
     return (
@@ -41,7 +41,7 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({
                 setHoveredCodeText(null);
             }}>
             {/* Text, always on top */}
-            <span style={{ position: 'relative', zIndex: 5 }}>{segment.line}</span>
+            <span style={{ position: 'relative', zIndex: 5 }}>{segment.line} </span>
 
             {/* Absolutely positioned color layers, each behind the text. */}
             {segment.backgroundColours.map((bgColor, i) => {

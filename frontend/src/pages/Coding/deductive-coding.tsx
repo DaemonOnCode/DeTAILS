@@ -7,7 +7,7 @@ import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
-const SplitCheckPage = () => {
+const DeductiveCodingPage = () => {
     const { unseenPostResponse, dispatchUnseenPostResponse, unseenPostIds } = useCodingContext();
 
     const logger = useLogger();
@@ -16,15 +16,15 @@ const SplitCheckPage = () => {
     const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
-        logger.info('Split check Page Loaded');
+        logger.info('Deductive coding Page Loaded');
 
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
                 hasSavedRef.current = true;
             }
-            logger.info('Split check Page Unloaded').then(() => {
-                logger.time('Split check Page stay time', { time: timer.end() });
+            logger.info('Deductive coding Page Unloaded').then(() => {
+                logger.time('Deductive coding Page stay time', { time: timer.end() });
             });
         };
     }, []);
@@ -39,8 +39,9 @@ const SplitCheckPage = () => {
                     // showThemes
                     split
                     showCodebook
-                    review={false}
                     showFilterDropdown
+                    showCoderType={false}
+                    coderType="LLM"
                 />
             </div>
             <NavigationBottomBar
@@ -52,4 +53,4 @@ const SplitCheckPage = () => {
     );
 };
 
-export default SplitCheckPage;
+export default DeductiveCodingPage;

@@ -24,27 +24,30 @@ const CodeView = ({
         const summaryData = Object.keys(themeGroups).map((themeName) => {
             const items = themeGroups[themeName];
             const uniquePostsCount = new Set(items.map((item) => item.postId)).size;
-            const totalCodeCount = items.length;
+            const uniqueCodeCount = new Set(items.map((item) => item.coded_word)).size;
             const totalQuoteCount = items.length;
             return {
                 themeName,
                 uniquePostsCount,
-                totalCodeCount,
+                uniqueCodeCount,
                 totalQuoteCount
             };
         });
 
-        // Compute overall quick stats across themes
         const overallUniqueThemesCount = Object.keys(themeGroups).length;
         const overallUniquePostsSet = new Set<string>();
-        let overallTotalCodeCount = 0;
-        summaryData.forEach((data) => {
-            overallTotalCodeCount += data.totalCodeCount;
-            themeGroups[data.themeName].forEach((item) => {
+        const overallUniqueCodesSet = new Set<string>();
+        let overallTotalQuoteCount = 0;
+
+        Object.values(themeGroups).forEach((items) => {
+            overallTotalQuoteCount += items.length;
+            items.forEach((item) => {
                 overallUniquePostsSet.add(item.postId);
+                overallUniqueCodesSet.add(item.coded_word);
             });
         });
         const overallUniquePostsCount = overallUniquePostsSet.size;
+        const overallUniqueCodeCount = overallUniqueCodesSet.size;
 
         return (
             <div className="flex flex-col h-full">
@@ -74,7 +77,7 @@ const CodeView = ({
                                         {data.uniquePostsCount}
                                     </td>
                                     <td className="p-2 border border-gray-400">
-                                        {data.totalCodeCount}
+                                        {data.uniqueCodeCount}
                                     </td>
                                     <td className="p-2 border border-gray-400">
                                         {data.totalQuoteCount}
@@ -88,8 +91,8 @@ const CodeView = ({
                         <div className="flex flex-col space-y-2">
                             <div>Total Unique Themes: {overallUniqueThemesCount}</div>
                             <div>Total Unique Posts: {overallUniquePostsCount}</div>
-                            <div>Total Code Count: {overallTotalCodeCount}</div>
-                            <div>Total Quote Count: {overallTotalCodeCount}</div>
+                            <div>Total Code Count: {overallUniqueCodeCount}</div>
+                            <div>Total Quote Count: {overallTotalQuoteCount}</div>
                         </div>
                     </div>
                 </div>

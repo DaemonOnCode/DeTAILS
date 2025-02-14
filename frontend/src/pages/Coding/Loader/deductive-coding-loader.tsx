@@ -68,35 +68,43 @@ const DeductiveCoding = () => {
     }, [currentWordIndex, resetting]);
 
     return (
-        <div className="flex justify-center items-center h-page px-4">
-            <div className="bg-white shadow-lg p-6 rounded-lg w-full max-w-3xl text-left border">
-                <h2 className="text-2xl font-semibold mb-4">🔍 Deductive Coding in Progress</h2>
+        <div className="flex flex-col h-page px-4">
+            <div className="flex-grow flex justify-center items-center">
+                <div className="bg-white shadow-lg p-6 rounded-lg w-full max-w-3xl text-left border">
+                    <h2 className="text-2xl font-semibold mb-4">🔍 Deductive Coding in Progress</h2>
+                    <p className="text-lg font-mono leading-relaxed whitespace-pre-line">
+                        {textLine.split(' ').map((word, idx) => {
+                            const highlight = highlightedWords.find((h) => h.index === idx);
+                            const isCurrentWord = idx === currentWordIndex; // Cursor should appear here
 
-                <p className="text-lg font-mono leading-relaxed whitespace-pre-line">
-                    {textLine.split(' ').map((word, idx) => {
-                        const highlight = highlightedWords.find((h) => h.index === idx);
-                        const isCurrentWord = idx === currentWordIndex; // Cursor should appear here
-
-                        return (
-                            <motion.span
-                                key={idx}
-                                className={`inline ${highlight ? highlight.color + ' bg-opacity-50' : ''}`}
-                                transition={{ duration: 0.2 }}>
-                                {word}
-                                {isCurrentWord && (
-                                    <motion.span
-                                        className="inline-block w-1 h-5 bg-black ml-1 align-baseline"
-                                        animate={{ opacity: [0, 1] }}
-                                        transition={{ repeat: Infinity, duration: 0.5 }}
-                                    />
-                                )}{' '}
-                            </motion.span>
-                        );
-                    })}
-                </p>
+                            return (
+                                <motion.span
+                                    key={idx}
+                                    className={`inline ${
+                                        highlight ? highlight.color + ' bg-opacity-50' : ''
+                                    }`}
+                                    transition={{ duration: 0.2 }}>
+                                    {word}
+                                    {isCurrentWord && (
+                                        <motion.span
+                                            className="inline-block w-1 h-5 bg-black ml-1 align-baseline"
+                                            animate={{ opacity: [0, 1] }}
+                                            transition={{ repeat: Infinity, duration: 0.5 }}
+                                        />
+                                    )}{' '}
+                                </motion.span>
+                            );
+                        })}
+                    </p>
+                </div>
             </div>
-            <div className="flex justify-end">
-                <button onClick={() => navigate(ROUTES.MANUAL_CODING)}>Go to Manual Coding</button>
+
+            <div className="mt-4 self-end">
+                <button
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    onClick={() => navigate(`/coding/${ROUTES.MANUAL_CODING}`)}>
+                    Go to Manual Coding →
+                </button>
             </div>
         </div>
     );

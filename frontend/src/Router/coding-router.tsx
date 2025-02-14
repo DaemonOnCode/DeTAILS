@@ -14,18 +14,16 @@ import {
     ContextV2Page,
     KeywordTablePage,
     KeywordCloudPage,
-    CodeReviewPage,
-    CodebookRefinementPage,
     TranscriptPage,
     ThemesPage,
-    FinalCodebookPage,
-    CodeValidationPage,
     SplitCheckPage,
     EncodedDataPage,
     TranscriptsPage,
     LoadDataPage,
     AnalysisPage,
-    CodebookCreationPage
+    CodebookCreationPage,
+    ManualCodingPage,
+    DeductiveCodingPage
 } from '../pages/Coding';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
@@ -69,17 +67,18 @@ export const CodingRouter: RouteObject[] = [
     },
     {
         path: ROUTES.DEDUCTIVE_CODING,
-        children: [
-            {
-                path: ROUTES.SPLIT_CHECK,
-                element: <SplitCheckPage />,
-                index: true
-            },
-            {
-                path: ROUTES.ENCODED_DATA,
-                element: <EncodedDataPage />
-            }
-        ]
+        element: <DeductiveCodingPage />
+        // children: [
+        //     {
+        //         path: ROUTES.SPLIT_CHECK,
+        //         element: <SplitCheckPage />,
+        //         index: true
+        //     },
+        //     {
+        //         path: ROUTES.ENCODED_DATA,
+        //         element: <EncodedDataPage />
+        //     }
+        // ]
     },
     {
         path: ROUTES.THEMATIC_ANALYSIS,
@@ -96,7 +95,10 @@ export const CodingRouter: RouteObject[] = [
         path: ROUTES.TRANSCRIPTS,
         element: <TranscriptsPage />
     },
-
+    {
+        path: ROUTES.MANUAL_CODING,
+        element: <ManualCodingPage />
+    },
     {
         path: 'loader',
         children: [

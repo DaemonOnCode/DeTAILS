@@ -16,3 +16,5 @@ export { default as EncodedDataPage } from './encoded-data';
 export { default as TranscriptsPage } from './transcripts';
 export { default as LoadDataPage } from './load-data';
 export { default as CodebookCreationPage } from './codebook-creation';
+export { default as ManualCodingPage } from './manual-coding';
+export { default as DeductiveCodingPage } from './deductive-coding';

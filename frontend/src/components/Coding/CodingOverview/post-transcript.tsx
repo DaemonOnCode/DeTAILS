@@ -338,15 +338,17 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     }, [codes]);
 
     const splitIntoSegments = (text: string) => {
-        // Replace newlines with a space so they do not trigger a break.
-        const cleanedText = text.replace(/\n+/g, ' ');
+        // Use a unique token that is unlikely to appear in your text.
+        const newlineToken = '<NEWLINE>';
+        // Replace newlines with the token.
+        const cleanedText = text.replace(/\n+/g, newlineToken);
         // Split on punctuation that typically ends a sentence.
-        // The regex uses a positive lookbehind to include punctuation in each segment.
         const segments = cleanedText
             .split(/(?<=[.?!])/)
             .map((segment) => segment.trim())
             .filter(Boolean);
-        return segments;
+        // Reapply newlines where the token exists.
+        return segments.map((segment) => segment.replace(new RegExp(newlineToken, 'g'), '\n'));
     };
 
     const processedSegments = useMemo(() => {
@@ -427,7 +429,9 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         ← <span className="underline">Back to Posts</span>
                     </button>
 
-                    <div className="flex-1 overflow-y-auto" onMouseUp={handleTextSelection}>
+                    <div
+                        className={`flex-1 overflow-y-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}
+                        onMouseUp={handleTextSelection}>
                         <div className="mb-6">
                             <h2 className="text-xl font-bold mb-2">
                                 {processedSegments
@@ -498,8 +502,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         />
                     </div>
                 </div>
-                {/* </div> */}
-                {/* </div> */}
+                {/* Modals */}
                 {isAddCodeModalOpen && isActive && (
                     <AddCodeModal
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}
@@ -548,12 +551,12 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 {isEditHighlightModalOpen && isActive && (
                     <EditHighlightModal
                         references={references}
-                        setReferences={setReferences}
                         applyCodeToSelection={(extra) =>
                             applyCodeToSelection('EDIT_HIGHLIGHT', extra)
                         }
                         setIsHighlightModalOpen={setIsEditHighlightModalOpen}
-                        restoreSelection={restoreSelection}
+                        selectedText={selectedText}
+                        setSelectedText={setSelectedText}
                     />
                 )}
                 {isDeleteHighlightModalOpen && isActive && (
@@ -568,7 +571,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 )}
             </div>
         </div>
-        // </div>
     );
 };
 

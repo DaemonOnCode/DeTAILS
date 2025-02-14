@@ -12,6 +12,7 @@ import {
     IQECTTyRow
 } from '../../../types/Coding/shared';
 import { ROUTES } from '../../../constants/Coding/shared';
+import { useCodingContext } from '../../../context/coding-context';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
@@ -26,6 +27,10 @@ interface UnifiedCodingPageProps {
     showRerunCoding?: boolean;
     handleRerun?: () => void;
     conflictingResponses?: IQECResponse[];
+    manualCoding?: boolean;
+    onPostSelect?: (postId: string | null) => void;
+    showCoderType?: boolean;
+    coderType?: 'Human' | 'LLM';
 }
 
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
@@ -40,16 +45,30 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     showFilterDropdown = false,
     showRerunCoding = false,
     handleRerun = () => {},
-    conflictingResponses = []
+    conflictingResponses = [],
+    manualCoding = false,
+    onPostSelect = () => {},
+    showCoderType = true,
+    coderType
 }) => {
     console.log('Data:', data);
+    const {
+        sampledPostResponse,
+        unseenPostResponse,
+        unseenPostIds,
+        sampledPostIds,
+        dispatchSampledPostResponse,
+        dispatchUnseenPostResponse
+    } = useCodingContext();
     const [viewTranscript, setViewTranscript] = useState(false);
-    const [currentPost, setCurrentPost] = useState<any | null>(null);
+    const [currentPost, setCurrentPost] = useState<string | null>(null);
     const [filter, setFilter] = useState<string | null>(null);
 
     const [review, setReview] = useState(true);
 
-    const [selectedTypeFilter, setSelectedTypeFilter] = useState<'Human' | 'LLM' | 'All'>('All');
+    const [selectedTypeFilter, setSelectedTypeFilter] = useState<
+        'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All'
+    >('All');
 
     const isThemesVisible = showThemes;
     // const responses = data;
@@ -60,6 +79,10 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     // Handle viewing transcript for a post
     const handleViewTranscript = (postId: string | null) => {
+        if (manualCoding) {
+            onPostSelect(postId);
+            return;
+        }
         if (!postId) {
             navigate('../' + ROUTES.TRANSCRIPTS, {
                 state: {
@@ -90,7 +113,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         //     });
         let params = new URLSearchParams();
         if (split !== undefined) {
-            if (selectedTypeFilter !== 'All') {
+            if (selectedTypeFilter === 'All' && coderType) {
+                params.append('type', coderType);
+            } else if (selectedTypeFilter !== 'All') {
                 params.append('type', selectedTypeFilter);
             } else {
                 params.append('split', split.toString());
@@ -117,12 +142,24 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             : filter?.split('|')?.[1] === 'coded-data'
               ? data.filter((response) => response.postId === filter.split('|')[0])
               : data.filter((response) => response.postId === filter || response.code === filter)
-        : data;
+        : showCoderType && selectedTypeFilter === 'All'
+          ? [...sampledPostResponse, ...unseenPostResponse]
+          : selectedTypeFilter === 'New Data'
+            ? unseenPostResponse
+            : selectedTypeFilter === 'Codebook'
+              ? sampledPostResponse
+              : data;
 
     const filteredPostIds =
         filter === 'coded-data' || filter?.split('|')?.[1] === 'coded-data'
             ? postIds.filter((postId) => data.some((item) => item.postId === postId))
-            : postIds;
+            : showCoderType && selectedTypeFilter === 'All'
+              ? [...sampledPostIds, ...unseenPostIds]
+              : selectedTypeFilter === 'New Data'
+                ? unseenPostIds
+                : selectedTypeFilter === 'Codebook'
+                  ? sampledPostIds
+                  : postIds;
 
     console.log('Filtered Data:', filteredData);
     console.log('Filtered Post IDs:', filteredPostIds);
@@ -167,20 +204,80 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         });
     };
 
-    const handleSelectedTypeFilter = (type: 'Human' | 'LLM' | 'All') => {
+    const handleSelectedTypeFilter = (type: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All') => {
         setSelectedTypeFilter(type);
-        setResponses(
-            // @ts-ignore
-            data.filter((item) => {
-                if ('type' in item) {
-                    if (type === 'All') {
-                        return true;
+        if (showCoderType) {
+            setResponses(
+                // @ts-ignore
+                data.filter((item) => {
+                    if ('type' in item) {
+                        if (type === 'All') {
+                            return true;
+                        }
+                        return item.type === type;
                     }
-                    return item.type === type;
-                }
-            })
-        );
+                })
+            );
+        } else {
+            if (type === 'All') {
+                setResponses([
+                    ...sampledPostResponse,
+                    ...unseenPostResponse.map((item) => ({
+                        id: item.id,
+                        postId: item.postId,
+                        quote: item.quote,
+                        code: item.code,
+                        explanation: item.explanation,
+                        comment: item.comment
+                    }))
+                ]);
+            }
+            if (type === 'New Data') {
+                setResponses([
+                    ...unseenPostResponse.map((item) => ({
+                        id: item.id,
+                        postId: item.postId,
+                        quote: item.quote,
+                        code: item.code,
+                        explanation: item.explanation,
+                        comment: item.comment
+                    }))
+                ]);
+            }
+            if (type === 'Codebook') {
+                setResponses([...sampledPostResponse]);
+            }
+        }
     };
+
+    const dataSearch = (data: any) => {
+        if (selectedTypeFilter === 'New Data') {
+            return 'unseen';
+        } else if (selectedTypeFilter === 'Codebook') {
+            return 'sampled';
+        }
+
+        let { type, ...extras } = data;
+        if (extras instanceof Array) {
+            extras = extras[0];
+        }
+        if (extras.hasOwnProperty('type')) {
+            return 'unseen';
+        } else {
+            return 'sampled';
+        }
+    };
+
+    const commonDispatch = (data: any) => {
+        if (showCoderType) return;
+        if (dataSearch(data) === 'sampled') {
+            dispatchSampledPostResponse(data);
+        } else if (dataSearch(data) === 'unseen') {
+            dispatchUnseenPostResponse(data);
+        }
+    };
+
+    dispatchFunction = showCoderType ? dispatchFunction : commonDispatch;
 
     // Function to re-run the coding with updates
     const handleReRunCoding = () => {
@@ -202,6 +299,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                         showTypeFilterDropdown={showFilterDropdown}
                         selectedTypeFilter={selectedTypeFilter}
                         handleSelectedTypeFilter={handleSelectedTypeFilter}
+                        setCurrentPost={setCurrentPost}
+                        showCoderType={showCoderType}
                     />
                 </div>
 
@@ -262,6 +361,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             onReRunCoding={handleReRunCoding}
                             onUpdateResponses={handleUpdateResponses}
                             conflictingResponses={conflictingResponses}
+                            currentPostId={currentPost}
+                            showCoderType={showCoderType}
                         />
                     </div>
                     {showRerunCoding && (

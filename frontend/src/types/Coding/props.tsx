@@ -82,12 +82,10 @@ export type EditHighlightModalProps = {
     references: {
         [code: string]: IReference[];
     };
-    setReferences: SetState<{
-        [code: string]: IReference[];
-    }>;
     applyCodeToSelection: (e: any) => void;
     setIsHighlightModalOpen: SetState<boolean>;
-    restoreSelection?: () => void;
+    selectedText: string | null;
+    setSelectedText: SetState<string | null>;
 };
 
 export type DeleteHighlightModalProps = {
@@ -136,6 +134,7 @@ export type NavigationBottomBarProps = {
     nextPage?: string;
     onNextClick?: (e: any) => Promise<void>;
     onPreviousClick?: () => void;
+    autoNavigateToNext?: boolean;
 };
 
 export type RedditViewModalProps = {

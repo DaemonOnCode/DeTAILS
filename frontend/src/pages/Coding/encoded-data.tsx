@@ -71,8 +71,8 @@ const EncodedDataPage = () => {
     };
 
     return (
-        <div className="min-h-page">
-            <div>
+        <div className="h-page flex flex-col">
+            <div className="flex-1 overflow-hidden">
                 <UnifiedCodingPage
                     postIds={unseenPostIds}
                     data={unseenPostResponse}

@@ -4,6 +4,7 @@ import { RouteObject } from 'react-router-dom';
 import { RouteIcons, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth-context';
 import { AppRouteArray } from '../../types/Shared';
+import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 
 // Format route names for display
 const formatRouteName = (path: string) => {
@@ -22,16 +23,13 @@ const formatRouteName = (path: string) => {
 const IGNORED_KEYWORDS = [
     '*',
     '/',
-    'loader',
+    // 'loader',
     SHARED_ROUTES.CLEANING,
     SHARED_ROUTES.DATA_COLLECTION,
     SHARED_ROUTES.DATA_MODELING,
     SHARED_ROUTES.SETTINGS,
-    'basis',
-    'flashcards',
-    'word-cloud',
-    'coding-validation',
-    'transcript/:id/:state'
+    CODING_ROUTES.TRANSCRIPT
+    // CODING_ROUTES.MANUAL_CODING
 ];
 
 interface SidebarProps {

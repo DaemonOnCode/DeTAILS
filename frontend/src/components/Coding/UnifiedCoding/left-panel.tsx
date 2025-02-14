@@ -3,14 +3,17 @@ import PostTab from './post-tab';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import useServerUtils from '../../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../../context/collection-context';
+import { SetState } from '../../../types/Coding/shared';
 
 interface LeftPanelProps {
     postIds: string[];
     codes: string[];
     onFilterSelect: (filter: string | null) => void;
     showTypeFilterDropdown?: boolean;
-    selectedTypeFilter: 'Human' | 'LLM' | 'All';
+    selectedTypeFilter: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
     handleSelectedTypeFilter?: (e: any) => void;
+    setCurrentPost: SetState<string | null>;
+    showCoderType?: boolean;
 }
 
 const LeftPanel: FC<LeftPanelProps> = ({
@@ -19,7 +22,9 @@ const LeftPanel: FC<LeftPanelProps> = ({
     onFilterSelect,
     showTypeFilterDropdown = false,
     selectedTypeFilter,
-    handleSelectedTypeFilter
+    handleSelectedTypeFilter,
+    setCurrentPost,
+    showCoderType
 }) => {
     const [activeTab, setActiveTab] = useState<'posts' | 'codes'>('posts');
     const [selectedItem, setSelectedItem] = useState<string | null>(null);
@@ -34,6 +39,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
     const { datasetId } = useCollectionContext();
 
     const handleSelect = (filter: string | null) => {
+        setCurrentPost(filter);
         setSelectedItem((prev) => {
             console.log(prev, filter);
             if (
@@ -91,8 +97,17 @@ const LeftPanel: FC<LeftPanelProps> = ({
                         onChange={(e) => handleSelectedTypeFilter?.(e.target.value)}
                         className="w-full p-2 border rounded shadow bg-white cursor-pointer">
                         <option value="All">All</option>
-                        <option value="Human">Human</option>
-                        <option value="LLM">LLM</option>
+                        {showCoderType ? (
+                            <>
+                                <option value="Human">Human</option>
+                                <option value="LLM">LLM</option>
+                            </>
+                        ) : (
+                            <>
+                                <option value="New Data">New Data</option>
+                                <option value="Codebook">Codebook</option>
+                            </>
+                        )}
                     </select>
                 </div>
             )}
