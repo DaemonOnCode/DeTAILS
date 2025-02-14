@@ -1,7 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useWorkspaceContext } from '../../context/workspace-context';
-import { FiFolder, FiFolderPlus, FiChevronDown, FiChevronRight, FiEdit2 } from 'react-icons/fi';
-import { BsTrash } from 'react-icons/bs';
+import {
+    FiFolder,
+    FiFolderPlus,
+    FiChevronDown,
+    FiChevronRight,
+    FiEdit,
+    FiTrash2
+} from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES as DATA_COLLECTION_ROUTES } from '../../constants/DataCollection/shared';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
@@ -390,7 +396,7 @@ const WorkspaceSelectionPage: React.FC = () => {
                                             setRenameWorkspaceName(workspace.name);
                                         }}
                                         className="text-blue-500 hover:text-blue-600">
-                                        <FiEdit2 />
+                                        <FiEdit />
                                     </button>
                                     <button
                                         onClick={(e) => {
@@ -398,7 +404,7 @@ const WorkspaceSelectionPage: React.FC = () => {
                                             handleDeleteWorkspace(workspace.id);
                                         }}
                                         className="text-red-500 hover:text-red-600">
-                                        <BsTrash />
+                                        <FiTrash2 />
                                     </button>
                                 </div>
                             </div>

@@ -11,9 +11,9 @@ import {
     IQECResponse,
     ThemeBucket,
     KeywordsTableAction,
-    baseResponseHandlerActions,
-    sampleDataResponseReducerActions,
-    sampleDataWithThemeResponseReducerActions
+    BaseResponseHandlerActions,
+    SampleDataResponseReducerActions,
+    SampleDataWithThemeResponseReducerActions
 } from '../types/Coding/shared';
 import { ICodingContext } from '../types/Shared';
 
@@ -200,7 +200,7 @@ const keywordTableReducer = (
 
 function baseResponseHandler<T>(
     state: T[],
-    action: baseResponseHandlerActions<T>,
+    action: BaseResponseHandlerActions<T>,
     config: Record<string, any>
 ): T[] {
     let newResponses: T[] = [];
@@ -285,7 +285,7 @@ function baseResponseHandler<T>(
 
 const sampleDataResponseReducer = (
     state: IQECResponse[],
-    action: sampleDataResponseReducerActions
+    action: SampleDataResponseReducerActions
 ): IQECResponse[] => {
     console.log('Action:', action, 'Sample Data');
     switch (action.type) {
@@ -320,7 +320,7 @@ const sampleDataResponseReducer = (
 
 const sampleDataWithThemeResponseReducer = (
     state: IQECTResponse[],
-    action: sampleDataWithThemeResponseReducerActions
+    action: SampleDataWithThemeResponseReducerActions
 ): IQECTResponse[] => {
     console.log('Action:', action, 'Sampled with theme', state);
     switch (action.type) {
@@ -356,7 +356,10 @@ const sampleDataWithThemeResponseReducer = (
     }
 };
 
-const unseenDataResponseReducer = (state: IQECTTyResponse[], action: any): IQECTTyResponse[] => {
+const unseenDataResponseReducer = (
+    state: IQECTTyResponse[],
+    action: BaseResponseHandlerActions<IQECTTyResponse>
+): IQECTTyResponse[] => {
     console.log('Action:', action, 'Unseen Data');
     switch (action.type) {
         case 'SET_CORRECT':

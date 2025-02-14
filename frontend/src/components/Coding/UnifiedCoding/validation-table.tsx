@@ -263,7 +263,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                 {rowItems.map((row) => (
                                     <tr
                                         key={row.id}
-                                        className={`transition-all duration-200 hover:bg-gray-100 cursor-pencil hover:cursor-pencil ${editIndex === row.id ? 'bg-yellow-100' : ''}`}>
+                                        className={`transition-all duration-200 ${!review ? 'hover:bg-blue-200 cursor-pencil' : 'hover:bg-gray-100'} ${editIndex === row.id ? 'bg-yellow-100' : ''}`}>
                                         {/* ===== Code ===== */}
                                         <td className="border border-gray-300 p-2">
                                             {editIndex === row.id ? (

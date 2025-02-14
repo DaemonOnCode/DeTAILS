@@ -230,7 +230,7 @@ export type KeywordsTableAction =
     | { type: 'SET_ALL_INCORRECT' }
     | { type: 'SET_ALL_UNMARKED' };
 
-export type baseResponseHandlerActions<T> =
+export type BaseResponseHandlerActions<T> =
     | { type: 'SET_CORRECT'; index: number }
     | { type: 'SET_ALL_CORRECT' }
     | { type: 'SET_ALL_INCORRECT' }
@@ -260,11 +260,20 @@ export type baseResponseHandlerActions<T> =
           code: string;
       };
 
-export type sampleDataResponseReducerActions =
-    | baseResponseHandlerActions<IQECResponse>
+export type SampleDataResponseReducerActions =
+    | BaseResponseHandlerActions<IQECResponse>
     | { type: 'UPDATE_CODE'; newCode: string; quote: string; prevCode: string };
 
-export type sampleDataWithThemeResponseReducerActions =
-    | baseResponseHandlerActions<IQECTResponse>
+export type SampleDataWithThemeResponseReducerActions =
+    | BaseResponseHandlerActions<IQECTResponse>
     | { type: 'UPDATE_THEMES'; themes: ThemeBucket[] }
     | { type: 'DELETE_THEME'; name: string };
+
+export type PostItem = {
+    postId: string;
+    quote: string;
+    coded_word: string;
+    reasoning: string;
+    theme: string;
+    id: string;
+};

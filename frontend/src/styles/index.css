@@ -27,3 +27,25 @@
 .scrollbar-hide::-webkit-scrollbar {
     display: none; /* For Chrome, Safari, and Edge */
 }
+
+:root {
+    --panel-height: calc(100vh - 64px - 48px);
+    --page-height: calc(100vh - 48px);
+    --max-page-content-height: calc(100vh - 7rem);
+}
+
+@media (min-width: 600px) {
+    :root {
+        --panel-height: calc(100vh - 56px - 40px);
+        --page-height: calc(100vh - 24px);
+        --max-page-content-height: calc(100vh - 84px);
+    }
+}
+
+@media (min-width: 1024px) {
+    :root {
+        --panel-height: calc(100vh - 64px - 48px);
+        --page-height: calc(100vh - 48px);
+        --max-page-content-height: calc(100vh - 7rem);
+    }
+}

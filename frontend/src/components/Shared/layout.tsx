@@ -227,7 +227,7 @@ export const Layout: FC<ILayout> = ({ children }) => {
                     </div>
 
                     <div className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
-                        <div className="responsive-page-padding h-full overflow-auto responsive-text">
+                        <div className="responsive-page-padding h-screen overflow-auto responsive-text">
                             {children}
                         </div>
                     </div>

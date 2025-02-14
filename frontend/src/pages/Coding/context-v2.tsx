@@ -11,6 +11,7 @@ import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
+import { useLoadingContext } from '../../context/loading-context';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -34,6 +35,8 @@ const ContextPage = () => {
         setResearchQuestions,
         dispatchKeywordsTable
     } = useCodingContext();
+
+    const { loadingState, loadingDispatch } = useLoadingContext();
 
     const { datasetId } = useCollectionContext();
 
@@ -95,6 +98,12 @@ const ContextPage = () => {
         };
     }, []);
 
+    useEffect(() => {
+        if (loadingState[ROUTES.CONTEXT_V2]) {
+            navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
+        }
+    }, [loadingState]);
+
     const handleSelectFiles = async () => {
         const files: {
             filePath: string;
@@ -121,6 +130,13 @@ const ContextPage = () => {
     const handleOnNextClick = async (e: any) => {
         if (!datasetId) return;
         e.preventDefault();
+        loadingDispatch({
+            type: 'SET_LOADING',
+            payload: {
+                loading: true,
+                route: ROUTES.KEYWORD_CLOUD
+            }
+        });
         await logger.info('Starting Theme Cloud Generation');
         console.log('Starting function', getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
@@ -170,6 +186,10 @@ const ContextPage = () => {
         await logger.info('Theme Cloud generated');
         //     return;
         // }
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: ROUTES.KEYWORD_CLOUD
+        });
 
         console.log('Ending function');
     };

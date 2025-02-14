@@ -25,50 +25,6 @@ const KeywordsTablePage: FC = () => {
 
     const hasSavedRef = useRef(false);
 
-    const handleGenerateMore = async () => {
-        await logger.info('Generate more codes');
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.KEYWORD_TABLE_LOADER));
-        const filteredKeywordTable = keywordTable.filter((entry) => entry.isMarked === undefined);
-        if (keywordTable.length !== 0 && filteredKeywordTable.length === keywordTable.length) {
-            navigate('/coding/' + ROUTES.KEYWORD_TABLE);
-            await logger.info('KeywordTable Generation completed');
-            return;
-        }
-        // if (!USE_LOCAL_SERVER) {
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_MORE_CODES), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                dataset_id: datasetId,
-                model: MODEL_LIST.GEMINI_FLASH,
-                mainTopic,
-                additionalInfo,
-                keywordTable,
-                currentKeywordTable: filteredKeywordTable.map((entry) => ({
-                    word: entry.word,
-                    description: entry.description,
-                    inclusion_criteria: entry.inclusion_criteria,
-                    exclusion_criteria: entry.exclusion_criteria,
-                    is_correct: entry.isMarked
-                }))
-            })
-        });
-        const results = await res.json();
-        console.log(results);
-
-        const newKeywordTable: string[] = results.KeywordTable;
-
-        dispatchKeywordsTable({
-            type: 'ADD_MANY',
-            entries: newKeywordTable
-        });
-        await logger.info('KeywordTable Generation completed');
-        // }
-        navigate('/coding/' + ROUTES.KEYWORD_TABLE);
-    };
-
     const handleSaveCsv = async () => {
         await logger.info('Saving KeywordTable as CSV');
         setSaving(true);
@@ -112,38 +68,35 @@ const KeywordsTablePage: FC = () => {
     const isReadyCheck = keywordTable.some((entry) => entry.isMarked === true);
 
     return (
-        <div className="flex flex-col justify-between h-full">
-            <div className="min-h-maxPageContent">
+        <div className="h-page flex flex-col">
+            <header className="flex-none py-4">
                 <p>Please validate and manage the keyword table entries below:</p>
-                <div className="max-h-[calc(100vh-14rem)] overflow-auto mt-4 border border-gray-400 rounded-lg">
+            </header>
+
+            <main className="flex-1 overflow-hidden flex flex-col">
+                <div className="flex-1 overflow-auto">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-gray-200">
                                 <th className="border border-gray-400 p-2">Word</th>
                                 <th className="border border-gray-400 p-2">Description</th>
-                                {/* <th className="border border-gray-400 p-2">Codes</th> */}
                                 <th className="border border-gray-400 p-2">Inclusion Criteria</th>
                                 <th className="border border-gray-400 p-2">Exclusion Criteria</th>
-                                <>
-                                    <th className="p-2 border border-gray-400">
-                                        Actions
-                                        <div className="mt-2 flex justify-center gap-x-2">
-                                            <button
-                                                className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 text-sm"
-                                                onClick={() => handleToggleAllSelectOrReject(true)}>
-                                                ✓
-                                            </button>
-                                            <button
-                                                className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
-                                                onClick={() =>
-                                                    handleToggleAllSelectOrReject(false)
-                                                }>
-                                                ✕
-                                            </button>
-                                        </div>
-                                    </th>
-                                </>
-                                {/* <th className="border border-gray-400 p-2">Comments</th> */}
+                                <th className="border border-gray-400 p-2">
+                                    Actions
+                                    <div className="mt-2 flex justify-center gap-x-2">
+                                        <button
+                                            className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 text-sm"
+                                            onClick={() => handleToggleAllSelectOrReject(true)}>
+                                            ✓
+                                        </button>
+                                        <button
+                                            className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
+                                            onClick={() => handleToggleAllSelectOrReject(false)}>
+                                            ✕
+                                        </button>
+                                    </div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -265,18 +218,15 @@ const KeywordsTablePage: FC = () => {
                         </tbody>
                     </table>
                 </div>
-                <div className="mt-6 flex justify-center gap-x-48">
+
+                {/* Fixed control buttons below the table */}
+                <div className="mt-3 lg:mt-6 flex justify-evenly">
                     <div className="flex gap-x-4">
                         <button
                             onClick={() => dispatchKeywordsTable({ type: 'ADD_ROW' })}
                             className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
                             Add New Row
                         </button>
-                        {/* <button
-                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
-                            onClick={handleGenerateMore}>
-                            Generate more
-                        </button> */}
                     </div>
                     <div className="flex gap-x-4">
                         <button
@@ -286,19 +236,23 @@ const KeywordsTablePage: FC = () => {
                             Save as CSV
                         </button>
                         <button
-                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
                             onClick={handleSaveExcel}
+                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
                             disabled={saving}>
                             Save as Excel
                         </button>
                     </div>
                 </div>
-            </div>
-            <NavigationBottomBar
-                previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
-                nextPage={ROUTES.LOAD_DATA}
-                isReady={isReadyCheck}
-            />
+            </main>
+
+            {/* Fixed footer */}
+            <footer className="flex-none">
+                <NavigationBottomBar
+                    previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
+                    nextPage={ROUTES.LOAD_DATA}
+                    isReady={isReadyCheck}
+                />
+            </footer>
         </div>
     );
 };

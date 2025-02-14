@@ -201,7 +201,7 @@ const KeywordCloudPage: FC = () => {
     const checkIfReady = selectedKeywords.length > WORD_CLOUD_MIN_THRESHOLD;
 
     return (
-        <div className="h-full flex justify-between flex-col">
+        <div className="min-h-page flex justify-between flex-col">
             <div className="relative flex justify-center items-center flex-col">
                 <KeywordCloud
                     mainTopic={mainTopic}

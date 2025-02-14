@@ -93,7 +93,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     };
 
     return (
-        <div className={`flex-grow overflow-hidden h-full ${maxContainerHeight}`}>
+        <div className={`flex flex-col h-full`}>
             {/* Top Bar with Filter and Controls */}
             <div className="mb-4 flex justify-between items-center bg-gray-100 p-4 rounded">
                 <input
@@ -146,8 +146,8 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 </div>
             </div>
 
-            <div
-                className={`overflow-y-auto ${maxTableHeightClass ? maxTableHeightClass : 'max-h-[calc(100vh-18rem)]'}`}>
+            {/* Scrollable Table Section */}
+            <div className={`flex-1 overflow-y-auto`}>
                 <RedditTable
                     data={displayedData}
                     isLoading={loading ?? false}
@@ -157,10 +157,11 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 />
             </div>
 
-            <div className="flex items-center justify-start">
+            <div className="flex items-center justify-start mt-2">
                 <p>{selectedPosts.length} posts selected</p>
             </div>
 
+            {/* Pagination Controls */}
             <PaginationControls
                 currentPage={currentPage}
                 totalPages={totalPages}

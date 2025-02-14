@@ -10,6 +10,7 @@ import {
     IRedditPostData,
     IReference,
     PostIdTitle,
+    PostItem,
     RedditPosts,
     SetState
 } from './shared';
@@ -214,3 +215,19 @@ export type PostTranscriptProps = {
     isDeleteHighlightModalOpen: boolean;
     setDeleteIsHighlightModalOpen: SetState<boolean>;
 };
+
+export interface CodeViewProps {
+    allCodes: string[];
+    groupedByCode: Record<string, PostItem[]>;
+    summaryView?: boolean;
+    totalColumns?: number;
+    handleViewPost: (postId: string, sentence: string) => void;
+}
+
+export interface PostViewProps {
+    allPostIds: string[];
+    grouped: Record<string, PostItem[]>;
+    handleViewPost: (postId: string, sentence: string) => void;
+    totalColumns?: number;
+    summaryView?: boolean;
+}

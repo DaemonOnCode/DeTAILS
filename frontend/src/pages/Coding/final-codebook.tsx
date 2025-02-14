@@ -36,7 +36,7 @@ const FinalThemes = () => {
     const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
-        logger.info('FInal codebook Page Loaded');
+        logger.info('Final codebook Page Loaded');
 
         return () => {
             if (!hasSavedRef.current) {
@@ -130,7 +130,9 @@ const FinalThemes = () => {
             type: 'SET_RESPONSES',
             responses: results['data'].map((response) => ({
                 ...response,
-                type: 'LLM'
+                type: 'LLM',
+                comment: '',
+                theme: ''
             }))
         });
     };

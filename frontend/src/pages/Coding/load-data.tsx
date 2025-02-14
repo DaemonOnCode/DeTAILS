@@ -116,19 +116,25 @@ const LoadData = () => {
         });
     };
     return (
-        <div className="w-full h-full flex flex-col">
-            <RedditTableRenderer
-                data={data}
-                maxContainerHeight="min-h-maxPageContent"
-                maxTableHeightClass="max-h-[calc(100vh-18rem)]"
-                loading={loading}
-            />
-            <NavigationBottomBar
-                previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
-                nextPage={`${ROUTES.CODEBOOK_CREATION}/${ROUTES.CODES_REVIEW}`}
-                isReady={isReadyCheck}
-                onNextClick={handleSamplingPosts}
-            />
+        <div className="h-page flex flex-col">
+            {/* Main scrollable content */}
+            <main className="flex-1 overflow-auto">
+                <RedditTableRenderer
+                    data={data}
+                    maxContainerHeight="min-h-maxPageContent"
+                    maxTableHeightClass="max-h-[calc(100vh-18rem)]"
+                    loading={loading}
+                />
+            </main>
+            {/* Fixed bottom navigation */}
+            <footer>
+                <NavigationBottomBar
+                    previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
+                    nextPage={`${ROUTES.CODEBOOK_CREATION}/${ROUTES.CODES_REVIEW}`}
+                    isReady={isReadyCheck}
+                    onNextClick={handleSamplingPosts}
+                />
+            </footer>
         </div>
     );
 };

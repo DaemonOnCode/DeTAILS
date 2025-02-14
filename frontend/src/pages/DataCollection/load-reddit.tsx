@@ -31,7 +31,7 @@ const LoadReddit: FC = () => {
     if (isDataLoaded) {
         // Render RedditTableRenderer when data is loaded
         return (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-page">
                 <RedditTableRenderer data={data} loading={loading} />
             </div>
         );
@@ -39,40 +39,45 @@ const LoadReddit: FC = () => {
 
     // Render Link/Folder input when data is not loaded
     return (
-        <div className="flex flex-col h-full">
-            {/* Toggle Button for Link/Folder Mode */}
-            <button
-                onClick={toggleMode}
-                className="px-4 py-2 mb-4 text-white bg-blue-500 rounded hover:bg-blue-600">
-                {currentMode === 'link' ? 'Switch to Folder' : 'Switch to Link'}
-            </button>
+        <div className="flex flex-col h-page">
+            {/* Header: Toggle Button */}
+            <header className="p-4">
+                <button
+                    onClick={toggleMode}
+                    className="px-4 py-2 mb-4 text-white bg-blue-500 rounded hover:bg-blue-600">
+                    {currentMode === 'link' ? 'Switch to Folder' : 'Switch to Link'}
+                </button>
+            </header>
 
-            {currentMode === 'link' ? (
-                // Link Mode Input
-                <div className="h-full">
-                    <input
-                        type="text"
-                        value={modeInput}
-                        onChange={(e) => setModeInput(e.target.value)}
-                        placeholder="Type or paste text with URLs here"
-                        className="p-2 border border-gray-300 rounded w-96"
-                    />
-                </div>
-            ) : (
-                // Folder Mode
-                <div>
-                    <button
-                        onClick={() => loadFolderData(true, true)}
-                        className="p-2 border border-gray-300 rounded w-96">
-                        Select Folder
-                    </button>
+            {/* Main scrollable content */}
+            <main className="flex-1 min-h-0 overflow-auto p-4">
+                {currentMode === 'link' ? (
+                    // Link Mode Input
                     <div>
-                        <h3>Selected Folder:</h3>
-                        <p>{modeInput || 'No folder selected'}</p>
-                        {error && <p className="text-red-500">{error}</p>}
+                        <input
+                            type="text"
+                            value={modeInput}
+                            onChange={(e) => setModeInput(e.target.value)}
+                            placeholder="Type or paste text with URLs here"
+                            className="p-2 border border-gray-300 rounded w-96"
+                        />
                     </div>
-                </div>
-            )}
+                ) : (
+                    // Folder Mode
+                    <div>
+                        <button
+                            onClick={() => loadFolderData(true, true)}
+                            className="p-2 border border-gray-300 rounded w-96 mb-4">
+                            Select Folder
+                        </button>
+                        <div>
+                            <h3>Selected Folder:</h3>
+                            <p>{modeInput || 'No folder selected'}</p>
+                            {error && <p className="text-red-500">{error}</p>}
+                        </div>
+                    </div>
+                )}
+            </main>
         </div>
     );
 };

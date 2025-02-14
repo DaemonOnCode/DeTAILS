@@ -1,12 +1,16 @@
 import { RouteObject } from 'react-router-dom';
 import {
+    BaseResponseHandlerActions,
     IFile,
     IQECResponse,
     IQECTResponse,
     IQECTTyResponse,
     IReference,
     KeywordEntry,
+    KeywordsTableAction,
     Mode,
+    SampleDataResponseReducerActions,
+    SampleDataWithThemeResponseReducerActions,
     SetState,
     ThemeBucket
 } from '../Coding/shared';
@@ -97,17 +101,17 @@ export interface ICodingContext {
         [code: string]: IReference[];
     }>;
     keywordTable: KeywordEntry[];
-    dispatchKeywordsTable: Dispatch<any>;
+    dispatchKeywordsTable: Dispatch<KeywordsTableAction>;
     updateContext: (updates: Partial<ICodingContext>) => void;
     resetContext: () => void;
     sampledPostResponse: IQECResponse[];
-    dispatchSampledPostResponse: Dispatch<any>;
+    dispatchSampledPostResponse: Dispatch<SampleDataResponseReducerActions>;
     sampledPostResponseCopy: IQECResponse[];
     setSampledPostResponseCopy: SetState<IQECResponse[]>;
     sampledPostWithThemeResponse: IQECTResponse[];
-    dispatchSampledPostWithThemeResponse: Dispatch<any>;
+    dispatchSampledPostWithThemeResponse: Dispatch<SampleDataWithThemeResponseReducerActions>;
     unseenPostResponse: IQECTTyResponse[];
-    dispatchUnseenPostResponse: Dispatch<any>;
+    dispatchUnseenPostResponse: Dispatch<BaseResponseHandlerActions<IQECTTyResponse>>;
     themes: ThemeBucket[];
     setThemes: SetState<ThemeBucket[]>;
     unplacedCodes: string[];
@@ -119,7 +123,7 @@ export interface ICodingContext {
     unseenPostIds: string[];
     setUnseenPostIds: SetState<string[]>;
     conflictingResponses: IQECResponse[];
-    setConflictingResponses: Dispatch<any>;
+    setConflictingResponses: SetState<IQECResponse[]>;
 }
 
 export interface Workspace {
@@ -142,4 +146,20 @@ export interface IWorkspaceContext {
     setCurrentWorkspaceById: (workspaceId: string) => void;
     workspaceLoading: boolean;
     setWorkspaceLoading: SetState<boolean>;
+}
+
+export interface ILoadingState {
+    [route: string]: boolean;
+}
+
+export type LoadingAction =
+    | { type: 'SET_LOADING'; payload: { route: string; loading: boolean } }
+    | { type: 'RESET_LOADING' }
+    | { type: 'SET_LOADING_ALL'; payload: boolean }
+    | { type: 'SET_LOADING_ROUTE'; route: string }
+    | { type: 'SET_LOADING_DONE_ROUTE'; route: string };
+
+export interface ILoadingContext {
+    loadingState: ILoadingState;
+    loadingDispatch: Dispatch<LoadingAction>;
 }
