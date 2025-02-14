@@ -122,7 +122,7 @@ const CodebookCreation = () => {
                     dispatchFunction={dispatchSampledPostResponse}
                     review={true}
                     showCoderType={false}
-                    showRerunCoding={true}
+                    // showRerunCoding={true}
                 />
             </div>
             <NavigationBottomBar

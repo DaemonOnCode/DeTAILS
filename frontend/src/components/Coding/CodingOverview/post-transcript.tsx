@@ -88,6 +88,29 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
     const [references, setReferences] = useState<Record<string, IReference[]>>(currentReferences);
 
+    const [selectedExplanations, setSelectedExplanations] = useState<string[]>([]);
+
+    const handleSegmentDoubleClick = (segment: {
+        line: string;
+        backgroundColours: string[];
+        relatedCodeText: string[];
+    }) => {
+        const explanations: string[] = [];
+
+        for (const code of segment.relatedCodeText) {
+            const matchingResponses = codeResponses.filter((response: any) => {
+                return response.code === code && ratio(segment.line, response.quote) >= 90;
+            });
+
+            matchingResponses.forEach((response: any) => {
+                explanations.push(response.explanation);
+            });
+        }
+
+        const uniqueExplanations = Array.from(new Set(explanations));
+        setSelectedExplanations(uniqueExplanations);
+    };
+
     const setCodes = (value: any, type: string) => {
         if (!isActive) return;
         let result: string[] = [];
@@ -389,6 +412,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                                             hoveredCode={hoveredCode}
                                             segment={segment}
                                             setHoveredCodeText={setHoveredCodeText}
+                                            onDoubleClickSegment={handleSegmentDoubleClick}
                                         />
                                     ))}
                             </h2>
@@ -404,6 +428,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                                             hoveredCode={hoveredCode}
                                             segment={segment}
                                             setHoveredCodeText={setHoveredCodeText}
+                                            onDoubleClickSegment={handleSegmentDoubleClick}
                                         />
                                     ))}
                             </p>
@@ -418,6 +443,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                                 processedSegments={processedSegments}
                                 setHoveredCodeText={setHoveredCodeText}
                                 level={0}
+                                onDoubleClickSegment={handleSegmentDoubleClick}
                             />
                         </div>
                     </div>
@@ -443,6 +469,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             )}
                             hoveredCode={hoveredCode}
                             setHoveredCode={setHoveredCode}
+                            selectedExplanations={selectedExplanations}
                         />
                     </div>
                 </div>

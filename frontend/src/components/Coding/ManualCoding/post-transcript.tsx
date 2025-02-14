@@ -49,12 +49,12 @@ const TranscriptPage = ({ id }: { id: string }) => {
             conflicts: []
         },
         bottomTranscript: {
-            responses: unseenPostResponse.filter((response) => response.type === 'LLM'),
+            responses: unseenPostResponse.filter((response) => response.type === 'Human'),
             dispatchFunction: (...args: any) => {
                 console.log('Dispatching to Refine (bottom transcript):', args);
                 dispatchUnseenPostResponse({
                     ...args[0],
-                    responseType: 'LLM'
+                    responseType: 'Human'
                 });
             },
             conflicts: []

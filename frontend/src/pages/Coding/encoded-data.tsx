@@ -24,9 +24,6 @@ const EncodedDataPage = () => {
 
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const navigate = useNavigate();
-    const { getServerUrl } = useServerUtils();
-    const { datasetId } = useCollectionContext();
 
     const hasSavedRef = useRef(false);
     useEffect(() => {
@@ -44,32 +41,6 @@ const EncodedDataPage = () => {
         };
     }, []);
 
-    const handleNextClick = async () => {
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
-
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.THEME_GENERATION), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                dataset_id: datasetId,
-                model: MODEL_LIST.GEMINI_FLASH,
-                unseen_post_responses: unseenPostResponse,
-                sampled_post_responses: sampledPostResponse
-            })
-        });
-
-        const results: {
-            message: string;
-            data: any;
-        } = await res.json();
-        console.log('Results:', results);
-
-        setThemes(results.data.themes.map((theme: any) => ({ ...theme, name: theme.theme })));
-        setUnplacedCodes(results.data.unplaced_codes);
-    };
-
     return (
         <div className="h-page flex flex-col">
             <div className="flex-1 overflow-hidden">
@@ -86,7 +57,6 @@ const EncodedDataPage = () => {
                 previousPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.SPLIT_CHECK}`}
                 nextPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`}
                 isReady={true}
-                onNextClick={handleNextClick}
             />
         </div>
     );

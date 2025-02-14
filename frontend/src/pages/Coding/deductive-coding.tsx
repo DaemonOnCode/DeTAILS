@@ -81,7 +81,7 @@ const DeductiveCodingPage = () => {
                     split
                     showCodebook
                     showFilterDropdown
-                    showCoderType={false}
+                    applyFilters
                     coderType="LLM"
                 />
             </div>

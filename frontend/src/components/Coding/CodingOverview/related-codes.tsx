@@ -14,6 +14,7 @@ const RelatedCodes: FC<{
     codeCounts: Record<string, number>;
     hoveredCode: string | null;
     setHoveredCode: SetState<string | null>;
+    selectedExplanations: string[];
 }> = ({
     codeSet,
     conflictingCodes = [],
@@ -21,7 +22,8 @@ const RelatedCodes: FC<{
     hoveredCodeText,
     codeCounts,
     hoveredCode,
-    setHoveredCode
+    setHoveredCode,
+    selectedExplanations
 }) => {
     const {
         sampledPostResponse,
@@ -84,6 +86,19 @@ const RelatedCodes: FC<{
                     ))}
                 </ul>
             </div>
+
+            {selectedExplanations.length > 0 && (
+                <div>
+                    <h3 className="text-lg font-bold mb-2">Related Explanations</h3>
+                    <ul className="space-y-2">
+                        {selectedExplanations.map((explanation, idx) => (
+                            <li key={idx} className="p-2 rounded bg-gray-100">
+                                {explanation}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             {/* Conflicting Codes Section (conditionally rendered) */}
             {conflictingCodes.length > 0 && (

@@ -9,12 +9,18 @@ interface HighlightedSegmentProps {
     };
     hoveredCode: string | null;
     setHoveredCodeText: (codes: string[] | null) => void;
+    onDoubleClickSegment: (segment: {
+        line: string;
+        backgroundColours: string[];
+        relatedCodeText: string[];
+    }) => void;
 }
 
 const HighlightedSegment: FC<HighlightedSegmentProps> = ({
     segment,
     setHoveredCodeText,
-    hoveredCode
+    hoveredCode,
+    onDoubleClickSegment
 }) => {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -31,6 +37,9 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({
                 background: 'transparent',
                 transform: isHovered ? 'scale(1.05)' : 'scale(1)',
                 transition: 'transform 0.2s'
+            }}
+            onDoubleClick={() => {
+                onDoubleClickSegment(segment);
             }}
             onMouseEnter={() => {
                 setIsHovered(true);

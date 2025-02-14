@@ -9,6 +9,11 @@ interface RedditCommentsProps {
     level: number;
     showHorizontalConnector?: boolean;
     hoveredCode: string | null;
+    onDoubleClickSegment: (segment: {
+        line: string;
+        backgroundColours: string[];
+        relatedCodeText: string[];
+    }) => void;
 }
 
 const RedditComments: React.FC<RedditCommentsProps> = ({
@@ -17,7 +22,8 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
     setHoveredCodeText,
     level,
     showHorizontalConnector = true,
-    hoveredCode
+    hoveredCode,
+    onDoubleClickSegment
 }) => {
     if (!comments || comments.length === 0) return null;
 
@@ -58,6 +64,7 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
                                         hoveredCode={hoveredCode}
                                         segment={segment}
                                         setHoveredCodeText={setHoveredCodeText}
+                                        onDoubleClickSegment={onDoubleClickSegment}
                                     />
                                 ))}
                         </div>
@@ -70,6 +77,7 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
                             setHoveredCodeText={setHoveredCodeText}
                             level={level + 1}
                             showHorizontalConnector={showHorizontalConnector}
+                            onDoubleClickSegment={onDoubleClickSegment}
                         />
                     </div>
                 );

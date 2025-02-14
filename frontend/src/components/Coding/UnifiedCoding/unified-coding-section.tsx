@@ -31,6 +31,7 @@ interface UnifiedCodingPageProps {
     onPostSelect?: (postId: string | null) => void;
     showCoderType?: boolean;
     coderType?: 'Human' | 'LLM';
+    applyFilters?: boolean;
 }
 
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
@@ -48,8 +49,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     conflictingResponses = [],
     manualCoding = false,
     onPostSelect = () => {},
-    showCoderType = true,
-    coderType
+    showCoderType = false,
+    coderType,
+    applyFilters = false
 }) => {
     console.log('Data:', data);
     const {
@@ -113,7 +115,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         //     });
         let params = new URLSearchParams();
         if (split !== undefined) {
-            if (selectedTypeFilter === 'All' && coderType) {
+            if (coderType) {
                 params.append('type', coderType);
             } else if (selectedTypeFilter !== 'All') {
                 params.append('type', selectedTypeFilter);
@@ -142,24 +144,28 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             : filter?.split('|')?.[1] === 'coded-data'
               ? data.filter((response) => response.postId === filter.split('|')[0])
               : data.filter((response) => response.postId === filter || response.code === filter)
-        : showCoderType && selectedTypeFilter === 'All'
-          ? [...sampledPostResponse, ...unseenPostResponse]
-          : selectedTypeFilter === 'New Data'
-            ? unseenPostResponse
-            : selectedTypeFilter === 'Codebook'
-              ? sampledPostResponse
-              : data;
+        : !showCoderType && applyFilters
+          ? selectedTypeFilter === 'All'
+              ? [...sampledPostResponse, ...unseenPostResponse]
+              : selectedTypeFilter === 'New Data'
+                ? unseenPostResponse
+                : selectedTypeFilter === 'Codebook'
+                  ? sampledPostResponse
+                  : data
+          : data;
 
     const filteredPostIds =
         filter === 'coded-data' || filter?.split('|')?.[1] === 'coded-data'
             ? postIds.filter((postId) => data.some((item) => item.postId === postId))
-            : showCoderType && selectedTypeFilter === 'All'
-              ? [...sampledPostIds, ...unseenPostIds]
-              : selectedTypeFilter === 'New Data'
-                ? unseenPostIds
-                : selectedTypeFilter === 'Codebook'
-                  ? sampledPostIds
-                  : postIds;
+            : !showCoderType && applyFilters
+              ? selectedTypeFilter === 'All'
+                  ? [...sampledPostIds, ...unseenPostIds]
+                  : selectedTypeFilter === 'New Data'
+                    ? unseenPostIds
+                    : selectedTypeFilter === 'Codebook'
+                      ? sampledPostIds
+                      : postIds
+              : postIds;
 
     console.log('Filtered Data:', filteredData);
     console.log('Filtered Post IDs:', filteredPostIds);

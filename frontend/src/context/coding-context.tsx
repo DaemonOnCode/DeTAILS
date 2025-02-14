@@ -266,9 +266,11 @@ function baseResponseHandler<T>(
         case 'DELETE_HIGHLIGHT':
             return state.filter(
                 (response: any) =>
-                    response.postId !== action.postId &&
-                    response.quote !== action.sentence &&
-                    response.code !== action.code
+                    !(
+                        response.postId === action.postId &&
+                        response.quote === action.sentence &&
+                        response.code === action.code
+                    )
             );
         case 'EDIT_HIGHLIGHT':
             return state.map((response: any) =>
