@@ -198,7 +198,17 @@ const KeywordCloudPage: FC = () => {
         // }
     };
 
+    const handleSelectAll = (selectAll: boolean) => {
+        if (selectAll) {
+            setSelectedKeywords((prev) => [mainTopic, ...keywords]);
+        } else {
+            setSelectedKeywords((prev) => prev.filter((keyword) => keyword === mainTopic));
+        }
+    };
+
     const checkIfReady = selectedKeywords.length > WORD_CLOUD_MIN_THRESHOLD;
+
+    const allSelected = keywords.every((keyword) => selectedKeywords.includes(keyword));
 
     return (
         <div className="min-h-page flex justify-between flex-col">
@@ -216,6 +226,21 @@ const KeywordCloudPage: FC = () => {
                         className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs">
                         Refresh keywords
                     </button>
+                </div>
+                <div className="absolute bottom-0 left-0">
+                    {!allSelected ? (
+                        <button
+                            onClick={() => handleSelectAll(true)}
+                            className="bg-green-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-green-600 my-1 md:my-2 lg:text-base text-xs">
+                            Select All
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => handleSelectAll(false)}
+                            className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs">
+                            Unselect All
+                        </button>
+                    )}
                 </div>
             </div>
 

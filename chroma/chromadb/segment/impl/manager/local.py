@@ -253,20 +253,14 @@ class LocalSegmentManager(SegmentManager):
         logger.debug(f"in segment impl manager local hint_use_collection {collection_id}, {hint_type}")
         for type in [MetadataReader, VectorReader]:
             # Just use get_segment to load the segment into the cache
-            logger.debug(f"1 get_segment {type}") 
             instance = self.get_segment(collection_id, type)
-            logger.debug(f"2 get_segment {type} done, {instance}")
             # If the segment is a vector segment, we need to keep segments in an LRU cache
             # to avoid hitting the OS file handle limit.
 
             if type == VectorReader and self._system.settings.require("is_persistent"):
-                logger.debug(f"3 get_segment {type} done, {instance} is persistent")
                 instance = cast(PersistentLocalHnswSegment, instance)
-                logger.debug(f"4 get_segment {type} done, {instance} is persistent, instance casted")
                 instance.open_persistent_index()
-                logger.debug(f"5 get_segment {type} done, {instance} is persistent, instance opened")
                 self._vector_instances_file_handle_cache.set(collection_id, instance)
-                logger.debug(f"6 get_segment {type} done, {instance} is persistent, instance added to cache")
 
     def _cls(self, segment: Segment) -> Type[SegmentImplementation]:
         classname = SEGMENT_TYPE_IMPLS[SegmentType(segment["type"])]

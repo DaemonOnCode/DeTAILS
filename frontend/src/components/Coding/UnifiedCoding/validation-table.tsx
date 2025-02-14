@@ -1,6 +1,5 @@
-import { ChangeEvent, FC, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FC, useMemo, useState } from 'react';
 import { IQECResponse, IQECTResponse, IQECTTyResponse } from '../../../types/Coding/shared';
-import React from 'react';
 
 interface ValidationTableProps {
     codeResponses: IQECResponse[] | IQECTResponse[] | IQECTTyResponse[];
@@ -11,7 +10,6 @@ interface ValidationTableProps {
     onReRunCoding: () => void;
     onUpdateResponses: (updatedResponses: any[]) => void;
     conflictingResponses?: IQECResponse[];
-    tableHeight: string;
 }
 
 function groupByPostId<T extends { postId: string }>(items: T[]): Record<string, T[]> {
@@ -33,15 +31,13 @@ const ValidationTable: FC<ValidationTableProps> = ({
     showThemes,
     onReRunCoding,
     onUpdateResponses,
-    conflictingResponses = [],
-    tableHeight
+    conflictingResponses = []
 }) => {
     console.log('ValidationTable codeResponses:', codeResponses);
 
     const [editIndex, setEditIndex] = useState<string | null>(null);
     const [editableRow, setEditableRow] = useState<any>(null);
 
-    // 1. Count how many times each postId appears
     const postIdCount = (codeResponses as any).reduce(
         (acc: Record<string, number>, item: any) => {
             acc[item.postId] = (acc[item.postId] || 0) + 1;
@@ -50,10 +46,8 @@ const ValidationTable: FC<ValidationTableProps> = ({
         {} as Record<string, number>
     );
 
-    // Track which postIds have already rendered their Post ID cell
     const renderedPostIds = new Set<string>();
 
-    // Marking responses
     const handleMark = (index: string, isMarked?: boolean) => {
         const updatedResponses = [...codeResponses];
         const response = updatedResponses.find((r) => r.id === index);
@@ -63,7 +57,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
         onUpdateResponses(updatedResponses);
     };
 
-    // Comments
     const handleCommentChange = (index: string, event: ChangeEvent<HTMLTextAreaElement>) => {
         const updatedResponses = [...codeResponses];
         const response = updatedResponses.find((r) => r.id === index);
@@ -73,7 +66,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
         onUpdateResponses(updatedResponses);
     };
 
-    // Edit handling
     const handleEditRow = (index: string) => {
         setEditIndex(index);
         const response = codeResponses.find((r) => r.id === index);
@@ -113,39 +105,23 @@ const ValidationTable: FC<ValidationTableProps> = ({
         }
     };
 
-    // =============================
-    // ====== GROUP BY postId =====
-    // =============================
     const groupedByPostId = useMemo(() => groupByPostId(codeResponses), [codeResponses]);
     const allPostIds = Object.keys(groupedByPostId);
 
-    // =============================
-    // ====== STICKY HEADER  ======
-    // =============================
-    // We'll compute how many columns we actually have so the subheader row can colSpan them.
-    // Base columns:
-    //  (1) Code
-    //  (2) Quote
-    //  (3) Explanation
     let totalColumns = 3;
 
-    // If showThemes and row.theme exist
-    // We'll show the "Theme" column
     if (showThemes && codeResponses.some((row) => 'theme' in row)) {
         totalColumns += 1;
     }
 
-    // If row has "type"
     if (codeResponses.some((row) => 'type' in row)) {
         totalColumns += 1;
     }
 
-    // If not in review mode, we have 2 more columns: "Actions" + "Comments"
     if (!review) {
         totalColumns += 2;
     }
 
-    // If we have conflictingResponses to show
     if (conflictingResponses.length > 0) {
         totalColumns += 1;
     }
@@ -170,18 +146,11 @@ const ValidationTable: FC<ValidationTableProps> = ({
     }
 
     return (
-        <div className="relative border border-gray-300 rounded-md m-6">
-            <div
-                className="overflow-auto flex-grow"
-                style={{
-                    maxHeight: tableHeight, // Dynamically adjusts height
-                    minHeight: '300px' // Ensures visibility with less content
-                }}>
+        <div className="relative flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto">
                 <table className="w-full border-collapse relative">
-                    {/* The main table header row (always at the top) */}
                     <thead className="sticky top-0 z-30 bg-gray-100">
                         <tr>
-                            {/* We no longer use the merged Post ID cell here. We'll show it in a sticky subheader row per group */}
                             <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
                                 Code
                             </th>
@@ -192,21 +161,18 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                 Explanation
                             </th>
 
-                            {/* theme column */}
                             {showThemes && codeResponses.some((r) => 'theme' in r) && (
                                 <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
                                     Theme
                                 </th>
                             )}
 
-                            {/* type column */}
                             {codeResponses.some((r) => 'type' in r) && (
                                 <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
                                     Type
                                 </th>
                             )}
 
-                            {/* If not review mode, add the "Actions" + "Comments" columns */}
                             {!review && (
                                 <>
                                     <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
@@ -230,7 +196,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                 </>
                             )}
 
-                            {/* Conflicts column if any exist */}
                             {conflictingResponses.length > 0 && (
                                 <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
                                     Conflicts
@@ -239,13 +204,10 @@ const ValidationTable: FC<ValidationTableProps> = ({
                         </tr>
                     </thead>
 
-                    {/* Now we iterate over each group (postId) and create a subheader + the group's rows */}
                     {allPostIds.map((pid) => {
                         const rowItems = groupedByPostId[pid];
                         return (
                             <tbody key={pid}>
-                                {/* A subheader row that remains sticky just below the main thead.
-                    You can adjust `top` depending on your thead height. */}
                                 <tr
                                     className={`sticky ${review ? 'top-[38px]' : 'top-[76px]'} border-b-2 border-gray-300  bg-gray-50 z-20`}>
                                     <td
@@ -259,12 +221,11 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                     </td>
                                 </tr>
 
-                                {/* Map each row for this postId */}
                                 {rowItems.map((row) => (
                                     <tr
                                         key={row.id}
-                                        className={`transition-all duration-200 ${!review ? 'hover:bg-blue-200 cursor-pencil' : 'hover:bg-gray-100'} ${editIndex === row.id ? 'bg-yellow-100' : ''}`}>
-                                        {/* ===== Code ===== */}
+                                        className={`transition-all duration-200 ${!review ? 'hover:bg-blue-200 cursor-pencil' : 'hover:bg-gray-100'} ${editIndex === row.id ? 'bg-yellow-100' : ''}`}
+                                        onClick={() => !review && onViewTranscript(row.postId)}>
                                         <td className="border border-gray-300 p-2">
                                             {editIndex === row.id ? (
                                                 <input
@@ -287,7 +248,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             )}
                                         </td>
 
-                                        {/* ===== Quote ===== */}
                                         <td className="border border-gray-300 p-2 max-w-64">
                                             {editIndex === row.id ? (
                                                 <input
@@ -310,7 +270,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             )}
                                         </td>
 
-                                        {/* ===== Explanation ===== */}
                                         <td className="border border-gray-300 p-2 max-w-64">
                                             {editIndex === row.id ? (
                                                 <input
@@ -336,7 +295,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             )}
                                         </td>
 
-                                        {/* ====== Theme (optional) ===== */}
                                         {showThemes && 'theme' in row && (
                                             <td className="border border-gray-300 p-2">
                                                 {editIndex === row.id ? (
@@ -361,7 +319,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             </td>
                                         )}
 
-                                        {/* ====== Type (optional) ===== */}
                                         {'type' in row && (
                                             <td className="border border-gray-300 p-2">
                                                 {editIndex === row.id ? (
@@ -386,7 +343,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             </td>
                                         )}
 
-                                        {/* ======= Actions & Comments if not in review mode ======= */}
                                         {!review && (
                                             <>
                                                 <td className="border border-gray-300 p-2">
@@ -458,7 +414,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             </>
                                         )}
 
-                                        {/* ======= Conflicts if any ======= */}
                                         {conflictingResponses.length > 0 && (
                                             <td className="border border-gray-300 p-2">
                                                 {conflictingResponses

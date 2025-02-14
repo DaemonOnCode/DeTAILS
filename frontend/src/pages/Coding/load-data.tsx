@@ -130,7 +130,7 @@ const LoadData = () => {
             <footer>
                 <NavigationBottomBar
                     previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
-                    nextPage={`${ROUTES.CODEBOOK_CREATION}/${ROUTES.CODES_REVIEW}`}
+                    nextPage={ROUTES.CODEBOOK_CREATION}
                     isReady={isReadyCheck}
                     onNextClick={handleSamplingPosts}
                 />

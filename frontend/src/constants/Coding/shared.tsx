@@ -25,7 +25,8 @@ export enum ROUTES {
     THEMATIC_ANALYSIS = 'thematic-analysis',
     ANALYSIS = 'analysis',
     TRANSCRIPT = 'transcript/:id/:state',
-    TRANSCRIPTS = 'transcripts'
+    TRANSCRIPTS = 'transcripts',
+    MANUAL_CODING = 'manual-coding'
 }
 
 export enum LOADER_ROUTES {

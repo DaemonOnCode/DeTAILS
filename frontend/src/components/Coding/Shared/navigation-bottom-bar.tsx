@@ -24,7 +24,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                     if (!previousPage) e.preventDefault();
                     else onPreviousClick && onPreviousClick();
                 }}>
-                &lt;- Go back
+                ← Go back
             </Link>
             {nextPage && (
                 <Link
@@ -44,7 +44,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             navigate('/coding/' + nextPage);
                         }
                     }}>
-                    Proceed -&gt;
+                    Proceed →
                 </Link>
             )}
         </div>

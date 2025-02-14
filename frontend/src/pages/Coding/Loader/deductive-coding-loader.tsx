@@ -1,33 +1,8 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect, useTransition } from 'react';
-
-const generateRandomText = (
-    length: number,
-    dashWeight: number = 0.89, // More natural dashes
-    spaceWeight: number = 0.1, // More spaces for natural word spacing
-    newlineWeight: number = 0.01 // Rare newlines for paragraph effect
-): string => {
-    let text = '';
-    let word = '';
-
-    for (let i = 0; i < length; i++) {
-        const rand = Math.random();
-
-        if (rand < dashWeight) {
-            word += '-';
-        } else if (rand < dashWeight + spaceWeight) {
-            text += word + ' ';
-            word = ''; // Reset word
-        }
-
-        if (Math.random() < newlineWeight && text.length > 30) {
-            text += '\n';
-        }
-    }
-
-    text += word;
-    return text.trim();
-};
+import { generateRandomText } from '../../../utility/random-text-generator';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../constants/Coding/shared';
 
 // Highlight colors
 const highlightColors = [
@@ -44,23 +19,22 @@ const DeductiveCoding = () => {
     const [highlightedWords, setHighlightedWords] = useState<{ index: number; color: string }[]>(
         []
     );
+    const navigate = useNavigate();
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
     const [textLine, setTextLine] = useState<string>(generateRandomText(500));
     const [resetting, setResetting] = useState(false);
 
-    // Use transition to smooth cursor movement
     const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
         const words = textLine.split(' ');
 
         const highlightNextWord = () => {
-            if (resetting) return; // Stop highlighting when resetting
+            if (resetting) return;
 
             startTransition(() => {
                 if (currentWordIndex < words.length) {
                     if (Math.random() < 0.2) {
-                        // 20% chance to highlight multiple words
                         const numWordsToHighlight = Math.floor(Math.random() * 3) + 1; // Highlight 1-3 words
                         const highlightColor =
                             highlightColors[Math.floor(Math.random() * highlightColors.length)]; // Pick one color for batch
@@ -69,7 +43,7 @@ const DeductiveCoding = () => {
                             { length: numWordsToHighlight },
                             (_, i) => ({
                                 index: currentWordIndex + i,
-                                color: highlightColor // Same color for batch
+                                color: highlightColor
                             })
                         ).filter((item) => item.index < words.length && words[item.index].trim()); // Ensure valid words
 
@@ -77,18 +51,18 @@ const DeductiveCoding = () => {
                     }
                     setCurrentWordIndex((prev) => prev + 1);
                 } else {
-                    setResetting(true); // Start reset process
+                    setResetting(true);
                     setTimeout(() => {
                         setHighlightedWords([]);
                         setCurrentWordIndex(0);
-                        setTextLine(generateRandomText(500)); // Set new text only once
-                        setResetting(false); // Reset completed
-                    }, 500); // Small delay to prevent multiple updates
+                        setTextLine(generateRandomText(500));
+                        setResetting(false);
+                    }, 500);
                 }
             });
         };
 
-        const highlightInterval = setInterval(highlightNextWord, 200); // Faster word-by-word movement
+        const highlightInterval = setInterval(highlightNextWord, 200);
 
         return () => clearInterval(highlightInterval);
     }, [currentWordIndex, resetting]);
@@ -120,6 +94,9 @@ const DeductiveCoding = () => {
                         );
                     })}
                 </p>
+            </div>
+            <div className="flex justify-end">
+                <button onClick={() => navigate(ROUTES.MANUAL_CODING)}>Go to Manual Coding</button>
             </div>
         </div>
     );

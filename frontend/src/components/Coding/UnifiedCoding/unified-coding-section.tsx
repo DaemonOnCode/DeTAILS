@@ -32,9 +32,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     postIds,
     data,
     dispatchFunction,
-    review = true,
+    // review = true,
     showThemes = false,
-    download = false,
+    download = true,
     showCodebook = false,
     split = undefined,
     showFilterDropdown = false,
@@ -46,6 +46,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     const [viewTranscript, setViewTranscript] = useState(false);
     const [currentPost, setCurrentPost] = useState<any | null>(null);
     const [filter, setFilter] = useState<string | null>(null);
+
+    const [review, setReview] = useState(true);
+
     const [selectedTypeFilter, setSelectedTypeFilter] = useState<'Human' | 'LLM' | 'All'>('All');
 
     const isThemesVisible = showThemes;
@@ -186,37 +189,70 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     };
 
     const hasActionButton = download || showRerunCoding; // Only one will be true at a time
-    const tableHeight: string = hasActionButton ? 'calc(100vh - 16rem)' : 'calc(100vh - 10rem)';
+    // const tableHeight: string = hasActionButton ? 'calc(100vh - 16rem)' : 'calc(100vh - 10rem)';
 
     return (
-        <div className="-m-6 overflow-hidden responsive-text">
-            <div className="flex h-[calc(100vh-4rem)] pb-6">
-                {!viewTranscript && (
-                    <div className="w-1/4 border-r">
-                        <LeftPanel
-                            postIds={filteredPostIds}
-                            codes={Array.from(new Set(responses.map((item) => item.code)))}
-                            onFilterSelect={setFilter}
-                            showTypeFilterDropdown={showFilterDropdown}
-                            selectedTypeFilter={selectedTypeFilter}
-                            handleSelectedTypeFilter={handleSelectedTypeFilter}
-                        />
+        <div className="h-full flex flex-col -m-6 overflow-hidden responsive-text">
+            <div className="flex flex-1 overflow-y-auto">
+                <div className="w-1/4 border-r flex-1 overflow-auto p-6 pb-0">
+                    <LeftPanel
+                        postIds={filteredPostIds}
+                        codes={Array.from(new Set(responses.map((item) => item.code)))}
+                        onFilterSelect={setFilter}
+                        showTypeFilterDropdown={showFilterDropdown}
+                        selectedTypeFilter={selectedTypeFilter}
+                        handleSelectedTypeFilter={handleSelectedTypeFilter}
+                    />
+                </div>
+
+                <div className={`${viewTranscript ? 'w-full' : 'w-3/4'} flex flex-col h-full`}>
+                    <div className="flex justify-evenly items-center p-6">
+                        <button
+                            onClick={downloadCodebook}
+                            className="px-4 py-2 bg-green-500 text-white rounded">
+                            Download Codebook
+                        </button>
+
+                        <div className="flex text-center justify-center items-center p-2 lg:p-4 gap-x-2">
+                            {/* Left Label: Post View */}
+                            <span
+                                className={`cursor-pointer select-none ${
+                                    review ? 'font-bold text-blue-500' : 'text-gray-700'
+                                }`}
+                                onClick={() => setReview(true)}>
+                                Review Mode
+                            </span>
+
+                            {/* Toggle Switch */}
+                            <label
+                                htmlFor="toggleReview"
+                                className="relative inline-block w-6 lg:w-12 h-3 lg:h-6 cursor-pointer">
+                                <input
+                                    id="toggleReview"
+                                    type="checkbox"
+                                    className="sr-only"
+                                    checked={review}
+                                    onChange={() => setReview((prev) => !prev)}
+                                />
+                                <div className="block bg-gray-300 w-6 lg:w-12 h-3 lg:h-6 rounded-full"></div>
+                                <div
+                                    className={`dot absolute left-0.5 lg:left-1 top-0.5 lg:top-1 bg-white w-2 lg:w-4 h-2 lg:h-4 rounded-full transition-transform ${
+                                        !review ? 'translate-x-3 lg:translate-x-6 bg-blue-500' : ''
+                                    }`}></div>
+                            </label>
+
+                            {/* Right Label: Code View */}
+                            <span
+                                className={`cursor-pointer select-none ${
+                                    !review ? 'font-bold text-blue-500' : 'text-gray-700'
+                                }`}
+                                onClick={() => setReview(false)}>
+                                Edit Mode
+                            </span>
+                        </div>
                     </div>
-                )}
 
-                <div className={viewTranscript ? 'w-full' : 'w-3/4 flex flex-col'}>
-                    {/* {!viewTranscript ? ( */}
-                    <>
-                        {download && (
-                            <div className="flex justify-between items-center p-6">
-                                <button
-                                    onClick={downloadCodebook}
-                                    className="px-4 py-2 bg-green-500 text-white rounded">
-                                    Download Codebook
-                                </button>
-                            </div>
-                        )}
-
+                    <div className="flex-1 overflow-y-auto px-6">
                         <ValidationTable
                             codeResponses={filteredData}
                             dispatchCodeResponses={dispatchFunction}
@@ -226,25 +262,17 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             onReRunCoding={handleReRunCoding}
                             onUpdateResponses={handleUpdateResponses}
                             conflictingResponses={conflictingResponses}
-                            tableHeight={tableHeight}
                         />
-                        {showRerunCoding && (
-                            <div className="flex justify-center p-6">
-                                <button
-                                    onClick={handleReRunCoding}
-                                    className="px-4 py-2 bg-green-500 text-white rounded">
-                                    Re-run Coding
-                                </button>
-                            </div>
-                        )}
-                    </>
-                    {/* ) : (
-                        <PostTranscript
-                            post={currentPost}
-                            onBack={}
-                            review={review}
-                        />
-                    )} */}
+                    </div>
+                    {showRerunCoding && (
+                        <div className="flex justify-center p-6">
+                            <button
+                                onClick={handleReRunCoding}
+                                className="px-4 py-2 bg-green-500 text-white rounded">
+                                Re-run Coding
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

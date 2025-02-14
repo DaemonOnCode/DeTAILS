@@ -24,7 +24,8 @@ import {
     EncodedDataPage,
     TranscriptsPage,
     LoadDataPage,
-    AnalysisPage
+    AnalysisPage,
+    CodebookCreationPage
 } from '../pages/Coding';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
@@ -45,21 +46,22 @@ export const CodingRouter: RouteObject[] = [
     },
     {
         path: ROUTES.CODEBOOK_CREATION,
-        children: [
-            {
-                path: ROUTES.CODES_REVIEW,
-                element: <CodeReviewPage />,
-                index: true
-            },
-            {
-                path: ROUTES.CODEBOOK_REFINEMENT,
-                element: <CodebookRefinementPage />
-            },
-            {
-                path: ROUTES.FINAL_CODEBOOK,
-                element: <FinalCodebookPage />
-            }
-        ]
+        element: <CodebookCreationPage />
+        // children: [
+        //     {
+        //         path: ROUTES.CODES_REVIEW,
+        //         element: <CodeReviewPage />,
+        //         index: true
+        //     },
+        //     {
+        //         path: ROUTES.CODEBOOK_REFINEMENT,
+        //         element: <CodebookRefinementPage />
+        //     },
+        //     {
+        //         path: ROUTES.FINAL_CODEBOOK,
+        //         element: <FinalCodebookPage />
+        //     }
+        // ]
     },
     {
         path: ROUTES.TRANSCRIPT,

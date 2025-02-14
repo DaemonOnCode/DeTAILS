@@ -18,7 +18,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({ post, onBack, review }) => {
     return (
         <div className="p-6">
             <button onClick={onBack} className="mb-4 text-blue-500">
-                &lt;- <span className="underline">Back to Posts</span>
+                ← <span className="underline">Back to Posts</span>
             </button>
 
             <h2 className="text-xl font-bold">{post.title}</h2>

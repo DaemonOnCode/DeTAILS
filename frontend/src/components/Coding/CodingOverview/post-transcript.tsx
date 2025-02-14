@@ -338,48 +338,29 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     }, [codes]);
 
     const splitIntoSegments = (text: string) => {
-        const segments = [];
-        let segment = '';
-
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            segment += char;
-
-            // Check for delimiters
-            if (char === '.' || char === '?' || char === '!' || char === ',' || char === '\n') {
-                segments.push(segment);
-                segment = ''; // Reset for the next segment
-            }
-        }
-
-        // Push any remaining text
-        if (segment.trim()) {
-            segments.push(segment.trim());
-        }
-
+        // Replace newlines with a space so they do not trigger a break.
+        const cleanedText = text.replace(/\n+/g, ' ');
+        // Split on punctuation that typically ends a sentence.
+        // The regex uses a positive lookbehind to include punctuation in each segment.
+        const segments = cleanedText
+            .split(/(?<=[.?!])/)
+            .map((segment) => segment.trim())
+            .filter(Boolean);
         return segments;
     };
 
     const processedSegments = useMemo(() => {
         if (!post || !Object.keys(post).length) return [];
+
+        // Flatten the post data into an array.
         const transcriptFlatMap: {
             id: string;
             text: string;
             type: 'title' | 'selftext' | 'comment' | 'reply';
             parent_id: string | null;
         }[] = [
-            {
-                id: post.id,
-                text: post.title,
-                type: 'title',
-                parent_id: null
-            },
-            {
-                id: post.id,
-                text: post.selftext,
-                type: 'selftext',
-                parent_id: null
-            }
+            { id: post.id, text: post.title, type: 'title', parent_id: null },
+            { id: post.id, text: post.selftext, type: 'selftext', parent_id: null }
         ];
 
         const traverseComments = (comments: Comments[], parentId: string | null) => {
@@ -396,10 +377,11 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
         traverseComments(post.comments, post.id);
 
+        // Split each text block into segments using the updated function.
         const segments = transcriptFlatMap.flatMap((data) => {
             const segmentTexts = splitIntoSegments(data.text);
             return segmentTexts.map((line) => ({
-                line, // Already includes delimiter
+                line, // Each sentence segment, complete with punctuation.
                 id: data.id,
                 type: data.type,
                 parent_id: data.parent_id,
@@ -408,21 +390,19 @@ const PostTranscript: FC<PostTranscriptProps> = ({
             }));
         });
 
+        // Use fuzzball's substring matching (or ratio functions) to assign code colours.
         segments.forEach((segment) => {
             codes.forEach(({ text, code }) => {
-                const codeSegments = splitIntoSegments(text);
-
-                codeSegments.forEach((codeSegment) => {
-                    const partialSimilarity = ratio(segment.line, codeSegment);
-                    if (partialSimilarity >= 90) {
-                        segment.backgroundColours.push(codeColors[code]);
-                        segment.relatedCodeText.push(code);
-                    }
-                });
+                // Use partial_ratio to check if any substring in the segment matches the code text.
+                const similarity = partial_ratio(segment.line, text);
+                if (similarity >= 90) {
+                    segment.backgroundColours.push(codeColors[code]);
+                    segment.relatedCodeText.push(code);
+                }
             });
         });
 
-        // Consolidate and remove duplicates
+        // Remove duplicates before returning.
         return segments.map((segment) => ({
             ...segment,
             backgroundColours: Array.from(new Set(segment.backgroundColours)),
@@ -444,7 +424,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 {/* Left Section: Transcript */}
                 <div className="flex-1 flex flex-col overflow-hidden">
                     <button onClick={onBack} className="mb-4 text-blue-500 self-start">
-                        &lt;- <span className="underline">Back to Posts</span>
+                        ← <span className="underline">Back to Posts</span>
                     </button>
 
                     <div className="flex-1 overflow-y-auto" onMouseUp={handleTextSelection}>

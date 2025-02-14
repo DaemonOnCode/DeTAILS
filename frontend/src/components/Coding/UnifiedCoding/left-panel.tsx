@@ -8,7 +8,7 @@ interface LeftPanelProps {
     postIds: string[];
     codes: string[];
     onFilterSelect: (filter: string | null) => void;
-    showTypeFilterDropdown?: boolean; // Optional prop to control filter dropdown visibility
+    showTypeFilterDropdown?: boolean;
     selectedTypeFilter: 'Human' | 'LLM' | 'All';
     handleSelectedTypeFilter?: (e: any) => void;
 }
@@ -25,6 +25,8 @@ const LeftPanel: FC<LeftPanelProps> = ({
     const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
     const [postIdTitles, setPostIdTitles] = useState<{ id: string; title: string }[]>([]);
+
+    const [loading, setLoading] = useState(false);
 
     const containerRef = useRef<HTMLUListElement>(null);
 
@@ -47,16 +49,11 @@ const LeftPanel: FC<LeftPanelProps> = ({
         });
     };
 
-    // const handleFilterChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    //     setSelectedFilter(event.target.value as 'Human' | 'LLM' | 'All');
-    //     handleSelect(null); // Reset selection when filter changes
-    // };
-
     const fetchTabData = async (postIds: string[], datasetId: string) => {
         if (!postIds.length || !datasetId) {
             return [];
         }
-        // await new Promise((resolve) => setTimeout(resolve, 5000)); // Simulate delay
+        setLoading(true);
         const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH), {
             method: 'POST',
             headers: {
@@ -66,6 +63,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
         });
 
         if (!res.ok) {
+            setLoading(false);
             throw new Error('Failed to fetch data');
         }
 
@@ -76,6 +74,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
         setPostIdTitles(
             results?.map((result: any) => ({ id: result.id, title: result.title })) ?? []
         );
+        setLoading(false);
     };
 
     useEffect(() => {
@@ -83,8 +82,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
     }, [postIds]);
 
     return (
-        <div className="m-6">
-            {/* Conditional Filter Dropdown */}
+        <div className="h-full flex flex-col">
             {showTypeFilterDropdown && (
                 <div className="mb-4">
                     <label className="block text-gray-700 font-bold mb-2">Load codes of:</label>
@@ -98,10 +96,12 @@ const LeftPanel: FC<LeftPanelProps> = ({
                     </select>
                 </div>
             )}
-            {/* Tabs */}
+
             <div className="flex justify-around mb-4">
                 <button
-                    className={`py-1 lg:py-2 px-2 lg:px-4 w-1/2 ${activeTab === 'posts' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                    className={`py-1 lg:py-2 px-2 lg:px-4 w-1/2 ${
+                        activeTab === 'posts' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                    }`}
                     onClick={() => {
                         setActiveTab('posts');
                         handleSelect(null);
@@ -109,7 +109,9 @@ const LeftPanel: FC<LeftPanelProps> = ({
                     Posts
                 </button>
                 <button
-                    className={`py-1 lg:py-2 px-1 lg:px-4 w-1/2 ${activeTab === 'codes' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                    className={`py-1 lg:py-2 px-1 lg:px-4 w-1/2 ${
+                        activeTab === 'codes' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                    }`}
                     onClick={() => {
                         setActiveTab('codes');
                         handleSelect(null);
@@ -118,41 +120,36 @@ const LeftPanel: FC<LeftPanelProps> = ({
                 </button>
             </div>
 
-            {/* Posts Tab */}
-            {activeTab === 'posts' ? (
-                <ul
-                    className="space-y-2 max-h-[calc(100vh-11rem)] overflow-auto"
-                    ref={containerRef}>
-                    <li className="flex justify-evenly items-center">
-                        <span
-                            className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
-                                selectedItem === null
-                                    ? 'bg-blue-200 font-bold'
-                                    : 'hover:bg-blue-100'
-                            }`}
-                            onClick={() => handleSelect(null)}>
-                            All Posts
-                        </span>
-                        <span
-                            className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
-                                selectedItem === 'coded-data' ||
-                                selectedItem?.split('|')?.[1] === 'coded-data'
-                                    ? 'bg-blue-200 font-bold'
-                                    : 'hover:bg-blue-100'
-                            }`}
-                            onClick={() => handleSelect('coded-data')}>
-                            Coded Posts
-                        </span>
-                    </li>
-                    {postIdTitles.length === 0 ? (
-                        <li>Loading...</li>
-                    ) : (
-                        postIdTitles
-                            // .filter(
-                            //     (post) =>
-                            //         selectedFilter === 'All' || post.title.includes(selectedFilter)
-                            // )
-                            .map((postIdTitle) => (
+            <div className="flex-1 overflow-auto min-h-0">
+                {activeTab === 'posts' ? (
+                    <ul className="space-y-2" ref={containerRef}>
+                        <li className="flex justify-evenly items-center">
+                            <span
+                                className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
+                                    selectedItem === null
+                                        ? 'bg-blue-200 font-bold'
+                                        : 'hover:bg-blue-100'
+                                }`}
+                                onClick={() => handleSelect(null)}>
+                                All Posts
+                            </span>
+                            <span
+                                className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
+                                    selectedItem === 'coded-data' ||
+                                    selectedItem?.split('|')?.[1] === 'coded-data'
+                                        ? 'bg-blue-200 font-bold'
+                                        : 'hover:bg-blue-100'
+                                }`}
+                                onClick={() => handleSelect('coded-data')}>
+                                Coded Posts
+                            </span>
+                        </li>
+                        {loading ? (
+                            <li>Loading...</li>
+                        ) : postIdTitles.length === 0 ? (
+                            <div>No posts found</div>
+                        ) : (
+                            postIdTitles.map((postIdTitle) => (
                                 <PostTab
                                     key={postIdTitle.id}
                                     postIdTitle={postIdTitle}
@@ -161,21 +158,20 @@ const LeftPanel: FC<LeftPanelProps> = ({
                                     containerRef={containerRef}
                                 />
                             ))
-                    )}
-                </ul>
-            ) : (
-                // Codes Tab
-                <ul className="space-y-2  max-h-[calc(100vh-11rem)] overflow-auto">
-                    <li
-                        className={`p-3 border rounded shadow cursor-pointer transition-all ${
-                            selectedItem === null ? 'bg-blue-200 font-bold' : 'hover:bg-blue-100'
-                        }`}
-                        onClick={() => handleSelect(null)}>
-                        Show All
-                    </li>
-                    {codes
-                        // .filter((code) => selectedFilter === 'All' || code.includes(selectedFilter))
-                        .map((code, index) => (
+                        )}
+                    </ul>
+                ) : (
+                    <ul className="space-y-2">
+                        <li
+                            className={`p-3 border rounded shadow cursor-pointer transition-all ${
+                                selectedItem === null
+                                    ? 'bg-blue-200 font-bold'
+                                    : 'hover:bg-blue-100'
+                            }`}
+                            onClick={() => handleSelect(null)}>
+                            Show All
+                        </li>
+                        {codes.map((code, index) => (
                             <li
                                 key={index}
                                 className={`p-3 border rounded shadow cursor-pointer transition-all ${
@@ -187,8 +183,9 @@ const LeftPanel: FC<LeftPanelProps> = ({
                                 {code}
                             </li>
                         ))}
-                </ul>
-            )}
+                    </ul>
+                )}
+            </div>
         </div>
     );
 };

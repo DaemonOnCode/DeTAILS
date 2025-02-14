@@ -15,3 +15,4 @@ export { default as SplitCheckPage } from './split-check';
 export { default as EncodedDataPage } from './encoded-data';
 export { default as TranscriptsPage } from './transcripts';
 export { default as LoadDataPage } from './load-data';
+export { default as CodebookCreationPage } from './codebook-creation';
