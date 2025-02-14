@@ -48,12 +48,12 @@ const FlashcardsLoaderPage = () => {
     const fileVariants = {
         initial: { x: 0, opacity: 1 },
         animate: {
-            x: [0, 550], // Compact animation distance
-            opacity: [1, 0], // Fade out near the end
+            x: [0, 550],
+            opacity: [1, 0],
             transition: {
-                duration: 4, // Smooth and consistent animation duration
+                duration: 4,
                 ease: 'easeInOut',
-                repeat: Infinity // Infinite animation
+                repeat: Infinity
             }
         }
     };
@@ -61,7 +61,7 @@ const FlashcardsLoaderPage = () => {
     const staggeredFiles = {
         animate: {
             transition: {
-                staggerChildren: 0.5 // Delay between each document animation
+                staggerChildren: 0.5
             }
         }
     };

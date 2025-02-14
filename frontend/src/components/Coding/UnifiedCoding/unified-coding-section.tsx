@@ -68,7 +68,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     const [selectedTypeFilter, setSelectedTypeFilter] = useState<
         'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All'
-    >('All');
+    >(showCoderType ? 'All' : 'New Data');
 
     const isThemesVisible = showThemes;
     // const responses = data;
@@ -365,7 +365,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             showCoderType={showCoderType}
                         />
                     </div>
-                    {showRerunCoding && (
+                    {showRerunCoding && !review && (
                         <div className="flex justify-center p-6">
                             <button
                                 onClick={handleReRunCoding}

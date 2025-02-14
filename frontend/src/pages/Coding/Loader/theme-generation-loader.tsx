@@ -1,15 +1,13 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
-// Define snippet type
 interface Snippet {
     id: string;
     text: string;
     bucketIndex: number;
-    offsetX: number; // Random horizontal offset to prevent overlap
+    offsetX: number;
 }
 
-// List of qualitative research codes
 const codeSnippets: string[] = [
     'Code 1',
     'Code 2',
@@ -21,7 +19,6 @@ const codeSnippets: string[] = [
     'Code 8'
 ];
 
-// List of qualitative research themes
 const buckets: string[] = ['Theme 1', 'Theme 2', 'Theme 3', 'Theme 4'];
 
 export default function SmoothCodeFlow(): JSX.Element {
@@ -33,18 +30,18 @@ export default function SmoothCodeFlow(): JSX.Element {
         const interval = setInterval(() => {
             console.log('Spawning new snippet...');
             setActiveSnippets((prev) => {
-                if (prev.length >= 4) return prev; // Limit to 4 active snippets
+                if (prev.length >= 4) return prev;
 
                 if (snippetQueue.length === 0) {
-                    setSnippetQueue([...codeSnippets]); // Reset queue when empty
+                    setSnippetQueue([...codeSnippets]);
                     return prev;
                 }
 
                 const nextSnippetText = snippetQueue.shift();
-                if (!nextSnippetText) return prev; // Prevent empty entries
+                if (!nextSnippetText) return prev;
 
                 const bucketIndex = Math.floor(Math.random() * buckets.length);
-                const offsetX = (Math.random() - 0.5) * 30; // Small offset to prevent overlap
+                const offsetX = (Math.random() - 0.5) * 30;
 
                 const newSnippet: Snippet = {
                     id: crypto.randomUUID(),
@@ -55,7 +52,7 @@ export default function SmoothCodeFlow(): JSX.Element {
 
                 return [...prev, newSnippet];
             });
-        }, 1000); // Spawn every 2 seconds
+        }, 1000);
 
         return () => clearInterval(interval);
     }, [snippetQueue]);
@@ -77,7 +74,7 @@ export default function SmoothCodeFlow(): JSX.Element {
                 {activeSnippets.map((snippet) => {
                     const bucketX =
                         (snippet.bucketIndex - (buckets.length - 1) / 2) * 180 + snippet.offsetX; // Bucket alignment
-                    const bucketY = 250; // Moves downward
+                    const bucketY = 250;
 
                     return (
                         <motion.div
@@ -85,20 +82,20 @@ export default function SmoothCodeFlow(): JSX.Element {
                             className="absolute text-lg font-bold p-3 bg-blue-400 text-white rounded-lg shadow-md"
                             initial={{ opacity: 0, x: 0, y: 0, scale: 0.8 }}
                             animate={{
-                                x: [0, bucketX * 0.4, bucketX], // Moves outward from Codebook
-                                y: [0, -50, bucketY * 0.6, bucketY], // Moves slightly up then down
-                                opacity: [0, 1, 1, 0], // Fade in, move, fade out
-                                scale: [0.8, 1, 1, 0.8] // Smooth scaling
+                                x: [0, bucketX * 0.4, bucketX],
+                                y: [0, -50, bucketY * 0.6, bucketY],
+                                opacity: [0, 1, 1, 0],
+                                scale: [0.8, 1, 1, 0.8]
                             }}
                             transition={{
                                 duration: 4,
-                                repeat: 1, // Moves once, then disappears
+                                repeat: 1,
                                 ease: 'easeInOut'
                             }}
                             onAnimationComplete={() => {
                                 setActiveSnippets((prev) =>
                                     prev.filter((s) => s.id !== snippet.id)
-                                ); // Remove snippet after animation completes
+                                );
                             }}>
                             {snippet.text}
                         </motion.div>

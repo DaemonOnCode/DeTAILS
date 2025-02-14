@@ -42,9 +42,7 @@ const ManualCodingPage: React.FC = () => {
                 <div className="flex space-x-4 border-b border-gray-200 w-full">
                     <button
                         onClick={() =>
-                            navigate(
-                                `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}/${ROUTES.SPLIT_CHECK}`
-                            )
+                            navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`)
                         }
                         className="text-blue-500">
                         ← <span className="underline">Back to Application</span>

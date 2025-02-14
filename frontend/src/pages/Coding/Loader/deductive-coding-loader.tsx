@@ -75,7 +75,7 @@ const DeductiveCoding = () => {
                     <p className="text-lg font-mono leading-relaxed whitespace-pre-line">
                         {textLine.split(' ').map((word, idx) => {
                             const highlight = highlightedWords.find((h) => h.index === idx);
-                            const isCurrentWord = idx === currentWordIndex; // Cursor should appear here
+                            const isCurrentWord = idx === currentWordIndex;
 
                             return (
                                 <motion.span

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, DatasetsRepository, PostsRepository, CommentsRepository, LlmResponsesRepository
-from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware
+from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware
 from routes import coding_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
 
 load_dotenv()
@@ -42,6 +42,7 @@ app.add_middleware(
 
 app.add_middleware(ExecutionTimeMiddleware)
 app.add_middleware(ErrorHandlingMiddleware)
+app.add_middleware(LoggingMiddleware)
 print("Middleware added!")
 
 app.include_router(collection_routes.router, prefix="/api/collections", tags=["collections"])

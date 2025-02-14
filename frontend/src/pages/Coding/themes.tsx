@@ -161,7 +161,7 @@ const ThemesPage = () => {
 
             <footer>
                 <NavigationBottomBar
-                    previousPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.ENCODED_DATA}`}
+                    previousPage={`${ROUTES.DEDUCTIVE_CODING}`}
                     nextPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.ANALYSIS}`}
                     isReady={unplacedCodes.length === 0}
                 />

@@ -133,7 +133,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         setSelectedCode('');
     };
 
-    // Capture selected text
     const handleTextSelection = () => {
         console.log('Handling text selection');
         if (!isActive) return;
@@ -152,10 +151,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         const selection = window.getSelection();
         if (!selection) return;
 
-        // Clear any existing selection
         selection.removeAllRanges();
 
-        // Re-apply our saved range
         selection.addRange(selectionRangeRef.current);
     };
 
@@ -279,50 +276,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 break;
         }
 
-        // console.log('Applying code to selection:', selectedText, selectedCode);
-
-        // const normalizeText = (text: string) => text.toLowerCase().replace(/\s+/g, ' ').trim();
-
-        // const checkComment = (comment: IComment, selectedText: string): boolean => {
-        //     if (!selectedText) {
-        //         console.error('Selected text is empty or null');
-        //         return false;
-        //     }
-
-        //     const normalizedBody = normalizeText(comment?.body || '');
-        //     const normalizedText = normalizeText(selectedText);
-
-        //     const check = normalizedBody.includes(normalizedText);
-        //     if (check) {
-        //         console.log('Found in comment:', comment.body);
-        //         return true;
-        //     }
-
-        //     if (comment?.comments?.length) {
-        //         return comment.comments.some((subComment) => {
-        //             return checkComment(subComment, normalizedText);
-        //         });
-        //     }
-
-        //     return false;
-        // };
-
-        // const isComment =
-        //     post?.comments?.some((comment) => {
-        //         const result = checkComment(comment, selectedText);
-        //         return result;
-        //     }) || false;
-
-        // console.log('Final isComment value:', isComment);
-
-        // setReferences((prevRefs) => ({
-        //     ...prevRefs,
-        //     [selectedCode]: [
-        //         ...(prevRefs[selectedCode] || []),
-        //         { text: selectedText, postId: post!.id, isComment }
-        //     ]
-        // }));
-
         setSelectedText(null);
         setIsHighlightModalOpen(false);
     };
@@ -338,23 +291,18 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     }, [codes]);
 
     const splitIntoSegments = (text: string) => {
-        // Use a unique token that is unlikely to appear in your text.
         const newlineToken = '<NEWLINE>';
-        // Replace newlines with the token.
         const cleanedText = text.replace(/\n+/g, newlineToken);
-        // Split on punctuation that typically ends a sentence.
         const segments = cleanedText
             .split(/(?<=[.?!])/)
             .map((segment) => segment.trim())
             .filter(Boolean);
-        // Reapply newlines where the token exists.
         return segments.map((segment) => segment.replace(new RegExp(newlineToken, 'g'), '\n'));
     };
 
     const processedSegments = useMemo(() => {
         if (!post || !Object.keys(post).length) return [];
 
-        // Flatten the post data into an array.
         const transcriptFlatMap: {
             id: string;
             text: string;
@@ -379,11 +327,10 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
         traverseComments(post.comments, post.id);
 
-        // Split each text block into segments using the updated function.
         const segments = transcriptFlatMap.flatMap((data) => {
             const segmentTexts = splitIntoSegments(data.text);
             return segmentTexts.map((line) => ({
-                line, // Each sentence segment, complete with punctuation.
+                line,
                 id: data.id,
                 type: data.type,
                 parent_id: data.parent_id,
@@ -392,11 +339,9 @@ const PostTranscript: FC<PostTranscriptProps> = ({
             }));
         });
 
-        // Use fuzzball's substring matching (or ratio functions) to assign code colours.
         segments.forEach((segment) => {
             codes.forEach(({ text, code }) => {
-                // Use partial_ratio to check if any substring in the segment matches the code text.
-                const similarity = partial_ratio(segment.line, text);
+                const similarity = ratio(segment.line, text);
                 if (similarity >= 90) {
                     segment.backgroundColours.push(codeColors[code]);
                     segment.relatedCodeText.push(code);
@@ -404,7 +349,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
             });
         });
 
-        // Remove duplicates before returning.
         return segments.map((segment) => ({
             ...segment,
             backgroundColours: Array.from(new Set(segment.backgroundColours)),

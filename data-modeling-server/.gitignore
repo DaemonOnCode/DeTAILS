@@ -8,3 +8,4 @@ new_env
 import_temp
 basis_files
 context_files
+*.jsonl

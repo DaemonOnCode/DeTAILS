@@ -95,7 +95,7 @@ const CodebookCreation = () => {
         console.log('Results:', results);
 
         toast.info(
-            'LLM has finished coding data. You can head back to Split Check page to see the results',
+            'LLM has finished coding data. You can head back to Deductive Coding page to see the results',
             {
                 autoClose: false
             }
@@ -121,11 +121,13 @@ const CodebookCreation = () => {
                     data={sampledPostResponse}
                     dispatchFunction={dispatchSampledPostResponse}
                     review={true}
+                    showCoderType={false}
+                    showRerunCoding={true}
                 />
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.LOAD_DATA}
-                nextPage={`${ROUTES.DEDUCTIVE_CODING}/${ROUTES.SPLIT_CHECK}`}
+                nextPage={`${ROUTES.DEDUCTIVE_CODING}`}
                 isReady={true}
                 onNextClick={handleNextClick}
                 autoNavigateToNext={false}

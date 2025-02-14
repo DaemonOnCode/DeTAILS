@@ -4,17 +4,13 @@ import { FaLaptop, FaToolbox, FaFileAlt } from 'react-icons/fa';
 import { useLogger } from '../../../context/logging-context';
 import { useWebSocket } from '../../../context/websocket-context';
 
-// Electron's IPC Renderer
-const { ipcRenderer } = window.require('electron');
-
-// Generate rectangles for the theme generation animation
 const generateRectangles = () => {
     return Array.from({ length: 30 }, (_, index) => ({
         id: `rectangle-${index}`,
-        size: Math.random() * 50 + 20, // Random size between 20px to 70px
-        x: Math.random() * 1200 - 600, // Horizontal spread
-        y: Math.random() * 800 - 400, // Vertical spread
-        delay: Math.random() * 2 // Random delay
+        size: Math.random() * 50 + 20,
+        x: Math.random() * 1200 - 600,
+        y: Math.random() * 800 - 400,
+        delay: Math.random() * 2
     }));
 };
 
@@ -57,26 +53,25 @@ const ThemeLoaderPage = () => {
 
             const startAnimationLoop = async () => {
                 while (isMounted) {
-                    await controls.start('animate'); // Wait for the animation to complete
-                    await new Promise((resolve) => setTimeout(resolve, 500)); // Optional delay between loops
+                    await controls.start('animate');
+                    await new Promise((resolve) => setTimeout(resolve, 500));
                 }
             };
 
             startAnimationLoop();
 
             return () => {
-                isMounted = false; // Clean up loop when component unmounts or stage changes
+                isMounted = false;
             };
         }
     }, [stage, controls]);
 
-    // Variants for staggered animation
     const staggeredFiles: Variants = {
         initial: { opacity: 0, x: 0 },
         animate: {
             opacity: 1,
             transition: {
-                staggerChildren: 0.3 // Delay between each file animation
+                staggerChildren: 0.3
             }
         }
     };
@@ -87,7 +82,7 @@ const ThemeLoaderPage = () => {
             x: [0, 550],
             opacity: [1, 0],
             transition: {
-                duration: 4, // Full animation cycle
+                duration: 4,
                 ease: 'easeInOut'
             }
         }

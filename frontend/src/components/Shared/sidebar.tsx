@@ -23,7 +23,7 @@ const formatRouteName = (path: string) => {
 const IGNORED_KEYWORDS = [
     '*',
     '/',
-    // 'loader',
+    'loader',
     SHARED_ROUTES.CLEANING,
     SHARED_ROUTES.DATA_COLLECTION,
     SHARED_ROUTES.DATA_MODELING,
