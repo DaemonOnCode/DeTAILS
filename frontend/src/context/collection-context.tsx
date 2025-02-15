@@ -16,7 +16,9 @@ export const CollectionContext = createContext<ICollectionContext>({
     datasetId: '',
     setDatasetId: () => {},
     updateContext: () => {},
-    resetContext: () => {}
+    resetContext: () => {},
+    interviewInput: '',
+    setInterviewInput: () => {}
 });
 
 export const CollectionProvider: FC<ILayout> = ({ children }) => {
@@ -24,6 +26,8 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
     const [modeInput, setModeInput] = useState<string>('');
     const [subreddit, setSubreddit] = useState<string>('');
     const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
+
+    const [interviewInput, setInterviewInput] = useState<string>('');
 
     const [datasetId, setDatasetId] = useState<string>(v4());
 
@@ -56,6 +60,8 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
             toggleMode,
             modeInput,
             setModeInput,
+            interviewInput,
+            setInterviewInput,
             subreddit,
             setSubreddit,
             selectedPosts,

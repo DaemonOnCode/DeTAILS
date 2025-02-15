@@ -14,6 +14,11 @@ const HomePage = () => {
         navigate('/data-collection/' + ROUTES.LOAD_REDDIT);
     };
 
+    const handleInterviewImport = () => {
+        console.log('Retrieve Interviews clicked');
+        navigate('/data-collection/' + ROUTES.LOAD_INTERVIEWS);
+    };
+
     const handleCsvImport = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
@@ -54,23 +59,32 @@ const HomePage = () => {
                     onButtonClick={handleRedditRetrieval}
                 />
 
+                {/* Online Sources */}
+                <Card
+                    title="Interview Transcripts"
+                    description="Retrieve interview trasncripts from folder."
+                    buttonText="Retrieve Interviews"
+                    buttonColor="bg-blue-500 hover:bg-blue-600"
+                    onButtonClick={handleInterviewImport}
+                />
+
                 {/* Import CSV */}
                 <Card
                     title="Local Sources"
-                    description="Import datasets created outside of this toolkit. The CSV file must be encoded using UTF-8."
+                    description="Import datasets created outside of this toolkit. The CSV files must be encoded using UTF-8."
                     inputType="file"
                     inputAccept=".csv"
                     onInputChange={handleCsvImport}
                 />
 
                 {/* Import BerTopic Model */}
-                <Card
+                {/* <Card
                     title="Model Sources"
                     description="Import a pre-trained BerTopic model for advanced text analysis."
                     buttonText="Import BerTopic Model"
                     buttonColor="bg-green-500 hover:bg-green-600"
                     onButtonClick={handleModelImport}
-                />
+                /> */}
             </div>
         </div>
     );

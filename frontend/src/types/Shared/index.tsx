@@ -52,6 +52,8 @@ export interface ICollectionContext {
     toggleMode: () => void;
     modeInput: string;
     setModeInput: SetState<string>;
+    interviewInput: string;
+    setInterviewInput: SetState<string>;
     subreddit: string;
     setSubreddit: SetState<string>;
     selectedPosts: string[];

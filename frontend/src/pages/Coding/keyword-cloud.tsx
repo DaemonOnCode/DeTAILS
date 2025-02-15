@@ -11,6 +11,7 @@ import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
+import { GeminiIcon } from '../../components/Shared/Icons';
 
 const KeywordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -223,7 +224,10 @@ const KeywordCloudPage: FC = () => {
                 <div className="absolute bottom-0 right-0">
                     <button
                         onClick={refreshKeywords}
-                        className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs">
+                        className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
+                        <span className="h-6 w-6">
+                            <GeminiIcon />
+                        </span>{' '}
                         Refresh keywords
                     </button>
                 </div>

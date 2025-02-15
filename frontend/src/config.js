@@ -20,6 +20,8 @@ const config = {
             UPLOAD_REDDIT_DATA: 'collections/datasets',
             PARSE_REDDIT_DATA: 'collections/parse-reddit-dataset',
             GET_REDDIT_POSTS_BY_BATCH: 'collections/reddit-posts-by-batch',
+            UPLOAD_INTERVIEW_DATA: 'collections/interviews',
+            PARSE_INTERVIEW_DATA: 'collections/parse-interview-dataset',
 
             // ADD_DOCUMENTS_LANGCHAIN: 'coding/add-documents-langchain',
             REGENERATE_FLASHCARDS: 'coding/generate-additional-flashcards',

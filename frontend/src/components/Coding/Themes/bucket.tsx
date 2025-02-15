@@ -2,6 +2,7 @@ import { FC, useState } from 'react';
 import { useDrop } from 'react-dnd';
 import CodeItem from './code-item';
 import { FaTrashAlt } from 'react-icons/fa';
+import { FiEdit } from 'react-icons/fi';
 
 interface BucketProps {
     theme: { id: string; name: string; codes: string[] };
@@ -47,10 +48,10 @@ const Bucket: FC<BucketProps> = ({ theme, onDrop, onDelete }) => {
                     <div className="flex items-center gap-2">
                         <h2 className="text-lg font-semibold">{theme.name}</h2>
                         <span
-                            className="text-gray-500 cursor-pointer"
+                            className="text-blue-500 cursor-pointer h-8 w-8 place-content-center"
                             title="Click to edit"
                             onClick={() => setIsEditing(true)}>
-                            ✏️
+                            <FiEdit />
                         </span>
                     </div>
                 )}

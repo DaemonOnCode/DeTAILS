@@ -7,6 +7,7 @@ const contexts = {};
 // 🟢 Function to Create a New Context
 const createContext = (contextName, initialState = {}) => {
     contexts[contextName] = { ...initialState };
+    const subscribers = [];
 
     electronLogger.log(`✅ Electron Context "${contextName}" created.`);
 
@@ -27,9 +28,19 @@ const createContext = (contextName, initialState = {}) => {
         getState: () => contexts[contextName],
         setState: (newState) => {
             contexts[contextName] = { ...contexts[contextName], ...newState };
+            subscribers.forEach((callback) => callback(contexts[contextName]));
         },
         subscribe: (callback) => {
+            console.log('Subscribing to context', contextName);
+            subscribers.push(callback);
             ipcMain.on(`contextUpdated_${contextName}`, (event, state) => callback(state));
+            //  Unsubscribe
+            return () => {
+                const index = subscribers.indexOf(callback);
+                if (index !== -1) {
+                    subscribers.splice(index, 1);
+                }
+            };
         },
         resetContext: () => {
             contexts[contextName] = { ...initialState };

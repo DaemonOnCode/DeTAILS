@@ -53,11 +53,16 @@ const ThemesPage = () => {
     // Handle drop into a specific theme
     const handleDropToBucket = (themeId: string, code: string) => {
         setThemes((prevThemes) =>
-            prevThemes.map((theme) =>
-                theme.id === themeId
-                    ? { ...theme, codes: [...theme.codes, code] }
-                    : { ...theme, codes: theme.codes.filter((c) => c !== code) }
-            )
+            prevThemes.map((theme) => {
+                if (theme.id === themeId) {
+                    if (!theme.codes.includes(code)) {
+                        return { ...theme, codes: [...theme.codes, code] };
+                    }
+                    return theme;
+                } else {
+                    return { ...theme, codes: theme.codes.filter((c) => c !== code) };
+                }
+            })
         );
         setUnplacedCodes((prevCodes) => prevCodes.filter((c) => c !== code));
     };

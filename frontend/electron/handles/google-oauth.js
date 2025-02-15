@@ -44,7 +44,7 @@ const googleOAuthHandler = (...ctxs) => {
             electronLogger.log('User Info:', userInfo);
             await logger.info('Google OAuth successful:', { userInfo });
 
-            globalCtx.setState({ email: userInfo.email });
+            globalCtx.setState({ userEmail: userInfo.email });
 
             const oauthWindow = googleOAuth.authWindow;
             electronLogger.log('oauthWindow:', oauthWindow);
@@ -52,7 +52,7 @@ const googleOAuthHandler = (...ctxs) => {
                 oauthWindow.close();
             }
             electronLogger.log('Google OAuth Token:', token);
-            createMenu(...ctxs);
+            // createMenu(...ctxs);
             return {
                 token,
                 user: userInfo

@@ -372,14 +372,16 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                                                             ? 'bg-green-500 text-white'
                                                                             : 'bg-gray-300 text-gray-600'
                                                                     }`}
-                                                                    onClick={() =>
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
                                                                         handleMark(
                                                                             row.id,
                                                                             row.isMarked !== true
                                                                                 ? true
                                                                                 : undefined
-                                                                        )
-                                                                    }>
+                                                                        );
+                                                                    }}>
                                                                     ✓
                                                                 </button>
                                                                 <button
@@ -388,14 +390,16 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                                                             ? 'bg-red-500 text-white'
                                                                             : 'bg-gray-300 text-gray-600'
                                                                     }`}
-                                                                    onClick={() =>
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
                                                                         handleMark(
                                                                             row.id,
                                                                             row.isMarked !== false
                                                                                 ? false
                                                                                 : undefined
-                                                                        )
-                                                                    }>
+                                                                        );
+                                                                    }}>
                                                                     ✕
                                                                 </button>
                                                             </>
