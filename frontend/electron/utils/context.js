@@ -31,7 +31,7 @@ const createContext = (contextName, initialState = {}) => {
             subscribers.forEach((callback) => callback(contexts[contextName]));
         },
         subscribe: (callback) => {
-            console.log('Subscribing to context', contextName);
+            // console.log('Subscribing to context', contextName);
             subscribers.push(callback);
             ipcMain.on(`contextUpdated_${contextName}`, (event, state) => callback(state));
             //  Unsubscribe
@@ -49,7 +49,7 @@ const createContext = (contextName, initialState = {}) => {
 };
 
 const findContextByName = (contextName, ctxs) => {
-    electronLogger.log(`🔍 Finding context "${contextName}"`, ctxs);
+    // electronLogger.log(`🔍 Finding context "${contextName}"`, ctxs);
     return ctxs.find((ctx) => ctx.name === contextName);
 };
 

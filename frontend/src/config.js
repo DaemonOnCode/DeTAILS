@@ -2,10 +2,10 @@ const config = {
     common: {
         appName: 'DeTAILS',
         miscFrontendURL: {
-            local: 'http://localhost:4000',
+            local: 'http://localhost:3000',
             remote: 'http://34.130.161.42'
         },
-        googleOAuthRedirectPath: '/misc-frontend/oauth-redirect',
+        googleOAuthRedirectPath: '/browser-frontend/oauth-redirect',
         loggingURL: {
             local: 'http://localhost:9000/api/log',
             remote: 'http://34.130.161.42/logging/api/log'

@@ -4,6 +4,7 @@ const { autoUpdater } = require('electron-updater');
 const remote = require('@electron/remote/main');
 const globalState = require('./global-state');
 const { electronLogger } = require('./electron-logger');
+const { createExpressServer } = require('./express-helper');
 
 function getPlatformIcon() {
     switch (process.platform) {
@@ -49,6 +50,11 @@ exports.createMainWindow = async (...ctxs) => {
     remote.enable(window.webContents);
 
     electronLogger.log('Loading URL:', process.env.REACT_APP_URL, process.env.NODE_ENV);
+
+    if (process.env.NODE_ENV !== 'development') {
+        createExpressServer();
+    }
+
     await window.loadURL(
         process.env.REACT_APP_URL ||
             (process.env.NODE_ENV === 'development'

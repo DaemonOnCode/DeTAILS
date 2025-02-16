@@ -174,6 +174,10 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                                     <img
                                         src={user.picture}
                                         alt="User Profile"
+                                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                                            e.currentTarget.onerror = null;
+                                            e.currentTarget.src = '/default-profile.png';
+                                        }}
                                         className="w-6 lg:w-10 h-6 lg:h-10 rounded-full border-2 border-gray-300"
                                     />
                                     <span className="m-2 break-words max-w-28  responsive-text">

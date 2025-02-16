@@ -35,6 +35,8 @@ if (!process.env.NODE_ENV === 'development') {
 
 // Function to clean up and gracefully exit
 const cleanupAndExit = async (globalCtx, signal) => {
+    electronLogger.log('Cleaning up and exiting...');
+    electronLogger.log('Clearing localStorage via session API...');
     const ses = session.defaultSession;
     try {
         await ses.clearStorageData({ storages: ['localstorage'] });
@@ -45,6 +47,7 @@ const cleanupAndExit = async (globalCtx, signal) => {
 
     electronLogger.log(`Received signal: ${signal}`);
     await logger.info('Process exited', { signal });
+    electronLogger.log('Closing spawned processes...', spawnedProcesses);
     for (const { name, process } of spawnedProcesses) {
         electronLogger.log(`Terminating process: ${name}`);
         try {
@@ -156,6 +159,7 @@ app.whenReady().then(async () => {
     });
 
     app.on('quit', (event, exitCode) => {
+        console.log('quit event triggered', 'cleaning up and exiting');
         cleanupAndExit(globalCtx);
         electronLogger.log(`App is quitting with exit code: ${exitCode}`);
     });

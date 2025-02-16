@@ -23,12 +23,12 @@ const servicesConfig = (executablesPath) => {
             command: './main',
             args: []
         },
-        miscFrontend: {
-            name: 'miscFrontend',
-            folder: path.join(__dirname, '..', '..', '..', 'log-viewer'),
-            command: 'npm',
-            args: ['run', 'local']
-        },
+        // miscFrontend: {
+        //     name: 'miscFrontend',
+        //     folder: path.join(__dirname, '..', '..', '..', 'log-viewer'),
+        //     command: 'npm',
+        //     args: ['run', 'local']
+        // },
         ollama: {
             name: 'ollama',
             folder: path.join(executablesPath, 'ollama'),
@@ -186,8 +186,8 @@ const spawnServices = async (globalCtx) => {
         await Promise.all([
             spawnService(serviceConfig.chroma, globalCtx),
             spawnService(serviceConfig.backend, globalCtx),
-            spawnService(serviceConfig.ollama, globalCtx),
-            spawnService(serviceConfig.miscFrontend, globalCtx)
+            spawnService(serviceConfig.ollama, globalCtx)
+            // spawnService(serviceConfig.miscFrontend, globalCtx)
         ]);
         electronLogger.log('All services started successfully.');
     } catch (error) {
