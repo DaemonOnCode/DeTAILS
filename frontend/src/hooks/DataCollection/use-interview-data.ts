@@ -5,7 +5,6 @@ import getServerUtils from '../Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 
 const { ipcRenderer } = window.require('electron');
-const FormData = require('form-data');
 const fs = window.require('fs');
 const path = window.require('path');
 
@@ -38,7 +37,7 @@ const useInterviewData = () => {
 
             formData.append('file', blob, path.basename(filePath));
             formData.append('description', 'Interview Data File');
-            formData.append('workspace_id', currentWorkspace?.id);
+            formData.append('workspace_id', currentWorkspace?.id ?? '');
 
             const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.UPLOAD_INTERVIEW_DATA), {
                 method: 'POST',
@@ -90,12 +89,14 @@ const useInterviewData = () => {
             // Check if interviewInput points to a file by examining its extension.
             const ext = path.extname(interviewInput).toLowerCase();
 
-            if (['.txt', '.pdf', '.docx'].includes(ext)) {
-                // interviewInput is assumed to be a file path.
-                dataset_id = await sendInterviewFileToBackend(interviewInput);
-            } else {
-                // Otherwise, assume it's raw text data.
-                dataset_id = await sendInterviewTextToBackend(interviewInput);
+            for (const input in interviewInput) {
+                if (['.txt', '.pdf', '.docx'].includes(ext)) {
+                    // interviewInput is assumed to be a file path.
+                    dataset_id = await sendInterviewFileToBackend(input);
+                } else {
+                    // Otherwise, assume it's raw text data.
+                    dataset_id = await sendInterviewTextToBackend(input);
+                }
             }
 
             // After uploading, trigger parsing of the interview data.

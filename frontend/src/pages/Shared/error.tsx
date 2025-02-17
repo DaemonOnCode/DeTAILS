@@ -22,10 +22,12 @@ class ErrorBoundary extends Component<{ children?: ReactNode }, ErrorBoundarySta
     render() {
         if (this.state.hasError && this.state.error) {
             return (
-                <div style={{ padding: '1rem', backgroundColor: '#ffe6e6' }}>
+                <div className="p-4 bg-[#ffe6e6] h-screen w-screen flex flex-col justify-center items-center">
                     <h2>Something went wrong.</h2>
                     <p>{this.state.error.message}</p>
-                    <p className="text-blue-600 underline" onClick={() => window.location.reload()}>
+                    <p
+                        className="text-blue-600 underline cursor-pointer"
+                        onClick={() => window.location.reload()}>
                         Go back
                     </p>
                 </div>

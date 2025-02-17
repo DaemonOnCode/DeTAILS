@@ -18,7 +18,7 @@ root.render(
         {isBrowser ? (
             <BrowserFrontend />
         ) : (
-            <Suspense fallback={<div>Loading...</div>}>
+            <Suspense fallback={<></>}>
                 <ElectronFrontend />
             </Suspense>
         )}

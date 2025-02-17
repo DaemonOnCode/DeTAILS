@@ -32,14 +32,16 @@ module.exports = {
                 page: 'var(--page-height)',
                 maxPageContent: 'var(--max-page-content-height)',
                 '1/2': '50%',
-                '2/5': '40%'
+                '2/5': '40%',
+                '3/5': '60%'
             },
             maxHeight: {
                 panel: 'var(--panel-height)',
                 page: 'var(--page-height)',
                 maxPageContent: 'var(--max-page-content-height)',
                 '1/2': '50%',
-                '2/5': '40%'
+                '2/5': '40%',
+                '3/5': '60%'
             }
         }
     },

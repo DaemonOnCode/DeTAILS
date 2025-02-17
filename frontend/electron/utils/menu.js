@@ -102,9 +102,6 @@ function createMenu(...ctxs) {
     Menu.setApplicationMenu(menu);
 
     globalCtx.subscribe((newState) => {
-        // You can log or inspect the new state if needed.
-        console.log('Global context updated in subscribe:', newState);
-
         const menu = Menu.buildFromTemplate(menuTemplate(newState));
         Menu.setApplicationMenu(menu);
     });

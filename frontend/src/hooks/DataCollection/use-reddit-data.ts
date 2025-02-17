@@ -7,7 +7,7 @@ import getServerUtils from '../Shared/get-server-url';
 import { useWorkspaceContext } from '../../context/workspace-context';
 
 const { ipcRenderer } = window.require('electron');
-const FormData = require('form-data');
+
 const fs = window.require('fs');
 const path = window.require('path');
 
@@ -148,7 +148,7 @@ const useRedditData = () => {
                     formData.append('file', blob, file); // Append the file to the form data
                     formData.append('description', 'Dataset Description');
                     formData.append('dataset_id', dataset_id);
-                    formData.append('workspace_id', currentWorkspace?.id);
+                    formData.append('workspace_id', currentWorkspace?.id ?? '');
 
                     const response = await fetch(
                         getServerUrl(REMOTE_SERVER_ROUTES.UPLOAD_REDDIT_DATA),
@@ -239,7 +239,7 @@ const useRedditData = () => {
             }
             let folderPath = modeInput;
             if (!modeInput && changeModeInput) {
-                folderPath = await ipcRenderer.invoke('select-folder');
+                folderPath = await ipcRenderer.invoke('select-folder-reddit');
                 setModeInput(folderPath);
             }
 

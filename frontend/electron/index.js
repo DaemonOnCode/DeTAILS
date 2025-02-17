@@ -63,6 +63,10 @@ const cleanupAndExit = async (globalCtx, signal) => {
         electronLogger.log('Error closing websocket');
     }
     // Perform cleanup tasks here if needed
+    if (!signal) {
+        // app.exit();
+        return;
+    }
     app.quit();
 };
 
@@ -89,7 +93,7 @@ app.whenReady().then(async () => {
     //     }
     // });
 
-    // Register signal handlers for SIGINT, SIGTERM, and SIGABRT
+    // Register signal handlers
     ['SIGINT', 'SIGTERM', 'SIGABRT', 'SIGHUP', 'SIGSEGV'].forEach((signal) => {
         electronLogger.log(`Registering handler for signal: ${signal}`);
         process.on(signal, () => {
@@ -158,13 +162,14 @@ app.whenReady().then(async () => {
         // cleanupAndExit(globalCtx);
     });
 
-    app.on('quit', (event, exitCode) => {
+    app.on('quit', async (event, exitCode) => {
         console.log('quit event triggered', 'cleaning up and exiting');
-        cleanupAndExit(globalCtx);
-        electronLogger.log(`App is quitting with exit code: ${exitCode}`);
-    });
+        await cleanupAndExit(globalCtx);
 
-    // Handle all windows being closed
+        electronLogger.log(`App is quitting with exit code: ${exitCode}`);
+
+        app.exit(exitCode);
+    });
 
     // Register other IPC handlers
     registerIpcHandlers(globalCtx);

@@ -55,12 +55,15 @@ exports.createMainWindow = async (...ctxs) => {
         createExpressServer();
     }
 
+    console.time('webloader');
+
     await window.loadURL(
-        process.env.REACT_APP_URL ||
+        process.env.REACT_APP_URL ??
             (process.env.NODE_ENV === 'development'
                 ? 'http://localhost:3000'
                 : `file://${join(__dirname, '..', '..', './build/index.html')}`)
     );
+    console.timeEnd('webloader');
 
     window.once('ready-to-show', () => {
         if (process.env.NODE_ENV !== 'development') {

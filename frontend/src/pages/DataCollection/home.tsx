@@ -62,7 +62,7 @@ const HomePage = () => {
                 {/* Online Sources */}
                 <Card
                     title="Interview Transcripts"
-                    description="Retrieve interview trasncripts from folder."
+                    description="Retrieve interview transcripts from folder."
                     buttonText="Retrieve Interviews"
                     buttonColor="bg-blue-500 hover:bg-blue-600"
                     onButtonClick={handleInterviewImport}

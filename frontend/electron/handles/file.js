@@ -29,7 +29,7 @@ function flattenObject(obj, parentKey = '', separator = '.') {
 
 const fileHandler = (...ctxs) => {
     const globalCtx = findContextByName('global', ctxs);
-    ipcMain.handle('select-folder', async () => {
+    ipcMain.handle('select-folder-reddit', async () => {
         await logger.info('Selecting folder');
         const result = await dialog.showOpenDialog(globalCtx.getState().mainWindow, {
             properties: ['openDirectory']

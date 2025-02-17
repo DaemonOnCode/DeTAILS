@@ -196,8 +196,8 @@ const ContextPage = () => {
 
     return (
         <div className="w-full h-full flex justify-between flex-col">
-            <div className="max-h-maxPageContent h-maxPageContent overflow-auto">
-                <section>
+            <div className="max-h-maxPageContent h-maxPageContent">
+                <section className="max-h-3/5 h-3/5">
                     {Object.keys(contextFiles).length === 0 ? (
                         <>
                             <h1>Select context files</h1>
@@ -210,17 +210,9 @@ const ContextPage = () => {
                     ) : (
                         <>
                             <h1>Selected Context files</h1>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 py-6 lg:py-10">
-                                {Object.keys(contextFiles).map((filePath, index) => (
-                                    <FileCard
-                                        key={index}
-                                        filePath={filePath}
-                                        fileName={contextFiles[filePath]}
-                                        onRemove={removeContextFile}
-                                    />
-                                ))}
+                            <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto max-w-screen-sm lg:max-w-screen-lg">
                                 <label
-                                    className="flex items-center justify-center h-32 w-32 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50"
+                                    className="flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50"
                                     onClick={handleSelectFiles}>
                                     <span>+ Add File</span>
                                     {/* <button
@@ -229,59 +221,73 @@ const ContextPage = () => {
                                         Select Files
                                     </button> */}
                                 </label>
+                                {Object.keys(contextFiles).map((filePath, index) => (
+                                    <FileCard
+                                        key={index}
+                                        filePath={filePath}
+                                        fileName={contextFiles[filePath]}
+                                        onRemove={removeContextFile}
+                                    />
+                                ))}
                             </div>
                         </>
                     )}
                 </section>
-                <div>
-                    <p>Main topic of interest:</p>
-                    <input
-                        type="text"
-                        className="p-2 border border-gray-300 rounded w-96"
-                        value={mainTopic}
-                        onChange={(e) => setMainTopic(e.target.value)}
-                    />
-                </div>
-                <div>
-                    <p>Provide some additional information about your topic of interest:</p>
-                    <textarea
-                        className="p-2 border border-gray-300 rounded w-96"
-                        value={additionalInfo}
-                        onChange={(e) => setAdditionalInfo(e.target.value)}
-                    />
-                </div>
-                <div>
-                    <p>Research Questions:</p>
-                    <div className="flex items-center">
-                        <textarea
-                            className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
-                            placeholder="Type your research question here..."
-                            value={newQuestion}
-                            onChange={(e) => setNewQuestion(e.target.value)}
-                        />
-                        <button
-                            onClick={addQuestion}
-                            className="ml-2 p-2 bg-blue-500 text-white rounded">
-                            Add
-                        </button>
+                <section className="flex justify-start items-center max-h-2/5 h-2/5 overflow-hidden">
+                    <div className="w-1/2">
+                        <div>
+                            <p>Main topic of interest:</p>
+                            <input
+                                type="text"
+                                className="p-2 border border-gray-300 rounded w-96"
+                                value={mainTopic}
+                                onChange={(e) => setMainTopic(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <p>Provide some additional information about your topic of interest:</p>
+                            <textarea
+                                className="p-2 border border-gray-300 rounded w-96"
+                                value={additionalInfo}
+                                onChange={(e) => setAdditionalInfo(e.target.value)}
+                            />
+                        </div>
                     </div>
-                    <ul className="mt-4">
-                        {researchQuestions.map((question, index) => (
-                            <li key={index} className="flex items-start mb-4">
+                    <div className="w-1/2 h-full flex-1 overflow-y-auto">
+                        <div>
+                            <p>Research Questions:</p>
+                            <div className="flex items-center">
                                 <textarea
                                     className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
-                                    value={question}
-                                    onChange={(e) => updateQuestion(index, e.target.value)}
+                                    placeholder="Type your research question here..."
+                                    value={newQuestion}
+                                    onChange={(e) => setNewQuestion(e.target.value)}
                                 />
                                 <button
-                                    onClick={() => deleteQuestion(index)}
-                                    className="ml-2 p-2 bg-red-500 text-white rounded">
-                                    Delete
+                                    onClick={addQuestion}
+                                    className="ml-2 p-2 bg-blue-500 text-white rounded">
+                                    Add
                                 </button>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
+                            </div>
+                            <ul className="mt-4">
+                                {researchQuestions.map((question, index) => (
+                                    <li key={index} className="flex items-start mb-4">
+                                        <textarea
+                                            className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
+                                            value={question}
+                                            onChange={(e) => updateQuestion(index, e.target.value)}
+                                        />
+                                        <button
+                                            onClick={() => deleteQuestion(index)}
+                                            className="ml-2 p-2 bg-red-500 text-white rounded">
+                                            Delete
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </section>
             </div>
             <NavigationBottomBar
                 previousPage={ROUTES.HOME}

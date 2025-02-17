@@ -6,6 +6,7 @@ const { googleOAuthHandler } = require('./google-oauth');
 const { websocketHandler } = require('./websocket');
 const { workspaceHandler } = require('./workspace');
 const { processingHandler } = require('./processing');
+const { interviewHandler } = require('./interview');
 // const { workerHandler } = require('./worker');
 
 const registerIpcHandlers = (...ctxs) => {
@@ -26,7 +27,8 @@ const registerIpcHandlers = (...ctxs) => {
         dbHandler,
         websocketHandler,
         workspaceHandler,
-        processingHandler
+        processingHandler,
+        interviewHandler
     ];
 
     handlerList.forEach((handler) => handler(...ctxs));

@@ -1,5 +1,5 @@
 import { FC, useContext, useEffect, useRef } from 'react';
-import useRedditData from '../../hooks/Home/use-reddit-data';
+import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';

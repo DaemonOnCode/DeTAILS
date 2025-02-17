@@ -26,7 +26,11 @@ import {
     DeductiveCodingPage
 } from '../pages/Coding';
 import { ROUTES as COLLECTION_ROUTES } from '../constants/DataCollection/shared';
-import { HomePage as CollectionHomePage, LoadRedditPage } from '../pages/DataCollection';
+import {
+    HomePage as CollectionHomePage,
+    LoadRedditPage,
+    LoadInterviewPage
+} from '../pages/DataCollection';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
 
@@ -47,6 +51,10 @@ export const CodingRouter: RouteObject[] = [
             {
                 path: COLLECTION_ROUTES.LOAD_REDDIT,
                 element: <LoadRedditPage />
+            },
+            {
+                path: COLLECTION_ROUTES.LOAD_INTERVIEWS,
+                element: <LoadInterviewPage />
             },
             {
                 path: ROUTES.TRANSCRIPTS,

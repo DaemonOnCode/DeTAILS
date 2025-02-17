@@ -6,7 +6,7 @@ import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
 import { useCollectionContext } from '../../context/collection-context';
 import { useLogger } from '../../context/logging-context';
-import useRedditData from '../../hooks/Home/use-reddit-data';
+import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';

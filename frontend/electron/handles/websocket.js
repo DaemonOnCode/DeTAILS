@@ -12,25 +12,21 @@ let wsInstance = null;
 const decodeMessage = (data) => {
     try {
         if (Buffer.isBuffer(data)) {
-            // Handle Buffer directly
             return data.toString('utf-8');
         } else if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
-            // Handle ArrayBuffer or ArrayBufferView (e.g., Uint8Array) using TextDecoder
             const uint8Array = new Uint8Array(data);
             return new TextDecoder('utf-8').decode(uint8Array);
         } else {
             console.warn('Unknown data type received:', data);
-            return null; // Or handle as needed
+            return null;
         }
     } catch (error) {
         electronLogger.error('Error decoding message:', error);
-        return null; // Or throw error depending on use case
+        return null;
     }
 };
 
 const websocketHandler = (...ctxs) => {
-    // if (isHandlerRegistered) return; // Prevent duplicate registration
-    // isHandlerRegistered = true;
     const globalCtx = findContextByName('global', ctxs);
 
     ipcMain.handle('connect-ws', (event) => {
@@ -45,7 +41,7 @@ const websocketHandler = (...ctxs) => {
 
         // Create a new WebSocket instance if not already connected
         try {
-            electronLogger.log('Connecting to WebSocket...', globalCtx.getState());
+            electronLogger.log('Connecting to WebSocket...');
             const url = new URL(config.backendURL[globalCtx.getState().processing]);
             electronLogger.log(
                 'URL:',
@@ -60,7 +56,7 @@ const websocketHandler = (...ctxs) => {
         } catch (e) {
             electronLogger.log('Application closed');
             electronLogger.log(e);
-            wsInstance = null; // Clear the instance on close
+            wsInstance = null;
             return;
         }
 
@@ -85,7 +81,7 @@ const websocketHandler = (...ctxs) => {
             electronLogger.log('WebSocket closed:', code, message);
             // wsInstance.close();
             try {
-                wsInstance = null; // Clear the instance on close
+                wsInstance = null;
                 globalCtx.setState({ websocket: null });
                 globalCtx.getState().mainWindow.webContents.send('ws-closed', { code, message });
             } catch (e) {
@@ -110,7 +106,7 @@ const websocketHandler = (...ctxs) => {
                 if (wsInstance) {
                     wsInstance.close();
                 }
-                wsInstance = null; // Clear the instance on close
+                wsInstance = null;
                 globalCtx.setState({ websocket: null });
                 try {
                     globalCtx.getState().mainWindow.webContents.send('ws-closed', {
@@ -124,7 +120,7 @@ const websocketHandler = (...ctxs) => {
                 return;
             }
 
-            electronLogger.log('Raw data received:', data);
+            // electronLogger.log('Raw data received:', data);
 
             const message = decodeMessage(data);
             if (message === null) {
@@ -137,7 +133,6 @@ const websocketHandler = (...ctxs) => {
             // Handle ping-pong
             if (message === 'ping') {
                 wsInstance.send('pong');
-                // return;
             }
 
             try {
@@ -147,8 +142,6 @@ const websocketHandler = (...ctxs) => {
                 electronLogger.log(e);
             }
         });
-
-        // return 'WebSocket connected.';
     });
 
     ipcMain.handle('disconnect-ws', (event, message) => {
