@@ -16,9 +16,13 @@ class LoadStateRequest(BaseModel):
 
 
 class CollectionContext(BaseModel):
+    type: str = ""
+    metadata: dict = {}
     mode_input: str = ""
-    subreddit: str = ""
-    selected_posts: list = []
+    selected_data: list = []
+    # mode_input: str = ""
+    # subreddit: str = ""
+    # selected_posts: list = []
 
 class ModelingContext(BaseModel):
     models: list = []

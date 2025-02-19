@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useCollectionContext } from '../../context/collection-context';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import getServerUtils from '../Shared/get-server-url';
@@ -16,17 +16,17 @@ const useInterviewData = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
 
-    // Assume interviewInput can be a file path (for .txt, .pdf, .docx) or raw text.
-    const { interviewInput, setInterviewInput } = useCollectionContext();
+    // In the new context structure, we use `modeInput` for interview input
+    const { modeInput, setModeInput } = useCollectionContext();
     const { currentWorkspace } = useWorkspaceContext();
     const { getServerUrl } = getServerUtils();
 
     // Reset data if there's no interview input
     useEffect(() => {
-        if (!interviewInput) {
+        if (!modeInput) {
             setData({});
         }
-    }, [interviewInput]);
+    }, [modeInput]);
 
     // Helper function to send file data to the backend
     const sendInterviewFileToBackend = async (filePath: string) => {
@@ -81,22 +81,19 @@ const useInterviewData = () => {
             if (!currentWorkspace || !currentWorkspace.id) {
                 throw new Error('Workspace not found');
             }
-            if (!interviewInput) {
+            if (!modeInput) {
                 throw new Error('No interview data provided');
             }
 
             let dataset_id = '';
-            // Check if interviewInput points to a file by examining its extension.
-            const ext = path.extname(interviewInput).toLowerCase();
-
-            for (const input in interviewInput) {
-                if (['.txt', '.pdf', '.docx'].includes(ext)) {
-                    // interviewInput is assumed to be a file path.
-                    dataset_id = await sendInterviewFileToBackend(input);
-                } else {
-                    // Otherwise, assume it's raw text data.
-                    dataset_id = await sendInterviewTextToBackend(input);
-                }
+            // Check if modeInput points to a file by examining its extension.
+            const ext = path.extname(modeInput).toLowerCase();
+            if (['.txt', '.pdf', '.docx'].includes(ext)) {
+                // modeInput is assumed to be a file path.
+                dataset_id = await sendInterviewFileToBackend(modeInput);
+            } else {
+                // Otherwise, assume it's raw text data.
+                dataset_id = await sendInterviewTextToBackend(modeInput);
             }
 
             // After uploading, trigger parsing of the interview data.

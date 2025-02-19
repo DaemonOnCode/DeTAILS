@@ -1,298 +1,242 @@
-// import {
-//     createContext,
-//     useState,
-//     FC,
-//     Dispatch,
-//     useCallback,
-//     useReducer,
-//     useEffect,
-//     useContext
-// } from 'react';
-// import { useMemo } from 'react';
-// import { ILayout, Mode, SetState } from '../types/Coding/shared';
-// import { v4 } from 'uuid';
-// import { ICollectionContext } from '../types/Shared';
-
-// export const CollectionContext = createContext<ICollectionContext>({
-//     currentMode: 'folder',
-//     modeInput: '',
-//     toggleMode: () => {},
-//     setModeInput: () => {},
-//     subreddit: '',
-//     setSubreddit: () => {},
-//     selectedPosts: [],
-//     setSelectedPosts: () => {},
-//     datasetId: '',
-//     setDatasetId: () => {},
-//     updateContext: () => {},
-//     resetContext: () => {},
-//     interviewInput: '',
-//     setInterviewInput: () => {}
-// });
-
-// export const CollectionProvider: FC<ILayout> = ({ children }) => {
-//     const [currentMode, setCurrentMode] = useState<Mode>('folder');
-//     const [modeInput, setModeInput] = useState<string>('');
-//     const [subreddit, setSubreddit] = useState<string>('');
-//     const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
-
-//     const [interviewInput, setInterviewInput] = useState<string>('');
-
-//     const [datasetId, setDatasetId] = useState<string>(v4());
-
-//     const toggleMode = useCallback(() => {
-//         setCurrentMode((prevMode: Mode) => {
-//             setModeInput('');
-//             return prevMode === 'link' ? 'folder' : 'link';
-//         });
-//     }, []);
-
-//     const updateContext = (updates: Partial<ICollectionContext>) => {
-//         if (updates.currentMode !== undefined) setCurrentMode(updates.currentMode);
-//         if (updates.modeInput !== undefined) setModeInput(updates.modeInput);
-//         if (updates.subreddit !== undefined) setSubreddit(updates.subreddit);
-//         if (updates.selectedPosts !== undefined) setSelectedPosts(updates.selectedPosts);
-//         if (updates.datasetId !== undefined) setDatasetId(updates.datasetId || v4());
-//     };
-
-//     const resetContext = () => {
-//         setCurrentMode('folder');
-//         setModeInput('');
-//         setSubreddit('');
-//         setSelectedPosts([]);
-//         setDatasetId(v4());
-//     };
-
-//     const value = useMemo(
-//         () => ({
-//             currentMode,
-//             toggleMode,
-//             modeInput,
-//             setModeInput,
-//             interviewInput,
-//             setInterviewInput,
-//             subreddit,
-//             setSubreddit,
-//             selectedPosts,
-//             setSelectedPosts,
-//             datasetId,
-//             setDatasetId,
-//             updateContext,
-//             resetContext
-//         }),
-//         [currentMode, modeInput, selectedPosts, subreddit, datasetId]
-//     );
-
-//     return <CollectionContext.Provider value={value}>{children}</CollectionContext.Provider>;
-// };
-
-// export const useCollectionContext = () => useContext(CollectionContext);
-
 import React, {
     createContext,
     useReducer,
     useState,
-    useCallback,
-    useContext,
+    useEffect,
     useMemo,
+    useContext,
     FC
 } from 'react';
 import { v4 } from 'uuid';
-import { ILayout, Mode, SetState } from '../types/Coding/shared';
-import { ICollectionContext } from '../types/Shared';
+import { ILayout } from '../types/Coding/shared';
 
-/* ====================================================
-   Provided Types
-   ==================================================== */
+// ====================================================
+// Types
+// ====================================================
 
-// Provided Reddit data type remains unchanged.
-type IRedditData = {
-    currentMode: Mode;
-    modeInput: string;
+// Mode type for context
+export type ModeType = 'reddit' | 'interview' | null;
+
+// ----- Metadata Types -----
+// Both metadata types include a discriminant property "type"
+export interface RedditMetadata {
+    type: 'reddit';
+    source: 'folder' | 'url'; // same as currentMode
     subreddit: string;
-};
+}
 
-// Updated Interview data type now holds an array of strings.
-type IInterviewData = {
-    interviewInput: string[];
-};
+export interface InterviewMetadata {
+    type: 'interview';
+    source: 'folder'; // Only folder is allowed for interview
+}
 
-/* ====================================================
-   Common Data State as a Union
-   ==================================================== */
+export type MetadataState = RedditMetadata | InterviewMetadata | null;
 
-// Define the union exactly as specified.
-export type DataState =
-    | {
-          type: 'reddit';
-          state: IRedditData;
-      }
-    | {
-          type: 'interview';
-          state: IInterviewData;
-      };
+// ----- Dataset Types -----
+export type RedditData = any;
+export type InterviewData = any;
+export type Dataset = RedditData[] | InterviewData[];
 
-const defaultRedditData: IRedditData = {
-    currentMode: 'folder',
-    modeInput: '',
-    subreddit: ''
-};
+// ----- Actions for Dataset and Metadata -----
 
-const defaultInterviewData: IInterviewData = {
-    interviewInput: []
-};
-
-const defaultCommonData: DataState = {
-    type: 'reddit',
-    state: defaultRedditData
-};
-
-/* ====================================================
-   Reducer & Actions
-   ==================================================== */
-
-// Define actions for updating the common data.
-type DataAction =
-    | { type: 'SET_REDDIT_DATA'; payload: Partial<IRedditData> }
-    | { type: 'SET_INTERVIEW_DATA'; payload: Partial<IInterviewData> }
+// Dataset actions
+export type DataAction =
+    | { type: 'ADD_DATA'; payload: RedditData | InterviewData }
     | { type: 'RESET_DATA' };
 
-const dataReducer = (state: DataState, action: DataAction): DataState => {
+const datasetReducer = (
+    state: (RedditData | InterviewData)[],
+    action: DataAction
+): (RedditData | InterviewData)[] => {
     switch (action.type) {
-        case 'SET_REDDIT_DATA': {
-            // Merge with current reddit data if already in reddit mode,
-            // otherwise start with default values.
-            const newReddit =
-                state.type === 'reddit'
-                    ? { ...state.state, ...action.payload }
-                    : { ...defaultRedditData, ...action.payload };
-            return { type: 'reddit', state: newReddit };
-        }
-        case 'SET_INTERVIEW_DATA': {
-            // Merge with current interview data if already in interview mode,
-            // otherwise start with default values.
-            const newInterview =
-                state.type === 'interview'
-                    ? { ...state.state, ...action.payload }
-                    : { ...defaultInterviewData, ...action.payload };
-            return { type: 'interview', state: newInterview };
-        }
+        case 'ADD_DATA':
+            return [...state, action.payload];
         case 'RESET_DATA':
-            return defaultCommonData;
+            return [];
         default:
             return state;
     }
 };
 
-/* ====================================================
-   Context Setup
-   ==================================================== */
+// Metadata actions
+export type MetadataAction =
+    | { type: 'SET_SOURCE'; payload: 'folder' | 'url' }
+    | { type: 'SET_SUBREDDIT'; payload: string }
+    | { type: 'RESET_METADATA' };
 
-// Extend your ICollectionContext to include our common data.
-export interface ExtendedICollectionContext extends ICollectionContext {
-    // Expose the common data state (which is either Reddit or Interview).
-    datasetState: DataState;
+const metadataReducer = (state: MetadataState, action: MetadataAction): MetadataState => {
+    if (!state) {
+        return null;
+    }
+    switch (action.type) {
+        case 'SET_SOURCE':
+            return { ...state, source: action.payload } as MetadataState;
+        case 'SET_SUBREDDIT':
+            // Only applies if state is RedditMetadata.
+            if (state.type === 'reddit') {
+                return { ...state, subreddit: action.payload };
+            }
+            return state;
+        case 'RESET_METADATA':
+            // Return default values based on the type.
+            return state.type === 'reddit'
+                ? { type: 'reddit', source: 'folder', subreddit: '' }
+                : { type: 'interview', source: 'folder' };
+        default:
+            return state;
+    }
+};
+
+// ====================================================
+// Context Interface
+// ====================================================
+
+export interface ExtendedICollectionContext {
+    type: ModeType;
+    metadata: MetadataState;
+    dataset: Dataset;
+    datasetId: string;
+    modeInput: string;
+    selectedData: string[]; // Holds IDs (or other identifiers) of selected items.
     datasetDispatch: React.Dispatch<DataAction>;
+    setDatasetId: React.Dispatch<React.SetStateAction<string>>;
+    setModeInput: React.Dispatch<React.SetStateAction<string>>;
+    metadataDispatch: React.Dispatch<MetadataAction>;
+    setType: React.Dispatch<React.SetStateAction<ModeType>>;
+    setSelectedData: React.Dispatch<React.SetStateAction<string[]>>;
+    updateContext: (updates: Partial<ExtendedICollectionContext>) => void;
+    resetContext: () => void;
 }
 
-// Provide a default value for the context.
-export const CollectionContext = createContext<ExtendedICollectionContext>({
-    currentMode: 'folder',
-    modeInput: '',
-    toggleMode: () => {},
-    setModeInput: () => {},
-    subreddit: '',
-    setSubreddit: () => {},
-    selectedPosts: [],
-    setSelectedPosts: () => {},
-    datasetId: '',
-    setDatasetId: () => {},
-    updateContext: () => {},
-    resetContext: () => {},
-    interviewInput: [],
-    setInterviewInput: () => {},
-    // Expose our common data.
-    datasetState: defaultCommonData,
-    datasetDispatch: () => {}
-});
+// ====================================================
+// Default Initial States
+// ====================================================
 
-/* ====================================================
-   Provider Component
-   ==================================================== */
+const defaultRedditMetadata: RedditMetadata = {
+    type: 'reddit',
+    source: 'folder',
+    subreddit: ''
+};
+
+const defaultInterviewMetadata: InterviewMetadata = {
+    type: 'interview',
+    source: 'folder'
+};
+
+const defaultContext: ExtendedICollectionContext = {
+    type: 'reddit',
+    metadata: defaultRedditMetadata,
+    dataset: [],
+    datasetId: '',
+    modeInput: '',
+    selectedData: [],
+    datasetDispatch: () => {},
+    setDatasetId: () => {},
+    setModeInput: () => {},
+    metadataDispatch: () => {},
+    setType: () => {},
+    setSelectedData: () => {},
+    updateContext: () => {},
+    resetContext: () => {}
+};
+
+// ====================================================
+// Context & Provider
+// ====================================================
+
+export const CollectionContext = createContext<ExtendedICollectionContext>(defaultContext);
 
 export const CollectionProvider: FC<ILayout> = ({ children }) => {
-    // Other (non‑data) state managed with useState.
-    const [currentMode, setCurrentMode] = useState<Mode>('folder');
-    const [modeInput, setModeInput] = useState<string>('');
+    // Manage the "type" (reddit or interview)
+    const [type, setType] = useState<ModeType>(null);
+
+    // Manage metadata: initially based on the type
+    const [metadata, metadataDispatch] = useReducer(
+        metadataReducer,
+        type === 'reddit'
+            ? defaultRedditMetadata
+            : type === 'interview'
+              ? defaultInterviewMetadata
+              : null
+    );
+
+    // Manage dataset as an array
+    const [dataset, datasetDispatch] = useReducer(datasetReducer, []);
+
+    // Other states
     const [datasetId, setDatasetId] = useState<string>(v4());
+    const [modeInput, setModeInput] = useState<string>('');
+    const [selectedData, setSelectedData] = useState<string[]>([]);
 
-    const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
-    const [interviewInput, setInterviewInput] = useState<string[]>([]);
-
-    // Manage the common data state with useReducer.
-    const [datasetState, datasetDispatch] = useReducer(dataReducer, defaultCommonData);
-
-    const toggleMode = useCallback(() => {
-        setCurrentMode((prevMode) => {
-            setModeInput('');
-            return prevMode === 'link' ? 'folder' : 'link';
-        });
-    }, []);
-
-    const updateContext = (updates: Partial<ICollectionContext>) => {
-        if (updates.currentMode !== undefined) setCurrentMode(updates.currentMode);
-        if (updates.modeInput !== undefined) setModeInput(updates.modeInput);
-        if (updates.datasetId !== undefined) setDatasetId(updates.datasetId || v4());
-        if (updates.subreddit !== undefined) {
-            datasetDispatch({ type: 'SET_REDDIT_DATA', payload: { subreddit: updates.subreddit } });
+    // When switching type, reset metadata to the proper default.
+    useEffect(() => {
+        if (type === 'reddit') {
+            metadataDispatch({ type: 'RESET_METADATA' });
+            metadataDispatch({ type: 'SET_SOURCE', payload: 'folder' });
+            metadataDispatch({ type: 'SET_SUBREDDIT', payload: '' });
+        } else {
+            metadataDispatch({ type: 'RESET_METADATA' });
         }
-        if (updates.selectedPosts !== undefined) {
-            setSelectedPosts(updates.selectedPosts);
+    }, [type]);
+
+    // updateContext: Update multiple parts of the context.
+    const updateContext = (updates: Partial<ExtendedICollectionContext>) => {
+        console.log('Updates:', updates);
+        if (updates.type !== undefined) {
+            setType(updates.type);
         }
-        if (updates.interviewInput !== undefined) {
-            // For interview data, we now expect an array of strings.
-            datasetDispatch({
-                type: 'SET_INTERVIEW_DATA',
-                payload: { interviewInput: updates.interviewInput as any }
-            });
+        if (updates.metadata !== undefined && updates.metadata !== null) {
+            if (updates.metadata.source !== undefined) {
+                metadataDispatch({ type: 'SET_SOURCE', payload: updates.metadata.source });
+            }
+            if (
+                updates.metadata &&
+                'subreddit' in updates.metadata &&
+                updates.metadata.subreddit !== undefined
+            ) {
+                metadataDispatch({ type: 'SET_SUBREDDIT', payload: updates.metadata.subreddit });
+            }
         }
+        if (updates.datasetId !== undefined) {
+            setDatasetId(updates.datasetId);
+        }
+        if (updates.modeInput !== undefined) {
+            setModeInput(updates.modeInput);
+        }
+        if (updates.selectedData !== undefined) {
+            setSelectedData(updates.selectedData);
+        }
+        // You can also handle updates to dataset via datasetDispatch if needed.
     };
 
+    // resetContext: Reset context to its default values.
     const resetContext = () => {
-        setCurrentMode('folder');
-        setModeInput('');
-        setDatasetId(v4());
+        setType('reddit');
+        metadataDispatch({ type: 'RESET_METADATA' });
         datasetDispatch({ type: 'RESET_DATA' });
-    };
-
-    // Legacy setters (if needed) can remain for backward compatibility.
-    const setSubreddit: any = (subreddit: string) => {
-        datasetDispatch({ type: 'SET_REDDIT_DATA', payload: { subreddit } });
+        setDatasetId(v4());
+        setModeInput('');
+        setSelectedData([]);
     };
 
     const value = useMemo(
         () => ({
-            currentMode,
-            toggleMode,
-            modeInput,
-            setModeInput,
-            // Legacy getters (optional)
-            subreddit: datasetState.type === 'reddit' ? datasetState.state.subreddit : '',
-            setSubreddit,
-            selectedPosts,
-            setSelectedPosts,
+            type,
+            metadata,
+            dataset,
             datasetId,
+            modeInput,
+            selectedData,
+            datasetDispatch,
             setDatasetId,
+            setModeInput,
+            metadataDispatch,
+            setType,
+            setSelectedData,
             updateContext,
-            resetContext,
-            // For interview data, expose an array
-            interviewInput,
-            setInterviewInput,
-            // Expose the entire common data state.
-            datasetState,
-            datasetDispatch
+            resetContext
         }),
-        [currentMode, modeInput, datasetId, datasetState]
+        [type, metadata, dataset, datasetId, modeInput, selectedData]
     );
 
     return <CollectionContext.Provider value={value}>{children}</CollectionContext.Provider>;

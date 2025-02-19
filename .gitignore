@@ -13,3 +13,4 @@ ollama-*
 **/*.txt
 **/*.log
 !**/requirements*.txt
+transmission-downloads

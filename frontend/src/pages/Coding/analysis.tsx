@@ -1,7 +1,6 @@
-import { useContext, useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { DB_PATH, ROUTES } from '../../constants/Coding/shared';
-import { IFinalCodeResponse } from '../../types/Coding/shared';
+import { ROUTES } from '../../constants/Coding/shared';
 import RedditViewModal from '../../components/Coding/Shared/reddit-view-modal';
 import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
@@ -41,7 +40,7 @@ function groupByCode<T extends { coded_word: string }>(items: T[]): Record<strin
 }
 
 const FinalPage = () => {
-    const { subreddit, datasetId } = useCollectionContext();
+    const { datasetId } = useCollectionContext();
     const { themes, sampledPostResponse, unseenPostResponse } = useCodingContext();
     const [renderedPost, setRenderedPost] = useState<{
         id: string;
@@ -82,7 +81,7 @@ const FinalPage = () => {
         console.log('Viewing post:', postId, link, sentence);
         setRenderedPost({
             id: postId,
-            link: link ?? `https://www.reddit.com/r/${subreddit}/comments/${postId}`,
+            link: link ?? '',
             sentence
         });
     };

@@ -16,7 +16,8 @@ const Workflow = () => {
     const modelName = MODEL_LIST.GEMINI_FLASH;
 
     const { registerCallback, unregisterCallback } = useWebSocket();
-    const { selectedPosts } = useCollectionContext();
+    // const { selectedPosts } = useCollectionContext();
+    const selectedPosts = [];
 
     const [lines, setLines] = useState<
         {

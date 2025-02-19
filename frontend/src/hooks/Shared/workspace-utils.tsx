@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth-context';
 import { useCodingContext } from '../../context/coding-context';
-import { useCollectionContext } from '../../context/collection-context';
+import { ExtendedICollectionContext, useCollectionContext } from '../../context/collection-context';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { toast } from 'react-toastify';
 import useServerUtils from './get-server-url';
@@ -11,7 +11,6 @@ import { useModelingContext } from '../../context/modeling-context';
 import {
     IWorkspaceContext,
     AuthContextType,
-    ICollectionContext,
     ICodingContext,
     IModelingContext
 } from '../../types/Shared';
@@ -19,7 +18,7 @@ import {
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
     const { currentWorkspace } = useWorkspaceContext();
-    const collectionContext = useCollectionContext();
+    const collectionContext = useCollectionContext(); // Now ExtendedICollectionContext
     const codingContext = useCodingContext();
     const modelingContext = useModelingContext();
     const { serviceStarting } = useWebSocket();
@@ -29,7 +28,7 @@ const useWorkspaceUtils = () => {
     const getPayload = (
         currentWorkspace: IWorkspaceContext['currentWorkspace'],
         user: AuthContextType['user'],
-        collectionContext: ICollectionContext,
+        collectionContext: ExtendedICollectionContext,
         codingContext: ICodingContext,
         modelingContext: IModelingContext
     ) => {
@@ -38,9 +37,10 @@ const useWorkspaceUtils = () => {
             user_email: user?.email || '',
             dataset_id: collectionContext.datasetId || '',
             collection_context: {
+                type: collectionContext.type || '',
+                metadata: collectionContext.metadata || {},
                 mode_input: collectionContext.modeInput || '',
-                subreddit: collectionContext.subreddit || '',
-                selected_posts: collectionContext.selectedPosts || []
+                selected_data: collectionContext.selectedData || []
             },
             modeling_context: {
                 models: modelingContext.models || []
@@ -83,7 +83,7 @@ const useWorkspaceUtils = () => {
             codingContext,
             modelingContext
         };
-    }, [currentWorkspace, user, collectionContext, codingContext]);
+    }, [currentWorkspace, user, collectionContext, codingContext, modelingContext]);
 
     const getWorkspaceData = () => {
         const { currentWorkspace, user, collectionContext, codingContext, modelingContext } =
@@ -110,11 +110,18 @@ const useWorkspaceUtils = () => {
             return;
         }
 
+        // Use updateContext to update the collection context.
         collectionContext.updateContext({
             datasetId: data.dataset_id ?? '',
             modeInput: data.mode_input ?? '',
-            subreddit: data.subreddit ?? '',
-            selectedPosts: data.selected_posts ?? []
+            // Update metadata only if we are in reddit mode.
+            metadata: data.metadata,
+            type: data.type ?? '',
+            // collectionContext.metadata.type === 'reddit'
+            //     ? { ...collectionContext.metadata, subreddit: data.subreddit ?? '' }
+            //     : collectionContext.metadata,
+            // Replace selectedPosts with selectedData.
+            selectedData: data.selected_data ?? []
         });
 
         modelingContext.updateContext({
@@ -143,7 +150,6 @@ const useWorkspaceUtils = () => {
 
     const loadWorkspaceData = async () => {
         try {
-            // toast.info('Loading workspace data...');
             const results = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.LOAD_STATE), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -166,21 +172,19 @@ const useWorkspaceUtils = () => {
             console.log('Loading workspace data:', parsedResults.data);
         } catch (error) {
             resetContextData(collectionContext, codingContext, modelingContext);
-            // toast.error('Error loading workspace data');
             console.error('Error in loadWorkspaceData:', error);
         }
     };
 
     const saveWorkspaceData = async () => {
         if (serviceStarting) {
-            // toast.error('Service is starting, please wait');
+            // Service is starting; do not save yet.
             return;
         }
         const payload = getWorkspaceData();
         console.log('Saving workspace data:', payload);
 
         try {
-            // toast.info('Saving workspace data...');
             const results = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.SAVE_STATE), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -197,10 +201,9 @@ const useWorkspaceUtils = () => {
                 console.error('Error in saveWorkspaceData:', parsedResults.message);
             }
         } catch (error) {
-            // toast.error('Error saving workspace data');
             console.error('Error in saveWorkspaceData:', error);
         }
-    }; // Ensures latest `getWorkspaceData` logic is used
+    };
 
     return {
         updateContextData,

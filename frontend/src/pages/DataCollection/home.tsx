@@ -3,20 +3,28 @@ import Card from '../../components/DataCollection/card';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/DataCollection/shared';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import { useCollectionContext } from '../../context/collection-context';
+import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 
 const HomePage = () => {
     const navigate = useNavigate();
     const hasSavedRef = useRef(false);
 
+    const { type, setType, modeInput } = useCollectionContext();
+
     // Event Handlers
     const handleRedditRetrieval = () => {
         console.log('Retrieve Reddit clicked');
-        navigate('/data-collection/' + ROUTES.LOAD_REDDIT);
+        if (!modeInput) setType('reddit');
+        navigate(`/coding/${CODING_ROUTES.LOAD_DATA}/${ROUTES.UPLOAD_DATA}?type=reddit`);
+        // navigate('/data-collection/' + ROUTES.LOAD_REDDIT);
     };
 
     const handleInterviewImport = () => {
         console.log('Retrieve Interviews clicked');
-        navigate('/data-collection/' + ROUTES.LOAD_INTERVIEWS);
+        if (!modeInput) setType('interview');
+        navigate(`/coding/${CODING_ROUTES.LOAD_DATA}/${ROUTES.UPLOAD_DATA}?type=interview`);
+        // navigate('/data-collection/' + ROUTES.LOAD_INTERVIEWS);
     };
 
     const handleCsvImport = (event: React.ChangeEvent<HTMLInputElement>) => {

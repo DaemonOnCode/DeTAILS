@@ -29,7 +29,8 @@ import { ROUTES as COLLECTION_ROUTES } from '../constants/DataCollection/shared'
 import {
     HomePage as CollectionHomePage,
     LoadRedditPage,
-    LoadInterviewPage
+    LoadInterviewPage,
+    UploadDataPage
 } from '../pages/DataCollection';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
@@ -49,12 +50,8 @@ export const CodingRouter: RouteObject[] = [
         children: [
             { path: COLLECTION_ROUTES.HOME, element: <CollectionHomePage />, index: true },
             {
-                path: COLLECTION_ROUTES.LOAD_REDDIT,
-                element: <LoadRedditPage />
-            },
-            {
-                path: COLLECTION_ROUTES.LOAD_INTERVIEWS,
-                element: <LoadInterviewPage />
+                path: COLLECTION_ROUTES.UPLOAD_DATA,
+                element: <UploadDataPage />
             },
             {
                 path: ROUTES.TRANSCRIPTS,

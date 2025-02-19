@@ -7,36 +7,45 @@ const { ipcRenderer } = window.require('electron');
 const fs = window.require('fs');
 
 // Define a type for the interview file data.
-interface InterviewFile {
+export interface InterviewFile {
     type: 'text' | 'file';
     content: string;
 }
 
 const LoadInterview: FC = () => {
-    // Update the context type so interviewInput is an array of InterviewFile objects.
-    const { interviewInput, setInterviewInput } = useCollectionContext();
+    // Retrieve context values.
+    const { modeInput, setModeInput, type } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
 
     useEffect(() => {
-        // If interviewInput is available, further processing can be done here.
+        // On unmount, save workspace data once.
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
                 hasSavedRef.current = true;
             }
         };
-    }, [interviewInput, saveWorkspaceData]);
+    }, [saveWorkspaceData]);
+    // Check if the current data type is interview.
+    if (type !== 'interview') {
+        return (
+            <div className="flex flex-col p-4">
+                <p className="text-red-500">
+                    The loaded data is Reddit data. Please switch to Interview data from the home
+                    page.
+                </p>
+            </div>
+        );
+    }
 
     const handleFileSelect = async () => {
-        // Invoke the main process to open a file dialog that allows multiple file selection.
-        const result: {
-            fileName: string;
-            filePath: string;
-        }[] = await ipcRenderer.invoke('select-files');
+        // Open file dialog for multiple file selection.
+        const result: { fileName: string; filePath: string }[] =
+            await ipcRenderer.invoke('select-files');
         console.log('Selected files:', result);
 
-        // if (result.canceled) return;
+        // Map the result to an array of file paths.
         const filePaths: string[] = result.map((file) => file.filePath);
 
         // Process each file.
@@ -44,7 +53,7 @@ const LoadInterview: FC = () => {
             filePaths.map(async (filePath) => {
                 const extension = filePath.split('.').pop()?.toLowerCase();
                 if (extension === 'txt') {
-                    // For text files, read the file content as UTF-8.
+                    // Read text files as UTF-8.
                     try {
                         const data = await fs.promises.readFile(filePath, 'utf8');
                         return { type: 'text', content: data };
@@ -53,31 +62,31 @@ const LoadInterview: FC = () => {
                         return { type: 'text', content: '' };
                     }
                 } else {
-                    // For PDF or DOCX files, store the file path for later processing.
+                    // For PDF or DOCX, store the file path for later processing.
                     return { type: 'file', content: filePath };
                 }
             })
         );
 
         console.log('Files data:', filesData);
-        // Update context with the array of interview files.
-        // setInterviewInput(filesData);
+        // Update context by storing a JSON‑encoded version of the interview file array in modeInput.
+        setModeInput(JSON.stringify(filesData));
     };
 
-    // Data is loaded if interviewInput exists and contains at least one file.
-    const isDataLoaded = Array.isArray(interviewInput) && interviewInput.length > 0;
+    // Data is considered loaded if modeInput is a non‑empty string.
+    const isDataLoaded = modeInput && modeInput.length > 0;
 
     if (isDataLoaded) {
         return (
-            <div className="flex flex-col h-page">
-                {/* Render your interview data view here. For example: */}
-                {/* <InterviewTableRenderer data={data} loading={loading} /> */}
+            <div className="flex flex-col p-4">
+                {/* Optionally, decode modeInput to preview the files */}
+                <p>Interview files loaded. You can now process them.</p>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-page">
+        <div className="flex flex-col">
             <header className="p-4">
                 <h1 className="text-2xl font-bold mb-4">Upload Interview Files</h1>
             </header>

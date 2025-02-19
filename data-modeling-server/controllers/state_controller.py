@@ -1,4 +1,5 @@
 from calendar import c
+from curses import meta
 from dataclasses import asdict
 import glob
 import json
@@ -27,7 +28,9 @@ def save_state(data):
     modeling_context = ModelingContext(**data.modeling_context)
 
     # Convert complex objects to JSON strings for storage
-    selected_posts = json.dumps(collection_context.selected_posts)
+    metadata = json.dumps(collection_context.metadata)
+    selected_data = json.dumps(collection_context.selected_data)
+
     models = json.dumps(modeling_context.models)
     context_files = json.dumps(coding_context.context_files)
     keywords = json.dumps(coding_context.keywords)
@@ -51,8 +54,9 @@ def save_state(data):
         workspace_id=data.workspace_id,
         dataset_id=data.dataset_id,
         mode_input=collection_context.mode_input,
-        subreddit=collection_context.subreddit,
-        selected_posts=selected_posts,
+        type=collection_context.type,
+        metadata=metadata,
+        selected_data=selected_data,
         models=models,
         main_topic=coding_context.main_topic,
         additional_info=coding_context.additional_info,
@@ -139,7 +143,7 @@ def load_state(data):
 
     # Convert JSON strings back to Python objects
     json_fields = [
-        "selected_posts", "models", "context_files", "keywords", "selected_keywords",
+        "selected_data", "metadata", "models", "context_files", "keywords", "selected_keywords",
         "keyword_table", "references_data", "themes", "research_questions",
         "sampled_post_responses", "sampled_post_with_themes_responses",
         "unseen_post_response", "unplaced_codes", "sampled_post_ids", "unseen_post_ids", "conflicting_responses"

@@ -1,21 +1,23 @@
-import { FC, useContext, useEffect, useRef } from 'react';
+import { FC, useEffect, useRef } from 'react';
 import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const LoadReddit: FC = () => {
+    // Destructure new context values.
+    // For Reddit mode, metadata is assumed to be of type RedditMetadata.
+    const { modeInput, setModeInput, metadata, metadataDispatch, type } = useCollectionContext();
     const { data, loadFolderData, error, loading } = useRedditData();
-    const { toggleMode, currentMode, modeInput, setModeInput } = useCollectionContext();
-
     const { saveWorkspaceData } = useWorkspaceUtils();
+
+    console.log('type', type);
 
     const hasSavedRef = useRef(false);
 
     useEffect(() => {
         if (modeInput) {
             loadFolderData();
-            return;
         }
         return () => {
             if (!hasSavedRef.current) {
@@ -24,35 +26,54 @@ const LoadReddit: FC = () => {
             }
         };
     }, []);
+    // If the current context type is not "reddit", show an error message.
+    if (type !== 'reddit') {
+        return (
+            <div className="p-4">
+                <p className="text-red-500">
+                    The current data type is not Reddit. Please switch to Reddit data from the home
+                    page.
+                </p>
+            </div>
+        );
+    }
 
-    // Check if data is loaded
-    const isDataLoaded = !!modeInput;
+    // Toggle between "folder" and "url" mode.
+    const toggleMode = () => {
+        if (!metadata) return;
+        // Only available in Reddit mode.
+        if (metadata.type === 'reddit') {
+            const newSource = metadata.source === 'url' ? 'folder' : 'url';
+            metadataDispatch({ type: 'SET_SOURCE', payload: newSource });
+        }
+    };
+
+    // Data is considered loaded if modeInput is nonempty.
+    const isDataLoaded = Boolean(modeInput);
 
     if (isDataLoaded) {
-        // Render RedditTableRenderer when data is loaded
         return (
-            <div className="flex flex-col h-page">
+            <div className="flex flex-col">
                 <RedditTableRenderer data={data} loading={loading} />
             </div>
         );
     }
 
-    // Render Link/Folder input when data is not loaded
     return (
-        <div className="flex flex-col h-page">
-            {/* Header: Toggle Button */}
+        <div className="flex flex-col">
+            {/* Header with toggle button */}
             <header className="p-4">
                 <button
                     onClick={toggleMode}
                     className="px-4 py-2 mb-4 text-white bg-blue-500 rounded hover:bg-blue-600">
-                    {currentMode === 'link' ? 'Switch to Folder' : 'Switch to Link'}
+                    {metadata?.source === 'url' ? 'Switch to Folder' : 'Switch to Link'}
                 </button>
             </header>
 
             {/* Main scrollable content */}
             <main className="flex-1 min-h-0 overflow-auto p-4">
-                {currentMode === 'link' ? (
-                    // Link Mode Input
+                {metadata?.source === 'url' ? (
+                    // URL (Link) mode input.
                     <div>
                         <input
                             type="text"
@@ -63,7 +84,7 @@ const LoadReddit: FC = () => {
                         />
                     </div>
                 ) : (
-                    // Folder Mode
+                    // Folder mode.
                     <div>
                         <button
                             onClick={() => loadFolderData(true, true)}

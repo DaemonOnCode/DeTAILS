@@ -101,8 +101,9 @@ class WorkspaceState(BaseDataclass):
     # Collection Context
     dataset_id: Optional[str] = None
     mode_input: Optional[str] = None
-    subreddit: Optional[str] = None
-    selected_posts: Optional[str] = None  # JSON string for list
+    selected_data : Optional[str] = None
+    metadata: Optional[str] = None
+    type: Optional[str] = None
 
     # Modeling Context
     models: Optional[str] = None  # JSON string for list

@@ -1,21 +1,24 @@
-import React, { useEffect, useRef } from 'react';
-import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
-import { LOADER_ROUTES, ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
-import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import { useCodingContext } from '../../context/coding-context';
+import React from 'react';
 import { useCollectionContext } from '../../context/collection-context';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import LoadInterview from './load-interviews';
+import LoadReddit from './load-reddit';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
+import { LOADER_ROUTES, ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
+import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
+import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
-import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import { createTimer } from '../../utility/timer';
-import { useNavigate } from 'react-router-dom';
 
-const LoadData = () => {
-    // With the new context, we now only have datasetId.
-    const { datasetId } = useCollectionContext();
-    const { data, loadFolderData, loading } = useRedditData();
+const UploadDataPage = () => {
+    const { type, datasetId, selectedData } = useCollectionContext();
+
+    const [searchParams] = useSearchParams();
+
+    const datasetType = searchParams.get('type');
+    console.log('Search params:', searchParams, searchParams.get('type'));
+    const navigate = useNavigate();
     const {
         setSampledPostIds,
         setUnseenPostIds,
@@ -25,42 +28,12 @@ const LoadData = () => {
         researchQuestions,
         dispatchSampledPostResponse
     } = useCodingContext();
-
-    const navigate = useNavigate();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = useServerUtils();
 
-    console.log('rendered home page');
-    console.count('Component Render');
+    const postIds: string[] = selectedData;
 
-    useEffect(() => {
-        console.log('loading:', loading);
-    }, [loading]);
-
-    const hasSavedRef = useRef(false);
-    useEffect(() => {
-        const timer = createTimer();
-        logger.info('Home Page Loaded');
-
-        // Trigger data loading.
-        loadFolderData(true, true);
-
-        return () => {
-            if (!hasSavedRef.current) {
-                saveWorkspaceData();
-                hasSavedRef.current = true;
-            }
-            logger.info('Home Page Unloaded').then(() => {
-                logger.time('Home Page stay time', { time: timer.end() });
-            });
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Derive post IDs from the keys of the data object.
-    const postIds: string[] = Object.keys(data);
-    // Check readiness based on data availability and a minimum threshold.
     const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD;
 
     const handleSamplingPosts = async () => {
@@ -114,18 +87,38 @@ const LoadData = () => {
         });
     };
 
+    // If no type is selected, prompt user to go back to home
+    if (!type) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen">
+                <p className="text-xl mb-4">
+                    No data type selected. Please return to the home page to select a type.
+                </p>
+                <button
+                    onClick={() => navigate('/')}
+                    className="px-4 py-2 bg-blue-500 text-white rounded">
+                    Go Home
+                </button>
+            </div>
+        );
+    }
+
     return (
         <div className="h-page flex flex-col">
-            {/* Main scrollable content */}
+            {/* <header className="p-4 bg-gray-100">
+                <h1 className="text-2xl font-bold">
+                    {type === 'reddit' ? 'Reddit Data Upload' : 'Interview Data Upload'}
+                </h1>
+            </header> */}
             <main className="flex-1 overflow-auto">
-                <RedditTableRenderer
-                    data={data}
-                    maxContainerHeight="min-h-maxPageContent"
-                    maxTableHeightClass="max-h-[calc(100vh-18rem)]"
-                    loading={loading}
-                />
+                {datasetType === 'reddit' ? (
+                    <LoadReddit />
+                ) : datasetType === 'interview' ? (
+                    <LoadInterview />
+                ) : (
+                    <></>
+                )}
             </main>
-            {/* Fixed bottom navigation */}
             <footer>
                 <NavigationBottomBar
                     previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
@@ -138,4 +131,4 @@ const LoadData = () => {
     );
 };
 
-export default LoadData;
+export default UploadDataPage;

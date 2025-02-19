@@ -1,6 +1,6 @@
 from fastapi import APIRouter, File, UploadFile, Form, Body
-from controllers.collection_controller import create_dataset, delete_dataset, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, upload_dataset_file
-from models.collection_models import ParseDatasetRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
+from controllers.collection_controller import create_dataset, delete_dataset, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, upload_dataset_file
+from models.collection_models import ParseDatasetRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
 
 
 router = APIRouter()
@@ -60,3 +60,11 @@ async def get_reddit_post_endpoint(request: ParseRedditPostByIdRequest = Body(..
 async def stream_upload_endpoint(file: UploadFile = File(...)):
     """Stream upload a file in chunks."""
     return await stream_upload_file(file)
+
+@router.post("/download-reddit-from-torrent")
+async def download_reddit_from_torrent_endpoint(
+    request: ParseRedditFromTorrentRequest
+):
+    await get_reddit_data_from_torrent(request.subreddit, request.start_month, request.end_month)
+    return {"message": "Reddit data downloaded from torrent."}
+    

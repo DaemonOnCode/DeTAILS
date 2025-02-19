@@ -14,7 +14,6 @@ const fetchPostData = async (
     if (!postIds.length || !datasetId) {
         return [];
     }
-    // await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate delay
     const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH), {
         method: 'POST',
         headers: {
@@ -33,22 +32,20 @@ const fetchPostData = async (
 const TranscriptsPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
-
-    console.log('Location:', location);
-
-    console.log(location.state, 'location.state');
-
-    // const { sampledPostIds, unseenPostIds } = useCodingContext();
-    const { datasetId, selectedPosts } = useCollectionContext();
+    const { datasetId, dataset } = useCollectionContext();
     const { getServerUrl } = useServerUtils();
 
-    const postIds = location.state === null ? selectedPosts : location.state.postIds;
+    // If location.state exists and has postIds, use them; otherwise derive from dataset.
+    const postIds: string[] =
+        location.state && location.state.postIds
+            ? location.state.postIds
+            : Array.isArray(dataset)
+              ? dataset.map((post: any) => post.id)
+              : [];
 
     const handleViewTranscript = (postId: string) => {
-        console.log('Viewing transcript for post:', postId);
         let params = new URLSearchParams();
         const values = location.state;
-
         if (values?.split) {
             if (values.selectedTypeFilter !== 'All') {
                 params.append('type', values.selectedTypeFilter);
@@ -64,15 +61,17 @@ const TranscriptsPage = () => {
         );
     };
 
+    // Create a resource that will be used by Suspense to fetch post data.
     const resource = createResource(fetchPostData(postIds, datasetId, getServerUrl));
 
     console.count('Transcripts Page Render');
+
     return (
         <div>
             <Suspense fallback={<p>Loading...</p>}>
                 <PostCards
                     resource={resource}
-                    onPostClick={(postId) => handleViewTranscript(postId)}
+                    onPostClick={(postId: string) => handleViewTranscript(postId)}
                 />
             </Suspense>
         </div>

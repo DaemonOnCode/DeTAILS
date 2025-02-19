@@ -21,7 +21,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const { selectedPosts, setSelectedPosts } = useCollectionContext();
+    const { selectedData, setSelectedData } = useCollectionContext();
 
     const filteredData = Object.entries(data).filter(
         ([, { title, selftext, url }]) =>
@@ -57,25 +57,25 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     };
 
     const togglePostSelection = (id: string) => {
-        let newSelectedPosts = [...selectedPosts];
+        let newSelectedPosts = [...selectedData];
         if (newSelectedPosts.includes(id)) {
             newSelectedPosts = newSelectedPosts.filter((postId) => postId !== id);
         } else {
             newSelectedPosts.push(id);
         }
-        setSelectedPosts(newSelectedPosts);
+        setSelectedData(newSelectedPosts);
     };
 
     const toggleSelectAllPosts = () => {
-        if (selectedPosts.length !== filteredData.length && selectedPosts.length === 0) {
-            setSelectedPosts(filteredData.map(([id]) => id));
+        if (selectedData.length !== filteredData.length && selectedData.length === 0) {
+            setSelectedData(filteredData.map(([id]) => id));
         } else {
-            setSelectedPosts([]);
+            setSelectedData([]);
         }
     };
 
     const toggleSelectPage = (pageData: [string, RedditPosts[string]][]) => {
-        let newSelectedPosts = [...selectedPosts];
+        let newSelectedPosts = [...selectedData];
         const pageIds = pageData.map(([id]) => id);
         const allSelected = pageIds.every((id) => newSelectedPosts.includes(id));
 
@@ -89,7 +89,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             });
         }
 
-        setSelectedPosts(newSelectedPosts);
+        setSelectedData(newSelectedPosts);
     };
 
     return (
@@ -107,7 +107,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 <button
                     onClick={toggleSelectAllPosts}
                     className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
-                    {selectedPosts.length !== filteredData.length && selectedPosts.length === 0
+                    {selectedData.length !== filteredData.length && selectedData.length === 0
                         ? 'Select All Posts'
                         : 'Deselect All Posts'}
                 </button>
@@ -151,14 +151,14 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 <RedditTable
                     data={displayedData}
                     isLoading={loading ?? false}
-                    selectedPosts={selectedPosts}
+                    selectedPosts={selectedData}
                     togglePostSelection={togglePostSelection}
                     toggleSelectPage={toggleSelectPage}
                 />
             </div>
 
             <div className="flex items-center justify-start mt-2">
-                <p>{selectedPosts.length} posts selected</p>
+                <p>{selectedData.length} posts selected</p>
             </div>
 
             {/* Pagination Controls */}

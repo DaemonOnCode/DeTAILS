@@ -14,3 +14,8 @@ class ParseRedditPostsRequest(BaseModel):
 class ParseRedditPostByIdRequest(BaseModel):
     datasetId: str
     postId: str
+
+class ParseRedditFromTorrentRequest(BaseModel):
+    subreddit: str
+    start_month: str = "2005-06"
+    end_month: str = "2023-12"
