@@ -3,7 +3,15 @@ import { motion } from 'framer-motion'; // Optional: for animations
 import { DevtoolsSettingsPage, GeneralSettingsPage, WorkspaceSettingsPage } from '.';
 import { ROUTES } from '../../constants/Shared';
 
-const SettingsLayout = ({ authenticated }: { authenticated: boolean }) => {
+const SettingsLayout = ({
+    authenticated,
+    onBackClick,
+    previousUrl
+}: {
+    authenticated: boolean;
+    previousUrl: string;
+    onBackClick: () => void;
+}) => {
     const location = useLocation();
     const navigate = useNavigate();
     const tabs = {
@@ -21,15 +29,16 @@ const SettingsLayout = ({ authenticated }: { authenticated: boolean }) => {
     // Helper to change the tab in the URL
     const handleTabChange = (newTab: Tab) => {
         queryParams.set('tab', newTab);
-        navigate({ search: queryParams.toString() });
+        navigate(
+            { pathname: location.pathname, search: queryParams.toString() },
+            { state: { ...location.state, previousUrl } } // Passing state as a separate argument
+        );
     };
 
     return (
         <div className="flex h-screen p-6">
             <aside className="w-1/4 border-r border-gray-300 p-4">
-                <button
-                    onClick={() => navigate(`/${authenticated ? ROUTES.WORKSPACE : ''}`)}
-                    className="mb-4 text-blue-500 hover:underline">
+                <button onClick={onBackClick} className="mb-4 text-blue-500 hover:underline">
                     &larr; Back to Application
                 </button>
                 <ul className="space-y-2">
