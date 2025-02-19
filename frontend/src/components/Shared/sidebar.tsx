@@ -13,6 +13,7 @@ const formatRouteName = (path: string) => {
         .replace(/_/g, ' ')
         .replace(/-/g, ' ')
         .toLowerCase()
+        .replace('authenticated', '')
         .replace(' v2', '')
         .split(' ')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -27,7 +28,7 @@ const IGNORED_KEYWORDS = [
     SHARED_ROUTES.CLEANING,
     SHARED_ROUTES.DATA_COLLECTION,
     SHARED_ROUTES.DATA_MODELING,
-    SHARED_ROUTES.SETTINGS,
+    // SHARED_ROUTES.SETTINGS,
     CODING_ROUTES.TRANSCRIPT
     // CODING_ROUTES.MANUAL_CODING
 ];
@@ -176,8 +177,8 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                                         alt="User Profile"
                                         onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                                             const currentImg = e.currentTarget;
-                                            if (!currentImg.src.includes('/default-profile.png')) {
-                                                currentImg.src = '/default-profile.png';
+                                            if (!currentImg.src.includes('/default-user.png')) {
+                                                currentImg.src = '/default-user.png';
                                             }
                                         }}
                                         className="w-6 lg:w-10 h-6 lg:h-10 rounded-full border-2 border-gray-300"

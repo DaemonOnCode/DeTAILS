@@ -25,3 +25,18 @@ export const generateRandomText = (
     text += word;
     return text.trim();
 };
+
+export function generateRandomTextArray(): Array<' ' | '-'> {
+    return Array.from({ length: 8 * 12 }, () => (Math.random() > 0.3 ? '-' : ' '));
+}
+
+export function generateRandomTextColumnsArray(idx: number): Array<' ' | '-'> {
+    let t1 = ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'];
+    let t2 = ['-', '-', '-', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '];
+    let partialLineIndex = idx % 7;
+    return Array.from({ length: 7 }, (_, i) => {
+        if (i !== partialLineIndex) return t1;
+        if (i === partialLineIndex) return t2;
+        return t1;
+    }).flat() as Array<' ' | '-'>;
+}

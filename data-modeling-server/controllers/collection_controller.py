@@ -7,9 +7,9 @@ import time
 from uuid import uuid4
 from aiofiles import open as async_open
 from fastapi import HTTPException, UploadFile
-from transmission_rpc import Client
+from transmission_rpc import Client, Torrent, File as TorrentFile
 
-from constants import DATASETS_DIR, UPLOAD_DIR
+from constants import ACADEMIC_TORRENT_MAGNET, DATASETS_DIR, UPLOAD_DIR, TRANSMISSION_DOWNLOAD_DIR
 from database import DatasetsRepository, CommentsRepository, PostsRepository
 from models import Dataset, Comment, Post
 
@@ -210,68 +210,46 @@ def parse_reddit_files(dataset_id: str):
 
     return {"message": "Reddit dataset parsed successfully"}
 
-
-async def run_command_async(command: str):
+async def run_command_async(command: str) -> str:
     """
-    Runs a shell command asynchronously and waits for its completion.
-    Returns the command's stdout output as a string.
+    Runs a shell command asynchronously and returns its stdout as a string.
     """
     process = await asyncio.create_subprocess_shell(
         command,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
-    
     stdout, stderr = await process.communicate()
-    
-    # Optionally, handle errors if needed.
     if process.returncode != 0:
         print("Command failed with return code:", process.returncode)
         print("Error output:", stderr.decode())
     else:
         print("Command executed successfully.")
-    
     return stdout.decode()
 
 
 async def process_reddit_data(subreddit: str, zst_filename: str):
-    # Name for the intermediate JSONL file.
     intermediate_filename = "output.jsonl"
-    
-    # Build the shell command.
-    # Note: Escape curly braces for the regex.
     regex = r'(?s)\{.*?"subreddit":\s*"' + subreddit + r'".*?\}'
-
-    # Build the full command string.
-    # Using double quotes around the zst_filename and single quotes around the regex.
     command = (
         f'zstd -cdq --memory=2048MB -T8 "{zst_filename}" | '
         f"rg -P '{regex}' > {intermediate_filename} || true"
     )
-    
     print("Running command:")
     print(command)
-    
-    # Run the command. If it fails, an exception will be raised.
-    output = await run_command_async(command)
-    
-    # Derive an output filename based on the input .zst file.
-    base = os.path.splitext(os.path.basename(zst_filename))[0]  # e.g., "RS_2023-02"
-    directory = os.path.dirname(zst_filename)  # Get the directory from the full path.
+    await run_command_async(command)
+
+    base = os.path.splitext(os.path.basename(zst_filename))[0]
+    directory = os.path.dirname(zst_filename)
     output_filename = os.path.join(directory, f"{base}.json")
-    
-    # Open the intermediate JSONL file for reading and the output file for writing.
-    # Stream through the file line by line so that we don't load everything into memory.
+
     with open(intermediate_filename, "r", encoding="utf-8") as infile, \
          open(output_filename, "w", encoding="utf-8") as outfile:
-
-        # Write the beginning of a JSON array.
         outfile.write("[\n")
-        first = True  # Helps insert commas between JSON objects.
+        first = True
         for line in infile:
             try:
                 obj = json.loads(line.strip())
-                # Filter out any object that does not have the exact subreddit.
                 if obj.get("subreddit") == subreddit:
                     if not first:
                         outfile.write(",\n")
@@ -279,16 +257,11 @@ async def process_reddit_data(subreddit: str, zst_filename: str):
                     first = False
             except json.JSONDecodeError:
                 print("Skipping invalid JSON line.")
-        # End the JSON array.
         outfile.write("\n]\n")
-    
     print(f"Processed data saved to {output_filename}")
 
-def wait_for_file_stable(file_path, stable_time=5, poll_interval=2):
-    """
-    Wait until the file's size remains unchanged for at least `stable_time` seconds.
-    Returns True once the file is stable.
-    """
+
+def wait_for_file_stable(file_path, stable_time=5, poll_interval=2) -> bool:
     if not os.path.exists(file_path):
         return False
     last_size = os.path.getsize(file_path)
@@ -303,42 +276,55 @@ def wait_for_file_stable(file_path, stable_time=5, poll_interval=2):
             last_size = new_size
     return True
 
-async def get_reddit_data_from_torrent(subreddit: str, start_month: str = "2005-06", end_month: str = "2023-12", submissions_only: bool = True):
-    # Set the download directory and torrent details.
-    TRANSMISSION_DOWNLOAD_DIR = os.path.abspath("../transmission-downloads")
-    torrent_hash_string = "9c263fc85366c1ef8f5bb9da0203f4c8c8db75f4"
-    torrent_url = "magnet:?xt=urn:btih:9c263fc85366c1ef8f5bb9da0203f4c8c8db75f4&tr=https%3A%2F%2Facademictorrents.com%2Fannounce.php&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce"
 
-    c = Client(host="localhost", port=9091, username="transmission", password="password")
+def generate_month_range(start_month: str, end_month: str):
+    start = datetime.strptime(start_month, "%Y-%m")
+    end = datetime.strptime(end_month, "%Y-%m")
+    next_month = end.month % 12 + 1
+    next_year = end.year + (1 if next_month == 1 else 0)
+    end_exclusive = datetime(next_year, next_month, 1)
+    
+    wanted_range = []
+    while start < end_exclusive:
+        wanted_range.append(start.strftime("%Y-%m"))
+        next_month = start.month % 12 + 1
+        next_year = start.year + (1 if next_month == 1 else 0)
+        start = datetime(next_year, next_month, 1)
+    return wanted_range
 
-    # Add the torrent if it's not already added.
-    torrents = c.get_torrents()
-    if not any(t.hashString == torrent_hash_string for t in torrents):
-        c.add_torrent(torrent_url, download_dir=TRANSMISSION_DOWNLOAD_DIR)
 
-    current_torrent = c.get_torrent(torrent_hash_string)
-
-    # Start the torrent to fetch metadata.
-    c.start_torrent(current_torrent.id)
-    while current_torrent.metadata_percent_complete < 1.0:
-        print(f"Metadata progress: {current_torrent.metadata_percent_complete * 100:.2f}%")
-        time.sleep(0.5)
-        current_torrent = c.get_torrent(current_torrent.id)
+async def wait_for_metadata(c: Client, torrent: Torrent) -> Torrent:
+    c.start_torrent(torrent.id)
+    while torrent.metadata_percent_complete < 1.0:
+        print(f"Metadata progress: {torrent.metadata_percent_complete * 100:.2f}%")
+        await asyncio.sleep(0.5)
+        torrent = c.get_torrent(torrent.id)
     print("Metadata download complete. Stopping torrent.")
-    c.stop_torrent(current_torrent.id)
+    c.stop_torrent(torrent.id)
+    return torrent
 
-    # Obtain the complete file list from the torrent.
-    torrent_files = current_torrent.get_files()
 
-    # Identify the files you want based on the month range.
-    wanted_range = generate_month_range(start_month, end_month)
+async def verify_torrent_with_retry(c: Client, torrent: Torrent, torrent_url: str, download_dir: str) -> Torrent:
+    c.verify_torrent(torrent.id)
+    while True:
+        torrent = c.get_torrent(torrent.id)
+        status = torrent.status
+        if hasattr(torrent, "error") and torrent.error != 0:
+            print(f"Verification error encountered: {torrent.error_string}. Re-adding torrent...")
+            c.remove_torrent(torrent.id)
+            await asyncio.sleep(10)
+            torrent = c.add_torrent(torrent_url, download_dir=download_dir)
+            c.verify_torrent(torrent.id)
+            continue
+        if status not in ["check pending", "checking"]:
+            break
+        print(f"Verification in progress: {status}")
+        await asyncio.sleep(5)
+    print("Torrent verified. Starting download.")
+    return torrent
 
-    print(f"Identified files for processing: {wanted_range}")
-    # Assume file names are structured so that the second underscore-delimited part is in YYYY-MM format.
-    # files_to_process = [
-    #     file for file in torrent_files
-    #     if file.name.split("_")[1] in wanted_range
-    # ]
+
+def get_files_to_process(torrent_files: list[TorrentFile], wanted_range: list, submissions_only: bool):
     files_to_process = []
     for file in torrent_files:
         print(file.name, file.name.split("_")[1], file.name.split("_")[1] in wanted_range)
@@ -349,107 +335,69 @@ async def get_reddit_data_from_torrent(subreddit: str, start_month: str = "2005-
         if filename.split("_")[1] in wanted_range:
             print(f"Adding file {file.name} to the list.")
             files_to_process.append(file)
+    return files_to_process
 
+
+async def process_single_file(c: Client, torrent: Torrent, file: TorrentFile, download_dir: str, subreddit: str):
+    file_id = file.id
+    file_name = file.name
+    print(f"\n--- Processing file: {file_name} (ID: {file_id}) ---")
+
+    torrent_files = c.get_torrent(torrent.id).get_files()
+    all_file_ids = [f.id for f in torrent_files]
+    other_ids = [fid for fid in all_file_ids if fid != file_id]
+    c.change_torrent(torrent.id, files_wanted=[file_id], files_unwanted=other_ids)
+
+    c.start_torrent(torrent.id)
+    print(f"Downloading file {file_name}...")
+
+    while True:
+        torrent = c.get_torrent(torrent.id)
+        file_status = next((f for f in torrent.get_files() if f.id == file_id), None)
+        if file_status and file_status.completed >= file_status.size:
+            print(f"File {file_name} has been fully downloaded.")
+            break
+        else:
+            print(f"Waiting for file {file_name} to complete... ({file_status.completed}/{file_status.size} bytes)")
+            await asyncio.sleep(10)
+
+    file_path = os.path.join(download_dir, file_name)
+    file_path_zst = file_path if file_path.endswith('.zst') else file_path + '.zst'
+
+    while not os.path.exists(file_path_zst):
+        print(f"Waiting for file {file_path_zst} to appear on disk (conversion in progress)...")
+        await asyncio.sleep(5)
+
+    await process_reddit_data(subreddit, file_path_zst)
+
+    c.stop_torrent(torrent.id)
+    await asyncio.sleep(1)
+
+async def get_reddit_data_from_torrent(
+    subreddit: str,
+    start_month: str = "2005-06",
+    end_month: str = "2023-12",
+    submissions_only: bool = True
+):
+    TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = os.path.abspath(TRANSMISSION_DOWNLOAD_DIR)
+    torrent_hash_string = ACADEMIC_TORRENT_MAGNET.split("btih:")[1].split("&")[0]
+    
+    c = Client(host="localhost", port=9091, username="transmission", password="password")
+
+    torrents = c.get_torrents()
+    if not any(t.hashString == torrent_hash_string for t in torrents):
+        c.add_torrent(ACADEMIC_TORRENT_MAGNET, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+    current_torrent = c.get_torrent(torrent_hash_string)
+
+    current_torrent = await wait_for_metadata(c, current_torrent)
+    torrent_files = current_torrent.get_files()
+    wanted_range = generate_month_range(start_month, end_month)
+    print(f"Identified files for processing: {wanted_range}")
+    files_to_process = get_files_to_process(torrent_files, wanted_range, submissions_only)
     print(f"Files to process: {files_to_process}")
 
-    c.verify_torrent(current_torrent.id)
-    while True:
-        current_torrent = c.get_torrent(current_torrent.id)
-        status = current_torrent.status  # e.g., "Checking", "Check Pending", "Stopped", etc.
+    current_torrent = await verify_torrent_with_retry(c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
 
-        if hasattr(current_torrent, "error") and current_torrent.error != 0:
-            print(f"Verification error encountered: {current_torrent.error_string}. Re-adding torrent...")
-            # Remove the problematic torrent. (Set delete_data=True if you want to remove the downloaded data.)
-            c.remove_torrent(current_torrent.id)
-
-            time.sleep(10)  # Short delay before re-adding the torrent.
-            # Re-add the torrent. Make sure you have torrent_url and TRANSMISSION_DOWNLOAD_DIR available.
-            current_torrent = c.add_torrent(torrent_url, download_dir=TRANSMISSION_DOWNLOAD_DIR)
-            # Restart verification.
-            # c.verify_torrent(current_torrent.id)
-            # Optionally, wait a bit before retrying.
-            # time.sleep(5)
-            continue  # Restart loop after re-adding. 
-
-        if status not in ["check pending", "checking"]:
-            break
-        print(f"Verification in progress: {status}")
-        time.sleep(5)
-    print("Torrent verified. Starting download.")
-
-    # Process each wanted file one by one.
     for file in files_to_process:
-        file_id = file.id
-        file_name = file.name
-        print(f"\n--- Processing file: {file_name} (ID: {file_id}) ---")
-
-        # Mark only this file as wanted and set all others as unwanted.
-        all_file_ids = [f.id for f in torrent_files]
-        other_ids = [fid for fid in all_file_ids if fid != file_id]
-        c.change_torrent(current_torrent.id, files_wanted=[file_id], files_unwanted=other_ids)
-
-        # Start the torrent to download the current file.
-        c.start_torrent(current_torrent.id)
-        print(f"Downloading file {file_name}...")
-
-        # Wait until the file is fully downloaded.
-        while True:
-            current_torrent = c.get_torrent(current_torrent.id)
-            file_status = next((f for f in current_torrent.get_files() if f.id == file_id), None)
-            if file_status and file_status.completed >= file_status.size:
-                print(f"File {file_name} has been fully downloaded.")
-                break
-            else:
-                print(f"Waiting for file {file_name} to complete... "
-                    f"({file_status.completed}/{file_status.size} bytes)")
-                time.sleep(10)
-
-        # Build the expected file path.
-        # If the file isn't already named with a .zst extension, assume it will be renamed to .zst after conversion.
-        file_path = os.path.join(TRANSMISSION_DOWNLOAD_DIR, file_name)
-        if not file_path.endswith('.zst'):
-            file_path_zst = file_path + '.zst'
-        else:
-            file_path_zst = file_path
-
-        # Wait until the converted .zst file appears on disk.
-        while not os.path.exists(file_path_zst):
-            print(f"Waiting for file {file_path_zst} to appear on disk (conversion in progress)...")
-            time.sleep(5)
-
-        # Wait until the file size is stable (i.e. no more changes) before processing.
-        # print(f"Waiting for file {file_path_zst} to stabilize on disk...")
-        # wait_for_file_stable(file_path_zst, stable_time=5, poll_interval=1)
-
-        # Process the downloaded file.
-        await process_reddit_data(subreddit, file_path)
-
-        # Delete the processed file.
-        # if os.path.exists(file_path):
-        #     os.remove(file_path)
-        #     print(f"Deleted file {file_name} after processing.")
-        # else:
-        #     print(f"File {file_name} not found for deletion.")
-
-        # Optionally, stop the torrent before moving to the next file.
-        c.stop_torrent(current_torrent.id)
-        time.sleep(1)  # short delay before next iteration
-
+        await process_single_file(c, current_torrent, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit)
     print("All wanted files have been processed.")
-
-
-def generate_month_range(start_month, end_month):
-    start = datetime.strptime(start_month, "%Y-%m")
-    end = datetime.strptime(end_month, "%Y-%m")
-    next_month = end.month % 12 + 1
-    next_year = end.year + (1 if next_month == 1 else 0)
-    end_exclusive = datetime(next_year, next_month, 1)
-    
-    wanted_range = []
-    while start < end_exclusive:
-        wanted_range.append(start.strftime("%Y-%m"))
-        # Move to the next month.
-        next_month = start.month % 12 + 1
-        next_year = start.year + (1 if next_month == 1 else 0)
-        start = datetime(next_year, next_month, 1)
-    return wanted_range

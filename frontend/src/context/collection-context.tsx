@@ -10,10 +10,6 @@ import React, {
 import { v4 } from 'uuid';
 import { ILayout } from '../types/Coding/shared';
 
-// ====================================================
-// Types
-// ====================================================
-
 // Mode type for context
 export type ModeType = 'reddit' | 'interview' | null;
 

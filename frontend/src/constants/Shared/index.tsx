@@ -1,4 +1,4 @@
-import { FaHome } from 'react-icons/fa';
+import { FaCog, FaHome } from 'react-icons/fa';
 import config from '../../config';
 
 const reactConfig = config('react');
@@ -14,7 +14,8 @@ export enum ROUTES {
     CLEANING = 'cleaning',
     DATA_MODELING = 'modeling',
     WORKSPACE = 'workspaces',
-    SETTINGS = 'settings'
+    SETTINGS = 'settings',
+    AUTHENTICATED_SETTINGS = 'authenticated-settings'
 }
 
 export enum MODEL_LIST {
@@ -45,6 +46,11 @@ export const RouteIcons: Record<string, JSX.Element> = {
     [ROUTES.WORKSPACE]: (
         <span className="w-4 h-6 flex items-center justify-center">
             <FaHome size="16px" />
+        </span>
+    ),
+    [ROUTES.SETTINGS]: (
+        <span className="w-4 h-6 flex items-center justify-center">
+            <FaCog size="16px" />
         </span>
     )
 };

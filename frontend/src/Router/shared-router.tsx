@@ -3,6 +3,7 @@ import NotFoundPage from '../pages/Shared/not-found';
 import { ROUTES } from '../constants/Shared';
 import LoginPage from '../pages/Login';
 import HomePage from '../pages/Shared/home';
+import { SettingsPage } from '../pages/Settings';
 
 export const SharedRouter: RouteObject[] = [
     {
@@ -22,5 +23,9 @@ export const SharedRouter: RouteObject[] = [
     {
         path: ROUTES.UNAUTHORIZED,
         element: <div>Unauthorized</div>
+    },
+    {
+        path: ROUTES.SETTINGS,
+        element: <SettingsPage authenticated={false} />
     }
 ];
