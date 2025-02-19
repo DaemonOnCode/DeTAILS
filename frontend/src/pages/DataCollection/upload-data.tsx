@@ -10,6 +10,7 @@ import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import { Link } from 'react-router-dom';
 
 const UploadDataPage = () => {
     const { type, datasetId, selectedData } = useCollectionContext();
@@ -110,18 +111,25 @@ const UploadDataPage = () => {
                     {type === 'reddit' ? 'Reddit Data Upload' : 'Interview Data Upload'}
                 </h1>
             </header> */}
-            <main className="flex-1 overflow-auto">
+            <main className="flex-1 overflow-hidden">
                 {datasetType === 'reddit' ? (
                     <LoadReddit />
                 ) : datasetType === 'interview' ? (
                     <LoadInterview />
                 ) : (
-                    <></>
+                    <div className="flex flex-col items-center justify-center h-maxPageContent">
+                        <p>Choose what type of data to retrieve from home page</p>
+                        <Link
+                            to={`/coding/${ROUTES.LOAD_DATA}/${ROUTES.HOME}`}
+                            className="text-blue-500">
+                            Go back to Data selection
+                        </Link>
+                    </div>
                 )}
             </main>
             <footer>
                 <NavigationBottomBar
-                    previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
+                    previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.HOME}`}
                     nextPage={ROUTES.CODEBOOK_CREATION}
                     isReady={isReadyCheck}
                     onNextClick={handleSamplingPosts}

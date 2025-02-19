@@ -1,24 +1,54 @@
-import { FC, useEffect, useRef } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import useServerUtils from '../../hooks/Shared/get-server-url';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import e from 'express';
 
 const LoadReddit: FC = () => {
-    // Destructure new context values.
-    // For Reddit mode, metadata is assumed to be of type RedditMetadata.
-    const { modeInput, setModeInput, metadata, metadataDispatch, type } = useCollectionContext();
-    const { data, loadFolderData, error, loading } = useRedditData();
+    const { modeInput, setModeInput, metadata, metadataDispatch, type, datasetId } =
+        useCollectionContext();
+    const { data, loadFolderData, loadTorrentData, error, loading } = useRedditData();
     const { saveWorkspaceData } = useWorkspaceUtils();
-
-    console.log('type', type);
-
     const hasSavedRef = useRef(false);
+
+    const { getServerUrl } = useServerUtils();
+
+    // New state for tab system and torrent inputs
+    const [activeTab, setActiveTab] = useState<'folder' | 'url' | 'torrent'>('folder');
+    const [torrentSubreddit, setTorrentSubreddit] = useState('');
+    const [torrentStart, setTorrentStart] = useState('');
+    const [torrentEnd, setTorrentEnd] = useState('');
+    const [torrentPostsOnly, setTorrentPostsOnly] = useState(false);
+
+    // useEffect(() => {
+    //     // If a modeInput exists (and we’re not in torrent mode) then load the data.
+    //     // if (modeInput && activeTab !== 'torrent' && !loading) {
+    //     //     loadFolderData();
+    //     // } else if (modeInput && activeTab === 'torrent') {
+    //     //     loadTorrentData();
+    //     // }
+    //     console.log('modeInput:', modeInput, 'activeTab:', activeTab, 'loading:', loading);
+    //     if (modeInput) {
+    //         if (activeTab === 'folder') {
+    //             loadFolderData();
+    //         } else if (activeTab === 'torrent' && !data) {
+    //             loadTorrentData();
+    //         }
+    //     }
+    // }, [modeInput, activeTab]);
 
     useEffect(() => {
         if (modeInput) {
-            loadFolderData();
+            if (modeInput.startsWith('torrent:')) {
+                loadTorrentData();
+            } else {
+                loadFolderData();
+            }
         }
+
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
@@ -26,65 +56,67 @@ const LoadReddit: FC = () => {
             }
         };
     }, []);
+
     // If the current context type is not "reddit", show an error message.
-    if (type !== 'reddit') {
+    if (modeInput && type !== 'reddit') {
         return (
             <div className="p-4">
                 <p className="text-red-500">
-                    The current data type is not Reddit. Please switch to Reddit data from the home
-                    page.
+                    The current data is not retrieved from Reddit. Please switch to Interview data.
                 </p>
             </div>
         );
     }
 
-    // Toggle between "folder" and "url" mode.
-    const toggleMode = () => {
-        if (!metadata) return;
-        // Only available in Reddit mode.
-        if (metadata.type === 'reddit') {
-            const newSource = metadata.source === 'url' ? 'folder' : 'url';
-            metadataDispatch({ type: 'SET_SOURCE', payload: newSource });
-        }
-    };
-
-    // Data is considered loaded if modeInput is nonempty.
+    // If data is loaded, show the table.
     const isDataLoaded = Boolean(modeInput);
-
     if (isDataLoaded) {
         return (
-            <div className="flex flex-col">
-                <RedditTableRenderer data={data} loading={loading} />
-            </div>
+            // <div className="flex-1 overflow-auto">
+            <RedditTableRenderer data={data} loading={loading} />
+            // </div>
         );
     }
 
+    // Handler for loading torrent data.
+    const handleLoadTorrent = async () => {
+        await loadTorrentData(true, torrentSubreddit, torrentStart, torrentEnd, torrentPostsOnly);
+    };
+
     return (
         <div className="flex flex-col">
-            {/* Header with toggle button */}
-            <header className="p-4">
+            {/* Tab header */}
+            <header className="p-4 border-b flex space-x-4">
                 <button
-                    onClick={toggleMode}
-                    className="px-4 py-2 mb-4 text-white bg-blue-500 rounded hover:bg-blue-600">
-                    {metadata?.source === 'url' ? 'Switch to Folder' : 'Switch to Link'}
+                    className={`px-4 py-2 rounded ${
+                        activeTab === 'folder'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-200 text-gray-700'
+                    }`}
+                    onClick={() => setActiveTab('folder')}>
+                    Local Folder
+                </button>
+                <button
+                    className={`px-4 py-2 rounded ${
+                        activeTab === 'url' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                    }`}
+                    onClick={() => setActiveTab('url')}>
+                    URL
+                </button>
+                <button
+                    className={`px-4 py-2 rounded ${
+                        activeTab === 'torrent'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-200 text-gray-700'
+                    }`}
+                    onClick={() => setActiveTab('torrent')}>
+                    Torrent
                 </button>
             </header>
 
-            {/* Main scrollable content */}
+            {/* Main content area */}
             <main className="flex-1 min-h-0 overflow-auto p-4">
-                {metadata?.source === 'url' ? (
-                    // URL (Link) mode input.
-                    <div>
-                        <input
-                            type="text"
-                            value={modeInput}
-                            onChange={(e) => setModeInput(e.target.value)}
-                            placeholder="Type or paste text with URLs here"
-                            className="p-2 border border-gray-300 rounded w-96"
-                        />
-                    </div>
-                ) : (
-                    // Folder mode.
+                {activeTab === 'folder' && (
                     <div>
                         <button
                             onClick={() => loadFolderData(true, true)}
@@ -96,6 +128,68 @@ const LoadReddit: FC = () => {
                             <p>{modeInput || 'No folder selected'}</p>
                             {error && <p className="text-red-500">{error}</p>}
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'url' && (
+                    <div>
+                        <input
+                            type="text"
+                            value={modeInput}
+                            onChange={(e) => setModeInput(e.target.value)}
+                            placeholder="Type or paste text with URLs here"
+                            className="p-2 border border-gray-300 rounded w-96"
+                        />
+                    </div>
+                )}
+
+                {activeTab === 'torrent' && (
+                    <div>
+                        <div className="mb-4">
+                            <label className="block mb-1">Subreddit Name</label>
+                            <input
+                                type="text"
+                                value={torrentSubreddit}
+                                onChange={(e) => setTorrentSubreddit(e.target.value)}
+                                placeholder="Enter subreddit name"
+                                className="p-2 border border-gray-300 rounded w-96"
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label className="block mb-1">Start Date (Day, Month, Year)</label>
+                            <input
+                                type="date"
+                                value={torrentStart}
+                                onChange={(e) => setTorrentStart(e.target.value)}
+                                className="p-2 border border-gray-300 rounded w-96"
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label className="block mb-1">End Date (Day, Month, Year)</label>
+                            <input
+                                type="date"
+                                value={torrentEnd}
+                                onChange={(e) => setTorrentEnd(e.target.value)}
+                                className="p-2 border border-gray-300 rounded w-96"
+                            />
+                        </div>
+                        <div className="mb-4 flex items-center">
+                            <input
+                                type="checkbox"
+                                checked={torrentPostsOnly}
+                                onChange={(e) => setTorrentPostsOnly(e.target.checked)}
+                                className="form-checkbox"
+                                id="postsOnlyCheckbox"
+                            />
+                            <label htmlFor="postsOnlyCheckbox" className="ml-2">
+                                Posts Only
+                            </label>
+                        </div>
+                        <button
+                            onClick={handleLoadTorrent}
+                            className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
+                            Load Torrent Data
+                        </button>
                     </div>
                 )}
             </main>

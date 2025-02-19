@@ -28,12 +28,11 @@ const LoadInterview: FC = () => {
         };
     }, [saveWorkspaceData]);
     // Check if the current data type is interview.
-    if (type !== 'interview') {
+    if (modeInput && type !== 'interview') {
         return (
             <div className="flex flex-col p-4">
                 <p className="text-red-500">
-                    The loaded data is Reddit data. Please switch to Interview data from the home
-                    page.
+                    The loaded data is Reddit data. Please switch to Reddit data.
                 </p>
             </div>
         );

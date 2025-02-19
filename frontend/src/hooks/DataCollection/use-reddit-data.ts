@@ -15,8 +15,6 @@ const useRedditData = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
 
-    // Destructure the new context properties.
-    // Note: subreddit is now stored in metadata (for reddit mode).
     const { modeInput, setModeInput, datasetId, setDatasetId } = useCollectionContext();
     const { currentWorkspace } = useWorkspaceContext();
     const { getServerUrl } = getServerUtils();
@@ -161,7 +159,54 @@ const useRedditData = () => {
         }
     };
 
-    return { data, error, loadFolderData, loading };
+    const loadTorrentData = async (
+        addToDb: boolean = false,
+        torrentSubreddit?: string,
+        torrentStart?: string,
+        torrentEnd?: string,
+        torrentPostsOnly?: boolean
+    ) => {
+        setLoading(true);
+        try {
+            if (!currentWorkspace || !currentWorkspace.id) {
+                throw new Error('Workspace not found');
+            }
+
+            if (addToDb) {
+                setModeInput(`torrent:${torrentSubreddit}:${torrentStart}:${torrentEnd}`);
+                const res = await fetch(
+                    getServerUrl(REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT),
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            subreddit: torrentSubreddit,
+                            start_date: torrentStart,
+                            end_date: torrentEnd,
+                            submissions_only: torrentPostsOnly,
+                            dataset_id: datasetId
+                        })
+                    }
+                );
+
+                const data = await res.json();
+                console.log('Torrent data:', data);
+            }
+
+            const parsedData = await getRedditPostDataByBatch(datasetId, 10, 0);
+            setData(parsedData);
+            setError(null);
+        } catch (err) {
+            console.error('Failed to load torrent data:', err);
+            setError('Failed to load torrent data.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return { data, error, loadFolderData, loadTorrentData, loading };
 };
 
 export default useRedditData;

@@ -57,7 +57,7 @@ const HomePage = () => {
             <h1 className="text-4xl font-bold text-center">Data Import & Retrieval Tool</h1>
 
             {/* Cards Container */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full max-w-6xl">
+            <div className="flex justify-center items-center flex-wrap gap-8 w-full max-w-screen-sm lg:max-w-screen-xl">
                 {/* Online Sources */}
                 <Card
                     title="Online Sources"
@@ -77,13 +77,13 @@ const HomePage = () => {
                 />
 
                 {/* Import CSV */}
-                <Card
+                {/* <Card
                     title="Local Sources"
                     description="Import datasets created outside of this toolkit. The CSV files must be encoded using UTF-8."
                     inputType="file"
                     inputAccept=".csv"
                     onInputChange={handleCsvImport}
-                />
+                /> */}
 
                 {/* Import BerTopic Model */}
                 {/* <Card

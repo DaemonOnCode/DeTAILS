@@ -136,6 +136,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                     <li key={idx} className="mb-2">
                         <Link
                             to={fullPath}
+                            state={{ from: location.pathname }}
                             className={`p-2 rounded-lg transition font-medium flex justify-start items-center gap-x-2 responsive-text ${
                                 isCurrentPath(fullPath)
                                     ? 'bg-blue-500 text-white'

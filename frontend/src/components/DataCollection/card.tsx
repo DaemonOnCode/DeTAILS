@@ -23,7 +23,7 @@ const Card: FC<CardProps> = ({
     onInputChange
 }) => {
     return (
-        <div className="bg-gray-100 p-6 rounded-lg shadow-md border border-gray-300 text-center space-y-4">
+        <div className="bg-gray-100 p-6 rounded-lg shadow-md border border-gray-300 text-center space-y-4 w-96 h-full max-h-44 lg:max-h-52">
             <h2 className="text-2xl font-semibold text-gray-800">{title}</h2>
             <p className="text-gray-600">{description}</p>
             {buttonText && onButtonClick && (

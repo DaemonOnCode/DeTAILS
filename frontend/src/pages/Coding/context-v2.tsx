@@ -197,8 +197,8 @@ const ContextPage = () => {
     return (
         <div className="w-full h-full flex justify-between flex-col">
             <div className="max-h-maxPageContent h-maxPageContent">
-                <section className="max-h-3/5 h-3/5">
-                    {Object.keys(contextFiles).length === 0 ? (
+                <section className="max-h-3/5 h-3/5 border-b-2">
+                    {/* {Object.keys(contextFiles).length === 0 ? (
                         <>
                             <h1>Select context files</h1>
                             <button
@@ -207,31 +207,31 @@ const ContextPage = () => {
                                 Select Files
                             </button>
                         </>
-                    ) : (
-                        <>
-                            <h1>Selected Context files</h1>
-                            <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto max-w-screen-sm lg:max-w-screen-lg">
-                                <label
-                                    className="flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50"
-                                    onClick={handleSelectFiles}>
-                                    <span>+ Add File</span>
-                                    {/* <button
+                    ) : ( */}
+                    <>
+                        <h1>Selected Context files</h1>
+                        <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto max-w-screen-sm lg:max-w-screen-lg">
+                            <label
+                                className="flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50"
+                                onClick={handleSelectFiles}>
+                                <span>+ Add File</span>
+                                {/* <button
                                         onClick={handleSelectFiles}
                                         className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
                                         Select Files
                                     </button> */}
-                                </label>
-                                {Object.keys(contextFiles).map((filePath, index) => (
-                                    <FileCard
-                                        key={index}
-                                        filePath={filePath}
-                                        fileName={contextFiles[filePath]}
-                                        onRemove={removeContextFile}
-                                    />
-                                ))}
-                            </div>
-                        </>
-                    )}
+                            </label>
+                            {Object.keys(contextFiles).map((filePath) => (
+                                <FileCard
+                                    key={filePath}
+                                    filePath={filePath}
+                                    fileName={contextFiles[filePath]}
+                                    onRemove={removeContextFile}
+                                />
+                            ))}
+                        </div>
+                    </>
+                    {/* )} */}
                 </section>
                 <section className="flex justify-start items-center max-h-2/5 h-2/5 overflow-hidden">
                     <div className="w-1/2">

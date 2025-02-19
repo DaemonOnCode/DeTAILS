@@ -22,6 +22,7 @@ const config = {
             GET_REDDIT_POSTS_BY_BATCH: 'collections/reddit-posts-by-batch',
             UPLOAD_INTERVIEW_DATA: 'collections/interviews',
             PARSE_INTERVIEW_DATA: 'collections/parse-interview-dataset',
+            DOWNLOAD_REDDIT_DATA_FROM_TORRENT: 'collections/download-reddit-data-from-torrent',
 
             // ADD_DOCUMENTS_LANGCHAIN: 'coding/add-documents-langchain',
             REGENERATE_FLASHCARDS: 'coding/generate-additional-flashcards',

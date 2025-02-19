@@ -144,13 +144,23 @@ def omit_first_if_matches_structure(data: list) -> list:
     return data
 
 
-def parse_reddit_files(dataset_id: str):
+def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: dict[str,datetime] = None):
     """Parse Reddit JSON files and insert into DB."""
-    post_files = [f for f in os.listdir(f"datasets/{dataset_id}") if f.startswith("RS") and f.endswith(".json")]
-    comment_files = [f for f in os.listdir(f"datasets/{dataset_id}") if f.startswith("RC") and f.endswith(".json")]
+    dataset_path = dataset_path or f"datasets/{dataset_id}"
+    post_files = [f for f in os.listdir(dataset_path) if f.startswith("RS") and f.endswith(".json")]
+    comment_files = [f for f in os.listdir(dataset_path) if f.startswith("RC") and f.endswith(".json")]
 
-    all_files = [{"type": "submissions", "path": f"datasets/{dataset_id}/{file}"} for file in post_files] + \
-                [{"type": "comments", "path": f"datasets/{dataset_id}/{file}"} for file in comment_files]
+    all_files = [{"type": "submissions", "path": f"{dataset_path}/{file}"} for file in post_files] + \
+                [{"type": "comments", "path": f"{dataset_path}/{file}"} for file in comment_files]
+
+    start_ts = end_ts = None
+    if date_filter:
+        start_date = date_filter.get("start_date")
+        end_date = date_filter.get("end_date")
+        if start_date:
+            start_ts = start_date.timestamp()
+        if end_date:
+            end_ts = end_date.timestamp()
 
     subreddit = ""
     for file in all_files:
@@ -162,7 +172,11 @@ def parse_reddit_files(dataset_id: str):
         if file["type"] == "submissions":
             posts = []
             for p in filtered_data:
-                subreddit = p.get("subreddit", subreddit)  # Keep subreddit updated
+                created = p.get("created_utc", 0)
+                if date_filter:
+                    if (start_ts and created < start_ts) or (end_ts and created > end_ts):
+                        continue
+                subreddit = p.get("subreddit", subreddit) 
                 posts.append(Post(
                     id=p["id"],
                     over_18=p.get("over_18", 0),
@@ -187,6 +201,10 @@ def parse_reddit_files(dataset_id: str):
         elif file["type"] == "comments":
             comments = []
             for c in filtered_data:
+                created = c.get("created_utc", 0)
+                if date_filter:
+                    if (start_ts and created < start_ts) or (end_ts and created > end_ts):
+                        continue
                 subreddit = c.get("subreddit", subreddit)  # Update subreddit from comments
                 comments.append(Comment(
                     id=c["id"],
@@ -259,6 +277,7 @@ async def process_reddit_data(subreddit: str, zst_filename: str):
                 print("Skipping invalid JSON line.")
         outfile.write("\n]\n")
     print(f"Processed data saved to {output_filename}")
+    return output_filename
 
 
 def wait_for_file_stable(file_path, stable_time=5, poll_interval=2) -> bool:
@@ -368,10 +387,11 @@ async def process_single_file(c: Client, torrent: Torrent, file: TorrentFile, do
         print(f"Waiting for file {file_path_zst} to appear on disk (conversion in progress)...")
         await asyncio.sleep(5)
 
-    await process_reddit_data(subreddit, file_path_zst)
+    output_file = await process_reddit_data(subreddit, file_path_zst)
 
     c.stop_torrent(torrent.id)
     await asyncio.sleep(1)
+    return output_file
 
 async def get_reddit_data_from_torrent(
     subreddit: str,
@@ -398,6 +418,9 @@ async def get_reddit_data_from_torrent(
 
     current_torrent = await verify_torrent_with_retry(c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
 
+    output_files = []
     for file in files_to_process:
-        await process_single_file(c, current_torrent, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit)
+        output_file = await process_single_file(c, current_torrent, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit)
+        output_files.append(output_file)
     print("All wanted files have been processed.")
+    return output_files
