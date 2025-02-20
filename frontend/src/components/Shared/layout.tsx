@@ -12,6 +12,7 @@ import { recursivePathHider } from '../../utility/protect-routes';
 import { toast } from 'react-toastify';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
+import BookmarkToastOverlay from './bookmark-tab-toast';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -216,6 +217,7 @@ export const Layout: FC<ILayout> = ({ children }) => {
                 {/* Optionally include the Topbar */}
                 {/* <Topbar /> */}
 
+                <BookmarkToastOverlay />
                 <div className="flex flex-1">
                     <div
                         className={`transition-all duration-300 ${isSidebarCollapsed ? 'w-12 lg:w-16' : 'w-48 lg:w-64'}`}>

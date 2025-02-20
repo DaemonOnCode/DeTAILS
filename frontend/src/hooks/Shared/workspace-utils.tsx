@@ -14,6 +14,7 @@ import {
     ICodingContext,
     IModelingContext
 } from '../../types/Shared';
+import { useToast } from '../../context/toast-context';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
@@ -22,6 +23,7 @@ const useWorkspaceUtils = () => {
     const codingContext = useCodingContext();
     const modelingContext = useModelingContext();
     const { serviceStarting } = useWebSocket();
+    const { showToast } = useToast();
 
     const { getServerUrl } = useServerUtils();
 
@@ -162,11 +164,19 @@ const useWorkspaceUtils = () => {
 
             if (parsedResults.success) {
                 updateContextData(parsedResults.data);
-                toast.success('Workspace data loaded successfully');
+                showToast({
+                    message: 'Workspace data loaded successfully',
+                    type: 'success'
+                });
+                // toast.success('Workspace data loaded successfully');
                 console.log('Workspace data loaded successfully');
             } else {
                 resetContextData(collectionContext, codingContext, modelingContext);
-                toast.error('Error loading workspace data');
+                showToast({
+                    type: 'error',
+                    message: 'Error loading workspace data'
+                });
+                // toast.error('Error loading workspace data');
                 console.error('Error in loadWorkspaceData:', parsedResults.message);
             }
             console.log('Loading workspace data:', parsedResults.data);
@@ -194,10 +204,18 @@ const useWorkspaceUtils = () => {
             const parsedResults = await results.json();
 
             if (parsedResults.success) {
-                toast.success('Workspace data saved successfully');
+                showToast({
+                    message: 'Workspace data saved successfully',
+                    type: 'success'
+                });
+                // toast.success('Workspace data saved successfully');
                 console.log('Workspace data saved successfully');
             } else {
-                toast.error('Error saving workspace data');
+                showToast({
+                    message: 'Error saving workspace data',
+                    type: 'error'
+                });
+                // toast.error('Error saving workspace data');
                 console.error('Error in saveWorkspaceData:', parsedResults.message);
             }
         } catch (error) {

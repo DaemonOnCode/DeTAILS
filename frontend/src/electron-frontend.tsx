@@ -5,20 +5,23 @@ import SystemMetricsLogger from './components/Shared/system-metrics-logger';
 import { ToastContainer } from 'react-toastify';
 import { ApplicationRouter } from './router';
 import { SettingsProvider } from './context/settings-context';
+import { ToastProvider } from './context/toast-context';
 
 const ElectronFrontend: React.FC = () => {
     return (
         // <HashRouter>
         // <ErrorBoundary>
-        <SettingsProvider>
-            <LoggingProvider>
-                <AuthProvider>
-                    <ToastContainer />
-                    <SystemMetricsLogger />
-                    <ApplicationRouter />
-                </AuthProvider>
-            </LoggingProvider>
-        </SettingsProvider>
+        <ToastProvider>
+            <SettingsProvider>
+                <LoggingProvider>
+                    <AuthProvider>
+                        <ToastContainer stacked limit={3} newestOnTop />
+                        <SystemMetricsLogger />
+                        <ApplicationRouter />
+                    </AuthProvider>
+                </LoggingProvider>
+            </SettingsProvider>
+        </ToastProvider>
         // </ErrorBoundary>
         // </HashRouter>
     );

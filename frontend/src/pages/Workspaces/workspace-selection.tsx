@@ -16,6 +16,7 @@ import { useAuth } from '../../context/auth-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { toast } from 'react-toastify';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
+import { useToast } from '../../context/toast-context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -23,6 +24,8 @@ const WorkspaceSelectionPage: React.FC = () => {
     // const { workspaces, addWorkspace, deleteWorkspace, updateWorkspace, setCurrentWorkspaceById } =
     //     useWorkspaceContext();
     const { user } = useAuth();
+
+    const { showToast } = useToast();
 
     const navigate = useNavigate();
 
@@ -161,7 +164,11 @@ const WorkspaceSelectionPage: React.FC = () => {
     // Add workspace
     const handleAddWorkspace = async () => {
         if (!newWorkspaceName.trim()) {
-            toast.warning('Workspace name cannot be empty.');
+            // toast.warning('Workspace name cannot be empty.');
+            showToast({
+                type: 'warning',
+                message: 'Workspace name cannot be empty.'
+            });
             return;
         }
 
@@ -200,7 +207,11 @@ const WorkspaceSelectionPage: React.FC = () => {
     // Rename workspace
     const handleRenameWorkspace = async (workspaceId: string) => {
         if (!renameWorkspaceName.trim()) {
-            toast.warning('Workspace name cannot be empty.');
+            // toast.warning('Workspace name cannot be empty.');
+            showToast({
+                type: 'warning',
+                message: 'Workspace name cannot be empty.'
+            });
             return;
         }
 

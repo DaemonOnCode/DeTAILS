@@ -46,7 +46,7 @@ const WebSocketSingleton = (() => {
     const attemptReconnect = (initiateWebSocketConnection: () => void) => {
         retryCount += 1;
         if (retryCount > 10) {
-            toast.error('WebSocket server is offline. Max retries reached.');
+            // toast.error('WebSocket server is offline. Max retries reached.');
             return;
         }
         const retryDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff
@@ -138,7 +138,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         (checkBackend = false) => {
             ipcRenderer.on('ws-connected', () => {
                 console.log('WebSocket connected');
-                toast.success('Websocket connection established.');
+                // toast.success('Websocket connection established.');
                 WebSocketSingleton.resetRetryCount();
                 lastPingRef.current = new Date();
                 resetPingTimeout();
@@ -150,7 +150,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
             ipcRenderer.on('ws-closed', () => {
                 // console.log('WebSocket closed', isAuthenticated);
                 if (!isAuthenticated) return;
-                toast.warning('WebSocket disconnected. Attempting to reconnect...');
+                // toast.warning('WebSocket disconnected. Attempting to reconnect...');
                 WebSocketSingleton.attemptReconnect(initiateWebSocketConnection);
             });
         },
