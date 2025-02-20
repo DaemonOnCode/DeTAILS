@@ -525,7 +525,7 @@ const TranscriptPage = () => {
 
     if (loading) {
         return (
-            <div className="w-full h-maxPageContent flex flex-col justify-center items-center">
+            <div className="w-full h-page flex flex-col justify-center items-center">
                 Loading transcript...
                 <div className="flex justify-center mt-4">
                     <div className="loader animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
@@ -539,7 +539,7 @@ const TranscriptPage = () => {
     }
 
     return (
-        <div className="h-page flex flex-col -m-6">
+        <div className="h-screen flex flex-col -m-6">
             {/* {splitIsTrue ? (
                 <div className="flex justify-center p-3">
                     <button className="bg-blue-500 text-white rounded px-4 py-2">Split View</button>
@@ -586,7 +586,7 @@ const TranscriptPage = () => {
                 )}
 
                 <div
-                    className={`${!splitCodebook ? 'h-[60%]' : 'h-full'} flex-1 flex flex-col overflow-hidden`}
+                    className={`${splitCodebook ? 'h-[60%]' : 'h-full'} flex-1 flex flex-col overflow-hidden`}
                     onClick={(e) => handleSetActiveTranscript(e, null)}>
                     {codebookIsTrue && state === 'review' && (
                         <div className="flex justify-center p-3">
@@ -599,7 +599,7 @@ const TranscriptPage = () => {
                     )}
 
                     <div
-                        className={`${codebookIsTrue && state === 'review' ? 'h-[85%]' : 'h-full'} flex flex-col`}>
+                        className={`${codebookIsTrue && state === 'review' ? 'h-[90%]' : 'h-full'} flex flex-col`}>
                         {splitIsTrue && (
                             <div
                                 className={`h-1/2 overflow-auto ${

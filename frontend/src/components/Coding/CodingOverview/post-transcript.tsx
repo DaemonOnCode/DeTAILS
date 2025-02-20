@@ -364,11 +364,14 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
         segments.forEach((segment) => {
             codes.forEach(({ text, code }) => {
-                const similarity = ratio(segment.line, text);
-                if (similarity >= 90) {
-                    segment.backgroundColours.push(codeColors[code]);
-                    segment.relatedCodeText.push(code);
-                }
+                const segmentedCodeTexts = splitIntoSegments(text);
+                segmentedCodeTexts.forEach((segmentedText) => {
+                    const similarity = ratio(segment.line, segmentedText);
+                    if (similarity >= 90) {
+                        segment.backgroundColours.push(codeColors[code]);
+                        segment.relatedCodeText.push(code);
+                    }
+                });
             });
         });
 
@@ -416,7 +419,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                                         />
                                     ))}
                             </h2>
-                            <p className="text-gray-700 leading-relaxed whitespace-pre-line break-words">
+                            <p className="text-gray-700 leading-relaxed">
                                 {processedSegments
                                     .filter(
                                         (segment) =>

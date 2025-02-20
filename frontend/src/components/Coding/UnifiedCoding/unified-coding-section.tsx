@@ -1,23 +1,17 @@
-import { useState } from 'react';
-import LeftPanel from './left-panel';
-import ValidationTable from './validation-table';
-import PostTranscript from './post-transcript';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    IQECResponse,
-    IQECRow,
-    IQECTResponse,
-    IQECTRow,
-    IQECTTyResponse,
-    IQECTTyRow
-} from '../../../types/Coding/shared';
-import { ROUTES } from '../../../constants/Coding/shared';
+import { BaseResponseHandlerActions } from '../../../types/Coding/shared';
+import { useFilteredData } from '../../../hooks/Coding/use-filtered-data';
 import { useCodingContext } from '../../../context/coding-context';
+import { downloadCodebook } from '../../../utility/codebook-downloader';
+import LeftPanel from './left-panel';
+import ReviewToggle from './review-toggle';
+import ValidationTable from './validation-table';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
-    data: IQECResponse[] | IQECTResponse[] | IQECTTyResponse[];
-    dispatchFunction: (data: any) => void;
+    data: any[];
+    dispatchFunction: (action: any) => void;
     review?: boolean;
     showThemes?: boolean;
     download?: boolean;
@@ -26,7 +20,7 @@ interface UnifiedCodingPageProps {
     showFilterDropdown?: boolean;
     showRerunCoding?: boolean;
     handleRerun?: () => void;
-    conflictingResponses?: IQECResponse[];
+    conflictingResponses?: any[];
     manualCoding?: boolean;
     onPostSelect?: (postId: string | null) => void;
     showCoderType?: boolean;
@@ -38,11 +32,10 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     postIds,
     data,
     dispatchFunction,
-    // review = true,
     showThemes = false,
     download = true,
     showCodebook = false,
-    split = undefined,
+    split,
     showFilterDropdown = false,
     showRerunCoding = false,
     handleRerun = () => {},
@@ -53,67 +46,97 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     coderType,
     applyFilters = false
 }) => {
-    console.log('Data:', data);
+    const navigate = useNavigate();
     const {
         sampledPostResponse,
         unseenPostResponse,
-        unseenPostIds,
         sampledPostIds,
+        unseenPostIds,
         dispatchSampledPostResponse,
         dispatchUnseenPostResponse
     } = useCodingContext();
-    const [viewTranscript, setViewTranscript] = useState(false);
-    const [currentPost, setCurrentPost] = useState<string | null>(null);
-    const [filter, setFilter] = useState<string | null>(null);
 
     const [review, setReview] = useState(true);
-
+    const [filter, setFilter] = useState<string | null>(null);
     const [selectedTypeFilter, setSelectedTypeFilter] = useState<
         'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All'
     >(showCoderType ? 'All' : 'New Data');
 
-    const isThemesVisible = showThemes;
-    // const responses = data;
-    // const [isThemesVisible, setIsThemesVisible] = useState(showThemes);
-    const [responses, setResponses] = useState(data ?? []);
+    const { filteredData, filteredPostIds } = useFilteredData({
+        data,
+        postIds,
+        filter,
+        showCoderType,
+        applyFilters,
+        selectedTypeFilter,
+        sampledPostResponse,
+        unseenPostResponse,
+        sampledPostIds,
+        unseenPostIds
+    });
 
-    const navigate = useNavigate();
+    // Precompute a Set of sampled IDs for fast lookup.
+    const sampledIds = useMemo(
+        () => new Set(sampledPostResponse.map((r: any) => r.id)),
+        [sampledPostResponse]
+    );
 
-    // Handle viewing transcript for a post
+    // Helper to determine if a response is sampled.
+    const isSampled = (response: any) => sampledIds.has(response.id);
+
+    const routeDispatch = (action: BaseResponseHandlerActions<any>) => {
+        if (selectedTypeFilter === 'Codebook') {
+            console.log(action, 'route dispatch codebook updating sample');
+            dispatchSampledPostResponse({ ...action });
+        } else if (selectedTypeFilter === 'New Data') {
+            console.log(action, 'route dispatch newdata updating unseen');
+            dispatchUnseenPostResponse({ ...action });
+        } else {
+            console.log(action, 'route dispatch');
+            if ('responses' in action) {
+                const responses = action.responses;
+                const sampledResponses = responses.filter((r: any) => isSampled(r));
+                const unseenResponses = responses.filter((r: any) => !isSampled(r));
+                if (sampledResponses.length > 0) {
+                    console.log(action, 'route dispatch responses updating sample');
+                    dispatchSampledPostResponse({ ...action, responses: sampledResponses });
+                }
+                if (unseenResponses.length > 0) {
+                    console.log(action, 'route dispatch responses updating unseen');
+                    dispatchUnseenPostResponse({ ...action, responses: unseenResponses });
+                }
+                return;
+            } else if ('index' in action) {
+                const response = data[action.index];
+                if (response && isSampled(response)) {
+                    console.log(action, 'route dispatch index updating sample');
+                    dispatchSampledPostResponse(action);
+                } else {
+                    console.log(action, 'route dispatch index updating unseen');
+                    dispatchUnseenPostResponse(action);
+                }
+                return;
+            } else {
+                console.log(action, 'route dispatch updating both');
+                dispatchSampledPostResponse(action);
+                dispatchUnseenPostResponse(action);
+            }
+        }
+    };
+
+    // Use our routeDispatch if showCoderType is true.
+    const effectiveDispatch =
+        coderType && !(selectedTypeFilter === 'Human' || selectedTypeFilter === 'LLM')
+            ? routeDispatch
+            : dispatchFunction;
+
+    // Navigate to transcript view.
     const handleViewTranscript = (postId: string | null) => {
         if (manualCoding) {
             onPostSelect(postId);
             return;
         }
-        if (!postId) {
-            navigate('../' + ROUTES.TRANSCRIPTS, {
-                state: {
-                    split,
-                    showCodebook,
-                    review,
-                    showThemes,
-                    showFilterDropdown,
-                    postIds,
-                    selectedTypeFilter
-                }
-            });
-            return;
-        }
-        // const post = responses.find((p) => p.postId === postId);
-        // if (post) {
-        //     setCurrentPost({
-        //         ...post,
-        //         selftext: `This is the full transcript of the post discussing ${post.quote}`,
-        //         comments: [
-        //             { id: 'c1', body: 'Great insights!', comments: [] },
-        //             {
-        //                 id: 'c2',
-        //                 body: 'I learned something new.',
-        //                 comments: [{ id: 'c3', body: 'Agreed!' }]
-        //             }
-        //         ]
-        //     });
-        let params = new URLSearchParams();
+        const params = new URLSearchParams();
         if (split !== undefined) {
             if (coderType) {
                 params.append('type', coderType);
@@ -123,88 +146,14 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 params.append('split', split.toString());
             }
         }
-        if (showCodebook) {
-            params.append('codebook', 'true');
-        }
+        if (showCodebook) params.append('codebook', 'true');
 
-        navigate(
-            `/coding/transcript/${postId}/${review ? 'review' : 'refine'}?${params.toString()}`
-        );
-        // setViewTranscript(true);
-        // }
+        const mode = review ? 'review' : 'refine';
+        navigate(`/coding/transcript/${postId}/${mode}?${params.toString()}`);
     };
 
-    // const handleBackToTable = () => {
-    //     setViewTranscript(false);
-    // };
-
-    const filteredData = filter
-        ? filter === 'coded-data'
-            ? data
-            : filter?.split('|')?.[1] === 'coded-data'
-              ? data.filter((response) => response.postId === filter.split('|')[0])
-              : data.filter((response) => response.postId === filter || response.code === filter)
-        : !showCoderType && applyFilters
-          ? selectedTypeFilter === 'All'
-              ? [...sampledPostResponse, ...unseenPostResponse]
-              : selectedTypeFilter === 'New Data'
-                ? unseenPostResponse
-                : selectedTypeFilter === 'Codebook'
-                  ? sampledPostResponse
-                  : data
-          : data;
-
-    const filteredPostIds =
-        filter === 'coded-data' || filter?.split('|')?.[1] === 'coded-data'
-            ? postIds.filter((postId) => data.some((item) => item.postId === postId))
-            : !showCoderType && applyFilters
-              ? selectedTypeFilter === 'All'
-                  ? [...sampledPostIds, ...unseenPostIds]
-                  : selectedTypeFilter === 'New Data'
-                    ? unseenPostIds
-                    : selectedTypeFilter === 'Codebook'
-                      ? sampledPostIds
-                      : postIds
-              : postIds;
-
-    console.log('Filtered Data:', filteredData);
-    console.log('Filtered Post IDs:', filteredPostIds);
-
-    // Function to generate and download codebook CSV
-    const downloadCodebook = () => {
-        const headers = ['Post ID', 'Sentence', 'Coded Word', 'Theme', 'Type'];
-        const csvRows = [headers.join(',')];
-
-        filteredData.forEach((row) => {
-            if ('type' in row && 'theme' in row) {
-                csvRows.push(
-                    `${row.postId},"${row.quote}","${row.code}","${row.theme || 'N/A'}","${row.type || 'N/A'}"`
-                );
-            } else if ('theme' in row) {
-                csvRows.push(
-                    `${row.postId},"${row.quote}","${row.code}","${row.theme || 'N/A'}", "N/A"`
-                );
-            } else {
-                csvRows.push(`${row.postId},"${row.quote}","${row.code}","N/A", "N/A"`);
-            }
-        });
-
-        const csvContent = csvRows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-
-        // Create a link and trigger download
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'codebook.csv';
-        link.click();
-        URL.revokeObjectURL(url);
-    };
-
-    // Update responses when users mark/edit them
     const handleUpdateResponses = (updatedResponses: any[]) => {
-        // setResponses(updatedResponses);
-        dispatchFunction({
+        effectiveDispatch({
             type: 'SET_RESPONSES',
             responses: updatedResponses
         });
@@ -212,87 +161,11 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     const handleSelectedTypeFilter = (type: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All') => {
         setSelectedTypeFilter(type);
-        if (showCoderType) {
-            setResponses(
-                // @ts-ignore
-                data.filter((item) => {
-                    if ('type' in item) {
-                        if (type === 'All') {
-                            return true;
-                        }
-                        return item.type === type;
-                    }
-                })
-            );
-        } else {
-            if (type === 'All') {
-                setResponses([
-                    ...sampledPostResponse,
-                    ...unseenPostResponse.map((item) => ({
-                        id: item.id,
-                        postId: item.postId,
-                        quote: item.quote,
-                        code: item.code,
-                        explanation: item.explanation,
-                        comment: item.comment
-                    }))
-                ]);
-            }
-            if (type === 'New Data') {
-                setResponses([
-                    ...unseenPostResponse.map((item) => ({
-                        id: item.id,
-                        postId: item.postId,
-                        quote: item.quote,
-                        code: item.code,
-                        explanation: item.explanation,
-                        comment: item.comment
-                    }))
-                ]);
-            }
-            if (type === 'Codebook') {
-                setResponses([...sampledPostResponse]);
-            }
-        }
     };
 
-    const dataSearch = (data: any) => {
-        if (selectedTypeFilter === 'New Data') {
-            return 'unseen';
-        } else if (selectedTypeFilter === 'Codebook') {
-            return 'sampled';
-        }
-
-        let { type, ...extras } = data;
-        if (extras instanceof Array) {
-            extras = extras[0];
-        }
-        if (extras.hasOwnProperty('type')) {
-            return 'unseen';
-        } else {
-            return 'sampled';
-        }
-    };
-
-    const commonDispatch = (data: any) => {
-        if (showCoderType) return;
-        if (dataSearch(data) === 'sampled') {
-            dispatchSampledPostResponse(data);
-        } else if (dataSearch(data) === 'unseen') {
-            dispatchUnseenPostResponse(data);
-        }
-    };
-
-    dispatchFunction = !showCoderType ? dispatchFunction : commonDispatch;
-
-    // Function to re-run the coding with updates
     const handleReRunCoding = () => {
-        console.log('Re-running coding with updated responses:', responses);
         handleRerun();
     };
-
-    const hasActionButton = download || showRerunCoding; // Only one will be true at a time
-    // const tableHeight: string = hasActionButton ? 'calc(100vh - 16rem)' : 'calc(100vh - 10rem)';
 
     return (
         <div className="h-full flex flex-col -m-6 overflow-hidden responsive-text">
@@ -300,74 +173,37 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 <div className="w-1/4 border-r flex-1 overflow-auto p-6 pb-0">
                     <LeftPanel
                         postIds={filteredPostIds}
-                        codes={Array.from(new Set(responses.map((item) => item.code)))}
+                        codes={Array.from(new Set(data.map((item) => item.code)))}
                         onFilterSelect={setFilter}
                         showTypeFilterDropdown={showFilterDropdown}
                         selectedTypeFilter={selectedTypeFilter}
                         handleSelectedTypeFilter={handleSelectedTypeFilter}
-                        setCurrentPost={setCurrentPost}
+                        setCurrentPost={() => {}}
                         showCoderType={showCoderType}
                     />
                 </div>
-
-                <div className={`${viewTranscript ? 'w-full' : 'w-3/4'} flex flex-col h-full`}>
+                <div className="w-3/4 flex flex-col h-full">
                     <div className="flex justify-evenly items-center p-6">
-                        <button
-                            onClick={downloadCodebook}
-                            className="px-4 py-2 bg-green-500 text-white rounded">
-                            Download Codebook
-                        </button>
-
-                        <div className="flex text-center justify-center items-center p-2 lg:p-4 gap-x-2">
-                            {/* Left Label: Post View */}
-                            <span
-                                className={`cursor-pointer select-none ${
-                                    review ? 'font-bold text-blue-500' : 'text-gray-700'
-                                }`}
-                                onClick={() => setReview(true)}>
-                                Review Mode
-                            </span>
-
-                            {/* Toggle Switch */}
-                            <label
-                                htmlFor="toggleReview"
-                                className="relative inline-block w-6 lg:w-12 h-3 lg:h-6 cursor-pointer">
-                                <input
-                                    id="toggleReview"
-                                    type="checkbox"
-                                    className="sr-only"
-                                    checked={review}
-                                    onChange={() => setReview((prev) => !prev)}
-                                />
-                                <div className="block bg-gray-300 w-6 lg:w-12 h-3 lg:h-6 rounded-full"></div>
-                                <div
-                                    className={`dot absolute left-0.5 lg:left-1 top-0.5 lg:top-1 bg-white w-2 lg:w-4 h-2 lg:h-4 rounded-full transition-transform ${
-                                        !review ? 'translate-x-3 lg:translate-x-6 bg-blue-500' : ''
-                                    }`}></div>
-                            </label>
-
-                            {/* Right Label: Code View */}
-                            <span
-                                className={`cursor-pointer select-none ${
-                                    !review ? 'font-bold text-blue-500' : 'text-gray-700'
-                                }`}
-                                onClick={() => setReview(false)}>
-                                Edit Mode
-                            </span>
-                        </div>
+                        {download && (
+                            <button
+                                onClick={() => downloadCodebook(filteredData)}
+                                className="px-4 py-2 bg-green-500 text-white rounded">
+                                Download Codebook
+                            </button>
+                        )}
+                        <ReviewToggle review={review} setReview={setReview} />
                     </div>
-
                     <div className="flex-1 overflow-y-auto px-6">
                         <ValidationTable
                             codeResponses={filteredData}
-                            dispatchCodeResponses={dispatchFunction}
+                            dispatchCodeResponses={effectiveDispatch}
                             onViewTranscript={handleViewTranscript}
                             review={review}
-                            showThemes={isThemesVisible}
+                            showThemes={showThemes}
                             onReRunCoding={handleReRunCoding}
                             onUpdateResponses={handleUpdateResponses}
                             conflictingResponses={conflictingResponses}
-                            currentPostId={currentPost}
+                            currentPostId={null}
                             showCoderType={showCoderType}
                         />
                     </div>

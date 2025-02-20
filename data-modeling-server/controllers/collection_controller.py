@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime
 import json
 import os
@@ -6,6 +7,7 @@ import subprocess
 import time
 from uuid import uuid4
 from aiofiles import open as async_open
+import aiohttp
 from fastapi import HTTPException, UploadFile
 from transmission_rpc import Client, Torrent, File as TorrentFile
 
@@ -392,6 +394,57 @@ async def process_single_file(c: Client, torrent: Torrent, file: TorrentFile, do
     c.stop_torrent(torrent.id)
     await asyncio.sleep(1)
     return output_file
+
+# async def wait_for_transmission(timeout=10):
+#     start_time = time.time()
+#     while time.time() - start_time < timeout:
+#         try:
+#             async with aiohttp.ClientSession() as session:
+#                 async with session.get("http://localhost:9091/transmission/rpc") as response:
+#                     if response.status == 200:
+#                         print("Transmission daemon is up and running.")
+#                         return True
+#         except Exception:
+#             await asyncio.sleep(0.5)
+#     print("Transmission daemon did not start in time.")
+#     return False
+
+# @asynccontextmanager
+# async def run_transmission_daemon():
+#     transmission_cmd = [
+#         "/opt/homebrew/opt/transmission-cli/bin/transmission-daemon",
+#         "--foreground",
+#         "--config-dir", "/opt/homebrew/var/transmission/",
+#         # "--log-level=info",
+#         # "--logfile", "/opt/homebrew/var/transmission/transmission-daemon.log"
+#     ]
+#     process = await asyncio.create_subprocess_exec(
+#         *transmission_cmd,
+#         stdout=asyncio.subprocess.PIPE,
+#         stderr=asyncio.subprocess.PIPE
+#     )
+    
+#     async def read_stream(stream):
+#         while True:
+#             line = await stream.readline()
+#             if not line:
+#                 break
+#             print(line.decode().strip())
+    
+#     # Create tasks to continuously read and print output.
+#     stdout_task = asyncio.create_task(read_stream(process.stdout))
+#     stderr_task = asyncio.create_task(read_stream(process.stderr))
+#     try:
+#         if not await wait_for_transmission():
+#             print("Warning: Transmission did not start properly.")
+#         print("Transmission daemon started.")
+#         yield process
+#     finally:
+#         process.terminate()
+#         await process.wait()
+#         stdout_task.cancel()
+#         stderr_task.cancel()
+#         print("Transmission daemon terminated.")
 
 async def get_reddit_data_from_torrent(
     subreddit: str,

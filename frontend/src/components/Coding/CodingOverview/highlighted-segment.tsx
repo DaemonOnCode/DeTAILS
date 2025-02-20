@@ -50,7 +50,9 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({
                 setHoveredCodeText(null);
             }}>
             {/* Text, always on top */}
-            <span style={{ position: 'relative', zIndex: 5 }}>{segment.line} </span>
+            <span className="relative pr-1" style={{ zIndex: 5 }}>
+                {segment.line}
+            </span>
 
             {/* Absolutely positioned color layers, each behind the text. */}
             {segment.backgroundColours.map((bgColor, i) => {
