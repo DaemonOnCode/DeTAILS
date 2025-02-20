@@ -1,19 +1,15 @@
 import React from 'react';
 import HighlightedSegment from './highlighted-segment';
-import { Comments } from '../../../types/Coding/shared';
+import { Comments, Segment } from '../../../types/Coding/shared';
 
 interface RedditCommentsProps {
     comments: Comments[];
-    processedSegments: any[];
+    processedSegments: Segment[];
     setHoveredCodeText: (codes: string[] | null) => void;
     level: number;
     showHorizontalConnector?: boolean;
     hoveredCode: string | null;
-    onDoubleClickSegment: (segment: {
-        line: string;
-        backgroundColours: string[];
-        relatedCodeText: string[];
-    }) => void;
+    onDoubleClickSegment: (segment: Segment) => void;
 }
 
 const RedditComments: React.FC<RedditCommentsProps> = ({

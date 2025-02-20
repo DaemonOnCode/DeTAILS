@@ -277,3 +277,13 @@ export type PostItem = {
     theme: string;
     id: string;
 };
+
+export type Segment = {
+    line: string;
+    id: string;
+    type: 'title' | 'selftext' | 'comment' | 'reply';
+    parent_id: string | null;
+    backgroundColours: string[];
+    relatedCodeText: string[];
+    fullText: string;
+};

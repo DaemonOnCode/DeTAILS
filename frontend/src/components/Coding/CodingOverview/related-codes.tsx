@@ -1,6 +1,7 @@
 import { FC, useState } from 'react';
 import { useCodingContext } from '../../../context/coding-context';
 import { SetState } from '../../../types/Coding/shared';
+import ChatExplanation from './chat-explanation';
 
 const RelatedCodes: FC<{
     codeSet: string[];
@@ -14,7 +15,11 @@ const RelatedCodes: FC<{
     codeCounts: Record<string, number>;
     hoveredCode: string | null;
     setHoveredCode: SetState<string | null>;
-    selectedExplanations: string[];
+    selectedExplanationsWithCode: {
+        explanation: string;
+        code: string;
+        fullText: string;
+    }[];
 }> = ({
     codeSet,
     conflictingCodes = [],
@@ -23,7 +28,7 @@ const RelatedCodes: FC<{
     codeCounts,
     hoveredCode,
     setHoveredCode,
-    selectedExplanations
+    selectedExplanationsWithCode
 }) => {
     const {
         sampledPostResponse,
@@ -87,16 +92,15 @@ const RelatedCodes: FC<{
                 </ul>
             </div>
 
-            {selectedExplanations.length > 0 && (
+            {selectedExplanationsWithCode.length > 0 && (
                 <div>
                     <h3 className="text-lg font-bold mb-2">Related Explanations</h3>
-                    <ul className="space-y-2">
-                        {selectedExplanations.map((explanation, idx) => (
-                            <li key={idx} className="p-2 rounded bg-gray-100">
-                                {explanation}
-                            </li>
-                        ))}
-                    </ul>
+                    {selectedExplanationsWithCode.map((explanationWithCode, idx) => (
+                        <ChatExplanation
+                            key={idx}
+                            initialExplanationWithCode={explanationWithCode}
+                        />
+                    ))}
                 </div>
             )}
 

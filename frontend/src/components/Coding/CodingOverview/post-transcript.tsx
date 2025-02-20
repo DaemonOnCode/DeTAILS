@@ -1,7 +1,7 @@
 import { FC, useState, useMemo, useRef, useEffect } from 'react';
 import { useCodingContext } from '../../../context/coding-context';
 import { ratio, partial_ratio } from 'fuzzball';
-import { Comments, IComment, IReference } from '../../../types/Coding/shared';
+import { Comments, IComment, IReference, Segment } from '../../../types/Coding/shared';
 import RedditComments from './reddit-comments';
 import HighlightedSegment from './highlighted-segment';
 import RelatedCodes from './related-codes';
@@ -38,7 +38,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     isDeleteHighlightModalOpen,
     setDeleteIsHighlightModalOpen
 }) => {
-    console.log('Post:', post, codeResponses);
+    // console.log('Post:', post, codeResponses);
     // const transcript = getTranscript(
     //     post.title,
     //     post.selftext,
@@ -88,26 +88,46 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
     const [references, setReferences] = useState<Record<string, IReference[]>>(currentReferences);
 
-    const [selectedExplanations, setSelectedExplanations] = useState<string[]>([]);
+    const [selectedExplanations, setSelectedExplanations] = useState<
+        {
+            explanation: string;
+            code: string;
+            fullText: string;
+        }[]
+    >([]);
 
-    const handleSegmentDoubleClick = (segment: {
-        line: string;
-        backgroundColours: string[];
-        relatedCodeText: string[];
-    }) => {
-        const explanations: string[] = [];
+    const handleSegmentDoubleClick = (segment: Segment) => {
+        const explanationsWithCode: {
+            explanation: string;
+            code: string;
+            fullText: string;
+        }[] = [];
 
+        console.log(segment);
         for (const code of segment.relatedCodeText) {
-            const matchingResponses = codeResponses.filter((response: any) => {
+            const matchingResponses = codeResponses.filter((response) => {
                 return response.code === code && ratio(segment.line, response.quote) >= 90;
             });
 
-            matchingResponses.forEach((response: any) => {
-                explanations.push(response.explanation);
+            matchingResponses.forEach((response) => {
+                explanationsWithCode.push({
+                    code: response.code,
+                    explanation: response.explanation,
+                    fullText: segment.fullText
+                });
             });
         }
+        // codeResponses.forEach((response) => {
+        //     console.log(response.quote, segment.fullText);
+        //     if (response.quote === segment.fullText) {
+        //         explanationsWithCode.push({
+        //             explanation: response.explanation,
+        //             code: response.code
+        //         });
+        //     }
+        // });
 
-        const uniqueExplanations = Array.from(new Set(explanations));
+        const uniqueExplanations = Array.from(new Set(explanationsWithCode));
         setSelectedExplanations(uniqueExplanations);
     };
 
@@ -358,7 +378,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 type: data.type,
                 parent_id: data.parent_id,
                 backgroundColours: [] as string[],
-                relatedCodeText: [] as string[]
+                relatedCodeText: [] as string[],
+                fullText: '' as string
             }));
         });
 
@@ -370,6 +391,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     if (similarity >= 90) {
                         segment.backgroundColours.push(codeColors[code]);
                         segment.relatedCodeText.push(code);
+                        segment.fullText = text;
                     }
                 });
             });
@@ -386,7 +408,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         console.log('Selected text:', selectedText);
     }, [selectedText]);
 
-    console.log('Processed segments:', processedSegments);
+    // console.log('Processed segments:', processedSegments);
 
     return !post ? (
         <p>Post not found</p>
@@ -453,7 +475,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 </div>
 
                 {/* Right Section: Related Codes */}
-                <div className="w-1/4 pl-4 flex flex-col overflow-hidden">
+                <div className="w-1/3 pl-4 flex flex-col overflow-hidden">
                     <div className="flex-1 overflow-y-auto">
                         <RelatedCodes
                             codeSet={additionalCodes}
@@ -472,7 +494,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             )}
                             hoveredCode={hoveredCode}
                             setHoveredCode={setHoveredCode}
-                            selectedExplanations={selectedExplanations}
+                            selectedExplanationsWithCode={selectedExplanations}
                         />
                     </div>
                 </div>

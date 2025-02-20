@@ -1,19 +1,12 @@
 import { FC, useState } from 'react';
 import { generateColor } from '../../../utility/color-generator';
+import type { Segment } from '../../../types/Coding/shared';
 
 interface HighlightedSegmentProps {
-    segment: {
-        line: string;
-        backgroundColours: string[];
-        relatedCodeText: string[];
-    };
+    segment: Segment;
     hoveredCode: string | null;
     setHoveredCodeText: (codes: string[] | null) => void;
-    onDoubleClickSegment: (segment: {
-        line: string;
-        backgroundColours: string[];
-        relatedCodeText: string[];
-    }) => void;
+    onDoubleClickSegment: (segment: Segment) => void;
 }
 
 const HighlightedSegment: FC<HighlightedSegmentProps> = ({
