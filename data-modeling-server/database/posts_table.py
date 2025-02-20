@@ -33,4 +33,20 @@ class PostsRepository(BaseRepository[Post]):
 
         return self.fetch_all(query, params, map_to_model=False)
     
+    def get_filtered_post_ids(self, dataset_id: str) -> List[str]:
+        query = """
+        SELECT p.id
+        FROM posts p
+        LEFT JOIN comments c 
+        ON c.post_id = p.id 
+            AND c.body IS NOT NULL 
+            AND c.body NOT IN ('[removed]', '[deleted]')
+        WHERE p.dataset_id = ?
+        AND (p.title IN ('[removed]', '[deleted]') OR p.selftext IN ('[removed]', '[deleted]'))
+        AND c.id IS NULL;
+        """
+        rows = self.execute_raw_query(query, (dataset_id,), keys=True)
+        return [row['id'] for row in rows]
+
+    
 

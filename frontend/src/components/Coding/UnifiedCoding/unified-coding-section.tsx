@@ -283,7 +283,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         }
     };
 
-    dispatchFunction = showCoderType ? dispatchFunction : commonDispatch;
+    dispatchFunction = !showCoderType ? dispatchFunction : commonDispatch;
 
     // Function to re-run the coding with updates
     const handleReRunCoding = () => {

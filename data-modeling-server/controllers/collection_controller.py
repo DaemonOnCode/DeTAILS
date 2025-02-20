@@ -424,3 +424,8 @@ async def get_reddit_data_from_torrent(
         output_files.append(output_file)
     print("All wanted files have been processed.")
     return output_files
+
+
+
+def filter_posts_by_deleted(dataset_id: str):
+    return post_repo.get_filtered_post_ids(dataset_id)

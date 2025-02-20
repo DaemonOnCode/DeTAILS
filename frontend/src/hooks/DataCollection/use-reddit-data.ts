@@ -133,11 +133,11 @@ const useRedditData = () => {
             if (!currentWorkspace || !currentWorkspace.id) {
                 throw new Error('Workspace not found');
             }
-            let folderPath = modeInput;
+            let folderPath = modeInput.split(':')?.[2];
             if (!modeInput && changeModeInput) {
                 // Prompt the user to select a folder.
                 folderPath = await ipcRenderer.invoke('select-folder-reddit');
-                setModeInput(folderPath);
+                setModeInput(`reddit:upload:${folderPath}`);
             }
 
             let dataset_id = datasetId;
@@ -173,7 +173,7 @@ const useRedditData = () => {
             }
 
             if (addToDb) {
-                setModeInput(`torrent:${torrentSubreddit}:${torrentStart}:${torrentEnd}`);
+                setModeInput(`reddit:torrent:${torrentSubreddit}|${torrentStart}|${torrentEnd}`);
                 const res = await fetch(
                     getServerUrl(REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT),
                     {

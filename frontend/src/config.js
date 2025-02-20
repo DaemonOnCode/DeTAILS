@@ -23,6 +23,7 @@ const config = {
             UPLOAD_INTERVIEW_DATA: 'collections/interviews',
             PARSE_INTERVIEW_DATA: 'collections/parse-interview-dataset',
             DOWNLOAD_REDDIT_DATA_FROM_TORRENT: 'collections/download-reddit-data-from-torrent',
+            FILTER_POSTS_BY_DELETED: 'collections/filter-posts-by-deleted',
 
             // ADD_DOCUMENTS_LANGCHAIN: 'coding/add-documents-langchain',
             REGENERATE_FLASHCARDS: 'coding/generate-additional-flashcards',

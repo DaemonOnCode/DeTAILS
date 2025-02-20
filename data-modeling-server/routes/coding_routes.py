@@ -51,6 +51,7 @@ async def build_context_from_interests_endpoint(
     llm, embeddings = get_llm_and_embeddings(model, settings=settings)
 
     # Initialize vector store & process files
+    print("Initialize vector store")
     vector_store = initialize_vector_store(dataset_id, model, embeddings)
     await save_context_files(dataset_id, contextFiles, vector_store)
 

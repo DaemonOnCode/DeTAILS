@@ -21,7 +21,7 @@ const LoadReddit: FC = () => {
     const [torrentSubreddit, setTorrentSubreddit] = useState('');
     const [torrentStart, setTorrentStart] = useState('');
     const [torrentEnd, setTorrentEnd] = useState('');
-    const [torrentPostsOnly, setTorrentPostsOnly] = useState(false);
+    const [torrentMode, setTorrentMode] = useState<'posts' | 'postsAndComments'>('posts');
 
     // useEffect(() => {
     //     // If a modeInput exists (and we’re not in torrent mode) then load the data.
@@ -41,8 +41,9 @@ const LoadReddit: FC = () => {
     // }, [modeInput, activeTab]);
 
     useEffect(() => {
-        if (modeInput) {
-            if (modeInput.startsWith('torrent:')) {
+        const inputSplits = modeInput.split(':');
+        if (inputSplits.length && inputSplits[0] === 'reddit') {
+            if (inputSplits[1] === 'torrent') {
                 loadTorrentData();
             } else {
                 loadFolderData();
@@ -80,7 +81,8 @@ const LoadReddit: FC = () => {
 
     // Handler for loading torrent data.
     const handleLoadTorrent = async () => {
-        await loadTorrentData(true, torrentSubreddit, torrentStart, torrentEnd, torrentPostsOnly);
+        const postsOnly = torrentMode === 'posts';
+        await loadTorrentData(true, torrentSubreddit, torrentStart, torrentEnd, postsOnly);
     };
 
     return (
@@ -156,7 +158,7 @@ const LoadReddit: FC = () => {
                             />
                         </div>
                         <div className="mb-4">
-                            <label className="block mb-1">Start Date (Day, Month, Year)</label>
+                            <label className="block mb-1">Start Date</label>
                             <input
                                 type="date"
                                 value={torrentStart}
@@ -165,7 +167,7 @@ const LoadReddit: FC = () => {
                             />
                         </div>
                         <div className="mb-4">
-                            <label className="block mb-1">End Date (Day, Month, Year)</label>
+                            <label className="block mb-1">End Date</label>
                             <input
                                 type="date"
                                 value={torrentEnd}
@@ -173,21 +175,31 @@ const LoadReddit: FC = () => {
                                 className="p-2 border border-gray-300 rounded w-96"
                             />
                         </div>
-                        <div className="mb-4 flex items-center">
-                            <input
-                                type="checkbox"
-                                checked={torrentPostsOnly}
-                                onChange={(e) => setTorrentPostsOnly(e.target.checked)}
-                                className="form-checkbox"
-                                id="postsOnlyCheckbox"
-                            />
-                            <label htmlFor="postsOnlyCheckbox" className="ml-2">
-                                Posts Only
-                            </label>
+                        <div className="mb-4">
+                            <div className="flex space-x-4">
+                                <button
+                                    onClick={() => setTorrentMode('posts')}
+                                    className={`px-4 py-2 rounded focus:outline-none transition-colors ${
+                                        torrentMode === 'posts'
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                                    }`}>
+                                    Posts Only
+                                </button>
+                                <button
+                                    onClick={() => setTorrentMode('postsAndComments')}
+                                    className={`px-4 py-2 rounded focus:outline-none transition-colors ${
+                                        torrentMode === 'postsAndComments'
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                                    }`}>
+                                    Posts + Comments
+                                </button>
+                            </div>
                         </div>
                         <button
                             onClick={handleLoadTorrent}
-                            className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
+                            className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
                             Load Torrent Data
                         </button>
                     </div>

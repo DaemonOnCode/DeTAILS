@@ -3,6 +3,8 @@ import PaginationControls from './pagination-control';
 import RedditTable from './reddit-table';
 import { RedditPosts } from '../../types/Coding/shared';
 import { useCollectionContext } from '../../context/collection-context';
+import useServerUtils from '../../hooks/Shared/get-server-url';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 
 type RedditTableRendererProps = {
     data: RedditPosts;
@@ -20,14 +22,53 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [filterLoading, setFilterLoading] = useState(false);
 
-    const { selectedData, setSelectedData } = useCollectionContext();
+    // Pending filter values (from the modal)
+    const [pendingFilterStartTime, setPendingFilterStartTime] = useState(''); // ISO date string
+    const [pendingFilterEndTime, setPendingFilterEndTime] = useState(''); // ISO date string
+    const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState(false);
 
+    // Applied filter values (used in filtering logic)
+    const [appliedFilterStartTime, setAppliedFilterStartTime] = useState('');
+    const [appliedFilterEndTime, setAppliedFilterEndTime] = useState('');
+    const [appliedFilterHideRemoved, setAppliedFilterHideRemoved] = useState(false);
+    // This state will hold the IDs (as strings) of posts that should be filtered out
+    const [filteredOutIds, setFilteredOutIds] = useState<string[]>([]);
+
+    const { selectedData, setSelectedData, datasetId } = useCollectionContext();
+
+    const { getServerUrl } = useServerUtils();
+
+    // Filtering logic: use the applied filters.
     const filteredData = Object.entries(data).filter(
-        ([, { title, selftext, url }]) =>
-            title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            selftext.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            url.toLowerCase().includes(searchTerm.toLowerCase())
+        ([id, { title, selftext, url, created_utc }]) => {
+            // Basic search match.
+            const searchMatch =
+                title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                selftext.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                url.toLowerCase().includes(searchTerm.toLowerCase());
+
+            // Time filter using applied filter values.
+            let timeMatch = true;
+            if (appliedFilterStartTime) {
+                const startDate = new Date(appliedFilterStartTime);
+                timeMatch = timeMatch && new Date(created_utc * 1000) >= startDate;
+            }
+            if (appliedFilterEndTime) {
+                const endDate = new Date(appliedFilterEndTime);
+                timeMatch = timeMatch && new Date(created_utc * 1000) <= endDate;
+            }
+
+            // Hide removed/deleted: if applied, filter out posts whose ID is in filteredOutIds.
+            let hideRemovedMatch = true;
+            if (appliedFilterHideRemoved) {
+                hideRemovedMatch = !filteredOutIds.includes(id);
+            }
+
+            return searchMatch && timeMatch && hideRemovedMatch;
+        }
     );
 
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -88,33 +129,102 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 }
             });
         }
-
         setSelectedData(newSelectedPosts);
     };
 
+    // Function to apply filters.
+    const handleApplyFilters = async () => {
+        setFilterLoading(true);
+        // If the hide removed option is enabled, simulate a network request that returns IDs to filter.
+        if (pendingFilterHideRemoved) {
+            // Simulate processing to get IDs to hide.
+
+            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.FILTER_POSTS_BY_DELETED), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    dataset_id: datasetId
+                })
+            });
+            const data: string[] = await res.json();
+
+            console.log(data, 'filtered ids');
+
+            // const idsToHide = Object.entries(data)
+            //     .filter(([id, { title, selftext }]) => {
+            //         const loweredTitle = title.toLowerCase();
+            //         const loweredText = selftext.toLowerCase();
+            //         return (
+            //             loweredTitle.includes('[removed]') ||
+            //             loweredTitle.includes('[deleted]') ||
+            //             loweredText.includes('[removed]') ||
+            //             loweredText.includes('[deleted]')
+            //         );
+            //     })
+            //     .map(([id]) => id);
+            // // Simulate network delay.
+            // await new Promise((resolve) => setTimeout(resolve, 5000));
+            setFilteredOutIds(data ?? []);
+        } else {
+            // If not hiding, clear any previously filtered IDs.
+            setFilteredOutIds([]);
+        }
+        // Apply the pending filters.
+        setAppliedFilterStartTime(pendingFilterStartTime);
+        setAppliedFilterEndTime(pendingFilterEndTime);
+        setAppliedFilterHideRemoved(pendingFilterHideRemoved);
+        setFilterLoading(false);
+        setIsFilterModalOpen(false);
+        setCurrentPage(1);
+    };
+
+    // Function to reset filters to defaults.
+    const handleResetFilters = () => {
+        setPendingFilterStartTime('');
+        setPendingFilterEndTime('');
+        setPendingFilterHideRemoved(false);
+        setAppliedFilterStartTime('');
+        setAppliedFilterEndTime('');
+        setAppliedFilterHideRemoved(false);
+        setFilteredOutIds([]);
+        setCurrentPage(1);
+    };
+
     return (
-        <div className={`flex flex-col h-full`}>
+        <div className="flex flex-col h-full">
             {/* Top Bar with Filter and Controls */}
-            <div className="mb-4 flex justify-between items-center bg-gray-100 p-4 rounded">
+            <div className="mb-4 flex items-center justify-between bg-gray-100 p-4 rounded">
+                {/* Search Input takes available space */}
                 <input
                     type="text"
                     placeholder="Search by title, text, or URL..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="p-2 border border-gray-300 rounded w-1/3"
+                    className="p-2 border border-gray-300 rounded flex-grow mr-4"
                 />
 
+                {/* Select/Deselect All */}
                 <button
                     onClick={toggleSelectAllPosts}
-                    className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600">
+                    className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 mr-4">
                     {selectedData.length !== filteredData.length && selectedData.length === 0
-                        ? 'Select All Posts'
-                        : 'Deselect All Posts'}
+                        ? 'Select All'
+                        : 'Deselect All'}
                 </button>
 
-                <div className="flex items-center">
+                {/* Filter Button */}
+                <button
+                    onClick={() => setIsFilterModalOpen(true)}
+                    className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600 mr-4">
+                    Filters
+                </button>
+
+                {/* Rows Per Page */}
+                <div className="flex items-center mr-4">
                     <label htmlFor="itemsPerPage" className="mr-2">
-                        Rows per page:
+                        Rows:
                     </label>
                     <select
                         id="itemsPerPage"
@@ -129,6 +239,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                     </select>
                 </div>
 
+                {/* Page Number */}
                 <div className="flex items-center">
                     <label htmlFor="pageNumber" className="mr-2">
                         Page:
@@ -146,8 +257,80 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 </div>
             </div>
 
+            {/* Modal for Filters */}
+            {isFilterModalOpen && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+                    <div className="bg-white p-6 rounded shadow-lg w-11/12 sm:w-1/2 relative">
+                        {/* Close Button (X) */}
+                        {!filterLoading && (
+                            <button
+                                onClick={() => setIsFilterModalOpen(false)}
+                                className="absolute top-2 right-2 text-gray-600 hover:text-gray-800 text-xl font-bold"
+                                aria-label="Close Filters">
+                                &times;
+                            </button>
+                        )}
+                        <h2 className="text-xl mb-4">Filters</h2>
+
+                        {/* Filter by Time Range */}
+                        <div className="mb-4">
+                            <label className="block mb-1">Start Date:</label>
+                            <input
+                                type="date"
+                                value={pendingFilterStartTime}
+                                onChange={(e) => setPendingFilterStartTime(e.target.value)}
+                                className="p-2 border border-gray-300 rounded w-full"
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label className="block mb-1">End Date:</label>
+                            <input
+                                type="date"
+                                value={pendingFilterEndTime}
+                                onChange={(e) => setPendingFilterEndTime(e.target.value)}
+                                className="p-2 border border-gray-300 rounded w-full"
+                            />
+                        </div>
+
+                        {/* Hide Removed/Deleted Posts */}
+                        <div className="mb-4 flex items-center">
+                            <input
+                                type="checkbox"
+                                checked={pendingFilterHideRemoved}
+                                onChange={(e) => setPendingFilterHideRemoved(e.target.checked)}
+                                className="form-checkbox"
+                                id="hideRemovedCheckbox"
+                            />
+                            <label htmlFor="hideRemovedCheckbox" className="ml-2">
+                                Hide posts with [removed] or [deleted]
+                            </label>
+                        </div>
+
+                        {/* Loading overlay if filters are being applied */}
+                        {filterLoading ? (
+                            <div className="flex justify-center items-center py-4">
+                                <p>Applying filters...</p>
+                            </div>
+                        ) : (
+                            <div className="flex justify-end space-x-4">
+                                <button
+                                    onClick={handleResetFilters}
+                                    className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                                    Reset Filters
+                                </button>
+                                <button
+                                    onClick={handleApplyFilters}
+                                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                    Apply Filters
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Scrollable Table Section */}
-            <div className={`flex-1 overflow-y-auto`}>
+            <div className="flex-1 overflow-y-auto">
                 <RedditTable
                     data={displayedData}
                     isLoading={loading ?? false}

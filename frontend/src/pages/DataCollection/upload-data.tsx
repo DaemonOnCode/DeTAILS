@@ -11,13 +11,14 @@ import { useLogger } from '../../context/logging-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { Link } from 'react-router-dom';
+import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const UploadDataPage = () => {
-    const { type, datasetId, selectedData } = useCollectionContext();
+    const { type, datasetId, selectedData, modeInput } = useCollectionContext();
 
     const [searchParams] = useSearchParams();
 
-    const datasetType = searchParams.get('type');
+    const datasetType = searchParams.get('type') ?? modeInput.split(':')[0];
     console.log('Search params:', searchParams, searchParams.get('type'));
     const navigate = useNavigate();
     const {
@@ -40,7 +41,7 @@ const UploadDataPage = () => {
     const handleSamplingPosts = async () => {
         if (!datasetId) return;
         // Navigate to the codebook loader page.
-        navigate(`../loader/${LOADER_ROUTES.CODEBOOK_LOADER}`);
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
         console.log('Sampling posts:', postIds);
 
         // Sample posts from the backend.

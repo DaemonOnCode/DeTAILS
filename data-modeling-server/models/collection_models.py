@@ -15,6 +15,9 @@ class ParseRedditPostByIdRequest(BaseModel):
     datasetId: str
     postId: str
 
+class FilterRedditPostsByDeleted(BaseModel):
+    dataset_id: str
+
 class ParseRedditFromTorrentRequest(BaseModel):
     subreddit: str
     start_date: str = "2005-06-01"

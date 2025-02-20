@@ -221,17 +221,7 @@ const KeywordCloudPage: FC = () => {
                     toggleKeywordSelection={toggleKeywordSelection}
                     setKeywords={setKeywords}
                 />
-                <div className="absolute bottom-0 right-0">
-                    <button
-                        onClick={refreshKeywords}
-                        className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
-                        <span className="h-6 w-6">
-                            <GeminiIcon />
-                        </span>{' '}
-                        Refresh keywords
-                    </button>
-                </div>
-                <div className="absolute bottom-0 left-0">
+                <div className="absolute bottom-0 right-0 flex flex-col gap-y-4">
                     {!allSelected ? (
                         <button
                             onClick={() => handleSelectAll(true)}
@@ -245,7 +235,17 @@ const KeywordCloudPage: FC = () => {
                             Unselect All
                         </button>
                     )}
+                    <button
+                        onClick={refreshKeywords}
+                        className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
+                        <span className="h-6 w-6">
+                            <GeminiIcon />
+                        </span>{' '}
+                        Refresh keywords
+                    </button>
                 </div>
+                {/* <div className="absolute bottom-0 left-0">
+                </div> */}
             </div>
 
             <NavigationBottomBar

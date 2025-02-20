@@ -249,7 +249,7 @@ const KeywordsTablePage: FC = () => {
             <footer className="flex-none">
                 <NavigationBottomBar
                     previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
-                    nextPage={ROUTES.LOAD_DATA}
+                    nextPage={`${ROUTES.LOAD_DATA}/${ROUTES.HOME}`}
                     isReady={isReadyCheck}
                 />
             </footer>

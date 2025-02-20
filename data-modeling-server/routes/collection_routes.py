@@ -1,10 +1,11 @@
+import asyncio
 from datetime import datetime
 import os
 import shutil
 from uuid import uuid4
 from fastapi import APIRouter, File, UploadFile, Form, Body
-from controllers.collection_controller import create_dataset, delete_dataset, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, upload_dataset_file
-from models.collection_models import ParseDatasetRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
+from controllers.collection_controller import create_dataset, delete_dataset, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, upload_dataset_file
+from models.collection_models import FilterRedditPostsByDeleted, ParseDatasetRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
 from constants import DATASETS_DIR
 
 router = APIRouter()
@@ -57,6 +58,17 @@ async def get_reddit_post_endpoint(request: ParseRedditPostByIdRequest = Body(..
 async def stream_upload_endpoint(file: UploadFile = File(...)):
     return await stream_upload_file(file)
 
+@router.post("/filter-posts-by-deleted")
+async def filter_posts_by_deleted_endpoint(
+    request: FilterRedditPostsByDeleted
+):
+    loop = asyncio.get_running_loop()
+    filtered_ids = await loop.run_in_executor(None, filter_posts_by_deleted, request.dataset_id)
+    # filtered_ids = filter_posts_by_deleted(request.dataset_id)
+    print(filtered_ids)
+    return filtered_ids
+
+
 @router.post("/download-reddit-data-from-torrent")
 async def download_reddit_from_torrent_endpoint(
     request: ParseRedditFromTorrentRequest
@@ -71,22 +83,18 @@ async def download_reddit_from_torrent_endpoint(
     output_files = await get_reddit_data_from_torrent(request.subreddit, start_month, end_month, request.submissions_only)
     print(output_files)
 
-    # Create the new folder under DATASET_DIR
     new_folder_name = f"academic-torrent-{request.subreddit}"
     target_folder = os.path.join(DATASETS_DIR, new_folder_name)
     if not os.path.exists(target_folder):
         os.makedirs(target_folder)
         print(f"Created folder: {target_folder}")
 
-    # Move each file to the target folder
     for file_path in output_files:
         if os.path.exists(file_path):
             file_name = os.path.basename(file_path)
             link_path = os.path.join(target_folder, file_name)
-            # Remove any existing file or symlink at the target path.
             if os.path.lexists(link_path):
                 os.remove(link_path)
-            # Create a symlink pointing to the original file.
             os.symlink(os.path.abspath(file_path), link_path)
             print(f"Created symlink: {link_path} -> {os.path.abspath(file_path)}")
         else:

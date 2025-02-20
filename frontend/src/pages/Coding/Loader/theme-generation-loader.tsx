@@ -63,7 +63,7 @@ export default function SmoothCodeFlow(): JSX.Element {
 
             {/* Central Codebook (Hub) */}
             <motion.div
-                className="relative w-24 h-24 bg-blue-600 text-white flex items-center justify-center rounded-full shadow-lg z-20 transform translate-y-16"
+                className="relative w-24 h-32 bg-blue-600 text-white flex items-center justify-center shadow-lg z-20 transform translate-y-16"
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 2, repeat: Infinity, repeatType: 'mirror' }}>
                 Codebook
