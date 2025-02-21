@@ -1,292 +1,404 @@
 import { FC, useState } from 'react';
+import { FaRedoAlt } from 'react-icons/fa';
 import { generateColor } from '../../../utility/color-generator';
 import useServerUtils from '../../../hooks/Shared/get-server-url';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-
-interface Message {
-    id: number;
-    text: string;
-    sender: 'LLM' | 'Human';
-    reaction?: boolean; // true for tick, false for cross, undefined for no reaction
-    isEditable?: boolean; // true if a comment is currently being composed
-    isThinking?: boolean; // true if the message is waiting for a backend response
-    code?: string; // Only the initial message has code
-}
+import { ChatMessage } from '../../../types/Coding/shared';
 
 interface ChatExplanationProps {
     initialExplanationWithCode: {
         explanation: string;
         code: string;
-        fullText: string; // used as transcript
+        fullText: string;
     };
     postId: string;
     datasetId: string;
+    dispatchFunction: (action: any) => void; // We'll call this to update the context
+    existingChatHistory: ChatMessage[];
 }
 
 const ChatExplanation: FC<ChatExplanationProps> = ({
     initialExplanationWithCode,
     datasetId,
-    postId
+    postId,
+    dispatchFunction,
+    existingChatHistory
 }) => {
-    // Create the initial message which has both code and explanation.
-    const initialMessage: Message = {
+    // 1) The initial message from LLM
+    const initialMsg: ChatMessage = {
         id: 1,
         text: initialExplanationWithCode.explanation,
         sender: 'LLM',
         code: initialExplanationWithCode.code,
         reaction: undefined,
-        isEditable: false
+        isEditable: false,
+        command: 'ACCEPT_QUOTE'
     };
 
     const { getServerUrl } = useServerUtils();
 
-    const [messages, setMessages] = useState<Message[]>([initialMessage]);
-    // Store per-message input for comment boxes.
+    const [messages, setMessages] = useState<ChatMessage[]>(
+        existingChatHistory.length > 0 ? existingChatHistory : [initialMsg]
+    );
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});
+    const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
 
-    // Define consistent background colors for non-initial messages.
-    const LLM_BG_COLOR = 'bg-gray-200';
-    const HUMAN_BG_COLOR = 'bg-blue-100';
+    // 2) Helper to push the entire conversation to the context
+    const updateMessagesAndStore = (updatedMsgs: ChatMessage[]) => {
+        setMessages(updatedMsgs);
+        dispatchFunction({
+            type: 'SET_CHAT_HISTORY',
+            postId,
+            sentence: initialExplanationWithCode.fullText,
+            code: initialExplanationWithCode.code,
+            chatHistory: updatedMsgs
+        });
+    };
 
-    // Determines whether the reaction for a message at index "i" is editable.
-    const isReactionEditable = (i: number): boolean => {
+    const handleToggleChat = () => setChatCollapsed((p) => !p);
+
+    // We allow reaction if no prior reaction was chosen, and it's the last or next is thinking
+    const isReactionEditable = (msg: ChatMessage, i: number): boolean => {
+        // If you want them to keep toggling even after setting a reaction, remove this line:
+        // if (msg.reaction !== undefined) return false;
+
         if (i === messages.length - 1) return true;
         const nextMsg = messages[i + 1];
         return !!(nextMsg && (nextMsg.isThinking || nextMsg.isEditable));
     };
 
-    // Compute chat history as a concatenated string including sender labels.
-    const computeChatHistory = () => {
-        return messages.map((msg) => `${msg.sender}: ${msg.text}`);
-    };
+    // Build a simple chat history string
+    const computeChatHistory = () => messages.map((m) => `${m.sender}: ${m.text}`);
 
-    // Handle sending a comment from an editable message box.
+    // 3) When user sends a new comment
     const handleSendComment = async (messageId: number) => {
         const comment = editableInputs[messageId]?.trim();
         if (!comment) return;
 
-        // Finalize the current Human message.
-        setMessages((prev) =>
-            prev.map((msg) =>
-                msg.id === messageId ? { ...msg, text: comment, isEditable: false } : msg
-            )
+        let newMsgs = messages.map((msg) =>
+            msg.id === messageId ? { ...msg, text: comment, isEditable: false } : msg
         );
         setEditableInputs((prev) => ({ ...prev, [messageId]: '' }));
 
-        // If the comment comes from Human, automatically add a new LLM message in "thinking" state.
-        const sourceMessage = messages.find((msg) => msg.id === messageId);
-        if (sourceMessage && sourceMessage.sender === 'Human') {
-            const newMessageId = messages.length + 1;
-            const newLLMMessage: Message = {
-                id: newMessageId,
-                text: 'thinking...',
-                sender: 'LLM',
-                isThinking: true,
-                reaction: undefined,
-                isEditable: false
-            };
-            setMessages((prev) => [...prev, newLLMMessage]);
-
-            // Prepare the payload with all relevant data.
-            const payload = {
-                dataset_id: datasetId,
-                post_id: postId,
-                code: initialExplanationWithCode.code,
-                quote: initialExplanationWithCode.explanation,
-                chat_history: [...computeChatHistory(), `Human: ${comment}`],
-                model: MODEL_LIST.GEMINI_FLASH
-                // user_comment: comment
-            };
-
-            try {
-                const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REFINE_CODE), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-                setMessages((prev) =>
-                    prev.map((msg) =>
-                        msg.id === newMessageId
-                            ? { ...msg, text: data.explanation, isThinking: false }
-                            : msg
-                    )
-                );
-            } catch (error) {
-                console.error('Error sending comment:', error);
-                setMessages((prev) =>
-                    prev.map((msg) =>
-                        msg.id === newMessageId
-                            ? {
-                                  ...msg,
-                                  text: 'There was an error. Please try again.',
-                                  isThinking: false
-                              }
-                            : msg
-                    )
-                );
-            }
+        // Create a new "thinking" LLM message
+        const source = messages.find((m) => m.id === messageId);
+        if (source && source.sender === 'Human') {
+            const newId = messages.length + 1;
+            newMsgs = [
+                ...newMsgs,
+                { id: newId, text: 'thinking...', sender: 'LLM', isThinking: true }
+            ];
         }
-    };
+        updateMessagesAndStore(newMsgs);
 
-    // Handle reaction icon clicks.
-    // For an LLM message:
-    // - Tick (true) means the user accepts the answer: any following editable Human comment box is removed.
-    // - Cross (false) means the user rejects the answer: create a new Human comment box only if one doesn't already exist.
-    // For a Human message, a tick finalizes its content.
-    const handleReaction = (messageId: number, reaction: boolean, index: number) => {
-        if (!isReactionEditable(index)) return;
-        const currentMsg = messages.find((msg) => msg.id === messageId);
-        if (!currentMsg) return;
+        // Now call your backend
+        const payload = {
+            dataset_id: datasetId,
+            post_id: postId,
+            code: initialExplanationWithCode.code,
+            quote: initialExplanationWithCode.fullText,
+            chat_history: [...computeChatHistory(), `Human: ${comment}`],
+            model: MODEL_LIST.GEMINI_FLASH
+        };
 
-        if (currentMsg.sender === 'LLM') {
-            if (reaction === true) {
-                // User accepts LLM's answer.
-                setMessages((prev) => {
-                    const idx = prev.findIndex((m) => m.id === messageId);
-                    if (
-                        prev[idx + 1] &&
-                        prev[idx + 1].sender === 'Human' &&
-                        prev[idx + 1].isEditable
-                    ) {
-                        // Remove the pending Human comment box.
-                        return [...prev.slice(0, idx + 1), ...prev.slice(idx + 2)];
-                    }
-                    return prev;
-                });
-                // Mark the LLM message as accepted.
-                setMessages((prev) =>
-                    prev.map((msg) => (msg.id === messageId ? { ...msg, reaction: true } : msg))
-                );
-            } else if (reaction === false) {
-                // User rejects LLM's answer.
-                // Only create a new Human comment box if one isn't already present.
-                const lastMsg = messages[messages.length - 1];
-                if (!(lastMsg.sender === 'Human' && lastMsg.isEditable)) {
-                    const newMessageId = messages.length + 1;
-                    const newMessage: Message = {
-                        id: newMessageId,
-                        text: '',
-                        sender: 'Human',
-                        reaction: undefined,
-                        isEditable: true,
-                        isThinking: false
+        try {
+            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REFINE_CODE), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            const { explanation, agreement, command } = data;
+
+            let finalMsgs = newMsgs.map((msg) =>
+                msg.id === newMsgs.length
+                    ? {
+                          ...msg,
+                          text: explanation || 'No explanation returned.',
+                          isThinking: false,
+                          command
+                      }
+                    : msg
+            );
+
+            // If there's an "agreement", mark the last Human message
+            if (agreement) {
+                const lastHumanIndex = [...finalMsgs]
+                    .reverse()
+                    .findIndex((m) => m.sender === 'Human');
+                if (lastHumanIndex !== -1) {
+                    const realIndex = finalMsgs.length - 1 - lastHumanIndex;
+                    finalMsgs[realIndex] = {
+                        ...finalMsgs[realIndex],
+                        reaction: agreement === 'AGREE'
                     };
-                    setMessages((prev) => [...prev, newMessage]);
                 }
-                // Mark the LLM message as rejected.
-                setMessages((prev) =>
-                    prev.map((msg) => (msg.id === messageId ? { ...msg, reaction: false } : msg))
-                );
             }
-        } else if (currentMsg.sender === 'Human') {
-            // Reaction on a Human message.
-            if (reaction === true && currentMsg.isEditable) {
-                // Finalize the comment box.
-                const finalText = editableInputs[messageId] || currentMsg.text;
-                setMessages((prev) =>
-                    prev.map((msg) =>
-                        msg.id === messageId
-                            ? { ...msg, text: finalText, isEditable: false, reaction: true }
-                            : msg
-                    )
-                );
-                setEditableInputs((prev) => ({ ...prev, [messageId]: '' }));
-            }
-            // Cross reaction on a Human message is not handled.
+
+            updateMessagesAndStore(finalMsgs);
+        } catch (err) {
+            console.error('Error sending comment:', err);
+            let errorMsgs = newMsgs.map((msg) =>
+                msg.id === newMsgs.length
+                    ? { ...msg, text: 'There was an error. Please try again.', isThinking: false }
+                    : msg
+            );
+            updateMessagesAndStore(errorMsgs);
         }
     };
 
-    // Render a single message, including its text (or textarea if being edited) and tick/cross icons.
-    const renderMessage = (msg: Message, index: number) => {
-        let bgColor = '';
-        if (msg.code) {
-            bgColor = generateColor(msg.code);
+    // 4) Reaction logic (accept or reject LLM)
+    // We keep your original accept logic but remove the “lock” on reaction
+    const handleReaction = (messageId: number, reaction: boolean, i: number) => {
+        const current = messages.find((m) => m.id === messageId);
+        if (!current || current.sender !== 'LLM') return;
+
+        let newMsgs = [...messages];
+        const idx = newMsgs.findIndex((m) => m.id === messageId);
+
+        if (reaction) {
+            // Accept
+            // We keep your logic to remove next pending Human
+            if (
+                newMsgs[idx + 1] &&
+                newMsgs[idx + 1].sender === 'Human' &&
+                newMsgs[idx + 1].isEditable
+            ) {
+                newMsgs = [...newMsgs.slice(0, idx + 1), ...newMsgs.slice(idx + 2)];
+            }
+            // Instead of locking reaction, we just set it = true and allow re-toggling
+            // If you want indefinite toggling:
+            const oldReaction = newMsgs[idx].reaction;
+            newMsgs[idx].reaction = oldReaction === true ? undefined : true;
+
+            // If LLM says "REMOVE_QUOTE" etc.
+            if (current.command === 'REMOVE_QUOTE') {
+                dispatchFunction({
+                    type: 'MARK_RESPONSE_BY_CODE_EXPLANATION',
+                    postId,
+                    quote: initialExplanationWithCode.fullText,
+                    code: initialExplanationWithCode.code,
+                    isMarked: false
+                });
+            } else if (current.command === 'ACCEPT_QUOTE') {
+                dispatchFunction({
+                    type: 'MARK_RESPONSE_BY_CODE_EXPLANATION',
+                    postId,
+                    quote: initialExplanationWithCode.fullText,
+                    code: initialExplanationWithCode.code,
+                    isMarked: true
+                });
+            }
         } else {
-            bgColor = msg.sender === 'LLM' ? LLM_BG_COLOR : HUMAN_BG_COLOR;
+            // Reject
+            // We keep logic to spawn new Human if none is there
+            const last = newMsgs[newMsgs.length - 1];
+            if (!(last.sender === 'Human' && last.isEditable)) {
+                newMsgs.push({
+                    id: newMsgs.length + 1,
+                    text: '',
+                    sender: 'Human',
+                    isEditable: true
+                });
+            }
+            // Toggle reaction = false or undefined if user re-clicks
+            const oldReaction = newMsgs[idx].reaction;
+            newMsgs[idx].reaction = oldReaction === false ? undefined : false;
         }
-        const reactionEditable = isReactionEditable(index);
+
+        updateMessagesAndStore(newMsgs);
+    };
+
+    // 5) "Refresh" to re-fetch or re-generate the LLM message
+    const handleRefreshLLM = async (messageId: number) => {
+        const idx = messages.findIndex((m) => m.id === messageId);
+        if (idx === -1) return;
+
+        let newMsgs = messages.map((m) =>
+            m.id === messageId ? { ...m, text: 'thinking...', isThinking: true } : m
+        );
+        updateMessagesAndStore(newMsgs);
+
+        const partialHistory = messages.slice(0, idx).map((m) => `${m.sender}: ${m.text}`);
+
+        const payload = {
+            dataset_id: datasetId,
+            post_id: postId,
+            code: initialExplanationWithCode.code,
+            quote: initialExplanationWithCode.fullText,
+            chat_history: partialHistory,
+            model: MODEL_LIST.GEMINI_FLASH
+        };
+
+        try {
+            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REFINE_CODE), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            const { explanation, command } = data;
+
+            let finalMsgs = newMsgs.map((m) =>
+                m.id === messageId
+                    ? {
+                          ...m,
+                          text: explanation || 'No explanation returned.',
+                          isThinking: false,
+                          command
+                      }
+                    : m
+            );
+            updateMessagesAndStore(finalMsgs);
+        } catch (err) {
+            console.error('Error refreshing LLM message:', err);
+            let errorMsgs = newMsgs.map((m) =>
+                m.id === messageId
+                    ? {
+                          ...m,
+                          text: 'There was an error. Please try again.',
+                          isThinking: false
+                      }
+                    : m
+            );
+            updateMessagesAndStore(errorMsgs);
+        }
+    };
+
+    // Visible messages
+    const visibleMessages = chatCollapsed ? messages.slice(0, 1) : messages;
+
+    const renderMessage = (msg: ChatMessage, i: number) => {
+        const isFirst = i === 0 && msg.code;
+        const bg = isFirst
+            ? generateColor(msg.code!)
+            : msg.sender === 'LLM'
+              ? '#f3f4f6'
+              : '#eff6ff';
+
+        const chainStyle =
+            msg.sender === 'Human' && msg.isEditable ? 'border-l-4 border-gray-300 pl-4' : '';
+        const canReact = isReactionEditable(msg, i);
 
         return (
-            <div
-                key={msg.id}
-                className="mb-2 p-2 rounded flex justify-between items-start"
-                style={{ backgroundColor: bgColor }}>
-                <div className="flex-1">
-                    {msg.code && <span className="p-2 rounded mb-2 block">Code: {msg.code}</span>}
+            <div key={msg.id} className="flex items-center mb-4">
+                <div
+                    className={`relative flex-1 p-4 rounded ${chainStyle}`}
+                    style={{ backgroundColor: bg }}>
+                    {msg.code && (
+                        <pre className="bg-gray-800 text-white p-2 rounded mb-2 whitespace-pre-wrap">
+                            {msg.code}
+                        </pre>
+                    )}
                     {msg.isEditable ? (
-                        <div className="relative">
-                            <textarea
-                                className="w-full p-2 border rounded"
-                                placeholder="Add your comment..."
-                                value={editableInputs[msg.id] || ''}
-                                onChange={(e) =>
-                                    setEditableInputs((prev) => ({
-                                        ...prev,
-                                        [msg.id]: e.target.value
-                                    }))
-                                }
-                            />
-                            <button
-                                onClick={() => handleSendComment(msg.id)}
-                                className="absolute right-2 top-2"
-                                aria-label="Send Comment">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-5 w-5 text-blue-500"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor">
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M14 5l7 7-7 7M5 5l7 7-7 7"
-                                    />
-                                </svg>
-                            </button>
-                        </div>
+                        <textarea
+                            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            placeholder="Add your comment..."
+                            value={editableInputs[msg.id] || ''}
+                            onChange={(e) =>
+                                setEditableInputs((prev) => ({
+                                    ...prev,
+                                    [msg.id]: e.target.value
+                                }))
+                            }
+                        />
                     ) : (
-                        <span>{msg.text}</span>
+                        <p className="whitespace-pre-wrap">{msg.text}</p>
                     )}
                 </div>
-                <div className="ml-2 flex flex-col space-y-1">
-                    <button
-                        onClick={() => handleReaction(msg.id, true, index)}
-                        aria-label="Agree"
-                        disabled={!reactionEditable}>
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 text-green-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                            />
-                        </svg>
-                    </button>
-                    <button
-                        onClick={() => handleReaction(msg.id, false, index)}
-                        aria-label="Disagree"
-                        disabled={!reactionEditable}>
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 text-red-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                            />
-                        </svg>
-                    </button>
+
+                <div className="flex flex-col justify-center items-center ml-2 space-y-2">
+                    {msg.sender === 'LLM' ? (
+                        <>
+                            <button
+                                onClick={() => handleReaction(msg.id, true, i)}
+                                disabled={!canReact || msg.isThinking}
+                                className={`w-8 h-8 flex items-center justify-center rounded
+                  ${msg.reaction === true ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-500'}
+                  ${
+                      !canReact || msg.isThinking
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-green-400'
+                  }`}>
+                                ✓
+                            </button>
+
+                            <button
+                                onClick={() => handleReaction(msg.id, false, i)}
+                                disabled={!canReact || msg.isThinking}
+                                className={`w-8 h-8 flex items-center justify-center rounded
+                  ${msg.reaction === false ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-500'}
+                  ${
+                      !canReact || msg.isThinking
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-red-400'
+                  }`}>
+                                ✕
+                            </button>
+
+                            {/* Refresh if not the first message */}
+                            {msg.id > 1 && (
+                                <button
+                                    onClick={() => handleRefreshLLM(msg.id)}
+                                    disabled={
+                                        msg.isThinking /* or if you want to disable after reaction */
+                                    }
+                                    className={`w-8 h-8 flex items-center justify-center rounded
+                    bg-gray-300 text-gray-600 hover:bg-yellow-400 hover:text-white
+                    ${msg.isThinking ? 'opacity-50 cursor-not-allowed' : ''}
+                  `}
+                                    title="Refresh">
+                                    <FaRedoAlt className="h-4 w-4" />
+                                </button>
+                            )}
+                        </>
+                    ) : msg.isEditable ? (
+                        // If it's a Human message in edit mode => "Send"
+                        <button
+                            onClick={() => handleSendComment(msg.id)}
+                            className="w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-blue-400 hover:text-white">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}>
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M4 4l16 8-16 8 4-8-4-8z"
+                                />
+                            </svg>
+                        </button>
+                    ) : (
+                        <>
+                            <button
+                                onClick={() => handleReaction(msg.id, true, i)}
+                                disabled={!canReact || msg.isThinking}
+                                className={`w-8 h-8 flex items-center justify-center rounded
+                  ${msg.reaction === true ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-500'}
+                  ${
+                      !canReact || msg.isThinking
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-green-400'
+                  }`}>
+                                ✓
+                            </button>
+                            <button
+                                onClick={() => handleReaction(msg.id, false, i)}
+                                disabled={!canReact || msg.isThinking}
+                                className={`w-8 h-8 flex items-center justify-center rounded
+                  ${msg.reaction === false ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-500'}
+                  ${
+                      !canReact || msg.isThinking
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-red-400'
+                  }`}>
+                                ✕
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
         );
@@ -295,13 +407,14 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     return (
         <div className="border rounded p-4 mb-4">
             <button
-                onClick={() => {}}
-                className="mb-2 p-2 rounded bg-gray-300 hover:bg-gray-400"
-                aria-label="Toggle Chat">
-                Chat
+                onClick={handleToggleChat}
+                className="mb-2 p-2 rounded bg-gray-300 hover:bg-gray-400">
+                {chatCollapsed ? 'Show Full Chat' : 'Collapse'}
             </button>
             <div className="max-h-96 overflow-y-auto">
-                {messages.map((msg, index) => renderMessage(msg, index))}
+                {(chatCollapsed ? messages.slice(0, 1) : messages).map((m, i) =>
+                    renderMessage(m, i)
+                )}
             </div>
         </div>
     );

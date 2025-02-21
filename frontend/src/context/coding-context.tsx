@@ -228,6 +228,14 @@ function baseResponseHandler<T>(
             return state.map((response, index) =>
                 index === action.index ? { ...response, isMarked: action.isMarked } : response
             );
+        case 'MARK_RESPONSE_BY_CODE_EXPLANATION':
+            return state.map((response: any) =>
+                action.code === response.code &&
+                action.quote === response.quote &&
+                action.postId === response.postId
+                    ? { ...response, isMarked: action.isMarked }
+                    : response
+            );
         case 'ADD_RESPONSE':
             newResponses = [action.response].filter(
                 (response: any) => response.code?.trim() !== '' && response.quote?.trim() !== ''
@@ -280,6 +288,20 @@ function baseResponseHandler<T>(
                     ? { ...response, quote: action.newSentence }
                     : response
             );
+        case 'SET_CHAT_HISTORY':
+            return state.map((response: any) => {
+                if (
+                    response.postId === action.postId &&
+                    response.quote === action.sentence &&
+                    response.code === action.code
+                ) {
+                    return {
+                        ...response,
+                        chatHistory: action.chatHistory
+                    };
+                }
+                return response;
+            });
         default:
             return state;
     }
@@ -298,6 +320,7 @@ const sampleDataResponseReducer = (
         case 'SET_ALL_UNMARKED':
         case 'UPDATE_COMMENT':
         case 'MARK_RESPONSE':
+        case 'MARK_RESPONSE_BY_CODE_EXPLANATION':
         case 'ADD_RESPONSE':
         case 'ADD_RESPONSES':
         case 'REMOVE_RESPONSES':
@@ -306,6 +329,7 @@ const sampleDataResponseReducer = (
         case 'EDIT_CODE':
         case 'DELETE_HIGHLIGHT':
         case 'EDIT_HIGHLIGHT':
+        case 'SET_CHAT_HISTORY':
             let baseData = baseResponseHandler(state, action, {});
             console.log('Base Data:', baseData, state);
             return baseData;
@@ -333,6 +357,7 @@ const sampleDataWithThemeResponseReducer = (
         case 'SET_ALL_UNMARKED':
         case 'UPDATE_COMMENT':
         case 'MARK_RESPONSE':
+        case 'MARK_RESPONSE_BY_CODE_EXPLANATION':
         case 'ADD_RESPONSE':
         case 'ADD_RESPONSES':
         case 'REMOVE_RESPONSES':
@@ -341,6 +366,7 @@ const sampleDataWithThemeResponseReducer = (
         case 'EDIT_CODE':
         case 'DELETE_HIGHLIGHT':
         case 'EDIT_HIGHLIGHT':
+        case 'SET_CHAT_HISTORY':
             return baseResponseHandler(state, action, {});
         case 'UPDATE_THEMES':
             console.log('Themes:', action.themes);
@@ -371,6 +397,7 @@ const unseenDataResponseReducer = (
         case 'SET_ALL_UNMARKED':
         case 'UPDATE_COMMENT':
         case 'MARK_RESPONSE':
+        case 'MARK_RESPONSE_BY_CODE_EXPLANATION':
         case 'ADD_RESPONSE':
         case 'ADD_RESPONSES':
         case 'REMOVE_RESPONSES':
@@ -379,6 +406,7 @@ const unseenDataResponseReducer = (
         case 'EDIT_CODE':
         case 'DELETE_HIGHLIGHT':
         case 'EDIT_HIGHLIGHT':
+        case 'SET_CHAT_HISTORY':
             return baseResponseHandler(state, action, {});
 
         default:

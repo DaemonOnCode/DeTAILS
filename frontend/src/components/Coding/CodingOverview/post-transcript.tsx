@@ -46,14 +46,13 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     // );
     // const { codeResponses, dispatchCodeResponse } = useCodingContext();
 
-    const codes = codeResponses
-        .filter((response) => response.postId === post.id)
-        .map((response) => ({
-            text: response.quote,
-            code: response.code
-        }));
+    const codes = useMemo(() => {
+        return codeResponses
+            .filter((r) => r.postId === post.id)
+            .map((r) => ({ text: r.quote, code: r.code }));
+    }, [codeResponses, post.id]);
 
-    const codeSet = Array.from(new Set(codes.map((code) => code.code)));
+    const codeSet = useMemo(() => Array.from(new Set(codes.map((c) => c.code))), [codes]);
 
     const [additionalCodes, setAdditionalCodes] = useState<string[]>([...codeSet]);
 
@@ -97,38 +96,35 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     >([]);
 
     const handleSegmentDoubleClick = (segment: Segment) => {
-        const explanationsWithCode: {
+        console.log(segment, 'segment');
+
+        const foundExplanations: {
             explanation: string;
             code: string;
             fullText: string;
         }[] = [];
 
-        console.log(segment);
-        for (const code of segment.relatedCodeText) {
-            const matchingResponses = codeResponses.filter((response) => {
-                return response.code === code && ratio(segment.line, response.quote) >= 90;
+        // For each code matched to that segment, see if there's a codeResponse
+        // with a matching quote (fuzz ratio ~ 90)
+        segment.relatedCodeText.forEach((code) => {
+            codeResponses.forEach((response) => {
+                if (response.code === code) {
+                    // Simple fuzzy check
+                    if (ratio(segment.line, response.quote) >= 90) {
+                        foundExplanations.push({
+                            code: response.code,
+                            explanation: response.explanation || '', // fallback
+                            fullText: segment.fullText
+                        });
+                    }
+                }
             });
+        });
+        const unique = Array.from(new Set(foundExplanations.map((e) => JSON.stringify(e)))).map(
+            (str) => JSON.parse(str)
+        );
 
-            matchingResponses.forEach((response) => {
-                explanationsWithCode.push({
-                    code: response.code,
-                    explanation: response.explanation,
-                    fullText: segment.fullText
-                });
-            });
-        }
-        // codeResponses.forEach((response) => {
-        //     console.log(response.quote, segment.fullText);
-        //     if (response.quote === segment.fullText) {
-        //         explanationsWithCode.push({
-        //             explanation: response.explanation,
-        //             code: response.code
-        //         });
-        //     }
-        // });
-
-        const uniqueExplanations = Array.from(new Set(explanationsWithCode));
-        setSelectedExplanations(uniqueExplanations);
+        setSelectedExplanations(unique);
     };
 
     const setCodes = (value: any, type: string) => {
@@ -324,14 +320,12 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     };
 
     const codeColors = useMemo(() => {
-        return codes.reduce(
-            (acc, { code }) => {
-                acc[code] = generateColor(code);
-                return acc;
-            },
-            {} as Record<string, string>
-        );
-    }, [codes]);
+        const map: Record<string, string> = {};
+        codeSet.forEach((code) => {
+            map[code] = generateColor(code);
+        });
+        return map;
+    }, [codeSet]);
 
     const splitIntoSegments = (text: string) => {
         const newlineToken = '<NEWLINE>';
@@ -346,62 +340,58 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     const processedSegments = useMemo(() => {
         if (!post || !Object.keys(post).length) return [];
 
-        const transcriptFlatMap: {
+        // Flatten out title, selftext, then comments
+        const transcriptArr: {
             id: string;
             text: string;
-            type: 'title' | 'selftext' | 'comment' | 'reply';
-            parent_id: string | null;
+            type: 'title' | 'selftext' | 'comment';
         }[] = [
-            { id: post.id, text: post.title, type: 'title', parent_id: null },
-            { id: post.id, text: post.selftext, type: 'selftext', parent_id: null }
+            { id: post.id, text: post.title, type: 'title' },
+            { id: post.id, text: post.selftext, type: 'selftext' }
         ];
 
-        const traverseComments = (comments: Comments[], parentId: string | null) => {
-            comments.forEach((comment) => {
-                transcriptFlatMap.push({
-                    id: comment.id,
-                    text: comment.body,
-                    type: 'comment',
-                    parent_id: parentId
+        const gatherComments = (comments: Comments[]) => {
+            comments.forEach((c) => {
+                transcriptArr.push({
+                    id: c.id,
+                    text: c.body,
+                    type: 'comment'
                 });
-                traverseComments(comment.comments || [], comment.id);
+                if (c.comments?.length) gatherComments(c.comments);
             });
         };
+        gatherComments(post.comments);
 
-        traverseComments(post.comments, post.id);
-
-        const segments = transcriptFlatMap.flatMap((data) => {
-            const segmentTexts = splitIntoSegments(data.text);
-            return segmentTexts.map((line) => ({
+        // For each chunk, break it into segments
+        const segments: Segment[] = [];
+        transcriptArr.forEach((block) => {
+            const segs = splitIntoSegments(block.text).map((line) => ({
                 line,
-                id: data.id,
-                type: data.type,
-                parent_id: data.parent_id,
+                id: block.id,
+                type: block.type,
+                parent_id: post.id,
                 backgroundColours: [] as string[],
                 relatedCodeText: [] as string[],
-                fullText: '' as string
+                fullText: line // we can store the entire line as "fullText"
             }));
+            segments.push(...segs);
         });
 
-        segments.forEach((segment) => {
+        // Compare segments to codeResponses to see if there's a match
+        segments.forEach((seg) => {
             codes.forEach(({ text, code }) => {
-                const segmentedCodeTexts = splitIntoSegments(text);
-                segmentedCodeTexts.forEach((segmentedText) => {
-                    const similarity = ratio(segment.line, segmentedText);
-                    if (similarity >= 90) {
-                        segment.backgroundColours.push(codeColors[code]);
-                        segment.relatedCodeText.push(code);
-                        segment.fullText = text;
-                    }
-                });
+                // Fuzzy match
+                if (ratio(seg.line, text) >= 90) {
+                    seg.backgroundColours.push(codeColors[code]);
+                    seg.relatedCodeText.push(code);
+                }
             });
+            // De-dup
+            seg.backgroundColours = Array.from(new Set(seg.backgroundColours));
+            seg.relatedCodeText = Array.from(new Set(seg.relatedCodeText));
         });
 
-        return segments.map((segment) => ({
-            ...segment,
-            backgroundColours: Array.from(new Set(segment.backgroundColours)),
-            relatedCodeText: Array.from(new Set(segment.relatedCodeText))
-        }));
+        return segments;
     }, [post, codes, codeColors]);
 
     useEffect(() => {
@@ -481,6 +471,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             postId={post.id}
                             datasetId={post.dataset_id}
                             codeSet={additionalCodes}
+                            codeResponses={codeResponses}
                             codeColors={codeColors}
                             hoveredCodeText={hoveredCodeText}
                             conflictingCodes={conflictingCodes}
@@ -497,6 +488,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             hoveredCode={hoveredCode}
                             setHoveredCode={setHoveredCode}
                             selectedExplanationsWithCode={selectedExplanations}
+                            dispatchFunction={dispatchCodeResponse}
                         />
                     </div>
                 </div>

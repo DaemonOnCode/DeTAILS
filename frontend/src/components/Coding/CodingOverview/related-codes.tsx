@@ -3,28 +3,33 @@ import { useCodingContext } from '../../../context/coding-context';
 import { SetState } from '../../../types/Coding/shared';
 import ChatExplanation from './chat-explanation';
 
-const RelatedCodes: FC<{
+interface RelatedCodesProps {
     postId: string;
     datasetId: string;
     codeSet: string[];
-    conflictingCodes?: {
-        code: string;
-        explanation: string;
-        quote: string;
-    }[]; // Optional conflicting codes
+    codeResponses: any[];
     codeColors: Record<string, string>;
     hoveredCodeText: string[] | null;
     codeCounts: Record<string, number>;
     hoveredCode: string | null;
-    setHoveredCode: SetState<string | null>;
+    setHoveredCode: (val: string | null) => void;
     selectedExplanationsWithCode: {
         explanation: string;
         code: string;
         fullText: string;
     }[];
-}> = ({
+    dispatchFunction: (action: any) => void;
+    conflictingCodes?: {
+        code: string;
+        explanation: string;
+        quote: string;
+    }[];
+}
+
+const RelatedCodes: FC<RelatedCodesProps> = ({
     postId,
     datasetId,
+    codeResponses,
     codeSet,
     conflictingCodes = [],
     codeColors,
@@ -32,7 +37,8 @@ const RelatedCodes: FC<{
     codeCounts,
     hoveredCode,
     setHoveredCode,
-    selectedExplanationsWithCode
+    selectedExplanationsWithCode,
+    dispatchFunction
 }) => {
     const {
         sampledPostResponse,
@@ -42,6 +48,15 @@ const RelatedCodes: FC<{
     } = useCodingContext();
 
     const [comments, setComments] = useState<Record<string, string>>({});
+
+    function getStoredChatHistory(postId: string, code: string, quote: string) {
+        // Suppose your codeResponses has a field “chatHistory” for each item.
+        // We find the matching response:
+        const found = codeResponses.find(
+            (resp) => resp.postId === postId && resp.code === code && resp.quote === quote
+        );
+        return found?.chatHistory || [];
+    }
 
     // Handle comment changes
     const handleCommentChange = (code: string, comment: string) => {
@@ -96,19 +111,25 @@ const RelatedCodes: FC<{
                 </ul>
             </div>
 
-            {selectedExplanationsWithCode.length > 0 && (
-                <div>
-                    <h3 className="text-lg font-bold mb-2">Related Explanations</h3>
-                    {selectedExplanationsWithCode.map((explanationWithCode, idx) => (
-                        <ChatExplanation
-                            key={idx}
-                            initialExplanationWithCode={explanationWithCode}
-                            postId={postId}
-                            datasetId={datasetId}
-                        />
-                    ))}
-                </div>
-            )}
+            {selectedExplanationsWithCode.map((explanationItem) => {
+                // get the chat array from context
+                const existingChat = getStoredChatHistory(
+                    postId,
+                    explanationItem.code,
+                    explanationItem.fullText
+                );
+
+                return (
+                    <ChatExplanation
+                        key={`${explanationItem.code}-${explanationItem.fullText}`}
+                        initialExplanationWithCode={explanationItem}
+                        existingChatHistory={existingChat} // NEW PROP
+                        postId={postId}
+                        datasetId={datasetId}
+                        dispatchFunction={dispatchFunction}
+                    />
+                );
+            })}
 
             {/* Conflicting Codes Section (conditionally rendered) */}
             {conflictingCodes.length > 0 && (

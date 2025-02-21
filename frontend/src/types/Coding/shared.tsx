@@ -56,9 +56,21 @@ export interface IQECRow {
     postId: string;
 }
 
+export interface ChatMessage {
+    id: number;
+    text: string;
+    sender: 'LLM' | 'Human';
+    reaction?: boolean; // true for tick, false for cross, undefined for no reaction
+    isEditable?: boolean; // true if a comment is being composed
+    isThinking?: boolean; // true if waiting for a backend response
+    code?: string; // Only the first message might have code
+    command?: string; // E.g. "REMOVE_QUOTE"
+}
+
 export interface IQECResponse extends IQECRow {
     isMarked?: boolean;
     comment: string;
+    chatHistory?: ChatMessage[];
 }
 
 export interface IQECTRow extends IQECRow {
@@ -68,6 +80,7 @@ export interface IQECTRow extends IQECRow {
 export interface IQECTResponse extends IQECTRow {
     isMarked?: boolean;
     comment: string;
+    chatHistory?: ChatMessage[];
 }
 
 export interface IQECTTyRow extends IQECTRow {
@@ -77,6 +90,7 @@ export interface IQECTTyRow extends IQECTRow {
 export interface IQECTTyResponse extends IQECTTyRow {
     isMarked?: boolean;
     comment: string;
+    chatHistory?: ChatMessage[];
 }
 
 export interface IRedditPost {
@@ -238,6 +252,13 @@ export type BaseResponseHandlerActions<T> =
     | { type: 'SET_INCORRECT'; index: number }
     | { type: 'UPDATE_COMMENT'; index: number; comment: string }
     | { type: 'MARK_RESPONSE'; index: number; isMarked?: boolean }
+    | {
+          type: 'MARK_RESPONSE_BY_CODE_EXPLANATION';
+          code: string;
+          quote: string;
+          postId: string;
+          isMarked?: boolean;
+      }
     | { type: 'RERUN_CODING'; indexes: number[]; newResponses: T[] }
     | {
           type: 'ADD_RESPONSE';
@@ -258,6 +279,13 @@ export type BaseResponseHandlerActions<T> =
           sentence: string;
           newSentence: string;
           code: string;
+      }
+    | {
+          type: 'SET_CHAT_HISTORY';
+          postId?: string;
+          sentence?: string;
+          code?: string;
+          chatHistory?: ChatMessage[];
       };
 
 export type SampleDataResponseReducerActions =
