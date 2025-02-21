@@ -1,133 +1,4 @@
-"""
-Integrated Thematic Analysis Prompt Classes
-
-This module provides a set of classes and static methods for guiding an AI model
-through a deductive thematic analysis process, based on Braun & Clarke's 6-phase framework,
-augmented with detailed instructions, example I/O formats, and extended functionality.
-
---------------------------------------------------------------------------------------------
-TABLE OF CONTENTS:
-1. ContextPrompt
-    - PHASE 1 (Familiarization) - Generating and Refining Keywords
-2. InitialCodePrompts
-    - PHASE 2 (Generating Initial Codes)
-3. DeductiveCoding
-    - PHASE 3 (Theme Development) & PHASE 4 (Review) - Applying Codes
-4. ThemeGeneration
-    - PHASE 5 (Theme Definition) - Generating Themes
-5. RefineCodebook
-    - PHASE 6 (Report Production) - Refining Codebook
-6. RefineSingleCode
-    - Single Code Refinement Utility
-
---------------------------------------------------------------------------------------------
-USAGE EXAMPLE:
-
-1) PHASE 1 (Familiarization) - Extract Keywords
------------------------------------------------
-Use the methods in `ContextPrompt` to generate a JSON list of 20 keywords based on
-the main topic, research questions, additional context, and textual data.
-
-Example:
---------
-main_topic = "User engagement with social media"
-research_questions = "How do users describe their emotional connections to social platforms?"
-additional_info = "Focus on daily usage patterns, negative/positive sentiments, cross-cultural nuances"
-textual_data = "Long textual data from PDFs, articles, or transcripts."
-
-prompt_list = ContextPrompt.systemPromptTemplate(main_topic, research_questions, additional_info)
-# This returns a list of two prompt strings that you can feed into your AI model.
-
-You can further refine or re-generate the keyword list using:
-ContextPrompt.regenerationPromptTemplate(...)
-
---------------------------------------------------------------------------------------------
-2) PHASE 2 (Generating Initial Codes)
--------------------------------------
-Use the `InitialCodePrompts.initial_code_prompt` to analyze a given transcript
-(line-by-line coding) and produce a JSON output with each coded excerpt.
-
---------------------------------------------------------------------------------------------
-3) PHASE 3 & PHASE 4 (Theme Development & Review)
--------------------------------------------------
-Use `DeductiveCoding.deductive_coding_prompt` to analyze a transcript using a final
-codebook or a keyword table. This will produce a JSON object of coded quotes.
-
---------------------------------------------------------------------------------------------
-4) PHASE 5 (Theme Definition)
------------------------------
-Use `ThemeGeneration.theme_generation_prompt` to group the assigned codes
-into higher-level themes and return them in JSON format.
-
---------------------------------------------------------------------------------------------
-5) PHASE 6 (Report Production)
-------------------------------
-Use `RefineCodebook.refine_codebook_prompt` to refine and finalize
-the codebook by comparing the previous version to the current one, capturing
-disagreements and producing a new, revised codebook in JSON.
-
---------------------------------------------------------------------------------------------
-Additional Utility - RefineSingleCode
--------------------------------------
-`RefineSingleCode.refine_single_code_prompt` is a helper for reevaluating a single code
-and quote pair against user feedback, to either remove or accept the quote.
-
---------------------------------------------------------------------------------------------
-NOTE:
-1. All returned prompts are designed to instruct an AI model. The AI model's
-   response should strictly follow the JSON format requested.
-2. These classes and methods are meant to be modular. You can integrate them
-   into a larger data pipeline or call them as needed.
-3. The `keyword_json_template` is a base JSON structure for how
-   extracted keywords should be formatted. Modify or extend as necessary.
-"""
-
-
 class ContextPrompt:
-    """
-    PHASE 1 (Familiarization):
-    - Generating keywords to build context for thematic analysis.
-    - Familiarizing the model with the data, research questions, and
-      additional context.
-
-    Methods:
-    --------
-    1) keyword_json_template:
-       - A base JSON structure for keyword extraction.
-
-    2) systemPromptTemplate(mainTopic, researchQuestions, additionalInfo):
-       - Returns a list of prompts (strings) guiding the AI to:
-         a) Familiarize itself with the textual data.
-         b) Extract 20 high-level keywords relevant to the research context.
-         c) Provide descriptions, inclusion, and exclusion criteria.
-
-    3) context_builder(mainTopic, researchQuestions, additionalInfo):
-       - A supplementary prompt urging the AI to provide 20 keywords,
-         including details like:
-         - Description
-         - Inclusion Criteria
-         - Exclusion Criteria
-       - Returns a single string prompt.
-
-    4) regenerationPromptTemplate(...) and refined_context_builder(...):
-       - Additional utility prompts for refining the keyword list based
-         on selected/unselected keywords and user feedback.
-
-    JSON Output Format:
-    -------------------
-    {
-      "keywords": [
-        {
-          "word": "ExtractedKeyword",
-          "description": "Explanation of the word and its relevance.",
-          "inclusion_criteria": ["Criteria 1", "Criteria 2", "..."],
-          "exclusion_criteria": ["Criteria 1", "Criteria 2", "..."]
-        },
-        ...
-      ]
-    }
-    """
-
     keyword_json_template = """
 {
   "keywords": [
@@ -143,21 +14,6 @@ class ContextPrompt:
 
     @staticmethod
     def systemPromptTemplate(mainTopic: str, researchQuestions: str, additionalInfo: str):
-        """
-        Returns two-part prompts for Phase 1:
-        1) Detailed instructions for extracting keywords.
-        2) Insert textual data after the instructions.
-
-        Example Usage:
-        --------------
-        prompts = ContextPrompt.systemPromptTemplate(
-            "Workplace Culture",
-            "How do employees describe their work environment?",
-            "Focus on hybrid vs. in-office settings"
-        )
-
-        feed these prompts into your AI model sequentially along with the actual data.
-        """
         return [
             f"""You are an AI researcher using Braun & Clarke's 6-phase thematic analysis. Follow these PHASE 1 (Familiarization) steps:
 
@@ -192,10 +48,6 @@ Output must be strictly in the JSON format described.""",
 
     @staticmethod
     def context_builder(mainTopic: str, researchQuestions: str, additionalInfo: str):
-        """
-        Returns a prompt instructing the AI to provide exactly 20 keywords
-        in strict JSON format, including descriptions, inclusion, and exclusion criteria.
-        """
         return f"""
 PHASE 1 EXECUTION: Generate 20 initial codes with:
 
@@ -244,10 +96,7 @@ Important:
                                    selectedKeywords: str,
                                    unselectedKeywords: str,
                                    extraFeedback: str):
-        """
-        Returns prompts for regenerating or refining a set of keywords,
-        removing unselected keywords, and incorporating new feedback.
-        """
+
         return [
             f"""You are an advanced AI specializing in qualitative research and thematic coding. Your task is to refine previously generated keywords based on selected themes, unselected themes, and new feedback.
 
@@ -298,10 +147,7 @@ Proceed with refining the keywords.
                                     selectedKeywords: str,
                                     unselectedKeywords: str,
                                     extraFeedback: str):
-        """
-        Returns a prompt for refining the keyword list down to exactly 5 items,
-        applying the new feedback and removing any references to unselected keywords.
-        """
+
         return f"""
 I need a refined list of 5 keywords based on the following research inputs:
 
@@ -338,43 +184,12 @@ Proceed with the refinement.
 
 
 class InitialCodePrompts:
-    """
-    PHASE 2 (Generating Initial Codes):
-    - Line-by-line coding
-    - Applying both in-vivo codes (participant language) and researcher-generated codes.
-    - Incorporating the keyword table to ensure consistent and accurate coding.
-
-    Methods:
-    --------
-    initial_code_prompt(main_topic, additional_info, research_questions, keyword_table, post_transcript):
-      - Returns a prompt instructing the AI to output a JSON with coded quotes.
-    """
-
     @staticmethod
     def initial_code_prompt(main_topic: str,
                             additional_info: str,
                             research_questions: str,
                             keyword_table: str,
                             post_transcript: str):
-        """
-        Instructs the AI to extract codes from the provided transcript using
-        the provided keyword table, ensuring:
-        - Both in-vivo and conceptual codes
-        - Respecting inclusion and exclusion criteria
-        - Returning results in a strict JSON format
-
-        JSON Output Example:
-        {
-          "codes": [
-            {
-              "quote": "Extracted phrase from the response.",
-              "explanation": "Why this phrase was coded.",
-              "code": "Assigned code from the keyword table"
-            },
-            ...
-          ]
-        }
-        """
         return f"""
 PHASE 2 (Generating Initial Codes) Requirements:
 
@@ -433,18 +248,6 @@ No additional text outside the JSON.
 
 
 class DeductiveCoding:
-    """
-    PHASE 3 (Theme Development) & PHASE 4 (Review):
-    - Thematic clustering and theme validation.
-    - Applying codes to new transcripts or data, checking for consistency.
-
-    Methods:
-    --------
-    deductive_coding_prompt(final_codebook, post_transcript, keyword_table, main_topic, additional_info, research_questions):
-      - Returns a prompt instructing the AI to analyze the transcript using the final codebook and the keyword table,
-        ensuring a strictly formatted JSON output of coded quotes.
-    """
-
     @staticmethod
     def deductive_coding_prompt(final_codebook: str,
                                 post_transcript: str,
@@ -452,22 +255,6 @@ class DeductiveCoding:
                                 main_topic: str,
                                 additional_info: str = "",
                                 research_questions: str = ""):
-        """
-        Instructs the AI to apply existing thematic codes from a final codebook
-        to new data, cross-referencing with a keyword table for consistency.
-
-        JSON Output Example:
-        {
-          "codes": [
-            {
-              "quote": "Text from the transcript.",
-              "explanation": "Reason for applying this code.",
-              "code": "Assigned code from the final codebook"
-            },
-            ...
-          ]
-        }
-        """
         return f"""
 You are an advanced AI model specializing in qualitative research and deductive thematic coding. Your task is to analyze a post transcript and apply thematic codes based on predefined criteria.
 
@@ -520,35 +307,9 @@ You are an advanced AI model specializing in qualitative research and deductive 
 
 
 class ThemeGeneration:
-    """
-    PHASE 5 (Theme Definition):
-    - Identifying and organizing broader themes from the extracted codes.
-
-    Methods:
-    --------
-    theme_generation_prompt(qec_table):
-      - Takes a QEC (Quote-Explanation-Code) table and instructs the AI to cluster
-        similar codes into themes, returning a strict JSON output with
-        'theme' and 'codes' fields.
-    """
 
     @staticmethod
     def theme_generation_prompt(qec_table: str):
-        """
-        Returns a prompt that instructs the AI to group similar codes
-        into higher-level themes and output them in a structured JSON format.
-
-        Example JSON Output:
-        {
-          "themes": [
-            {
-              "theme": "Theme Name",
-              "codes": ["Code1", "Code2", "Code3"]
-            },
-            ...
-          ]
-        }
-        """
         return f"""
 You are an advanced AI model specializing in qualitative research and thematic analysis. Your task is to identify themes based on a provided Quote-Explanation-Code (QEC) table.
 
@@ -585,44 +346,8 @@ You are an advanced AI model specializing in qualitative research and thematic a
 
 
 class RefineCodebook:
-    """
-    PHASE 6 (Report Production):
-    - Finalizing the codebook and documenting the coding process.
-
-    Methods:
-    --------
-    refine_codebook_prompt(prev_codebook_json, current_codebook_json):
-      - Produces a prompt to compare a previous codebook with a current one,
-        extract disagreements, and produce a revised codebook in JSON format.
-    """
-
     @staticmethod
     def refine_codebook_prompt(prev_codebook_json: str, current_codebook_json: str):
-        """
-        Instructs the AI to compare two versions of a codebook, note disagreements,
-        and produce a revised codebook. The output JSON includes 'disagreements'
-        and 'revised_codebook' arrays.
-
-        Example JSON Output:
-        {
-          "disagreements": [
-            {
-              "code": "Code Name",
-              "explanation": "Reason for disagreement",
-              "quote": "Relevant quote"
-            },
-            ...
-          ],
-          "revised_codebook": [
-            {
-              "code": "Refined Code Name",
-              "quote": "Example quote",
-              "explanation": "Updated explanation"
-            },
-            ...
-          ]
-        }
-        """
         return f"""
 You are an advanced AI specializing in qualitative research and thematic coding. Your task is to analyze and refine coding categories by comparing the previous codebook with the current version.
 
@@ -689,37 +414,12 @@ No additional text outside the JSON.
 
 
 class RefineSingleCode:
-    """
-    Additional Utility - Single Code Refinement
-    - Evaluates a single code and quote pair against user feedback.
-
-    Methods:
-    --------
-    refine_single_code_prompt(chat_history, code, quote, user_comment, transcript):
-      - Returns a prompt instructing the AI to either remove or accept the quote
-        based on the user comment and context from the transcript.
-    """
-
     @staticmethod
     def refine_single_code_prompt(chat_history: str,
                                   code: str,
                                   quote: str,
                                   user_comment: str,
                                   transcript: str):
-        """
-        Instructs the AI to:
-        1) Decide whether it agrees or disagrees with the user comment regarding
-           the given code and quote.
-        2) Provide a concise explanation.
-        3) Output a command: REMOVE_QUOTE or ACCEPT_QUOTE.
-
-        JSON Output Example:
-        {
-          "agreement": "AGREE" or "DISAGREE",
-          "explanation": "Reason for decision.",
-          "command": "REMOVE_QUOTE" or "ACCEPT_QUOTE"
-        }
-        """
         return f"""
 You are an advanced AI model specializing in qualitative research and thematic coding. Your task is to evaluate a previously generated qualitative code and its corresponding quote in light of a user's comment from the chat history. You must determine whether you agree or disagree with the user's comment regarding the provided code and quote, provide a clear explanation for your stance, and output a command indicating the appropriate action. The available commands are:
 - REMOVE_QUOTE: if the code/quote is deemed inappropriate or not representative.
