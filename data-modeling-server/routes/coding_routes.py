@@ -7,12 +7,12 @@ import numpy as np
 
 from config import Settings
 from controllers.coding_controller import get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
-from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, RegenerateKeywordsRequest, SamplePostsRequest, ThemeGenerationRequest
+from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, SamplePostsRequest, ThemeGenerationRequest
 from routes.websocket_routes import manager
 
 from utils.coding_helpers import generate_transcript
 from database.db_helpers import get_post_and_comments_from_id
-from utils.prompts_v2 import ContextPrompt, DeductiveCoding, InitialCodePrompts, RefineCodebook, ThemeGeneration
+from utils.prompts_v2 import ContextPrompt, DeductiveCoding, InitialCodePrompts, RefineCodebook, RefineSingleCode, ThemeGeneration
 
 
 router = APIRouter()
@@ -372,3 +372,34 @@ async def theme_generation_endpoint(
             "unplaced_codes": unplaced_codes
         }
     }
+
+
+@router.post("/refine-code")
+async def refine_single_code_endpoint(
+    request: RefineCodeRequest
+):
+    dataset_id = request.dataset_id
+    if not dataset_id:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+
+    llm, _ = get_llm_and_embeddings(request.model)
+    post_data = get_post_and_comments_from_id(request.post_id, dataset_id)
+    transcript = generate_transcript(post_data)
+
+    *chat_history, user_comment = request.chat_history
+
+    parsed_response = await process_llm_task(
+        dataset_id="",
+        manager=manager,
+        llm_model=request.model,
+        regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+        prompt_builder_func=RefineSingleCode.refine_single_code_prompt,
+        llm_instance=llm,
+        transcript=transcript,
+        code=request.code,
+        quote=request.quote,
+        chat_history=chat_history,
+        user_comment=user_comment
+    )
+
+    return parsed_response

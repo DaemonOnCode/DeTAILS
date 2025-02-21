@@ -559,3 +559,38 @@ You are an advanced AI specializing in **qualitative research** and **thematic c
 
 Proceed with refining the codebook.
 """
+    
+class RefineSingleCode:
+    @staticmethod
+    def refine_single_code_prompt(chat_history: str, code: str, quote: str, user_comment: str, transcript: str):
+        return f"""
+You are an advanced AI model specializing in qualitative research and thematic coding. Your task is to evaluate a previously generated qualitative code and its corresponding quote in light of a user's comment from the chat history. You must determine whether you agree or disagree with the user's comment regarding the provided code and quote, provide a clear explanation for your stance, and output a command indicating the appropriate action. The available commands are:
+- **REMOVE_QUOTE**: if the code/quote is deemed inappropriate, incorrect, or not representative.
+- **ACCEPT_QUOTE**: if the code/quote is deemed appropriate and well-supported.
+
+### **Input Information**
+- **Transcript**: {transcript}
+- **Code**: {code}
+- **Quote**: {quote}
+- **Chat History**: {chat_history}
+- **User Comment**: {user_comment}
+
+### **Your Task**
+1. **Analyze** the provided transcript, code, quote, and chat history (including the user comment).
+2. **Determine** whether you agree or disagree with the user's comment regarding the qualitative code and quote.
+3. **Provide** a concise explanation of your position based on the context from the transcript and chat history.
+4. **Select** the appropriate command from the list: "REMOVE_QUOTE" or "ACCEPT_QUOTE".
+
+### **Output Requirements**
+Return your output strictly in valid JSON format, following this structure:
+
+```json
+{{
+  "agreement": "AGREE" or "DISAGREE",
+  "explanation": "Your explanation text here",
+  "command": "REMOVE_QUOTE" or "ACCEPT_QUOTE"
+}}
+```
+
+Do not include any additional text or commentary outside of the JSON object. Proceed with your evaluation and generate the JSON response.
+"""

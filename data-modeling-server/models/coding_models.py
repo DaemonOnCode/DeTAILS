@@ -53,3 +53,12 @@ class ThemeGenerationRequest(BaseModel):
     model: str
     sampled_post_responses: list
     unseen_post_responses: list
+
+
+class RefineCodeRequest(BaseModel):
+    chat_history: list
+    code: str
+    quote: str
+    post_id: str
+    model: str
+    dataset_id: str

@@ -4,6 +4,8 @@ import { SetState } from '../../../types/Coding/shared';
 import ChatExplanation from './chat-explanation';
 
 const RelatedCodes: FC<{
+    postId: string;
+    datasetId: string;
     codeSet: string[];
     conflictingCodes?: {
         code: string;
@@ -21,6 +23,8 @@ const RelatedCodes: FC<{
         fullText: string;
     }[];
 }> = ({
+    postId,
+    datasetId,
     codeSet,
     conflictingCodes = [],
     codeColors,
@@ -99,6 +103,8 @@ const RelatedCodes: FC<{
                         <ChatExplanation
                             key={idx}
                             initialExplanationWithCode={explanationWithCode}
+                            postId={postId}
+                            datasetId={datasetId}
                         />
                     ))}
                 </div>

@@ -19,7 +19,7 @@ from routes.websocket_routes import ConnectionManager, manager
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain.chains.retrieval import create_retrieval_chain 
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
@@ -62,7 +62,6 @@ async def run_coding_pipeline(request_body, prompt_generator):
 
 
 def initialize_vector_store(dataset_id: str, model: str, embeddings: Any):
-    """Initialize Chroma vector store."""
     chroma_client = HttpClient(host="localhost", port=8000)
     vector_store = Chroma(
         embedding_function=embeddings,
@@ -73,13 +72,6 @@ def initialize_vector_store(dataset_id: str, model: str, embeddings: Any):
 
 @log_execution_time()
 async def save_context_files(dataset_id: str, contextFiles: List[UploadFile], vector_store: Chroma):
-    """
-    Handles processing and uploading of context files, including PDF loading and chunking.
-    
-    :param dataset_id: The dataset ID being processed.
-    :param contextFiles: List of uploaded files.
-    :param vector_store: The vector store for document storage.
-    """
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     
     await manager.broadcast(f"Dataset {dataset_id}: Uploading files...")
@@ -98,8 +90,18 @@ async def save_context_files(dataset_id: str, contextFiles: List[UploadFile], ve
                 with open(temp_file_path, "wb") as temp_file:
                     temp_file.write(file_content)
 
+                # Determine loader based on file extension.
+                ext = file_name.split('.')[-1].lower()
+                if ext == "pdf":
+                    loader = PyPDFLoader(temp_file_path)
+                elif ext == "txt":
+                    loader = TextLoader(temp_file_path)
+                elif ext == "docx":
+                    loader = Docx2txtLoader(temp_file_path)
+                else:
+                    raise ValueError(f"Unsupported file type: {ext}")
+
                 # Load and process the document
-                loader = PyPDFLoader(temp_file_path)
                 docs = loader.load()
                 chunks = text_splitter.split_documents(docs)
 
@@ -123,6 +125,7 @@ async def save_context_files(dataset_id: str, contextFiles: List[UploadFile], ve
     await asyncio.sleep(1)
 
 
+
 def get_llm_and_embeddings(
     model: str,
     settings: config.Settings = None,
@@ -130,19 +133,11 @@ def get_llm_and_embeddings(
     num_predict: int = 30000,
     temperature: float = 0.6
 ):
-    """
-    Initializes an LLM and its respective embeddings dynamically.
-
-    :param model: The LLM model name.
-    :param num_ctx: Context size for the model.
-    :param num_predict: Maximum number of tokens to predict.
-    :param temperature: Sampling temperature.
-    
-    :return: Tuple (LLM instance, Embedding instance).
-    """
     try:
-        # Initialize LLM based on model type
         if model.startswith("gemini") or model.startswith("google"):
+            model_name = model
+            if model.startswith("google"):
+                model_name = "-".join(model.split("-")[1:])
             # print(settings.google_application_credentials)
             creds, project_id = load_credentials_from_file(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
             print(creds.quota_project_id, project_id)
@@ -152,7 +147,7 @@ def get_llm_and_embeddings(
                 project=creds.quota_project_id
             )
             llm = ChatVertexAI(
-                model_name=model, 
+                model_name=model_name, 
                 num_ctx=num_ctx,
                 num_predict=num_predict,
                 temperature=temperature,
@@ -162,8 +157,9 @@ def get_llm_and_embeddings(
             )
         
         elif model.startswith("ollama"):
+            model_name = "-".join(model.split("-")[1:])
             llm = OllamaLLM(
-                model=model,
+                model=model_name,
                 num_ctx=num_ctx,
                 num_predict=num_predict,
                 temperature=temperature,

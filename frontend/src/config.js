@@ -47,6 +47,7 @@ const config = {
             THEME_GENERATION: 'coding/theme-generation',
             REGENERATE_KEYWORDS: 'coding/regenerate-keywords',
             REFINE_CODEBOOK: 'coding/refine-codebook',
+            REFINE_CODE: 'coding/refine-code',
 
             CREATE_WORKSPACE: 'workspaces/create-workspace',
             GET_WORKSPACES: 'workspaces/get-workspaces',

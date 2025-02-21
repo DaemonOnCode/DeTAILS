@@ -1,5 +1,7 @@
 import { FC, useState } from 'react';
 import { generateColor } from '../../../utility/color-generator';
+import useServerUtils from '../../../hooks/Shared/get-server-url';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 
 interface Message {
     id: number;
@@ -15,11 +17,17 @@ interface ChatExplanationProps {
     initialExplanationWithCode: {
         explanation: string;
         code: string;
-        fullText: string;
+        fullText: string; // used as transcript
     };
+    postId: string;
+    datasetId: string;
 }
 
-const ChatExplanation: FC<ChatExplanationProps> = ({ initialExplanationWithCode }) => {
+const ChatExplanation: FC<ChatExplanationProps> = ({
+    initialExplanationWithCode,
+    datasetId,
+    postId
+}) => {
     // Create the initial message which has both code and explanation.
     const initialMessage: Message = {
         id: 1,
@@ -30,6 +38,8 @@ const ChatExplanation: FC<ChatExplanationProps> = ({ initialExplanationWithCode 
         isEditable: false
     };
 
+    const { getServerUrl } = useServerUtils();
+
     const [messages, setMessages] = useState<Message[]>([initialMessage]);
     // Store per-message input for comment boxes.
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});
@@ -39,11 +49,15 @@ const ChatExplanation: FC<ChatExplanationProps> = ({ initialExplanationWithCode 
     const HUMAN_BG_COLOR = 'bg-blue-100';
 
     // Determines whether the reaction for a message at index "i" is editable.
-    // It's editable if this message is the last one or if the next message is still in a placeholder state.
     const isReactionEditable = (i: number): boolean => {
         if (i === messages.length - 1) return true;
         const nextMsg = messages[i + 1];
         return !!(nextMsg && (nextMsg.isThinking || nextMsg.isEditable));
+    };
+
+    // Compute chat history as a concatenated string including sender labels.
+    const computeChatHistory = () => {
+        return messages.map((msg) => `${msg.sender}: ${msg.text}`);
     };
 
     // Handle sending a comment from an editable message box.
@@ -73,11 +87,22 @@ const ChatExplanation: FC<ChatExplanationProps> = ({ initialExplanationWithCode 
             };
             setMessages((prev) => [...prev, newLLMMessage]);
 
+            // Prepare the payload with all relevant data.
+            const payload = {
+                dataset_id: datasetId,
+                post_id: postId,
+                code: initialExplanationWithCode.code,
+                quote: initialExplanationWithCode.explanation,
+                chat_history: [...computeChatHistory(), `Human: ${comment}`],
+                model: MODEL_LIST.GEMINI_FLASH
+                // user_comment: comment
+            };
+
             try {
-                const response = await fetch('/api/explanation', {
+                const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REFINE_CODE), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ comment })
+                    body: JSON.stringify(payload)
                 });
                 const data = await response.json();
                 setMessages((prev) =>
