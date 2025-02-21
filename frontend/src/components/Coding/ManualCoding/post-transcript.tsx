@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCodingContext } from '../../../context/coding-context';
 import { useCollectionContext } from '../../../context/collection-context';
@@ -11,7 +11,7 @@ import TopToolbar from '../Shared/top-toolbar';
 import PostTranscript from '../CodingOverview/post-transcript';
 import ValidationTable from '../UnifiedCoding/validation-table';
 
-const TranscriptPage = ({ id }: { id: string }) => {
+const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
     const {
         unseenPostResponse,
         dispatchUnseenPostResponse,
@@ -23,8 +23,27 @@ const TranscriptPage = ({ id }: { id: string }) => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = useServerUtils();
     const hasSavedRef = useRef(false);
+    const navigate = useNavigate();
 
-    const currentConfig = {
+    const currentConfig: {
+        name: string;
+        review: boolean;
+        codebook: {
+            responses: any[];
+            dispatchFunction: (...args: any) => void;
+            showThemes?: boolean;
+        } | null;
+        topTranscript: {
+            responses: any[];
+            dispatchFunction: (...args: any) => void;
+            conflicts?: any[];
+        } | null;
+        bottomTranscript: {
+            responses: any[];
+            dispatchFunction: (...args: any) => void;
+            conflicts?: any[];
+        };
+    } = {
         name: 'Refine',
         review: false,
         codebook: {
@@ -37,24 +56,23 @@ const TranscriptPage = ({ id }: { id: string }) => {
                 });
             }
         },
-        topTranscript: {
-            responses: unseenPostResponse.filter((response) => response.type === 'Human'),
-            dispatchFunction: (...args: any) => {
-                console.log('Dispatching to Refine (top transcript):', args);
-                dispatchUnseenPostResponse({
-                    ...args[0],
-                    responseType: 'Human'
-                });
-            },
-            conflicts: []
-        },
+        topTranscript: null,
         bottomTranscript: {
             responses: unseenPostResponse.filter((response) => response.type === 'Human'),
             dispatchFunction: (...args: any) => {
-                console.log('Dispatching to Refine (bottom transcript):', args);
+                console.log('Dispatching to Refine:', args);
+                let value =
+                    args[0].type === 'ADD_RESPONSE'
+                        ? {
+                              type: 'ADD_RESPONSE',
+                              response: {
+                                  ...args[0].response,
+                                  type: 'Human'
+                              }
+                          }
+                        : { ...args[0] };
                 dispatchUnseenPostResponse({
-                    ...args[0],
-                    responseType: 'Human'
+                    ...value
                 });
             },
             conflicts: []
@@ -64,7 +82,6 @@ const TranscriptPage = ({ id }: { id: string }) => {
     const [post, setPost] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [showCodebook, setShowCodebook] = useState(false);
-
     const [activeTranscript, setActiveTranscript] = useState<'top' | 'bottom' | null>('bottom');
     const [selectedText, setSelectedText] = useState<string | null>(null);
 
@@ -144,129 +161,89 @@ const TranscriptPage = ({ id }: { id: string }) => {
     }
 
     return (
-        <div className="h-full w-full flex flex-col">
-            <div className="flex-1 overflow-auto">
-                <div className="flex flex-col h-full">
-                    <TopToolbar
-                        selectedPost={post}
+        <div className="h-full w-full flex flex-col min-h-0">
+            <div className="flex flex-col flex-1 min-h-0">
+                <TopToolbar
+                    selectedPost={post}
+                    setIsAddCodeModalOpen={setIsAddCodeModalOpen}
+                    setIsEditCodeModalOpen={setIsEditCodeModalOpen}
+                    setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
+                    setIsHighlightModalOpen={setIsHighlightModalOpen}
+                    setIsEditHighlightCodeModalOpen={setIsEditHighlightModalOpen}
+                    setIsDeleteHighlightCodeModalOpen={setDeleteIsHighlightModalOpen}
+                    showCodebookButton={true}
+                    showCodebook={showCodebook}
+                    activeTranscript={'human'}
+                    onShowCodebook={() => {
+                        setShowCodebook((prev) => !prev);
+                    }}
+                />
+
+                {showCodebook && (
+                    <div
+                        className="h-2/5 max-h-2/5 overflow-auto min-h-0"
+                        onClick={(e) => handleSetActiveTranscript(e, null)}>
+                        <div
+                            className={`p-4 m-4 ${
+                                activeTranscript === 'top'
+                                    ? 'border-4 border-blue-500 rounded-md'
+                                    : 'border border-gray-200 rounded-md'
+                            }`}
+                            onClick={(e) => handleSetActiveTranscript(e, 'top')}>
+                            <div className="">
+                                <ValidationTable
+                                    dispatchCodeResponses={
+                                        currentConfig?.codebook?.dispatchFunction as any
+                                    }
+                                    codeResponses={currentConfig?.codebook?.responses ?? []}
+                                    onViewTranscript={() => {}}
+                                    review
+                                    onReRunCoding={() => {}}
+                                    onUpdateResponses={
+                                        currentConfig?.codebook?.dispatchFunction as any
+                                    }
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div
+                    className={`${showCodebook ? '' : 'h-full'} flex-1 overflow-auto min-h-0 p-4 m-4 ${
+                        activeTranscript === 'bottom'
+                            ? 'border-4 border-blue-500 rounded-md'
+                            : 'border border-gray-200 rounded-md'
+                    }`}
+                    onClick={(e) => handleSetActiveTranscript(e, 'bottom')}>
+                    <PostTranscript
+                        post={post}
+                        onBack={onBack}
+                        review={currentConfig.review}
+                        codeResponses={currentConfig.bottomTranscript.responses ?? []}
+                        isActive={true}
+                        extraCodes={Array.from(
+                            new Set(currentConfig.codebook?.responses.map((r) => r.code))
+                        )}
+                        dispatchCodeResponse={currentConfig.bottomTranscript.dispatchFunction}
+                        conflictingCodes={currentConfig.bottomTranscript.conflicts}
+                        selectedText={selectedText}
+                        setSelectedText={setSelectedText}
+                        isAddCodeModalOpen={isAddCodeModalOpen}
+                        isEditCodeModalOpen={isEditCodeModalOpen}
+                        isDeleteCodeModalOpen={isDeleteCodeModalOpen}
+                        isHighlightModalOpen={isHighlightModalOpen}
+                        isEditHighlightModalOpen={isEditHighlightModalOpen}
+                        isDeleteHighlightModalOpen={isDeleteHighlightModalOpen}
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}
                         setIsEditCodeModalOpen={setIsEditCodeModalOpen}
                         setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
                         setIsHighlightModalOpen={setIsHighlightModalOpen}
-                        setIsEditHighlightCodeModalOpen={setIsEditHighlightModalOpen}
-                        setIsDeleteHighlightCodeModalOpen={setDeleteIsHighlightModalOpen}
-                        showCodebookButton={true}
-                        showCodebook={showCodebook}
-                        activeTranscript={
-                            'human'
-                            // activeTranscript === 'top'
-                            //     ? 'human'
-                            //     : activeTranscript === 'bottom'
-                            //       ? 'llm'
-                            //       : null
-                        }
-                        onShowCodebook={() => {
-                            // setActiveTranscript(null);
-                            setShowCodebook((prev) => !prev);
-                        }}
+                        setIsEditHighlightModalOpen={setIsEditHighlightModalOpen}
+                        setDeleteIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
                     />
-                    {/* 
-                    <div
-                        className={`'h-full flex flex-col`}
-                        onClick={(e) => handleSetActiveTranscript(e, null)}>
-                        <div
-                            className={`h-1/2 overflow-auto 
-                                    
-            p-4 m-4
-            ${
-                activeTranscript === 'top'
-                    ? 'border-4 border-blue-500 rounded-md'
-                    : 'border border-gray-200 rounded-md'
-            }
-                                `}
-                            onClick={(e) => handleSetActiveTranscript(e, 'top')}>
-                            {showCodebook ? (
-                                <>
-                                    <ValidationTable
-                                        dispatchCodeResponses={
-                                            currentConfig?.codebook?.dispatchFunction as any
-                                        }
-                                        codeResponses={currentConfig?.codebook?.responses ?? []}
-                                        onViewTranscript={() => {}}
-                                        review
-                                        // showThemes
-                                        onReRunCoding={() => {}}
-                                        onUpdateResponses={
-                                            currentConfig?.codebook?.dispatchFunction as any
-                                        }
-                                    />
-                                </>
-                            ) : (
-                                <PostTranscript
-                                    post={post}
-                                    onBack={() => window.history.back()}
-                                    codeResponses={currentConfig?.topTranscript?.responses ?? []}
-                                    isActive={activeTranscript === 'top'}
-                                    dispatchCodeResponse={
-                                        currentConfig?.topTranscript?.dispatchFunction as any
-                                    }
-                                    conflictingCodes={currentConfig?.topTranscript?.conflicts}
-                                    review={false}
-                                    selectedText={selectedText}
-                                    setSelectedText={setSelectedText}
-                                    isAddCodeModalOpen={isAddCodeModalOpen}
-                                    isEditCodeModalOpen={isEditCodeModalOpen}
-                                    isDeleteCodeModalOpen={isDeleteCodeModalOpen}
-                                    isHighlightModalOpen={isHighlightModalOpen}
-                                    isEditHighlightModalOpen={isEditHighlightModalOpen}
-                                    isDeleteHighlightModalOpen={isDeleteHighlightModalOpen}
-                                    setIsAddCodeModalOpen={setIsAddCodeModalOpen}
-                                    setIsEditCodeModalOpen={setIsEditCodeModalOpen}
-                                    setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
-                                    setIsHighlightModalOpen={setIsHighlightModalOpen}
-                                    setIsEditHighlightModalOpen={setIsEditHighlightModalOpen}
-                                    setDeleteIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
-                                />
-                            )}
-                        </div> */}
-
-                    <div
-                        className={`h-full overflow-auto 
-            p-4 m-4
-            ${
-                activeTranscript === 'bottom'
-                    ? 'border-4 border-blue-500 rounded-md'
-                    : 'border border-gray-200 rounded-md'
-            }`}
-                        onClick={(e) => handleSetActiveTranscript(e, 'bottom')}>
-                        <PostTranscript
-                            post={post}
-                            onBack={() => window.history.back()}
-                            review={currentConfig.review}
-                            codeResponses={currentConfig.bottomTranscript.responses ?? []}
-                            isActive={true}
-                            dispatchCodeResponse={currentConfig.bottomTranscript.dispatchFunction}
-                            conflictingCodes={currentConfig.bottomTranscript.conflicts}
-                            selectedText={selectedText}
-                            setSelectedText={setSelectedText}
-                            isAddCodeModalOpen={isAddCodeModalOpen}
-                            isEditCodeModalOpen={isEditCodeModalOpen}
-                            isDeleteCodeModalOpen={isDeleteCodeModalOpen}
-                            isHighlightModalOpen={isHighlightModalOpen}
-                            isEditHighlightModalOpen={isEditHighlightModalOpen}
-                            isDeleteHighlightModalOpen={isDeleteHighlightModalOpen}
-                            setIsAddCodeModalOpen={setIsAddCodeModalOpen}
-                            setIsEditCodeModalOpen={setIsEditCodeModalOpen}
-                            setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
-                            setIsHighlightModalOpen={setIsHighlightModalOpen}
-                            setIsEditHighlightModalOpen={setIsEditHighlightModalOpen}
-                            setDeleteIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
-                        />
-                    </div>
                 </div>
             </div>
         </div>
-        // </div>
     );
 };
 

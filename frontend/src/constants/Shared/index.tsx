@@ -54,3 +54,8 @@ export const RouteIcons: Record<string, JSX.Element> = {
         </span>
     )
 };
+
+export enum TooltipMessages {
+    Previous = 'Go back to the previous page',
+    Next = 'Proceed to the next page'
+}

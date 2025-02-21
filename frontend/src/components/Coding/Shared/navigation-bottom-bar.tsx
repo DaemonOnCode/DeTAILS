@@ -1,7 +1,7 @@
 import { FC } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { NavigationBottomBarProps } from '../../../types/Coding/props';
-import { Link } from 'react-router-dom';
+import { TooltipMessages } from '../../../constants/Shared';
 
 const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     isReady,
@@ -13,11 +13,11 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
 }) => {
     const navigate = useNavigate();
 
-    // console.log('Previous page:', previousPage, '/coding/' + previousPage || '');
     return (
         <div className="flex justify-between mt-6">
             <Link
                 to={'/coding/' + previousPage || ''}
+                title={TooltipMessages.Previous}
                 className={`${
                     previousPage === undefined && 'invisible'
                 } px-2 lg:px-4 py-2 rounded transition duration-200 bg-blue-500 text-white hover:bg-blue-600`}
@@ -30,6 +30,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
             {nextPage && (
                 <Link
                     to={'/coding/' + nextPage}
+                    title={TooltipMessages.Next}
                     className={`px-2 lg:px-4 py-2 rounded transition duration-200 ${
                         isReady
                             ? 'bg-green-500 text-white hover:bg-green-600'

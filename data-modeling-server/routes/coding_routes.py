@@ -57,7 +57,7 @@ async def build_context_from_interests_endpoint(
 
     # Create retriever from vector store
     await manager.broadcast(f"Dataset {dataset_id}: Creating retriever...")
-    retriever = vector_store.as_retriever()
+    retriever = vector_store.as_retriever(search_kwargs={'k': 20})
 
     # Build input for LLM
     input_text = ContextPrompt.context_builder(mainTopic, researchQuestions, additionalInfo)
@@ -97,7 +97,7 @@ async def regenerate_keywords_endpoint(
     llm, embeddings = get_llm_and_embeddings(request.model, settings=settings)
 
     vector_store = initialize_vector_store(dataset_id, request.model, embeddings)
-    retriever = vector_store.as_retriever(search_kwargs={'k': 10})
+    retriever = vector_store.as_retriever(search_kwargs={'k': 30})
 
     parsed_keywords = await process_llm_task(
         dataset_id=dataset_id,

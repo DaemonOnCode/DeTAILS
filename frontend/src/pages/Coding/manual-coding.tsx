@@ -15,7 +15,7 @@ const ManualCodingPage: React.FC = () => {
     const navigate = useNavigate();
     const { unseenPostResponse, dispatchUnseenPostResponse, unseenPostIds } = useCodingContext();
 
-    const [tab, setTab] = useState<'unified' | 'transcript' | 'transcripts'>('unified');
+    const [tab, setTab] = useState<'unified' | 'transcript' | 'transcripts'>('transcripts');
     const [currentId, setCurrentId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -48,15 +48,6 @@ const ManualCodingPage: React.FC = () => {
                         ← <span className="underline">Back to Application</span>
                     </button>
                     <button
-                        onClick={() => setTab('unified')}
-                        className={`px-4 py-2 font-medium text-sm focus:outline-none ${
-                            tab === 'unified'
-                                ? 'border-b-2 border-blue-500 text-blue-500'
-                                : 'text-gray-500 hover:text-blue-500'
-                        }`}>
-                        Split Check
-                    </button>
-                    <button
                         onClick={() => setTab('transcripts')}
                         className={`px-4 py-2 font-medium text-sm focus:outline-none ${
                             tab === 'transcripts'
@@ -74,17 +65,28 @@ const ManualCodingPage: React.FC = () => {
                         }`}>
                         Manual Deductive Coding
                     </button>
+                    <button
+                        onClick={() => setTab('unified')}
+                        className={`px-4 py-2 font-medium text-sm focus:outline-none ${
+                            tab === 'unified'
+                                ? 'border-b-2 border-blue-500 text-blue-500'
+                                : 'text-gray-500 hover:text-blue-500'
+                        }`}>
+                        Split Check
+                    </button>
                 </div>
             </div>
 
             <div className="flex-1 overflow-hidden">
-                {tab === 'unified' && !currentId ? (
+                {tab === 'unified' ? (
                     <UnifiedCodingPage
                         postIds={unseenPostIds}
-                        data={unseenPostResponse.filter((post) => post.type === 'Human')}
+                        data={unseenPostResponse}
                         dispatchFunction={dispatchUnseenPostResponse}
                         split
                         showCodebook
+                        showCoderType
+                        showFilterDropdown
                         manualCoding
                         onPostSelect={(id) => {
                             console.log('Post selected', id);
@@ -97,8 +99,14 @@ const ManualCodingPage: React.FC = () => {
                             }
                         }}
                     />
-                ) : currentId ? (
-                    <TranscriptPage id={currentId} />
+                ) : tab === 'transcript' ? (
+                    <TranscriptPage
+                        id={currentId ?? ''}
+                        onBack={() => {
+                            setCurrentId(null);
+                            setTab('transcripts');
+                        }}
+                    />
                 ) : tab === 'transcripts' ? (
                     <div className="h-full overflow-auto">
                         <TranscriptGrid

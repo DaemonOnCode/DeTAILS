@@ -21,6 +21,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     review,
     isActive = false,
     codeResponses,
+    extraCodes = [],
     dispatchCodeResponse,
     selectedText,
     setSelectedText,
@@ -47,12 +48,19 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     // const { codeResponses, dispatchCodeResponse } = useCodingContext();
 
     const codes = useMemo(() => {
-        return codeResponses
+        const responseCodes = codeResponses
             .filter((r) => r.postId === post.id)
             .map((r) => ({ text: r.quote, code: r.code }));
+        // if (extraCodes) {
+        //     return extraCodes ?? [];
+        // }
+        return responseCodes;
     }, [codeResponses, post.id]);
 
-    const codeSet = useMemo(() => Array.from(new Set(codes.map((c) => c.code))), [codes]);
+    const codeSet = useMemo(
+        () => Array.from(new Set([...codes.map((c) => c.code), ...extraCodes])),
+        [codes]
+    );
 
     const [additionalCodes, setAdditionalCodes] = useState<string[]>([...codeSet]);
 
@@ -340,59 +348,121 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     const processedSegments = useMemo(() => {
         if (!post || !Object.keys(post).length) return [];
 
-        // Flatten out title, selftext, then comments
-        const transcriptArr: {
+        const transcriptFlatMap: {
             id: string;
             text: string;
-            type: 'title' | 'selftext' | 'comment';
+            type: 'title' | 'selftext' | 'comment' | 'reply';
+            parent_id: string | null;
         }[] = [
-            { id: post.id, text: post.title, type: 'title' },
-            { id: post.id, text: post.selftext, type: 'selftext' }
+            { id: post.id, text: post.title, type: 'title', parent_id: null },
+            { id: post.id, text: post.selftext, type: 'selftext', parent_id: null }
         ];
 
-        const gatherComments = (comments: Comments[]) => {
-            comments.forEach((c) => {
-                transcriptArr.push({
-                    id: c.id,
-                    text: c.body,
-                    type: 'comment'
+        const traverseComments = (comments: Comments[], parentId: string | null) => {
+            comments.forEach((comment) => {
+                transcriptFlatMap.push({
+                    id: comment.id,
+                    text: comment.body,
+                    type: 'comment',
+                    parent_id: parentId
                 });
-                if (c.comments?.length) gatherComments(c.comments);
+                traverseComments(comment.comments || [], comment.id);
             });
         };
-        gatherComments(post.comments);
 
-        // For each chunk, break it into segments
-        const segments: Segment[] = [];
-        transcriptArr.forEach((block) => {
-            const segs = splitIntoSegments(block.text).map((line) => ({
+        traverseComments(post.comments, post.id);
+
+        const segments = transcriptFlatMap.flatMap((data) => {
+            const segmentTexts = splitIntoSegments(data.text);
+            return segmentTexts.map((line) => ({
                 line,
-                id: block.id,
-                type: block.type,
-                parent_id: post.id,
+                id: data.id,
+                type: data.type,
+                parent_id: data.parent_id,
                 backgroundColours: [] as string[],
                 relatedCodeText: [] as string[],
-                fullText: line // we can store the entire line as "fullText"
+                fullText: '' as string
             }));
-            segments.push(...segs);
         });
 
-        // Compare segments to codeResponses to see if there's a match
-        segments.forEach((seg) => {
+        segments.forEach((segment) => {
             codes.forEach(({ text, code }) => {
-                // Fuzzy match
-                if (ratio(seg.line, text) >= 90) {
-                    seg.backgroundColours.push(codeColors[code]);
-                    seg.relatedCodeText.push(code);
-                }
+                const segmentedCodeTexts = splitIntoSegments(text);
+                segmentedCodeTexts.forEach((segmentedText) => {
+                    const similarity = ratio(segment.line, segmentedText);
+                    if (similarity >= 90) {
+                        segment.backgroundColours.push(codeColors[code]);
+                        segment.relatedCodeText.push(code);
+                        segment.fullText = text;
+                    }
+                });
             });
-            // De-dup
-            seg.backgroundColours = Array.from(new Set(seg.backgroundColours));
-            seg.relatedCodeText = Array.from(new Set(seg.relatedCodeText));
         });
 
-        return segments;
+        return segments.map((segment) => ({
+            ...segment,
+            backgroundColours: Array.from(new Set(segment.backgroundColours)),
+            relatedCodeText: Array.from(new Set(segment.relatedCodeText))
+        }));
     }, [post, codes, codeColors]);
+
+    // const processedSegments = useMemo(() => {
+    //     if (!post || !Object.keys(post).length) return [];
+
+    //     // Flatten out title, selftext, then comments
+    //     const transcriptArr: {
+    //         id: string;
+    //         text: string;
+    //         type: 'title' | 'selftext' | 'comment';
+    //     }[] = [
+    //         { id: post.id, text: post.title, type: 'title' },
+    //         { id: post.id, text: post.selftext, type: 'selftext' }
+    //     ];
+
+    //     const gatherComments = (comments: Comments[]) => {
+    //         comments.forEach((c) => {
+    //             transcriptArr.push({
+    //                 id: c.id,
+    //                 text: c.body,
+    //                 type: 'comment'
+    //             });
+    //             if (c.comments?.length) gatherComments(c.comments);
+    //         });
+    //     };
+    //     gatherComments(post.comments);
+
+    //     // For each chunk, break it into segments
+    //     const segments: Segment[] = [];
+    //     transcriptArr.forEach((block) => {
+    //         const segs = splitIntoSegments(block.text).map((line) => ({
+    //             line,
+    //             id: block.id,
+    //             type: block.type,
+    //             parent_id: post.id,
+    //             backgroundColours: [] as string[],
+    //             relatedCodeText: [] as string[],
+    //             fullText: line // we can store the entire line as "fullText"
+    //         }));
+    //         segments.push(...segs);
+    //     });
+
+    //     // Compare segments to codeResponses to see if there's a match
+    //     segments.forEach((seg) => {
+    //         codes.forEach(({ text, code }) => {
+    //             // Fuzzy match
+    //             if (ratio(seg.line, text) >= 90) {
+    //                 seg.backgroundColours.push(codeColors[code]);
+    //                 seg.relatedCodeText.push(code);
+    //             }
+    //         });
+    //         // De-dup
+    //         seg.backgroundColours = Array.from(new Set(seg.backgroundColours));
+    //         seg.relatedCodeText = Array.from(new Set(seg.relatedCodeText));
+    //     });
+
+    //     console.log(segments);
+    //     return segments;
+    // }, [post, codes, codeColors]);
 
     useEffect(() => {
         console.log('Selected text:', selectedText);

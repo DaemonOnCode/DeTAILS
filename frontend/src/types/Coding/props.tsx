@@ -193,6 +193,7 @@ export type PostTranscriptProps = {
     review?: boolean;
     isActive?: boolean;
     codeResponses: (IQECTResponse | IQECResponse | IQECTTyResponse)[];
+    extraCodes?: string[];
     dispatchCodeResponse: Dispatch<any>;
     selectedText: string | null;
     setSelectedText: SetState<string | null>;
