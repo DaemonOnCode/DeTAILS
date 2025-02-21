@@ -60,7 +60,7 @@ async def build_context_from_interests_endpoint(
     retriever = vector_store.as_retriever()
 
     # Build input for LLM
-    input_text = ContextPrompt.BACKGROUND_RESEARCH(mainTopic, researchQuestions, additionalInfo)
+    input_text = ContextPrompt.context_builder(mainTopic, researchQuestions, additionalInfo)
 
     parsed_keywords = await process_llm_task(
         dataset_id=dataset_id,
@@ -107,7 +107,7 @@ async def regenerate_keywords_endpoint(
         rag_prompt_builder_func=ContextPrompt.regenerationPromptTemplate, 
         retriever=retriever, 
         llm_instance=llm,
-        input_text=ContextPrompt.refined_BACKGROUND_RESEARCH( 
+        input_text=ContextPrompt.refined_context_builder( 
             request.mainTopic, 
             request.researchQuestions, 
             request.additionalInfo, 
