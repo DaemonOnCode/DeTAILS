@@ -200,7 +200,7 @@ class BaseRepository(Generic[T]):
             raise DeleteError(f"Failed to delete records from table {self.table_name}. Error: {e}")
 
     @handle_db_errors
-    def find(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True) -> List[T] | List[Dict[str, Any]]:
+    def find(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True, order_by: Optional[str] = None) -> List[T] | List[Dict[str, Any]]:
         """
         Finds rows in the table based on filters and selects specific columns using the QueryBuilder.
 
@@ -208,20 +208,24 @@ class BaseRepository(Generic[T]):
         :param columns: List of column names to select (optional). If not provided, selects all columns.
         :return: List of dataclass instances.
         """
+        if order_by:
+            self.query_builder_instance.order_by(**order_by)
         if columns:
             self.query_builder_instance.select(*columns)
         query, params = self.query_builder_instance.find(filters)
         return self.fetch_all(query, params, map_to_model=map_to_model)
     
     @handle_db_errors
-    def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True) -> T | Dict[str, Any] | None:
+    def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True, order_by: Optional[Dict[str, Any]] = None) -> T | Dict[str, Any] | None:
         """
-        Finds rows in the table based on filters and selects specific columns using the QueryBuilder.
+        Finds rows in the table based on filters and selects specific columns using the QueryBuilder.r
 
         :param filters: Dictionary of filter conditions (keys are column names as strings).
         :param columns: List of column names to select (optional). If not provided, selects all columns.
         :return: List of dataclass instances.
         """
+        if order_by:
+            self.query_builder_instance.order_by(**order_by)
         if columns:
             self.query_builder_instance.select(*columns)
         query, params = self.query_builder_instance.find(filters)

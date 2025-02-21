@@ -160,7 +160,7 @@ const BookmarkOverlay: React.FC = () => {
             <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-white shadow-2xl h-12 w-24 rounded-l-full flex items-center pl-2 cursor-pointer"
+                className="bg-white shadow-2xl h-12 w-14 rounded-l-full flex items-center pl-2 cursor-pointer"
                 onClick={toggleOverlay}>
                 <div className="relative">
                     {renderCircularTimer()}
@@ -183,7 +183,7 @@ const BookmarkOverlay: React.FC = () => {
                             damping: 30
                         }}
                         className="absolute top-full right-0 mt-2 bg-white shadow-lg rounded p-4 w-64">
-                        <h3 className="font-bold mb-2">Toasts</h3>
+                        {/* <h3 className="font-bold mb-2">Toasts</h3> */}
                         {toasts.length === 0 && <p className="text-gray-500">No active toasts.</p>}
                         {toasts.map((toast) => (
                             <div key={toast.id} className="mb-2 p-2 border rounded">

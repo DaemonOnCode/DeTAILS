@@ -113,14 +113,16 @@ const FinalPage = () => {
             theme: getThemeByCode(post.code),
             id: post.id
         })),
-        ...unseenPostResponse.map((post) => ({
-            postId: post.postId,
-            quote: post.quote,
-            coded_word: post.code,
-            reasoning: post.explanation,
-            theme: getThemeByCode(post.code),
-            id: post.id
-        }))
+        ...unseenPostResponse
+            // .filter((post) => post.type === 'LLM')
+            .map((post) => ({
+                postId: post.postId,
+                quote: post.quote,
+                coded_word: post.code,
+                reasoning: post.explanation,
+                theme: getThemeByCode(post.code),
+                id: post.id
+            }))
     ];
 
     // Group by postId

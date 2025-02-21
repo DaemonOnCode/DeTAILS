@@ -1,29 +1,32 @@
 import { FC, useEffect, useRef, useState } from 'react';
-import { useCodingContext } from '../../context/coding-context';
-import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
-import { FaTrash } from 'react-icons/fa';
-import { useCollectionContext } from '../../context/collection-context';
-import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useNavigate } from 'react-router-dom';
-import { saveCSV, saveExcel } from '../../utility/convert-js-object';
+import { ToastContainer, toast, ToastContentProps } from 'react-toastify';
+import { FaTrash } from 'react-icons/fa';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
+import { ROUTES } from '../../constants/Coding/shared';
+import { useCodingContext } from '../../context/coding-context';
+import { useCollectionContext } from '../../context/collection-context';
 import { useLogger } from '../../context/logging-context';
+import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import getServerUtils from '../../hooks/Shared/get-server-url';
-import { getCodingLoaderUrl } from '../../utility/get-loader-url';
+import { saveCSV, saveExcel } from '../../utility/convert-js-object';
+import { KeywordEntry } from '../../types/Coding/shared';
+import UndoNotification from '../../components/Shared/undo-toast';
 
 const { ipcRenderer } = window.require('electron');
 
 const KeywordsTablePage: FC = () => {
-    const { keywordTable, dispatchKeywordsTable, mainTopic, additionalInfo } = useCodingContext();
+    const { keywordTable, dispatchKeywordsTable } = useCodingContext();
     const { datasetId } = useCollectionContext();
     const [saving, setSaving] = useState(false);
+
     const navigate = useNavigate();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { getServerUrl } = getServerUtils();
+    const { getServerUrl } = useServerUtils();
 
     const hasSavedRef = useRef(false);
+    const tableContainerRef = useRef<HTMLDivElement>(null);
 
     const handleSaveCsv = async () => {
         await logger.info('Saving KeywordTable as CSV');
@@ -50,7 +53,7 @@ const KeywordsTablePage: FC = () => {
                 hasSavedRef.current = true;
             }
         };
-    }, []);
+    }, [saveWorkspaceData]);
 
     const handleToggleAllSelectOrReject = (isSelect: boolean) => {
         const allAlreadySetTo = keywordTable.every((r) => r.isMarked === isSelect);
@@ -65,6 +68,44 @@ const KeywordsTablePage: FC = () => {
         }
     };
 
+    const handleAddNewRow = () => {
+        dispatchKeywordsTable({ type: 'ADD_ROW' });
+        setTimeout(() => {
+            if (tableContainerRef.current) {
+                tableContainerRef.current.scrollTo({
+                    top: tableContainerRef.current.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }, 500);
+    };
+
+    const handleDeleteRow = (index: number) => {
+        const rowToRemove = keywordTable[index];
+
+        dispatchKeywordsTable({ type: 'DELETE_ROW', index });
+        console.log(rowToRemove, 'row');
+
+        toast.info(<UndoNotification />, {
+            autoClose: 5000,
+            closeButton: false,
+            data: {
+                onUndo: () => handleUndoDelete(rowToRemove, index)
+            },
+            onClose: (closedByUser) => {
+                if (closedByUser) return;
+            }
+        });
+    };
+
+    const handleUndoDelete = (row: KeywordEntry, index: number) => {
+        dispatchKeywordsTable({
+            type: 'UNDO_DELETE_ROW',
+            entry: row,
+            index
+        });
+    };
+
     const isReadyCheck = keywordTable.some((entry) => entry.isMarked === true);
 
     return (
@@ -74,7 +115,8 @@ const KeywordsTablePage: FC = () => {
             </header>
 
             <main className="flex-1 overflow-hidden flex flex-col">
-                <div className="flex-1 overflow-auto">
+                {/* Table container */}
+                <div className="flex-1 overflow-auto" ref={tableContainerRef}>
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-gray-200">
@@ -139,7 +181,10 @@ const KeywordsTablePage: FC = () => {
                                                     type: 'UPDATE_FIELD',
                                                     index,
                                                     field: 'inclusion_criteria',
-                                                    value: e.target.value.split(',')
+                                                    // split on comma, trim spaces
+                                                    value: e.target.value
+                                                        .split(',')
+                                                        .map((v) => v.trim())
                                                 })
                                             }
                                         />
@@ -153,7 +198,9 @@ const KeywordsTablePage: FC = () => {
                                                     type: 'UPDATE_FIELD',
                                                     index,
                                                     field: 'exclusion_criteria',
-                                                    value: e.target.value.split(',')
+                                                    value: e.target.value
+                                                        .split(',')
+                                                        .map((v) => v.trim())
                                                 })
                                             }
                                         />
@@ -200,15 +247,10 @@ const KeywordsTablePage: FC = () => {
                                                 ✕
                                             </button>
 
-                                            {/* Delete Button */}
+                                            {/* Soft-Delete Button (with undo) */}
                                             <button
                                                 className="w-8 h-8 flex items-center justify-center bg-red-600 text-white rounded hover:bg-red-700"
-                                                onClick={() =>
-                                                    dispatchKeywordsTable({
-                                                        type: 'DELETE_ROW',
-                                                        index
-                                                    })
-                                                }>
+                                                onClick={() => handleDeleteRow(index)}>
                                                 <FaTrash />
                                             </button>
                                         </div>
@@ -219,11 +261,11 @@ const KeywordsTablePage: FC = () => {
                     </table>
                 </div>
 
-                {/* Fixed control buttons below the table */}
+                {/* Control buttons below the table */}
                 <div className="mt-3 lg:mt-6 flex justify-evenly">
                     <div className="flex gap-x-4">
                         <button
-                            onClick={() => dispatchKeywordsTable({ type: 'ADD_ROW' })}
+                            onClick={handleAddNewRow}
                             className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
                             Add New Row
                         </button>
@@ -245,7 +287,7 @@ const KeywordsTablePage: FC = () => {
                 </div>
             </main>
 
-            {/* Fixed footer */}
+            {/* Bottom Navigation */}
             <footer className="flex-none">
                 <NavigationBottomBar
                     previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}

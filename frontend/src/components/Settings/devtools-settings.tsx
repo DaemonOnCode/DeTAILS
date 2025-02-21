@@ -17,7 +17,7 @@ const DevtoolsSettings = () => {
     return (
         <div>
             <h2 className="text-2xl font-bold mb-4">DevTools Settings</h2>
-            <div className="mb-4">
+            {/* <div className="mb-4">
                 <label className="flex items-center space-x-2">
                     <input
                         type="checkbox"
@@ -36,7 +36,7 @@ const DevtoolsSettings = () => {
                     />
                     <span>Enable Remote Debugging</span>
                 </label>
-            </div>
+            </div> */}
         </div>
     );
 };

@@ -28,9 +28,11 @@ const IGNORED_KEYWORDS = [
     SHARED_ROUTES.CLEANING,
     SHARED_ROUTES.DATA_COLLECTION,
     SHARED_ROUTES.DATA_MODELING,
-    // SHARED_ROUTES.SETTINGS,
-    CODING_ROUTES.TRANSCRIPT
-    // CODING_ROUTES.MANUAL_CODING
+    SHARED_ROUTES.SETTINGS,
+    CODING_ROUTES.TRANSCRIPT,
+    CODING_ROUTES.TRANSCRIPTS,
+    CODING_ROUTES.MANUAL_CODING,
+    SHARED_ROUTES.AUTHENTICATED_SETTINGS
 ];
 
 interface SidebarProps {
@@ -89,7 +91,9 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                     return (
                         <li key={idx} className="mb-2">
                             <div className="flex justify-between items-center w-full">
-                                <div className="flex justify-start items-center w-full">
+                                <div
+                                    className="flex justify-start items-center w-full"
+                                    title={`Go to ${formatRouteName(route.path || '')}`}>
                                     {RouteIcons[route.path ?? '']
                                         ? RouteIcons[route.path ?? '']
                                         : null}
@@ -133,7 +137,10 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                 }
 
                 return (
-                    <li key={idx} className="mb-2">
+                    <li
+                        key={idx}
+                        className="mb-2"
+                        title={`Go to ${formatRouteName(route.path || '')}`}>
                         <Link
                             to={fullPath}
                             state={{ from: location.pathname }}
@@ -193,7 +200,13 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                                         <ul className="text-gray-800  responsive-text">
                                             <li
                                                 className="px-4 py-2 border-b"
-                                                onClick={() => navigate(SHARED_ROUTES.SETTINGS)}>
+                                                onClick={() =>
+                                                    navigate(SHARED_ROUTES.AUTHENTICATED_SETTINGS, {
+                                                        state: {
+                                                            from: location.pathname
+                                                        }
+                                                    })
+                                                }>
                                                 Settings
                                             </li>
                                             <li
@@ -216,6 +229,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                     onClick={onToggleCollapse}
                     className="text-white p-2 lg:p-3 rounded-full bg-blue-500 hover:bg-blue-700 transition-transform">
                     <p
+                        title={isCollapsed ? 'Open sidebar' : 'Collapse sidebar'}
                         className={`text:base lg:text-2xl transform transition-transform ${
                             isCollapsed ? 'rotate-180' : 'rotate-0'
                         }`}>

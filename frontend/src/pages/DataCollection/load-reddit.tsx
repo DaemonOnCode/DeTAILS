@@ -17,7 +17,7 @@ const LoadReddit: FC = () => {
     const { getServerUrl } = useServerUtils();
 
     // New state for tab system and torrent inputs
-    const [activeTab, setActiveTab] = useState<'folder' | 'url' | 'torrent'>('folder');
+    const [activeTab, setActiveTab] = useState<'folder' | 'torrent'>('folder');
     const [torrentSubreddit, setTorrentSubreddit] = useState('');
     const [torrentStart, setTorrentStart] = useState('');
     const [torrentEnd, setTorrentEnd] = useState('');
@@ -98,13 +98,13 @@ const LoadReddit: FC = () => {
                     onClick={() => setActiveTab('folder')}>
                     Local Folder
                 </button>
-                <button
+                {/* <button
                     className={`px-4 py-2 rounded ${
                         activeTab === 'url' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
                     }`}
                     onClick={() => setActiveTab('url')}>
                     URL
-                </button>
+                </button> */}
                 <button
                     className={`px-4 py-2 rounded ${
                         activeTab === 'torrent'
@@ -132,7 +132,7 @@ const LoadReddit: FC = () => {
                         </div>
                     </div>
                 )}
-
+                {/* 
                 {activeTab === 'url' && (
                     <div>
                         <input
@@ -143,7 +143,7 @@ const LoadReddit: FC = () => {
                             className="p-2 border border-gray-300 rounded w-96"
                         />
                     </div>
-                )}
+                )} */}
 
                 {activeTab === 'torrent' && (
                     <div>

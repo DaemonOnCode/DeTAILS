@@ -104,6 +104,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     >([]);
 
     const handleSegmentDoubleClick = (segment: Segment) => {
+        if (review) return;
         console.log(segment, 'segment');
 
         const foundExplanations: {

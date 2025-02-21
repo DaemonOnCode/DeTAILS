@@ -181,16 +181,19 @@ const keywordTableReducer = (
                     : entry
             );
         case 'ADD_ROW':
-            return [
-                ...state,
-                {
-                    word: '',
-                    description: '',
-                    codes: [],
-                    inclusion_criteria: [],
-                    exclusion_criteria: []
-                }
-            ];
+            let newRow: KeywordEntry = {
+                word: '',
+                description: '',
+                codes: [],
+                inclusion_criteria: [],
+                exclusion_criteria: []
+            };
+            if (action.entry) {
+                newRow = action.entry;
+            }
+            return [...state, newRow];
+        case 'UNDO_DELETE_ROW':
+            return state.splice(action.index, 0, action.entry);
         case 'DELETE_ROW':
             return state.filter((_, i) => i !== action.index);
         default:

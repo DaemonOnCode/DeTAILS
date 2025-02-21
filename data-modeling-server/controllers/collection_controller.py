@@ -31,31 +31,25 @@ def create_dataset(description: str, dataset_id: str = None, workspace_id: str =
     return dataset_id
 
 def list_datasets():
-    """Retrieve all datasets."""
     return dataset_repo.find()
 
 def update_dataset(dataset_id: str, **kwargs):
-    """Update a dataset."""
     dataset_repo.update({"id": dataset_id}, kwargs)
     return {"message": "Dataset updated successfully"}
 
 def delete_dataset(dataset_id: str):
-    """Delete a dataset."""
     dataset_repo.delete({"id": dataset_id})
     return {"message": "Dataset deleted successfully"}
 
 def get_reddit_posts_by_batch(dataset_id: str, batch: int, offset: int, all: bool):
-    """Retrieve Reddit posts from a dataset in batches."""
     if all:
-        return post_repo.find({"dataset_id": dataset_id})
-    return post_repo.find({"dataset_id": dataset_id}, limit=batch, offset=offset)
+        return post_repo.find({"dataset_id": dataset_id}, order_by={"column":"created_utc"})
+    return post_repo.find({"dataset_id": dataset_id}, limit=batch, offset=offset, order_by={"column":"created_utc"})
 
 def get_reddit_post_titles(dataset_id: str):
-    """Get Reddit post titles from a dataset."""
     return post_repo.find({"dataset_id": dataset_id}, columns=["id", "title"])
 
 def get_reddit_post_by_id(dataset_id: str, post_id: str):
-    """Retrieve a specific Reddit post and its comments."""
     post = post_repo.find({"dataset_id": dataset_id, "id": post_id})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -64,7 +58,6 @@ def get_reddit_post_by_id(dataset_id: str, post_id: str):
     return {**post[0], "comments": comments}
 
 def get_comments_recursive(post_id: str, dataset_id: str):
-    """Fetch comments recursively for a given Reddit post."""
     comments = comment_repo.find({"post_id": post_id, "dataset_id": dataset_id}, map_to_model=False)
 
     comment_map = {comment["id"]: comment for comment in comments}
@@ -80,7 +73,6 @@ def get_comments_recursive(post_id: str, dataset_id: str):
 
 
 async def upload_dataset_file(file: UploadFile, dataset_id: str) -> str:
-    """Save an uploaded dataset file."""
     if not file.filename.endswith(".json"):
         raise HTTPException(status_code=400, detail="Only JSON files are allowed.")
     
@@ -93,7 +85,6 @@ async def upload_dataset_file(file: UploadFile, dataset_id: str) -> str:
     return file_path
 
 async def stream_upload_file(file: UploadFile) -> dict:
-    """Stream and save an uploaded file in chunks."""
     filename = f"{uuid4().hex}_{file.filename}"
     file_path = os.path.join(UPLOAD_DIR, filename)
 
@@ -138,16 +129,12 @@ async def stream_upload_file(file: UploadFile) -> dict:
 
 
 def omit_first_if_matches_structure(data: list) -> list:
-    """
-    Omit the first element in a list if it doesn't match the expected structure.
-    """
     if data and isinstance(data[0], dict) and "id" not in data[0]:
         return data[1:]
     return data
 
 
 def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: dict[str,datetime] = None):
-    """Parse Reddit JSON files and insert into DB."""
     dataset_path = dataset_path or f"datasets/{dataset_id}"
     post_files = [f for f in os.listdir(dataset_path) if f.startswith("RS") and f.endswith(".json")]
     comment_files = [f for f in os.listdir(dataset_path) if f.startswith("RC") and f.endswith(".json")]
@@ -231,9 +218,6 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
     return {"message": "Reddit dataset parsed successfully"}
 
 async def run_command_async(command: str) -> str:
-    """
-    Runs a shell command asynchronously and returns its stdout as a string.
-    """
     process = await asyncio.create_subprocess_shell(
         command,
         stdout=asyncio.subprocess.PIPE,

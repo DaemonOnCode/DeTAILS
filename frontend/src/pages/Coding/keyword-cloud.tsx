@@ -3,7 +3,7 @@ import { LOADER_ROUTES, ROUTES, WORD_CLOUD_MIN_THRESHOLD } from '../../constants
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import KeywordCloud from '../../components/Coding/KeywordCloud/cloud';
 import { useLogger } from '../../context/logging-context';
-import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES, TooltipMessages } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding-context';
 import { useNavigate } from 'react-router-dom';
@@ -224,18 +224,21 @@ const KeywordCloudPage: FC = () => {
                 <div className="absolute bottom-0 right-0 flex flex-col gap-y-4">
                     {!allSelected ? (
                         <button
+                            title={TooltipMessages.SelectAll}
                             onClick={() => handleSelectAll(true)}
                             className="bg-green-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-green-600 my-1 md:my-2 lg:text-base text-xs">
                             Select All
                         </button>
                     ) : (
                         <button
+                            title={TooltipMessages.DeselectAll}
                             onClick={() => handleSelectAll(false)}
                             className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs">
                             Unselect All
                         </button>
                     )}
                     <button
+                        title={TooltipMessages.RefreshKeywords}
                         onClick={refreshKeywords}
                         className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
                         <span className="h-6 w-6">

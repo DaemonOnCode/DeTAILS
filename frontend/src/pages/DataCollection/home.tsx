@@ -68,13 +68,13 @@ const HomePage = () => {
                 />
 
                 {/* Online Sources */}
-                <Card
+                {/* <Card
                     title="Interview Transcripts"
                     description="Retrieve interview transcripts from folder."
                     buttonText="Retrieve Interviews"
                     buttonColor="bg-blue-500 hover:bg-blue-600"
                     onButtonClick={handleInterviewImport}
-                />
+                /> */}
 
                 {/* Import CSV */}
                 {/* <Card

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, FC } from 'react';
 import { IKeywordBox } from '../../../types/Coding/shared';
 import { KeywordCloudProps } from '../../../types/Coding/props';
 import { FiEdit, FiTrash2 } from 'react-icons/fi';
+import UndoNotification from '../../Shared/undo-toast';
+import { toast } from 'react-toastify';
 
 const MAIN_TOPIC_FONT_SIZE = 20;
 const OTHER_KEYWORD_FONT_SIZE = 14;
@@ -100,6 +102,19 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
 
     const handleDelete = (word: string) => {
         setKeywords((prev) => prev.filter((w) => w !== word));
+
+        toast.info(<UndoNotification />, {
+            autoClose: 5000,
+            closeButton: false,
+            data: {
+                onUndo: () => {
+                    setKeywords((prev) => [...prev, word]);
+                }
+            },
+            onClose: (closedByUser) => {
+                if (closedByUser) return;
+            }
+        });
     };
 
     // Update a keyword’s position in state.

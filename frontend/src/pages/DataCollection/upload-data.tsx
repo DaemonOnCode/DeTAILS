@@ -85,7 +85,7 @@ const UploadDataPage = () => {
 
         dispatchSampledPostResponse({
             type: 'SET_RESPONSES',
-            responses: results['data']
+            responses: results['data'].map((response: any) => ({ ...response, isMarked: true }))
         });
     };
 

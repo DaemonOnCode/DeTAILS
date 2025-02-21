@@ -12,7 +12,7 @@ const WorkspaceSettings = () => {
     return (
         <div>
             <h2 className="text-2xl font-bold mb-4">Workspace Settings</h2>
-            <div className="mb-4">
+            {/* <div className="mb-4">
                 <label className="mr-2">Layout:</label>
                 <select
                     value={workspace.layout}
@@ -21,7 +21,7 @@ const WorkspaceSettings = () => {
                     <option value="grid">Grid</option>
                     <option value="list">List</option>
                 </select>
-            </div>
+            </div> */}
         </div>
     );
 };

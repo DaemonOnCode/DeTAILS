@@ -12,7 +12,7 @@ const GeneralSettings = () => {
     return (
         <div>
             <h2 className="text-2xl font-bold mb-4">General Settings</h2>
-            <div className="mb-4">
+            {/* <div className="mb-4">
                 <label className="mr-2">Theme:</label>
                 <select
                     value={general.theme}
@@ -21,8 +21,7 @@ const GeneralSettings = () => {
                     <option value="light">Light</option>
                     <option value="dark">Dark</option>
                 </select>
-            </div>
-            {/* Add more general settings fields here */}
+            </div> */}
         </div>
     );
 };

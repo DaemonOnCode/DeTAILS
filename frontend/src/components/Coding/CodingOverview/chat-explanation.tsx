@@ -13,7 +13,7 @@ interface ChatExplanationProps {
     };
     postId: string;
     datasetId: string;
-    dispatchFunction: (action: any) => void; // We'll call this to update the context
+    dispatchFunction: (action: any) => void;
     existingChatHistory: ChatMessage[];
 }
 
@@ -24,7 +24,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     dispatchFunction,
     existingChatHistory
 }) => {
-    // 1) The initial message from LLM
     const initialMsg: ChatMessage = {
         id: 1,
         text: initialExplanationWithCode.explanation,
@@ -43,7 +42,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});
     const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
 
-    // 2) Helper to push the entire conversation to the context
     const updateMessagesAndStore = (updatedMsgs: ChatMessage[]) => {
         setMessages(updatedMsgs);
         dispatchFunction({
@@ -59,9 +57,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
 
     // We allow reaction if no prior reaction was chosen, and it's the last or next is thinking
     const isReactionEditable = (msg: ChatMessage, i: number): boolean => {
-        // If you want them to keep toggling even after setting a reaction, remove this line:
-        // if (msg.reaction !== undefined) return false;
-
         if (i === messages.length - 1) return true;
         const nextMsg = messages[i + 1];
         return !!(nextMsg && (nextMsg.isThinking || nextMsg.isEditable));
@@ -70,7 +65,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     // Build a simple chat history string
     const computeChatHistory = () => messages.map((m) => `${m.sender}: ${m.text}`);
 
-    // 3) When user sends a new comment
     const handleSendComment = async (messageId: number) => {
         const comment = editableInputs[messageId]?.trim();
         if (!comment) return;
@@ -293,7 +287,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     {msg.isEditable ? (
                         <textarea
                             className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            placeholder="Add your comment..."
+                            placeholder="Give feedback to LLM..."
                             value={editableInputs[msg.id] || ''}
                             onChange={(e) =>
                                 setEditableInputs((prev) => ({

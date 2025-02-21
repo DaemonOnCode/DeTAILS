@@ -1,5 +1,6 @@
 import { FC } from 'react';
 import { PaginationControlsProps } from '../../types/Coding/props';
+import { TooltipMessages } from '../../constants/Shared';
 
 const PaginationControls: FC<PaginationControlsProps> = ({
     currentPage,
@@ -10,6 +11,7 @@ const PaginationControls: FC<PaginationControlsProps> = ({
     <div className="flex justify-between mt-4">
         <button
             onClick={onPrevious}
+            title={TooltipMessages.Previous}
             disabled={currentPage === 1}
             className={`px-4 py-2 rounded ${
                 currentPage === 1
@@ -23,6 +25,7 @@ const PaginationControls: FC<PaginationControlsProps> = ({
         </span>
         <button
             onClick={onNext}
+            title={TooltipMessages.Next}
             disabled={currentPage === totalPages}
             className={`px-4 py-2 rounded ${
                 currentPage === totalPages

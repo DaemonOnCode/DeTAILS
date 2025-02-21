@@ -105,6 +105,7 @@ const CodebookCreation = () => {
             type: 'SET_RESPONSES',
             responses: results['data'].map((response) => ({
                 ...response,
+                isMarked: true,
                 type: 'LLM',
                 comment: '',
                 theme: ''

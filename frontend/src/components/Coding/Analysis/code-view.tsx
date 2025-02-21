@@ -62,7 +62,7 @@ const CodeView = ({
                                     Unique Posts Count
                                 </th>
                                 <th className="p-2 border border-gray-400 bg-gray-200">
-                                    Total Code Count
+                                    Unique Codes Count
                                 </th>
                                 <th className="p-2 border border-gray-400 bg-gray-200">
                                     Total Quote Count

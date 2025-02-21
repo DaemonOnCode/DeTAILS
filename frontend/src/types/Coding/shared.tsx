@@ -238,11 +238,12 @@ export type KeywordsTableAction =
     | { type: 'ADD_MANY'; entries: KeywordEntry[] }
     | { type: 'UPDATE_FIELD'; index: number; field: keyof KeywordEntry; value: string | string[] }
     | { type: 'TOGGLE_MARK'; index: number; isMarked?: boolean }
-    | { type: 'ADD_ROW' }
+    | { type: 'ADD_ROW'; entry?: KeywordEntry }
     | { type: 'DELETE_ROW'; index: number }
     | { type: 'SET_ALL_CORRECT' }
     | { type: 'SET_ALL_INCORRECT' }
-    | { type: 'SET_ALL_UNMARKED' };
+    | { type: 'SET_ALL_UNMARKED' }
+    | { type: 'UNDO_DELETE_ROW'; entry: KeywordEntry; index: number };
 
 export type BaseResponseHandlerActions<T> =
     | { type: 'SET_CORRECT'; index: number }

@@ -72,17 +72,7 @@ I need a structured list of 20 keywords with coding guidelines to establish cont
 Return exactly 20 keywords in the following JSON format:
 
 ```json
-{{
-  "keywords": [
-    {{
-      "word": "ExtractedKeyword",
-      "description": "Explanation of the word and its relevance to the main topic and additional information.",
-      "inclusion_criteria": ["Criteria 1", "Criteria 2", "..."],
-      "exclusion_criteria": ["Criteria 1", "Criteria 2", "..."]
-    }},
-    ...
-  ]
-}}
+{ContextPrompt.keyword_json_template}
 ```
 Important:
 - Only return the JSON object—no explanations, summaries, or additional text.
@@ -166,17 +156,7 @@ Instructions:
 
 Output Format:
 ```json
-{{
-  "keywords": [
-    {{
-      "word": "RefinedKeyword",
-      "description": "Updated explanation...",
-      "inclusion_criteria": ["Criteria 1", "Criteria 2"],
-      "exclusion_criteria": ["Criteria 1", "Criteria 2"]
-    }},
-    ...
-  ]
-}}
+{ContextPrompt.keyword_json_template}
 ```
 
 Proceed with the refinement.

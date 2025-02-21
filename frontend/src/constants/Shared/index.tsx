@@ -56,6 +56,11 @@ export const RouteIcons: Record<string, JSX.Element> = {
 };
 
 export enum TooltipMessages {
+    PreviousStep = 'Go back to the previous step',
+    NextStep = 'Proceed to the next step',
     Previous = 'Go back to the previous page',
-    Next = 'Proceed to the next page'
+    Next = 'Proceed to the next page',
+    SelectAll = 'Select all items',
+    DeselectAll = 'Unselect all items',
+    RefreshKeywords = 'Let the LLM generate new keywords'
 }
