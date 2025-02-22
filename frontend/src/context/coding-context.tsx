@@ -193,7 +193,7 @@ const keywordTableReducer = (
             }
             return [...state, newRow];
         case 'UNDO_DELETE_ROW':
-            return state.splice(action.index, 0, action.entry);
+            return [...state.splice(action.index, 0, action.entry)];
         case 'DELETE_ROW':
             return state.filter((_, i) => i !== action.index);
         default:
@@ -252,7 +252,7 @@ function baseResponseHandler<T>(
             );
             return [...newResponses];
         case 'ADD_RESPONSES':
-            newResponses = action.responses.filter(
+            newResponses = (action.responses ?? []).filter(
                 (response: any) => response.code?.trim() !== '' && response.quote?.trim() !== ''
             );
             return [...state, ...newResponses];

@@ -5,6 +5,7 @@ import { ROUTES } from '../../constants/DataCollection/shared';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { useCollectionContext } from '../../context/collection-context';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 
 const HomePage = () => {
     const navigate = useNavigate();
@@ -52,12 +53,12 @@ const HomePage = () => {
     }, []);
 
     return (
-        <div className="bg-white text-gray-800 h-full flex flex-col items-center p-6 space-y-8">
+        <div className="bg-white text-gray-800 h-page flex flex-col items-center space-y-8 w-full">
             {/* Header */}
             <h1 className="text-4xl font-bold text-center">Data Import & Retrieval Tool</h1>
 
             {/* Cards Container */}
-            <div className="flex justify-center items-center flex-wrap gap-8 w-full max-w-screen-sm lg:max-w-screen-xl">
+            <div className="flex flex-1 justify-center items-start flex-wrap gap-8 w-full max-w-screen-sm lg:max-w-screen-xl">
                 {/* Online Sources */}
                 <Card
                     title="Online Sources"
@@ -94,6 +95,12 @@ const HomePage = () => {
                     onButtonClick={handleModelImport}
                 /> */}
             </div>
+
+            <footer className="w-full">
+                <NavigationBottomBar
+                    previousPage={`${CODING_ROUTES.BACKGROUND_RESEARCH}/${CODING_ROUTES.KEYWORD_TABLE}`}
+                />
+            </footer>
         </div>
     );
 };

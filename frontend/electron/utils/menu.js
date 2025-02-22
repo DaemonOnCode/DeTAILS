@@ -65,18 +65,18 @@ const menuTemplate = (state) => {
                 { label: 'Exit', role: 'quit' }
             ]
         },
-        // {
-        //     label: 'Edit',
-        //     submenu: [
-        //         { role: 'undo' },
-        //         { role: 'redo' },
-        //         { type: 'separator' },
-        //         { role: 'cut' },
-        //         { role: 'copy' },
-        //         { role: 'paste' },
-        //         { role: 'selectAll' }
-        //     ]
-        // },
+        {
+            label: 'Edit',
+            submenu: [
+                { label: 'Undo', accelerator: 'CmdOrCtrl+Z', selector: 'undo:' },
+                { label: 'Redo', accelerator: 'Shift+CmdOrCtrl+Z', selector: 'redo:' },
+                { type: 'separator' },
+                { label: 'Cut', accelerator: 'CmdOrCtrl+X', selector: 'cut:' },
+                { label: 'Copy', accelerator: 'CmdOrCtrl+C', selector: 'copy:' },
+                { label: 'Paste', accelerator: 'CmdOrCtrl+V', selector: 'paste:' },
+                { label: 'Select All', accelerator: 'CmdOrCtrl+A', selector: 'selectAll:' }
+            ]
+        },
         {
             label: 'View',
             submenu: [

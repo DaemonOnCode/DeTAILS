@@ -18,7 +18,7 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({
     const [isHovered, setIsHovered] = useState(false);
 
     if (segment.backgroundColours.length === 0) {
-        return <span>{segment.line} </span>;
+        return <span className="relative z-10">{segment.line} </span>;
     }
 
     return (
@@ -66,7 +66,7 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({
                             top: `${verticalOffset}px`,
                             left: 0,
                             right: 0,
-                            height: '100%',
+                            height: '80%',
                             backgroundColor: bgColor,
                             zIndex: 1, // Always below the text
                             pointerEvents: 'none',

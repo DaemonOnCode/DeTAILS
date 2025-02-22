@@ -9,11 +9,11 @@ const { findContextByName } = require('../utils/context');
 const config = require('../../src/config')('electron');
 const { electronLogger } = require('../utils/electron-logger');
 
-const googleOAuthHandler = (...ctxs) => {
-    ipcMain.handle('google-oauth-login', async () => {
-        electronLogger.log(ctxs);
-        const globalCtx = findContextByName('global', ctxs);
+const authHandler = (...ctxs) => {
+    electronLogger.log(ctxs);
+    const globalCtx = findContextByName('global', ctxs);
 
+    ipcMain.handle('google-oauth-login', async () => {
         electronLogger.log(globalCtx.getState());
 
         electronLogger.log('Google OAuth Login');
@@ -63,6 +63,10 @@ const googleOAuthHandler = (...ctxs) => {
             throw error;
         }
     });
+
+    ipcMain.handle('logout', () => {
+        globalCtx.setState({ userEmail: 'Anonymous' });
+    });
 };
 
-module.exports = { googleOAuthHandler };
+module.exports = { authHandler };

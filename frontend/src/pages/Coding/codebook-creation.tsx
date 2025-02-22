@@ -127,7 +127,7 @@ const CodebookCreation = () => {
                 />
             </div>
             <NavigationBottomBar
-                previousPage={ROUTES.LOAD_DATA}
+                previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.HOME}`}
                 nextPage={`${ROUTES.DEDUCTIVE_CODING}`}
                 isReady={true}
                 onNextClick={handleNextClick}

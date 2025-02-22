@@ -45,13 +45,14 @@ export const AuthProvider: FC<ILayout> = ({ children }) => {
         logger.setType(remoteProcessing ? 'remote' : 'local');
     };
 
-    const logout = () => {
+    const logout = async () => {
         setIsAuthenticated(false);
         setUser(null);
         localStorage.removeItem('isAuthenticated');
         localStorage.removeItem('user');
         logger.setUserEmail('');
         logger.setType('local');
+        await ipcRenderer.invoke('logout');
     };
 
     const setProcessing = async (processing: boolean) => {

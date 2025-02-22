@@ -262,7 +262,8 @@ const WorkspaceSelectionPage: React.FC = () => {
         }
     };
 
-    const toggleExpand = (id: string) => {
+    const toggleExpand = (e: React.MouseEvent<HTMLSpanElement, MouseEvent>, id: string) => {
+        e.stopPropagation();
         setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
     };
 
@@ -373,9 +374,12 @@ const WorkspaceSelectionPage: React.FC = () => {
                         <div className="text-gray-600 text-center">No workspaces found.</div>
                     )}
                     {sortWorkspacesByUpdatedAt(workspaces).map((workspace) => (
-                        <div key={workspace.id} className="mb-2">
+                        <div
+                            key={workspace.id}
+                            className="mb-2"
+                            onClick={() => handleWorkspaceClick(workspace.id)}>
                             <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2 rounded">
-                                <span onClick={() => toggleExpand(workspace.id)}>
+                                <span onClick={(e) => toggleExpand(e, workspace.id)}>
                                     {expanded[workspace.id] ? (
                                         <FiChevronDown className="text-gray-600" />
                                     ) : (
@@ -394,8 +398,7 @@ const WorkspaceSelectionPage: React.FC = () => {
                                     />
                                 ) : (
                                     <span
-                                        className={`text-gray-800 flex-1 ${workspace.id === currentWorkspace?.id ? 'font-bold' : 'font-medium'}`}
-                                        onClick={() => handleWorkspaceClick(workspace.id)}>
+                                        className={`text-gray-800 flex-1 ${workspace.id === currentWorkspace?.id ? 'font-bold' : 'font-medium'}`}>
                                         {workspace.name}
                                     </span>
                                 )}

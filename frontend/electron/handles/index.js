@@ -2,7 +2,7 @@ const { fileHandler } = require('./file');
 const { redditHandler } = require('./reddit');
 // const { langchainHandler } = require('./langchain');
 const { dbHandler } = require('./db');
-const { googleOAuthHandler } = require('./google-oauth');
+const { authHandler } = require('./authentication');
 const { websocketHandler } = require('./websocket');
 const { workspaceHandler } = require('./workspace');
 const { processingHandler } = require('./processing');
@@ -10,7 +10,7 @@ const { interviewHandler } = require('./interview');
 // const { workerHandler } = require('./worker');
 
 const registerIpcHandlers = (...ctxs) => {
-    // googleOAuthHandler();
+    // authHandler();
     // redditHandler();
     // fileHandler();
     // // langchainHandler();
@@ -21,7 +21,7 @@ const registerIpcHandlers = (...ctxs) => {
     // processingHandler();
 
     const handlerList = [
-        googleOAuthHandler,
+        authHandler,
         redditHandler,
         fileHandler,
         dbHandler,

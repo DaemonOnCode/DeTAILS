@@ -67,6 +67,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     const [hoveredCodeText, setHoveredCodeText] = useState<string[] | null>(null);
     const [hoveredCode, setHoveredCode] = useState<string | null>(null);
 
+    const currentSegment = useRef<any>(null);
+
     // const [hoveredLines, setHoveredLines] = useState<
     //     { x1: number; y1: number; x2: number; y2: number; color: string }[]
     // >([]);
@@ -107,25 +109,33 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         if (review) return;
         console.log(segment, 'segment');
 
+        console.log(currentSegment.current, segment);
+        if (JSON.stringify(currentSegment.current) === JSON.stringify(segment)) {
+            setSelectedExplanations([]);
+            return;
+        }
+
+        currentSegment.current = segment;
+
         const foundExplanations: {
             explanation: string;
             code: string;
             fullText: string;
         }[] = [];
 
-        // For each code matched to that segment, see if there's a codeResponse
-        // with a matching quote (fuzz ratio ~ 90)
         segment.relatedCodeText.forEach((code) => {
             codeResponses.forEach((response) => {
                 if (response.code === code) {
-                    // Simple fuzzy check
-                    if (ratio(segment.line, response.quote) >= 90) {
-                        foundExplanations.push({
-                            code: response.code,
-                            explanation: response.explanation || '', // fallback
-                            fullText: segment.fullText
-                        });
-                    }
+                    const splitQuote = splitIntoSegments(response.quote);
+                    splitQuote.forEach((quote) => {
+                        if (ratio(segment.line, quote) >= 90) {
+                            foundExplanations.push({
+                                code: response.code,
+                                explanation: response.explanation || '', // fallback
+                                fullText: segment.fullText
+                            });
+                        }
+                    });
                 }
             });
         });
@@ -486,7 +496,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         className={`flex-1 overflow-y-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}
                         onMouseUp={handleTextSelection}>
                         <div className="mb-6">
-                            <h2 className="text-xl font-bold mb-2">
+                            <h2 className="text-xl font-bold mb-2 relative">
                                 {processedSegments
                                     .filter(
                                         (segment) =>
@@ -502,7 +512,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                                         />
                                     ))}
                             </h2>
-                            <p className="text-gray-700 leading-relaxed">
+                            <p className="text-gray-700 leading-relaxed relative">
                                 {processedSegments
                                     .filter(
                                         (segment) =>

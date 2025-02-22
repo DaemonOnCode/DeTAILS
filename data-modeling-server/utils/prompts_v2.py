@@ -285,13 +285,12 @@ You are an advanced AI model specializing in qualitative research and deductive 
    - If no valid codes apply, return {{ "codes": [] }}.
 """
 
-
 class ThemeGeneration:
 
     @staticmethod
     def theme_generation_prompt(qec_table: str):
         return f"""
-You are an advanced AI model specializing in qualitative research and thematic analysis. Your task is to identify themes based on a provided Quote-Explanation-Code (QEC) table.
+You are an advanced AI model specializing in qualitative research using Braun and Clarke’s (2006) thematic analysis approach. Your task is to review the provided Quote-Explanation-Code (QEC) table and identify higher-level themes from the data.
 
 ---
 
@@ -301,11 +300,27 @@ You are an advanced AI model specializing in qualitative research and thematic a
 ---
 
 ### Instructions
-1. Group Thematic Codes into Higher-Level Themes:
-   - Identify patterns among the provided codes.
-   - Group similar or related codes under a broader theme name.
 
-2. Generate Output in Valid JSON Format:
+1. Familiarization with data:
+   - Review each QEC entry, which consists of a quote, explanation, and an initial code.
+   - Understand both the explicit (semantic) and underlying (latent) meanings in the data.
+
+2. Theme Generation:
+   - Identify patterns and shared meanings among the codes and their associated quotes/explanations.
+   - Group related codes into themes that capture significant and coherent patterns across the dataset.
+   - Ensure themes are distinctive, data-driven, and analytically meaningful.
+
+3. Theme Refinement:
+   - Merge overlapping themes and split themes that conflate multiple ideas.
+   - Validate the coherence of each theme against the raw data.
+
+4. Theme Naming:
+   - Assign concise, evocative names to each theme that reflect their central ideas.
+
+5. Output:
+   - Generate the final output strictly in valid JSON format without any additional text.
+   - The output should follow this structure:
+   
 ```json
 {{
   "themes": [
@@ -317,13 +332,7 @@ You are an advanced AI model specializing in qualitative research and thematic a
   ]
 }}
 ```
-
-3. Ensure:
-   - Logical grouping of codes into themes.
-   - Valid JSON structure.
-   - No additional text outside the JSON.
 """
-
 
 class RefineCodebook:
     @staticmethod

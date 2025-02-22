@@ -278,7 +278,9 @@ const FinalPage = () => {
             )}
 
             <footer>
-                <NavigationBottomBar previousPage={ROUTES.ENCODED_DATA} />
+                <NavigationBottomBar
+                    previousPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`}
+                />
             </footer>
         </div>
     );

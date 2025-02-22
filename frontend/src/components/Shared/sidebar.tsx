@@ -1,4 +1,4 @@
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { RouteObject } from 'react-router-dom';
 import { RouteIcons, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
@@ -49,11 +49,22 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
 
     const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
 
-    // Toggle dropdown visibility
+    useEffect(() => {
+        const segments = location.pathname.split('/').filter(Boolean);
+        const newOpenDropdowns = new Set<string>();
+        let currentPath = '';
+        segments.forEach((segment) => {
+            currentPath += `/${segment}`;
+            newOpenDropdowns.add(currentPath);
+        });
+        setOpenDropdowns(newOpenDropdowns);
+    }, [location.pathname]);
+
     const toggleDropdown = (path: string) => {
+        const normalizedPath = path.startsWith('/') ? path : '/' + path;
         setOpenDropdowns((prev) => {
             const newSet = new Set(prev);
-            newSet.has(path) ? newSet.delete(path) : newSet.add(path);
+            newSet.has(normalizedPath) ? newSet.delete(normalizedPath) : newSet.add(normalizedPath);
             return newSet;
         });
     };

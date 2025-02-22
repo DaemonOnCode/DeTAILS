@@ -41,7 +41,7 @@ const FileCard = ({ filePath, fileName, onRemove }: FileCardProps) => {
                 </button>
             </div>
             {imgSrc ? (
-                <img src={imgSrc} alt="File Preview" className="max-w-full p-2 pb-0" />
+                <img src={imgSrc} alt="File Preview" className="max-w-full max-h-full p-2 pb-0" />
             ) : error ? (
                 <div>Error in loading...</div>
             ) : (

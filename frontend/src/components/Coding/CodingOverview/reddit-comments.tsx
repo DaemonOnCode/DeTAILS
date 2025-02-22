@@ -48,7 +48,7 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
               ${elbowClass}
             `}>
                         {/* The actual comment text using processedSegments */}
-                        <div className="text-gray-700 leading-relaxed break-words py-2">
+                        <div className="text-gray-700 leading-relaxed break-words py-2 relative">
                             {processedSegments
                                 .filter(
                                     (segment) =>
