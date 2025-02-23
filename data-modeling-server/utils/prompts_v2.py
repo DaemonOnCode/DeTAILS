@@ -298,7 +298,7 @@ You are an advanced AI model specializing in qualitative research using Braun an
    A separate list containing all the unique codes extracted from the QEC data.
 
    Codes:
-   
+
 
 2. **QEC Data (JSON):**  
    The data is organized so that for each unique code, an array of associated quotes and explanations is provided. For example, the structure for a given code is as follows:
@@ -323,7 +323,7 @@ You are an advanced AI model specializing in qualitative research using Braun an
 
 1. **Familiarization with the Data:**
    - Review the list of unique codes to understand the overall coding scheme.
-   - Examine the restructured QEC data for each code, noting the associated quotes and explanations, and consider both the explicit (semantic) content and the underlying (latent) meanings.
+   - Examine the QEC data for each code, noting the associated quotes and explanations, and consider both the explicit (semantic) content and the underlying (latent) meanings.
 
 2. **Theme Generation:**
    - Identify patterns and shared meanings among the codes by referring to the context provided by the quotes and explanations.

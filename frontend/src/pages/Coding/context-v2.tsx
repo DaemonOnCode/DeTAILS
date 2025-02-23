@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import FileCard from '../../components/Coding/Shared/file-card';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging-context';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
@@ -129,6 +130,14 @@ const ContextPage = () => {
 
     const handleOnNextClick = async (e: any) => {
         if (!datasetId) return;
+
+        if (newQuestion.trim() !== '') {
+            alert(
+                "You have an unsaved research question. Please click 'Add' to include it or clear the text before proceeding."
+            );
+            return;
+        }
+
         e.preventDefault();
         loadingDispatch({
             type: 'SET_LOADING',
@@ -192,6 +201,8 @@ const ContextPage = () => {
         });
 
         console.log('Ending function');
+
+        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
     };
 
     return (
@@ -253,8 +264,8 @@ const ContextPage = () => {
                             />
                         </div>
                     </div>
-                    <div className="w-1/2 h-full flex-1 overflow-y-auto">
-                        <div>
+                    <div className="w-1/2 max-h-full flex flex-col justify-center items-center overflow-y-auto">
+                        <div className="overflow-auto">
                             <p>Research Questions:</p>
                             <div className="flex items-center">
                                 <textarea
@@ -263,11 +274,13 @@ const ContextPage = () => {
                                     value={newQuestion}
                                     onChange={(e) => setNewQuestion(e.target.value)}
                                 />
-                                <button
-                                    onClick={addQuestion}
-                                    className="ml-2 p-2 bg-blue-500 text-white rounded">
-                                    Add
-                                </button>
+                                {newQuestion.trim() !== '' && (
+                                    <button
+                                        onClick={addQuestion}
+                                        className="ml-2 p-2 bg-blue-500 text-white rounded">
+                                        Add
+                                    </button>
+                                )}
                             </div>
                             <ul className="mt-4">
                                 {researchQuestions.map((question, index) => (
@@ -294,6 +307,7 @@ const ContextPage = () => {
                 nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
                 isReady={checkIfReady}
                 onNextClick={handleOnNextClick}
+                autoNavigateToNext={false}
             />
         </div>
     );

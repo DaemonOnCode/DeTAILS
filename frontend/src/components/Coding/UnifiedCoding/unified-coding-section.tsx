@@ -31,6 +31,7 @@ interface UnifiedCodingPageProps {
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     postIds,
     data,
+    review: reviewParam,
     dispatchFunction,
     showThemes = false,
     download = true,
@@ -56,7 +57,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         dispatchUnseenPostResponse
     } = useCodingContext();
 
-    const [review, setReview] = useState(true);
+    const [review, setReview] = useState(reviewParam ?? true);
     const [filter, setFilter] = useState<string | null>(null);
     const [selectedTypeFilter, setSelectedTypeFilter] = useState<
         'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All'

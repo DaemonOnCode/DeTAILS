@@ -6,7 +6,7 @@ import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection-context';
@@ -14,6 +14,9 @@ import useServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const CodebookCreation = () => {
+    const [searchParams] = useSearchParams();
+    const reviewParam = searchParams.get('review') !== 'false';
+
     const {
         sampledPostResponse,
         dispatchSampledPostResponse,
@@ -121,7 +124,7 @@ const CodebookCreation = () => {
                     postIds={sampledPostIds}
                     data={sampledPostResponse}
                     dispatchFunction={dispatchSampledPostResponse}
-                    review={true}
+                    review={reviewParam}
                     showCoderType={false}
                     // showRerunCoding={true}
                 />

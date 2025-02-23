@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import PostTranscript from '../../components/Coding/CodingOverview/post-transcript';
 import TopToolbar from '../../components/Coding/Shared/top-toolbar';
@@ -10,10 +10,13 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../context/collection-context';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 
 const TranscriptPage = () => {
     const { id, state } = useParams<{ id: string; state: 'review' | 'refine' }>();
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const split = searchParams.get('split');
     const codebook = searchParams.get('codebook');
     const type = searchParams.get('type');
@@ -60,6 +63,7 @@ const TranscriptPage = () => {
         {
             name: string;
             review: boolean;
+            backFunction?: (...args: any) => void;
             codebook: {
                 responses: any[];
                 dispatchFunction: (...args: any) => void;
@@ -87,6 +91,10 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
+                backFunction: () =>
+                    navigate(
+                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}?review=true`
+                    ),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -120,6 +128,10 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
+                backFunction: () =>
+                    navigate(
+                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}?review=true`
+                    ),
                 codebook: null,
                 topTranscript: null,
                 bottomTranscript: {
@@ -144,6 +156,10 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
+                backFunction: () =>
+                    navigate(
+                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}?review=true`
+                    ),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -178,6 +194,10 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
+                backFunction: () =>
+                    navigate(
+                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}?review=false`
+                    ),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -211,6 +231,10 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: true,
+                backFunction: () =>
+                    navigate(
+                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}?review=false`
+                    ),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -250,6 +274,10 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
+                backFunction: () =>
+                    navigate(
+                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}?review=false`
+                    ),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -294,6 +322,10 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
+                backFunction: () =>
+                    navigate(
+                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}?review=false`
+                    ),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -338,6 +370,10 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
+                backFunction: () =>
+                    navigate(
+                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}?review=false`
+                    ),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -380,6 +416,10 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
+                backFunction: () =>
+                    navigate(
+                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}?review=true`
+                    ),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -577,7 +617,7 @@ const TranscriptPage = () => {
                             dispatchCodeResponses={currentConfig?.codebook?.dispatchFunction as any}
                             codeResponses={currentConfig?.codebook?.responses ?? []}
                             onViewTranscript={() => {}}
-                            review={currentConfig?.review ?? true}
+                            review={true}
                             showThemes={currentConfig?.codebook?.showThemes}
                             onReRunCoding={() => {}}
                             onUpdateResponses={currentConfig?.codebook?.dispatchFunction as any}
@@ -632,7 +672,9 @@ const TranscriptPage = () => {
                                 ) : (
                                     <PostTranscript
                                         post={post}
-                                        onBack={() => window.history.back()}
+                                        onBack={() =>
+                                            (currentConfig?.backFunction ?? window.history.back)()
+                                        }
                                         codeResponses={
                                             currentConfig?.topTranscript?.responses ?? []
                                         }
@@ -677,7 +719,9 @@ const TranscriptPage = () => {
                             onClick={(e) => handleSetActiveTranscript(e, 'bottom')}>
                             <PostTranscript
                                 post={post}
-                                onBack={() => window.history.back()}
+                                onBack={() =>
+                                    (currentConfig?.backFunction ?? window.history.back)()
+                                }
                                 review={state === 'review'}
                                 codeResponses={currentConfig?.bottomTranscript?.responses ?? []}
                                 isActive={activeTranscript === 'bottom'}

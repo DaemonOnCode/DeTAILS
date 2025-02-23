@@ -6,13 +6,16 @@ import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const DeductiveCodingPage = () => {
+    const [searchParams] = useSearchParams();
+    const reviewParam = searchParams.get('review') !== 'false';
+
     const {
         unseenPostResponse,
         dispatchUnseenPostResponse,
@@ -79,6 +82,7 @@ const DeductiveCodingPage = () => {
                     dispatchFunction={dispatchUnseenPostResponse}
                     // showThemes
                     split
+                    review={reviewParam}
                     showCodebook
                     showFilterDropdown
                     applyFilters
