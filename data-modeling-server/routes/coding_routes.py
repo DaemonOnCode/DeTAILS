@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 import json
 from typing import Annotated, List
 from uuid import uuid4
@@ -333,10 +334,19 @@ async def theme_generation_endpoint(
     await manager.broadcast(f"Dataset {dataset_id}: Theme generation process started.")
 
     llm, _ = get_llm_and_embeddings(request_body.model, settings=settings)
-    # Prepare QEC (Quote, Explanation, Code) table
+
+    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
+
+    grouped_qec = defaultdict(list)
+    for row in rows:
+        grouped_qec[row["code"]].append({
+            "quote": row["quote"],
+            "explanation": row["explanation"]
+        })
+
     qec_table = [
-        {"quote": row["quote"], "explanation": row["explanation"], "code": row["code"]}
-        for row in request_body.sampled_post_responses + request_body.unseen_post_responses
+        {"code": code, "instances": instances}
+        for code, instances in grouped_qec.items()
     ]
 
     parsed_response = await process_llm_task(
@@ -344,9 +354,10 @@ async def theme_generation_endpoint(
         manager=manager,
         llm_model=request_body.model,
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-        prompt_builder_func=ThemeGeneration.theme_generation_prompt,  # Uses correct function
+        prompt_builder_func=ThemeGeneration.theme_generation_prompt,
         llm_instance=llm,
-        qec_table=json.dumps({"codes": qec_table})  # Pass QEC table as input
+        qec_table=json.dumps({"codes": qec_table}), 
+        unique_codes = json.dumps(list(grouped_qec.keys()))
     )
 
     print(parsed_response)
@@ -401,5 +412,9 @@ async def refine_single_code_endpoint(
         chat_history=chat_history,
         user_comment=user_comment
     )
+
+
+    # print(parsed_response["alternate_codes"])
+    # parsed_response["alternate_codes"] = json.loads(parsed_response["alternate_codes"])
 
     return parsed_response

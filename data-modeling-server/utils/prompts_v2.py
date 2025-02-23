@@ -288,50 +288,70 @@ You are an advanced AI model specializing in qualitative research and deductive 
 class ThemeGeneration:
 
     @staticmethod
-    def theme_generation_prompt(qec_table: str):
+    def theme_generation_prompt(qec_table: str, unique_codes: str):
         return f"""
-You are an advanced AI model specializing in qualitative research using Braun and Clarke’s (2006) thematic analysis approach. Your task is to review the provided Quote-Explanation-Code (QEC) table and identify higher-level themes from the data.
+You are an advanced AI model specializing in qualitative research using Braun and Clarke's (2006) thematic analysis approach. Your task is to analyze a provided list of unique codes along with a restructured QEC dataset, and then generate higher-level themes based on this information.
 
----
+### Data Provided
 
-### QEC Table (JSON):
-{qec_table}
+1. **List of Unique Codes:**  
+   A separate list containing all the unique codes extracted from the QEC data.
 
----
+   Codes:
+   
+
+2. **QEC Data (JSON):**  
+   The data is organized so that for each unique code, an array of associated quotes and explanations is provided. For example, the structure for a given code is as follows:
+
+   ```json
+   {{
+     "code": "CodeName",
+     "instances": [
+       {{
+         "quote": "The quote here.",
+         "explanation": "Explanation for why this code was chosen."
+       }}
+       // Additional instances...
+     ]
+   }}
+   ```
+
+   Data: 
+   {qec_table}
 
 ### Instructions
 
-1. Familiarization with data:
-   - Review each QEC entry, which consists of a quote, explanation, and an initial code.
-   - Understand both the explicit (semantic) and underlying (latent) meanings in the data.
+1. **Familiarization with the Data:**
+   - Review the list of unique codes to understand the overall coding scheme.
+   - Examine the restructured QEC data for each code, noting the associated quotes and explanations, and consider both the explicit (semantic) content and the underlying (latent) meanings.
 
-2. Theme Generation:
-   - Identify patterns and shared meanings among the codes and their associated quotes/explanations.
-   - Group related codes into themes that capture significant and coherent patterns across the dataset.
-   - Ensure themes are distinctive, data-driven, and analytically meaningful.
+2. **Theme Generation:**
+   - Identify patterns and shared meanings among the codes by referring to the context provided by the quotes and explanations.
+   - Group related codes into higher-level themes that capture significant, coherent patterns across the dataset.
+   - Ensure that each theme is distinctive, data-driven, and analytically meaningful.
 
-3. Theme Refinement:
-   - Merge overlapping themes and split themes that conflate multiple ideas.
-   - Validate the coherence of each theme against the raw data.
+3. **Theme Refinement:**
+   - Merge overlapping themes and separate themes that conflate multiple distinct ideas.
+   - Validate the coherence of each theme against the detailed context from the associated quotes and explanations.
 
-4. Theme Naming:
-   - Assign concise, evocative names to each theme that reflect their central ideas.
+4. **Theme Naming:**
+   - Assign concise, evocative names to each theme that accurately reflect the central ideas of the grouped codes.
 
-5. Output:
-   - Generate the final output strictly in valid JSON format without any additional text.
-   - The output should follow this structure:
-   
-```json
-{{
-  "themes": [
-    {{
-      "theme": "Theme Name",
-      "codes": ["Code1", "Code2", "Code3"]
-    }},
-    ...
-  ]
-}}
-```
+5. **Output Format:**
+   - Provide your final output strictly in valid JSON format without any additional commentary.
+   - The JSON structure should be as follows:
+
+   ```json
+   {{
+     "themes": [
+       {{
+         "theme": "Theme Name",
+         "codes": ["Code1", "Code2", "Code3"]
+       }}
+       // Additional theme objects...
+     ]
+   }}
+   ```
 """
 
 class RefineCodebook:
@@ -413,6 +433,7 @@ class RefineSingleCode:
 You are an advanced AI model specializing in qualitative research and thematic coding. Your task is to evaluate a previously generated qualitative code and its corresponding quote in light of a user's comment from the chat history. You must determine whether you agree or disagree with the user's comment regarding the provided code and quote, provide a clear explanation for your stance, and output a command indicating the appropriate action. The available commands are:
 - REMOVE_QUOTE: if the code/quote is deemed inappropriate or not representative.
 - ACCEPT_QUOTE: if the code/quote is deemed appropriate and well-supported.
+- EDIT_QUOTE: if you believe that the code/quote needs revision. In this case, provide a list of alternative code suggestions along with your explanation.
 
 ### Input Information
 - Transcript: {transcript}
@@ -423,21 +444,24 @@ You are an advanced AI model specializing in qualitative research and thematic c
 
 ### Your Task
 1. Analyze the provided transcript, code, quote, and chat history.
-2. Determine whether you agree or disagree with the user's comment.
-3. Provide a concise explanation of your previous position and your current postion.
-4. Select the appropriate command: REMOVE_QUOTE or ACCEPT_QUOTE.
-
-NOTE: When framing your answer do not mention about the user, you can use "You" to address the user, but preferably just give your own input
-
+2. Determine whether you agree or disagree with the user's comment. Defend your position or, if the user's comment seems valid, proceed accordingly.
+   Since codes can be subjective, think a lot before answering if your answer would make more sense or switching to the user's comment would be better.
+3. Provide a concise explanation of your assessment and indicate if the code/quote requires revision.
+4. Select the appropriate command:
+   - Use REMOVE_QUOTE if the code/quote is inappropriate.
+   - Use ACCEPT_QUOTE if the code/quote is appropriate.
+   - Use EDIT_QUOTE if you believe the code/quote should be modified. In this case, include a list of alternative code suggestions.
+   
 ### Output Requirements
 Return your output strictly in valid JSON format:
 ```json
 {{
   "agreement": "AGREE" or "DISAGREE",
   "explanation": "Your explanation text here",
-  "command": "REMOVE_QUOTE" or "ACCEPT_QUOTE"
+  "command": "REMOVE_QUOTE" or "ACCEPT_QUOTE" or "EDIT_QUOTE",
+  "alternate_codes": [ "alternative code suggestion 1", "alternative code suggestion 2", ... ] // This field should contain a list of revised code suggestions if command is EDIT_QUOTE; otherwise, it can be an empty list.
 }}
 ```
 
-No additional commentary outside the JSON object. 
+No additional commentary outside the JSON object.
 """

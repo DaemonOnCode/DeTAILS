@@ -48,21 +48,25 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     // const { codeResponses, dispatchCodeResponse } = useCodingContext();
 
     const codes = useMemo(() => {
+        console.log('recalculated codes');
         const responseCodes = codeResponses
             .filter((r) => r.postId === post.id)
             .map((r) => ({ text: r.quote, code: r.code }));
-        // if (extraCodes) {
-        //     return extraCodes ?? [];
-        // }
         return responseCodes;
-    }, [codeResponses, post.id]);
+    }, [codeResponses, post]);
 
-    const codeSet = useMemo(
-        () => Array.from(new Set([...codes.map((c) => c.code), ...extraCodes])),
-        [codes]
-    );
-
+    const codeSet = Array.from(new Set([...codes.map((c) => c.code), ...extraCodes]));
     const [additionalCodes, setAdditionalCodes] = useState<string[]>([...codeSet]);
+
+    useEffect(() => {
+        setAdditionalCodes((prev) => {
+            if (prev.length !== codeSet.length) return [...codeSet];
+            for (let i = 0; i < prev.length; i++) {
+                if (prev[i] !== codeSet[i]) return [...codeSet];
+            }
+            return prev;
+        });
+    }, [codeSet]);
 
     const [hoveredCodeText, setHoveredCodeText] = useState<string[] | null>(null);
     const [hoveredCode, setHoveredCode] = useState<string | null>(null);
@@ -111,6 +115,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
         console.log(currentSegment.current, segment);
         if (JSON.stringify(currentSegment.current) === JSON.stringify(segment)) {
+            currentSegment.current = null;
             setSelectedExplanations([]);
             return;
         }
@@ -132,7 +137,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             foundExplanations.push({
                                 code: response.code,
                                 explanation: response.explanation || '', // fallback
-                                fullText: segment.fullText
+                                fullText: response.quote
                             });
                         }
                     });

@@ -138,7 +138,8 @@ const BookmarkOverlay: React.FC = () => {
                     strokeWidth="3"
                     fill="none"
                     strokeDasharray={circumference}
-                    animate={{ strokeDashoffset: offset }}
+                    initial={{ strokeDashoffset: 0 }}
+                    animate={{ strokeDashoffset: offset ?? 0 }}
                     transition={{ ease: 'linear', duration: 0.1 }}
                     transform="rotate(-90 20 20)"
                 />

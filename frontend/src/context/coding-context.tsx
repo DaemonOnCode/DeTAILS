@@ -305,6 +305,21 @@ function baseResponseHandler<T>(
                 }
                 return response;
             });
+        case 'UPDATE_CODE':
+            console.log(
+                'Update code',
+                state,
+                action,
+                state.filter(
+                    (response: any) =>
+                        response.quote === action.quote && response.code === action.prevCode
+                )
+            );
+            return state.map((response: any) =>
+                response.quote === action.quote && response.code === action.prevCode
+                    ? { ...response, code: action.newCode }
+                    : response
+            );
         default:
             return state;
     }
@@ -333,15 +348,11 @@ const sampleDataResponseReducer = (
         case 'DELETE_HIGHLIGHT':
         case 'EDIT_HIGHLIGHT':
         case 'SET_CHAT_HISTORY':
+        case 'UPDATE_CODE':
             let baseData = baseResponseHandler(state, action, {});
             console.log('Base Data:', baseData, state);
             return baseData;
-        case 'UPDATE_CODE':
-            return state.map((response, index) =>
-                response.quote === action.quote && response.code === action.prevCode
-                    ? { ...response, code: action.newCode }
-                    : response
-            );
+
         default:
             return state;
     }
@@ -410,6 +421,7 @@ const unseenDataResponseReducer = (
         case 'DELETE_HIGHLIGHT':
         case 'EDIT_HIGHLIGHT':
         case 'SET_CHAT_HISTORY':
+        case 'UPDATE_CODE':
             return baseResponseHandler(state, action, {});
 
         default:

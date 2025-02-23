@@ -56,6 +56,12 @@ export interface IQECRow {
     postId: string;
 }
 
+export enum ChatCommands {
+    ACCEPT_QUOTE = 'ACCEPT_QUOTE',
+    REMOVE_QUOTE = 'REMOVE_QUOTE',
+    EDIT_QUOTE = 'EDIT_QUOTE'
+}
+
 export interface ChatMessage {
     id: number;
     text: string;
@@ -64,7 +70,8 @@ export interface ChatMessage {
     isEditable?: boolean; // true if a comment is being composed
     isThinking?: boolean; // true if waiting for a backend response
     code?: string; // Only the first message might have code
-    command?: string; // E.g. "REMOVE_QUOTE"
+    command?: keyof typeof ChatCommands;
+    alternate_codes?: string[];
 }
 
 export interface IQECResponse extends IQECRow {
@@ -287,11 +294,11 @@ export type BaseResponseHandlerActions<T> =
           sentence?: string;
           code?: string;
           chatHistory?: ChatMessage[];
-      };
-
-export type SampleDataResponseReducerActions =
-    | BaseResponseHandlerActions<IQECResponse>
+      }
     | { type: 'UPDATE_CODE'; newCode: string; quote: string; prevCode: string };
+
+export type SampleDataResponseReducerActions = BaseResponseHandlerActions<IQECResponse>;
+// | { type: 'UPDATE_CODE'; newCode: string; quote: string; prevCode: string };
 
 export type SampleDataWithThemeResponseReducerActions =
     | BaseResponseHandlerActions<IQECTResponse>
