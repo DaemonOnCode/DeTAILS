@@ -135,6 +135,7 @@ export type NavigationBottomBarProps = {
     onNextClick?: (e: any) => Promise<void>;
     onPreviousClick?: () => void;
     autoNavigateToNext?: boolean;
+    disabledTooltipText?: string;
 };
 
 export type RedditViewModalProps = {

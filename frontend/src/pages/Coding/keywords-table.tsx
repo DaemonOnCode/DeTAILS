@@ -128,11 +128,13 @@ const KeywordsTablePage: FC = () => {
                                     Actions
                                     <div className="mt-2 flex justify-center gap-x-2">
                                         <button
+                                            title="Select all as correct"
                                             className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 text-sm"
                                             onClick={() => handleToggleAllSelectOrReject(true)}>
                                             ✓
                                         </button>
                                         <button
+                                            title="Select all as incorrect"
                                             className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
                                             onClick={() => handleToggleAllSelectOrReject(false)}>
                                             ✕
@@ -291,8 +293,9 @@ const KeywordsTablePage: FC = () => {
             <footer className="flex-none">
                 <NavigationBottomBar
                     previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
-                    nextPage={`${ROUTES.LOAD_DATA}/${ROUTES.HOME}`}
+                    nextPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
                     isReady={isReadyCheck}
+                    disabledTooltipText="Mark atleast one entry as correct"
                 />
             </footer>
         </div>

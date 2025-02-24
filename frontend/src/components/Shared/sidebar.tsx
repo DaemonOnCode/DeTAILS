@@ -22,14 +22,15 @@ const formatRouteName = (path: string, workspaceName: string = 'Temporary') => {
     }
     return path
         .replace(/#/g, '')
-        .replace(/_/g, ' ')
+        .replace(/_/g, '<_> ')
         .replace(/-/g, ' ')
         .toLowerCase()
         .replace('authenticated', '')
         .replace(' v2', '')
         .split(' ')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
+        .join(' ')
+        .replaceAll('<_> ', '');
 };
 
 // Define keywords to filter out paths
@@ -43,7 +44,7 @@ const IGNORED_KEYWORDS = [
     SHARED_ROUTES.SETTINGS,
     CODING_ROUTES.TRANSCRIPT,
     CODING_ROUTES.TRANSCRIPTS,
-    CODING_ROUTES.MANUAL_CODING,
+    // CODING_ROUTES.MANUAL_CODING,
     SHARED_ROUTES.AUTHENTICATED_SETTINGS
 ];
 

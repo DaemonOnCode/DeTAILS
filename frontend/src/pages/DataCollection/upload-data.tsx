@@ -121,7 +121,7 @@ const UploadDataPage = () => {
                     <div className="flex flex-col items-center justify-center h-maxPageContent">
                         <p>Choose what type of data to retrieve from home page</p>
                         <Link
-                            to={`/coding/${ROUTES.LOAD_DATA}/${ROUTES.HOME}`}
+                            to={`/coding/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
                             className="text-blue-500">
                             Go back to Data selection
                         </Link>
@@ -130,7 +130,7 @@ const UploadDataPage = () => {
             </main>
             <footer>
                 <NavigationBottomBar
-                    previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.HOME}`}
+                    previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
                     nextPage={ROUTES.CODEBOOK_CREATION}
                     isReady={isReadyCheck}
                     onNextClick={handleSamplingPosts}

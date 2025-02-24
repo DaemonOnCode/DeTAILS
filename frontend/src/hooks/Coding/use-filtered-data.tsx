@@ -41,8 +41,8 @@ export function useFilteredData({
                 filteredData = llmFilteredResponses;
                 filteredPostIds = llmPostIds;
             } else if (selectedTypeFilter === 'Codebook') {
-                filteredData = llmFilteredResponses;
-                filteredPostIds = llmPostIds;
+                filteredData = sampledPostResponse;
+                filteredPostIds = sampledPostIds;
             }
         } else if (showCoderType && applyFilters) {
             if (selectedTypeFilter === 'All') {

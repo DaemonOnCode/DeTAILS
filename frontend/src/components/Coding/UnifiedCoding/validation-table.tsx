@@ -183,11 +183,13 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                         Actions
                                         <div className="mt-2 flex justify-center gap-x-2">
                                             <button
+                                                title="Select all as correct"
                                                 className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 text-sm"
                                                 onClick={() => handleToggleAllSelectOrReject(true)}>
                                                 ✓
                                             </button>
                                             <button
+                                                title="Select all as incorrect"
                                                 className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
                                                 onClick={() =>
                                                     handleToggleAllSelectOrReject(false)

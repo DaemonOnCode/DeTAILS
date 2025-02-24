@@ -9,7 +9,8 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     nextPage,
     onNextClick,
     autoNavigateToNext = true,
-    onPreviousClick
+    onPreviousClick,
+    disabledTooltipText
 }) => {
     const navigate = useNavigate();
 
@@ -32,7 +33,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                 <Link
                     to={'/coding/' + nextPage}
                     id="proceed-next-step"
-                    title={TooltipMessages.NextStep}
+                    title={isReady ? TooltipMessages.NextStep : disabledTooltipText}
                     className={`px-2 lg:px-4 py-2 rounded transition duration-200 ${
                         isReady
                             ? 'bg-green-500 text-white hover:bg-green-600'

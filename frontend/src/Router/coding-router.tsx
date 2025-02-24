@@ -40,7 +40,7 @@ export const CodingRouter: RouteObject[] = [
     {
         path: ROUTES.BACKGROUND_RESEARCH,
         children: [
-            { path: ROUTES.CONTEXT_V2, element: <ContextV2Page />, index: true },
+            { path: ROUTES.LLM_CONTEXT_V2, element: <ContextV2Page />, index: true },
             { path: ROUTES.KEYWORD_CLOUD, element: <KeywordCloudPage /> },
             { path: ROUTES.KEYWORD_TABLE, element: <KeywordTablePage /> }
         ]
@@ -48,9 +48,9 @@ export const CodingRouter: RouteObject[] = [
     {
         path: ROUTES.LOAD_DATA,
         children: [
-            { path: COLLECTION_ROUTES.HOME, element: <CollectionHomePage />, index: true },
+            { path: ROUTES.DATA_SOURCE, element: <CollectionHomePage />, index: true },
             {
-                path: COLLECTION_ROUTES.UPLOAD_DATA,
+                path: ROUTES.DATASET_CREATION,
                 element: <UploadDataPage />
             },
             {

@@ -252,10 +252,11 @@ const KeywordCloudPage: FC = () => {
             </div>
 
             <NavigationBottomBar
-                previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.CONTEXT_V2}`}
+                previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`}
                 nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
                 isReady={checkIfReady}
                 onNextClick={(e) => handleNextClick(e)}
+                disabledTooltipText="Select atleast 5 keywords"
             />
 
             {isFeedbackOpen && (

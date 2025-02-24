@@ -7,7 +7,7 @@ const HomePage: FC = () => {
         <div className="w-full min-h-page flex flex-col justify-between">
             Home page
             <NavigationBottomBar
-                nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.CONTEXT_V2}`}
+                nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`}
                 isReady={true}
             />
         </div>

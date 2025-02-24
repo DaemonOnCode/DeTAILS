@@ -168,19 +168,22 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         handleRerun();
     };
 
+    const uniqueCodes = Array.from(new Set(filteredData.map((item) => item.code)));
+
     return (
         <div className="h-full flex flex-col -m-6 overflow-hidden responsive-text">
             <div className="flex flex-1 overflow-y-auto">
                 <div className="w-1/4 border-r flex-1 overflow-auto p-6 pb-0">
                     <LeftPanel
                         postIds={filteredPostIds}
-                        codes={Array.from(new Set(data.map((item) => item.code)))}
+                        codes={uniqueCodes}
                         onFilterSelect={setFilter}
                         showTypeFilterDropdown={showFilterDropdown}
                         selectedTypeFilter={selectedTypeFilter}
                         handleSelectedTypeFilter={handleSelectedTypeFilter}
                         setCurrentPost={() => {}}
                         showCoderType={showCoderType}
+                        codedPostsCount={new Set(filteredData.map((data) => data.postId)).size}
                     />
                 </div>
                 <div className="w-3/4 flex flex-col h-full">

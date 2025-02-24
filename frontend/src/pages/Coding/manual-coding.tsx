@@ -99,7 +99,7 @@ const ManualCodingPage: React.FC = () => {
                             }
                         }}
                     />
-                ) : tab === 'transcript' ? (
+                ) : tab === 'transcript' && currentId ? (
                     <TranscriptPage
                         id={currentId ?? ''}
                         onBack={() => {
@@ -118,7 +118,14 @@ const ManualCodingPage: React.FC = () => {
                         />
                     </div>
                 ) : (
-                    <div>Select a post to continue</div>
+                    <div>
+                        <p>Select a post to continue</p>
+                        <button
+                            onClick={() => setTab('transcripts')}
+                            className="text-blue-500 underline">
+                            Go back to Transcripts page
+                        </button>
+                    </div>
                 )}
             </div>
         </div>,

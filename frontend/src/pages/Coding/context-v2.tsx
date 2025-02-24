@@ -120,7 +120,7 @@ const ContextPage = () => {
     }, []);
 
     useEffect(() => {
-        if (loadingState[ROUTES.CONTEXT_V2]) {
+        if (loadingState[ROUTES.LLM_CONTEXT_V2]) {
             navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
         }
     }, [loadingState]);
@@ -318,9 +318,10 @@ const ContextPage = () => {
                 <NavigationBottomBar
                     previousPage={ROUTES.HOME}
                     nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
-                    isReady={Object.keys(contextFiles).length > 0 && mainTopic.length > 0}
+                    isReady={checkIfReady}
                     onNextClick={handleOnNextClick}
                     autoNavigateToNext={false}
+                    disabledTooltipText="Files or main topic is missing"
                 />
             </div>
         </>

@@ -17,14 +17,18 @@ const HomePage = () => {
     const handleRedditRetrieval = () => {
         console.log('Retrieve Reddit clicked');
         if (!modeInput) setType('reddit');
-        navigate(`/coding/${CODING_ROUTES.LOAD_DATA}/${ROUTES.UPLOAD_DATA}?type=reddit`);
+        navigate(
+            `/coding/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}?type=reddit`
+        );
         // navigate('/data-collection/' + ROUTES.LOAD_REDDIT);
     };
 
     const handleInterviewImport = () => {
         console.log('Retrieve Interviews clicked');
         if (!modeInput) setType('interview');
-        navigate(`/coding/${CODING_ROUTES.LOAD_DATA}/${ROUTES.UPLOAD_DATA}?type=interview`);
+        navigate(
+            `/coding/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}?type=interview`
+        );
         // navigate('/data-collection/' + ROUTES.LOAD_INTERVIEWS);
     };
 
