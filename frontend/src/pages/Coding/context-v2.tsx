@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import FileCard from '../../components/Coding/Shared/file-card';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
@@ -13,6 +13,9 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { useLoadingContext } from '../../context/loading-context';
+import CustomTutorialOverlay, {
+    TutorialStep
+} from '../../components/Shared/custom-tutorial-overlay';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -22,7 +25,6 @@ const validExtensions = ['.pdf', '.doc', '.docx', '.txt'];
 const ContextPage = () => {
     const navigate = useNavigate();
     const logger = useLogger();
-
     const {
         contextFiles,
         addContextFile,
@@ -36,16 +38,41 @@ const ContextPage = () => {
         setResearchQuestions,
         dispatchKeywordsTable
     } = useCodingContext();
-
     const { loadingState, loadingDispatch } = useLoadingContext();
-
     const { datasetId } = useCollectionContext();
-
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
-
     const [newQuestion, setNewQuestion] = useState<string>('');
 
+    // State for controlling the tutorial
+    const [runTutorial, setRunTutorial] = useState(false);
+    const [tutorialFinished, setTutorialFinished] = useState(false);
+
+    // Define custom tutorial steps
+    const steps: TutorialStep[] = [
+        {
+            target: '#file-section',
+            content: 'Step 1: Click "+ Add File" to add a file.',
+            placement: 'bottom'
+        },
+        {
+            target: '#topic-section',
+            content: 'Step 2: Enter your main topic and additional information.',
+            placement: 'bottom'
+        },
+        {
+            target: '#research-section',
+            content: 'Step 3: Add relevant research questions.',
+            placement: 'top'
+        },
+        {
+            target: '#proceed-next-step',
+            content: 'Step 4: Proceed to next step',
+            placement: 'top'
+        }
+    ];
+
+    // Example functions (addQuestion, updateQuestion, deleteQuestion, etc.) remain the same...
     const addQuestion = () => {
         if (newQuestion.trim() !== '') {
             setResearchQuestions([...researchQuestions, newQuestion]);
@@ -65,22 +92,18 @@ const ContextPage = () => {
         setResearchQuestions(updatedQuestions);
     };
 
-    // Adjust the height of the text area based on its content
     const adjustHeight = (element: any) => {
         if (element) {
-            element.style.height = 'auto'; // Reset to auto to measure new height
-            element.style.height = `${Math.min(element.scrollHeight, 160)}px`; // Cap at 160px
+            element.style.height = 'auto';
+            element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
         }
     };
 
     useEffect(() => {
-        // Automatically adjust height for all existing questions on initial render
         document
             .querySelectorAll('textarea.auto-height')
             .forEach((textarea) => adjustHeight(textarea));
     }, [researchQuestions]);
-
-    const hasSavedRef = useRef(false);
 
     const checkIfReady = Object.keys(contextFiles).length > 0 && mainTopic.length > 0;
 
@@ -89,10 +112,7 @@ const ContextPage = () => {
         logger.info('Loaded Context Page');
 
         return () => {
-            if (!hasSavedRef.current) {
-                saveWorkspaceData();
-                hasSavedRef.current = true;
-            }
+            saveWorkspaceData();
             logger.info('Unloaded Context Page').then(() => {
                 logger.time('Context Page stay time', { time: timer.end() });
             });
@@ -106,13 +126,10 @@ const ContextPage = () => {
     }, [loadingState]);
 
     const handleSelectFiles = async () => {
-        const files: {
-            filePath: string;
-            fileName: string;
-        }[] = await ipcRenderer.invoke('select-files'); // Access through preload
+        const files: { filePath: string; fileName: string }[] =
+            await ipcRenderer.invoke('select-files');
         if (!files || files.length === 0) return;
 
-        // Filter files based on allowed extensions
         const filteredFiles = files.filter(({ fileName }) =>
             validExtensions.some((ext) => fileName.toLowerCase().endsWith(ext))
         );
@@ -122,7 +139,6 @@ const ContextPage = () => {
             return;
         }
 
-        // Pass the selected files to the parent or context
         filteredFiles.forEach(({ filePath, fileName }) => {
             addContextFile(filePath, fileName);
         });
@@ -130,29 +146,20 @@ const ContextPage = () => {
 
     const handleOnNextClick = async (e: any) => {
         if (!datasetId) return;
-
         if (newQuestion.trim() !== '') {
             alert(
                 "You have an unsaved research question. Please click 'Add' to include it or clear the text before proceeding."
             );
             return;
         }
-
         e.preventDefault();
         loadingDispatch({
             type: 'SET_LOADING',
-            payload: {
-                loading: true,
-                route: ROUTES.KEYWORD_CLOUD
-            }
+            payload: { loading: true, route: ROUTES.KEYWORD_CLOUD }
         });
         await logger.info('Starting Theme Cloud Generation');
-        console.log('Starting function', getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
 
-        console.log('Sending request to server');
-        // if (!USE_LOCAL_SERVER) {
-        console.log('Sending request to remote server');
         const formData = new FormData();
         Object.keys(contextFiles).forEach((filePath) => {
             const fileContent = fs.readFileSync(filePath);
@@ -166,7 +173,6 @@ const ContextPage = () => {
         formData.append('researchQuestions', JSON.stringify(researchQuestions));
         formData.append('datasetId', datasetId);
 
-        // await ipcRenderer.invoke("connect-ws", datasetId);
         let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.BUILD_CONTEXT), {
             method: 'POST',
             body: formData
@@ -185,52 +191,55 @@ const ContextPage = () => {
         if (results.keywords.length > 0) {
             setKeywords(Array.from(new Set(results.keywords.map((keyword) => keyword.word))));
         }
-
-        dispatchKeywordsTable({
-            type: 'INITIALIZE',
-            entries: results.keywords
-        });
-
-        // await ipcRenderer.invoke("disconnect-ws", datasetId);
+        dispatchKeywordsTable({ type: 'INITIALIZE', entries: results.keywords });
         await logger.info('Theme Cloud generated');
-        //     return;
-        // }
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: ROUTES.KEYWORD_CLOUD
-        });
-
-        console.log('Ending function');
-
+        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: ROUTES.KEYWORD_CLOUD });
         navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
     };
 
     return (
-        <div className="w-full h-full flex justify-between flex-col">
-            <div className="max-h-maxPageContent h-maxPageContent">
-                <section className="max-h-3/5 h-3/5 border-b-2">
-                    {/* {Object.keys(contextFiles).length === 0 ? (
-                        <>
-                            <h1>Select context files</h1>
+        <>
+            {/* Render the custom tutorial overlay if running */}
+            <CustomTutorialOverlay
+                steps={steps}
+                run={runTutorial}
+                onFinish={() => {
+                    setRunTutorial(false);
+                    setTutorialFinished(true);
+                }}
+            />
+
+            {/* Tutorial prompt overlay */}
+            {!tutorialFinished && !runTutorial && (
+                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black bg-opacity-70">
+                    <div className="p-6 bg-white rounded shadow-lg text-center">
+                        <p className="mb-4">Would you like to view the tutorial?</p>
+                        <div className="flex justify-around">
                             <button
-                                onClick={handleSelectFiles}
-                                className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                                Select Files
+                                onClick={() => setRunTutorial(true)}
+                                className="px-4 py-2 bg-blue-500 text-white rounded mr-2">
+                                Show Tutorial
                             </button>
-                        </>
-                    ) : ( */}
-                    <>
+                            <button
+                                onClick={() => setTutorialFinished(true)}
+                                className="px-4 py-2 bg-gray-500 text-white rounded">
+                                Skip Tutorial
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* The rest of your ContextPage component */}
+            <div className="w-full h-full flex justify-between flex-col relative">
+                <div className="max-h-maxPageContent h-maxPageContent">
+                    <section id="file-section" className="max-h-3/5 h-3/5 border-b-2">
                         <h1>Selected Context files</h1>
                         <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto max-w-screen-sm lg:max-w-screen-lg">
                             <label
                                 className="flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50"
                                 onClick={handleSelectFiles}>
                                 <span>+ Add File</span>
-                                {/* <button
-                                        onClick={handleSelectFiles}
-                                        className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                                        Select Files
-                                    </button> */}
                             </label>
                             {Object.keys(contextFiles).map((filePath) => (
                                 <FileCard
@@ -241,75 +250,80 @@ const ContextPage = () => {
                                 />
                             ))}
                         </div>
-                    </>
-                    {/* )} */}
-                </section>
-                <section className="flex justify-start items-center max-h-2/5 h-2/5 overflow-hidden">
-                    <div className="w-1/2">
-                        <div>
-                            <p>Main topic of interest:</p>
-                            <input
-                                type="text"
-                                className="p-2 border border-gray-300 rounded w-96"
-                                value={mainTopic}
-                                onChange={(e) => setMainTopic(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <p>Provide some additional information about your topic of interest:</p>
-                            <textarea
-                                className="p-2 border border-gray-300 rounded w-96"
-                                value={additionalInfo}
-                                onChange={(e) => setAdditionalInfo(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                    <div className="w-1/2 max-h-full flex flex-col justify-center items-center overflow-y-auto">
-                        <div className="overflow-auto">
-                            <p>Research Questions:</p>
-                            <div className="flex items-center">
-                                <textarea
-                                    className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
-                                    placeholder="Type your research question here..."
-                                    value={newQuestion}
-                                    onChange={(e) => setNewQuestion(e.target.value)}
+                    </section>
+                    <div className="flex justify-start items-center max-h-2/5 h-2/5 overflow-hidden">
+                        <section id="topic-section" className="w-1/2">
+                            <div>
+                                <p>Main topic of interest:</p>
+                                <input
+                                    type="text"
+                                    className="p-2 border border-gray-300 rounded w-96"
+                                    value={mainTopic}
+                                    onChange={(e) => setMainTopic(e.target.value)}
                                 />
-                                {newQuestion.trim() !== '' && (
-                                    <button
-                                        onClick={addQuestion}
-                                        className="ml-2 p-2 bg-blue-500 text-white rounded">
-                                        Add
-                                    </button>
-                                )}
                             </div>
-                            <ul className="mt-4">
-                                {researchQuestions.map((question, index) => (
-                                    <li key={index} className="flex items-start mb-4">
-                                        <textarea
-                                            className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
-                                            value={question}
-                                            onChange={(e) => updateQuestion(index, e.target.value)}
-                                        />
+                            <div>
+                                <p>
+                                    Provide any additional information about your topic of interest:
+                                </p>
+                                <textarea
+                                    className="p-2 border border-gray-300 rounded w-96"
+                                    value={additionalInfo}
+                                    onChange={(e) => setAdditionalInfo(e.target.value)}
+                                />
+                            </div>
+                        </section>
+                        <section
+                            id="research-section"
+                            className="w-1/2 max-h-full flex flex-col justify-center items-center overflow-y-auto">
+                            <div className="overflow-auto">
+                                <p>Research Questions:</p>
+                                <div className="flex items-center">
+                                    <textarea
+                                        className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
+                                        placeholder="Type your research question here..."
+                                        value={newQuestion}
+                                        onChange={(e) => setNewQuestion(e.target.value)}
+                                    />
+                                    {newQuestion.trim() !== '' && (
                                         <button
-                                            onClick={() => deleteQuestion(index)}
-                                            className="ml-2 p-2 bg-red-500 text-white rounded">
-                                            Delete
+                                            onClick={addQuestion}
+                                            className="ml-2 p-2 bg-blue-500 text-white rounded">
+                                            Add
                                         </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
+                                    )}
+                                </div>
+                                <ul className="mt-4">
+                                    {researchQuestions.map((question, index) => (
+                                        <li key={index} className="flex items-start mb-4">
+                                            <textarea
+                                                className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
+                                                value={question}
+                                                onChange={(e) =>
+                                                    updateQuestion(index, e.target.value)
+                                                }
+                                            />
+                                            <button
+                                                onClick={() => deleteQuestion(index)}
+                                                className="ml-2 p-2 bg-red-500 text-white rounded">
+                                                Delete
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </section>
                     </div>
-                </section>
+                </div>
+                <NavigationBottomBar
+                    previousPage={ROUTES.HOME}
+                    nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
+                    isReady={Object.keys(contextFiles).length > 0 && mainTopic.length > 0}
+                    onNextClick={handleOnNextClick}
+                    autoNavigateToNext={false}
+                />
             </div>
-            <NavigationBottomBar
-                previousPage={ROUTES.HOME}
-                nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
-                isReady={checkIfReady}
-                onNextClick={handleOnNextClick}
-                autoNavigateToNext={false}
-            />
-        </div>
+        </>
     );
 };
 

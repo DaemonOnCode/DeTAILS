@@ -116,9 +116,9 @@ const KeywordsTablePage: FC = () => {
 
             <main className="flex-1 overflow-hidden flex flex-col">
                 {/* Table container */}
-                <div className="flex-1 overflow-auto" ref={tableContainerRef}>
+                <div className="flex-1 overflow-auto relative" ref={tableContainerRef}>
                     <table className="w-full border-collapse">
-                        <thead>
+                        <thead className="sticky top-0">
                             <tr className="bg-gray-200">
                                 <th className="border border-gray-400 p-2">Word</th>
                                 <th className="border border-gray-400 p-2">Description</th>

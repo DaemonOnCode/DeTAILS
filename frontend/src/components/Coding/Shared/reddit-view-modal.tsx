@@ -32,7 +32,7 @@ const RedditViewModal = ({
     }, [isViewOpen, postLink, postText]); // Added dependencies to prevent unnecessary cleanup
 
     const openBrowserView = async (postLink: string, postText?: string) => {
-        if (!postLink) return; // Avoid running if postLink is missing
+        // if (!postLink) return; // Avoid running if postLink is missing
         try {
             const result = await ipcRenderer.invoke(
                 'render-reddit-webview',

@@ -110,3 +110,7 @@ async def download_reddit_from_torrent_endpoint(
 
     return {"message": "Reddit data downloaded from torrent."}
     
+
+@router.post("/get-torrent-data")
+async def get_torrent_data_endpoint():
+    pass

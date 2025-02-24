@@ -5,9 +5,21 @@ import { RouteIcons, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth-context';
 import { AppRouteArray } from '../../types/Shared';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
+import { useWorkspaceContext } from '../../context/workspace-context';
+import { DetailsIcon } from './Icons';
 
 // Format route names for display
-const formatRouteName = (path: string) => {
+const formatRouteName = (path: string, workspaceName: string = 'Temporary') => {
+    if (path === 'coding') {
+        return (
+            <span className="break-all flex items-center gap-1">
+                <span className="inline-flex items-center">
+                    <DetailsIcon className="h-6 w-6 inline-block" />:
+                </span>
+                {workspaceName}
+            </span>
+        );
+    }
     return path
         .replace(/#/g, '')
         .replace(/_/g, ' ')
@@ -45,6 +57,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
     const location = useLocation();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
+    const { currentWorkspace } = useWorkspaceContext();
     const [userDropdownVisible, setUserDropdownVisible] = useState<boolean>(false);
 
     const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
@@ -120,7 +133,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                                             }
                                             toggleDropdown(fullPath);
                                         }}>
-                                        {formatRouteName(route.path || '')}
+                                        {formatRouteName(route.path || '', currentWorkspace?.name)}
                                     </button>
                                 </div>
                                 <button

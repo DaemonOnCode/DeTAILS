@@ -48,7 +48,7 @@ export const WorkspaceProvider: FC<{ children: React.ReactNode }> = ({ children 
 
     // Set current workspace
     const setCurrentWorkspace = useCallback(
-        (workspace: Workspace) => {
+        (workspace: Workspace | null) => {
             setCurrentWorkspaceState(workspace);
         },
         [workspaces]

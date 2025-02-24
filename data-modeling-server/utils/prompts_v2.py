@@ -1,16 +1,16 @@
 class ContextPrompt:
     keyword_json_template = """
-{
+{{
   "keywords": [
-    {
+    {{
       "word": "ExtractedKeyword",
       "description": "Explanation of the word and its relevance to the main topic and additional information.",
       "inclusion_criteria": ["Criteria 1", "Criteria 2", "..."],
       "exclusion_criteria": ["Criteria 1", "Criteria 2", "..."]
-    },
+    }},
     ...
   ]
-}"""
+}}"""
 
     @staticmethod
     def systemPromptTemplate(mainTopic: str, researchQuestions: str, additionalInfo: str):

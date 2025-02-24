@@ -17,6 +17,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
         <div className="flex justify-between mt-6">
             <Link
                 to={'/coding/' + previousPage || ''}
+                id="back-previous-step"
                 title={TooltipMessages.PreviousStep}
                 className={`${
                     previousPage === undefined && 'invisible'
@@ -30,6 +31,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
             {nextPage && (
                 <Link
                     to={'/coding/' + nextPage}
+                    id="proceed-next-step"
                     title={TooltipMessages.NextStep}
                     className={`px-2 lg:px-4 py-2 rounded transition duration-200 ${
                         isReady

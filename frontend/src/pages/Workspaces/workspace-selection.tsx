@@ -48,9 +48,14 @@ const WorkspaceSelectionPage: React.FC = () => {
         updateWorkspace,
         deleteWorkspace,
         setCurrentWorkspaceById,
+        setCurrentWorkspace,
         setWorkspaceLoading,
         workspaceLoading: loading
     } = useWorkspaceContext();
+
+    useEffect(() => {
+        setCurrentWorkspace(null);
+    }, []);
 
     const [newWorkspaceName, setNewWorkspaceName] = useState<string>('');
     // const [renameMode, setRenameMode] = useState<boolean>(false);
@@ -61,31 +66,31 @@ const WorkspaceSelectionPage: React.FC = () => {
     const { loadWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = useServerUtils();
 
-    const handleCreateTempWorkspace = async () => {
-        try {
-            if (workspaces.some((ws) => ws.name === 'Temporary Workspace')) {
-                return; // Skip creating a temporary workspace if one exists
-            }
+    // const handleCreateTempWorkspace = async () => {
+    //     try {
+    //         if (workspaces.some((ws) => ws.name === 'Temporary Workspace')) {
+    //             return; // Skip creating a temporary workspace if one exists
+    //         }
 
-            const response = await fetch(
-                getServerUrl(
-                    `${REMOTE_SERVER_ROUTES.CREATE_TEMP_WORKSPACE}?user_email=${encodeURIComponent(
-                        user?.email || ''
-                    )}`
-                ),
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                }
-            );
-            const tempWorkspace = await response.json();
+    //         const response = await fetch(
+    //             getServerUrl(
+    //                 `${REMOTE_SERVER_ROUTES.CREATE_TEMP_WORKSPACE}?user_email=${encodeURIComponent(
+    //                     user?.email || ''
+    //                 )}`
+    //             ),
+    //             {
+    //                 method: 'POST',
+    //                 headers: { 'Content-Type': 'application/json' }
+    //             }
+    //         );
+    //         const tempWorkspace = await response.json();
 
-            addWorkspace({ id: tempWorkspace.id, name: 'Temporary Workspace' });
-            // setCurrentWorkspaceById(tempWorkspace.id);
-        } catch (error) {
-            console.error('Error creating temporary workspace:', error);
-        }
-    };
+    //         addWorkspace({ id: tempWorkspace.id, name: 'Temporary Workspace' });
+    //         // setCurrentWorkspaceById(tempWorkspace.id);
+    //     } catch (error) {
+    //         console.error('Error creating temporary workspace:', error);
+    //     }
+    // };
 
     const isLoading = useRef(false);
 
@@ -140,9 +145,9 @@ const WorkspaceSelectionPage: React.FC = () => {
                 } else {
                     console.log('No workspaces found.');
                     // Create a temporary workspace only if none exists
-                    if (workspaces.length === 0) {
-                        await handleCreateTempWorkspace();
-                    }
+                    // if (workspaces.length === 0) {
+                    //     await handleCreateTempWorkspace();
+                    // }
                 }
             } catch (error: any) {
                 if (error.name !== 'AbortError') {

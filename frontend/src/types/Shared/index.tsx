@@ -142,7 +142,7 @@ export interface IWorkspaceContext {
     setWorkspaces: SetState<Workspace[]>;
     updateWorkspace: (id: string, name?: string, description?: string) => void;
     deleteWorkspace: (id: string) => void;
-    setCurrentWorkspace: (workspace: Workspace) => void;
+    setCurrentWorkspace: (workspace: Workspace | null) => void;
     resetWorkspaces: () => void;
     addWorkspaceBatch: (newWorkspaces: Workspace[]) => void;
     setCurrentWorkspaceById: (workspaceId: string) => void;

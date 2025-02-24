@@ -110,7 +110,10 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     >([]);
 
     const handleSegmentDoubleClick = (segment: Segment) => {
-        if (review) return;
+        if (review) {
+            alert('Go back, change to edit mode and try again');
+            return;
+        }
         console.log(segment, 'segment');
 
         console.log(currentSegment.current, segment);

@@ -9,6 +9,7 @@ import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import PostView from '../../components/Coding/Analysis/post-view';
 import CodeView from '../../components/Coding/Analysis/code-view';
+import { downloadCodebook } from '../../utility/codebook-downloader';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -132,6 +133,10 @@ const FinalPage = () => {
     const groupedByCode = useMemo(() => groupByCode(finalCodeResponses), [finalCodeResponses]);
     const allCodes = Object.keys(groupedByCode);
 
+    const handleDownloadCodebook = () => {
+        downloadCodebook(finalCodeResponses);
+    };
+
     // If no data
     if (finalCodeResponses.length === 0) {
         return (
@@ -188,23 +193,10 @@ const FinalPage = () => {
                         </span>
                     </div>
 
-                    <button className="min-w-32">
-                        <a
-                            href={`data:text/json;charset=utf-8,${encodeURIComponent(
-                                JSON.stringify(
-                                    finalCodeResponses.map((codeResponse) => ({
-                                        postId: codeResponse.postId,
-                                        quote: codeResponse.quote,
-                                        code: codeResponse.coded_word,
-                                        theme: codeResponse.theme,
-                                        explanation: codeResponse.reasoning
-                                    }))
-                                )
-                            )}`}
-                            download="final_code_responses.json"
-                            className="px-4 py-2 bg-blue-500 text-white rounded">
-                            Download Data
-                        </a>
+                    <button
+                        className="min-w-32 px-4 py-2 bg-blue-500 text-white rounded"
+                        onClick={handleDownloadCodebook}>
+                        Download Data
                     </button>
 
                     <div className="flex text-center justify-center items-center p-2 lg:p-4 gap-x-2">
@@ -267,9 +259,9 @@ const FinalPage = () => {
             </main>
 
             {/* Reddit Post Modal */}
-            {renderedPost.link !== '' && (
+            {renderedPost.id !== '' && (
                 <RedditViewModal
-                    isViewOpen={renderedPost.link !== ''}
+                    isViewOpen={renderedPost.id !== ''}
                     postLink={renderedPost.link}
                     postText={renderedPost.sentence}
                     postId={renderedPost.id}

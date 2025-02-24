@@ -5,14 +5,16 @@ export function downloadCodebook(filteredData: any[]) {
     filteredData.forEach((row) => {
         if ('type' in row && 'theme' in row) {
             csvRows.push(
-                `${row.postId},"${row.quote}","${row.code}","${row.theme || 'N/A'}","${row.type || 'N/A'}"`
+                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","${row.theme || 'N/A'}","${row.type || 'N/A'}"`
             );
         } else if ('theme' in row) {
             csvRows.push(
-                `${row.postId},"${row.quote}","${row.code}","${row.theme || 'N/A'}","N/A"`
+                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","${row.theme || 'N/A'}","N/A"`
             );
         } else {
-            csvRows.push(`${row.postId},"${row.quote}","${row.code}","N/A","N/A"`);
+            csvRows.push(
+                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","N/A","N/A"`
+            );
         }
     });
 
