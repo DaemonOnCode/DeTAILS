@@ -56,16 +56,29 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
     const [excludedRect, setExcludedRect] = useState<DOMRect | null>(null);
     const tooltipRef = useRef<HTMLDivElement>(null);
     const [tooltipSize, setTooltipSize] = useState({ width: 0, height: 0 });
+    const prevTargetSelectorRef = useRef<string | null>(null);
 
-    // Create a unique mask id.
+    // Unique mask id.
     const maskId = `mask-${Math.random().toString(36).slice(2, 11)}`;
 
-    // --- Track target element position ---
+    // --- Track target element position & reset previous scroll ---
     useEffect(() => {
         if (!run || steps.length === 0) return;
         if (currentStepIndex >= steps.length) return onFinish();
 
         const selector = steps[currentStepIndex].target;
+
+        if (prevTargetSelectorRef.current && prevTargetSelectorRef.current !== selector) {
+            const prevElem = document.querySelector(prevTargetSelectorRef.current) as HTMLElement;
+            if (prevElem) {
+                const ancestors = getScrollableAncestors(prevElem);
+                ancestors.forEach((ancestor) => {
+                    ancestor.scrollTop = 0;
+                });
+            }
+        }
+        prevTargetSelectorRef.current = selector;
+
         const elem = document.querySelector(selector) as HTMLElement;
         if (!elem) return setTargetRect(null);
 
@@ -115,25 +128,24 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
         };
     }, [excludedTarget]);
 
-    // --- Scroll Target into View if Not Fully Visible ---
+    // --- Scroll Target Into View if Not Fully Visible ---
     useEffect(() => {
         if (!targetRect) return;
         const selector = steps[currentStepIndex].target;
         const elem = document.querySelector(selector) as HTMLElement;
         if (!elem) return;
-        // Check if element is partially or fully out of view.
+        // If target is partially out of view, scroll it into view.
         if (targetRect.top < 0 || targetRect.bottom > window.innerHeight) {
-            // Scroll the element's container (or the element itself) into view.
             elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }, [targetRect, currentStepIndex, steps]);
 
-    // --- SVG Mask ---
+    // --- SVG Mask Definition ---
     const svgMask = (
         <svg
             width={window.innerWidth}
             height={window.innerHeight}
-            style={{ position: 'absolute', top: 0, left: 0, zIndex: 9999 }}>
+            className="absolute top-0 left-0 z-[9999]">
             <defs>
                 <mask id={maskId} maskUnits="userSpaceOnUse">
                     <rect width="100%" height="100%" fill="white" />
@@ -167,19 +179,12 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
     // --- Full-Screen Blurred Background with CSS Mask ---
     const fullScreenBlur = (
         <div
+            className="fixed top-0 left-0 w-full h-full z-[9998] pointer-events-none bg-black bg-opacity-70"
             style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                backgroundColor: 'rgba(0,0,0,0.7)',
                 backdropFilter: `blur(${blurAmount}px)`,
                 WebkitBackdropFilter: `blur(${blurAmount}px)`,
                 maskImage: `url(#${maskId})`,
-                WebkitMaskImage: `url(#${maskId})`,
-                zIndex: 9998,
-                pointerEvents: 'none'
+                WebkitMaskImage: `url(#${maskId})`
             }}
         />
     );
@@ -222,7 +227,6 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
                     break;
             }
         } else {
-            // Auto-placement: if there's not enough space below, place above.
             const spaceBelow = vh - targetRect.bottom - tooltipPadding;
             const spaceAbove = targetRect.top - tooltipPadding;
             if (spaceBelow < tHeight && spaceAbove >= tHeight) {
@@ -237,15 +241,13 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
         tooltip.style.top = `${finalY}px`;
     }, [targetRect, currentStepIndex, steps, highlightMargin, tooltipPadding]);
 
-    // --- Reset scroll for the target's container when finishing ---
+    // --- Reset scroll on finishing tutorial ---
     const handleFinish = () => {
         onFinish();
         const elem = document.querySelector(steps[currentStepIndex].target) as HTMLElement;
         if (elem) {
-            const scrollableAncestors = getScrollableAncestors(elem);
-            scrollableAncestors.forEach((ancestor) => {
-                ancestor.scrollTop = 0;
-            });
+            const ancestors = getScrollableAncestors(elem);
+            ancestors.forEach((ancestor) => (ancestor.scrollTop = 0));
         }
     };
 
@@ -257,47 +259,22 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
             {fullScreenBlur}
             <div
                 ref={tooltipRef}
-                style={{
-                    position: 'fixed',
-                    zIndex: 10000,
-                    backgroundColor: '#fff',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    maxWidth: '300px',
-                    textAlign: 'center',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                    pointerEvents: 'auto'
-                }}>
-                <p style={{ margin: 0 }}>{steps[currentStepIndex].content}</p>
-                <div
-                    style={{
-                        marginTop: 12,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: 8
-                    }}>
+                className="fixed z-[10000] bg-white p-3 rounded-lg max-w-[300px] text-center shadow-md pointer-events-auto">
+                <p className="m-0">{steps[currentStepIndex].content}</p>
+                <div className="mt-3 flex justify-between gap-2">
                     <button
                         onClick={handleFinish}
-                        style={{
-                            backgroundColor: '#ccc',
-                            padding: '6px 12px',
-                            cursor: 'pointer',
-                            border: 'none',
-                            borderRadius: 4
-                        }}>
+                        className="bg-gray-300 px-3 py-1.5 rounded cursor-pointer border-none">
                         Skip
                     </button>
                     <button
                         onClick={() => setCurrentStepIndex((prev) => (prev > 0 ? prev - 1 : prev))}
                         disabled={currentStepIndex === 0}
-                        style={{
-                            backgroundColor: currentStepIndex > 0 ? '#007BFF' : '#ccc',
-                            color: 'white',
-                            padding: '6px 12px',
-                            cursor: currentStepIndex > 0 ? 'pointer' : 'not-allowed',
-                            border: 'none',
-                            borderRadius: 4
-                        }}>
+                        className={`px-3 py-1.5 rounded border-none ${
+                            currentStepIndex > 0
+                                ? 'bg-blue-500 text-white cursor-pointer'
+                                : 'bg-gray-300 text-white cursor-not-allowed'
+                        }`}>
                         Previous
                     </button>
                     <button
@@ -308,14 +285,7 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
                                 handleFinish();
                             }
                         }}
-                        style={{
-                            backgroundColor: '#007BFF',
-                            color: 'white',
-                            padding: '6px 12px',
-                            cursor: 'pointer',
-                            border: 'none',
-                            borderRadius: 4
-                        }}>
+                        className="bg-blue-500 text-white px-3 py-1.5 rounded cursor-pointer border-none">
                         {currentStepIndex === steps.length - 1 ? 'Finish' : 'Next'}
                     </button>
                 </div>
