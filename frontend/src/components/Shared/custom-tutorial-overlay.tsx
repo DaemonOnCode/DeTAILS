@@ -57,8 +57,10 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
     const tooltipRef = useRef<HTMLDivElement>(null);
     const [tooltipSize, setTooltipSize] = useState({ width: 0, height: 0 });
 
+    // Create a unique mask id.
     const maskId = `mask-${Math.random().toString(36).slice(2, 11)}`;
 
+    // --- Track target element position ---
     useEffect(() => {
         if (!run || steps.length === 0) return;
         if (currentStepIndex >= steps.length) return onFinish();
@@ -85,8 +87,9 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
             window.removeEventListener('resize', measureTarget);
             ro.disconnect();
         };
-    }, [run, currentStepIndex, steps]);
+    }, [run, currentStepIndex, steps, onFinish]);
 
+    // --- Track excluded element (if provided) ---
     useEffect(() => {
         if (!excludedTarget) return;
         const elem = document.querySelector(excludedTarget) as HTMLElement;
@@ -112,6 +115,76 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
         };
     }, [excludedTarget]);
 
+    // --- Scroll Target into View if Not Fully Visible ---
+    useEffect(() => {
+        if (!targetRect) return;
+        const selector = steps[currentStepIndex].target;
+        const elem = document.querySelector(selector) as HTMLElement;
+        if (!elem) return;
+        // Check if element is partially or fully out of view.
+        if (targetRect.top < 0 || targetRect.bottom > window.innerHeight) {
+            // Scroll the element's container (or the element itself) into view.
+            elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [targetRect, currentStepIndex, steps]);
+
+    // --- SVG Mask ---
+    const svgMask = (
+        <svg
+            width={window.innerWidth}
+            height={window.innerHeight}
+            style={{ position: 'absolute', top: 0, left: 0, zIndex: 9999 }}>
+            <defs>
+                <mask id={maskId} maskUnits="userSpaceOnUse">
+                    <rect width="100%" height="100%" fill="white" />
+                    {targetRect && (
+                        <rect
+                            x={targetRect.left - highlightMargin}
+                            y={targetRect.top - highlightMargin}
+                            width={targetRect.width + 2 * highlightMargin}
+                            height={targetRect.height + 2 * highlightMargin}
+                            fill="black"
+                            rx="12"
+                            ry="12"
+                        />
+                    )}
+                    {excludedRect && (
+                        <rect
+                            x={excludedRect.left - highlightMargin}
+                            y={excludedRect.top - highlightMargin}
+                            width={excludedRect.width + 2 * highlightMargin}
+                            height={excludedRect.height + 2 * highlightMargin}
+                            fill="black"
+                            rx="12"
+                            ry="12"
+                        />
+                    )}
+                </mask>
+            </defs>
+        </svg>
+    );
+
+    // --- Full-Screen Blurred Background with CSS Mask ---
+    const fullScreenBlur = (
+        <div
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                backdropFilter: `blur(${blurAmount}px)`,
+                WebkitBackdropFilter: `blur(${blurAmount}px)`,
+                maskImage: `url(#${maskId})`,
+                WebkitMaskImage: `url(#${maskId})`,
+                zIndex: 9998,
+                pointerEvents: 'none'
+            }}
+        />
+    );
+
+    // --- Tooltip Positioning Logic ---
     useLayoutEffect(() => {
         if (!tooltipRef.current || !targetRect) return;
 
@@ -148,6 +221,13 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
                     rawY = targetRect.top + targetRect.height / 2 - tHeight / 2;
                     break;
             }
+        } else {
+            // Auto-placement: if there's not enough space below, place above.
+            const spaceBelow = vh - targetRect.bottom - tooltipPadding;
+            const spaceAbove = targetRect.top - tooltipPadding;
+            if (spaceBelow < tHeight && spaceAbove >= tHeight) {
+                rawY = targetRect.top - tHeight - tooltipPadding;
+            }
         }
 
         const finalX = shiftInside(rawX, tWidth, vw);
@@ -157,49 +237,24 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
         tooltip.style.top = `${finalY}px`;
     }, [targetRect, currentStepIndex, steps, highlightMargin, tooltipPadding]);
 
+    // --- Reset scroll for the target's container when finishing ---
+    const handleFinish = () => {
+        onFinish();
+        const elem = document.querySelector(steps[currentStepIndex].target) as HTMLElement;
+        if (elem) {
+            const scrollableAncestors = getScrollableAncestors(elem);
+            scrollableAncestors.forEach((ancestor) => {
+                ancestor.scrollTop = 0;
+            });
+        }
+    };
+
     if (!run || steps.length === 0 || !targetRect) return null;
 
     return (
         <>
-            <svg
-                width={window.innerWidth}
-                height={window.innerHeight}
-                style={{ position: 'absolute', top: 0, left: 0, zIndex: 9999 }}>
-                <defs>
-                    <mask id={maskId} maskUnits="userSpaceOnUse">
-                        <rect width="100%" height="100%" fill="white" />
-                        {targetRect && (
-                            <rect
-                                x={targetRect.left - highlightMargin}
-                                y={targetRect.top - highlightMargin}
-                                width={targetRect.width + 2 * highlightMargin}
-                                height={targetRect.height + 2 * highlightMargin}
-                                fill="black"
-                                rx="12"
-                                ry="12"
-                            />
-                        )}
-                    </mask>
-                </defs>
-            </svg>
-
-            <div
-                style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                    backdropFilter: `blur(${blurAmount}px)`,
-                    WebkitBackdropFilter: `blur(${blurAmount}px)`,
-                    maskImage: `url(#${maskId})`,
-                    WebkitMaskImage: `url(#${maskId})`,
-                    zIndex: 9998,
-                    pointerEvents: 'none'
-                }}
-            />
-
+            {svgMask}
+            {fullScreenBlur}
             <div
                 ref={tooltipRef}
                 style={{
@@ -222,7 +277,7 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
                         gap: 8
                     }}>
                     <button
-                        onClick={onFinish}
+                        onClick={handleFinish}
                         style={{
                             backgroundColor: '#ccc',
                             padding: '6px 12px',
@@ -250,7 +305,7 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
                             if (currentStepIndex < steps.length - 1) {
                                 setCurrentStepIndex((prev) => prev + 1);
                             } else {
-                                onFinish();
+                                handleFinish();
                             }
                         }}
                         style={{
