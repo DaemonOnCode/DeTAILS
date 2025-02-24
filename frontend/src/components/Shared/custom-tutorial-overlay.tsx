@@ -1,214 +1,232 @@
-// CustomTutorialOverlay.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 
 export interface TutorialStep {
-    target: string; // CSS selector for the target element (e.g., "#file-section")
+    target: string;
     content: string;
-    placement?: 'top' | 'bottom' | 'left' | 'right'; // this value is ignored since placement is chosen dynamically
+    placement?: string;
 }
 
 interface CustomTutorialOverlayProps {
     steps: TutorialStep[];
     run: boolean;
     onFinish: () => void;
+    excludedTarget?: string;
+    highlightMargin?: number;
+    blurAmount?: number;
+    tooltipPadding?: number;
 }
 
-const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({ steps, run, onFinish }) => {
+function getScrollableAncestors(element: HTMLElement): HTMLElement[] {
+    const ancestors: HTMLElement[] = [];
+    let currentElement = element.parentElement;
+    while (currentElement) {
+        const style = getComputedStyle(currentElement);
+        if (
+            ['auto', 'scroll'].includes(style.overflow) ||
+            ['auto', 'scroll'].includes(style.overflowY)
+        ) {
+            ancestors.push(currentElement);
+        }
+        currentElement = currentElement.parentElement;
+    }
+    return ancestors;
+}
+
+const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
+    steps,
+    run,
+    onFinish,
+    excludedTarget,
+    highlightMargin = 8,
+    blurAmount = 5,
+    tooltipPadding = 20
+}) => {
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+    const [excludedRect, setExcludedRect] = useState<DOMRect | null>(null);
     const tooltipRef = useRef<HTMLDivElement>(null);
 
-    // Dynamically update the target element's bounding rect whenever changes occur.
+    // ✅ Ensure Unique Mask ID for Each Render
+    const maskId = `mask-${Math.random().toString(36).slice(2, 11)}`;
+
+    // --- Track target element position ---
     useEffect(() => {
         if (!run || steps.length === 0) return;
-        const targetElement = document.querySelector(steps[currentStepIndex].target);
-        if (!targetElement) {
-            setTargetRect(null);
-            return;
-        }
+        if (currentStepIndex >= steps.length) return onFinish(); // 🔥 Prevent index out of range
 
-        const updateRect = () => {
-            setTargetRect(targetElement.getBoundingClientRect());
-        };
+        const selector = steps[currentStepIndex].target;
+        const elem = document.querySelector(selector) as HTMLElement;
+        if (!elem) return setTargetRect(null);
 
-        updateRect(); // initial measure
-
-        // Use ResizeObserver to watch for size changes.
-        let observer: ResizeObserver | null = null;
-        if (window.ResizeObserver) {
-            observer = new ResizeObserver(updateRect);
-            observer.observe(targetElement);
-        }
-
-        // Also update on scroll and window resize events.
-        window.addEventListener('scroll', updateRect, true);
-        window.addEventListener('resize', updateRect);
-
+        const measureTarget = () => setTargetRect(elem.getBoundingClientRect());
+        measureTarget();
+        const scrollableAncestors = getScrollableAncestors(elem);
+        scrollableAncestors.forEach((ancestor) => {
+            ancestor.addEventListener('scroll', measureTarget, { passive: true });
+        });
+        window.addEventListener('scroll', measureTarget, true);
+        window.addEventListener('resize', measureTarget);
+        const ro = new ResizeObserver(measureTarget);
+        ro.observe(elem);
         return () => {
-            if (observer) observer.disconnect();
-            window.removeEventListener('scroll', updateRect, true);
-            window.removeEventListener('resize', updateRect);
+            scrollableAncestors.forEach((ancestor) => {
+                ancestor.removeEventListener('scroll', measureTarget);
+            });
+            window.removeEventListener('scroll', measureTarget, true);
+            window.removeEventListener('resize', measureTarget);
+            ro.disconnect();
         };
     }, [run, currentStepIndex, steps]);
 
-    if (!run || steps.length === 0 || !targetRect) return null;
+    useEffect(() => {
+        if (!excludedTarget) return;
+        const elem = document.querySelector(excludedTarget) as HTMLElement;
+        if (!elem) return setExcludedRect(null);
 
-    const step = steps[currentStepIndex];
+        const measureExcluded = () => setExcludedRect(elem.getBoundingClientRect());
+        measureExcluded();
+        const scrollableAncestors = getScrollableAncestors(elem);
+        scrollableAncestors.forEach((ancestor) => {
+            ancestor.addEventListener('scroll', measureExcluded, { passive: true });
+        });
+        window.addEventListener('scroll', measureExcluded, true);
+        window.addEventListener('resize', measureExcluded);
+        const ro = new ResizeObserver(measureExcluded);
+        ro.observe(elem);
+        return () => {
+            scrollableAncestors.forEach((ancestor) => {
+                ancestor.removeEventListener('scroll', measureExcluded);
+            });
+            window.removeEventListener('scroll', measureExcluded, true);
+            window.removeEventListener('resize', measureExcluded);
+            ro.disconnect();
+        };
+    }, [excludedTarget]);
 
-    const handleNext = () => {
-        if (currentStepIndex < steps.length - 1) {
-            setCurrentStepIndex((prev) => prev + 1);
-        } else {
-            onFinish();
-        }
-    };
-
-    const handleSkip = () => {
-        onFinish();
-    };
-
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    // Create four overlay divs covering the page except for the target area.
-    const overlays = (
-        <>
-            {/* Top overlay */}
-            <div
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: targetRect.top,
-                    backgroundColor: 'rgba(0,0,0,0.7)'
-                }}
-            />
-            {/* Bottom overlay */}
-            <div
-                style={{
-                    position: 'absolute',
-                    top: targetRect.bottom,
-                    left: 0,
-                    width: '100%',
-                    height: viewportHeight - targetRect.bottom,
-                    backgroundColor: 'rgba(0,0,0,0.7)'
-                }}
-            />
-            {/* Left overlay */}
-            <div
-                style={{
-                    position: 'absolute',
-                    top: targetRect.top,
-                    left: 0,
-                    width: targetRect.left,
-                    height: targetRect.height,
-                    backgroundColor: 'rgba(0,0,0,0.7)'
-                }}
-            />
-            {/* Right overlay */}
-            <div
-                style={{
-                    position: 'absolute',
-                    top: targetRect.top,
-                    left: targetRect.right,
-                    width: viewportWidth - targetRect.right,
-                    height: targetRect.height,
-                    backgroundColor: 'rgba(0,0,0,0.7)'
-                }}
-            />
-        </>
+    // ✅ **SVG Mask Definition**
+    const svgMask = (
+        <svg
+            width={window.innerWidth}
+            height={window.innerHeight}
+            style={{ position: 'absolute', top: 0, left: 0, zIndex: 9999 }}>
+            <defs>
+                <mask id={maskId} maskUnits="userSpaceOnUse">
+                    <rect width="100%" height="100%" fill="white" />
+                    {targetRect && (
+                        <rect
+                            x={targetRect.left - highlightMargin}
+                            y={targetRect.top - highlightMargin}
+                            width={targetRect.width + 2 * highlightMargin}
+                            height={targetRect.height + 2 * highlightMargin}
+                            fill="black"
+                            rx="12"
+                            ry="12"
+                        />
+                    )}
+                    {excludedRect && (
+                        <rect
+                            x={excludedRect.left - highlightMargin}
+                            y={excludedRect.top - highlightMargin}
+                            width={excludedRect.width + 2 * highlightMargin}
+                            height={excludedRect.height + 2 * highlightMargin}
+                            fill="black"
+                            rx="12"
+                            ry="12"
+                        />
+                    )}
+                </mask>
+            </defs>
+        </svg>
     );
 
-    // --- Dynamic Tooltip Positioning ---
-    // Assume a fixed tooltip height; adjust as needed.
-    const tooltipHeight = 80;
-    const margin = 20; // minimal separation between target and tooltip
+    // ✅ **Blurred Background with CSS Mask**
+    const fullScreenBlur = (
+        <div
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                backdropFilter: `blur(${blurAmount}px)`,
+                WebkitBackdropFilter: `blur(${blurAmount}px)`,
+                maskImage: `url(#${maskId})`,
+                WebkitMaskImage: `url(#${maskId})`,
+                zIndex: 9998,
+                pointerEvents: 'none'
+            }}
+        />
+    );
 
-    const spaceAbove = targetRect.top;
-    const spaceBelow = viewportHeight - targetRect.bottom;
-
-    let tooltipStyle: React.CSSProperties = {};
-
-    if (spaceBelow >= tooltipHeight + margin) {
-        // Enough room below: place tooltip below target.
-        tooltipStyle = {
-            top: targetRect.bottom + margin,
-            left: targetRect.left + targetRect.width / 2,
-            transform: 'translate(-50%, 0)'
-        };
-    } else if (spaceAbove >= tooltipHeight + margin) {
-        // Otherwise, if enough room above: place tooltip above target.
-        tooltipStyle = {
-            top: targetRect.top - tooltipHeight - margin,
-            left: targetRect.left + targetRect.width / 2,
-            transform: 'translate(-50%, 0)'
-        };
-    } else {
-        // If neither side has sufficient space, fallback to bottom-center.
-        tooltipStyle = {
-            bottom: margin,
-            left: '50%',
-            transform: 'translateX(-50%)'
-        };
-    }
-    // --- End Dynamic Positioning ---
+    if (!run || steps.length === 0 || !targetRect) return null;
 
     return (
         <>
-            {/* Overlays */}
-            <div
-                style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: viewportWidth,
-                    height: viewportHeight,
-                    zIndex: 10000,
-                    pointerEvents: 'none'
-                }}>
-                {overlays}
-            </div>
-            {/* Tooltip */}
+            {svgMask}
+            {fullScreenBlur}
             <div
                 ref={tooltipRef}
                 style={{
                     position: 'fixed',
-                    ...tooltipStyle,
+                    zIndex: 10000,
                     backgroundColor: '#fff',
                     padding: '12px',
-                    borderRadius: '4px',
-                    zIndex: 10001,
+                    borderRadius: '8px',
                     maxWidth: '300px',
                     textAlign: 'center',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                     pointerEvents: 'auto'
                 }}>
-                <p style={{ margin: 0 }}>{step.content}</p>
-                <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+                <p style={{ margin: 0 }}>{steps[currentStepIndex].content}</p>
+                <div
+                    style={{
+                        marginTop: 12,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 8
+                    }}>
                     <button
-                        onClick={handleSkip}
+                        onClick={onFinish}
                         style={{
                             backgroundColor: '#ccc',
-                            border: 'none',
                             padding: '6px 12px',
-                            borderRadius: '4px',
-                            marginRight: '8px',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            border: 'none',
+                            borderRadius: 4
                         }}>
                         Skip
                     </button>
                     <button
-                        onClick={handleNext}
+                        onClick={() => setCurrentStepIndex((prev) => (prev > 0 ? prev - 1 : prev))}
+                        disabled={currentStepIndex === 0}
+                        style={{
+                            backgroundColor: currentStepIndex > 0 ? '#007BFF' : '#ccc',
+                            color: 'white',
+                            padding: '6px 12px',
+                            cursor: currentStepIndex > 0 ? 'pointer' : 'not-allowed',
+                            border: 'none',
+                            borderRadius: 4
+                        }}>
+                        Previous
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (currentStepIndex < steps.length - 1) {
+                                setCurrentStepIndex((prev) => prev + 1);
+                            } else {
+                                onFinish();
+                            }
+                        }}
                         style={{
                             backgroundColor: '#007BFF',
-                            color: '#fff',
-                            border: 'none',
+                            color: 'white',
                             padding: '6px 12px',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            border: 'none',
+                            borderRadius: 4
                         }}>
-                        Next
+                        {currentStepIndex === steps.length - 1 ? 'Finish' : 'Next'}
                     </button>
                 </div>
             </div>

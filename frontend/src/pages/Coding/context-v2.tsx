@@ -52,23 +52,20 @@ const ContextPage = () => {
     const steps: TutorialStep[] = [
         {
             target: '#file-section',
-            content: 'Step 1: Click "+ Add File" to add a file.',
-            placement: 'bottom'
+            content: 'Click "+ Add File" to add a file.'
         },
         {
             target: '#topic-section',
-            content: 'Step 2: Enter your main topic and additional information.',
-            placement: 'bottom'
+            content: 'Enter your main topic and additional information.'
         },
         {
             target: '#research-section',
-            content: 'Step 3: Add relevant research questions.',
-            placement: 'top'
+            content: 'Add relevant research questions.'
         },
         {
             target: '#proceed-next-step',
-            content: 'Step 4: Proceed to next step',
-            placement: 'top'
+            content: 'Proceed to next step',
+            placement: 'top left'
         }
     ];
 

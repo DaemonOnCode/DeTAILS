@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useCollectionContext } from '../../context/collection-context';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import LoadInterview from './load-interviews';
 import LoadReddit from './load-reddit';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
@@ -10,16 +10,15 @@ import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import { Link } from 'react-router-dom';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
+import CustomTutorialOverlay, {
+    TutorialStep
+} from '../../components/Shared/custom-tutorial-overlay';
 
 const UploadDataPage = () => {
     const { type, datasetId, selectedData, modeInput } = useCollectionContext();
-
     const [searchParams] = useSearchParams();
-
     const datasetType = searchParams.get('type') ?? modeInput.split(':')[0];
-    console.log('Search params:', searchParams, searchParams.get('type'));
     const navigate = useNavigate();
     const {
         setSampledPostIds,
@@ -35,8 +34,29 @@ const UploadDataPage = () => {
     const { getServerUrl } = useServerUtils();
 
     const postIds: string[] = selectedData;
-
     const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD;
+
+    // Tutorial overlay state and steps
+    const [runTutorial, setRunTutorial] = useState(false);
+    const [tutorialFinished, setTutorialFinished] = useState(false);
+
+    const tutorialSteps: TutorialStep[] = [
+        {
+            target: '#upload-header',
+            content: 'Welcome to the Data Upload Page. Here you can select and load your data.',
+            placement: 'bottom'
+        },
+        {
+            target: '#upload-main',
+            content: 'Depending on the data type, you will see the appropriate upload options.',
+            placement: 'top'
+        },
+        {
+            target: '#proceed-next-step',
+            content: 'Proceed to next step',
+            placement: 'left'
+        }
+    ];
 
     const handleSamplingPosts = async () => {
         if (!datasetId) return;
@@ -106,37 +126,70 @@ const UploadDataPage = () => {
     }
 
     return (
-        <div className="h-page flex flex-col">
-            {/* <header className="p-4 bg-gray-100">
-                <h1 className="text-2xl font-bold">
-                    {type === 'reddit' ? 'Reddit Data Upload' : 'Interview Data Upload'}
-                </h1>
-            </header> */}
-            <main className="flex-1 overflow-hidden">
-                {datasetType === 'reddit' ? (
-                    <LoadReddit />
-                ) : datasetType === 'interview' ? (
-                    <LoadInterview />
-                ) : (
-                    <div className="flex flex-col items-center justify-center h-maxPageContent">
-                        <p>Choose what type of data to retrieve from home page</p>
-                        <Link
-                            to={`/coding/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
-                            className="text-blue-500">
-                            Go back to Data selection
-                        </Link>
+        <>
+            {/* Tutorial overlay */}
+            <CustomTutorialOverlay
+                steps={tutorialSteps}
+                run={runTutorial}
+                onFinish={() => {
+                    setRunTutorial(false);
+                    setTutorialFinished(true);
+                }}
+            />
+
+            {/* Tutorial prompt overlay */}
+            {!tutorialFinished && !runTutorial && (
+                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black bg-opacity-70">
+                    <div className="p-6 bg-white rounded shadow-lg text-center">
+                        <p className="mb-4">Would you like to view the tutorial?</p>
+                        <div className="flex justify-around">
+                            <button
+                                onClick={() => setRunTutorial(true)}
+                                className="px-4 py-2 bg-blue-500 text-white rounded mr-2">
+                                Show Tutorial
+                            </button>
+                            <button
+                                onClick={() => setTutorialFinished(true)}
+                                className="px-4 py-2 bg-gray-500 text-white rounded">
+                                Skip Tutorial
+                            </button>
+                        </div>
                     </div>
-                )}
-            </main>
-            <footer>
-                <NavigationBottomBar
-                    previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
-                    nextPage={ROUTES.CODEBOOK_CREATION}
-                    isReady={isReadyCheck}
-                    onNextClick={handleSamplingPosts}
-                />
-            </footer>
-        </div>
+                </div>
+            )}
+
+            <div className="h-page flex flex-col">
+                <header id="upload-header" className="p-4 bg-gray-100">
+                    <h1 className="text-2xl font-bold">
+                        {type === 'reddit' ? 'Reddit Data Upload' : 'Interview Data Upload'}
+                    </h1>
+                </header>
+                <main id="upload-main" className="flex-1 overflow-hidden">
+                    {datasetType === 'reddit' ? (
+                        <LoadReddit />
+                    ) : datasetType === 'interview' ? (
+                        <LoadInterview />
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-maxPageContent">
+                            <p>Choose what type of data to retrieve from home page</p>
+                            <Link
+                                to={`/coding/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
+                                className="text-blue-500">
+                                Go back to Data selection
+                            </Link>
+                        </div>
+                    )}
+                </main>
+                <footer id="bottom-navigation">
+                    <NavigationBottomBar
+                        previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
+                        nextPage={ROUTES.CODEBOOK_CREATION}
+                        isReady={isReadyCheck}
+                        onNextClick={handleSamplingPosts}
+                    />
+                </footer>
+            </div>
+        </>
     );
 };
 
