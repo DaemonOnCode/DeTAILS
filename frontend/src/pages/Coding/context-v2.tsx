@@ -13,9 +13,8 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { useLoadingContext } from '../../context/loading-context';
-import CustomTutorialOverlay, {
-    TutorialStep
-} from '../../components/Shared/custom-tutorial-overlay';
+import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
+import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -44,11 +43,6 @@ const ContextPage = () => {
     const { getServerUrl } = getServerUtils();
     const [newQuestion, setNewQuestion] = useState<string>('');
 
-    // State for controlling the tutorial
-    const [runTutorial, setRunTutorial] = useState(false);
-    const [tutorialFinished, setTutorialFinished] = useState(false);
-
-    // Define custom tutorial steps
     const steps: TutorialStep[] = [
         {
             target: '#file-section',
@@ -69,7 +63,6 @@ const ContextPage = () => {
         }
     ];
 
-    // Example functions (addQuestion, updateQuestion, deleteQuestion, etc.) remain the same...
     const addQuestion = () => {
         if (newQuestion.trim() !== '') {
             setResearchQuestions([...researchQuestions, newQuestion]);
@@ -196,131 +189,106 @@ const ContextPage = () => {
 
     return (
         <>
-            {/* Render the custom tutorial overlay if running */}
-            <CustomTutorialOverlay
+            <TutorialWrapper
                 steps={steps}
-                run={runTutorial}
-                onFinish={() => {
-                    setRunTutorial(false);
-                    setTutorialFinished(true);
-                }}
-            />
-
-            {/* Tutorial prompt overlay */}
-            {!tutorialFinished && !runTutorial && (
-                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black bg-opacity-70">
-                    <div className="p-6 bg-white rounded shadow-lg text-center">
-                        <p className="mb-4">Would you like to view the tutorial?</p>
-                        <div className="flex justify-around">
-                            <button
-                                onClick={() => setRunTutorial(true)}
-                                className="px-4 py-2 bg-blue-500 text-white rounded mr-2">
-                                Show Tutorial
-                            </button>
-                            <button
-                                onClick={() => setTutorialFinished(true)}
-                                className="px-4 py-2 bg-gray-500 text-white rounded">
-                                Skip Tutorial
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* The rest of your ContextPage component */}
-            <div className="w-full h-full flex justify-between flex-col relative">
-                <div className="max-h-maxPageContent h-maxPageContent">
-                    <section id="file-section" className="max-h-3/5 h-3/5 border-b-2">
-                        <h1>Selected Context files</h1>
-                        <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto max-w-screen-sm lg:max-w-screen-lg">
-                            <label
-                                className="flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50"
-                                onClick={handleSelectFiles}>
-                                <span>+ Add File</span>
-                            </label>
-                            {Object.keys(contextFiles).map((filePath) => (
-                                <FileCard
-                                    key={filePath}
-                                    filePath={filePath}
-                                    fileName={contextFiles[filePath]}
-                                    onRemove={removeContextFile}
-                                />
-                            ))}
-                        </div>
-                    </section>
-                    <div className="flex justify-start items-center max-h-2/5 h-2/5 overflow-hidden">
-                        <section id="topic-section" className="w-1/2">
-                            <div>
-                                <p>Main topic of interest:</p>
-                                <input
-                                    type="text"
-                                    className="p-2 border border-gray-300 rounded w-96"
-                                    value={mainTopic}
-                                    onChange={(e) => setMainTopic(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <p>
-                                    Provide any additional information about your topic of interest:
-                                </p>
-                                <textarea
-                                    className="p-2 border border-gray-300 rounded w-96"
-                                    value={additionalInfo}
-                                    onChange={(e) => setAdditionalInfo(e.target.value)}
-                                />
-                            </div>
-                        </section>
-                        <section
-                            id="research-section"
-                            className="w-1/2 max-h-full flex flex-col justify-center items-center overflow-y-auto">
-                            <div className="overflow-auto">
-                                <p>Research Questions:</p>
-                                <div className="flex items-center">
-                                    <textarea
-                                        className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
-                                        placeholder="Type your research question here..."
-                                        value={newQuestion}
-                                        onChange={(e) => setNewQuestion(e.target.value)}
+                promptOnFirstPage
+                pageId={`route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`}
+                excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}`}>
+                <div className="w-full h-full flex justify-between flex-col relative">
+                    <div className="max-h-maxPageContent h-maxPageContent">
+                        <section id="file-section" className="max-h-3/5 h-3/5 border-b-2">
+                            <h1>Selected Context files</h1>
+                            <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto max-w-screen-sm lg:max-w-screen-lg">
+                                <label
+                                    className="flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50"
+                                    onClick={handleSelectFiles}>
+                                    <span>+ Add File</span>
+                                </label>
+                                {Object.keys(contextFiles).map((filePath) => (
+                                    <FileCard
+                                        key={filePath}
+                                        filePath={filePath}
+                                        fileName={contextFiles[filePath]}
+                                        onRemove={removeContextFile}
                                     />
-                                    {newQuestion.trim() !== '' && (
-                                        <button
-                                            onClick={addQuestion}
-                                            className="ml-2 p-2 bg-blue-500 text-white rounded">
-                                            Add
-                                        </button>
-                                    )}
-                                </div>
-                                <ul className="mt-4">
-                                    {researchQuestions.map((question, index) => (
-                                        <li key={index} className="flex items-start mb-4">
-                                            <textarea
-                                                className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
-                                                value={question}
-                                                onChange={(e) =>
-                                                    updateQuestion(index, e.target.value)
-                                                }
-                                            />
-                                            <button
-                                                onClick={() => deleteQuestion(index)}
-                                                className="ml-2 p-2 bg-red-500 text-white rounded">
-                                                Delete
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
+                                ))}
                             </div>
                         </section>
+                        <div className="flex justify-start items-center max-h-2/5 h-2/5 overflow-hidden">
+                            <section id="topic-section" className="w-1/2">
+                                <div>
+                                    <p>Main topic of interest:</p>
+                                    <input
+                                        type="text"
+                                        className="p-2 border border-gray-300 rounded w-96"
+                                        value={mainTopic}
+                                        onChange={(e) => setMainTopic(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <p>
+                                        Provide any additional information about your topic of
+                                        interest:
+                                    </p>
+                                    <textarea
+                                        className="p-2 border border-gray-300 rounded w-96"
+                                        value={additionalInfo}
+                                        onChange={(e) => setAdditionalInfo(e.target.value)}
+                                    />
+                                </div>
+                            </section>
+                            <section
+                                id="research-section"
+                                className="w-1/2 max-h-full flex flex-col justify-center items-center overflow-y-auto">
+                                <div className="overflow-auto">
+                                    <p>Research Questions:</p>
+                                    <div className="flex items-center">
+                                        <textarea
+                                            className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
+                                            placeholder="Type your research question here..."
+                                            value={newQuestion}
+                                            onChange={(e) => setNewQuestion(e.target.value)}
+                                        />
+                                        {newQuestion.trim() !== '' && (
+                                            <button
+                                                onClick={addQuestion}
+                                                className="ml-2 p-2 bg-blue-500 text-white rounded">
+                                                Add
+                                            </button>
+                                        )}
+                                    </div>
+                                    <ul className="mt-4">
+                                        {researchQuestions.map((question, index) => (
+                                            <li key={index} className="flex items-start mb-4">
+                                                <textarea
+                                                    className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
+                                                    value={question}
+                                                    onChange={(e) =>
+                                                        updateQuestion(index, e.target.value)
+                                                    }
+                                                />
+                                                <button
+                                                    onClick={() => deleteQuestion(index)}
+                                                    className="ml-2 p-2 bg-red-500 text-white rounded">
+                                                    Delete
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </section>
+                        </div>
                     </div>
+                    <NavigationBottomBar
+                        previousPage={ROUTES.HOME}
+                        nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
+                        isReady={checkIfReady}
+                        onNextClick={handleOnNextClick}
+                        autoNavigateToNext={false}
+                        disabledTooltipText="Files or main topic is missing"
+                    />
                 </div>
-                <NavigationBottomBar
-                    previousPage={ROUTES.HOME}
-                    nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
-                    isReady={checkIfReady}
-                    onNextClick={handleOnNextClick}
-                    autoNavigateToNext={false}
-                    disabledTooltipText="Files or main topic is missing"
-                />
-            </div>
+            </TutorialWrapper>
         </>
     );
 };

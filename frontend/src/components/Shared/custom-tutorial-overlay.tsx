@@ -58,10 +58,8 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
     const [tooltipSize, setTooltipSize] = useState({ width: 0, height: 0 });
     const prevTargetSelectorRef = useRef<string | null>(null);
 
-    // Unique mask id.
     const maskId = `mask-${Math.random().toString(36).slice(2, 11)}`;
 
-    // --- Track target element position & reset previous scroll ---
     useEffect(() => {
         if (!run || steps.length === 0) return;
         if (currentStepIndex >= steps.length) return onFinish();
@@ -102,10 +100,12 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
         };
     }, [run, currentStepIndex, steps, onFinish]);
 
-    // --- Track excluded element (if provided) ---
     useEffect(() => {
         if (!excludedTarget) return;
-        const elem = document.querySelector(excludedTarget) as HTMLElement;
+        const validSelector = excludedTarget.startsWith('#')
+            ? '#' + CSS.escape(excludedTarget.slice(1))
+            : excludedTarget;
+        const elem = document.querySelector(validSelector) as HTMLElement;
         if (!elem) return setExcludedRect(null);
 
         const measureExcluded = () => setExcludedRect(elem.getBoundingClientRect());
@@ -128,19 +128,16 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
         };
     }, [excludedTarget]);
 
-    // --- Scroll Target Into View if Not Fully Visible ---
     useEffect(() => {
         if (!targetRect) return;
         const selector = steps[currentStepIndex].target;
         const elem = document.querySelector(selector) as HTMLElement;
         if (!elem) return;
-        // If target is partially out of view, scroll it into view.
         if (targetRect.top < 0 || targetRect.bottom > window.innerHeight) {
             elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }, [targetRect, currentStepIndex, steps]);
 
-    // --- SVG Mask Definition ---
     const svgMask = (
         <svg
             width={window.innerWidth}
@@ -189,7 +186,6 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
         />
     );
 
-    // --- Tooltip Positioning Logic ---
     useLayoutEffect(() => {
         if (!tooltipRef.current || !targetRect) return;
 
@@ -241,14 +237,13 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
         tooltip.style.top = `${finalY}px`;
     }, [targetRect, currentStepIndex, steps, highlightMargin, tooltipPadding]);
 
-    // --- Reset scroll on finishing tutorial ---
     const handleFinish = () => {
-        onFinish();
         const elem = document.querySelector(steps[currentStepIndex].target) as HTMLElement;
         if (elem) {
             const ancestors = getScrollableAncestors(elem);
             ancestors.forEach((ancestor) => (ancestor.scrollTop = 0));
         }
+        onFinish();
     };
 
     if (!run || steps.length === 0 || !targetRect) return null;

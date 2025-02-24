@@ -171,7 +171,10 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     const uniqueCodes = Array.from(new Set(filteredData.map((item) => item.code)));
 
     return (
-        <div className="h-full flex flex-col -m-6 overflow-hidden responsive-text">
+        // Add an id for tutorial targeting at the root container.
+        <div
+            id="unified-coding-page"
+            className="h-full flex flex-col -m-6 overflow-hidden responsive-text">
             <div className="flex flex-1 overflow-y-auto">
                 <div className="w-1/4 border-r flex-1 overflow-auto p-6 pb-0">
                     <LeftPanel
@@ -187,7 +190,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                     />
                 </div>
                 <div className="w-3/4 flex flex-col h-full">
-                    <div className="flex justify-evenly items-center p-6">
+                    {/* Add an id to the controls container for tutorial targeting */}
+                    <div id="coding-controls" className="flex justify-evenly items-center p-6">
                         {download && (
                             <button
                                 onClick={() => downloadCodebook(filteredData)}

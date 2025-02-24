@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef, useState } from 'react';
+import { FC, useState, useEffect, useRef } from 'react';
 import { LOADER_ROUTES, ROUTES, WORD_CLOUD_MIN_THRESHOLD } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import KeywordCloud from '../../components/Coding/KeywordCloud/cloud';
@@ -12,13 +12,15 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { GeminiIcon } from '../../components/Shared/Icons';
+// Import the TutorialWrapper and TutorialStep types
+import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
+import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 
 const KeywordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
 
     const logger = useLogger();
-
     const navigate = useNavigate();
 
     const {
@@ -34,9 +36,7 @@ const KeywordCloudPage: FC = () => {
         selectedWords
     } = useCodingContext();
     const { datasetId } = useCollectionContext();
-
     const { saveWorkspaceData } = useWorkspaceUtils();
-
     const [response, setResponse] = useState<
         {
             word: string;
@@ -52,9 +52,7 @@ const KeywordCloudPage: FC = () => {
             exclusion_criteria: keyword.exclusion_criteria
         }))
     );
-
     const { getServerUrl } = getServerUtils();
-
     const hasSavedRef = useRef(false);
 
     useEffect(() => {
@@ -97,8 +95,6 @@ const KeywordCloudPage: FC = () => {
     const refreshKeywordCloud = async () => {
         await logger.info('Regenerating Keyword Cloud');
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
-        // if (!USE_LOCAL_SERVER) {
-        // await ipcRenderer.invoke("connect-ws", datasetId);
         const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS), {
             method: 'POST',
             headers: {
@@ -121,7 +117,6 @@ const KeywordCloudPage: FC = () => {
         const results = await res.json();
         console.log(results, 'Keyword Cloud Page');
 
-        // const parsedResults = JSON.parse(results);
         const newKeywords: {
             word: string;
             description: string;
@@ -141,12 +136,8 @@ const KeywordCloudPage: FC = () => {
             return [...filteredPrevKeywords, ...filteredNewKeywords];
         });
 
-        // await ipcRenderer.invoke("disconnect-ws", datasetId);
         navigate(`/coding/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
         await logger.info('Keyword Cloud refreshed');
-        //     return;
-        // }
-
         console.log('Keyword Cloud refreshed');
         await logger.info('Keyword Cloud refreshed');
     };
@@ -160,33 +151,7 @@ const KeywordCloudPage: FC = () => {
         e.preventDefault();
         await logger.info('Starting Codebook Generation');
         console.log('Navigating to codebook');
-        // navigate(ROUTES.CODEBOOK);
         navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
-
-        console.log('Sending request to server');
-        // if (!USE_LOCAL_SERVER) {
-        // await ipcRenderer.invoke("connect-ws", datasetId);
-        console.log('Sending request to remote server');
-
-        // const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK), {
-        //     method: 'POST',
-        //     headers: {
-        //         'Content-Type': 'application/json'
-        //     },
-        //     body: JSON.stringify({
-        //         model: MODEL_LIST.GEMINI_FLASH,
-        //         mainTopic,
-        //         additionalInfo,
-        //         selectedKeywords,
-        //         dataset_id: datasetId
-        //     })
-        // });
-
-        // const results = await res.json();
-        // console.log(results, 'Keyword Cloud Page');
-
-        // const parsedResults = JSON.parse(results);
-        // const newCodebook: string[] = results.codebook;
 
         console.log('response', response, selectedKeywords);
 
@@ -195,8 +160,6 @@ const KeywordCloudPage: FC = () => {
             entries: response.filter((keyword) => selectedKeywords.includes(keyword.word))
         });
         await logger.info('Codebook Generation completed');
-        //     return;
-        // }
     };
 
     const handleSelectAll = (selectAll: boolean) => {
@@ -208,91 +171,116 @@ const KeywordCloudPage: FC = () => {
     };
 
     const checkIfReady = selectedKeywords.length > WORD_CLOUD_MIN_THRESHOLD;
-
     const allSelected = keywords.every((keyword) => selectedKeywords.includes(keyword));
 
+    // Define tutorial steps for the Keyword Cloud page.
+    const steps: TutorialStep[] = [
+        {
+            target: '#keyword-cloud',
+            content:
+                'This is your Keyword Cloud. Click on keywords to select or deselect them. The main topic is fixed. You can edit or delete the keywords as you wish.',
+            placement: 'bottom'
+        },
+        {
+            target: '.refresh-keywords-btn',
+            content:
+                'Click here to refresh the keyword cloud with new suggestions based on your feedback.',
+            placement: 'left'
+        },
+        {
+            target: '#proceed-next-step',
+            content: 'Proceed to next step',
+            placement: 'top'
+        }
+    ];
+
     return (
-        <div className="min-h-page flex justify-between flex-col">
-            <div className="relative flex justify-center items-center flex-col">
-                <KeywordCloud
-                    mainTopic={mainTopic}
-                    keywords={keywords}
-                    selectedKeywords={selectedKeywords}
-                    toggleKeywordSelection={toggleKeywordSelection}
-                    setKeywords={setKeywords}
-                />
-                <div className="absolute bottom-0 right-0 flex flex-col gap-y-4">
-                    {!allSelected ? (
-                        <button
-                            title={TooltipMessages.SelectAll}
-                            onClick={() => handleSelectAll(true)}
-                            className="bg-green-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-green-600 my-1 md:my-2 lg:text-base text-xs">
-                            Select All
-                        </button>
-                    ) : (
-                        <button
-                            title={TooltipMessages.DeselectAll}
-                            onClick={() => handleSelectAll(false)}
-                            className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs">
-                            Unselect All
-                        </button>
-                    )}
-                    <button
-                        title={TooltipMessages.RefreshKeywords}
-                        onClick={refreshKeywords}
-                        className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
-                        <span className="h-6 w-6">
-                            <GeminiIcon />
-                        </span>{' '}
-                        Refresh keywords
-                    </button>
-                </div>
-                {/* <div className="absolute bottom-0 left-0">
-                </div> */}
-            </div>
-
-            <NavigationBottomBar
-                previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`}
-                nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
-                isReady={checkIfReady}
-                onNextClick={(e) => handleNextClick(e)}
-                disabledTooltipText="Select atleast 5 keywords"
-            />
-
-            {isFeedbackOpen && (
-                <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-                        <h2 className="text-xl font-bold mb-4">
-                            Why are these words unsatisfactory?
-                        </h2>
-                        <p className=" mb-3">
-                            Word list:{' '}
-                            {keywords
-                                .filter((keyword) => !selectedKeywords.includes(keyword))
-                                .join(', ')}
-                        </p>
-                        <textarea
-                            value={feedback}
-                            onChange={handleFeedbackChange}
-                            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            rows={4}
-                            placeholder="Enter your feedback here..."></textarea>
-                        <div className="flex justify-end mt-4">
+        <TutorialWrapper steps={steps} pageId="keyword-cloud-page">
+            <div className="min-h-page flex justify-between flex-col">
+                <div className="relative flex justify-center items-center flex-col">
+                    {/* Add an id for targeting the tutorial */}
+                    <div id="keyword-cloud" className="w-full">
+                        <KeywordCloud
+                            mainTopic={mainTopic}
+                            keywords={keywords}
+                            selectedKeywords={selectedKeywords}
+                            toggleKeywordSelection={toggleKeywordSelection}
+                            setKeywords={setKeywords}
+                        />
+                    </div>
+                    <div className="absolute bottom-0 right-0 flex flex-col gap-y-4">
+                        {!allSelected ? (
                             <button
-                                onClick={() => setIsFeedbackOpen(false)}
-                                className="mr-4 bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">
-                                Cancel
+                                title={TooltipMessages.SelectAll}
+                                onClick={() => handleSelectAll(true)}
+                                className="bg-green-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-green-600 my-1 md:my-2 lg:text-base text-xs">
+                                Select All
                             </button>
+                        ) : (
                             <button
-                                onClick={submitFeedback}
-                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                Submit Feedback
+                                title={TooltipMessages.DeselectAll}
+                                onClick={() => handleSelectAll(false)}
+                                className="bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs">
+                                Unselect All
                             </button>
-                        </div>
+                        )}
+                        <button
+                            title={TooltipMessages.RefreshKeywords}
+                            onClick={refreshKeywords}
+                            // Add a CSS class for tutorial targeting
+                            className="refresh-keywords-btn bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
+                            <span className="h-6 w-6">
+                                <GeminiIcon />
+                            </span>{' '}
+                            Refresh keywords
+                        </button>
                     </div>
                 </div>
-            )}
-        </div>
+
+                <NavigationBottomBar
+                    previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`}
+                    nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
+                    isReady={checkIfReady}
+                    onNextClick={(e) => handleNextClick(e)}
+                    disabledTooltipText="Select atleast 5 keywords"
+                    // Add an id for targeting the tutorial
+                />
+
+                {isFeedbackOpen && (
+                    <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
+                        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                            <h2 className="text-xl font-bold mb-4">
+                                Why are these words unsatisfactory?
+                            </h2>
+                            <p className=" mb-3">
+                                Word list:{' '}
+                                {keywords
+                                    .filter((keyword) => !selectedKeywords.includes(keyword))
+                                    .join(', ')}
+                            </p>
+                            <textarea
+                                value={feedback}
+                                onChange={handleFeedbackChange}
+                                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                rows={4}
+                                placeholder="Enter your feedback here..."></textarea>
+                            <div className="flex justify-end mt-4">
+                                <button
+                                    onClick={() => setIsFeedbackOpen(false)}
+                                    className="mr-4 bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={submitFeedback}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                    Submit Feedback
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </TutorialWrapper>
     );
 };
 

@@ -1,6 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion'; // Optional: for animations
-import { DevtoolsSettingsPage, GeneralSettingsPage, WorkspaceSettingsPage } from '.';
+import {
+    DevtoolsSettingsPage,
+    GeneralSettingsPage,
+    TutorialSettingsPage,
+    WorkspaceSettingsPage
+} from '.';
 import { ROUTES } from '../../constants/Shared';
 
 const SettingsLayout = ({
@@ -17,7 +22,8 @@ const SettingsLayout = ({
     const tabs = {
         general: <GeneralSettingsPage />,
         workspace: <WorkspaceSettingsPage />,
-        devtools: <DevtoolsSettingsPage />
+        devtools: <DevtoolsSettingsPage />,
+        tutorial: <TutorialSettingsPage />
     };
 
     type Tab = keyof typeof tabs;

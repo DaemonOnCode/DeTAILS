@@ -12,6 +12,9 @@ import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
+// Import TutorialWrapper and TutorialStep type
+import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
+import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 
 const CodebookCreation = () => {
     const [searchParams] = useSearchParams();
@@ -31,7 +34,6 @@ const CodebookCreation = () => {
     } = useCodingContext();
 
     const logger = useLogger();
-
     const { saveWorkspaceData } = useWorkspaceUtils();
     const navigate = useNavigate();
     const { getServerUrl } = useServerUtils();
@@ -117,26 +119,52 @@ const CodebookCreation = () => {
         setSampledPostResponseCopy([...sampledPostResponse]);
     };
 
+    // Define tutorial steps for Codebook Creation.
+    // Note that some targets are rendered in UnifiedCodingPage.
+    const steps: TutorialStep[] = [
+        {
+            target: '#unified-coding-page',
+            content:
+                'This area shows your unified coding interface with all your posts and coding responses.',
+            placement: 'bottom'
+        },
+        {
+            target: '#coding-controls',
+            content:
+                'Use these controls to download the codebook or toggle review mode for your coding responses.',
+            placement: 'top'
+        },
+        {
+            target: '#proceed-next-step',
+            content: 'Step 4: Proceed to next step',
+            placement: 'top'
+        }
+    ];
+
     return (
-        <div className="h-page flex flex-col">
-            <div className="flex-1 overflow-hidden">
-                <UnifiedCodingPage
-                    postIds={sampledPostIds}
-                    data={sampledPostResponse}
-                    dispatchFunction={dispatchSampledPostResponse}
-                    review={reviewParam}
-                    showCoderType={false}
-                    // showRerunCoding={true}
+        <TutorialWrapper steps={steps} pageId="codebook-creation-page" promptOnFirstPage={true}>
+            <div className="h-page flex flex-col">
+                <div className="flex-1 overflow-hidden">
+                    {/* Add an id to the container for tutorial targeting */}
+                    <div id="unified-coding-page">
+                        <UnifiedCodingPage
+                            postIds={sampledPostIds}
+                            data={sampledPostResponse}
+                            dispatchFunction={dispatchSampledPostResponse}
+                            review={reviewParam}
+                            showCoderType={false}
+                        />
+                    </div>
+                </div>
+                <NavigationBottomBar
+                    previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`}
+                    nextPage={`${ROUTES.DEDUCTIVE_CODING}`}
+                    isReady={true}
+                    onNextClick={handleNextClick}
+                    autoNavigateToNext={false}
                 />
             </div>
-            <NavigationBottomBar
-                previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`}
-                nextPage={`${ROUTES.DEDUCTIVE_CODING}`}
-                isReady={true}
-                onNextClick={handleNextClick}
-                autoNavigateToNext={false}
-            />
-        </div>
+        </TutorialWrapper>
     );
 };
 

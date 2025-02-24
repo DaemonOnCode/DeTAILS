@@ -4,6 +4,7 @@ import { ToastContainer, toast, ToastContentProps } from 'react-toastify';
 import { FaTrash } from 'react-icons/fa';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { ROUTES } from '../../constants/Coding/shared';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
 import { useCollectionContext } from '../../context/collection-context';
 import { useLogger } from '../../context/logging-context';
@@ -15,6 +16,7 @@ import UndoNotification from '../../components/Shared/undo-toast';
 import CustomTutorialOverlay, {
     TutorialStep
 } from '../../components/Shared/custom-tutorial-overlay';
+import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -31,11 +33,7 @@ const KeywordsTablePage: FC = () => {
     const hasSavedRef = useRef(false);
     const tableContainerRef = useRef<HTMLDivElement>(null);
 
-    // Tutorial overlay state and steps
-    const [runTutorial, setRunTutorial] = useState(false);
-    const [tutorialFinished, setTutorialFinished] = useState(false);
-
-    const tutorialSteps: TutorialStep[] = [
+    const steps: TutorialStep[] = [
         {
             target: '#keywords-header',
             content:
@@ -138,232 +136,208 @@ const KeywordsTablePage: FC = () => {
 
     return (
         <>
-            {/* Tutorial overlay */}
-            <CustomTutorialOverlay
-                steps={tutorialSteps}
-                run={runTutorial}
-                onFinish={() => {
-                    setRunTutorial(false);
-                    setTutorialFinished(true);
-                }}
-            />
+            <TutorialWrapper
+                steps={steps}
+                pageId={`route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
+                excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}`}>
+                <div className="h-page flex flex-col">
+                    <header id="keywords-header" className="flex-none py-4">
+                        <p>Please validate and manage the keyword table entries below:</p>
+                    </header>
 
-            {/* Tutorial prompt overlay */}
-            {!tutorialFinished && !runTutorial && (
-                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black bg-opacity-70">
-                    <div className="p-6 bg-white rounded shadow-lg text-center">
-                        <p className="mb-4">Would you like to view the tutorial?</p>
-                        <div className="flex justify-around">
-                            <button
-                                onClick={() => setRunTutorial(true)}
-                                className="px-4 py-2 bg-blue-500 text-white rounded mr-2">
-                                Show Tutorial
-                            </button>
-                            <button
-                                onClick={() => setTutorialFinished(true)}
-                                className="px-4 py-2 bg-gray-500 text-white rounded">
-                                Skip Tutorial
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="h-page flex flex-col">
-                <header id="keywords-header" className="flex-none py-4">
-                    <p>Please validate and manage the keyword table entries below:</p>
-                </header>
-
-                <main className="flex-1 overflow-hidden flex flex-col">
-                    {/* Table container */}
-                    <div
-                        id="table-section"
-                        className="flex-1 overflow-auto relative"
-                        ref={tableContainerRef}>
-                        <table className="w-full border-collapse">
-                            <thead className="sticky top-0">
-                                <tr className="bg-gray-200">
-                                    <th className="border border-gray-400 p-2">Word</th>
-                                    <th className="border border-gray-400 p-2">Description</th>
-                                    <th className="border border-gray-400 p-2">
-                                        Inclusion Criteria
-                                    </th>
-                                    <th className="border border-gray-400 p-2">
-                                        Exclusion Criteria
-                                    </th>
-                                    <th className="border border-gray-400 p-2">
-                                        Actions
-                                        <div className="mt-2 flex justify-center gap-x-2">
-                                            <button
-                                                title="Select all as correct"
-                                                className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 text-sm"
-                                                onClick={() => handleToggleAllSelectOrReject(true)}>
-                                                ✓
-                                            </button>
-                                            <button
-                                                title="Select all as incorrect"
-                                                className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
-                                                onClick={() =>
-                                                    handleToggleAllSelectOrReject(false)
-                                                }>
-                                                ✕
-                                            </button>
-                                        </div>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {keywordTable.map((entry, index) => (
-                                    <tr key={index} className="text-center">
-                                        <td className="border border-gray-400 p-2">
-                                            <textarea
-                                                className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                                value={entry.word}
-                                                onChange={(e) =>
-                                                    dispatchKeywordsTable({
-                                                        type: 'UPDATE_FIELD',
-                                                        index,
-                                                        field: 'word',
-                                                        value: e.target.value
-                                                    })
-                                                }
-                                            />
-                                        </td>
-                                        <td className="border border-gray-400 p-2">
-                                            <textarea
-                                                className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                                value={entry.description}
-                                                onChange={(e) =>
-                                                    dispatchKeywordsTable({
-                                                        type: 'UPDATE_FIELD',
-                                                        index,
-                                                        field: 'description',
-                                                        value: e.target.value
-                                                    })
-                                                }
-                                            />
-                                        </td>
-                                        <td className="border border-gray-400 p-2">
-                                            <textarea
-                                                className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                                value={entry.inclusion_criteria.join(', ')}
-                                                onChange={(e) =>
-                                                    dispatchKeywordsTable({
-                                                        type: 'UPDATE_FIELD',
-                                                        index,
-                                                        field: 'inclusion_criteria',
-                                                        value: e.target.value
-                                                            .split(',')
-                                                            .map((v) => v.trim())
-                                                    })
-                                                }
-                                            />
-                                        </td>
-                                        <td className="border border-gray-400 p-2">
-                                            <textarea
-                                                className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                                value={entry.exclusion_criteria.join(', ')}
-                                                onChange={(e) =>
-                                                    dispatchKeywordsTable({
-                                                        type: 'UPDATE_FIELD',
-                                                        index,
-                                                        field: 'exclusion_criteria',
-                                                        value: e.target.value
-                                                            .split(',')
-                                                            .map((v) => v.trim())
-                                                    })
-                                                }
-                                            />
-                                        </td>
-                                        <td className="border border-gray-400 p-2">
-                                            <div className="flex items-center justify-center space-x-2">
-                                                {/* Correct Button */}
+                    <main className="flex-1 overflow-hidden flex flex-col">
+                        {/* Table container */}
+                        <div
+                            id="table-section"
+                            className="flex-1 overflow-auto relative"
+                            ref={tableContainerRef}>
+                            <table className="w-full border-collapse">
+                                <thead className="sticky top-0">
+                                    <tr className="bg-gray-200">
+                                        <th className="border border-gray-400 p-2">Word</th>
+                                        <th className="border border-gray-400 p-2">Description</th>
+                                        <th className="border border-gray-400 p-2">
+                                            Inclusion Criteria
+                                        </th>
+                                        <th className="border border-gray-400 p-2">
+                                            Exclusion Criteria
+                                        </th>
+                                        <th className="border border-gray-400 p-2">
+                                            Actions
+                                            <div className="mt-2 flex justify-center gap-x-2">
                                                 <button
-                                                    className={`w-8 h-8 flex items-center justify-center rounded ${
-                                                        entry.isMarked === true
-                                                            ? 'bg-green-500 text-white'
-                                                            : 'bg-gray-300 text-gray-500'
-                                                    }`}
+                                                    title="Select all as correct"
+                                                    className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 text-sm"
                                                     onClick={() =>
-                                                        dispatchKeywordsTable({
-                                                            type: 'TOGGLE_MARK',
-                                                            index,
-                                                            isMarked:
-                                                                entry.isMarked !== true
-                                                                    ? true
-                                                                    : undefined
-                                                        })
+                                                        handleToggleAllSelectOrReject(true)
                                                     }>
                                                     ✓
                                                 </button>
-                                                {/* Incorrect Button */}
                                                 <button
-                                                    className={`w-8 h-8 flex items-center justify-center rounded ${
-                                                        entry.isMarked === false
-                                                            ? 'bg-red-500 text-white'
-                                                            : 'bg-gray-300 text-gray-500'
-                                                    }`}
+                                                    title="Select all as incorrect"
+                                                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
                                                     onClick={() =>
-                                                        dispatchKeywordsTable({
-                                                            type: 'TOGGLE_MARK',
-                                                            index,
-                                                            isMarked:
-                                                                entry.isMarked !== false
-                                                                    ? false
-                                                                    : undefined
-                                                        })
+                                                        handleToggleAllSelectOrReject(false)
                                                     }>
                                                     ✕
                                                 </button>
-                                                {/* Delete Button */}
-                                                <button
-                                                    className="w-8 h-8 flex items-center justify-center bg-red-600 text-white rounded hover:bg-red-700"
-                                                    onClick={() => handleDeleteRow(index)}>
-                                                    <FaTrash />
-                                                </button>
                                             </div>
-                                        </td>
+                                        </th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Control buttons */}
-                    <div id="control-buttons" className="mt-3 lg:mt-6 flex justify-evenly">
-                        <div className="flex gap-x-4">
-                            <button
-                                onClick={handleAddNewRow}
-                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                Add New Row
-                            </button>
+                                </thead>
+                                <tbody>
+                                    {keywordTable.map((entry, index) => (
+                                        <tr key={index} className="text-center">
+                                            <td className="border border-gray-400 p-2">
+                                                <textarea
+                                                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
+                                                    value={entry.word}
+                                                    onChange={(e) =>
+                                                        dispatchKeywordsTable({
+                                                            type: 'UPDATE_FIELD',
+                                                            index,
+                                                            field: 'word',
+                                                            value: e.target.value
+                                                        })
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="border border-gray-400 p-2">
+                                                <textarea
+                                                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
+                                                    value={entry.description}
+                                                    onChange={(e) =>
+                                                        dispatchKeywordsTable({
+                                                            type: 'UPDATE_FIELD',
+                                                            index,
+                                                            field: 'description',
+                                                            value: e.target.value
+                                                        })
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="border border-gray-400 p-2">
+                                                <textarea
+                                                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
+                                                    value={entry.inclusion_criteria.join(', ')}
+                                                    onChange={(e) =>
+                                                        dispatchKeywordsTable({
+                                                            type: 'UPDATE_FIELD',
+                                                            index,
+                                                            field: 'inclusion_criteria',
+                                                            value: e.target.value
+                                                                .split(',')
+                                                                .map((v) => v.trim())
+                                                        })
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="border border-gray-400 p-2">
+                                                <textarea
+                                                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
+                                                    value={entry.exclusion_criteria.join(', ')}
+                                                    onChange={(e) =>
+                                                        dispatchKeywordsTable({
+                                                            type: 'UPDATE_FIELD',
+                                                            index,
+                                                            field: 'exclusion_criteria',
+                                                            value: e.target.value
+                                                                .split(',')
+                                                                .map((v) => v.trim())
+                                                        })
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="border border-gray-400 p-2">
+                                                <div className="flex items-center justify-center space-x-2">
+                                                    {/* Correct Button */}
+                                                    <button
+                                                        className={`w-8 h-8 flex items-center justify-center rounded ${
+                                                            entry.isMarked === true
+                                                                ? 'bg-green-500 text-white'
+                                                                : 'bg-gray-300 text-gray-500'
+                                                        }`}
+                                                        onClick={() =>
+                                                            dispatchKeywordsTable({
+                                                                type: 'TOGGLE_MARK',
+                                                                index,
+                                                                isMarked:
+                                                                    entry.isMarked !== true
+                                                                        ? true
+                                                                        : undefined
+                                                            })
+                                                        }>
+                                                        ✓
+                                                    </button>
+                                                    {/* Incorrect Button */}
+                                                    <button
+                                                        className={`w-8 h-8 flex items-center justify-center rounded ${
+                                                            entry.isMarked === false
+                                                                ? 'bg-red-500 text-white'
+                                                                : 'bg-gray-300 text-gray-500'
+                                                        }`}
+                                                        onClick={() =>
+                                                            dispatchKeywordsTable({
+                                                                type: 'TOGGLE_MARK',
+                                                                index,
+                                                                isMarked:
+                                                                    entry.isMarked !== false
+                                                                        ? false
+                                                                        : undefined
+                                                            })
+                                                        }>
+                                                        ✕
+                                                    </button>
+                                                    {/* Delete Button */}
+                                                    <button
+                                                        className="w-8 h-8 flex items-center justify-center bg-red-600 text-white rounded hover:bg-red-700"
+                                                        onClick={() => handleDeleteRow(index)}>
+                                                        <FaTrash />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
-                        <div className="flex gap-x-4">
-                            <button
-                                onClick={handleSaveCsv}
-                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                                disabled={saving}>
-                                Save as CSV
-                            </button>
-                            <button
-                                onClick={handleSaveExcel}
-                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                                disabled={saving}>
-                                Save as Excel
-                            </button>
-                        </div>
-                    </div>
-                </main>
 
-                <footer id="bottom-navigation" className="flex-none">
-                    <NavigationBottomBar
-                        previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
-                        nextPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
-                        isReady={isReadyCheck}
-                        disabledTooltipText="Mark at least one entry as correct"
-                    />
-                </footer>
-            </div>
+                        {/* Control buttons */}
+                        <div id="control-buttons" className="mt-3 lg:mt-6 flex justify-evenly">
+                            <div className="flex gap-x-4">
+                                <button
+                                    onClick={handleAddNewRow}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                    Add New Row
+                                </button>
+                            </div>
+                            <div className="flex gap-x-4">
+                                <button
+                                    onClick={handleSaveCsv}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                                    disabled={saving}>
+                                    Save as CSV
+                                </button>
+                                <button
+                                    onClick={handleSaveExcel}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                                    disabled={saving}>
+                                    Save as Excel
+                                </button>
+                            </div>
+                        </div>
+                    </main>
+
+                    <footer id="bottom-navigation" className="flex-none">
+                        <NavigationBottomBar
+                            previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
+                            nextPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
+                            isReady={isReadyCheck}
+                            disabledTooltipText="Mark at least one entry as correct"
+                        />
+                    </footer>
+                </div>
+            </TutorialWrapper>
         </>
     );
 };

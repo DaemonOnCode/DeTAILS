@@ -44,7 +44,7 @@ const IGNORED_KEYWORDS = [
     SHARED_ROUTES.SETTINGS,
     CODING_ROUTES.TRANSCRIPT,
     CODING_ROUTES.TRANSCRIPTS,
-    // CODING_ROUTES.MANUAL_CODING,
+    CODING_ROUTES.MANUAL_CODING,
     SHARED_ROUTES.AUTHENTICATED_SETTINGS
 ];
 
@@ -114,7 +114,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                     const defaultPath = `${fullPath}/${defaultChildPath}`.replace(/\/+/g, '/');
 
                     return (
-                        <li key={idx} className="mb-2">
+                        <li key={idx} className="mb-2" id={`route-${fullPath}`}>
                             <div className="flex justify-between items-center w-full">
                                 <div
                                     className="flex justify-start items-center w-full"
@@ -164,6 +164,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                 return (
                     <li
                         key={idx}
+                        id={`route-${fullPath}`}
                         className="mb-2"
                         title={`Go to ${formatRouteName(route.path || '')}`}>
                         <Link
