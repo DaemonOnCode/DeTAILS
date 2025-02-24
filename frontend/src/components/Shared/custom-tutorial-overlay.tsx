@@ -32,6 +32,16 @@ function getScrollableAncestors(element: HTMLElement): HTMLElement[] {
     return ancestors;
 }
 
+function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(value, max));
+}
+
+function shiftInside(raw: number, size: number, containerSize: number): number {
+    if (raw < 0) return 0;
+    if (raw + size > containerSize) return containerSize - size;
+    return raw;
+}
+
 const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
     steps,
     run,
@@ -45,14 +55,13 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
     const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
     const [excludedRect, setExcludedRect] = useState<DOMRect | null>(null);
     const tooltipRef = useRef<HTMLDivElement>(null);
+    const [tooltipSize, setTooltipSize] = useState({ width: 0, height: 0 });
 
-    // ✅ Ensure Unique Mask ID for Each Render
     const maskId = `mask-${Math.random().toString(36).slice(2, 11)}`;
 
-    // --- Track target element position ---
     useEffect(() => {
         if (!run || steps.length === 0) return;
-        if (currentStepIndex >= steps.length) return onFinish(); // 🔥 Prevent index out of range
+        if (currentStepIndex >= steps.length) return onFinish();
 
         const selector = steps[currentStepIndex].target;
         const elem = document.querySelector(selector) as HTMLElement;
@@ -103,68 +112,94 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
         };
     }, [excludedTarget]);
 
-    // ✅ **SVG Mask Definition**
-    const svgMask = (
-        <svg
-            width={window.innerWidth}
-            height={window.innerHeight}
-            style={{ position: 'absolute', top: 0, left: 0, zIndex: 9999 }}>
-            <defs>
-                <mask id={maskId} maskUnits="userSpaceOnUse">
-                    <rect width="100%" height="100%" fill="white" />
-                    {targetRect && (
-                        <rect
-                            x={targetRect.left - highlightMargin}
-                            y={targetRect.top - highlightMargin}
-                            width={targetRect.width + 2 * highlightMargin}
-                            height={targetRect.height + 2 * highlightMargin}
-                            fill="black"
-                            rx="12"
-                            ry="12"
-                        />
-                    )}
-                    {excludedRect && (
-                        <rect
-                            x={excludedRect.left - highlightMargin}
-                            y={excludedRect.top - highlightMargin}
-                            width={excludedRect.width + 2 * highlightMargin}
-                            height={excludedRect.height + 2 * highlightMargin}
-                            fill="black"
-                            rx="12"
-                            ry="12"
-                        />
-                    )}
-                </mask>
-            </defs>
-        </svg>
-    );
+    useLayoutEffect(() => {
+        if (!tooltipRef.current || !targetRect) return;
 
-    // ✅ **Blurred Background with CSS Mask**
-    const fullScreenBlur = (
-        <div
-            style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                backdropFilter: `blur(${blurAmount}px)`,
-                WebkitBackdropFilter: `blur(${blurAmount}px)`,
-                maskImage: `url(#${maskId})`,
-                WebkitMaskImage: `url(#${maskId})`,
-                zIndex: 9998,
-                pointerEvents: 'none'
-            }}
-        />
-    );
+        const tooltip = tooltipRef.current;
+        const { width: tWidth, height: tHeight } = tooltip.getBoundingClientRect();
+        setTooltipSize({ width: tWidth, height: tHeight });
+
+        const placement = steps[currentStepIndex].placement || 'auto';
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        let rawX = targetRect.left + targetRect.width / 2 - tWidth / 2;
+        let rawY = targetRect.bottom + highlightMargin + tooltipPadding;
+
+        if (placement !== 'auto') {
+            const [primary, secondary] = placement.split(' ');
+            switch (primary) {
+                case 'top':
+                    rawY = targetRect.top - tHeight - tooltipPadding;
+                    if (secondary === 'left') rawX = targetRect.left;
+                    if (secondary === 'right') rawX = targetRect.right - tWidth;
+                    break;
+                case 'bottom':
+                    rawY = targetRect.bottom + tooltipPadding;
+                    if (secondary === 'left') rawX = targetRect.left;
+                    if (secondary === 'right') rawX = targetRect.right - tWidth;
+                    break;
+                case 'left':
+                    rawX = targetRect.left - tWidth - tooltipPadding;
+                    rawY = targetRect.top + targetRect.height / 2 - tHeight / 2;
+                    break;
+                case 'right':
+                    rawX = targetRect.right + tooltipPadding;
+                    rawY = targetRect.top + targetRect.height / 2 - tHeight / 2;
+                    break;
+            }
+        }
+
+        const finalX = shiftInside(rawX, tWidth, vw);
+        const finalY = shiftInside(rawY, tHeight, vh);
+
+        tooltip.style.left = `${finalX}px`;
+        tooltip.style.top = `${finalY}px`;
+    }, [targetRect, currentStepIndex, steps, highlightMargin, tooltipPadding]);
 
     if (!run || steps.length === 0 || !targetRect) return null;
 
     return (
         <>
-            {svgMask}
-            {fullScreenBlur}
+            <svg
+                width={window.innerWidth}
+                height={window.innerHeight}
+                style={{ position: 'absolute', top: 0, left: 0, zIndex: 9999 }}>
+                <defs>
+                    <mask id={maskId} maskUnits="userSpaceOnUse">
+                        <rect width="100%" height="100%" fill="white" />
+                        {targetRect && (
+                            <rect
+                                x={targetRect.left - highlightMargin}
+                                y={targetRect.top - highlightMargin}
+                                width={targetRect.width + 2 * highlightMargin}
+                                height={targetRect.height + 2 * highlightMargin}
+                                fill="black"
+                                rx="12"
+                                ry="12"
+                            />
+                        )}
+                    </mask>
+                </defs>
+            </svg>
+
+            <div
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    backdropFilter: `blur(${blurAmount}px)`,
+                    WebkitBackdropFilter: `blur(${blurAmount}px)`,
+                    maskImage: `url(#${maskId})`,
+                    WebkitMaskImage: `url(#${maskId})`,
+                    zIndex: 9998,
+                    pointerEvents: 'none'
+                }}
+            />
+
             <div
                 ref={tooltipRef}
                 style={{
