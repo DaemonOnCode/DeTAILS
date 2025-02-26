@@ -9,14 +9,12 @@ import TxtFileIcon from '../../Shared/Icons/txt-file';
 import { ImCross } from 'react-icons/im';
 
 const FileCard = ({ filePath, fileName, onRemove }: FileCardProps) => {
-    // Call all hooks unconditionally by passing an empty string when not applicable.
     const pdfResult = usePdfImage(fileName.endsWith('.pdf') ? filePath : '');
     const docxResult = useDocxImage(fileName.endsWith('.docx') ? filePath : '');
     const txtResult = useTxtImage(fileName.endsWith('.txt') ? filePath : '');
 
     const Icon = () => {
         const splits = fileName.toLowerCase().split('.');
-        console.log(splits, 'splits');
         switch (splits[splits.length - 1]) {
             case 'pdf':
                 return <FaFilePdf className="h-4 min-w-4 w-4 fill-[#F71D13]" />;
@@ -29,7 +27,6 @@ const FileCard = ({ filePath, fileName, onRemove }: FileCardProps) => {
         }
     };
 
-    // Use the result from the hook that applies (only one should have a non-null imgSrc)
     const imgSrc = pdfResult.imgSrc || docxResult.imgSrc || txtResult.imgSrc;
     const error = pdfResult.error || docxResult.error || txtResult.error;
 

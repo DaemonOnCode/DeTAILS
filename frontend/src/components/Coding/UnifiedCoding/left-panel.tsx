@@ -140,7 +140,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
 
             <div>
                 {activeTab === 'posts' ? (
-                    <div className="flex justify-evenly items-center">
+                    <div className="flex justify-evenly items-center text-center">
                         <span
                             className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
                                 selectedItem === null
@@ -163,7 +163,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                     </div>
                 ) : (
                     <div
-                        className={`p-3 border rounded shadow cursor-pointer transition-all ${
+                        className={`p-3 border rounded shadow cursor-pointer transition-all text-center ${
                             selectedItem === null ? 'bg-blue-200 font-bold' : 'hover:bg-blue-100'
                         }`}
                         onClick={() => handleSelect(null)}>

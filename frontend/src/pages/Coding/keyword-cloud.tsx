@@ -6,7 +6,7 @@ import { useLogger } from '../../context/logging-context';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES, TooltipMessages } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding-context';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get-server-url';
@@ -35,6 +35,7 @@ const KeywordCloudPage: FC = () => {
         researchQuestions,
         selectedWords
     } = useCodingContext();
+    const location = useLocation();
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const [response, setResponse] = useState<
@@ -43,13 +44,15 @@ const KeywordCloudPage: FC = () => {
             description: string;
             inclusion_criteria: string[];
             exclusion_criteria: string[];
+            isMarked?: boolean;
         }[]
     >(
         keywordTable.map((keyword) => ({
             word: keyword.word,
             description: keyword.description,
             inclusion_criteria: keyword.inclusion_criteria,
-            exclusion_criteria: keyword.exclusion_criteria
+            exclusion_criteria: keyword.exclusion_criteria,
+            isMarked: true
         }))
     );
     const { getServerUrl } = getServerUtils();
@@ -124,7 +127,10 @@ const KeywordCloudPage: FC = () => {
             exclusion_criteria: string[];
         }[] = results.keywords ?? [];
 
-        setResponse((prevResponse) => [...prevResponse, ...newKeywords]);
+        setResponse((prevResponse) => [
+            ...prevResponse,
+            ...newKeywords.map((k) => ({ ...k, isMarked: true }))
+        ]);
 
         setKeywords((prevKeywords) => {
             const filteredPrevKeywords = prevKeywords.filter((keyword) =>
@@ -195,7 +201,7 @@ const KeywordCloudPage: FC = () => {
     ];
 
     return (
-        <TutorialWrapper steps={steps} pageId="keyword-cloud-page">
+        <TutorialWrapper steps={steps} pageId={location.pathname}>
             <div className="min-h-page flex justify-between flex-col">
                 <div className="relative flex justify-center items-center flex-col">
                     {/* Add an id for targeting the tutorial */}

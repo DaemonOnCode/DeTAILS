@@ -6,6 +6,7 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import e from 'express';
+import TorrentDataTab from '../../components/DataCollection/load-torrent-data';
 
 const LoadReddit: FC = () => {
     const { modeInput, setModeInput, metadata, metadataDispatch, type, datasetId } =
@@ -86,7 +87,7 @@ const LoadReddit: FC = () => {
     };
 
     return (
-        <div className="flex flex-col">
+        <div className="flex flex-col h-full">
             {/* Tab header */}
             <header className="p-4 border-b flex space-x-4">
                 <button
@@ -146,63 +147,17 @@ const LoadReddit: FC = () => {
                 )} */}
 
                 {activeTab === 'torrent' && (
-                    <div>
-                        <div className="mb-4">
-                            <label className="block mb-1">Subreddit Name</label>
-                            <input
-                                type="text"
-                                value={torrentSubreddit}
-                                onChange={(e) => setTorrentSubreddit(e.target.value)}
-                                placeholder="Enter subreddit name"
-                                className="p-2 border border-gray-300 rounded w-96"
-                            />
-                        </div>
-                        <div className="mb-4">
-                            <label className="block mb-1">Start Date</label>
-                            <input
-                                type="date"
-                                value={torrentStart}
-                                onChange={(e) => setTorrentStart(e.target.value)}
-                                className="p-2 border border-gray-300 rounded w-96"
-                            />
-                        </div>
-                        <div className="mb-4">
-                            <label className="block mb-1">End Date</label>
-                            <input
-                                type="date"
-                                value={torrentEnd}
-                                onChange={(e) => setTorrentEnd(e.target.value)}
-                                className="p-2 border border-gray-300 rounded w-96"
-                            />
-                        </div>
-                        <div className="mb-4">
-                            <div className="flex space-x-4">
-                                <button
-                                    onClick={() => setTorrentMode('posts')}
-                                    className={`px-4 py-2 rounded focus:outline-none transition-colors ${
-                                        torrentMode === 'posts'
-                                            ? 'bg-blue-500 text-white'
-                                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                                    }`}>
-                                    Posts Only
-                                </button>
-                                <button
-                                    onClick={() => setTorrentMode('postsAndComments')}
-                                    className={`px-4 py-2 rounded focus:outline-none transition-colors ${
-                                        torrentMode === 'postsAndComments'
-                                            ? 'bg-blue-500 text-white'
-                                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                                    }`}>
-                                    Posts + Comments
-                                </button>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleLoadTorrent}
-                            className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
-                            Load Torrent Data
-                        </button>
-                    </div>
+                    <TorrentDataTab
+                        torrentSubreddit={torrentSubreddit}
+                        setTorrentSubreddit={setTorrentSubreddit}
+                        torrentStart={torrentStart}
+                        setTorrentStart={setTorrentStart}
+                        torrentEnd={torrentEnd}
+                        setTorrentEnd={setTorrentEnd}
+                        torrentMode={torrentMode}
+                        setTorrentMode={setTorrentMode}
+                        handleLoadTorrent={handleLoadTorrent}
+                    />
                 )}
             </main>
         </div>

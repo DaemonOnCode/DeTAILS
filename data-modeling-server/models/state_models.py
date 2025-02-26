@@ -20,6 +20,7 @@ class CollectionContext(BaseModel):
     metadata: dict = {}
     mode_input: str = ""
     selected_data: list = []
+    data_filters: dict = {}
     # mode_input: str = ""
     # subreddit: str = ""
     # selected_posts: list = []

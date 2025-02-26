@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime
 import os
 
+from typing import Dict
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, UploadFile, Form, Body
 from controllers.collection_controller import create_dataset, delete_dataset, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, upload_dataset_file
@@ -111,6 +112,27 @@ async def download_reddit_from_torrent_endpoint(
     return {"message": "Reddit data downloaded from torrent."}
     
 
-@router.post("/get-torrent-data")
+@router.get("/get-torrent-data")
 async def get_torrent_data_endpoint():
-    pass
+    datasets_directory = os.path.join(os.path.curdir, DATASETS_DIR)
+    downloaded_torrent_list = list(filter(lambda x: x.startswith("academic-torrent"), os.listdir(datasets_directory)))
+    datasets = list(map(lambda x: x[17:] ,downloaded_torrent_list))
+    print(datasets)
+    dataset_intervals: Dict[str, Dict[str, Dict[str, list[str]]]] = {}
+    for dataset_folder_name in downloaded_torrent_list:
+        dataset_name = dataset_folder_name[17:]
+        all_files = list(filter(lambda x: x.startswith("RC") or x.startswith("RS"),os.listdir(os.path.join(datasets_directory, dataset_folder_name))))
+        print(all_files)
+        dataset_intervals[dataset_name] = {}
+        dataset_intervals[dataset_name]["posts"] = {}
+        dataset_intervals[dataset_name]["comments"] = {}
+        for name in all_files:
+            year = name[3:7]
+            month = name[8:10]
+            print(year, month)
+            type = "posts" if name.startswith("RS") else "comments"
+            try:
+                dataset_intervals[dataset_name][type][year].append(month)
+            except:
+                dataset_intervals[dataset_name][type][year] = [month]
+    return dataset_intervals

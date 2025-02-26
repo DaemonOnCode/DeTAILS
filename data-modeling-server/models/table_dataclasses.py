@@ -104,6 +104,7 @@ class WorkspaceState(BaseDataclass):
     selected_data : Optional[str] = None
     metadata: Optional[str] = None
     type: Optional[str] = None
+    data_filters: Optional[str] = None
 
     # Modeling Context
     models: Optional[str] = None  # JSON string for list

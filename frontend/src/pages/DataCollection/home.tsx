@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import Card from '../../components/DataCollection/card';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { ROUTES } from '../../constants/DataCollection/shared';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { useCollectionContext } from '../../context/collection-context';
@@ -68,7 +69,7 @@ const HomePage = () => {
             target: '#card-container',
             content:
                 'These cards allow you to retrieve or import your data from various sources. Select on a card to proceed with dataset creation',
-            placement: 'top'
+            placement: 'bottom'
         },
         {
             target: '#proceed-next-step',
@@ -78,7 +79,10 @@ const HomePage = () => {
     ];
 
     return (
-        <TutorialWrapper steps={steps} pageId="home-page">
+        <TutorialWrapper
+            steps={steps}
+            excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}`}
+            pageId="home-page">
             <div className="bg-white text-gray-800 h-page flex flex-col items-center space-y-8 w-full">
                 {/* Header */}
                 <h1 id="homepage-header" className="text-4xl font-bold text-center">
@@ -86,17 +90,17 @@ const HomePage = () => {
                 </h1>
 
                 {/* Cards Container */}
-                <div
-                    id="card-container"
-                    className="flex flex-1 justify-center items-start flex-wrap gap-8 w-full max-w-screen-sm lg:max-w-screen-xl">
+                <div className="flex flex-1 justify-center items-start flex-wrap gap-8 w-full max-w-screen-sm lg:max-w-screen-xl">
                     {/* Online Sources */}
-                    <Card
-                        title="Online Sources"
-                        description="Retrieve online communities' public discussions (submissions and comments)."
-                        buttonText="Retrieve Reddit"
-                        buttonColor="bg-blue-500 hover:bg-blue-600"
-                        onButtonClick={handleRedditRetrieval}
-                    />
+                    <div id="card-container">
+                        <Card
+                            title="Online Sources"
+                            description="Retrieve online communities' public discussions (submissions and comments)."
+                            buttonText="Retrieve Reddit"
+                            buttonColor="bg-blue-500 hover:bg-blue-600"
+                            onButtonClick={handleRedditRetrieval}
+                        />
+                    </div>
 
                     {/* You can uncomment and add more cards as needed */}
                     {/*

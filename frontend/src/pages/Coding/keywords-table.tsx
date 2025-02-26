@@ -1,5 +1,5 @@
 import { FC, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ToastContainer, toast, ToastContentProps } from 'react-toastify';
 import { FaTrash } from 'react-icons/fa';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
@@ -32,6 +32,7 @@ const KeywordsTablePage: FC = () => {
 
     const hasSavedRef = useRef(false);
     const tableContainerRef = useRef<HTMLDivElement>(null);
+    const location = useLocation();
 
     const steps: TutorialStep[] = [
         {
@@ -43,7 +44,7 @@ const KeywordsTablePage: FC = () => {
         {
             target: '#table-section',
             content: 'Review your keywords below. You can edit each field directly in the table.',
-            placement: 'top'
+            placement: 'bottom'
         },
         {
             target: '#control-buttons',
@@ -138,7 +139,7 @@ const KeywordsTablePage: FC = () => {
         <>
             <TutorialWrapper
                 steps={steps}
-                pageId={`route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
+                pageId={location.pathname}
                 excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}`}>
                 <div className="h-page flex flex-col">
                     <header id="keywords-header" className="flex-none py-4">

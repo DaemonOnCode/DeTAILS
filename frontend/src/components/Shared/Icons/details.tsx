@@ -123,8 +123,8 @@ const DetailsIcon = ({ className = '' }) => {
                     width="473"
                     height="585"
                     filterUnits="userSpaceOnUse"
-                    color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                    colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feColorMatrix
                         in="SourceAlpha"
                         type="matrix"
@@ -173,8 +173,8 @@ const DetailsIcon = ({ className = '' }) => {
                     width="293.301"
                     height="13"
                     filterUnits="userSpaceOnUse"
-                    color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                    colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feColorMatrix
                         in="SourceAlpha"
                         type="matrix"
@@ -207,8 +207,8 @@ const DetailsIcon = ({ className = '' }) => {
                     width="234.426"
                     height="13"
                     filterUnits="userSpaceOnUse"
-                    color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                    colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feColorMatrix
                         in="SourceAlpha"
                         type="matrix"
@@ -241,8 +241,8 @@ const DetailsIcon = ({ className = '' }) => {
                     width="293.301"
                     height="13"
                     filterUnits="userSpaceOnUse"
-                    color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                    colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feColorMatrix
                         in="SourceAlpha"
                         type="matrix"
@@ -275,8 +275,8 @@ const DetailsIcon = ({ className = '' }) => {
                     width="322.738"
                     height="13"
                     filterUnits="userSpaceOnUse"
-                    color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                    colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feColorMatrix
                         in="SourceAlpha"
                         type="matrix"
@@ -309,8 +309,8 @@ const DetailsIcon = ({ className = '' }) => {
                     width="234.426"
                     height="13"
                     filterUnits="userSpaceOnUse"
-                    color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                    colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feColorMatrix
                         in="SourceAlpha"
                         type="matrix"
@@ -343,8 +343,8 @@ const DetailsIcon = ({ className = '' }) => {
                     width="206"
                     height="224.991"
                     filterUnits="userSpaceOnUse"
-                    color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                    colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feColorMatrix
                         in="SourceAlpha"
                         type="matrix"
@@ -395,8 +395,8 @@ const DetailsIcon = ({ className = '' }) => {
                     width="629"
                     height="149"
                     filterUnits="userSpaceOnUse"
-                    color-interpolation-filters="sRGB">
-                    <feFlood flood-opacity="0" result="BackgroundImageFix" />
+                    colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
                     <feColorMatrix
                         in="SourceAlpha"
                         type="matrix"

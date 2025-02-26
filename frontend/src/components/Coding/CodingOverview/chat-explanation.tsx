@@ -210,7 +210,10 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             }
             const oldReaction = newMsgs[idx].reaction;
             newMsgs[idx].reaction = oldReaction === false ? undefined : false;
-            if (initialExplanationWithCode?.code !== existingChatHistory?.[0]?.code) {
+            if (
+                existingChatHistory.length > 0 &&
+                initialExplanationWithCode?.code !== existingChatHistory[0].code
+            ) {
                 dispatchFunction({
                     type: 'UPDATE_CODE',
                     prevCode: initialExplanationWithCode.code,

@@ -30,6 +30,7 @@ def save_state(data):
     # Convert complex objects to JSON strings for storage
     metadata = json.dumps(collection_context.metadata)
     selected_data = json.dumps(collection_context.selected_data)
+    data_filters = json.dumps(collection_context.data_filters)
 
     models = json.dumps(modeling_context.models)
     context_files = json.dumps(coding_context.context_files)
@@ -58,6 +59,7 @@ def save_state(data):
         metadata=metadata,
         selected_data=selected_data,
         models=models,
+        data_filters=data_filters,
         main_topic=coding_context.main_topic,
         additional_info=coding_context.additional_info,
         context_files=context_files,
@@ -143,7 +145,7 @@ def load_state(data):
 
     # Convert JSON strings back to Python objects
     json_fields = [
-        "selected_data", "metadata", "models", "context_files", "keywords", "selected_keywords",
+        "selected_data", "metadata", "models", "dataset_filters", "context_files", "keywords", "selected_keywords",
         "keyword_table", "references_data", "themes", "research_questions",
         "sampled_post_responses", "sampled_post_with_themes_responses",
         "unseen_post_response", "unplaced_codes", "sampled_post_ids", "unseen_post_ids", "conflicting_responses"

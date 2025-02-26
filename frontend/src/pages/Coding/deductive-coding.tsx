@@ -6,11 +6,13 @@ import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
+import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
+import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 
 const DeductiveCodingPage = () => {
     const [searchParams] = useSearchParams();
@@ -24,6 +26,7 @@ const DeductiveCodingPage = () => {
         setUnplacedCodes,
         sampledPostResponse
     } = useCodingContext();
+    const location = useLocation();
 
     const logger = useLogger();
     const navigate = useNavigate();
@@ -73,29 +76,51 @@ const DeductiveCodingPage = () => {
         setUnplacedCodes(results.data.unplaced_codes);
     };
 
+    const steps: TutorialStep[] = [
+        {
+            target: '#unified-coding-page',
+            content:
+                'This area shows your unified coding interface with all your posts and coding responses.',
+            placement: 'bottom'
+        },
+        {
+            target: '#coding-controls',
+            content:
+                'Use these controls to download the codebook or toggle review mode for your coding responses.',
+            placement: 'top'
+        },
+        {
+            target: '#proceed-next-step',
+            content: 'Step 4: Proceed to next step',
+            placement: 'top'
+        }
+    ];
+
     return (
-        <div className="h-page flex flex-col">
-            <div className="flex-1 overflow-hidden">
-                <UnifiedCodingPage
-                    postIds={unseenPostIds}
-                    data={unseenPostResponse}
-                    dispatchFunction={dispatchUnseenPostResponse}
-                    // showThemes
-                    split
-                    review={reviewParam}
-                    showCodebook
-                    showFilterDropdown
-                    applyFilters
-                    coderType="LLM"
+        <TutorialWrapper steps={steps} pageId={location.pathname}>
+            <div className="h-page flex flex-col">
+                <div className="flex-1 overflow-hidden">
+                    <UnifiedCodingPage
+                        postIds={unseenPostIds}
+                        data={unseenPostResponse}
+                        dispatchFunction={dispatchUnseenPostResponse}
+                        // showThemes
+                        split
+                        review={reviewParam}
+                        showCodebook
+                        showFilterDropdown
+                        applyFilters
+                        coderType="LLM"
+                    />
+                </div>
+                <NavigationBottomBar
+                    previousPage={`${ROUTES.CODEBOOK_CREATION}`}
+                    nextPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`}
+                    isReady={true}
+                    onNextClick={handleNextClick}
                 />
             </div>
-            <NavigationBottomBar
-                previousPage={`${ROUTES.CODEBOOK_CREATION}`}
-                nextPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`}
-                isReady={true}
-                onNextClick={handleNextClick}
-            />
-        </div>
+        </TutorialWrapper>
     );
 };
 

@@ -12,7 +12,7 @@ from errors.database_errors import (
     UpdateError,
     DeleteError
 )
-from decorators.db_error_decorator import handle_db_errors
+from decorators import handle_db_errors, auto_recover
 
 T = TypeVar("T")  # Generic type for the dataclass model
 
@@ -36,6 +36,7 @@ class BaseRepository(Generic[T]):
         return self.query_builder_instance
     
     @handle_db_errors
+    @auto_recover
     def create_table(self) -> None:
         """
         Creates a table dynamically based on the dataclass model fields.
@@ -71,6 +72,7 @@ class BaseRepository(Generic[T]):
         self.execute_query(create_query)
 
     @handle_db_errors
+    @auto_recover
     def execute_query(self, query: str, params: tuple = (), result = False)->(Cursor | None):
         """
         Executes a SQL query with the given parameters.
@@ -82,7 +84,18 @@ class BaseRepository(Generic[T]):
             if result:
                 return query_result
 
+    @handle_db_errors   
+    @auto_recover  
+    def execute_many_query(self, query: str, params_list: List[tuple], result = False) -> None:
+        with sqlite3.connect(DATABASE_PATH) as conn:
+            cursor = conn.cursor()
+            query_result = cursor.executemany(query, params_list)
+            conn.commit()
+            if result:
+                return query_result
+
     @handle_db_errors
+    @auto_recover
     def fetch_all(self, query: str, params: tuple = (), map_to_model = True) -> List[T] | List[Dict[str, Any]]:
         """
         Fetches all rows for a given query and maps them to the dataclass model.
@@ -97,6 +110,7 @@ class BaseRepository(Generic[T]):
         return [dict(row) for row in rows]
 
     @handle_db_errors
+    @auto_recover
     def fetch_one(self, query: str, params: tuple = (), map_to_model = True) -> Optional[T] | Optional[Dict[str, Any]]:
         """
         Fetches a single row for a given query and maps it to the dataclass model.
@@ -113,6 +127,7 @@ class BaseRepository(Generic[T]):
         return self._map_to_model(row)
 
     @handle_db_errors
+    @auto_recover
     def insert(self, data: T) -> None:
         """
         Inserts a new row into the table using the QueryBuilder.
@@ -127,6 +142,7 @@ class BaseRepository(Generic[T]):
             raise InsertError(f"Failed to insert data into table {self.table_name}. Error: {e}")
 
     @handle_db_errors
+    @auto_recover
     def insert_batch(self, data_list: List[T]) -> None:
         """
         Inserts multiple rows into the table efficiently using executemany.
@@ -140,14 +156,12 @@ class BaseRepository(Generic[T]):
             data_dicts = [asdict(data) for data in data_list]
             query, params_list = self.query_builder_instance.insert_batch(data_dicts)
 
-            with sqlite3.connect(DATABASE_PATH) as conn:
-                cursor = conn.cursor()
-                cursor.executemany(query, params_list)
-                conn.commit()
+            self.execute_many_query(query, params_list)
         except sqlite3.Error as e:
             raise InsertError(f"Failed to insert batch data into table {self.table_name}. Error: {e}")
 
     @handle_db_errors
+    @auto_recover
     def update(self, filters: Dict[str, Any], updates: Dict[str,Any]) -> None:
         """
         Updates rows in the table based on filters using the QueryBuilder.
@@ -163,6 +177,7 @@ class BaseRepository(Generic[T]):
             raise UpdateError(f"Failed to update records in table {self.table_name}. Error: {e}")
 
     @handle_db_errors
+    @auto_recover
     def bulk_update(self, updates_list: List[Dict[str, Any]], filters_list: List[Dict[str, Any]]) -> None:
         """
         Updates multiple rows efficiently using batch updates.
@@ -179,14 +194,12 @@ class BaseRepository(Generic[T]):
                 for filters, updates in zip(filters_list, updates_list)
             ]
 
-            with sqlite3.connect(DATABASE_PATH) as conn:
-                cursor = conn.cursor()
-                cursor.executemany(query_params_list[0][0], [qp[1] for qp in query_params_list])
-                conn.commit()
+            self.execute_many_query(query_params_list[0][0], [qp[1] for qp in query_params_list])
         except sqlite3.Error as e:
             raise UpdateError(f"Failed to perform batch update in table {self.table_name}. Error: {e}")
 
     @handle_db_errors
+    @auto_recover
     def delete(self, filters: Dict[str, Any]):
         """
         Deletes rows from the table based on filters using the QueryBuilder.
@@ -200,6 +213,7 @@ class BaseRepository(Generic[T]):
             raise DeleteError(f"Failed to delete records from table {self.table_name}. Error: {e}")
 
     @handle_db_errors
+    @auto_recover
     def find(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True, order_by: Optional[str] = None) -> List[T] | List[Dict[str, Any]]:
         """
         Finds rows in the table based on filters and selects specific columns using the QueryBuilder.
@@ -216,6 +230,7 @@ class BaseRepository(Generic[T]):
         return self.fetch_all(query, params, map_to_model=map_to_model)
     
     @handle_db_errors
+    @auto_recover
     def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True, order_by: Optional[Dict[str, Any]] = None) -> T | Dict[str, Any] | None:
         """
         Finds rows in the table based on filters and selects specific columns using the QueryBuilder.r
@@ -232,6 +247,7 @@ class BaseRepository(Generic[T]):
         return self.fetch_one(query, params, map_to_model=map_to_model)
 
     @handle_db_errors
+    @auto_recover
     def count(self, filters: Optional[Dict[str, Any]] = None) -> int:
         """
         Counts the number of rows that match the given filters.
@@ -246,6 +262,7 @@ class BaseRepository(Generic[T]):
             return cursor.fetchone()[0]
         
     @handle_db_errors
+    @auto_recover
     def execute_raw_query(self, query: str, params: tuple = (), keys = False) -> Any:
         """
         Executes a raw SQL query with parameters.
@@ -264,6 +281,7 @@ class BaseRepository(Generic[T]):
             return result
         
     @handle_db_errors
+    @auto_recover
     def backup_table(self, filters: Optional[Dict[str, Any]] = None) -> None:
         """
         Creates a backup table by copying rows from the original table based on user-specified filters.
@@ -298,6 +316,7 @@ class BaseRepository(Generic[T]):
 
 
     @handle_db_errors
+    @auto_recover
     def drop_table(self) -> None:
         """
         Drops only the table managed by this repository.

@@ -24,20 +24,20 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
+    const { selectedData, setSelectedData, dataFilters, setDataFilters, datasetId } =
+        useCollectionContext();
 
     // Pending filter values (from the modal)
     const [pendingFilterStartTime, setPendingFilterStartTime] = useState(''); // ISO date string
     const [pendingFilterEndTime, setPendingFilterEndTime] = useState(''); // ISO date string
     const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState(false);
 
-    // Applied filter values (used in filtering logic)
-    const [appliedFilterStartTime, setAppliedFilterStartTime] = useState('');
-    const [appliedFilterEndTime, setAppliedFilterEndTime] = useState('');
-    const [appliedFilterHideRemoved, setAppliedFilterHideRemoved] = useState(false);
-    // This state will hold the IDs (as strings) of posts that should be filtered out
-    const [filteredOutIds, setFilteredOutIds] = useState<string[]>([]);
-
-    const { selectedData, setSelectedData, datasetId } = useCollectionContext();
+    // // Applied filter values (used in filtering logic)
+    // const [appliedFilterStartTime, setAppliedFilterStartTime] = useState('');
+    // const [appliedFilterEndTime, setAppliedFilterEndTime] = useState('');
+    // const [appliedFilterHideRemoved, setAppliedFilterHideRemoved] = useState(false);
+    // // This state will hold the IDs (as strings) of posts that should be filtered out
+    // const [filteredOutIds, setFilteredOutIds] = useState<string[]>([]);
 
     const { getServerUrl } = useServerUtils();
 
@@ -52,19 +52,19 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
             // Time filter using applied filter values.
             let timeMatch = true;
-            if (appliedFilterStartTime) {
-                const startDate = new Date(appliedFilterStartTime);
+            if (dataFilters['filterStartTime']) {
+                const startDate = new Date(dataFilters['filterStartTime']);
                 timeMatch = timeMatch && new Date(created_utc * 1000) >= startDate;
             }
-            if (appliedFilterEndTime) {
-                const endDate = new Date(appliedFilterEndTime);
+            if (dataFilters['filterEndTime']) {
+                const endDate = new Date(dataFilters['filterEndTime']);
                 timeMatch = timeMatch && new Date(created_utc * 1000) <= endDate;
             }
 
             // Hide removed/deleted: if applied, filter out posts whose ID is in filteredOutIds.
             let hideRemovedMatch = true;
-            if (appliedFilterHideRemoved) {
-                hideRemovedMatch = !filteredOutIds.includes(id);
+            if (dataFilters['filterHideRemoved']) {
+                hideRemovedMatch = !dataFilters['filteredOutIds'].includes(id);
             }
 
             return searchMatch && timeMatch && hideRemovedMatch;
@@ -135,6 +135,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     // Function to apply filters.
     const handleApplyFilters = async () => {
         setFilterLoading(true);
+        const currentFilters: Record<string, any> = {};
         // If the hide removed option is enabled, simulate a network request that returns IDs to filter.
         if (pendingFilterHideRemoved) {
             // Simulate processing to get IDs to hide.
@@ -166,15 +167,20 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             //     .map(([id]) => id);
             // // Simulate network delay.
             // await new Promise((resolve) => setTimeout(resolve, 5000));
-            setFilteredOutIds(data ?? []);
+            // setFilteredOutIds(data ?? []);
+            currentFilters['filteredOutIds'] = data ?? [];
         } else {
             // If not hiding, clear any previously filtered IDs.
-            setFilteredOutIds([]);
+            currentFilters['filteredOutIds'] = [];
         }
         // Apply the pending filters.
-        setAppliedFilterStartTime(pendingFilterStartTime);
-        setAppliedFilterEndTime(pendingFilterEndTime);
-        setAppliedFilterHideRemoved(pendingFilterHideRemoved);
+        currentFilters['filterStartTime'] = pendingFilterStartTime;
+        currentFilters['filterEndTime'] = pendingFilterEndTime;
+        currentFilters['filterHideRemoved'] = pendingFilterHideRemoved;
+        // setAppliedFilterStartTime(pendingFilterStartTime);
+        // setAppliedFilterEndTime(pendingFilterEndTime);
+        // setAppliedFilterHideRemoved(pendingFilterHideRemoved);
+        setDataFilters(currentFilters);
         setFilterLoading(false);
         setIsFilterModalOpen(false);
         setCurrentPage(1);
@@ -185,10 +191,11 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setPendingFilterStartTime('');
         setPendingFilterEndTime('');
         setPendingFilterHideRemoved(false);
-        setAppliedFilterStartTime('');
-        setAppliedFilterEndTime('');
-        setAppliedFilterHideRemoved(false);
-        setFilteredOutIds([]);
+        setDataFilters({});
+        // setAppliedFilterStartTime('');
+        // setAppliedFilterEndTime('');
+        // setAppliedFilterHideRemoved(false);
+        // setFilteredOutIds([]);
         setCurrentPage(1);
     };
 

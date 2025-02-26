@@ -8,6 +8,7 @@ import React, {
     FC
 } from 'react';
 import { v4 } from 'uuid';
+import { SetState } from '../types/Coding/shared';
 import { ILayout } from '../types/Coding/shared';
 
 // Mode type for context
@@ -93,13 +94,15 @@ export interface ExtendedICollectionContext {
     dataset: Dataset;
     datasetId: string;
     modeInput: string;
-    selectedData: string[]; // Holds IDs (or other identifiers) of selected items.
+    selectedData: string[];
+    dataFilters: Record<string, any>;
+    setDataFilters: SetState<Record<string, any>>;
     datasetDispatch: React.Dispatch<DataAction>;
-    setDatasetId: React.Dispatch<React.SetStateAction<string>>;
-    setModeInput: React.Dispatch<React.SetStateAction<string>>;
+    setDatasetId: SetState<string>;
+    setModeInput: SetState<string>;
     metadataDispatch: React.Dispatch<MetadataAction>;
-    setType: React.Dispatch<React.SetStateAction<ModeType>>;
-    setSelectedData: React.Dispatch<React.SetStateAction<string[]>>;
+    setType: SetState<ModeType>;
+    setSelectedData: SetState<string[]>;
     updateContext: (updates: Partial<ExtendedICollectionContext>) => void;
     resetContext: () => void;
 }
@@ -126,6 +129,8 @@ const defaultContext: ExtendedICollectionContext = {
     datasetId: '',
     modeInput: '',
     selectedData: [],
+    dataFilters: {},
+    setDataFilters: () => {},
     datasetDispatch: () => {},
     setDatasetId: () => {},
     setModeInput: () => {},
@@ -163,6 +168,7 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
     const [datasetId, setDatasetId] = useState<string>(v4());
     const [modeInput, setModeInput] = useState<string>('');
     const [selectedData, setSelectedData] = useState<string[]>([]);
+    const [dataFilters, setDataFilters] = useState<Record<string, any>>({});
 
     // When switching type, reset metadata to the proper default.
     useEffect(() => {
@@ -202,7 +208,6 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         if (updates.selectedData !== undefined) {
             setSelectedData(updates.selectedData);
         }
-        // You can also handle updates to dataset via datasetDispatch if needed.
     };
 
     // resetContext: Reset context to its default values.
@@ -213,7 +218,12 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         setDatasetId(v4());
         setModeInput('');
         setSelectedData([]);
+        setDataFilters({});
     };
+
+    useEffect(() => {
+        console.log('data filters', dataFilters);
+    }, [dataFilters]);
 
     const value = useMemo(
         () => ({
@@ -223,6 +233,8 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
             datasetId,
             modeInput,
             selectedData,
+            dataFilters,
+            setDataFilters,
             datasetDispatch,
             setDatasetId,
             setModeInput,
@@ -232,7 +244,7 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
             updateContext,
             resetContext
         }),
-        [type, metadata, dataset, datasetId, modeInput, selectedData]
+        [type, metadata, dataset, datasetId, modeInput, selectedData, dataFilters]
     );
 
     return <CollectionContext.Provider value={value}>{children}</CollectionContext.Provider>;

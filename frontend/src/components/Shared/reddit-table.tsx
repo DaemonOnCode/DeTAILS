@@ -16,9 +16,9 @@ const RedditTable: FC<RedditTableProps> = ({
     const areAllPagePostsSelected = data.every(([id]) => selectedPosts.includes(id));
 
     return (
-        <div className="overflow-x-auto w-full">
+        <div className="overflow-x-auto h-full w-full relative">
             <table className="table-auto w-full border border-gray-300">
-                <thead className="bg-gray-100">
+                <thead className="bg-gray-100 sticky top-0 ">
                     <tr>
                         <th className="px-4 py-4 border">
                             {!isLoading && (

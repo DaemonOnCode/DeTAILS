@@ -72,6 +72,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
     toggleKeywordSelection,
     setKeywords
 }) => {
+    console.log(selectedKeywords, 'wordcloud');
     const svgRef = useRef<SVGSVGElement | null>(null);
     // State for keyword placement (includes rotation if needed)
     const [placedKeywords, setPlacedKeywords] = useState<(IKeywordBox & { rotation: number })[]>(

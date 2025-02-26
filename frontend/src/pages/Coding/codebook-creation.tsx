@@ -6,7 +6,7 @@ import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection-context';
@@ -32,6 +32,7 @@ const CodebookCreation = () => {
         researchQuestions,
         keywordTable
     } = useCodingContext();
+    const location = useLocation();
 
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -142,7 +143,7 @@ const CodebookCreation = () => {
     ];
 
     return (
-        <TutorialWrapper steps={steps} pageId="codebook-creation-page" promptOnFirstPage={true}>
+        <TutorialWrapper steps={steps} pageId={location.pathname}>
             <div className="h-page flex flex-col">
                 <div className="flex-1 overflow-hidden">
                     {/* Add an id to the container for tutorial targeting */}

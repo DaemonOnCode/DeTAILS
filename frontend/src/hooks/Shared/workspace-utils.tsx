@@ -42,7 +42,8 @@ const useWorkspaceUtils = () => {
                 type: collectionContext.type || '',
                 metadata: collectionContext.metadata || {},
                 mode_input: collectionContext.modeInput || '',
-                selected_data: collectionContext.selectedData || []
+                selected_data: collectionContext.selectedData || [],
+                data_filters: collectionContext.dataFilters || {}
             },
             modeling_context: {
                 models: modelingContext.models || []
@@ -123,7 +124,8 @@ const useWorkspaceUtils = () => {
             //     ? { ...collectionContext.metadata, subreddit: data.subreddit ?? '' }
             //     : collectionContext.metadata,
             // Replace selectedPosts with selectedData.
-            selectedData: data.selected_data ?? []
+            selectedData: data.selected_data ?? [],
+            dataFilters: data.data_filters ?? {}
         });
 
         modelingContext.updateContext({

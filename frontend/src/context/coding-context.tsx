@@ -16,6 +16,7 @@ import {
     SampleDataWithThemeResponseReducerActions
 } from '../types/Coding/shared';
 import { ICodingContext } from '../types/Shared';
+import { useLocation } from 'react-router-dom';
 
 export const CodingContext = createContext<ICodingContext>({
     contextFiles: {},
@@ -431,6 +432,8 @@ const unseenDataResponseReducer = (
 
 // Create a provider component
 export const CodingProvider: FC<ILayout> = ({ children }) => {
+    const location = useLocation();
+
     const [currentMode, setCurrentMode] = useState<Mode>('folder');
     const [modeInput, setModeInput] = useState<string>('');
     const [subreddit, setSubreddit] = useState<string>('');
@@ -499,6 +502,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         });
     }, []);
 
+    useEffect(() => {
+        console.log(location.pathname, 'pthname');
+    }, [location]);
+
     const updateContext = (updates: Partial<ICodingContext>) => {
         console.log('Updates:', updates);
         if (updates.contextFiles) setContextFiles(updates.contextFiles);
@@ -566,7 +573,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     };
 
     useEffect(() => {
-        if (!keywords.includes(mainTopic)) {
+        if (!selectedKeywords.includes(mainTopic)) {
             setSelectedKeywords([mainTopic]);
         }
     }, [mainTopic]);

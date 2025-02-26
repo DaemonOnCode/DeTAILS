@@ -3,12 +3,14 @@ from functools import lru_cache
 import aiohttp
 import time
 
+from constants import TRANSMISSION_RPC_URL
+
 async def wait_for_transmission(timeout=15, interval=0.5):
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get("http://localhost:9091/transmission/rpc") as response:
+                async with session.get(TRANSMISSION_RPC_URL) as response:
                     if response.status in (200, 409):
                         print("Transmission daemon is up and running.")
                         return True
@@ -16,7 +18,7 @@ async def wait_for_transmission(timeout=15, interval=0.5):
             await asyncio.sleep(interval)
     return False
 
-async def read_stream(stream):
+async def read_stream(stream: aiohttp.StreamReader | None):
     while True:
         line = await stream.readline()
         if not line:
