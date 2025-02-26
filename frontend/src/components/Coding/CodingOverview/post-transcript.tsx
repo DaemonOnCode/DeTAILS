@@ -14,6 +14,7 @@ import EditCodeModal from '../Shared/edit-code-modal';
 import DeleteCodeModal from '../Shared/delete-code-modal';
 import EditHighlightModal from '../Shared/edit-highlight-modal';
 import DeleteHighlightModal from '../Shared/delete-highlight-modal';
+import SwitchModal from './switch-modal';
 
 const PostTranscript: FC<PostTranscriptProps> = ({
     post,
@@ -26,6 +27,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     selectedText,
     setSelectedText,
     conflictingCodes,
+    handleSwitchToEditMode,
     isAddCodeModalOpen,
     setIsAddCodeModalOpen,
     isEditCodeModalOpen,
@@ -80,6 +82,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     const [selectedCode, setSelectedCode] = useState<string>('');
     const [reasoning, setReasoning] = useState<string>('');
 
+    const [switchModalOn, setSwitchModalOn] = useState(false);
+
     const selectionRangeRef = useRef<Range | null>(null);
 
     useEffect(() => {
@@ -111,7 +115,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
     const handleSegmentDoubleClick = (segment: Segment) => {
         if (review) {
-            alert('Go back, change to edit mode and try again');
+            // alert('Go back, change to edit mode and try again');
+            setSwitchModalOn(true);
             return;
         }
         console.log(segment, 'segment');
@@ -646,6 +651,17 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             applyCodeToSelection('DELETE_HIGHLIGHT', extra)
                         }
                         setIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
+                    />
+                )}
+                {switchModalOn && (
+                    <SwitchModal
+                        message="To make changes to codes, change to edit mode and try again"
+                        onCancel={() => setSwitchModalOn(false)}
+                        onConfirm={() => {
+                            handleSwitchToEditMode?.();
+                            setSwitchModalOn(false);
+                        }}
+                        confirmLabel="Change to Edit Mode"
                     />
                 )}
             </div>

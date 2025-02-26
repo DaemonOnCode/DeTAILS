@@ -11,7 +11,7 @@ import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import getServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
-import { GeminiIcon } from '../../components/Shared/Icons';
+import { DetailsLLMIcon, GeminiIcon } from '../../components/Shared/Icons';
 // Import the TutorialWrapper and TutorialStep types
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
@@ -234,11 +234,8 @@ const KeywordCloudPage: FC = () => {
                             title={TooltipMessages.RefreshKeywords}
                             onClick={refreshKeywords}
                             // Add a CSS class for tutorial targeting
-                            className="refresh-keywords-btn bg-gray-500 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
-                            <span className="h-6 w-6">
-                                <GeminiIcon />
-                            </span>{' '}
-                            Refresh keywords
+                            className="refresh-keywords-btn bg-gray-600 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
+                            <DetailsLLMIcon className="h-6 w-6" /> Refresh keywords
                         </button>
                     </div>
                 </div>

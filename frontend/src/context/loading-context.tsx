@@ -1,6 +1,8 @@
 import { createContext, FC, useContext, useReducer, useMemo } from 'react';
 import { ILayout } from '../types/Coding/shared';
 import { ILoadingState, ILoadingContext, LoadingAction } from '../types/Shared';
+import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
+import { ROUTES } from '../constants/Coding/shared';
 
 const loadingReducer = (state: ILoadingState, action: LoadingAction): ILoadingState => {
     switch (action.type) {
@@ -8,7 +10,9 @@ const loadingReducer = (state: ILoadingState, action: LoadingAction): ILoadingSt
             const { route, loading } = action.payload;
             return {
                 ...state,
-                [route]: loading
+                [route]: {
+                    isLoading: loading
+                }
             };
         }
         case 'RESET_LOADING':
@@ -19,14 +23,18 @@ const loadingReducer = (state: ILoadingState, action: LoadingAction): ILoadingSt
             const { route } = action;
             return {
                 ...state,
-                [route]: true
+                [route]: {
+                    isLoading: true
+                }
             };
         }
         case 'SET_LOADING_DONE_ROUTE': {
             const { route } = action;
             return {
                 ...state,
-                [route]: false
+                [route]: {
+                    isLoading: false
+                }
             };
         }
 
@@ -41,7 +49,40 @@ const LoadingContext = createContext<ILoadingContext>({
 });
 
 export const LoadingProvider: FC<ILayout> = ({ children }) => {
-    const [loadingState, loadingDispatch] = useReducer(loadingReducer, {});
+    const initialPageState = {
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`]: {
+            isLoading: false
+        },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`]: {
+            isLoading: false
+        },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`]: {
+            isLoading: false,
+            downloadData: true
+        },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`]: {
+            isLoading: false
+        },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`]: {
+            isLoading: false
+        },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`]: {
+            isLoading: false,
+            downloadData: true
+        },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`]: {
+            isLoading: false,
+            downloadData: true
+        },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`]: {
+            isLoading: false,
+            downloadData: true
+        },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.ANALYSIS}`]: {
+            isLoading: false
+        }
+    };
+    const [loadingState, loadingDispatch] = useReducer(loadingReducer, initialPageState);
 
     const value = useMemo(() => ({ loadingDispatch, loadingState }), [loadingState]);
 

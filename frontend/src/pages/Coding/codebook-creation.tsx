@@ -147,15 +147,15 @@ const CodebookCreation = () => {
             <div className="h-page flex flex-col">
                 <div className="flex-1 overflow-hidden">
                     {/* Add an id to the container for tutorial targeting */}
-                    <div id="unified-coding-page">
-                        <UnifiedCodingPage
-                            postIds={sampledPostIds}
-                            data={sampledPostResponse}
-                            dispatchFunction={dispatchSampledPostResponse}
-                            review={reviewParam}
-                            showCoderType={false}
-                        />
-                    </div>
+                    {/* <div id="unified-coding-page"> */}
+                    <UnifiedCodingPage
+                        postIds={sampledPostIds}
+                        data={sampledPostResponse}
+                        dispatchFunction={dispatchSampledPostResponse}
+                        review={reviewParam}
+                        showCoderType={false}
+                    />
+                    {/* </div> */}
                 </div>
                 <NavigationBottomBar
                     previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`}

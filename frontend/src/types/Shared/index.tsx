@@ -151,7 +151,9 @@ export interface IWorkspaceContext {
 }
 
 export interface ILoadingState {
-    [route: string]: boolean;
+    [route: string]: {
+        isLoading: boolean;
+    };
 }
 
 export type LoadingAction =

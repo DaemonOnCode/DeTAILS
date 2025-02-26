@@ -2,6 +2,7 @@ import { FC, useState } from 'react';
 import { useCodingContext } from '../../../context/coding-context';
 import { SetState } from '../../../types/Coding/shared';
 import ChatExplanation from './chat-explanation';
+import { DetailsLLMIcon } from '../../Shared/Icons';
 
 interface RelatedCodesProps {
     postId: string;
@@ -93,7 +94,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
         <div className="space-y-6">
             {/* Related Codes Section */}
             <div>
-                <h3 className="text-lg font-bold mb-2">Related Codes</h3>
+                <h3 className="text-lg font-bold mb-2">Codes</h3>
                 <ul className="space-y-2">
                     {(hoveredCodeText || agreedCodes).map((code, index) => (
                         <li
@@ -110,26 +111,28 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                     ))}
                 </ul>
             </div>
+            <div>
+                <h3 className="text-lg font-bold mb-2">Explanations</h3>
+                {selectedExplanationsWithCode.map((explanationItem) => {
+                    // get the chat array from context
+                    const existingChat = getStoredChatHistory(
+                        postId,
+                        explanationItem.code,
+                        explanationItem.fullText
+                    );
 
-            {selectedExplanationsWithCode.map((explanationItem) => {
-                // get the chat array from context
-                const existingChat = getStoredChatHistory(
-                    postId,
-                    explanationItem.code,
-                    explanationItem.fullText
-                );
-
-                return (
-                    <ChatExplanation
-                        key={`${explanationItem.code}-${explanationItem.fullText}`}
-                        initialExplanationWithCode={explanationItem}
-                        existingChatHistory={existingChat} // NEW PROP
-                        postId={postId}
-                        datasetId={datasetId}
-                        dispatchFunction={dispatchFunction}
-                    />
-                );
-            })}
+                    return (
+                        <ChatExplanation
+                            key={`${explanationItem.code}-${explanationItem.fullText}`}
+                            initialExplanationWithCode={explanationItem}
+                            existingChatHistory={existingChat} // NEW PROP
+                            postId={postId}
+                            datasetId={datasetId}
+                            dispatchFunction={dispatchFunction}
+                        />
+                    );
+                })}
+            </div>
 
             {/* Conflicting Codes Section (conditionally rendered) */}
             {conflictingCodes.length > 0 && (

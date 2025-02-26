@@ -203,6 +203,7 @@ export type PostTranscriptProps = {
         explanation: string;
         quote: string;
     }[];
+    handleSwitchToEditMode?: () => void;
     isAddCodeModalOpen: boolean;
     setIsAddCodeModalOpen: SetState<boolean>;
     isEditCodeModalOpen: boolean;

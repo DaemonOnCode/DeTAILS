@@ -552,16 +552,25 @@ const TranscriptPage = () => {
     };
 
     useEffect(() => {
-        console.log('ID:', id);
-
         if (id) {
             fetchPostById(id, datasetId);
         }
     }, [id, datasetId]);
 
-    useEffect(() => {
-        console.log(activeTranscript);
-    }, [activeTranscript]);
+    const handleSwitchToEditMode = () => {
+        const params = new URLSearchParams();
+        if (type) {
+            params.append('type', type);
+        }
+        if (split) {
+            params.append('split', split);
+        }
+        if (codebook) {
+            params.append('codebook', codebook);
+        }
+
+        navigate(`/coding/transcript/${id}/refine?${params.toString()}`);
+    };
 
     if (loading) {
         return (
@@ -728,6 +737,7 @@ const TranscriptPage = () => {
                                 dispatchCodeResponse={
                                     currentConfig?.bottomTranscript?.dispatchFunction as any
                                 }
+                                handleSwitchToEditMode={handleSwitchToEditMode}
                                 conflictingCodes={currentConfig?.bottomTranscript?.conflicts}
                                 selectedText={selectedText}
                                 setSelectedText={setSelectedText}

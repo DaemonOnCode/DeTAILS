@@ -17,7 +17,7 @@ import CustomTutorialOverlay, {
     TutorialStep
 } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
-import { GeminiIcon } from '../../components/Shared/Icons';
+import { DetailsLLMIcon, GeminiIcon } from '../../components/Shared/Icons';
 import getServerUrl from '../../hooks/Shared/get-server-url';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../context/collection-context';
@@ -221,10 +221,8 @@ const ThemesPage = () => {
                         <button
                             id="refresh-themes-button"
                             onClick={handleRefreshThemes}
-                            className="px-4 py-2 bg-blue-500 text-white rounded flex justify-center items-center gap-2">
-                            <span className="h-6 w-6">
-                                <GeminiIcon />
-                            </span>
+                            className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
+                            <DetailsLLMIcon className="h-6 w-6" />
                             Refresh Themes
                         </button>
                     </div>

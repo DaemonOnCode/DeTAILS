@@ -13,8 +13,13 @@ import {
     KeywordsTableAction,
     BaseResponseHandlerActions,
     SampleDataResponseReducerActions,
-    SampleDataWithThemeResponseReducerActions
+    SampleDataWithThemeResponseReducerActions,
+    PageState,
+    PagesAction,
+    PagesState
 } from '../types/Coding/shared';
+import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
+import { ROUTES } from '../constants/Coding/shared';
 import { ICodingContext } from '../types/Shared';
 import { useLocation } from 'react-router-dom';
 
@@ -434,10 +439,10 @@ const unseenDataResponseReducer = (
 export const CodingProvider: FC<ILayout> = ({ children }) => {
     const location = useLocation();
 
-    const [currentMode, setCurrentMode] = useState<Mode>('folder');
-    const [modeInput, setModeInput] = useState<string>('');
-    const [subreddit, setSubreddit] = useState<string>('');
-    const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
+    // const [currentMode, setCurrentMode] = useState<Mode>('folder');
+    // const [modeInput, setModeInput] = useState<string>('');
+    // const [subreddit, setSubreddit] = useState<string>('');
+    // const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
     const [contextFiles, setContextFiles] = useState<IFile>({});
     const [mainTopic, setMainTopic] = useState<string>('');
     const [additionalInfo, setAdditionalInfo] = useState<string>('');
@@ -483,13 +488,12 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
 
     const [unplacedCodes, setUnplacedCodes] = useState<string[]>([]);
 
-    const toggleMode = useCallback(() => {
-        setCurrentMode((prevMode: Mode) => {
-            setModeInput('');
-            return prevMode === 'link' ? 'folder' : 'link';
-        });
-    }, []);
-
+    // const toggleMode = useCallback(() => {
+    //     setCurrentMode((prevMode: Mode) => {
+    //         setModeInput('');
+    //         return prevMode === 'link' ? 'folder' : 'link';
+    //     });
+    // }, []);
     const addContextFile = useCallback((filePath: string, fileName: string) => {
         setContextFiles((prevFiles) => ({ ...prevFiles, [filePath]: fileName }));
     }, []);
@@ -505,6 +509,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     useEffect(() => {
         console.log(location.pathname, 'pthname');
     }, [location]);
+
+    const downloadData = (path: string) => {};
 
     const updateContext = (updates: Partial<ICodingContext>) => {
         console.log('Updates:', updates);
@@ -587,8 +593,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             contextFiles,
             addContextFile,
             removeContextFile,
-            selectedPosts,
-            setSelectedPosts,
+            // selectedPosts,
+            // setSelectedPosts,
             mainTopic,
             setMainTopic,
             additionalInfo,
@@ -629,10 +635,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             setConflictingResponses
         }),
         [
-            currentMode,
-            modeInput,
-            selectedPosts,
-            subreddit,
+            // currentMode,
+            // modeInput,
+            // selectedPosts,
+            // subreddit,
             contextFiles,
             mainTopic,
             additionalInfo,

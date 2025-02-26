@@ -180,7 +180,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                             {!review && (
                                 <>
                                     <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
-                                        Actions
+                                        Quick Actions
                                         <div className="mt-2 flex justify-center gap-x-2">
                                             <button
                                                 title="Select all as correct"
@@ -198,7 +198,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             </button>
                                         </div>
                                     </th>
-                                    <th className="p-2">Comments</th>
+                                    {/* <th className="p-2">Comments</th> */}
                                 </>
                             )}
 
@@ -409,7 +409,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                                     </div>
                                                 </td>
 
-                                                <td className="border border-gray-300 p-2">
+                                                {/* <td className="border border-gray-300 p-2">
                                                     {row.isMarked === false && (
                                                         <textarea
                                                             className="w-full p-2 border border-gray-400 rounded-md"
@@ -420,7 +420,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                                             }
                                                         />
                                                     )}
-                                                </td>
+                                                </td> */}
                                             </>
                                         )}
 

@@ -323,3 +323,33 @@ export type Segment = {
     relatedCodeText: string[];
     fullText: string;
 };
+
+export type PageState = {
+    isLoading: boolean;
+    relevantStates: any[];
+    relevantStateUpdaters: Record<string, (...args: any[]) => void>;
+};
+
+export type PagesState = {
+    [route: string]: PageState;
+};
+
+export type PagesAction =
+    | {
+          type: 'UPDATE_PAGE_STATE';
+          route: string;
+          payload: Partial<PageState>;
+      }
+    | {
+          type: 'RESET_AFTER';
+          currentRoute: string;
+      }
+    | {
+          type: 'RESET_BEFORE';
+          currentRoute: string;
+      }
+    | {
+          type: 'INITIALIZE';
+          order: string[];
+          pages: PagesState;
+      };

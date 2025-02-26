@@ -105,7 +105,7 @@ def save_state(data):
                 continue
             current_value = getattr(workspace_state, field)
             previous_value = getattr(existing_state, field)
-            print(f"Field: {field}, Current: {current_value}, Previous: {previous_value}")
+            # print(f"Field: {field}, Current: {current_value}, Previous: {previous_value}")
             if (current_value is not None and current_value != "") and (previous_value is None or previous_value == ""):
                 print("Empty to Filled")
                 emptyToFilled = True

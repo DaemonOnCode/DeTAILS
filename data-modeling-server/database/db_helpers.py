@@ -59,4 +59,5 @@ def get_post_and_comments_from_id(post_id: str, dataset_id: str) -> Dict[str, An
 
     top_level_comments = [comment for comment in comments if comment["parent_id"] == post_id]
     
+    print(post, comments)
     return {**post, "comments": top_level_comments}
