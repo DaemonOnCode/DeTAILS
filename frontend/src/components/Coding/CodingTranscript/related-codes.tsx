@@ -48,8 +48,6 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
         setConflictingResponses
     } = useCodingContext();
 
-    console.log(codeSet, 'cs');
-
     const [comments, setComments] = useState<Record<string, string>>({});
 
     function getStoredChatHistory(postId: string, code: string, quote: string) {

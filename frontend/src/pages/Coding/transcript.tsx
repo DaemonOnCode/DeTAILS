@@ -20,7 +20,7 @@ const TranscriptPage = () => {
     const split = searchParams.get('split');
     const codebook = searchParams.get('codebook');
     const type = searchParams.get('type');
-    console.log(searchParams, split, codebook, type);
+    // console.log(searchParams, split, codebook, type);
 
     const splitIsTrue = split === 'true';
     const codebookIsTrue = codebook === 'true';
@@ -455,34 +455,34 @@ const TranscriptPage = () => {
         })
     );
 
-    console.log('Current config:', currentConfig, {
-        state: state ?? 'review',
-        codebook: (codebook ?? 'false') as 'true' | 'false',
-        type,
-        split
-    });
+    // console.log('Current config:', currentConfig, {
+    //     state: state ?? 'review',
+    //     codebook: (codebook ?? 'false') as 'true' | 'false',
+    //     type,
+    //     split
+    // });
 
-    console.log(
-        config.keys(),
-        Array.from(config.keys()).forEach((key) =>
-            console.log(
-                key,
-                JSON.stringify({
-                    state: state ?? 'review',
-                    codebook: (codebook ?? 'false') as 'true' | 'false',
-                    type,
-                    split
-                }),
-                key ===
-                    JSON.stringify({
-                        state: state ?? 'review',
-                        codebook: (codebook ?? 'false') as 'true' | 'false',
-                        type,
-                        split
-                    })
-            )
-        )
-    );
+    // console.log(
+    //     config.keys(),
+    //     Array.from(config.keys()).forEach((key) =>
+    //         console.log(
+    //             key,
+    //             JSON.stringify({
+    //                 state: state ?? 'review',
+    //                 codebook: (codebook ?? 'false') as 'true' | 'false',
+    //                 type,
+    //                 split
+    //             }),
+    //             key ===
+    //                 JSON.stringify({
+    //                     state: state ?? 'review',
+    //                     codebook: (codebook ?? 'false') as 'true' | 'false',
+    //                     type,
+    //                     split
+    //                 })
+    //         )
+    //     )
+    // );
 
     const [post, setPost] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);

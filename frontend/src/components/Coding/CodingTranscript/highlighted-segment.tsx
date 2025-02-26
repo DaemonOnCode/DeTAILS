@@ -18,7 +18,11 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({
     const [isHovered, setIsHovered] = useState(false);
 
     if (segment.backgroundColours.length === 0) {
-        return <span className="relative z-10">{segment.line} </span>;
+        return (
+            <span data-segment-id={segment.index} className="relative z-10">
+                {segment.line}{' '}
+            </span>
+        );
     }
 
     return (
@@ -43,7 +47,7 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({
                 setHoveredCodeText(null);
             }}>
             {/* Text, always on top */}
-            <span className="relative pr-1" style={{ zIndex: 5 }}>
+            <span data-segment-id={segment.index} className="relative pr-1" style={{ zIndex: 5 }}>
                 {segment.line}
             </span>
 

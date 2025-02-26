@@ -322,6 +322,7 @@ export type Segment = {
     backgroundColours: string[];
     relatedCodeText: string[];
     fullText: string;
+    index: number;
 };
 
 export type PageState = {

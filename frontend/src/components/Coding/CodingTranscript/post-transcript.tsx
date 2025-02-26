@@ -15,6 +15,7 @@ import DeleteCodeModal from '../Shared/delete-code-modal';
 import EditHighlightModal from '../Shared/edit-highlight-modal';
 import DeleteHighlightModal from '../Shared/delete-highlight-modal';
 import SwitchModal from './switch-modal';
+import { TranscriptContextProvider } from '../../../context/transcript-context';
 
 const PostTranscript: FC<PostTranscriptProps> = ({
     post,
@@ -220,14 +221,104 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         setSelectedCode('');
     };
 
-    const handleTextSelection = () => {
-        console.log('Handling text selection');
-        if (!isActive) return;
-        const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0) return;
+    // const handleTextSelection = () => {
+    //     console.log('Handling text selection');
+    //     if (!isActive) return;
+    //     const selection = window.getSelection();
+    //     if (!selection || selection.rangeCount === 0) return;
 
-        selectionRangeRef.current = selection.getRangeAt(0);
-        setSelectedText(selection.toString() || null);
+    //     selectionRangeRef.current = selection.getRangeAt(0);
+    //     setSelectedText(selection.toString() || null);
+    // };
+
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const handleTextSelection = (): void => {
+        console.log('Handling text selection');
+
+        if (!isActive) {
+            console.log('isActive is false. Exiting selection handler.');
+            return;
+        }
+
+        const selection: Selection | null = window.getSelection();
+        if (!selection) {
+            console.log('No selection found.');
+            return;
+        }
+        if (selection.rangeCount === 0) {
+            console.log('Selection range count is 0. Nothing selected.');
+            return;
+        }
+
+        const range: Range = selection.getRangeAt(0);
+        console.log('Selection range obtained:', {
+            startContainer: range.startContainer,
+            startOffset: range.startOffset,
+            endContainer: range.endContainer,
+            endOffset: range.endOffset
+        });
+        selectionRangeRef.current = range;
+
+        const selectedText = selection.toString().trim();
+
+        const container: HTMLElement = containerRef?.current || document.body;
+        console.log('Using container element:', container);
+
+        const segmentElements: HTMLSpanElement[] = Array.from(
+            container.querySelectorAll('span[data-segment-id]')
+        ) as HTMLSpanElement[];
+        console.log(`Found ${segmentElements.length} segment elements.`);
+
+        const highlightedSegments: HTMLSpanElement[] = [];
+
+        segmentElements.forEach((segmentElement: HTMLSpanElement) => {
+            const segmentId = segmentElement.getAttribute('data-segment-id');
+            const segText = segmentElement.textContent?.trim() || '';
+            if (!segText) {
+                console.log(`Segment ${segmentId} has no text. Skipping.`);
+                return;
+            }
+
+            let match = false;
+            if (selectedText.includes(segText)) {
+                console.log(`Selected text fully contains segment ${segmentId}.`);
+                match = true;
+            } else if (segText.includes(selectedText)) {
+                console.log(`Segment ${segmentId} fully contains the selected text.`);
+                match = true;
+            } else {
+                const segWords = segText.split(/\s+/);
+                const selectedWords = selectedText.split(/\s+/);
+                const commonWords = segWords.filter((word) => selectedWords.includes(word));
+                const ratio = commonWords.length / segWords.length;
+                console.log(
+                    `Segment ${segmentId} word overlap ratio: ${ratio.toFixed(2)} (common words: [${commonWords.join(', ')}])`
+                );
+                if (ratio > 0.5) {
+                    match = true;
+                }
+            }
+            console.log(
+                `Text match for segment ${segmentId}: ${match} (segment text: "${segText}", selected text: "${selectedText}")`
+            );
+
+            if (match) {
+                highlightedSegments.push(segmentElement);
+                console.log(`Segment ${segmentId} is highlighted.`);
+            } else {
+                console.log(`Segment ${segmentId} is not highlighted.`);
+            }
+        });
+
+        console.log('Highlighted segments:', highlightedSegments);
+        const combinedText = highlightedSegments
+            .map((span) => span.textContent?.trim() || '')
+            .join(' ');
+
+        console.log('Combined text:', combinedText);
+
+        setSelectedText(combinedText || null);
     };
 
     const restoreSelection = () => {
@@ -412,16 +503,17 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
         traverseComments(post.comments, post.id);
 
-        const segments = transcriptFlatMap.flatMap((data) => {
+        const segments = transcriptFlatMap.flatMap((data, idx1) => {
             const segmentTexts = splitIntoSegments(data.text);
-            return segmentTexts.map((line) => ({
+            return segmentTexts.map((line, idx2) => ({
                 line,
                 id: data.id,
                 type: data.type,
                 parent_id: data.parent_id,
                 backgroundColours: [] as string[],
                 relatedCodeText: [] as string[],
-                fullText: '' as string
+                fullText: '' as string,
+                index: idx1 + idx2
             }));
         });
 
@@ -446,242 +538,189 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         }));
     }, [post, codes, codeColors]);
 
-    // const processedSegments = useMemo(() => {
-    //     if (!post || !Object.keys(post).length) return [];
-
-    //     // Flatten out title, selftext, then comments
-    //     const transcriptArr: {
-    //         id: string;
-    //         text: string;
-    //         type: 'title' | 'selftext' | 'comment';
-    //     }[] = [
-    //         { id: post.id, text: post.title, type: 'title' },
-    //         { id: post.id, text: post.selftext, type: 'selftext' }
-    //     ];
-
-    //     const gatherComments = (comments: Comments[]) => {
-    //         comments.forEach((c) => {
-    //             transcriptArr.push({
-    //                 id: c.id,
-    //                 text: c.body,
-    //                 type: 'comment'
-    //             });
-    //             if (c.comments?.length) gatherComments(c.comments);
-    //         });
-    //     };
-    //     gatherComments(post.comments);
-
-    //     // For each chunk, break it into segments
-    //     const segments: Segment[] = [];
-    //     transcriptArr.forEach((block) => {
-    //         const segs = splitIntoSegments(block.text).map((line) => ({
-    //             line,
-    //             id: block.id,
-    //             type: block.type,
-    //             parent_id: post.id,
-    //             backgroundColours: [] as string[],
-    //             relatedCodeText: [] as string[],
-    //             fullText: line // we can store the entire line as "fullText"
-    //         }));
-    //         segments.push(...segs);
-    //     });
-
-    //     // Compare segments to codeResponses to see if there's a match
-    //     segments.forEach((seg) => {
-    //         codes.forEach(({ text, code }) => {
-    //             // Fuzzy match
-    //             if (ratio(seg.line, text) >= 90) {
-    //                 seg.backgroundColours.push(codeColors[code]);
-    //                 seg.relatedCodeText.push(code);
-    //             }
-    //         });
-    //         // De-dup
-    //         seg.backgroundColours = Array.from(new Set(seg.backgroundColours));
-    //         seg.relatedCodeText = Array.from(new Set(seg.relatedCodeText));
-    //     });
-
-    //     console.log(segments);
-    //     return segments;
-    // }, [post, codes, codeColors]);
-
-    useEffect(() => {
-        console.log('Selected text:', selectedText);
-    }, [selectedText]);
+    // useEffect(() => {
+    //     console.log('Selected text:', selectedText);
+    // }, [selectedText]);
 
     // console.log('Processed segments:', processedSegments);
 
     return !post ? (
         <p>Post not found</p>
     ) : (
-        <div className="flex flex-col h-full overflow-hidden">
-            <div className="flex flex-1 overflow-hidden m-6">
-                {/* Left Section: Transcript */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    <button onClick={onBack} className="mb-4 text-blue-500 self-start">
-                        ← <span className="underline">Back to Posts</span>
-                    </button>
+        <TranscriptContextProvider>
+            <div className="flex flex-col h-full overflow-hidden">
+                <div className="flex flex-1 overflow-hidden m-6">
+                    {/* Left Section: Transcript */}
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        <button onClick={onBack} className="mb-4 text-blue-500 self-start">
+                            ← <span className="underline">Back to Posts</span>
+                        </button>
 
-                    <div
-                        className={`flex-1 overflow-y-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}
-                        onMouseUp={handleTextSelection}>
-                        <div className="mb-6">
-                            <h2 className="text-xl font-bold mb-2 relative">
-                                {processedSegments
-                                    .filter(
-                                        (segment) =>
-                                            segment.id === post.id && segment.type === 'title'
-                                    )
-                                    .map((segment, index) => (
-                                        <HighlightedSegment
-                                            key={index}
-                                            hoveredCode={hoveredCode}
-                                            segment={segment}
-                                            setHoveredCodeText={setHoveredCodeText}
-                                            onDoubleClickSegment={handleSegmentDoubleClick}
-                                        />
-                                    ))}
-                            </h2>
-                            <p className="text-gray-700 leading-relaxed relative">
-                                {processedSegments
-                                    .filter(
-                                        (segment) =>
-                                            segment.id === post.id && segment.type === 'selftext'
-                                    )
-                                    .map((segment, index) => (
-                                        <HighlightedSegment
-                                            key={index}
-                                            hoveredCode={hoveredCode}
-                                            segment={segment}
-                                            setHoveredCodeText={setHoveredCodeText}
-                                            onDoubleClickSegment={handleSegmentDoubleClick}
-                                        />
-                                    ))}
-                            </p>
+                        <div
+                            className={`flex-1 overflow-y-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}
+                            onMouseUp={handleTextSelection}
+                            ref={containerRef}>
+                            <div className="mb-6">
+                                <h2 className="text-xl font-bold mb-2 relative">
+                                    {processedSegments
+                                        .filter(
+                                            (segment) =>
+                                                segment.id === post.id && segment.type === 'title'
+                                        )
+                                        .map((segment, index) => (
+                                            <HighlightedSegment
+                                                key={index}
+                                                hoveredCode={hoveredCode}
+                                                segment={segment}
+                                                setHoveredCodeText={setHoveredCodeText}
+                                                onDoubleClickSegment={handleSegmentDoubleClick}
+                                            />
+                                        ))}
+                                </h2>
+                                <p className="text-gray-700 leading-relaxed relative">
+                                    {processedSegments
+                                        .filter(
+                                            (segment) =>
+                                                segment.id === post.id &&
+                                                segment.type === 'selftext'
+                                        )
+                                        .map((segment, index) => (
+                                            <HighlightedSegment
+                                                key={index}
+                                                hoveredCode={hoveredCode}
+                                                segment={segment}
+                                                setHoveredCodeText={setHoveredCodeText}
+                                                onDoubleClickSegment={handleSegmentDoubleClick}
+                                            />
+                                        ))}
+                                </p>
+                            </div>
+
+                            {/* Comments Section */}
+                            <h2 className="text-lg font-semibold mb-2">Comments</h2>
+                            <div className="max-h-full">
+                                <RedditComments
+                                    comments={post.comments}
+                                    hoveredCode={hoveredCode}
+                                    processedSegments={processedSegments}
+                                    setHoveredCodeText={setHoveredCodeText}
+                                    level={0}
+                                    onDoubleClickSegment={handleSegmentDoubleClick}
+                                />
+                            </div>
                         </div>
+                    </div>
 
-                        {/* Comments Section */}
-                        <h2 className="text-lg font-semibold mb-2">Comments</h2>
-                        <div className="max-h-full">
-                            <RedditComments
-                                comments={post.comments}
+                    {/* Right Section: Related Codes */}
+                    <div className="w-1/3 pl-4 flex flex-col overflow-hidden">
+                        <div className="flex-1 overflow-y-auto">
+                            <RelatedCodes
+                                postId={post.id}
+                                datasetId={post.dataset_id}
+                                codeSet={additionalCodes}
+                                codeResponses={codeResponses}
+                                codeColors={codeColors}
+                                hoveredCodeText={hoveredCodeText}
+                                conflictingCodes={conflictingCodes}
+                                codeCounts={additionalCodes.reduce(
+                                    (acc, code) => {
+                                        acc[code] = codeResponses.filter(
+                                            (response) =>
+                                                response.code === code &&
+                                                response.postId === post.id
+                                        ).length;
+                                        return acc;
+                                    },
+                                    {} as Record<string, number>
+                                )}
                                 hoveredCode={hoveredCode}
-                                processedSegments={processedSegments}
-                                setHoveredCodeText={setHoveredCodeText}
-                                level={0}
-                                onDoubleClickSegment={handleSegmentDoubleClick}
+                                setHoveredCode={setHoveredCode}
+                                selectedExplanationsWithCode={selectedExplanations}
+                                dispatchFunction={dispatchCodeResponse}
                             />
                         </div>
                     </div>
-                </div>
-
-                {/* Right Section: Related Codes */}
-                <div className="w-1/3 pl-4 flex flex-col overflow-hidden">
-                    <div className="flex-1 overflow-y-auto">
-                        <RelatedCodes
-                            postId={post.id}
-                            datasetId={post.dataset_id}
-                            codeSet={additionalCodes}
-                            codeResponses={codeResponses}
-                            codeColors={codeColors}
-                            hoveredCodeText={hoveredCodeText}
-                            conflictingCodes={conflictingCodes}
-                            codeCounts={additionalCodes.reduce(
-                                (acc, code) => {
-                                    acc[code] = codeResponses.filter(
-                                        (response) =>
-                                            response.code === code && response.postId === post.id
-                                    ).length;
-                                    return acc;
-                                },
-                                {} as Record<string, number>
-                            )}
-                            hoveredCode={hoveredCode}
-                            setHoveredCode={setHoveredCode}
-                            selectedExplanationsWithCode={selectedExplanations}
-                            dispatchFunction={dispatchCodeResponse}
+                    {/* Modals */}
+                    {isAddCodeModalOpen && isActive && (
+                        <AddCodeModal
+                            setIsAddCodeModalOpen={setIsAddCodeModalOpen}
+                            setIsHighlightModalOpen={setIsHighlightModalOpen}
+                            setCodes={setAdditionalCodes}
+                            setSelectedCode={setSelectedCode}
                         />
-                    </div>
+                    )}
+                    {isEditCodeModalOpen && isActive && (
+                        <EditCodeModal
+                            setIsEditCodeModalOpen={setIsEditCodeModalOpen}
+                            setIsHighlightModalOpen={setIsHighlightModalOpen}
+                            setCodes={(value: any) => {
+                                setCodes(value, 'UPDATE_CODE_NAME');
+                            }}
+                            codes={additionalCodes}
+                            setSelectedCode={setSelectedCode}
+                        />
+                    )}
+                    {isDeleteCodeModalOpen && isActive && (
+                        <DeleteCodeModal
+                            setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
+                            setIsHighlightModalOpen={setIsHighlightModalOpen}
+                            setCodes={(value: any) => {
+                                setCodes(value, 'DELETE_CODE');
+                            }}
+                            codes={additionalCodes}
+                            setSelectedCode={setSelectedCode}
+                        />
+                    )}
+                    {isHighlightModalOpen && isActive && (
+                        <HighlightModal
+                            codes={additionalCodes}
+                            selectedCode={selectedCode}
+                            setSelectedCode={setSelectedCode}
+                            setIsAddCodeModalOpen={setIsAddCodeModalOpen}
+                            applyCodeToSelection={() => applyCodeToSelection('ADD_HIGHLIGHT')}
+                            setIsHighlightModalOpen={setIsHighlightModalOpen}
+                            addReasoning={true}
+                            reasoning={reasoning}
+                            setReasoning={setReasoning}
+                            restoreSelection={restoreSelection}
+                            removeSelection={removeSelection}
+                        />
+                    )}
+                    {isEditHighlightModalOpen && isActive && (
+                        <EditHighlightModal
+                            references={references}
+                            applyCodeToSelection={(extra) =>
+                                applyCodeToSelection('EDIT_HIGHLIGHT', extra)
+                            }
+                            setIsHighlightModalOpen={setIsEditHighlightModalOpen}
+                            selectedText={selectedText}
+                            setSelectedText={setSelectedText}
+                        />
+                    )}
+                    {isDeleteHighlightModalOpen && isActive && (
+                        <DeleteHighlightModal
+                            references={references}
+                            setReferences={setReferences}
+                            applyCodeToSelection={(extra) =>
+                                applyCodeToSelection('DELETE_HIGHLIGHT', extra)
+                            }
+                            setIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
+                        />
+                    )}
+                    {switchModalOn && (
+                        <SwitchModal
+                            message="To make changes to codes, change to edit mode and try again"
+                            onCancel={() => setSwitchModalOn(false)}
+                            onConfirm={() => {
+                                handleSwitchToEditMode?.();
+                                setSwitchModalOn(false);
+                            }}
+                            confirmLabel="Change to Edit Mode"
+                        />
+                    )}
                 </div>
-                {/* Modals */}
-                {isAddCodeModalOpen && isActive && (
-                    <AddCodeModal
-                        setIsAddCodeModalOpen={setIsAddCodeModalOpen}
-                        setIsHighlightModalOpen={setIsHighlightModalOpen}
-                        setCodes={setAdditionalCodes}
-                        setSelectedCode={setSelectedCode}
-                    />
-                )}
-                {isEditCodeModalOpen && isActive && (
-                    <EditCodeModal
-                        setIsEditCodeModalOpen={setIsEditCodeModalOpen}
-                        setIsHighlightModalOpen={setIsHighlightModalOpen}
-                        setCodes={(value: any) => {
-                            setCodes(value, 'UPDATE_CODE_NAME');
-                        }}
-                        codes={additionalCodes}
-                        setSelectedCode={setSelectedCode}
-                    />
-                )}
-                {isDeleteCodeModalOpen && isActive && (
-                    <DeleteCodeModal
-                        setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
-                        setIsHighlightModalOpen={setIsHighlightModalOpen}
-                        setCodes={(value: any) => {
-                            setCodes(value, 'DELETE_CODE');
-                        }}
-                        codes={additionalCodes}
-                        setSelectedCode={setSelectedCode}
-                    />
-                )}
-                {isHighlightModalOpen && isActive && (
-                    <HighlightModal
-                        codes={additionalCodes}
-                        selectedCode={selectedCode}
-                        setSelectedCode={setSelectedCode}
-                        setIsAddCodeModalOpen={setIsAddCodeModalOpen}
-                        applyCodeToSelection={() => applyCodeToSelection('ADD_HIGHLIGHT')}
-                        setIsHighlightModalOpen={setIsHighlightModalOpen}
-                        addReasoning={true}
-                        reasoning={reasoning}
-                        setReasoning={setReasoning}
-                        restoreSelection={restoreSelection}
-                        removeSelection={removeSelection}
-                    />
-                )}
-                {isEditHighlightModalOpen && isActive && (
-                    <EditHighlightModal
-                        references={references}
-                        applyCodeToSelection={(extra) =>
-                            applyCodeToSelection('EDIT_HIGHLIGHT', extra)
-                        }
-                        setIsHighlightModalOpen={setIsEditHighlightModalOpen}
-                        selectedText={selectedText}
-                        setSelectedText={setSelectedText}
-                    />
-                )}
-                {isDeleteHighlightModalOpen && isActive && (
-                    <DeleteHighlightModal
-                        references={references}
-                        setReferences={setReferences}
-                        applyCodeToSelection={(extra) =>
-                            applyCodeToSelection('DELETE_HIGHLIGHT', extra)
-                        }
-                        setIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
-                    />
-                )}
-                {switchModalOn && (
-                    <SwitchModal
-                        message="To make changes to codes, change to edit mode and try again"
-                        onCancel={() => setSwitchModalOn(false)}
-                        onConfirm={() => {
-                            handleSwitchToEditMode?.();
-                            setSwitchModalOn(false);
-                        }}
-                        confirmLabel="Change to Edit Mode"
-                    />
-                )}
             </div>
-        </div>
+        </TranscriptContextProvider>
     );
 };
 
