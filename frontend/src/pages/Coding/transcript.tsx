@@ -1,6 +1,6 @@
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import PostTranscript from '../../components/Coding/CodingOverview/post-transcript';
+import PostTranscript from '../../components/Coding/CodingTranscript/post-transcript';
 import TopToolbar from '../../components/Coding/Shared/top-toolbar';
 import ValidationTable from '../../components/Coding/UnifiedCoding/validation-table';
 import { useCodingContext } from '../../context/coding-context';
@@ -647,8 +647,12 @@ const TranscriptPage = () => {
                         </div>
                     )}
 
+                    <p className="px-6 py-2 text-center bg-gray-100 text-base lg:text-lg font-bold text-[#203636]">
+                        Double click Highlighted Quote to Edit
+                    </p>
+
                     <div
-                        className={`${codebookIsTrue && state === 'review' ? 'h-[90%]' : 'h-full'} flex flex-col`}>
+                        className={`${codebookIsTrue && state === 'review' ? 'h-[85%]' : 'h-[95%]'} flex flex-col`}>
                         {splitIsTrue && (
                             <div
                                 className={`h-1/2 overflow-auto ${

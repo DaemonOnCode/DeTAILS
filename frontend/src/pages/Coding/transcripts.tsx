@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import PostCards from '../../components/Coding/CodingOverview/post-cards';
+import PostCards from '../../components/Coding/CodingTranscript/post-cards';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';

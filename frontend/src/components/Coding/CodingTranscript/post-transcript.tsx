@@ -57,18 +57,34 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         return responseCodes;
     }, [codeResponses, post]);
 
+    const allExplanations: {
+        explanation: string;
+        code: string;
+        fullText: string;
+    }[] = useMemo(
+        () =>
+            codeResponses
+                .filter((responses) => responses.postId === post.id)
+                .map((responses) => ({
+                    explanation: responses.explanation,
+                    code: responses.code,
+                    fullText: responses.quote
+                })),
+        [codeResponses, post]
+    );
+
     const codeSet = Array.from(new Set([...codes.map((c) => c.code), ...extraCodes]));
     const [additionalCodes, setAdditionalCodes] = useState<string[]>([...codeSet]);
 
-    useEffect(() => {
-        setAdditionalCodes((prev) => {
-            if (prev.length !== codeSet.length) return [...codeSet];
-            for (let i = 0; i < prev.length; i++) {
-                if (prev[i] !== codeSet[i]) return [...codeSet];
-            }
-            return prev;
-        });
-    }, [codeSet]);
+    // useEffect(() => {
+    //     setAdditionalCodes((prev) => {
+    //         if (prev.length !== codeSet.length) return [...codeSet];
+    //         for (let i = 0; i < prev.length; i++) {
+    //             if (prev[i] !== codeSet[i]) return [...codeSet];
+    //         }
+    //         return prev;
+    //     });
+    // }, [codeSet]);
 
     const [hoveredCodeText, setHoveredCodeText] = useState<string[] | null>(null);
     const [hoveredCode, setHoveredCode] = useState<string | null>(null);
@@ -111,7 +127,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
             code: string;
             fullText: string;
         }[]
-    >([]);
+    >(allExplanations);
 
     const handleSegmentDoubleClick = (segment: Segment) => {
         if (review) {
@@ -124,7 +140,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         console.log(currentSegment.current, segment);
         if (JSON.stringify(currentSegment.current) === JSON.stringify(segment)) {
             currentSegment.current = null;
-            setSelectedExplanations([]);
+            setSelectedExplanations(allExplanations);
             return;
         }
 
@@ -363,7 +379,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         const newlineToken = '<NEWLINE>';
         const cleanedText = text.replace(/\n+/g, newlineToken);
         const segments = cleanedText
-            .split(/(?<=[.?!])/)
+            .split(/(?<=[.?!:,])/)
             .map((segment) => segment.trim())
             .filter(Boolean);
         return segments.map((segment) => segment.replace(new RegExp(newlineToken, 'g'), '\n'));

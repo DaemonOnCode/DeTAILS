@@ -40,7 +40,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         existingChatHistory.length > 0 ? existingChatHistory : [initialMsg]
     );
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});
-    const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
+    const [chatCollapsed, setChatCollapsed] = useState<boolean>(true && !!messages.length);
     // New state for tracking a selected code for messages that need editing.
     const [selectedCodes, setSelectedCodes] = useState<{ [key: number]: string }>({});
 

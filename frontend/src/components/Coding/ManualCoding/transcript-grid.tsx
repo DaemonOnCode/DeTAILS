@@ -3,7 +3,7 @@ import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
 import useServerUtils from '../../../hooks/Shared/get-server-url';
 import { createResource } from '../../../utility/resource-creator';
-import PostCards from '../CodingOverview/post-cards';
+import PostCards from '../CodingTranscript/post-cards';
 
 const fetchPostData = async (
     postIds: string[],

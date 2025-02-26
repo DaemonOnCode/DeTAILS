@@ -8,7 +8,7 @@ import useServerUtils from '../../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../../utility/timer';
 import TopToolbar from '../Shared/top-toolbar';
-import PostTranscript from '../CodingOverview/post-transcript';
+import PostTranscript from '../CodingTranscript/post-transcript';
 import ValidationTable from '../UnifiedCoding/validation-table';
 
 const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
