@@ -1,5 +1,5 @@
 import { FC, useState } from 'react';
-import { FaRedoAlt } from 'react-icons/fa';
+import { FaRedoAlt, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import { generateColor } from '../../../utility/color-generator';
 import useServerUtils from '../../../hooks/Shared/get-server-url';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
@@ -25,34 +25,17 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     dispatchFunction,
     existingChatHistory
 }) => {
-    // Access transcript context state.
-    const { selectedText, chatHistories, setChatHistories } = useTranscriptContext();
-    // console.log('Transcript selectedText in ChatExplanation:', selectedText);
-
-    // Compute a unique key for this chat thread.
+    const { chatHistories, setChatHistories } = useTranscriptContext();
     const chatKey = `${postId}-${initialExplanationWithCode.code}-${initialExplanationWithCode.fullText}`;
-
-    // Use the context chat history if available; otherwise, fallback to existingChatHistory or initial message.
-    // const initialMsg: ChatMessage = {
-    //     id: 1,
-    //     text: initialExplanationWithCode.explanation,
-    //     sender: 'LLM',
-    //     code: initialExplanationWithCode.code,
-    //     reaction: undefined,
-    //     isEditable: false,
-    //     command: 'ACCEPT_QUOTE'
-    // };
-
     const initialMessages = chatHistories[chatKey] || existingChatHistory;
 
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});
     const [chatCollapsed, setChatCollapsed] = useState<boolean>(true && !!messages.length);
-    const [selectedCodes, setSelectedCodes] = useState<{ [key: number]: string }>({});
 
     const { getServerUrl } = useServerUtils();
 
-    // Update both local messages and the transcript context's chatHistories.
+    // Update local state and persist chat history.
     const updateMessagesAndStore = (updatedMsgs: ChatMessage[]) => {
         setMessages(updatedMsgs);
         setChatHistories((prev) => ({ ...prev, [chatKey]: updatedMsgs }));
@@ -67,23 +50,35 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
 
     const handleToggleChat = () => setChatCollapsed((prev) => !prev);
 
+    // Check if a given message can accept reactions.
     const isReactionEditable = (msg: ChatMessage, i: number): boolean => {
         if (i === messages.length - 1) return true;
         const nextMsg = messages[i + 1];
         return !!(nextMsg && (nextMsg.isThinking || nextMsg.isEditable));
     };
 
+    // Compute the latest new code from EDIT_QUOTE messages (if any) from full history.
+    const latestNewMessage = [...messages]
+        .reverse()
+        .find((message) => message.code !== messages[0].code);
+
+    console.log(latestNewMessage, 'latest', messages, initialExplanationWithCode);
+
+    // Build chat history as an array of strings.
     const computeChatHistory = () => messages.map((m) => `${m.sender}: ${m.text}`);
 
+    // Handle human feedback submission.
     const handleSendComment = async (messageId: number) => {
         const comment = editableInputs[messageId]?.trim();
         if (!comment) return;
 
+        // Lock the current human message.
         let newMsgs = messages.map((msg) =>
             msg.id === messageId ? { ...msg, text: comment, isEditable: false } : msg
         );
         setEditableInputs((prev) => ({ ...prev, [messageId]: '' }));
 
+        // Append an LLM placeholder if the feedback came from Human.
         const source = messages.find((m) => m.id === messageId);
         if (source && source.sender === 'Human') {
             const newId = messages.length + 1;
@@ -110,7 +105,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
-            console.log(data, 'chat res');
             const { explanation, agreement, command, alternate_codes } = data;
 
             let finalMsgs = newMsgs.map((msg) =>
@@ -151,6 +145,10 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     };
 
     const handleReaction = (messageId: number, reaction: boolean, i: number) => {
+        if (chatCollapsed && messages.length === 1) {
+            setChatCollapsed(false);
+        }
+
         const current = messages.find((m) => m.id === messageId);
         if (!current || current.sender !== 'LLM') return;
 
@@ -189,14 +187,14 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     type: 'UPDATE_CODE',
                     prevCode: initialExplanationWithCode.code,
                     quote: initialExplanationWithCode.fullText,
-                    newCode: selectedCodes[messageId]
+                    newCode: current.code
                 });
 
                 dispatchFunction({
                     type: 'MARK_RESPONSE_BY_CODE_EXPLANATION',
                     postId,
                     quote: initialExplanationWithCode.fullText,
-                    code: selectedCodes[messageId],
+                    code: current.code,
                     isMarked: true
                 });
             }
@@ -228,6 +226,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         updateMessagesAndStore(newMsgs);
     };
 
+    // Handle LLM refresh.
     const handleRefreshLLM = async (messageId: number) => {
         const idx = messages.findIndex((m) => m.id === messageId);
         if (idx === -1) return;
@@ -255,7 +254,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
-            console.log(data, 'refresh res');
             const { explanation, command, alternate_codes } = data;
 
             let finalMsgs = newMsgs.map((m) =>
@@ -281,12 +279,13 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         }
     };
 
-    const visibleMessages = chatCollapsed ? messages.slice(0, 1) : messages;
-
+    // Render an individual message.
     const renderMessage = (msg: ChatMessage, i: number) => {
-        const isFirst = i === 0 && msg.code;
-        const bg = isFirst
-            ? generateColor(msg.code!)
+        const isInitial = i === 0 && msg.code;
+        const bg = isInitial
+            ? latestNewMessage?.code && latestNewMessage.reaction
+                ? generateColor(latestNewMessage.code)
+                : generateColor(msg.code ?? '')
             : msg.sender === 'LLM'
               ? '#f3f4f6'
               : '#eff6ff';
@@ -300,38 +299,50 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 <div
                     className={`relative flex-1 p-4 rounded ${chainStyle}`}
                     style={{ backgroundColor: bg }}>
-                    {msg.code && (
-                        <pre className="bg-gray-800 text-white p-2 rounded mb-2 whitespace-pre-wrap">
-                            {msg.code}
-                        </pre>
-                    )}
+                    {isInitial ? (
+                        latestNewMessage?.code && latestNewMessage.reaction ? (
+                            <pre className="bg-gray-800 text-white p-2 rounded mb-2 whitespace-pre-wrap">
+                                <span
+                                    style={{ textDecoration: 'line-through', marginRight: '8px' }}>
+                                    {msg.code}
+                                </span>{' '}
+                                <span>{latestNewMessage.code}</span>
+                            </pre>
+                        ) : (
+                            <pre className="bg-gray-800 text-white p-2 rounded mb-2 whitespace-pre-wrap">
+                                {msg.code}
+                            </pre>
+                        )
+                    ) : null}
+
                     {msg.isEditable ? (
                         <textarea
                             className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
                             placeholder="Give feedback to AI..."
                             value={editableInputs[msg.id] || ''}
                             onChange={(e) =>
-                                setEditableInputs((prev) => ({
-                                    ...prev,
-                                    [msg.id]: e.target.value
-                                }))
+                                setEditableInputs((prev) => ({ ...prev, [msg.id]: e.target.value }))
                             }
                         />
                     ) : (
                         <p className="whitespace-pre-wrap">{msg.text}</p>
                     )}
+
                     {msg.command === 'EDIT_QUOTE' && msg.text !== 'Thinking...' && (
                         <div>
                             <p className="text-sm font-medium mb-1">Choose a code:</p>
                             <div className="flex items-center space-x-2">
                                 <select
-                                    value={selectedCodes[msg.id] || ''}
-                                    onChange={(e) =>
-                                        setSelectedCodes((prev) => ({
-                                            ...prev,
-                                            [msg.id]: e.target.value
-                                        }))
-                                    }
+                                    value={msg.code || ''}
+                                    onChange={(e) => {
+                                        const newCode = e.target.value;
+                                        const updatedMessages = messages.map((m) =>
+                                            m.id === msg.id
+                                                ? { ...m, code: newCode, reaction: undefined }
+                                                : m
+                                        );
+                                        updateMessagesAndStore(updatedMessages);
+                                    }}
                                     className="p-1 border rounded w-full">
                                     <option value="">Select a code</option>
                                     {msg.alternate_codes &&
@@ -346,6 +357,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     )}
                 </div>
 
+                {/* Reaction Buttons */}
                 <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
                     {msg.sender === 'LLM' ? (
                         <>
@@ -356,11 +368,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                     msg.reaction === true
                                         ? 'bg-green-500 text-white'
                                         : 'bg-gray-300 text-gray-500'
-                                } ${
-                                    !canReact || msg.isThinking
-                                        ? 'opacity-50 cursor-not-allowed'
-                                        : 'hover:bg-green-400'
-                                }`}>
+                                } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-400'}`}>
                                 ✓
                             </button>
                             <button
@@ -370,11 +378,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                     msg.reaction === false
                                         ? 'bg-red-500 text-white'
                                         : 'bg-gray-300 text-gray-500'
-                                } ${
-                                    !canReact || msg.isThinking
-                                        ? 'opacity-50 cursor-not-allowed'
-                                        : 'hover:bg-red-400'
-                                }`}>
+                                } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
                                 ✕
                             </button>
                             {msg.id > 1 && (
@@ -416,9 +420,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                     msg.reaction === true
                                         ? 'bg-green-500 text-white'
                                         : 'bg-gray-300 text-gray-500'
-                                } ${
-                                    true ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-400'
-                                }`}>
+                                } opacity-50 cursor-not-allowed`}>
                                 ✓
                             </button>
                             <button
@@ -428,11 +430,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                     msg.reaction === false
                                         ? 'bg-red-500 text-white'
                                         : 'bg-gray-300 text-gray-500'
-                                } ${
-                                    !canReact || msg.isThinking
-                                        ? 'opacity-50 cursor-not-allowed'
-                                        : 'hover:bg-red-400'
-                                }`}>
+                                } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
                                 ✕
                             </button>
                         </>
@@ -443,16 +441,24 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     };
 
     return (
-        <div className="border rounded p-4 mb-4">
-            <button
-                onClick={handleToggleChat}
-                className="mb-2 p-2 rounded bg-gray-300 hover:bg-gray-400">
-                {chatCollapsed ? 'Show Full Chat' : 'Collapse'}
-            </button>
-            <div className="max-h-96 overflow-y-auto relative">
-                {(chatCollapsed ? messages.slice(0, 1) : messages).map((m, i) =>
-                    renderMessage(m, i)
-                )}
+        <div className="border rounded p-4 mb-4 relative">
+            <div className="flex">
+                {/* Sticky Toggle Button on the left */}
+                <div className="sticky top-2 mr-2 self-start">
+                    <button
+                        onClick={handleToggleChat}
+                        className="p-1 rounded bg-gray-300 hover:bg-gray-400">
+                        {chatCollapsed ? <FaChevronRight /> : <FaChevronDown />}
+                    </button>
+                </div>
+                {/* Chat Content */}
+                <div className="flex-1">
+                    <div className="max-h-72 overflow-y-auto relative">
+                        {(chatCollapsed ? messages.slice(0, 1) : messages).map((m, i) =>
+                            renderMessage(m, i)
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     );

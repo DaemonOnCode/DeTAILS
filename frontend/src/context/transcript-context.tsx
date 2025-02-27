@@ -133,7 +133,8 @@ export const TranscriptContextProvider: FC<{
                         code: response.code,
                         reaction: true,
                         isEditable: false,
-                        command: 'ACCEPT_QUOTE'
+                        command: 'ACCEPT_QUOTE',
+                        isCurrentCode: true
                     }
                 ];
         });

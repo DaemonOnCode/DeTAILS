@@ -72,6 +72,7 @@ export interface ChatMessage {
     code?: string; // Only the first message might have code
     command?: keyof typeof ChatCommands;
     alternate_codes?: string[];
+    isCurrentCode?: boolean;
 }
 
 export interface IQECResponse extends IQECRow {

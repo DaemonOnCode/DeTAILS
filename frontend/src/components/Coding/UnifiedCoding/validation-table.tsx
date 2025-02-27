@@ -155,7 +155,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                 <table className="w-full border-collapse relative">
                     <thead className="sticky top-0 z-30 bg-gray-100">
                         <tr>
-                            <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
+                            <th className="max-w-48 p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
                                 Code
                             </th>
                             <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
@@ -179,7 +179,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
 
                             {!review && (
                                 <>
-                                    <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
+                                    <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300 max-w-28">
                                         Quick Actions
                                         <div className="mt-2 flex justify-center gap-x-2">
                                             <button
@@ -215,7 +215,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                         return (
                             <tbody key={pid}>
                                 <tr
-                                    className={`sticky ${review ? 'top-[38px]' : 'top-[76px]'} border-b-2 border-gray-300  bg-gray-50 z-20`}>
+                                    className={`sticky ${review ? 'top-[40px]' : 'top-[100px]'} border-b-2 border-gray-300  bg-gray-50 z-20`}>
                                     <td
                                         colSpan={totalColumns}
                                         className="p-2 font-semibold bg-gray-50 border border-gray-300 outline outline-1 outline-gray-300">
@@ -232,7 +232,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                         key={row.id}
                                         className={`transition-all duration-200 ${!review ? 'hover:bg-blue-200 cursor-pencil' : 'hover:bg-gray-100'} ${editIndex === row.id ? 'bg-yellow-100' : ''}`}
                                         onClick={() => !review && onViewTranscript(row.postId)}>
-                                        <td className="border border-gray-300 p-2">
+                                        <td className="border border-gray-300 p-2 max-w-48">
                                             {editIndex === row.id ? (
                                                 <input
                                                     type="text"
@@ -351,7 +351,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
 
                                         {!review && (
                                             <>
-                                                <td className="border border-gray-300 p-2">
+                                                <td className="border border-gray-300 p-2 max-w-28">
                                                     <div className="flex justify-center gap-2 text-center">
                                                         {editIndex === row.id ? (
                                                             <>
