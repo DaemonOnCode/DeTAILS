@@ -3,10 +3,9 @@ import { AddCodeModalProps } from '../../../types/Coding/props';
 
 const AddCodeModal: FC<AddCodeModalProps> = ({
     setIsAddCodeModalOpen,
-    setIsHighlightModalOpen,
-    isHighlightModalOpen,
     setCodes,
-    setSelectedCode
+    setSelectedCode,
+    setAddHighlightModalHidden
 }) => {
     const [newCode, setNewCode] = useState('');
 
@@ -31,12 +30,10 @@ const AddCodeModal: FC<AddCodeModalProps> = ({
                     onClick={() => {
                         if (newCode) {
                             setCodes((prevCodes) => [...prevCodes, newCode]);
-                            setSelectedCode(newCode);
+                            // setSelectedCode(newCode);
                             setNewCode('');
                             setIsAddCodeModalOpen(false);
-                            if (isHighlightModalOpen) {
-                                setIsHighlightModalOpen(true);
-                            }
+                            setAddHighlightModalHidden(false);
                         }
                     }}>
                     Add Code

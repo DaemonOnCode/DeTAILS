@@ -85,8 +85,6 @@ const TranscriptContext = createContext<ITranscriptContext>({
     splitIntoSegments: () => [],
     processTranscript: () => ({
         processedSegments: [],
-        codes: [],
-        allExplanations: [],
         codeSet: [],
         codeColors: {}
     }),
@@ -112,12 +110,32 @@ export const TranscriptContextProvider: FC<{
     const codes = codeResponses
         .filter((r) => r.postId === postId)
         .map((r) => ({ text: r.quote, code: r.code }));
+
+    const gatherChatHistory = () => {
+        let allChatHistory: Record<string, ChatMessage[]> = {};
+        codeResponses.forEach((response) => {
+            allChatHistory[`${postId}-${response.code}-${response.quote}`] =
+                response.chatHistory ?? [
+                    {
+                        id: 1,
+                        text: response.explanation,
+                        sender: 'LLM',
+                        code: response.code,
+                        reaction: true,
+                        isEditable: false,
+                        command: 'ACCEPT_QUOTE'
+                    }
+                ];
+        });
+        return allChatHistory;
+    };
     // State hooks
     const [selectedText, setSelectedText] = useState<string | null>(null);
     const [hoveredCode, setHoveredCode] = useState<string | null>(null);
     const [hoveredCodeText, setHoveredCodeText] = useState<string[] | null>(null);
     const [additionalCodes, setAdditionalCodes] = useState<string[]>([]);
-    const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
+    const [chatHistories, setChatHistories] =
+        useState<Record<string, ChatMessage[]>>(gatherChatHistory());
 
     const [hoveredSegment, setHoveredSegment] = useState<Segment | null>(null);
     const [selectedSegment, setSelectedSegment] = useState<Segment | null>(null);
@@ -127,15 +145,9 @@ export const TranscriptContextProvider: FC<{
 
     const activeSegment = selectedSegment || hoveredSegment;
 
-    // Refs for selection handling
     const selectionRangeRef = useRef<Range | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        console.log(additionalCodes, 'additional codes');
-    }, []);
-
-    // Advanced text selection handler
     const handleTextSelection = (): void => {
         console.log('Handling text selection from TranscriptContext');
         const selection: Selection | null = window.getSelection();
@@ -143,30 +155,62 @@ export const TranscriptContextProvider: FC<{
             console.log('No selection found or empty range.');
             return;
         }
-        const range = selection.getRangeAt(0);
+        const range: Range = selection.getRangeAt(0);
         selectionRangeRef.current = range;
-        const text = selection.toString().trim();
-        console.log('Selected text:', text);
+        const selectedText: string = selection.toString().trim();
+        console.log('Selected text:', selectedText);
+        if (!selectedText) return;
 
-        // Find segment elements within the container.
-        const container: HTMLElement = containerRef.current || document.body;
-        const segmentElements: HTMLSpanElement[] = Array.from(
-            container.querySelectorAll('span[data-segment-id]')
-        ) as HTMLSpanElement[];
+        let commonAncestor: HTMLElement;
+        if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
+            commonAncestor = range.commonAncestorContainer as HTMLElement;
+        } else {
+            commonAncestor =
+                range.commonAncestorContainer.parentElement ||
+                containerRef.current ||
+                document.body;
+        }
 
-        const highlightedSegments: HTMLSpanElement[] = [];
-        segmentElements.forEach((segmentElement) => {
-            const segText = segmentElement.textContent?.trim() || '';
-            if (!segText) return;
-            // Basic matching logic
-            if (segText.includes(text) || text.includes(segText)) {
-                highlightedSegments.push(segmentElement);
+        const foundSegments: HTMLSpanElement[] = [];
+        const walker: TreeWalker = document.createTreeWalker(
+            commonAncestor,
+            NodeFilter.SHOW_ELEMENT,
+            {
+                acceptNode: (node: Node): number => {
+                    if (node instanceof HTMLElement && node.hasAttribute('data-segment-id')) {
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                    return NodeFilter.FILTER_SKIP;
+                }
             }
-        });
-        const combinedText = highlightedSegments
+        );
+
+        let currentNode: Node | null = walker.currentNode;
+        while (currentNode) {
+            if (currentNode instanceof HTMLSpanElement && range.intersectsNode(currentNode)) {
+                foundSegments.push(currentNode);
+            }
+            currentNode = walker.nextNode();
+        }
+
+        if (foundSegments.length === 0 && containerRef.current) {
+            const containerSegments: HTMLSpanElement[] = Array.from(
+                containerRef.current.querySelectorAll('span[data-segment-id]')
+            );
+            containerSegments.forEach((segment) => {
+                if (range.intersectsNode(segment)) {
+                    foundSegments.push(segment);
+                }
+            });
+        }
+
+        // Combine the text from all found segments.
+        const combinedText: string = foundSegments
             .map((span) => span.textContent?.trim() || '')
             .join(' ');
-        setSelectedText(combinedText || text);
+
+        console.log(combinedText, 'combined text');
+        setSelectedText(combinedText || selectedText);
     };
 
     // Restore the saved selection.

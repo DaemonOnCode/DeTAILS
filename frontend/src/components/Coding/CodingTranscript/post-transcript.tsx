@@ -53,7 +53,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         processTranscript,
         selectedSegment,
         setSelectedSegment,
-        handleSegmentLeave
+        handleSegmentLeave,
+        chatHistories
     } = useTranscriptContext();
 
     const { processedSegments, codeSet, codeColors } = processTranscript(post, extraCodes);
@@ -72,6 +73,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     const [selectedCode, setSelectedCode] = useState<string>('');
     const [reasoning, setReasoning] = useState<string>('');
     const [switchModalOn, setSwitchModalOn] = useState(false);
+
+    const [addHighlightModalHidden, setAddHighlightModalHidden] = useState(false);
 
     const currentReferences = useMemo(
         () =>
@@ -242,16 +245,31 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         setIsHighlightModalOpen(false);
     };
 
+    const allChatsResolved = Object.values(chatHistories).every(
+        (chat) => chat[chat.length - 1].reaction === true
+    );
+
+    const handleBackClick = () => {
+        if (!allChatsResolved) return;
+        onBack();
+    };
+
     return !post ? (
         <p>Post not found</p>
     ) : (
-        // Wrap with TranscriptContextProvider if not provided higher up.
-        // <TranscriptContextProvider>
         <div className="flex flex-col h-full overflow-hidden">
             <div className="flex flex-1 overflow-hidden m-6">
                 {/* Left Section: Transcript */}
                 <div className="flex-1 flex flex-col overflow-hidden">
-                    <button onClick={onBack} className="mb-4 text-blue-500 self-start">
+                    <button
+                        title={
+                            allChatsResolved
+                                ? 'Go back to previous page'
+                                : 'Please resolve all chats'
+                        }
+                        onClick={handleBackClick}
+                        disabled={!allChatsResolved}
+                        className={`mb-4 ${allChatsResolved ? 'text-blue-500' : 'text-gray-500'} self-start`}>
                         ← <span className="underline">Back to Posts</span>
                     </button>
                     <div
@@ -326,9 +344,9 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 {isAddCodeModalOpen && isActive && (
                     <AddCodeModal
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}
-                        setIsHighlightModalOpen={setIsHighlightModalOpen}
                         setCodes={setAdditionalCodes}
                         setSelectedCode={setSelectedCode}
+                        setAddHighlightModalHidden={setAddHighlightModalHidden}
                     />
                 )}
                 {isEditCodeModalOpen && isActive && (
@@ -351,6 +369,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 )}
                 {isHighlightModalOpen && isActive && (
                     <HighlightModal
+                        hidden={addHighlightModalHidden}
+                        setHidden={setAddHighlightModalHidden}
                         codes={additionalCodes}
                         selectedCode={selectedCode}
                         setSelectedCode={setSelectedCode}

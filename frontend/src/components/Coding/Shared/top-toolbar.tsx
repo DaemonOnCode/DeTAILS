@@ -10,8 +10,8 @@ const TopToolbar: FC<TopToolbarProps> = ({
     setIsDeleteCodeModalOpen,
     setIsEditHighlightCodeModalOpen,
     setIsDeleteHighlightCodeModalOpen,
-    showCodebookButton = false, // Default to false if not provided
-    showCodebook = false, // Default to false if not provided
+    showCodebookButton = false,
+    showCodebook = false,
     onShowCodebook
 }) => {
     const [isCodeDropdownOpen, setIsCodeDropdownOpen] = useState(false);
@@ -29,7 +29,7 @@ const TopToolbar: FC<TopToolbarProps> = ({
             (codeDropdownRef.current?.contains(event.relatedTarget) ||
                 highlightDropdownRef.current?.contains(event.relatedTarget))
         ) {
-            return; // Don't close if moving focus inside dropdown
+            return;
         }
         setter(false);
     };

@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { SetState } from '../../types/Coding/shared';
-import TorrentSelectionPanel from './torrrent-selection-panel';
+import TorrentSelectionPanel from './torrent-selection-panel';
 import { createResource } from '../../utility/resource-creator';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
@@ -31,33 +31,34 @@ const TorrentDataTab = ({
     const fetchTorrentData = async () => {
         const res = fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_ALL_TORRENT_DATA));
         const data = await (await res).json();
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve({
-                    uwaterloo: {
-                        posts: {
-                            '2018': ['11', '12'],
-                            '2019': ['1', '2', '3', '11', '12'],
-                            '2020': ['1', '2', '3', '11', '12'],
-                            '2021': ['1', '2', '3', '11', '12']
-                        },
-                        comments: {}
-                    },
-                    games: {
-                        posts: {
-                            '2018': ['11', '12'],
-                            '2019': ['1', '2', '3', '11', '12']
-                        },
-                        comments: {
-                            '2018': ['11', '12'],
-                            '2019': ['1', '2', '3', '11', '12'],
-                            '2020': ['1', '2', '3', '11', '12'],
-                            '2021': ['1', '2', '3', '11', '12']
-                        }
-                    }
-                });
-            }, 1000);
-        });
+        return data;
+        // return new Promise((resolve) => {
+        //     setTimeout(() => {
+        //         resolve({
+        //             uwaterloo: {
+        //                 posts: {
+        //                     '2018': ['11', '12'],
+        //                     '2019': ['1', '2', '3', '11', '12'],
+        //                     '2020': ['1', '2', '3', '11', '12'],
+        //                     '2021': ['1', '2', '3', '11', '12']
+        //                 },
+        //                 comments: {}
+        //             },
+        //             games: {
+        //                 posts: {
+        //                     '2018': ['11', '12'],
+        //                     '2019': ['1', '2', '3', '11', '12']
+        //                 },
+        //                 comments: {
+        //                     '2018': ['11', '12'],
+        //                     '2019': ['1', '2', '3', '11', '12'],
+        //                     '2020': ['1', '2', '3', '11', '12'],
+        //                     '2021': ['1', '2', '3', '11', '12']
+        //                 }
+        //             }
+        //         });
+        //     }, 1000);
+        // });
     };
 
     const dataResource = createResource(fetchTorrentData());

@@ -33,19 +33,17 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     const chatKey = `${postId}-${initialExplanationWithCode.code}-${initialExplanationWithCode.fullText}`;
 
     // Use the context chat history if available; otherwise, fallback to existingChatHistory or initial message.
-    const initialMsg: ChatMessage = {
-        id: 1,
-        text: initialExplanationWithCode.explanation,
-        sender: 'LLM',
-        code: initialExplanationWithCode.code,
-        reaction: undefined,
-        isEditable: false,
-        command: 'ACCEPT_QUOTE'
-    };
+    // const initialMsg: ChatMessage = {
+    //     id: 1,
+    //     text: initialExplanationWithCode.explanation,
+    //     sender: 'LLM',
+    //     code: initialExplanationWithCode.code,
+    //     reaction: undefined,
+    //     isEditable: false,
+    //     command: 'ACCEPT_QUOTE'
+    // };
 
-    const initialMessages =
-        chatHistories[chatKey] ||
-        (existingChatHistory.length > 0 ? existingChatHistory : [initialMsg]);
+    const initialMessages = chatHistories[chatKey] || existingChatHistory;
 
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});

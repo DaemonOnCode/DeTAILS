@@ -1,4 +1,4 @@
-import { FC, useEffect } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { HighlightModalProps } from '../../../types/Coding/props';
 
 const HighlightModal: FC<HighlightModalProps> = ({
@@ -12,7 +12,9 @@ const HighlightModal: FC<HighlightModalProps> = ({
     reasoning,
     setReasoning,
     restoreSelection,
-    removeSelection
+    removeSelection,
+    hidden,
+    setHidden
 }) => {
     useEffect(() => {
         restoreSelection();
@@ -21,12 +23,17 @@ const HighlightModal: FC<HighlightModalProps> = ({
         };
     }, []);
 
-    return (
+    return hidden ? (
+        <></>
+    ) : (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
             <div className="bg-white p-6 rounded shadow-lg w-1/3 relative">
                 <button
                     className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-                    onClick={() => setIsHighlightModalOpen(false)}>
+                    onClick={() => {
+                        setSelectedCode('null');
+                        setIsHighlightModalOpen(false);
+                    }}>
                     &#x2715;
                 </button>
                 <h2 className="text-xl font-semibold mb-4">Highlight Text</h2>
@@ -36,12 +43,13 @@ const HighlightModal: FC<HighlightModalProps> = ({
                     onChange={(e) => {
                         if (e.target.value === 'addNewCode') {
                             setIsAddCodeModalOpen(true);
-                            setIsHighlightModalOpen(false);
+                            // setIsHighlightModalOpen(false);
+                            setHidden(true);
                         } else {
                             setSelectedCode(e.target.value);
                         }
                     }}>
-                    <option value="">Select a code</option>
+                    <option value="null">Select a code</option>
                     {codes.map((code, idx) => (
                         <option key={idx} value={code}>
                             {code}

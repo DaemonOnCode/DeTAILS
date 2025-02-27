@@ -32,10 +32,9 @@ export type RedditTableProps = {
 
 export type AddCodeModalProps = {
     setIsAddCodeModalOpen: SetState<boolean>;
-    setIsHighlightModalOpen: SetState<boolean>;
-    isHighlightModalOpen?: boolean;
     setCodes: SetState<string[]>;
     setSelectedCode: SetState<string>;
+    setAddHighlightModalHidden: SetState<boolean>;
 };
 
 export type EditCodeModalProps = {
@@ -76,6 +75,8 @@ export type HighlightModalProps = {
     setReasoning?: SetState<string>;
     restoreSelection: () => void;
     removeSelection: () => void;
+    hidden: boolean;
+    setHidden: SetState<boolean>;
 };
 
 export type EditHighlightModalProps = {
