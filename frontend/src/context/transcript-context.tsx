@@ -1,4 +1,14 @@
-import React, { createContext, FC, useContext, useState, useRef, useMemo, useEffect } from 'react';
+import React, {
+    createContext,
+    FC,
+    useContext,
+    useState,
+    useRef,
+    useMemo,
+    useEffect,
+    MutableRefObject,
+    RefObject
+} from 'react';
 import { ratio } from 'fuzzball';
 import {
     SetState,
@@ -37,7 +47,7 @@ interface ITranscriptContext {
     }[];
     allExplanations: Explanation[];
     // Selection helpers
-    handleTextSelection: () => void;
+    handleTextSelection: (_selectionRef: MutableRefObject<Range | null>) => void;
     restoreSelection: () => void;
     removeSelection: () => void;
     handleSegmentInteraction: (segment: Segment, isPermanent?: boolean) => void;
@@ -53,8 +63,8 @@ interface ITranscriptContext {
         codeColors: Record<string, string>;
     };
     // Refs for DOM access
-    selectionRangeRef: React.MutableRefObject<Range | null>;
-    containerRef: React.RefObject<HTMLDivElement>;
+    selectionRangeRef: MutableRefObject<Range | null>;
+    containerRef: RefObject<HTMLDivElement>;
 }
 
 const TranscriptContext = createContext<ITranscriptContext>({
@@ -148,7 +158,7 @@ export const TranscriptContextProvider: FC<{
     const selectionRangeRef = useRef<Range | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const handleTextSelection = (): void => {
+    const handleTextSelection = (_selectionRef: MutableRefObject<Range | null>): void => {
         console.log('Handling text selection from TranscriptContext');
         const selection: Selection | null = window.getSelection();
         if (!selection || selection.rangeCount === 0) {
@@ -157,6 +167,7 @@ export const TranscriptContextProvider: FC<{
         }
         const range: Range = selection.getRangeAt(0);
         selectionRangeRef.current = range;
+        _selectionRef.current = range;
         const selectedText: string = selection.toString().trim();
         console.log('Selected text:', selectedText);
         if (!selectedText) return;

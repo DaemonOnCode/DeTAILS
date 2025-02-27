@@ -93,6 +93,8 @@ const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
     const [isEditHighlightModalOpen, setIsEditHighlightModalOpen] = useState(false);
     const [isDeleteHighlightModalOpen, setDeleteIsHighlightModalOpen] = useState(false);
 
+    const _selectionRef = useRef<Range | null>(null);
+
     const fetchPostById = async (postId: string, datasetId: string) => {
         if (!postId || !datasetId) return;
         setLoading(true);
@@ -167,6 +169,7 @@ const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                 <TopToolbar
                     selectedPost={post}
                     setIsAddCodeModalOpen={setIsAddCodeModalOpen}
+                    selectionRefArray={[_selectionRef]}
                     setIsEditCodeModalOpen={setIsEditCodeModalOpen}
                     setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
                     setIsHighlightModalOpen={setIsHighlightModalOpen}
@@ -222,6 +225,7 @@ const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                         <PostTranscript
                             post={post}
                             onBack={onBack}
+                            _selectionRef={_selectionRef}
                             review={currentConfig.review}
                             codeResponses={currentConfig.bottomTranscript.responses ?? []}
                             isActive={true}

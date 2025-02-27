@@ -5,6 +5,7 @@ import { FaCode, FaHighlighter, FaBook } from 'react-icons/fa'; // Added FaBook 
 const TopToolbar: FC<TopToolbarProps> = ({
     selectedPost,
     setIsAddCodeModalOpen,
+    selectionRefArray,
     setIsHighlightModalOpen,
     setIsEditCodeModalOpen,
     setIsDeleteCodeModalOpen,
@@ -18,6 +19,14 @@ const TopToolbar: FC<TopToolbarProps> = ({
     const [isHighlightDropdownOpen, setIsHighlightDropdownOpen] = useState(false);
     const codeDropdownRef = useRef<HTMLDivElement>(null);
     const highlightDropdownRef = useRef<HTMLDivElement>(null);
+
+    const disableAddHighlightModal = !selectionRefArray.some(
+        (ref) => !!ref.current?.toString().trim().length
+    );
+    // !(
+    //     topSelectionRef.current?.toString().trim().length ||
+    //     bottomSelectionRef.current?.toString().trim().length
+    // ) ?? true;
 
     // Close dropdown on click outside
     const handleBlur = (
@@ -88,8 +97,15 @@ const TopToolbar: FC<TopToolbarProps> = ({
                 {isHighlightDropdownOpen && (
                     <ul className="absolute mt-2 w-48 bg-white border rounded shadow-lg z-50">
                         <li
+                            title={
+                                disableAddHighlightModal
+                                    ? 'Highlight text to add new highlight'
+                                    : 'Add highlight'
+                            }
                             className={`px-4 py-2 hover:bg-gray-100 ${
-                                selectedPost ? 'cursor-pointer' : 'text-gray-400 cursor-not-allowed'
+                                selectedPost && !disableAddHighlightModal
+                                    ? 'cursor-pointer'
+                                    : 'text-gray-400 cursor-not-allowed'
                             }`}
                             onClick={() => selectedPost && setIsHighlightModalOpen(true)}>
                             Add Highlight

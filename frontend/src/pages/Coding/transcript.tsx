@@ -502,6 +502,9 @@ const TranscriptPage = () => {
 
     const [selectedText, setSelectedText] = useState<string | null>(null);
 
+    const topSelectionRef = useRef<Range | null>(null);
+    const bottomSelectionRef = useRef<Range | null>(null);
+
     // const [responses, setResponses] = useState<any[]>([
     //     ...llmCodeResponses,
     //     ...humanCodeResponses
@@ -600,6 +603,7 @@ const TranscriptPage = () => {
                     <TopToolbar
                         selectedPost={post}
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}
+                        selectionRefArray={[topSelectionRef, bottomSelectionRef]}
                         setIsHighlightModalOpen={setIsHighlightModalOpen}
                         setIsEditCodeModalOpen={setIsEditCodeModalOpen}
                         setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
@@ -697,6 +701,7 @@ const TranscriptPage = () => {
                                                     window.history.back
                                                 )()
                                             }
+                                            _selectionRef={topSelectionRef}
                                             codeResponses={
                                                 currentConfig?.topTranscript?.responses ?? []
                                             }
@@ -750,6 +755,7 @@ const TranscriptPage = () => {
                                 codeResponses={currentConfig?.bottomTranscript?.responses ?? []}>
                                 <PostTranscript
                                     post={post}
+                                    _selectionRef={bottomSelectionRef}
                                     onBack={() =>
                                         (currentConfig?.backFunction ?? window.history.back)()
                                     }

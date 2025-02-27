@@ -1,7 +1,6 @@
-import { FC, useState, useMemo, useRef, useEffect } from 'react';
+import { FC, useState, useMemo, useEffect } from 'react';
 import { useTranscriptContext } from '../../../context/transcript-context';
-import { ratio } from 'fuzzball';
-import { Comments, IReference, Segment } from '../../../types/Coding/shared';
+import { IReference } from '../../../types/Coding/shared';
 import RedditComments from './reddit-comments';
 import HighlightedSegment from './highlighted-segment';
 import RelatedCodes from './related-codes';
@@ -13,12 +12,12 @@ import DeleteCodeModal from '../Shared/delete-code-modal';
 import EditHighlightModal from '../Shared/edit-highlight-modal';
 import DeleteHighlightModal from '../Shared/delete-highlight-modal';
 import SwitchModal from './switch-modal';
-import { TranscriptContextProvider } from '../../../context/transcript-context';
 
 const PostTranscript: FC<PostTranscriptProps> = ({
     post,
     onBack,
     review,
+    _selectionRef,
     isActive = false,
     codeResponses,
     extraCodes = [],
@@ -274,7 +273,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     </button>
                     <div
                         className={`flex-1 overflow-y-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}
-                        onMouseUp={handleTextSelection}
+                        onMouseUp={() => handleTextSelection(_selectionRef)}
                         onClick={() => {
                             handleSegmentLeave(false);
                             setSelectedSegment(null);

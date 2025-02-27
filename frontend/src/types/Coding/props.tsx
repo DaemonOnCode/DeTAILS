@@ -1,4 +1,4 @@
-import { Dispatch } from 'react';
+import { Dispatch, MutableRefObject } from 'react';
 import {
     Comments,
     ContentAreaTabs,
@@ -112,6 +112,8 @@ export type LeftPanelProps = {
 export type TopToolbarProps = {
     selectedPost: PostIdTitle | null;
     setIsAddCodeModalOpen: SetState<boolean>;
+    selectionRefArray: MutableRefObject<Range | null>[];
+    // disableAddHighlightModal: boolean;
     setIsHighlightModalOpen: SetState<boolean>;
     setIsEditCodeModalOpen: SetState<boolean>;
     setIsDeleteCodeModalOpen: SetState<boolean>;
@@ -204,6 +206,7 @@ export type PostTranscriptProps = {
         explanation: string;
         quote: string;
     }[];
+    _selectionRef: MutableRefObject<Range | null>;
     handleSwitchToEditMode?: () => void;
     isAddCodeModalOpen: boolean;
     setIsAddCodeModalOpen: SetState<boolean>;
