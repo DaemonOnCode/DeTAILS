@@ -1,8 +1,7 @@
-import { FC, useState } from 'react';
+import { FC, useState, useMemo } from 'react';
 import { useCodingContext } from '../../../context/coding-context';
-import { SetState } from '../../../types/Coding/shared';
+import { useTranscriptContext } from '../../../context/transcript-context';
 import ChatExplanation from './chat-explanation';
-import { DetailsLLMIcon } from '../../Shared/Icons';
 
 interface RelatedCodesProps {
     postId: string;
@@ -10,15 +9,7 @@ interface RelatedCodesProps {
     codeSet: string[];
     codeResponses: any[];
     codeColors: Record<string, string>;
-    hoveredCodeText: string[] | null;
     codeCounts: Record<string, number>;
-    hoveredCode: string | null;
-    setHoveredCode: (val: string | null) => void;
-    selectedExplanationsWithCode: {
-        explanation: string;
-        code: string;
-        fullText: string;
-    }[];
     dispatchFunction: (action: any) => void;
     conflictingCodes?: {
         code: string;
@@ -32,67 +23,64 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     datasetId,
     codeResponses,
     codeSet,
+    codeCounts,
     conflictingCodes = [],
     codeColors,
-    hoveredCodeText,
-    codeCounts,
-    hoveredCode,
-    setHoveredCode,
-    selectedExplanationsWithCode,
     dispatchFunction
 }) => {
-    const {
-        sampledPostResponse,
-        dispatchSampledPostResponse,
-        conflictingResponses,
-        setConflictingResponses
-    } = useCodingContext();
+    // Use CodingContext for code-related state.
+    const { dispatchSampledPostResponse, conflictingResponses, setConflictingResponses } =
+        useCodingContext();
 
+    // Use TranscriptContext for shared transcript state.
+    const { chatHistories, hoveredCodeText, setHoveredCode, selectedExplanations } =
+        useTranscriptContext();
+    // Local state for comment inputs (for conflicting codes).
     const [comments, setComments] = useState<Record<string, string>>({});
 
+    // First check transcript context for any stored chat history;
+    // if not found, fallback to chatHistory stored in codeResponses.
     function getStoredChatHistory(postId: string, code: string, quote: string) {
-        // Suppose your codeResponses has a field “chatHistory” for each item.
-        // We find the matching response:
+        const key = `${postId}-${code}-${quote}`;
+        if (chatHistories && chatHistories[key]) {
+            return chatHistories[key];
+        }
         const found = codeResponses.find(
             (resp) => resp.postId === postId && resp.code === code && resp.quote === quote
         );
         return found?.chatHistory || [];
     }
 
-    // Handle comment changes
     const handleCommentChange = (code: string, comment: string) => {
-        setComments((prev) => ({
-            ...prev,
-            [code]: comment
-        }));
+        setComments((prev) => ({ ...prev, [code]: comment }));
     };
 
     const onAgreeWithLLM = (code: string, quote: string) => {
-        setConflictingResponses([
-            ...conflictingResponses.filter(
-                (response) => response.code !== code && response.quote !== quote
+        setConflictingResponses(
+            conflictingResponses.filter(
+                (response) => response.code !== code || response.quote !== quote
             )
-        ]);
+        );
     };
 
-    const onAddOwnCode = (code: string, comment: string, index: number) => {
+    const onAddOwnCode = (newCode: string, prevCode: string, index: number) => {
         dispatchSampledPostResponse({
             type: 'UPDATE_CODE',
-            // postId: conflictingCodes[index].postId,
-            prevCode: code,
-            newCode: comment,
-            quote: conflictingCodes[index].quote
+            prevCode,
+            newCode,
+            quote: conflictingCodes ? conflictingCodes[index].quote : ''
         });
     };
 
-    // Determine agreed codes (those not in the conflicting codes)
-    const agreedCodes = codeSet.filter((code) =>
-        conflictingCodes.every((conflict) => conflict.code !== code)
+    // Filter out any codes that appear in the conflicting codes list.
+    const agreedCodes = useMemo(
+        () =>
+            codeSet.filter((code) => conflictingCodes.every((conflict) => conflict.code !== code)),
+        [codeSet, conflictingCodes]
     );
 
     return (
         <div className="space-y-6">
-            {/* Related Codes Section */}
             <div>
                 <h3 className="text-lg font-bold mb-2">Codes</h3>
                 <ul className="space-y-2">
@@ -103,29 +91,24 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                             onMouseEnter={() => code && setHoveredCode(code)}
                             onMouseLeave={() => setHoveredCode(null)}
                             style={{ backgroundColor: codeColors[code] || '#ddd' }}>
-                            {code}{' '}
-                            <span className="font-bold">
-                                {codeCounts[code] > 0 && `(${codeCounts[code]})`}
-                            </span>
+                            {code} <span className="font-bold">({codeCounts[code]})</span>
                         </li>
                     ))}
                 </ul>
             </div>
             <div>
                 <h3 className="text-lg font-bold mb-2">Explanations</h3>
-                {selectedExplanationsWithCode.map((explanationItem) => {
-                    // get the chat array from context
+                {selectedExplanations.map((explanationItem) => {
                     const existingChat = getStoredChatHistory(
                         postId,
                         explanationItem.code,
                         explanationItem.fullText
                     );
-
                     return (
                         <ChatExplanation
                             key={`${explanationItem.code}-${explanationItem.fullText}`}
                             initialExplanationWithCode={explanationItem}
-                            existingChatHistory={existingChat} // NEW PROP
+                            existingChatHistory={existingChat}
                             postId={postId}
                             datasetId={datasetId}
                             dispatchFunction={dispatchFunction}
@@ -133,8 +116,6 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                     );
                 })}
             </div>
-
-            {/* Conflicting Codes Section (conditionally rendered) */}
             {conflictingCodes.length > 0 && (
                 <div>
                     <h3 className="text-lg font-bold mb-2">Conflicting Codes</h3>
@@ -146,7 +127,6 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                                 style={{ backgroundColor: codeColors[conflict.code] || '#ddd' }}>
                                 <div className="flex justify-between items-center">
                                     <span className="font-bold">{conflict.code}</span>
-                                    {/* <button className="text-gray-500 hover:text-black" onClick={handleDropdownClick}>⋮</button> */}
                                 </div>
                                 <p>Quote: {conflict.quote}</p>
                                 <p>Disagreement Explanation: {conflict.explanation}</p>
@@ -168,7 +148,13 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                                             ] || ''
                                         }
                                         onChange={(e) =>
-                                            handleCommentChange(conflict.code, e.target.value)
+                                            handleCommentChange(
+                                                JSON.stringify({
+                                                    code: conflict.code,
+                                                    quote: conflict.quote
+                                                }),
+                                                e.target.value
+                                            )
                                         }></textarea>
                                 </div>
                                 <button

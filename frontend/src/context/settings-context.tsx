@@ -36,7 +36,7 @@ const defaultSettings: ISettingsConfig = {
         enableRemoteDebugging: false
     },
     tutorials: {
-        showGlobal: true,
+        showGlobal: false,
         skipPages: [],
         hasRun: false
     }

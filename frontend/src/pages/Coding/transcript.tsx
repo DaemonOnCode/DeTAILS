@@ -12,6 +12,7 @@ import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../context/collection-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
+import { TranscriptContextProvider } from '../../context/transcript-context';
 
 const TranscriptPage = () => {
     const { id, state } = useParams<{ id: string; state: 'review' | 'refine' }>();
@@ -683,37 +684,51 @@ const TranscriptPage = () => {
                                         />
                                     </>
                                 ) : (
-                                    <PostTranscript
-                                        post={post}
-                                        onBack={() =>
-                                            (currentConfig?.backFunction ?? window.history.back)()
-                                        }
+                                    <TranscriptContextProvider
+                                        postId={id ?? ''}
                                         codeResponses={
                                             currentConfig?.topTranscript?.responses ?? []
-                                        }
-                                        isActive={activeTranscript === 'top'}
-                                        dispatchCodeResponse={
-                                            currentConfig?.topTranscript?.dispatchFunction as any
-                                        }
-                                        conflictingCodes={currentConfig?.topTranscript?.conflicts}
-                                        review={state === 'review'}
-                                        selectedText={selectedText}
-                                        setSelectedText={setSelectedText}
-                                        isAddCodeModalOpen={isAddCodeModalOpen}
-                                        isEditCodeModalOpen={isEditCodeModalOpen}
-                                        isDeleteCodeModalOpen={isDeleteCodeModalOpen}
-                                        isHighlightModalOpen={isHighlightModalOpen}
-                                        isEditHighlightModalOpen={isEditHighlightModalOpen}
-                                        isDeleteHighlightModalOpen={isDeleteHighlightModalOpen}
-                                        setIsAddCodeModalOpen={setIsAddCodeModalOpen}
-                                        setIsEditCodeModalOpen={setIsEditCodeModalOpen}
-                                        setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
-                                        setIsHighlightModalOpen={setIsHighlightModalOpen}
-                                        setIsEditHighlightModalOpen={setIsEditHighlightModalOpen}
-                                        setDeleteIsHighlightModalOpen={
-                                            setDeleteIsHighlightModalOpen
-                                        }
-                                    />
+                                        }>
+                                        <PostTranscript
+                                            post={post}
+                                            onBack={() =>
+                                                (
+                                                    currentConfig?.backFunction ??
+                                                    window.history.back
+                                                )()
+                                            }
+                                            codeResponses={
+                                                currentConfig?.topTranscript?.responses ?? []
+                                            }
+                                            isActive={activeTranscript === 'top'}
+                                            dispatchCodeResponse={
+                                                currentConfig?.topTranscript
+                                                    ?.dispatchFunction as any
+                                            }
+                                            conflictingCodes={
+                                                currentConfig?.topTranscript?.conflicts
+                                            }
+                                            review={state === 'review'}
+                                            selectedText={selectedText}
+                                            setSelectedText={setSelectedText}
+                                            isAddCodeModalOpen={isAddCodeModalOpen}
+                                            isEditCodeModalOpen={isEditCodeModalOpen}
+                                            isDeleteCodeModalOpen={isDeleteCodeModalOpen}
+                                            isHighlightModalOpen={isHighlightModalOpen}
+                                            isEditHighlightModalOpen={isEditHighlightModalOpen}
+                                            isDeleteHighlightModalOpen={isDeleteHighlightModalOpen}
+                                            setIsAddCodeModalOpen={setIsAddCodeModalOpen}
+                                            setIsEditCodeModalOpen={setIsEditCodeModalOpen}
+                                            setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
+                                            setIsHighlightModalOpen={setIsHighlightModalOpen}
+                                            setIsEditHighlightModalOpen={
+                                                setIsEditHighlightModalOpen
+                                            }
+                                            setDeleteIsHighlightModalOpen={
+                                                setDeleteIsHighlightModalOpen
+                                            }
+                                        />
+                                    </TranscriptContextProvider>
                                 )}
                             </div>
                         )}
@@ -730,34 +745,38 @@ const TranscriptPage = () => {
             }`
                             }`}
                             onClick={(e) => handleSetActiveTranscript(e, 'bottom')}>
-                            <PostTranscript
-                                post={post}
-                                onBack={() =>
-                                    (currentConfig?.backFunction ?? window.history.back)()
-                                }
-                                review={state === 'review'}
-                                codeResponses={currentConfig?.bottomTranscript?.responses ?? []}
-                                isActive={activeTranscript === 'bottom'}
-                                dispatchCodeResponse={
-                                    currentConfig?.bottomTranscript?.dispatchFunction as any
-                                }
-                                handleSwitchToEditMode={handleSwitchToEditMode}
-                                conflictingCodes={currentConfig?.bottomTranscript?.conflicts}
-                                selectedText={selectedText}
-                                setSelectedText={setSelectedText}
-                                isAddCodeModalOpen={isAddCodeModalOpen}
-                                isEditCodeModalOpen={isEditCodeModalOpen}
-                                isDeleteCodeModalOpen={isDeleteCodeModalOpen}
-                                isHighlightModalOpen={isHighlightModalOpen}
-                                isEditHighlightModalOpen={isEditHighlightModalOpen}
-                                isDeleteHighlightModalOpen={isDeleteHighlightModalOpen}
-                                setIsAddCodeModalOpen={setIsAddCodeModalOpen}
-                                setIsEditCodeModalOpen={setIsEditCodeModalOpen}
-                                setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
-                                setIsHighlightModalOpen={setIsHighlightModalOpen}
-                                setIsEditHighlightModalOpen={setIsEditHighlightModalOpen}
-                                setDeleteIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
-                            />
+                            <TranscriptContextProvider
+                                postId={id ?? ''}
+                                codeResponses={currentConfig?.bottomTranscript?.responses ?? []}>
+                                <PostTranscript
+                                    post={post}
+                                    onBack={() =>
+                                        (currentConfig?.backFunction ?? window.history.back)()
+                                    }
+                                    review={state === 'review'}
+                                    codeResponses={currentConfig?.bottomTranscript?.responses ?? []}
+                                    isActive={activeTranscript === 'bottom'}
+                                    dispatchCodeResponse={
+                                        currentConfig?.bottomTranscript?.dispatchFunction as any
+                                    }
+                                    handleSwitchToEditMode={handleSwitchToEditMode}
+                                    conflictingCodes={currentConfig?.bottomTranscript?.conflicts}
+                                    selectedText={selectedText}
+                                    setSelectedText={setSelectedText}
+                                    isAddCodeModalOpen={isAddCodeModalOpen}
+                                    isEditCodeModalOpen={isEditCodeModalOpen}
+                                    isDeleteCodeModalOpen={isDeleteCodeModalOpen}
+                                    isHighlightModalOpen={isHighlightModalOpen}
+                                    isEditHighlightModalOpen={isEditHighlightModalOpen}
+                                    isDeleteHighlightModalOpen={isDeleteHighlightModalOpen}
+                                    setIsAddCodeModalOpen={setIsAddCodeModalOpen}
+                                    setIsEditCodeModalOpen={setIsEditCodeModalOpen}
+                                    setIsDeleteCodeModalOpen={setIsDeleteCodeModalOpen}
+                                    setIsHighlightModalOpen={setIsHighlightModalOpen}
+                                    setIsEditHighlightModalOpen={setIsEditHighlightModalOpen}
+                                    setDeleteIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
+                                />
+                            </TranscriptContextProvider>
                         </div>
                     </div>
                 </div>

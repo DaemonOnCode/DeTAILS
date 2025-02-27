@@ -1,22 +1,29 @@
 import { FC, useState } from 'react';
+import { useTranscriptContext } from '../../../context/transcript-context';
 import { generateColor } from '../../../utility/color-generator';
 import type { Segment } from '../../../types/Coding/shared';
 
 interface HighlightedSegmentProps {
     segment: Segment;
-    hoveredCode: string | null;
-    setHoveredCodeText: (codes: string[] | null) => void;
-    onDoubleClickSegment: (segment: Segment) => void;
 }
 
-const HighlightedSegment: FC<HighlightedSegmentProps> = ({
-    segment,
-    setHoveredCodeText,
-    hoveredCode,
-    onDoubleClickSegment
-}) => {
-    const [isHovered, setIsHovered] = useState(false);
+const HighlightedSegment: FC<HighlightedSegmentProps> = ({ segment }) => {
+    // const [isHovered, setIsHovered] = useState(false);
+    const {
+        selectedText,
+        activeSegment,
+        handleSegmentInteraction,
+        handleSegmentLeave,
+        hoveredCode,
+        setHoveredCodeText,
+        selectedSegment,
+        setSelectedSegment
+    } = useTranscriptContext();
 
+    const isActive = activeSegment?.index === segment.index;
+
+    // isActive && console.log('isActive', isActive, segment);
+    // If there are no background colours, render the text plainly.
     if (segment.backgroundColours.length === 0) {
         return (
             <span data-segment-id={segment.index} className="relative z-10">
@@ -32,35 +39,28 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({
                 display: 'inline-block',
                 zIndex: 0,
                 background: 'transparent',
-                transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+                transform: isActive ? 'scale(1.05)' : 'scale(1)',
                 transition: 'transform 0.2s'
             }}
             onDoubleClick={() => {
-                onDoubleClickSegment(segment);
+                if (selectedSegment && selectedSegment.index === segment.index) {
+                    setSelectedSegment(null);
+                } else {
+                    handleSegmentInteraction(segment, true);
+                }
             }}
             onMouseEnter={() => {
-                setIsHovered(true);
-                setHoveredCodeText(segment.relatedCodeText);
+                handleSegmentInteraction(segment);
             }}
             onMouseLeave={() => {
-                setIsHovered(false);
-                setHoveredCodeText(null);
+                handleSegmentLeave();
             }}>
-            {/* Text, always on top */}
             <span data-segment-id={segment.index} className="relative pr-1" style={{ zIndex: 5 }}>
                 {segment.line}
             </span>
-
-            {/* Absolutely positioned color layers, each behind the text. */}
             {segment.backgroundColours.map((bgColor, i) => {
-                // Determine if this layer should be visible
                 const isMatch = hoveredCode !== null && generateColor(hoveredCode) === bgColor;
-
-                // When hoveredCode exists, hide all non-matching colours.
-                if (hoveredCode !== null && !isMatch) {
-                    return null;
-                }
-
+                if (hoveredCode !== null && !isMatch) return null;
                 const verticalOffset = i * 4;
                 return (
                     <span
@@ -72,9 +72,9 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({
                             right: 0,
                             height: '80%',
                             backgroundColor: bgColor,
-                            zIndex: 1, // Always below the text
+                            zIndex: 1,
                             pointerEvents: 'none',
-                            opacity: 1, // Fully visible for the matching layer
+                            opacity: 1,
                             transition: 'opacity 0.2s, z-index 0.2s'
                         }}
                     />

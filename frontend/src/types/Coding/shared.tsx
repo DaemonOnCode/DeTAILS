@@ -354,3 +354,9 @@ export type PagesAction =
           order: string[];
           pages: PagesState;
       };
+
+export type Explanation = {
+    explanation: string;
+    code: string;
+    fullText: string;
+};

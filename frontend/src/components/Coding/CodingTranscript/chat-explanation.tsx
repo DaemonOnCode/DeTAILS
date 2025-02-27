@@ -3,7 +3,8 @@ import { FaRedoAlt } from 'react-icons/fa';
 import { generateColor } from '../../../utility/color-generator';
 import useServerUtils from '../../../hooks/Shared/get-server-url';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import { ChatCommands, ChatMessage } from '../../../types/Coding/shared';
+import { ChatMessage } from '../../../types/Coding/shared';
+import { useTranscriptContext } from '../../../context/transcript-context';
 
 interface ChatExplanationProps {
     initialExplanationWithCode: {
@@ -24,6 +25,14 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     dispatchFunction,
     existingChatHistory
 }) => {
+    // Access transcript context state.
+    const { selectedText, chatHistories, setChatHistories } = useTranscriptContext();
+    // console.log('Transcript selectedText in ChatExplanation:', selectedText);
+
+    // Compute a unique key for this chat thread.
+    const chatKey = `${postId}-${initialExplanationWithCode.code}-${initialExplanationWithCode.fullText}`;
+
+    // Use the context chat history if available; otherwise, fallback to existingChatHistory or initial message.
     const initialMsg: ChatMessage = {
         id: 1,
         text: initialExplanationWithCode.explanation,
@@ -34,18 +43,21 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         command: 'ACCEPT_QUOTE'
     };
 
-    const { getServerUrl } = useServerUtils();
+    const initialMessages =
+        chatHistories[chatKey] ||
+        (existingChatHistory.length > 0 ? existingChatHistory : [initialMsg]);
 
-    const [messages, setMessages] = useState<ChatMessage[]>(
-        existingChatHistory.length > 0 ? existingChatHistory : [initialMsg]
-    );
+    const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});
     const [chatCollapsed, setChatCollapsed] = useState<boolean>(true && !!messages.length);
-    // New state for tracking a selected code for messages that need editing.
     const [selectedCodes, setSelectedCodes] = useState<{ [key: number]: string }>({});
 
+    const { getServerUrl } = useServerUtils();
+
+    // Update both local messages and the transcript context's chatHistories.
     const updateMessagesAndStore = (updatedMsgs: ChatMessage[]) => {
         setMessages(updatedMsgs);
+        setChatHistories((prev) => ({ ...prev, [chatKey]: updatedMsgs }));
         dispatchFunction({
             type: 'SET_CHAT_HISTORY',
             postId,
@@ -55,16 +67,14 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         });
     };
 
-    const handleToggleChat = () => setChatCollapsed((p) => !p);
+    const handleToggleChat = () => setChatCollapsed((prev) => !prev);
 
-    // We allow reaction if no prior reaction was chosen, and it's the last or next is thinking
     const isReactionEditable = (msg: ChatMessage, i: number): boolean => {
         if (i === messages.length - 1) return true;
         const nextMsg = messages[i + 1];
         return !!(nextMsg && (nextMsg.isThinking || nextMsg.isEditable));
     };
 
-    // Build a simple chat history string
     const computeChatHistory = () => messages.map((m) => `${m.sender}: ${m.text}`);
 
     const handleSendComment = async (messageId: number) => {
@@ -76,7 +86,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         );
         setEditableInputs((prev) => ({ ...prev, [messageId]: '' }));
 
-        // Create a new "thinking" LLM message
         const source = messages.find((m) => m.id === messageId);
         if (source && source.sender === 'Human') {
             const newId = messages.length + 1;
@@ -87,7 +96,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         }
         updateMessagesAndStore(newMsgs);
 
-        // Now call your backend
         const payload = {
             dataset_id: datasetId,
             post_id: postId,
@@ -119,7 +127,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     : msg
             );
 
-            // If there's an "agreement", mark the last Human message
             if (agreement) {
                 const lastHumanIndex = [...finalMsgs]
                     .reverse()
@@ -145,7 +152,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         }
     };
 
-    // 4) Reaction logic (accept or reject LLM)
     const handleReaction = (messageId: number, reaction: boolean, i: number) => {
         const current = messages.find((m) => m.id === messageId);
         if (!current || current.sender !== 'LLM') return;
@@ -154,7 +160,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         const idx = newMsgs.findIndex((m) => m.id === messageId);
 
         if (reaction) {
-            // Accept
             if (
                 newMsgs[idx + 1] &&
                 newMsgs[idx + 1].sender === 'Human' &&
@@ -198,7 +203,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 });
             }
         } else {
-            // Reject
             const last = newMsgs[newMsgs.length - 1];
             if (!(last.sender === 'Human' && last.isEditable)) {
                 newMsgs.push({
@@ -226,7 +230,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         updateMessagesAndStore(newMsgs);
     };
 
-    // 5) "Refresh" to re-fetch or re-generate the LLM message
     const handleRefreshLLM = async (messageId: number) => {
         const idx = messages.findIndex((m) => m.id === messageId);
         if (idx === -1) return;
@@ -254,7 +257,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
-            console.log(data, 'jhuhhg');
+            console.log(data, 'refresh res');
             const { explanation, command, alternate_codes } = data;
 
             let finalMsgs = newMsgs.map((m) =>
@@ -273,11 +276,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             console.error('Error refreshing LLM message:', err);
             let errorMsgs = newMsgs.map((m) =>
                 m.id === messageId
-                    ? {
-                          ...m,
-                          text: 'There was an error. Please try again.',
-                          isThinking: false
-                      }
+                    ? { ...m, text: 'There was an error. Please try again.', isThinking: false }
                     : m
             );
             updateMessagesAndStore(errorMsgs);
@@ -324,7 +323,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                         <p className="whitespace-pre-wrap">{msg.text}</p>
                     )}
                     {msg.command === 'EDIT_QUOTE' && msg.text !== 'Thinking...' && (
-                        <div className="">
+                        <div>
                             <p className="text-sm font-medium mb-1">Choose a code:</p>
                             <div className="flex items-center space-x-2">
                                 <select
@@ -355,36 +354,38 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                             <button
                                 onClick={() => handleReaction(msg.id, true, i)}
                                 disabled={!canReact || msg.isThinking}
-                                className={`w-8 h-8 flex items-center justify-center rounded
-                  ${msg.reaction === true ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-500'}
-                  ${
-                      !canReact || msg.isThinking
-                          ? 'opacity-50 cursor-not-allowed'
-                          : 'hover:bg-green-400'
-                  }`}>
+                                className={`w-8 h-8 flex items-center justify-center rounded ${
+                                    msg.reaction === true
+                                        ? 'bg-green-500 text-white'
+                                        : 'bg-gray-300 text-gray-500'
+                                } ${
+                                    !canReact || msg.isThinking
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : 'hover:bg-green-400'
+                                }`}>
                                 ✓
                             </button>
-
                             <button
                                 onClick={() => handleReaction(msg.id, false, i)}
                                 disabled={!canReact || msg.isThinking}
-                                className={`w-8 h-8 flex items-center justify-center rounded
-                  ${msg.reaction === false ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-500'}
-                  ${
-                      !canReact || msg.isThinking
-                          ? 'opacity-50 cursor-not-allowed'
-                          : 'hover:bg-red-400'
-                  }`}>
+                                className={`w-8 h-8 flex items-center justify-center rounded ${
+                                    msg.reaction === false
+                                        ? 'bg-red-500 text-white'
+                                        : 'bg-gray-300 text-gray-500'
+                                } ${
+                                    !canReact || msg.isThinking
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : 'hover:bg-red-400'
+                                }`}>
                                 ✕
                             </button>
-
                             {msg.id > 1 && (
                                 <button
                                     onClick={() => handleRefreshLLM(msg.id)}
                                     disabled={msg.isThinking}
-                                    className={`w-8 h-8 flex items-center justify-center rounded
-                    bg-gray-300 text-gray-600 hover:bg-yellow-400 hover:text-white
-                    ${msg.isThinking ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-yellow-400 hover:text-white ${
+                                        msg.isThinking ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
                                     title="Refresh">
                                     <FaRedoAlt className="h-4 w-4" />
                                 </button>
@@ -413,25 +414,27 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                             <button
                                 onClick={() => handleReaction(msg.id, true, i)}
                                 disabled={!canReact || msg.isThinking}
-                                className={`w-8 h-8 flex items-center justify-center rounded
-                  ${msg.reaction === true ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-500'}
-                  ${
-                      true //!canReact || msg.isThinking
-                          ? 'opacity-50 cursor-not-allowed'
-                          : 'hover:bg-green-400'
-                  }`}>
+                                className={`w-8 h-8 flex items-center justify-center rounded ${
+                                    msg.reaction === true
+                                        ? 'bg-green-500 text-white'
+                                        : 'bg-gray-300 text-gray-500'
+                                } ${
+                                    true ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-400'
+                                }`}>
                                 ✓
                             </button>
                             <button
                                 onClick={() => handleReaction(msg.id, false, i)}
-                                disabled={true} //!canReact || msg.isThinking}
-                                className={`w-8 h-8 flex items-center justify-center rounded
-                  ${msg.reaction === false ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-500'}
-                  ${
-                      !canReact || msg.isThinking
-                          ? 'opacity-50 cursor-not-allowed'
-                          : 'hover:bg-red-400'
-                  }`}>
+                                disabled={true}
+                                className={`w-8 h-8 flex items-center justify-center rounded ${
+                                    msg.reaction === false
+                                        ? 'bg-red-500 text-white'
+                                        : 'bg-gray-300 text-gray-500'
+                                } ${
+                                    !canReact || msg.isThinking
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : 'hover:bg-red-400'
+                                }`}>
                                 ✕
                             </button>
                         </>
