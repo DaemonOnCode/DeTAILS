@@ -9,6 +9,7 @@ import TorrentDataTab from '../../components/DataCollection/load-torrent-data';
 import { useNavigate } from 'react-router-dom';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { LOADER_ROUTES } from '../../constants/Coding/shared';
+import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -17,7 +18,8 @@ const LoadReddit: FC<{
 }> = ({ processRef }) => {
     const { modeInput, setModeInput, metadata, metadataDispatch, type, datasetId } =
         useCollectionContext();
-    const { data, loadFolderData, loadTorrentData, error, loading } = useRedditData();
+    const { data, loadFolderData, loadTorrentData, error, handleLoadTorrentFromFiles, loading } =
+        useRedditData();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
     const navigate = useNavigate();
@@ -30,6 +32,8 @@ const LoadReddit: FC<{
     const [torrentStart, setTorrentStart] = useState('');
     const [torrentEnd, setTorrentEnd] = useState('');
     const [torrentMode, setTorrentMode] = useState<'posts' | 'postsAndComments'>('posts');
+
+    const selectedFilesRef = useRef<{ getFiles: () => [string, string[]] } | null>(null);
 
     // useEffect(() => {
     //     // If a modeInput exists (and we’re not in torrent mode) then load the data.
@@ -78,7 +82,12 @@ const LoadReddit: FC<{
                 if (inputSplits.length && inputSplits[0] === 'reddit') {
                     navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
                     if (inputSplits[1] === 'torrent') {
-                        await handleLoadTorrent();
+                        if (selectedFilesRef.current?.getFiles) {
+                            console.log(selectedFilesRef.current.getFiles(), 'current selected');
+                            await handleLoadTorrentFromFiles(selectedFilesRef.current.getFiles());
+                        } else {
+                            await handleLoadTorrent();
+                        }
                     } else {
                         await loadFolderData(true, true);
                     }
@@ -177,6 +186,7 @@ const LoadReddit: FC<{
 
                 {activeTab === 'torrent' && (
                     <TorrentDataTab
+                        selectedFilesRef={selectedFilesRef}
                         torrentSubreddit={torrentSubreddit}
                         setTorrentSubreddit={setTorrentSubreddit}
                         torrentStart={torrentStart}

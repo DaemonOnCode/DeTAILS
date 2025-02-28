@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { RefObject, useEffect, useImperativeHandle, useState } from 'react';
+import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
+import { useCollectionContext } from '../../context/collection-context';
 
-// --- Types ---
 interface DataResponse {
     [subreddit: string]: {
         posts: {
@@ -12,24 +13,18 @@ interface DataResponse {
     };
 }
 
-// Each array of strings now becomes an array of booleans.
-type SelectedState = {
-    [subreddit: string]: {
-        posts: { [year: string]: boolean[] };
-        comments: { [year: string]: boolean[] };
-    };
-};
-
 const TorrentSelectionPanel: React.FC<{
     dataResource: { read(): DataResponse };
-}> = ({ dataResource }) => {
-    // This will suspend until the promise resolves.
+    selectedFilesRef: RefObject<any | null>;
+}> = ({ dataResource, selectedFilesRef }) => {
     const dataResponse = dataResource.read();
 
-    // Build initial selection state: for each subreddit, type, and year,
-    // create an array of booleans (all false) matching the length of the data array.
-    const [selected, setSelected] = useState<SelectedState>(() => {
-        const initial: SelectedState = {};
+    const { setModeInput } = useCollectionContext();
+
+    const [activeSubreddit, setActiveSubreddit] = useState<string | null>(null);
+
+    const [selected, setSelected] = useState<TorrentFilesSelectedState>(() => {
+        const initial: TorrentFilesSelectedState = {};
         Object.keys(dataResponse).forEach((subreddit) => {
             initial[subreddit] = { posts: {}, comments: {} };
             (['posts', 'comments'] as const).forEach((type) => {
@@ -43,10 +38,81 @@ const TorrentSelectionPanel: React.FC<{
         return initial;
     });
 
-    // Collapse/expand controls for subreddit, type, and year group levels.
     const [expandedSubreddits, setExpandedSubreddits] = useState<{ [key: string]: boolean }>({});
     const [expandedTypes, setExpandedTypes] = useState<{ [key: string]: boolean }>({});
     const [expandedYears, setExpandedYears] = useState<{ [key: string]: boolean }>({});
+
+    useEffect(() => {
+        const isAnyFileSelected = Object.values(selected).some((subredditSelection) => {
+            const postsSelected = Object.values(subredditSelection.posts).some((arr) =>
+                arr.some((v) => v)
+            );
+            const commentsSelected = Object.values(subredditSelection.comments).some((arr) =>
+                arr.some((v) => v)
+            );
+            return postsSelected || commentsSelected;
+        });
+
+        if (isAnyFileSelected && activeSubreddit) {
+            setModeInput(`reddit:torrent:${activeSubreddit}:files`);
+        } else {
+            setModeInput('');
+        }
+    }, [selected, activeSubreddit, setModeInput]);
+
+    useImperativeHandle(
+        selectedFilesRef,
+        () => ({
+            getFiles: () => {
+                const result: Array<[string, string[]]> = [];
+                Object.keys(selected).forEach((subreddit) => {
+                    const fileList: string[] = [];
+                    (['posts', 'comments'] as const).forEach((type) => {
+                        Object.keys(selected[subreddit][type]).forEach((year) => {
+                            const selectedArray = selected[subreddit][type][year];
+                            const filesArray = dataResponse[subreddit][type][year];
+                            selectedArray.forEach((isSelected, index) => {
+                                if (isSelected) {
+                                    const prefix = type === 'posts' ? 'RS' : 'RC';
+                                    // Here we assume that the file value (e.g. "03") represents the month.
+                                    const month = filesArray[index];
+                                    fileList.push(`${prefix}_${year}-${month}`);
+                                }
+                            });
+                        });
+                    });
+                    if (fileList.length > 0) {
+                        result.push([subreddit, fileList]);
+                    }
+                });
+                return result;
+            }
+        }),
+        [selected, dataResponse]
+    );
+
+    const resetOtherSubreddits = (
+        currentSubreddit: string,
+        state: TorrentFilesSelectedState
+    ): TorrentFilesSelectedState => {
+        const newState = { ...state };
+        Object.keys(dataResponse).forEach((otherSubreddit) => {
+            if (otherSubreddit !== currentSubreddit) {
+                newState[otherSubreddit] = { posts: {}, comments: {} };
+                Object.keys(dataResponse[otherSubreddit].posts).forEach((year) => {
+                    newState[otherSubreddit].posts[year] = dataResponse[otherSubreddit].posts[
+                        year
+                    ].map(() => false);
+                });
+                Object.keys(dataResponse[otherSubreddit].comments).forEach((year) => {
+                    newState[otherSubreddit].comments[year] = dataResponse[otherSubreddit].comments[
+                        year
+                    ].map(() => false);
+                });
+            }
+        });
+        return newState;
+    };
 
     const toggleSubredditExpand = (subreddit: string) => {
         setExpandedSubreddits((prev) => ({ ...prev, [subreddit]: !prev[subreddit] }));
@@ -62,7 +128,6 @@ const TorrentSelectionPanel: React.FC<{
         setExpandedYears((prev) => ({ ...prev, [key]: !prev[key] }));
     };
 
-    // Toggle selection functions (unchanged from your implementation)
     const toggleSubredditSelection = (subreddit: string) => {
         const current = selected[subreddit];
         const postsAvailable = Object.keys(dataResponse[subreddit].posts).length > 0;
@@ -76,37 +141,25 @@ const TorrentSelectionPanel: React.FC<{
             : true;
         const newValue = !(postsAllSelected && commentsAllSelected);
 
-        const newSubreddit = {
-            posts: {} as { [year: string]: boolean[] },
-            comments: {} as { [year: string]: boolean[] }
-        };
-        Object.keys(dataResponse[subreddit].posts).forEach((year) => {
-            newSubreddit.posts[year] = dataResponse[subreddit].posts[year].map(() => newValue);
-        });
-        Object.keys(dataResponse[subreddit].comments).forEach((year) => {
-            newSubreddit.comments[year] = dataResponse[subreddit].comments[year].map(
-                () => newValue
-            );
-        });
-
         setSelected((prev) => {
-            const updated = { ...prev, [subreddit]: newSubreddit };
-            if (newValue) {
-                Object.keys(dataResponse).forEach((otherSubreddit) => {
-                    if (otherSubreddit !== subreddit) {
-                        updated[otherSubreddit] = { posts: {}, comments: {} };
-                        Object.keys(dataResponse[otherSubreddit].posts).forEach((year) => {
-                            updated[otherSubreddit].posts[year] = dataResponse[
-                                otherSubreddit
-                            ].posts[year].map(() => false);
-                        });
-                        Object.keys(dataResponse[otherSubreddit].comments).forEach((year) => {
-                            updated[otherSubreddit].comments[year] = dataResponse[
-                                otherSubreddit
-                            ].comments[year].map(() => false);
-                        });
-                    }
-                });
+            const updated = { ...prev };
+            const newSubreddit = {
+                posts: {} as { [year: string]: boolean[] },
+                comments: {} as { [year: string]: boolean[] }
+            };
+            Object.keys(dataResponse[subreddit].posts).forEach((year) => {
+                newSubreddit.posts[year] = dataResponse[subreddit].posts[year].map(() => newValue);
+            });
+            Object.keys(dataResponse[subreddit].comments).forEach((year) => {
+                newSubreddit.comments[year] = dataResponse[subreddit].comments[year].map(
+                    () => newValue
+                );
+            });
+            updated[subreddit] = newSubreddit;
+            if (newValue && activeSubreddit !== subreddit) {
+                const resetState = resetOtherSubreddits(subreddit, updated);
+                setActiveSubreddit(subreddit);
+                return resetState;
             }
             return updated;
         });
@@ -119,14 +172,20 @@ const TorrentSelectionPanel: React.FC<{
             ? Object.values(current).every((arr) => arr.every(Boolean))
             : false;
         const newValue = !allSelected;
-        const newTypeSelection: { [year: string]: boolean[] } = {};
-        Object.keys(dataResponse[subreddit][type]).forEach((year) => {
-            newTypeSelection[year] = dataResponse[subreddit][type][year].map(() => newValue);
+        setSelected((prev) => {
+            const updated = { ...prev };
+            const newTypeSelection: { [year: string]: boolean[] } = {};
+            Object.keys(dataResponse[subreddit][type]).forEach((year) => {
+                newTypeSelection[year] = dataResponse[subreddit][type][year].map(() => newValue);
+            });
+            updated[subreddit] = { ...prev[subreddit], [type]: newTypeSelection };
+            if (newValue && activeSubreddit !== subreddit) {
+                const resetState = resetOtherSubreddits(subreddit, updated);
+                setActiveSubreddit(subreddit);
+                return resetState;
+            }
+            return updated;
         });
-        setSelected((prev) => ({
-            ...prev,
-            [subreddit]: { ...prev[subreddit], [type]: newTypeSelection }
-        }));
     };
 
     const toggleYearGroupSelection = (
@@ -137,16 +196,22 @@ const TorrentSelectionPanel: React.FC<{
         const currentGroup = selected[subreddit][type][year];
         const allSelected = currentGroup.every(Boolean);
         const newValue = !allSelected;
-        setSelected((prev) => ({
-            ...prev,
-            [subreddit]: {
+        setSelected((prev) => {
+            const updated = { ...prev };
+            updated[subreddit] = {
                 ...prev[subreddit],
                 [type]: {
                     ...prev[subreddit][type],
                     [year]: currentGroup.map(() => newValue)
                 }
+            };
+            if (newValue && activeSubreddit !== subreddit) {
+                const resetState = resetOtherSubreddits(subreddit, updated);
+                setActiveSubreddit(subreddit);
+                return resetState;
             }
-        }));
+            return updated;
+        });
     };
 
     const toggleIndividualItemSelection = (
@@ -156,23 +221,27 @@ const TorrentSelectionPanel: React.FC<{
         index: number
     ) => {
         setSelected((prev) => {
+            const updated = { ...prev };
             const newGroup = [...prev[subreddit][type][year]];
-            newGroup[index] = !newGroup[index];
-            return {
-                ...prev,
-                [subreddit]: {
-                    ...prev[subreddit],
-                    [type]: {
-                        ...prev[subreddit][type],
-                        [year]: newGroup
-                    }
+            const toggledValue = !newGroup[index];
+            newGroup[index] = toggledValue;
+            updated[subreddit] = {
+                ...prev[subreddit],
+                [type]: {
+                    ...prev[subreddit][type],
+                    [year]: newGroup
                 }
             };
+            if (toggledValue && activeSubreddit !== subreddit) {
+                const resetState = resetOtherSubreddits(subreddit, updated);
+                setActiveSubreddit(subreddit);
+                return resetState;
+            }
+            return updated;
         });
     };
 
     return (
-        // Outer container with sticky behavior applied to each subsection.
         <div className="flex flex-col flex-1 overflow-y-auto w-full">
             <h2 className="text-xl font-bold mb-4">Previously Downloaded Data</h2>
             {Object.keys(dataResponse).map((subreddit) => {
@@ -188,11 +257,9 @@ const TorrentSelectionPanel: React.FC<{
                 const mainChecked = !mainDisabled && postsAllChecked && commentsAllChecked;
 
                 return (
-                    // Each subreddit container has a max-height and its own scroll.
                     <div
                         key={subreddit}
                         className="relative max-h-96 overflow-y-auto mb-4 rounded border w-full">
-                        {/* Subreddit header is sticky */}
                         <div
                             className="sticky top-0 bg-gray-300 z-30 flex flex-wrap items-center justify-between p-2 cursor-pointer"
                             onClick={() => toggleSubredditSelection(subreddit)}>
@@ -227,8 +294,6 @@ const TorrentSelectionPanel: React.FC<{
                                         : false;
                                     return (
                                         <div key={type} className="relative w-full border-b">
-                                            {/* Type header is sticky within the subreddit container. 
-                          Adjust the top offset (e.g. top-10) based on the height of the subreddit header */}
                                             <div
                                                 className="sticky top-10 bg-gray-200 z-20 flex flex-wrap items-center justify-between cursor-pointer p-2"
                                                 onClick={() =>
@@ -276,8 +341,6 @@ const TorrentSelectionPanel: React.FC<{
                                                                 <div
                                                                     key={year}
                                                                     className="relative w-full">
-                                                                    {/* Year header sticky within the type container.
-                                      Adjust top offset (e.g., top-20) to account for the subreddit and type headers */}
                                                                     <div
                                                                         className="sticky top-20 bg-gray-100 z-10 flex flex-wrap items-center justify-between cursor-pointer p-2"
                                                                         onClick={() =>

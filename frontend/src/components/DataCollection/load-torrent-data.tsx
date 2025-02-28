@@ -1,9 +1,10 @@
-import { Suspense } from 'react';
+import { RefObject, Suspense } from 'react';
 import { SetState } from '../../types/Coding/shared';
 import TorrentSelectionPanel from './torrent-selection-panel';
 import { createResource } from '../../utility/resource-creator';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
 
 const TorrentDataTab = ({
     torrentSubreddit,
@@ -14,7 +15,8 @@ const TorrentDataTab = ({
     setTorrentEnd,
     torrentMode,
     setTorrentMode,
-    handleLoadTorrent
+    handleLoadTorrent,
+    selectedFilesRef
 }: {
     torrentSubreddit: string;
     setTorrentSubreddit: SetState<string>;
@@ -25,6 +27,7 @@ const TorrentDataTab = ({
     torrentMode: 'posts' | 'postsAndComments';
     setTorrentMode: SetState<'posts' | 'postsAndComments'>;
     handleLoadTorrent: () => Promise<void>;
+    selectedFilesRef: RefObject<{ getFiles: () => [string, string[]] } | null>;
 }) => {
     const { getServerUrl } = useServerUtils();
 
@@ -127,7 +130,10 @@ const TorrentDataTab = ({
             {/* Right half: TorrentSelectionPanel with its own scroll */}
             <div className="w-1/2 h-full overflow-y-auto p-4">
                 <Suspense fallback={<div className="p-4">Loading data...</div>}>
-                    <TorrentSelectionPanel dataResource={dataResource} />
+                    <TorrentSelectionPanel
+                        dataResource={dataResource}
+                        selectedFilesRef={selectedFilesRef}
+                    />
                 </Suspense>
             </div>
         </div>

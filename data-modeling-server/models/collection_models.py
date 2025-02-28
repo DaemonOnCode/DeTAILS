@@ -24,3 +24,8 @@ class ParseRedditFromTorrentRequest(BaseModel):
     end_date: str = "2023-12-31"
     submissions_only: bool = False
     dataset_id: str = None
+
+class ParseRedditFromTorrentFilesRequest(BaseModel):
+    subreddit: str
+    files: list = []
+    dataset_id: str

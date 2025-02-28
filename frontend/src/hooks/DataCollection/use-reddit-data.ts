@@ -198,7 +198,28 @@ const useRedditData = () => {
         }
     };
 
-    return { data, error, loadFolderData, loadTorrentData, loading };
+    const handleLoadTorrentFromFiles = async (data: [string, string[]]) => {
+        const [subreddit, files] = data;
+        const res = await fetch(
+            getServerUrl(REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT),
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    subreddit: subreddit,
+                    files: files,
+                    dataset_id: datasetId
+                })
+            }
+        );
+
+        const result = await res.json();
+        console.log('Torrent data:', result);
+    };
+
+    return { data, error, loadFolderData, loadTorrentData, handleLoadTorrentFromFiles, loading };
 };
 
 export default useRedditData;

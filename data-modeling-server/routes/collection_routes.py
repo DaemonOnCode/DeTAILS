@@ -2,11 +2,12 @@ import asyncio
 from datetime import datetime
 import os
 
+import shutil
 from typing import Dict
 from uuid import uuid4
-from fastapi import APIRouter, Depends, File, UploadFile, Form, Body
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Form, Body
 from controllers.collection_controller import create_dataset, delete_dataset, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, upload_dataset_file
-from models.collection_models import FilterRedditPostsByDeleted, ParseDatasetRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
+from models.collection_models import FilterRedditPostsByDeleted, ParseDatasetRequest, ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
 from constants import DATASETS_DIR
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 
@@ -136,3 +137,59 @@ async def get_torrent_data_endpoint():
             except:
                 dataset_intervals[dataset_name][type][year] = [month]
     return dataset_intervals
+
+@router.post("/prepare-torrent-data-from-files")
+async def prepare_torrent_data_from_files(
+    request: ParseRedditFromTorrentFilesRequest
+):
+    folder_name = f"academic-torrent-{request.subreddit}"
+    target_folder = os.path.join(DATASETS_DIR, folder_name)
+    if not os.path.exists(target_folder):
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Folder '{folder_name}' not found in datasets."
+        )
+
+    valid_files = []
+    for file_identifier in request.files:
+        if file_identifier.startswith("RS_") or file_identifier.startswith("RC_"):
+            prefix = file_identifier[:2]
+            month_part = file_identifier[3:] 
+        else:
+            continue
+
+        # Search the torrent folder for files that match the prefix and contain the month part.
+        for f in os.listdir(target_folder):
+            if f.startswith(prefix) and month_part in f and f.endswith(".json"):
+                valid_files.append(os.path.join(target_folder, f))
+
+    if not valid_files:
+        raise HTTPException(
+            status_code=404,
+            detail="No matching files found in the torrent folder."
+        )
+
+    dataset_id = request.dataset_id
+    if not dataset_id:
+        dataset_id = str(uuid4())
+
+    prepared_folder = os.path.join(DATASETS_DIR, f"prepared-torrent-{request.subreddit}-{dataset_id}")
+    os.makedirs(prepared_folder, exist_ok=True)
+
+    for file_path in valid_files:
+        if os.path.exists(file_path):
+            file_name = os.path.basename(file_path)
+            link_path = os.path.join(prepared_folder, file_name)
+            if os.path.lexists(link_path):
+                os.remove(link_path)
+            os.symlink(os.path.abspath(file_path), link_path)
+            print(f"Created symlink: {link_path} -> {os.path.abspath(file_path)}")
+        else:
+            print(f"File not found: {file_path}")
+
+    parse_reddit_files(dataset_id, prepared_folder, date_filter=None)
+
+    shutil.rmtree(prepared_folder)
+    print(f"Removed prepared folder: {prepared_folder}")
+
+    return {"message": "Torrent files prepared and parsed.", "dataset_id": dataset_id}
