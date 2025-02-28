@@ -1,19 +1,26 @@
-import { FC, useEffect, useRef, useState } from 'react';
+import { FC, RefObject, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import e from 'express';
 import TorrentDataTab from '../../components/DataCollection/load-torrent-data';
+import { useNavigate } from 'react-router-dom';
+import { getCodingLoaderUrl } from '../../utility/get-loader-url';
+import { LOADER_ROUTES } from '../../constants/Coding/shared';
 
-const LoadReddit: FC = () => {
+const { ipcRenderer } = window.require('electron');
+
+const LoadReddit: FC<{
+    processRef: RefObject<{ run: () => Promise<void> } | null>;
+}> = ({ processRef }) => {
     const { modeInput, setModeInput, metadata, metadataDispatch, type, datasetId } =
         useCollectionContext();
     const { data, loadFolderData, loadTorrentData, error, loading } = useRedditData();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
+    const navigate = useNavigate();
 
     const { getServerUrl } = useServerUtils();
 
@@ -42,14 +49,14 @@ const LoadReddit: FC = () => {
     // }, [modeInput, activeTab]);
 
     useEffect(() => {
-        const inputSplits = modeInput.split(':');
-        if (inputSplits.length && inputSplits[0] === 'reddit') {
-            if (inputSplits[1] === 'torrent') {
-                loadTorrentData();
-            } else {
-                loadFolderData();
-            }
-        }
+        // const inputSplits = modeInput.split(':');
+        // if (inputSplits.length && inputSplits[0] === 'reddit') {
+        //     if (inputSplits[1] === 'torrent') {
+        //         loadTorrentData();
+        //     } else {
+        //         loadFolderData();
+        //     }
+        // }
 
         return () => {
             if (!hasSavedRef.current) {
@@ -58,6 +65,27 @@ const LoadReddit: FC = () => {
             }
         };
     }, []);
+
+    const handleLoadTorrent = async () => {
+        const postsOnly = torrentMode === 'posts';
+        await loadTorrentData(true, torrentSubreddit, torrentStart, torrentEnd, postsOnly);
+    };
+
+    useImperativeHandle(processRef, () => {
+        return {
+            run: async () => {
+                const inputSplits = modeInput.split(':');
+                if (inputSplits.length && inputSplits[0] === 'reddit') {
+                    navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
+                    if (inputSplits[1] === 'torrent') {
+                        await handleLoadTorrent();
+                    } else {
+                        await loadFolderData(true, true);
+                    }
+                }
+            }
+        };
+    }, [modeInput]);
 
     // If the current context type is not "reddit", show an error message.
     if (modeInput && type !== 'reddit') {
@@ -70,21 +98,19 @@ const LoadReddit: FC = () => {
         );
     }
 
-    // If data is loaded, show the table.
-    const isDataLoaded = Boolean(modeInput);
-    if (isDataLoaded) {
-        return (
-            // <div className="flex-1 overflow-auto">
-            <RedditTableRenderer data={data} loading={loading} />
-            // </div>
-        );
-    }
+    // // If data is loaded, show the table.
+    // const isDataLoaded = Boolean(modeInput);
+    // if (isDataLoaded) {
+    //     return (
+    //         // <div className="flex-1 overflow-auto">
+    //         <RedditTableRenderer data={data} loading={loading} />
+    //         // </div>
+    //     );
+    // }
 
     // Handler for loading torrent data.
-    const handleLoadTorrent = async () => {
-        const postsOnly = torrentMode === 'posts';
-        await loadTorrentData(true, torrentSubreddit, torrentStart, torrentEnd, postsOnly);
-    };
+
+    const currentFolder = modeInput.split(':').slice(2).join(':');
 
     return (
         <div className="flex flex-col h-full">
@@ -122,13 +148,16 @@ const LoadReddit: FC = () => {
                 {activeTab === 'folder' && (
                     <div>
                         <button
-                            onClick={() => loadFolderData(true, true)}
+                            onClick={async () => {
+                                let folderPath = await ipcRenderer.invoke('select-folder-reddit');
+                                setModeInput(`reddit:upload:${folderPath}`);
+                            }}
                             className="p-2 border border-gray-300 rounded w-96 mb-4">
                             Select Folder
                         </button>
                         <div>
                             <h3>Selected Folder:</h3>
-                            <p>{modeInput || 'No folder selected'}</p>
+                            <p>{currentFolder || 'No folder selected'}</p>
                             {error && <p className="text-red-500">{error}</p>}
                         </div>
                     </div>

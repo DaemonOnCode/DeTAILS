@@ -12,6 +12,7 @@ export enum ROUTES {
     LOAD_DATA = 'load-data',
     DATA_SOURCE = 'data-source',
     DATASET_CREATION = 'dataset-creation',
+    DATA_VIEWER = 'data-viewer',
     //  GENERATION = 'generation',
     // INITIAL_CODING = 'initial-coding',
     // CODING_VALIDATION = 'coding-validation',
@@ -41,7 +42,8 @@ export enum LOADER_ROUTES {
     KEYWORD_TABLE_LOADER = 'keyword-table-loader',
     DEDUCTIVE_CODING_LOADER = 'deductive-coding-loader',
     THEME_GENERATION_LOADER = 'theme-generation-loader',
-    DETAILS_LOADER = 'details-loader'
+    DETAILS_LOADER = 'details-loader',
+    DATA_LOADING_LOADER = 'data-loading-loader'
 }
 
 export const DB_PATH = '../executables/test.db';

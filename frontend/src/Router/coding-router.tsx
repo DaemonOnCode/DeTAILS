@@ -3,6 +3,7 @@ import HomePage from '../pages/Coding/home';
 import {
     CodeBookLoaderPage,
     CodingValidationLoaderPage,
+    DataLoadingLoaderPage,
     DeductiveCodingLoaderPage,
     FinalLoaderPage,
     FlashcardsLoaderPage,
@@ -28,8 +29,7 @@ import {
 import { ROUTES as COLLECTION_ROUTES } from '../constants/DataCollection/shared';
 import {
     HomePage as CollectionHomePage,
-    LoadRedditPage,
-    LoadInterviewPage,
+    DataViewerPage,
     UploadDataPage
 } from '../pages/DataCollection';
 
@@ -52,6 +52,10 @@ export const CodingRouter: RouteObject[] = [
             {
                 path: ROUTES.DATASET_CREATION,
                 element: <UploadDataPage />
+            },
+            {
+                path: ROUTES.DATA_VIEWER,
+                element: <DataViewerPage />
             },
             {
                 path: ROUTES.TRANSCRIPTS,
@@ -151,6 +155,10 @@ export const CodingRouter: RouteObject[] = [
             {
                 path: LOADER_ROUTES.THEME_GENERATION_LOADER,
                 element: <ThemeGenerationLoaderPage />
+            },
+            {
+                path: LOADER_ROUTES.DATA_LOADING_LOADER,
+                element: <DataLoadingLoaderPage />
             }
         ]
     }

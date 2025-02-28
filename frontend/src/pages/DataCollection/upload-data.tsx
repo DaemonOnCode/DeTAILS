@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useCollectionContext } from '../../context/collection-context';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import LoadInterview from './load-interviews';
-import LoadReddit from './load-reddit';
+import LoadInterview from '../../components/DataCollection/load-interviews';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
 import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
@@ -16,6 +15,7 @@ import CustomTutorialOverlay, {
     TutorialStep
 } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
+import LoadReddit from '../../components/DataCollection/load-reddit';
 
 const UploadDataPage = () => {
     const { type, datasetId, selectedData, modeInput } = useCollectionContext();
@@ -36,7 +36,7 @@ const UploadDataPage = () => {
     const { getServerUrl } = useServerUtils();
 
     const postIds: string[] = selectedData;
-    const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD;
+    // const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD;
 
     const steps: TutorialStep[] = [
         {
@@ -56,55 +56,11 @@ const UploadDataPage = () => {
         }
     ];
 
-    const handleSamplingPosts = async () => {
-        if (!datasetId) return;
-        // Navigate to the codebook loader page.
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
-        console.log('Sampling posts:', postIds);
+    const processDataRef = useRef<{ run: () => Promise<void> } | null>(null);
 
-        // Sample posts from the backend.
-        let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.SAMPLE_POSTS), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ dataset_id: datasetId, post_ids: postIds })
-        });
-
-        let results = await res.json();
-        console.log('Results:', results);
-
-        setSampledPostIds(results['sampled']);
-        setUnseenPostIds(results['unseen']);
-
-        console.log(
-            'Generate initial codes:',
-            results['sampled'],
-            keywordTable.filter((keyword) => keyword.isMarked !== undefined)
-        );
-        res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                dataset_id: datasetId,
-                keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
-                model: MODEL_LIST.GEMINI_FLASH,
-                main_topic: mainTopic,
-                additional_info: additionalInfo,
-                research_questions: researchQuestions,
-                sampled_post_ids: results['sampled'] ?? []
-            })
-        });
-
-        results = await res.json();
-        console.log('Results:', results);
-
-        dispatchSampledPostResponse({
-            type: 'SET_RESPONSES',
-            responses: results['data'].map((response: any) => ({ ...response, isMarked: true }))
-        });
+    const handleButtonClick = async () => {
+        if (!processDataRef.current?.run) return;
+        await processDataRef.current?.run();
     };
 
     // If no type is selected, prompt user to go back to home
@@ -130,14 +86,14 @@ const UploadDataPage = () => {
                 pageId={`route-/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`}
                 excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}`}>
                 <div className="h-page flex flex-col">
-                    <header id="upload-header" className="p-4 bg-gray-100">
+                    {/* <header id="upload-header" className="p-4 bg-gray-100">
                         <h1 className="text-2xl font-bold">
                             {type === 'reddit' ? 'Reddit Data Upload' : 'Interview Data Upload'}
                         </h1>
-                    </header>
+                    </header> */}
                     <main id="upload-main" className="flex-1 overflow-hidden">
                         {datasetType === 'reddit' ? (
-                            <LoadReddit />
+                            <LoadReddit processRef={processDataRef} />
                         ) : datasetType === 'interview' ? (
                             <LoadInterview />
                         ) : (
@@ -154,9 +110,9 @@ const UploadDataPage = () => {
                     <footer id="bottom-navigation">
                         <NavigationBottomBar
                             previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
-                            nextPage={ROUTES.CODEBOOK_CREATION}
-                            isReady={isReadyCheck}
-                            onNextClick={handleSamplingPosts}
+                            nextPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`}
+                            isReady={!!modeInput}
+                            onNextClick={handleButtonClick}
                         />
                     </footer>
                 </div>

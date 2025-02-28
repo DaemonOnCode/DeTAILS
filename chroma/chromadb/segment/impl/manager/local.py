@@ -191,11 +191,11 @@ class LocalSegmentManager(SegmentManager):
         OpenTelemetryGranularity.OPERATION_AND_SEGMENT,
     )
     def _get_segment_sysdb(self, collection_id: UUID, scope: SegmentScope) -> Segment:
-        logger.debug(f"_get_segment_sysdb 1 {collection_id}, {scope}")
+        # logger.debug(f"_get_segment_sysdb 1 {collection_id}, {scope}")
         segments = self._sysdb.get_segments(collection=collection_id, scope=scope)
-        logger.debug(f"_get_segment_sysdb 2 {collection_id}, {scope}, {segments}")
+        # logger.debug(f"_get_segment_sysdb 2 {collection_id}, {scope}, {segments}")
         known_types = set([k.value for k in SEGMENT_TYPE_IMPLS.keys()])
-        logger.debug(f"_get_segment_sysdb 3 {collection_id}, {scope}, {segments}, {known_types}")
+        # logger.debug(f"_get_segment_sysdb 3 {collection_id}, {scope}, {segments}, {known_types}")
         # Get the first segment of a known type
         # arr = filter(lambda s: s["type"] in known_types, segments)
         # logger.debug(f"_get_segment_sysdb {collection_id}, {scope}, {segments}, {known_types}, {arr}")
@@ -203,7 +203,7 @@ class LocalSegmentManager(SegmentManager):
         arr = list(filter(lambda s: s["type"] in known_types, segments))
         # logger.debug(f"_get_segment_sysdb {collection_id}, {scope}, {segments}, {known_types}, {arr}")
         segment = arr[0] if len(arr) > 0 else None
-        logger.debug(f"_get_segment_sysdb 4 {collection_id}, {scope}, {segments}, {known_types}, {segment}")
+        # logger.debug(f"_get_segment_sysdb 4 {collection_id}, {scope}, {segments}, {known_types}, {segment}")
         return segment
 
     @trace_method(
@@ -211,7 +211,7 @@ class LocalSegmentManager(SegmentManager):
         OpenTelemetryGranularity.OPERATION_AND_SEGMENT,
     )
     def get_segment(self, collection_id: UUID, type: Type[S]) -> S:
-        logger.debug(f"get_segment {collection_id}, {type}")
+        # logger.debug(f"get_segment {collection_id}, {type}")
         if type == MetadataReader:
             scope = SegmentScope.METADATA
         elif type == VectorReader:
@@ -219,27 +219,27 @@ class LocalSegmentManager(SegmentManager):
         else:
             raise ValueError(f"Invalid segment type: {type}")
         
-        logger.debug(f"get_segment {collection_id}, {type}, {scope}")
+        # logger.debug(f"get_segment {collection_id}, {type}, {scope}")
 
         segment = self.segment_cache[scope].get(collection_id)
 
-        logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment}")
+        # logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment}")
 
         if segment is None:
-            logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} is None")
+            # logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} is None")
             segment = self._get_segment_sysdb(collection_id, scope)
-            logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} from sysdb")
+            # logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} from sysdb")
             self.segment_cache[scope].set(collection_id, segment)
-            logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} added to cache")
+            # logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} added to cache")
 
-        logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done")
+        # logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done")
         # Instances must be atomically created, so we use a lock to ensure that only one thread
         # creates the instance.
         with self._lock:
-            logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done, lock")
+            # logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done, lock")
             instance = self._instance(segment)
-            logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done, instance")
-        logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done, instance done, start cast")
+            # logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done, instance")
+        # logger.debug(f"get_segment {collection_id}, {type}, {scope}, {segment} done, instance done, start cast")
         return cast(S, instance)
 
     @trace_method(

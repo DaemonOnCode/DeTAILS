@@ -19,7 +19,6 @@ const useRedditData = () => {
     const { currentWorkspace } = useWorkspaceContext();
     const { getServerUrl } = getServerUtils();
 
-    // Reset data if there's no modeInput and no datasetId.
     useEffect(() => {
         if (!modeInput && !datasetId) {
             setData({});
@@ -36,18 +35,16 @@ const useRedditData = () => {
         return dataArr;
     };
 
-    // Upload all files in the folder to the backend and return the dataset_id.
     const sendFolderToBackendServer = async (folderPath: string) => {
         const files: string[] = fs.readdirSync(folderPath);
         let dataset_id: string = '';
         for (const file of files) {
             const filePath = path.join(folderPath, file);
 
-            // Process only files.
             if (fs.lstatSync(filePath).isFile()) {
                 try {
                     const fileContent = fs.readFileSync(filePath);
-                    const blob = new Blob([fileContent]); // Create a Blob for FormData
+                    const blob = new Blob([fileContent]);
                     const formData = new FormData();
 
                     formData.append('file', blob, file);
@@ -78,7 +75,6 @@ const useRedditData = () => {
         console.log('Dataset ID:', dataset_id);
         setDatasetId(dataset_id);
 
-        // Trigger parsing on the backend.
         await fetch(getServerUrl(REMOTE_SERVER_ROUTES.PARSE_REDDIT_DATA), {
             method: 'POST',
             body: JSON.stringify({ dataset_id }),
@@ -90,7 +86,6 @@ const useRedditData = () => {
         return dataset_id;
     };
 
-    // Fetch a batch of Reddit posts by dataset.
     const getRedditPostDataByBatch = async (
         datasetId: string,
         batch: number,
@@ -115,7 +110,6 @@ const useRedditData = () => {
         return resData;
     };
 
-    // Optionally, you can use this callback to load additional data (e.g. comments) in background.
     const loadRedditDataInBackground = useCallback(
         async (folderPath: string, parsedData: RedditPosts) => {
             if (!folderPath || Object.keys(parsedData).length === 0) return;
@@ -126,7 +120,6 @@ const useRedditData = () => {
         []
     );
 
-    // Main function to load Reddit data from a folder.
     const loadFolderData = async (addToDb: boolean = false, changeModeInput = false) => {
         setLoading(true);
         try {
@@ -134,11 +127,11 @@ const useRedditData = () => {
                 throw new Error('Workspace not found');
             }
             let folderPath = modeInput.split(':')?.[2];
-            if (!modeInput && changeModeInput) {
-                // Prompt the user to select a folder.
-                folderPath = await ipcRenderer.invoke('select-folder-reddit');
-                setModeInput(`reddit:upload:${folderPath}`);
-            }
+            // if (!modeInput && changeModeInput) {
+            //     // Prompt the user to select a folder.
+            //     folderPath = await ipcRenderer.invoke('select-folder-reddit');
+            //     setModeInput(`reddit:upload:${folderPath}`);
+            // }
 
             let dataset_id = datasetId;
             if (addToDb) {
@@ -149,7 +142,6 @@ const useRedditData = () => {
             setData(parsedData);
             setError(null);
 
-            // Optionally, load additional data in the background.
             // await loadRedditDataInBackground(folderPath, parsedData);
         } catch (err) {
             console.error('Failed to load folder:', err);
