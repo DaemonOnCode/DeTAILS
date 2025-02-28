@@ -653,7 +653,7 @@ const TranscriptPage = () => {
                     )}
 
                     <p className="px-6 py-2 text-center bg-gray-100 text-base lg:text-lg font-bold text-[#203636]">
-                        Double click Highlighted Quote to Edit
+                        Double click Quote to filter related Code and Explanation
                     </p>
 
                     <div
@@ -690,6 +690,7 @@ const TranscriptPage = () => {
                                 ) : (
                                     <TranscriptContextProvider
                                         postId={id ?? ''}
+                                        review={currentConfig?.review ?? true}
                                         codeResponses={
                                             currentConfig?.topTranscript?.responses ?? []
                                         }>
@@ -713,7 +714,7 @@ const TranscriptPage = () => {
                                             conflictingCodes={
                                                 currentConfig?.topTranscript?.conflicts
                                             }
-                                            review={state === 'review'}
+                                            review={currentConfig?.review ?? true}
                                             selectedText={selectedText}
                                             setSelectedText={setSelectedText}
                                             isAddCodeModalOpen={isAddCodeModalOpen}
@@ -752,6 +753,7 @@ const TranscriptPage = () => {
                             onClick={(e) => handleSetActiveTranscript(e, 'bottom')}>
                             <TranscriptContextProvider
                                 postId={id ?? ''}
+                                review={currentConfig?.review ?? true}
                                 codeResponses={currentConfig?.bottomTranscript?.responses ?? []}>
                                 <PostTranscript
                                     post={post}
@@ -759,7 +761,7 @@ const TranscriptPage = () => {
                                     onBack={() =>
                                         (currentConfig?.backFunction ?? window.history.back)()
                                     }
-                                    review={state === 'review'}
+                                    review={currentConfig?.review ?? true}
                                     codeResponses={currentConfig?.bottomTranscript?.responses ?? []}
                                     isActive={activeTranscript === 'bottom'}
                                     dispatchCodeResponse={

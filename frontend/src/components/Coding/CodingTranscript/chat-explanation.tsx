@@ -7,6 +7,7 @@ import { ChatMessage } from '../../../types/Coding/shared';
 import { useTranscriptContext } from '../../../context/transcript-context';
 
 interface ChatExplanationProps {
+    review: boolean;
     initialExplanationWithCode: {
         explanation: string;
         code: string;
@@ -19,6 +20,7 @@ interface ChatExplanationProps {
 }
 
 const ChatExplanation: FC<ChatExplanationProps> = ({
+    review,
     initialExplanationWithCode,
     datasetId,
     postId,
@@ -58,11 +60,9 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     };
 
     // Compute the latest new code from EDIT_QUOTE messages (if any) from full history.
-    const latestNewMessage = [...messages]
-        .reverse()
-        .find((message) => message.code !== messages[0].code);
+    const latestNewMessage = [...messages].reverse().find((message) => message.isCurrentCode);
 
-    console.log(latestNewMessage, 'latest', messages, initialExplanationWithCode);
+    // console.log(latestNewMessage, 'latest', messages, initialExplanationWithCode);
 
     // Build chat history as an array of strings.
     const computeChatHistory = () => messages.map((m) => `${m.sender}: ${m.text}`);
@@ -145,6 +145,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     };
 
     const handleReaction = (messageId: number, reaction: boolean, i: number) => {
+        // Open full chat if currently collapsed and only the first message is shown.
         if (chatCollapsed && messages.length === 1) {
             setChatCollapsed(false);
         }
@@ -155,17 +156,26 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         let newMsgs = [...messages];
         const idx = newMsgs.findIndex((m) => m.id === messageId);
 
+        // Remove any pending human editable message immediately following.
+        if (
+            newMsgs[idx + 1] &&
+            newMsgs[idx + 1].sender === 'Human' &&
+            newMsgs[idx + 1].isEditable
+        ) {
+            newMsgs.splice(idx + 1, 1);
+        }
+
+        const latestMessageWithCode = newMsgs.find((m) => m.isCurrentCode);
+
+        console.log(latestMessageWithCode, 'latest mc');
+
+        // When reaction is true (tick).
         if (reaction) {
-            if (
-                newMsgs[idx + 1] &&
-                newMsgs[idx + 1].sender === 'Human' &&
-                newMsgs[idx + 1].isEditable
-            ) {
-                newMsgs = [...newMsgs.slice(0, idx + 1), ...newMsgs.slice(idx + 2)];
-            }
+            // Toggle the reaction: if already true, unset it.
             const oldReaction = newMsgs[idx].reaction;
             newMsgs[idx].reaction = oldReaction === true ? undefined : true;
 
+            // For non-EDIT_QUOTE commands, dispatch as before.
             if (current.command === 'REMOVE_QUOTE') {
                 dispatchFunction({
                     type: 'MARK_RESPONSE_BY_CODE_EXPLANATION',
@@ -182,14 +192,21 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     code: initialExplanationWithCode.code,
                     isMarked: true
                 });
-            } else if (current.command === 'EDIT_QUOTE') {
+            } else if (current.command === 'EDIT_QUOTE' && current.code) {
+                // Only mark as current code if the command is EDIT_QUOTE and code exists.
+
                 dispatchFunction({
                     type: 'UPDATE_CODE',
-                    prevCode: initialExplanationWithCode.code,
+                    prevCode: latestMessageWithCode?.code,
                     quote: initialExplanationWithCode.fullText,
                     newCode: current.code
                 });
 
+                newMsgs = newMsgs.map((m) => ({
+                    ...m,
+                    // Set isCurrentCode true only on the message being approved.
+                    isCurrentCode: m.id === messageId ? true : false
+                }));
                 dispatchFunction({
                     type: 'MARK_RESPONSE_BY_CODE_EXPLANATION',
                     postId,
@@ -199,6 +216,9 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 });
             }
         } else {
+            console.log('Reaction', reaction);
+            // Reaction is false (cross) or toggled to undefined.
+            // Spawn human feedback if not already present.
             const last = newMsgs[newMsgs.length - 1];
             if (!(last.sender === 'Human' && last.isEditable)) {
                 newMsgs.push({
@@ -210,16 +230,30 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             }
             const oldReaction = newMsgs[idx].reaction;
             newMsgs[idx].reaction = oldReaction === false ? undefined : false;
-            if (
-                existingChatHistory.length > 0 &&
-                initialExplanationWithCode?.code !== existingChatHistory[0].code
-            ) {
-                dispatchFunction({
-                    type: 'UPDATE_CODE',
-                    prevCode: initialExplanationWithCode.code,
-                    quote: initialExplanationWithCode.fullText,
-                    newCode: existingChatHistory[0].code
-                });
+
+            console.log('Reaction 2', newMsgs);
+
+            // If this message was marked as current (only possible for EDIT_QUOTE messages),
+            // then try reverting to a previous code.
+            if (current.command === 'EDIT_QUOTE') {
+                const previousMsg = newMsgs[0];
+                console.log('Reaction 3', previousMsg);
+                // const previousMsg = newMsgs
+                //     .slice(0, idx)
+                //     .reverse()
+                //     .find((m) => m.code && m.command === 'EDIT_QUOTE');
+                if (previousMsg) {
+                    dispatchFunction({
+                        type: 'UPDATE_CODE',
+                        prevCode: current?.code,
+                        quote: initialExplanationWithCode.fullText,
+                        newCode: previousMsg.code
+                    });
+                    newMsgs = newMsgs.map((m) => ({
+                        ...m,
+                        isCurrentCode: m.id === previousMsg.id ? true : false
+                    }));
+                }
             }
         }
 
@@ -300,13 +334,13 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     className={`relative flex-1 p-4 rounded ${chainStyle}`}
                     style={{ backgroundColor: bg }}>
                     {isInitial ? (
-                        latestNewMessage?.code && latestNewMessage.reaction ? (
+                        latestNewMessage?.code !== messages[0].code ? (
                             <pre className="bg-gray-800 text-white p-2 rounded mb-2 whitespace-pre-wrap">
                                 <span
                                     style={{ textDecoration: 'line-through', marginRight: '8px' }}>
                                     {msg.code}
                                 </span>{' '}
-                                <span>{latestNewMessage.code}</span>
+                                <span>{latestNewMessage?.code}</span>
                             </pre>
                         ) : (
                             <pre className="bg-gray-800 text-white p-2 rounded mb-2 whitespace-pre-wrap">
@@ -338,9 +372,15 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                         const newCode = e.target.value;
                                         const updatedMessages = messages.map((m) =>
                                             m.id === msg.id
-                                                ? { ...m, code: newCode, reaction: undefined }
+                                                ? {
+                                                      ...m,
+                                                      code: newCode,
+                                                      reaction: undefined,
+                                                      isCurrentCode: false
+                                                  }
                                                 : m
                                         );
+                                        updatedMessages[0].isCurrentCode = true;
                                         updateMessagesAndStore(updatedMessages);
                                     }}
                                     className="p-1 border rounded w-full">
@@ -358,84 +398,86 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 </div>
 
                 {/* Reaction Buttons */}
-                <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
-                    {msg.sender === 'LLM' ? (
-                        <>
-                            <button
-                                onClick={() => handleReaction(msg.id, true, i)}
-                                disabled={!canReact || msg.isThinking}
-                                className={`w-8 h-8 flex items-center justify-center rounded ${
-                                    msg.reaction === true
-                                        ? 'bg-green-500 text-white'
-                                        : 'bg-gray-300 text-gray-500'
-                                } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-400'}`}>
-                                ✓
-                            </button>
-                            <button
-                                onClick={() => handleReaction(msg.id, false, i)}
-                                disabled={!canReact || msg.isThinking}
-                                className={`w-8 h-8 flex items-center justify-center rounded ${
-                                    msg.reaction === false
-                                        ? 'bg-red-500 text-white'
-                                        : 'bg-gray-300 text-gray-500'
-                                } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
-                                ✕
-                            </button>
-                            {msg.id > 1 && (
+                {!review && (
+                    <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
+                        {msg.sender === 'LLM' ? (
+                            <>
                                 <button
-                                    onClick={() => handleRefreshLLM(msg.id)}
-                                    disabled={msg.isThinking}
-                                    className={`w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-yellow-400 hover:text-white ${
-                                        msg.isThinking ? 'opacity-50 cursor-not-allowed' : ''
-                                    }`}
-                                    title="Refresh">
-                                    <FaRedoAlt className="h-4 w-4" />
+                                    onClick={() => handleReaction(msg.id, true, i)}
+                                    disabled={!canReact || msg.isThinking}
+                                    className={`w-8 h-8 flex items-center justify-center rounded ${
+                                        msg.reaction === true
+                                            ? 'bg-green-500 text-white'
+                                            : 'bg-gray-300 text-gray-500'
+                                    } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-400'}`}>
+                                    ✓
                                 </button>
-                            )}
-                        </>
-                    ) : msg.isEditable ? (
-                        <button
-                            onClick={() => handleSendComment(msg.id)}
-                            className="w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-blue-400 hover:text-white">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}>
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M4 4l16 8-16 8 4-8-4-8z"
-                                />
-                            </svg>
-                        </button>
-                    ) : (
-                        <>
+                                <button
+                                    onClick={() => handleReaction(msg.id, false, i)}
+                                    disabled={!canReact || msg.isThinking}
+                                    className={`w-8 h-8 flex items-center justify-center rounded ${
+                                        msg.reaction === false
+                                            ? 'bg-red-500 text-white'
+                                            : 'bg-gray-300 text-gray-500'
+                                    } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
+                                    ✕
+                                </button>
+                                {msg.id > 1 && (
+                                    <button
+                                        onClick={() => handleRefreshLLM(msg.id)}
+                                        disabled={msg.isThinking}
+                                        className={`w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-yellow-400 hover:text-white ${
+                                            msg.isThinking ? 'opacity-50 cursor-not-allowed' : ''
+                                        }`}
+                                        title="Refresh">
+                                        <FaRedoAlt className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </>
+                        ) : msg.isEditable ? (
                             <button
-                                onClick={() => handleReaction(msg.id, true, i)}
-                                disabled={!canReact || msg.isThinking}
-                                className={`w-8 h-8 flex items-center justify-center rounded ${
-                                    msg.reaction === true
-                                        ? 'bg-green-500 text-white'
-                                        : 'bg-gray-300 text-gray-500'
-                                } opacity-50 cursor-not-allowed`}>
-                                ✓
+                                onClick={() => handleSendComment(msg.id)}
+                                className="w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-blue-400 hover:text-white">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={2}>
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M4 4l16 8-16 8 4-8-4-8z"
+                                    />
+                                </svg>
                             </button>
-                            <button
-                                onClick={() => handleReaction(msg.id, false, i)}
-                                disabled={true}
-                                className={`w-8 h-8 flex items-center justify-center rounded ${
-                                    msg.reaction === false
-                                        ? 'bg-red-500 text-white'
-                                        : 'bg-gray-300 text-gray-500'
-                                } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
-                                ✕
-                            </button>
-                        </>
-                    )}
-                </div>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => handleReaction(msg.id, true, i)}
+                                    disabled={!canReact || msg.isThinking}
+                                    className={`w-8 h-8 flex items-center justify-center rounded ${
+                                        msg.reaction === true
+                                            ? 'bg-green-500 text-white'
+                                            : 'bg-gray-300 text-gray-500'
+                                    } opacity-50 cursor-not-allowed`}>
+                                    ✓
+                                </button>
+                                <button
+                                    onClick={() => handleReaction(msg.id, false, i)}
+                                    disabled={true}
+                                    className={`w-8 h-8 flex items-center justify-center rounded ${
+                                        msg.reaction === false
+                                            ? 'bg-red-500 text-white'
+                                            : 'bg-gray-300 text-gray-500'
+                                    } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
+                                    ✕
+                                </button>
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
         );
     };

@@ -82,7 +82,7 @@ function LogViewer() {
 
             {/* Logs Table */}
             <div className="overflow-x-auto mt-6">
-                <table className="table-auto w-full border-collapse border">
+                <table className="table-auto w-full border">
                     <thead>
                         <tr className="bg-gray-200">
                             <th className="border px-4 py-2">ID</th>

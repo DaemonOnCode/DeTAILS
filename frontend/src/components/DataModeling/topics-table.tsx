@@ -52,7 +52,7 @@ const TopicsTable = () => {
     return (
         <div className="p-4 border-b">
             <h2 className="text-xl font-semibold">Topics</h2>
-            <table className="w-full border-collapse border border-gray-300">
+            <table className="w-full border border-gray-300">
                 <thead>
                     <tr>
                         <th className="border p-2">Topic #</th>

@@ -152,7 +152,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
     return (
         <div className="relative flex flex-col h-full">
             <div className="flex-1 overflow-y-auto">
-                <table className="w-full border-collapse relative">
+                <table className="w-full relative border-separate border-spacing-0">
                     <thead className="sticky top-0 z-30 bg-gray-100">
                         <tr>
                             <th className="max-w-48 p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">

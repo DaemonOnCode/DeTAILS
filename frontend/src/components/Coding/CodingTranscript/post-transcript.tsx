@@ -53,7 +53,9 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         selectedSegment,
         setSelectedSegment,
         handleSegmentLeave,
-        chatHistories
+        chatHistories,
+        switchModalOn,
+        setSwitchModalOn
     } = useTranscriptContext();
 
     const { processedSegments, codeSet, codeColors } = processTranscript(post, extraCodes);
@@ -68,7 +70,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
     const [selectedCode, setSelectedCode] = useState<string>('');
     const [reasoning, setReasoning] = useState<string>('');
-    const [switchModalOn, setSwitchModalOn] = useState(false);
 
     const [addHighlightModalHidden, setAddHighlightModalHidden] = useState(false);
 
@@ -315,6 +316,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 <div className="w-1/3 pl-4 flex flex-col overflow-hidden">
                     <div className="flex-1 overflow-y-auto">
                         <RelatedCodes
+                            review={review ?? true}
                             postId={post.id}
                             datasetId={post.dataset_id}
                             codeSet={additionalCodes}

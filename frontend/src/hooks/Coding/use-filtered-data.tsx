@@ -25,10 +25,12 @@ export function useFilteredData({
     sampledPostIds,
     unseenPostIds
 }: UseFilteredDataParams) {
+    console.log(postIds, data, 'use filtered data');
+
     return useMemo(() => {
         let filteredData = data;
         let filteredPostIds = postIds; // default: all posts
-        console.log(filter, showCoderType, applyFilters, selectedTypeFilter, 'filters');
+        // console.log(filter, showCoderType, applyFilters, selectedTypeFilter, 'filters');
         const llmFilteredResponses = unseenPostResponse.filter(
             (response) => response.type === 'LLM'
         );
@@ -36,10 +38,10 @@ export function useFilteredData({
         if (!showCoderType && applyFilters) {
             if (selectedTypeFilter === 'All') {
                 filteredData = [...sampledPostResponse, ...llmFilteredResponses];
-                filteredPostIds = [...sampledPostIds, ...llmPostIds];
+                filteredPostIds = [...sampledPostIds, ...unseenPostIds];
             } else if (selectedTypeFilter === 'New Data') {
                 filteredData = llmFilteredResponses;
-                filteredPostIds = llmPostIds;
+                filteredPostIds = unseenPostIds;
             } else if (selectedTypeFilter === 'Codebook') {
                 filteredData = sampledPostResponse;
                 filteredPostIds = sampledPostIds;

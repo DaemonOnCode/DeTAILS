@@ -37,6 +37,8 @@ interface ITranscriptContext {
     activeSegment: Segment | null;
     selectedExplanations: Explanation[];
     setSelectedExplanations: SetState<Explanation[]>;
+    switchModalOn: boolean;
+    setSwitchModalOn: SetState<boolean>;
     hoveredSegment: Segment | null;
     setHoveredSegment: SetState<Segment | null>;
     selectedSegment: Segment | null;
@@ -81,6 +83,8 @@ const TranscriptContext = createContext<ITranscriptContext>({
     activeSegment: null,
     selectedExplanations: [],
     setSelectedExplanations: () => {},
+    switchModalOn: false,
+    setSwitchModalOn: () => {},
     codes: [],
     allExplanations: [],
     hoveredSegment: null,
@@ -105,8 +109,9 @@ const TranscriptContext = createContext<ITranscriptContext>({
 export const TranscriptContextProvider: FC<{
     children: React.ReactNode;
     postId: string;
+    review: boolean;
     codeResponses: (IQECResponse | IQECTResponse | IQECTTyResponse)[];
-}> = ({ children, codeResponses, postId }) => {
+}> = ({ children, review, codeResponses, postId }) => {
     console.log('Running provider');
 
     const allExplanations: Explanation[] = codeResponses
@@ -145,6 +150,8 @@ export const TranscriptContextProvider: FC<{
     const [hoveredCode, setHoveredCode] = useState<string | null>(null);
     const [hoveredCodeText, setHoveredCodeText] = useState<string[] | null>(null);
     const [additionalCodes, setAdditionalCodes] = useState<string[]>([]);
+    const [switchModalOn, setSwitchModalOn] = useState(false);
+
     const [chatHistories, setChatHistories] =
         useState<Record<string, ChatMessage[]>>(gatherChatHistory());
 
@@ -333,6 +340,11 @@ export const TranscriptContextProvider: FC<{
     };
 
     const handleSegmentInteraction = (segment: Segment, isPermanent: boolean = false) => {
+        if (review && isPermanent) {
+            setSwitchModalOn(true);
+            return;
+        }
+
         if (isPermanent) {
             setSelectedSegment(segment);
         } else {
@@ -393,6 +405,8 @@ export const TranscriptContextProvider: FC<{
             setSelectedSegment,
             selectedExplanations,
             setSelectedExplanations,
+            switchModalOn,
+            setSwitchModalOn,
             codes,
             allExplanations,
             handleTextSelection,
@@ -413,6 +427,7 @@ export const TranscriptContextProvider: FC<{
             chatHistories,
             activeSegment,
             selectedExplanations,
+            switchModalOn,
             hoveredSegment,
             selectedSegment,
             // splitIntoSegments,

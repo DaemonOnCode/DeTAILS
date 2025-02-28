@@ -221,6 +221,7 @@ const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                     onClick={(e) => handleSetActiveTranscript(e, 'bottom')}>
                     <TranscriptContextProvider
                         postId={id ?? ''}
+                        review={currentConfig.review}
                         codeResponses={currentConfig?.bottomTranscript?.responses ?? []}>
                         <PostTranscript
                             post={post}

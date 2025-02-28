@@ -152,7 +152,7 @@ const KeywordsTablePage: FC = () => {
                             id="table-section"
                             className="flex-1 overflow-auto relative"
                             ref={tableContainerRef}>
-                            <table className="w-full border-collapse">
+                            <table className="w-full border-separate border-spacing-0">
                                 <thead className="sticky top-0">
                                     <tr className="bg-gray-200">
                                         <th className="border border-gray-400 p-2">Word</th>
@@ -251,7 +251,6 @@ const KeywordsTablePage: FC = () => {
                                             </td>
                                             <td className="border border-gray-400 p-2">
                                                 <div className="flex items-center justify-center space-x-2">
-                                                    {/* Correct Button */}
                                                     <button
                                                         className={`w-8 h-8 flex items-center justify-center rounded ${
                                                             entry.isMarked === true
@@ -270,7 +269,6 @@ const KeywordsTablePage: FC = () => {
                                                         }>
                                                         ✓
                                                     </button>
-                                                    {/* Incorrect Button */}
                                                     <button
                                                         className={`w-8 h-8 flex items-center justify-center rounded ${
                                                             entry.isMarked === false
@@ -289,7 +287,6 @@ const KeywordsTablePage: FC = () => {
                                                         }>
                                                         ✕
                                                     </button>
-                                                    {/* Delete Button */}
                                                     <button
                                                         className="w-8 h-8 flex items-center justify-center bg-red-600 text-white rounded hover:bg-red-700"
                                                         onClick={() => handleDeleteRow(index)}>
@@ -302,32 +299,32 @@ const KeywordsTablePage: FC = () => {
                                 </tbody>
                             </table>
                         </div>
-
-                        {/* Control buttons */}
-                        <div id="control-buttons" className="mt-3 lg:mt-6 flex justify-evenly">
-                            <div className="flex gap-x-4">
-                                <button
-                                    onClick={handleAddNewRow}
-                                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                    Add New Row
-                                </button>
-                            </div>
-                            <div className="flex gap-x-4">
-                                <button
-                                    onClick={handleSaveCsv}
-                                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                                    disabled={saving}>
-                                    Save as CSV
-                                </button>
-                                <button
-                                    onClick={handleSaveExcel}
-                                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                                    disabled={saving}>
-                                    Save as Excel
-                                </button>
-                            </div>
-                        </div>
                     </main>
+
+                    {/* Control buttons */}
+                    <div id="control-buttons" className="mt-3 lg:mt-6 flex justify-evenly">
+                        <div className="flex gap-x-4">
+                            <button
+                                onClick={handleAddNewRow}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                Add New Row
+                            </button>
+                        </div>
+                        <div className="flex gap-x-4">
+                            <button
+                                onClick={handleSaveCsv}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                                disabled={saving}>
+                                Save as CSV
+                            </button>
+                            <button
+                                onClick={handleSaveExcel}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                                disabled={saving}>
+                                Save as Excel
+                            </button>
+                        </div>
+                    </div>
 
                     <footer id="bottom-navigation" className="flex-none">
                         <NavigationBottomBar

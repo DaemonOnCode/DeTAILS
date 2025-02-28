@@ -52,7 +52,7 @@ const CodeView = ({
         return (
             <div className="flex flex-col h-full">
                 <div className="relative mb-4 flex-1 min-h-0 overflow-auto">
-                    <table className="w-full border-collapse mb-6 rounded-lg">
+                    <table className="w-full  border-separate border-spacing-0 mb-6 rounded-lg">
                         <thead className="sticky top-0 z-30 bg-gray-200 border-b-2 border-gray-400 shadow-md">
                             <tr>
                                 <th className="p-2 border border-gray-400 bg-gray-200">
@@ -103,7 +103,7 @@ const CodeView = ({
     return (
         <div className="flex flex-col h-full relative">
             <div className="flex-1 min-h-0 overflow-auto">
-                <table className="w-full border-collapse relative  rounded-lg">
+                <table className="w-full border-separate border-spacing-0 relative  rounded-lg">
                     <thead className="sticky top-0 z-30 bg-gray-200 border-b-2 border-gray-400 shadow-md">
                         <tr>
                             <th className="p-2 border border-gray-400 bg-gray-200">Post ID</th>
