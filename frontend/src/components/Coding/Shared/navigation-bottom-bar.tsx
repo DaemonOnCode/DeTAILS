@@ -1,7 +1,8 @@
-import { FC } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { FC, useState } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { NavigationBottomBarProps } from '../../../types/Coding/props';
 import { TooltipMessages } from '../../../constants/Shared';
+import { useLoadingContext } from '../../../context/loading-context';
 
 const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     isReady,
@@ -12,7 +13,25 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     onPreviousClick,
     disabledTooltipText
 }) => {
+    const location = useLocation();
     const navigate = useNavigate();
+
+    const { resetDataAfterPage } = useLoadingContext();
+
+    const [showProceedConfirmModal, setShowProceedConfirmModal] = useState(false);
+
+    // Handler for confirming the proceed action.
+    const handleConfirmProceed = async (e: any) => {
+        setShowProceedConfirmModal(false);
+        resetDataAfterPage(location.pathname);
+        onNextClick && (await onNextClick(e));
+        autoNavigateToNext && navigate('/coding/' + nextPage);
+    };
+
+    // Cancel the proceed action.
+    const handleCancelProceed = () => {
+        setShowProceedConfirmModal(false);
+    };
 
     return (
         <div className="flex justify-between mt-6">
@@ -40,17 +59,44 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     }`}
                     onClick={async (e) => {
-                        if (!isReady) e.preventDefault();
-                        else {
+                        if (!isReady) {
                             e.preventDefault();
-                            console.log('Next page clicked');
-                            onNextClick && (await onNextClick(e));
-                            console.log('Navigating to next page');
-                            autoNavigateToNext && navigate('/coding/' + nextPage);
+                        } else {
+                            // If unsaved data exists, show a confirmation modal on Proceed.
+                            if (false) {
+                                e.preventDefault();
+                                setShowProceedConfirmModal(true);
+                            } else {
+                                e.preventDefault();
+                                onNextClick && (await onNextClick?.(e));
+                                autoNavigateToNext && navigate('/coding/' + nextPage);
+                            }
                         }
                     }}>
                     Proceed →
                 </Link>
+            )}
+            {showProceedConfirmModal && (
+                <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                        <h2 className="text-xl font-bold mb-4">Confirm Proceed</h2>
+                        <p className="mb-4">
+                            Proceeding will remove unsaved data. Are you sure you want to continue?
+                        </p>
+                        <div className="flex justify-end">
+                            <button
+                                onClick={handleCancelProceed}
+                                className="mr-4 bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={(e) => handleConfirmProceed(e)}
+                                className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">
+                                Yes, Proceed
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

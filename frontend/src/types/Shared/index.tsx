@@ -14,7 +14,7 @@ import {
     SetState,
     ThemeBucket
 } from '../Coding/shared';
-import { Dispatch } from 'react';
+import { Dispatch, RefObject } from 'react';
 import { IModelState } from '../DataModeling/shared';
 
 export interface User {
@@ -153,7 +153,14 @@ export interface IWorkspaceContext {
 export interface ILoadingState {
     [route: string]: {
         isLoading: boolean;
+        downloadData?: boolean;
+        stepRef: React.RefObject<StepHandle | null>;
     };
+}
+
+export interface StepHandle {
+    validateStep: () => boolean;
+    resetStep: () => void;
 }
 
 export type LoadingAction =
@@ -161,9 +168,19 @@ export type LoadingAction =
     | { type: 'RESET_LOADING' }
     | { type: 'SET_LOADING_ALL'; payload: boolean }
     | { type: 'SET_LOADING_ROUTE'; route: string }
-    | { type: 'SET_LOADING_DONE_ROUTE'; route: string };
+    | { type: 'SET_LOADING_DONE_ROUTE'; route: string }
+    | {
+          type: 'REGISTER_STEP_REF';
+          payload: { route: string; ref: RefObject<StepHandle | null> };
+      }
+    | {
+          type: 'RESET_PAGE_DATA';
+          payload: { route: string; defaultData?: ILoadingState[string] };
+      };
 
 export interface ILoadingContext {
     loadingState: ILoadingState;
     loadingDispatch: Dispatch<LoadingAction>;
+    registerStepRef: (route: string, refObj: RefObject<StepHandle | null>) => void;
+    resetDataAfterPage: (page: string) => void;
 }

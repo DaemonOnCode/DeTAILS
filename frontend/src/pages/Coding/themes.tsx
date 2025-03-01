@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import Bucket from '../../components/Coding/Themes/bucket';
@@ -21,6 +21,7 @@ import { DetailsLLMIcon, GeminiIcon } from '../../components/Shared/Icons';
 import getServerUrl from '../../hooks/Shared/get-server-url';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../context/collection-context';
+import { StepHandle } from '../../types/Shared';
 
 const ThemesPage = () => {
     const {
@@ -34,7 +35,7 @@ const ThemesPage = () => {
     } = useCodingContext();
     const location = useLocation();
 
-    const { loadingState } = useLoadingContext();
+    const { loadingState, registerStepRef, loadingDispatch } = useLoadingContext();
     const { datasetId } = useCollectionContext();
     const navigate = useNavigate();
     const logger = useLogger();
@@ -89,11 +90,30 @@ const ThemesPage = () => {
 
     const { getServerUrl } = useServerUtils();
 
+    const internalRef = useRef<StepHandle>(null);
+    const stepRoute = location.pathname;
+
     useEffect(() => {
-        if (loadingState[ROUTES.THEMES]) {
-            navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
+        registerStepRef(stepRoute, internalRef);
+    }, []);
+
+    // Expose the imperative methods for this step via the forwarded ref.
+    useImperativeHandle(loadingState[location.pathname].stepRef, () => ({
+        validateStep: () => {
+            // if (Object.keys(contextFiles).length === 0) {
+            //     alert('Please add at least one context file.');
+            //     return false;
+            // }
+            // if (mainTopic.trim() === '') {
+            //     alert('Main topic is required.');
+            //     return false;
+            // }
+            return true;
+        },
+        resetStep: () => {
+            setThemes([]);
         }
-    }, [loadingState]);
+    }));
 
     // Handle drop into a specific theme
     const handleDropToBucket = (themeId: string, code: string) => {
@@ -150,6 +170,10 @@ const ThemesPage = () => {
     }, [themes]);
 
     const handleRefreshThemes = async () => {
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+        });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
         const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.THEME_GENERATION), {
@@ -174,8 +198,18 @@ const ThemesPage = () => {
         setThemes(results.data.themes.map((theme: any) => ({ ...theme, name: theme.theme })));
         setUnplacedCodes(results.data.unplaced_codes);
 
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+        });
         navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`);
     };
+
+    useEffect(() => {
+        if (loadingState[stepRoute]?.isLoading) {
+            navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
+        }
+    }, []);
 
     return (
         <>

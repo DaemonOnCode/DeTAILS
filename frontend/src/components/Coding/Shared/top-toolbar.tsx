@@ -107,7 +107,11 @@ const TopToolbar: FC<TopToolbarProps> = ({
                                     ? 'cursor-pointer'
                                     : 'text-gray-400 cursor-not-allowed'
                             }`}
-                            onClick={() => selectedPost && setIsHighlightModalOpen(true)}>
+                            onClick={() =>
+                                selectedPost &&
+                                !disableAddHighlightModal &&
+                                setIsHighlightModalOpen(true)
+                            }>
                             Add Highlight
                         </li>
                         <li

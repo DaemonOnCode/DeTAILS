@@ -690,7 +690,7 @@ const TranscriptPage = () => {
                                 ) : (
                                     <TranscriptContextProvider
                                         postId={id ?? ''}
-                                        review={currentConfig?.review ?? true}
+                                        review={state === 'review'}
                                         codeResponses={
                                             currentConfig?.topTranscript?.responses ?? []
                                         }>
@@ -753,7 +753,7 @@ const TranscriptPage = () => {
                             onClick={(e) => handleSetActiveTranscript(e, 'bottom')}>
                             <TranscriptContextProvider
                                 postId={id ?? ''}
-                                review={currentConfig?.review ?? true}
+                                review={state === 'review'}
                                 codeResponses={currentConfig?.bottomTranscript?.responses ?? []}>
                                 <PostTranscript
                                     post={post}

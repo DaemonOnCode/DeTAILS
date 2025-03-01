@@ -22,6 +22,7 @@ import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
 import { ROUTES } from '../constants/Coding/shared';
 import { ICodingContext } from '../types/Shared';
 import { useLocation } from 'react-router-dom';
+import { useLoadingContext } from './loading-context';
 
 export const CodingContext = createContext<ICodingContext>({
     contextFiles: {},

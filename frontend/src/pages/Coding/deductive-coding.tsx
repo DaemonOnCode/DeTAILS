@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useImperativeHandle, useRef } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-coding-section';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
@@ -13,6 +13,9 @@ import useServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
+import { StepHandle } from '../../types/Shared';
+import { useLoadingContext } from '../../context/loading-context';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 
 const DeductiveCodingPage = () => {
     const [searchParams] = useSearchParams();
@@ -34,6 +37,7 @@ const DeductiveCodingPage = () => {
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
 
+    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
     const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
@@ -50,7 +54,39 @@ const DeductiveCodingPage = () => {
         };
     }, []);
 
+    const internalRef = useRef<StepHandle>(null);
+    const stepRoute = location.pathname;
+
+    useEffect(() => {
+        registerStepRef(stepRoute, internalRef);
+    }, []);
+
+    // Expose the imperative methods for this step via the forwarded ref.
+    useImperativeHandle(loadingState[location.pathname].stepRef, () => ({
+        validateStep: () => {
+            // if (Object.keys(contextFiles).length === 0) {
+            //     alert('Please add at least one context file.');
+            //     return false;
+            // }
+            // if (mainTopic.trim() === '') {
+            //     alert('Main topic is required.');
+            //     return false;
+            // }
+            return true;
+        },
+        resetStep: () => {
+            dispatchUnseenPostResponse({
+                type: 'SET_RESPONSES',
+                responses: []
+            });
+        }
+    }));
+
     const handleNextClick = async () => {
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+        });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
         const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.THEME_GENERATION), {
@@ -74,6 +110,10 @@ const DeductiveCodingPage = () => {
 
         setThemes(results.data.themes.map((theme: any) => ({ ...theme, name: theme.theme })));
         setUnplacedCodes(results.data.unplaced_codes);
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+        });
     };
 
     const steps: TutorialStep[] = [
@@ -95,6 +135,12 @@ const DeductiveCodingPage = () => {
             placement: 'top'
         }
     ];
+
+    useEffect(() => {
+        if (loadingState[stepRoute]?.isLoading) {
+            navigate(getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER));
+        }
+    }, []);
 
     return (
         <TutorialWrapper steps={steps} pageId={location.pathname}>

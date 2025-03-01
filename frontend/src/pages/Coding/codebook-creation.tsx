@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useImperativeHandle } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-coding-section';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
@@ -15,6 +15,9 @@ import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 // Import TutorialWrapper and TutorialStep type
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
+import { StepHandle } from '../../types/Shared';
+import { useLoadingContext } from '../../context/loading-context';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 
 const CodebookCreation = () => {
     const [searchParams] = useSearchParams();
@@ -40,6 +43,7 @@ const CodebookCreation = () => {
     const { getServerUrl } = useServerUtils();
     const { datasetId } = useCollectionContext();
 
+    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
     const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
@@ -56,8 +60,41 @@ const CodebookCreation = () => {
         };
     }, []);
 
+    const internalRef = useRef<StepHandle>(null);
+    const stepRoute = location.pathname;
+
+    useEffect(() => {
+        registerStepRef(stepRoute, internalRef);
+    }, []);
+
+    // Expose the imperative methods for this step via the forwarded ref.
+    useImperativeHandle(loadingState[location.pathname].stepRef, () => ({
+        validateStep: () => {
+            // if (Object.keys(contextFiles).length === 0) {
+            //     alert('Please add at least one context file.');
+            //     return false;
+            // }
+            // if (mainTopic.trim() === '') {
+            //     alert('Main topic is required.');
+            //     return false;
+            // }
+            return true;
+        },
+        resetStep: () => {
+            dispatchSampledPostResponse({
+                type: 'SET_RESPONSES',
+                responses: []
+            });
+        }
+    }));
+
     const handleNextClick = async () => {
         navigate(getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER));
+
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+        });
 
         const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING), {
             method: 'POST',
@@ -118,6 +155,10 @@ const CodebookCreation = () => {
             }))
         });
         setSampledPostResponseCopy([...sampledPostResponse]);
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+        });
     };
 
     // Define tutorial steps for Codebook Creation.
@@ -141,6 +182,12 @@ const CodebookCreation = () => {
             placement: 'top'
         }
     ];
+
+    useEffect(() => {
+        if (loadingState[stepRoute]?.isLoading) {
+            navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
+        }
+    }, []);
 
     return (
         <TutorialWrapper steps={steps} pageId={location.pathname}>

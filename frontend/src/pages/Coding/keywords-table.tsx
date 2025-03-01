@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef, useState } from 'react';
+import { FC, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ToastContainer, toast, ToastContentProps } from 'react-toastify';
 import { FaTrash } from 'react-icons/fa';
@@ -17,6 +17,7 @@ import CustomTutorialOverlay, {
     TutorialStep
 } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
+import { useLoadingContext } from '../../context/loading-context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -84,6 +85,33 @@ const KeywordsTablePage: FC = () => {
             }
         };
     }, [saveWorkspaceData]);
+
+    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
+    const stepRoute = location.pathname;
+
+    useImperativeHandle(
+        loadingState[location.pathname].stepRef,
+        () => ({
+            validateStep: () => {
+                // if (selectedKeywords.length < WORD_CLOUD_MIN_THRESHOLD) {
+                //     alert(`Please select at least ${WORD_CLOUD_MIN_THRESHOLD} keywords.`);
+                //     return false;
+                // }
+                return true;
+            },
+            resetStep: () => {
+                // dispatchKeywordsTable({
+                //     type:"INITIALIZE",
+                // })
+            }
+        }),
+        [keywordTable]
+    );
+
+    // Register this step's ref in your loading state.
+    useEffect(() => {
+        registerStepRef(stepRoute, loadingState[location.pathname].stepRef);
+    }, [loadingState[location.pathname].stepRef, stepRoute]);
 
     const handleToggleAllSelectOrReject = (isSelect: boolean) => {
         const allAlreadySetTo = keywordTable.every((r) => r.isMarked === isSelect);

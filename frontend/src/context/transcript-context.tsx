@@ -23,6 +23,7 @@ import {
 import { generateColor } from '../utility/color-generator';
 
 interface ITranscriptContext {
+    review: boolean;
     // State values and setters
     selectedText: string | null;
     setSelectedText: SetState<string | null>;
@@ -70,6 +71,7 @@ interface ITranscriptContext {
 }
 
 const TranscriptContext = createContext<ITranscriptContext>({
+    review: true,
     selectedText: null,
     setSelectedText: () => {},
     hoveredCode: null,
@@ -112,7 +114,7 @@ export const TranscriptContextProvider: FC<{
     review: boolean;
     codeResponses: (IQECResponse | IQECTResponse | IQECTTyResponse)[];
 }> = ({ children, review, codeResponses, postId }) => {
-    console.log('Running provider');
+    console.log('Running provider', review);
 
     const allExplanations: Explanation[] = codeResponses
         .filter((r) => r.postId === postId)
@@ -388,6 +390,7 @@ export const TranscriptContextProvider: FC<{
 
     const value = useMemo(
         () => ({
+            review,
             selectedText,
             setSelectedText,
             hoveredCode,
@@ -420,6 +423,7 @@ export const TranscriptContextProvider: FC<{
             containerRef
         }),
         [
+            review,
             selectedText,
             hoveredCode,
             hoveredCodeText,

@@ -316,7 +316,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 <div className="w-1/3 pl-4 flex flex-col overflow-hidden">
                     <div className="flex-1 overflow-y-auto">
                         <RelatedCodes
-                            review={review ?? true}
                             postId={post.id}
                             datasetId={post.dataset_id}
                             codeSet={additionalCodes}

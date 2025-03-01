@@ -1,9 +1,14 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useCollectionContext } from '../../context/collection-context';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom';
 import LoadInterview from '../../components/DataCollection/load-interviews';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { LOADER_ROUTES, ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
+import {
+    LOADER_ROUTES,
+    ROUTES,
+    SELECTED_POSTS_MIN_THRESHOLD,
+    WORD_CLOUD_MIN_THRESHOLD
+} from '../../constants/Coding/shared';
 import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
@@ -16,9 +21,11 @@ import CustomTutorialOverlay, {
 } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import LoadReddit from '../../components/DataCollection/load-reddit';
+import { useLoadingContext } from '../../context/loading-context';
+import { StepHandle } from '../../types/Shared';
 
 const UploadDataPage = () => {
-    const { type, datasetId, selectedData, modeInput } = useCollectionContext();
+    const { type, datasetId, selectedData, setModeInput, modeInput } = useCollectionContext();
     const [searchParams] = useSearchParams();
     const datasetType = searchParams.get('type') ?? modeInput.split(':')[0];
     const navigate = useNavigate();
@@ -34,9 +41,18 @@ const UploadDataPage = () => {
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = useServerUtils();
+    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
+    const location = useLocation();
 
     const postIds: string[] = selectedData;
     // const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD;
+
+    const internalRef = useRef<StepHandle>(null);
+    const stepRoute = location.pathname;
+
+    useEffect(() => {
+        registerStepRef(stepRoute, internalRef);
+    }, []);
 
     const steps: TutorialStep[] = [
         {
@@ -60,9 +76,34 @@ const UploadDataPage = () => {
 
     const handleButtonClick = async () => {
         if (!processDataRef.current?.run) return;
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
+        });
+
         await processDataRef.current?.run();
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
+        });
     };
 
+    useImperativeHandle(
+        loadingState[location.pathname].stepRef,
+        () => ({
+            validateStep: () => {
+                // if (selectedKeywords.length < WORD_CLOUD_MIN_THRESHOLD) {
+                //     alert(`Please select at least ${WORD_CLOUD_MIN_THRESHOLD} keywords.`);
+                //     return false;
+                // }
+                return true;
+            },
+            resetStep: () => {
+                setModeInput('');
+            }
+        }),
+        [modeInput]
+    );
     // If no type is selected, prompt user to go back to home
     if (!type) {
         return (

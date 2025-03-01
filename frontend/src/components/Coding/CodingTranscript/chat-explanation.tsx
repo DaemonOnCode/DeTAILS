@@ -7,7 +7,7 @@ import { ChatMessage } from '../../../types/Coding/shared';
 import { useTranscriptContext } from '../../../context/transcript-context';
 
 interface ChatExplanationProps {
-    review: boolean;
+    // review: boolean;
     initialExplanationWithCode: {
         explanation: string;
         code: string;
@@ -20,14 +20,14 @@ interface ChatExplanationProps {
 }
 
 const ChatExplanation: FC<ChatExplanationProps> = ({
-    review,
+    // review,
     initialExplanationWithCode,
     datasetId,
     postId,
     dispatchFunction,
     existingChatHistory
 }) => {
-    const { chatHistories, setChatHistories } = useTranscriptContext();
+    const { chatHistories, setChatHistories, review } = useTranscriptContext();
     const chatKey = `${postId}-${initialExplanationWithCode.code}-${initialExplanationWithCode.fullText}`;
     const initialMessages = chatHistories[chatKey] || existingChatHistory;
 

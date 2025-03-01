@@ -31,4 +31,22 @@ class CommentsRepository(BaseRepository[Comment]):
         print(query, params)
         return self.fetch_all(query, params, map_to_model=False)
     
+    def get_comments_by_post_optimized(self, dataset_id: str, post_id: str):
+        query = """WITH RECURSIVE comment_tree AS (
+        SELECT id, parent_id, body, 0 AS depth
+        FROM comments
+        WHERE post_id = ? 
+            AND dataset_id = ?
+            AND (parent_id IS NULL OR parent_id = post_id)
+        UNION ALL
+        SELECT c.id, c.parent_id, c.body, ct.depth + 1
+        FROM comments c
+        INNER JOIN comment_tree ct ON c.parent_id = ct.id
+        WHERE c.dataset_id = ?
+        )
+        SELECT * FROM comment_tree;
+        """
+        rows = self.execute_raw_query(query, (post_id, dataset_id, dataset_id), keys=True)
+        print(rows)
+        return rows
 

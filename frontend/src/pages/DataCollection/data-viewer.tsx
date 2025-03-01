@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useCollectionContext } from '../../context/collection-context';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom';
 import LoadInterview from '../../components/DataCollection/load-interviews';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
@@ -18,6 +18,8 @@ import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import LoadReddit from '../../components/DataCollection/load-reddit';
 import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import useRedditData from '../../hooks/DataCollection/use-reddit-data';
+import { useLoadingContext } from '../../context/loading-context';
+import { StepHandle } from '../../types/Shared';
 
 const DataViewerPage = () => {
     const { type, datasetId, selectedData, modeInput } = useCollectionContext();
@@ -38,6 +40,8 @@ const DataViewerPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = useServerUtils();
     const hasSavedRef = useRef(false);
+    const location = useLocation();
+    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
 
     const postIds: string[] = selectedData;
     const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD;
@@ -58,6 +62,13 @@ const DataViewerPage = () => {
                 hasSavedRef.current = true;
             }
         };
+    }, []);
+
+    const internalRef = useRef<StepHandle>(null);
+    const stepRoute = location.pathname;
+
+    useEffect(() => {
+        registerStepRef(stepRoute, internalRef);
     }, []);
 
     const steps: TutorialStep[] = [
@@ -81,6 +92,10 @@ const DataViewerPage = () => {
     const handleSamplingPosts = async () => {
         if (!datasetId) return;
         // Navigate to the codebook loader page.
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+        });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
         console.log('Sampling posts:', postIds);
 
@@ -127,7 +142,17 @@ const DataViewerPage = () => {
             type: 'SET_RESPONSES',
             responses: results['data'].map((response: any) => ({ ...response, isMarked: true }))
         });
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+        });
     };
+
+    useEffect(() => {
+        if (loadingState[stepRoute]?.isLoading) {
+            navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
+        }
+    }, []);
 
     const isDataLoaded = Boolean(modeInput);
 

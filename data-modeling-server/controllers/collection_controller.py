@@ -13,6 +13,7 @@ from transmission_rpc import Client, Torrent, File as TorrentFile
 
 from constants import ACADEMIC_TORRENT_MAGNET, DATASETS_DIR, UPLOAD_DIR, TRANSMISSION_DOWNLOAD_DIR
 from database import DatasetsRepository, CommentsRepository, PostsRepository
+from decorators.execution_time_logger import log_execution_time
 from models import Dataset, Comment, Post
 
 
@@ -57,8 +58,11 @@ def get_reddit_post_by_id(dataset_id: str, post_id: str):
     comments = get_comments_recursive(post_id, dataset_id)
     return {**post[0], "comments": comments}
 
+@log_execution_time()
 def get_comments_recursive(post_id: str, dataset_id: str):
-    comments = comment_repo.find({"post_id": post_id, "dataset_id": dataset_id}, map_to_model=False)
+
+    comments = comment_repo.get_comments_by_post_optimized(dataset_id, post_id)
+    # comments = comment_repo.find({"post_id": post_id, "dataset_id": dataset_id}, map_to_model=False)
 
     comment_map = {comment["id"]: comment for comment in comments}
 

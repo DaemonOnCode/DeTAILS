@@ -4,7 +4,7 @@ import { useTranscriptContext } from '../../../context/transcript-context';
 import ChatExplanation from './chat-explanation';
 
 interface RelatedCodesProps {
-    review: boolean;
+    // review: boolean;
     postId: string;
     datasetId: string;
     codeSet: string[];
@@ -20,7 +20,7 @@ interface RelatedCodesProps {
 }
 
 const RelatedCodes: FC<RelatedCodesProps> = ({
-    review,
+    // review,
     postId,
     datasetId,
     codeResponses,
@@ -108,7 +108,6 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                     );
                     return (
                         <ChatExplanation
-                            review={review}
                             key={`${explanationItem.code}-${explanationItem.fullText}`}
                             initialExplanationWithCode={explanationItem}
                             existingChatHistory={existingChat}

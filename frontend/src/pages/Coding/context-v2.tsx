@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import FileCard from '../../components/Coding/Shared/file-card';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging-context';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
@@ -15,6 +15,7 @@ import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { useLoadingContext } from '../../context/loading-context';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
+import { StepHandle } from '../../types/Shared';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -23,6 +24,7 @@ const validExtensions = ['.pdf', '.doc', '.docx', '.txt'];
 
 const ContextPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const logger = useLogger();
     const {
         contextFiles,
@@ -37,7 +39,7 @@ const ContextPage = () => {
         setResearchQuestions,
         dispatchKeywordsTable
     } = useCodingContext();
-    const { loadingState, loadingDispatch } = useLoadingContext();
+    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
@@ -109,11 +111,11 @@ const ContextPage = () => {
         };
     }, []);
 
-    useEffect(() => {
-        if (loadingState[ROUTES.LLM_CONTEXT_V2]) {
-            navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
-        }
-    }, [loadingState]);
+    // useEffect(() => {
+    //     if (loadingState[ROUTES.LLM_CONTEXT_V2]) {
+    //         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
+    //     }
+    // }, [loadingState]);
 
     const handleSelectFiles = async () => {
         const files: { filePath: string; fileName: string }[] =
@@ -144,8 +146,8 @@ const ContextPage = () => {
         }
         e.preventDefault();
         loadingDispatch({
-            type: 'SET_LOADING',
-            payload: { loading: true, route: ROUTES.KEYWORD_CLOUD }
+            type: 'SET_LOADING_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
         });
         await logger.info('Starting Theme Cloud Generation');
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
@@ -186,16 +188,50 @@ const ContextPage = () => {
             entries: results.keywords.map((r) => ({ ...r, isMarked: true }))
         });
         await logger.info('Theme Cloud generated');
-        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: ROUTES.KEYWORD_CLOUD });
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+        });
         navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
     };
+    const internalRef = useRef<StepHandle>(null);
+
+    useEffect(() => {
+        const stepRoute = location.pathname;
+        registerStepRef(stepRoute, internalRef);
+    }, []);
+
+    // Expose the imperative methods for this step via the forwarded ref.
+    useImperativeHandle(loadingState[location.pathname].stepRef, () => ({
+        validateStep: () => {
+            if (Object.keys(contextFiles).length === 0) {
+                alert('Please add at least one context file.');
+                return false;
+            }
+            if (mainTopic.trim() === '') {
+                alert('Main topic is required.');
+                return false;
+            }
+            return true;
+        },
+        resetStep: () => {
+            // Reset context files
+            Object.keys(contextFiles).forEach((filePath) => {
+                removeContextFile(filePath);
+            });
+            // Reset main topic, additional info, and research questions
+            setMainTopic('');
+            setAdditionalInfo('');
+            setResearchQuestions([]);
+        }
+    }));
 
     return (
         <>
             <TutorialWrapper
                 steps={steps}
                 promptOnFirstPage
-                pageId={`route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`}
+                pageId={location.pathname}
                 excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}`}>
                 <div className="w-full h-full flex justify-between flex-col relative">
                     <div className="max-h-maxPageContent h-maxPageContent">

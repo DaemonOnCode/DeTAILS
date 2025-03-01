@@ -1,4 +1,4 @@
-import { FC, useState, useEffect, useRef } from 'react';
+import { FC, useState, useEffect, useRef, useImperativeHandle } from 'react';
 import { LOADER_ROUTES, ROUTES, WORD_CLOUD_MIN_THRESHOLD } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import KeywordCloud from '../../components/Coding/KeywordCloud/cloud';
@@ -15,6 +15,9 @@ import { DetailsLLMIcon, GeminiIcon } from '../../components/Shared/Icons';
 // Import the TutorialWrapper and TutorialStep types
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
+import { useLoadingContext } from '../../context/loading-context';
+import { StepHandle } from '../../types/Shared';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 
 const KeywordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -58,6 +61,33 @@ const KeywordCloudPage: FC = () => {
     const { getServerUrl } = getServerUtils();
     const hasSavedRef = useRef(false);
 
+    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
+    const stepRoute = location.pathname;
+
+    useImperativeHandle(
+        loadingState[location.pathname].stepRef,
+        () => ({
+            validateStep: () => {
+                if (selectedKeywords.length < WORD_CLOUD_MIN_THRESHOLD) {
+                    alert(`Please select at least ${WORD_CLOUD_MIN_THRESHOLD} keywords.`);
+                    return false;
+                }
+                return true;
+            },
+            resetStep: () => {
+                setSelectedKeywords([mainTopic]);
+            }
+        }),
+        [selectedKeywords, mainTopic]
+    );
+
+    const internalRef = useRef<StepHandle>(null);
+
+    // Register this step's ref in your loading state.
+    useEffect(() => {
+        registerStepRef(stepRoute, internalRef);
+    }, []);
+
     useEffect(() => {
         const timer = createTimer();
         logger.info('Loaded Keyword cloud Page');
@@ -97,6 +127,10 @@ const KeywordCloudPage: FC = () => {
 
     const refreshKeywordCloud = async () => {
         await logger.info('Regenerating Keyword Cloud');
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+        });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
         const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS), {
             method: 'POST',
@@ -140,6 +174,10 @@ const KeywordCloudPage: FC = () => {
                 .filter((keyword) => !filteredPrevKeywords.includes(keyword.word))
                 .map((keyword) => keyword.word);
             return [...filteredPrevKeywords, ...filteredNewKeywords];
+        });
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
         });
 
         navigate(`/coding/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
@@ -199,6 +237,12 @@ const KeywordCloudPage: FC = () => {
             placement: 'top'
         }
     ];
+
+    useEffect(() => {
+        if (loadingState[stepRoute]?.isLoading) {
+            navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
+        }
+    }, []);
 
     return (
         <TutorialWrapper steps={steps} pageId={location.pathname}>
