@@ -1,4 +1,7 @@
-export function downloadCodebook(filteredData: any[]) {
+export function downloadCodebook(filteredData: any[], fileName?: string) {
+    if (!filteredData.length) {
+        return;
+    }
     const headers = ['Post ID', 'Sentence', 'Coded Word', 'Theme', 'Type'];
     const csvRows = [headers.join(',')];
 
@@ -24,7 +27,7 @@ export function downloadCodebook(filteredData: any[]) {
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'codebook.csv';
+    link.download = fileName ?? 'codebook.csv';
     link.click();
     URL.revokeObjectURL(url);
 }

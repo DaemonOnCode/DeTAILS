@@ -10,35 +10,10 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import PostView from '../../components/Coding/Analysis/post-view';
 import CodeView from '../../components/Coding/Analysis/code-view';
 import { downloadCodebook } from '../../utility/codebook-downloader';
+import { groupByCode, groupByPostId } from '../../utility/group-items';
+import { getThemeByCode } from '../../utility/theme-finder';
 
 const { ipcRenderer } = window.require('electron');
-
-/** Helper to group items by postId. */
-function groupByPostId<T extends { postId: string }>(items: T[]): Record<string, T[]> {
-    return items.reduce(
-        (acc, item) => {
-            if (!acc[item.postId]) {
-                acc[item.postId] = [];
-            }
-            acc[item.postId].push(item);
-            return acc;
-        },
-        {} as Record<string, T[]>
-    );
-}
-
-function groupByCode<T extends { coded_word: string }>(items: T[]): Record<string, T[]> {
-    return items.reduce(
-        (acc, item) => {
-            if (!acc[item.coded_word]) {
-                acc[item.coded_word] = [];
-            }
-            acc[item.coded_word].push(item);
-            return acc;
-        },
-        {} as Record<string, T[]>
-    );
-}
 
 const FinalPage = () => {
     const { datasetId } = useCollectionContext();
@@ -87,15 +62,6 @@ const FinalPage = () => {
         });
     };
 
-    // Helper: find theme by code
-    const getThemeByCode = (code: string) => {
-        for (const themeObj of themes) {
-            if (themeObj.codes.includes(code)) {
-                return themeObj.name;
-            }
-        }
-        return 'Unknown Theme';
-    };
     const [isCodeView, setIsCodeView] = useState(false);
     const [isSummaryView, setIsSummaryView] = useState(false);
 
@@ -111,7 +77,7 @@ const FinalPage = () => {
             quote: post.quote,
             coded_word: post.code,
             reasoning: post.explanation,
-            theme: getThemeByCode(post.code),
+            theme: getThemeByCode(post.code, themes),
             id: post.id
         })),
         ...unseenPostResponse
@@ -121,7 +87,7 @@ const FinalPage = () => {
                 quote: post.quote,
                 coded_word: post.code,
                 reasoning: post.explanation,
-                theme: getThemeByCode(post.code),
+                theme: getThemeByCode(post.code, themes),
                 id: post.id
             }))
     ];

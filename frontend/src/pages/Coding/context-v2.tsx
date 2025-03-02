@@ -196,35 +196,35 @@ const ContextPage = () => {
     };
     const internalRef = useRef<StepHandle>(null);
 
-    useEffect(() => {
-        const stepRoute = location.pathname;
-        registerStepRef(stepRoute, internalRef);
-    }, []);
+    // useEffect(() => {
+    //     const stepRoute = location.pathname;
+    //     registerStepRef(stepRoute, internalRef);
+    // }, []);
 
     // Expose the imperative methods for this step via the forwarded ref.
-    useImperativeHandle(loadingState[location.pathname].stepRef, () => ({
-        validateStep: () => {
-            if (Object.keys(contextFiles).length === 0) {
-                alert('Please add at least one context file.');
-                return false;
-            }
-            if (mainTopic.trim() === '') {
-                alert('Main topic is required.');
-                return false;
-            }
-            return true;
-        },
-        resetStep: () => {
-            // Reset context files
-            Object.keys(contextFiles).forEach((filePath) => {
-                removeContextFile(filePath);
-            });
-            // Reset main topic, additional info, and research questions
-            setMainTopic('');
-            setAdditionalInfo('');
-            setResearchQuestions([]);
-        }
-    }));
+    // useImperativeHandle(loadingState[location.pathname].stepRef, () => ({
+    //     validateStep: () => {
+    //         if (Object.keys(contextFiles).length === 0) {
+    //             alert('Please add at least one context file.');
+    //             return false;
+    //         }
+    //         if (mainTopic.trim() === '') {
+    //             alert('Main topic is required.');
+    //             return false;
+    //         }
+    //         return true;
+    //     },
+    //     resetStep: () => {
+    //         // Reset context files
+    //         Object.keys(contextFiles).forEach((filePath) => {
+    //             removeContextFile(filePath);
+    //         });
+    //         // Reset main topic, additional info, and research questions
+    //         setMainTopic('');
+    //         setAdditionalInfo('');
+    //         setResearchQuestions([]);
+    //     }
+    // }));
 
     return (
         <>

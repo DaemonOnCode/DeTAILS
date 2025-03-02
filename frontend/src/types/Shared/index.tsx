@@ -154,13 +154,15 @@ export interface ILoadingState {
     [route: string]: {
         isLoading: boolean;
         downloadData?: boolean;
-        stepRef: React.RefObject<StepHandle | null>;
+        stepRef: React.RefObject<StepHandle>;
     };
 }
 
 export interface StepHandle {
-    validateStep: () => boolean;
-    resetStep: () => void;
+    validateStep?: () => boolean;
+    resetStep: (currentPage: string) => void;
+    downloadData?: () => Promise<void>;
+    checkDataExistence?: (currentPage: string) => boolean;
 }
 
 export type LoadingAction =
@@ -171,7 +173,11 @@ export type LoadingAction =
     | { type: 'SET_LOADING_DONE_ROUTE'; route: string }
     | {
           type: 'REGISTER_STEP_REF';
-          payload: { route: string; ref: RefObject<StepHandle | null> };
+          payload: { route: string; ref: RefObject<StepHandle> };
+      }
+    | {
+          type: 'REGISTER_STEP_REF_MULTIPLE';
+          payload: { route: string; ref: RefObject<StepHandle> }[];
       }
     | {
           type: 'RESET_PAGE_DATA';
@@ -181,6 +187,6 @@ export type LoadingAction =
 export interface ILoadingContext {
     loadingState: ILoadingState;
     loadingDispatch: Dispatch<LoadingAction>;
-    registerStepRef: (route: string, refObj: RefObject<StepHandle | null>) => void;
+    registerStepRef: (route: string, refObj: RefObject<StepHandle>) => void;
     resetDataAfterPage: (page: string) => void;
 }

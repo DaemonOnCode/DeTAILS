@@ -12,7 +12,7 @@ export enum ROUTES {
     LOAD_DATA = 'load-data',
     DATA_SOURCE = 'data-source',
     DATASET_CREATION = 'dataset-creation',
-    DATA_VIEWER = 'data-viewer',
+    DATA_VIEWER = 'view-dataset',
     //  GENERATION = 'generation',
     // INITIAL_CODING = 'initial-coding',
     // CODING_VALIDATION = 'coding-validation',

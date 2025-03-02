@@ -58,6 +58,7 @@ const fileHandler = (...ctxs) => {
 
     // Handler for saving CSV
     ipcMain.handle('save-csv', async (event, { data, fileName }) => {
+        electronLogger.log('Saving CSV:', { fileName });
         try {
             // Open Save Dialog
             const { filePath } = await dialog.showSaveDialog({

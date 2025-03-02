@@ -473,9 +473,9 @@ const DetailsLLMIcon = ({ className = '' }) => {
                     r="1"
                     gradientUnits="userSpaceOnUse"
                     gradientTransform="translate(401.424 295.783) rotate(-26.3168) scale(340.6 2728.42)">
-                    <stop offset="0.067" stop-color="#7BDB9C" />
-                    <stop offset="0.38" stop-color="#438F68" />
-                    <stop offset="0.672" stop-color="#51DED7" />
+                    <stop offset="0.067" stopColor="#7BDB9C" />
+                    <stop offset="0.38" stopColor="#438F68" />
+                    <stop offset="0.672" stopColor="#51DED7" />
                 </radialGradient>
                 <radialGradient
                     id="paint1_radial_31_6"
@@ -484,9 +484,9 @@ const DetailsLLMIcon = ({ className = '' }) => {
                     r="1"
                     gradientUnits="userSpaceOnUse"
                     gradientTransform="translate(352.7 188.575) rotate(18.6832) scale(425.75 3410.53)">
-                    <stop offset="0.067" stop-color="#7BDB9C" />
-                    <stop offset="0.38" stop-color="#438F68" />
-                    <stop offset="0.672" stop-color="#51DED7" />
+                    <stop offset="0.067" stopColor="#7BDB9C" />
+                    <stop offset="0.38" stopColor="#438F68" />
+                    <stop offset="0.672" stopColor="#51DED7" />
                 </radialGradient>
             </defs>
         </svg>

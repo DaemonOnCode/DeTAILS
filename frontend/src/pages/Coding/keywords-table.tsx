@@ -89,29 +89,29 @@ const KeywordsTablePage: FC = () => {
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
     const stepRoute = location.pathname;
 
-    useImperativeHandle(
-        loadingState[location.pathname].stepRef,
-        () => ({
-            validateStep: () => {
-                // if (selectedKeywords.length < WORD_CLOUD_MIN_THRESHOLD) {
-                //     alert(`Please select at least ${WORD_CLOUD_MIN_THRESHOLD} keywords.`);
-                //     return false;
-                // }
-                return true;
-            },
-            resetStep: () => {
-                // dispatchKeywordsTable({
-                //     type:"INITIALIZE",
-                // })
-            }
-        }),
-        [keywordTable]
-    );
+    // useImperativeHandle(
+    //     loadingState[location.pathname].stepRef,
+    //     () => ({
+    //         validateStep: () => {
+    //             // if (selectedKeywords.length < WORD_CLOUD_MIN_THRESHOLD) {
+    //             //     alert(`Please select at least ${WORD_CLOUD_MIN_THRESHOLD} keywords.`);
+    //             //     return false;
+    //             // }
+    //             return true;
+    //         },
+    //         resetStep: () => {
+    //             // dispatchKeywordsTable({
+    //             //     type:"INITIALIZE",
+    //             // })
+    //         }
+    //     }),
+    //     [keywordTable]
+    // );
 
-    // Register this step's ref in your loading state.
-    useEffect(() => {
-        registerStepRef(stepRoute, loadingState[location.pathname].stepRef);
-    }, [loadingState[location.pathname].stepRef, stepRoute]);
+    // // Register this step's ref in your loading state.
+    // useEffect(() => {
+    //     registerStepRef(stepRoute, loadingState[location.pathname].stepRef);
+    // }, [loadingState[location.pathname].stepRef, stepRoute]);
 
     const handleToggleAllSelectOrReject = (isSelect: boolean) => {
         const allAlreadySetTo = keywordTable.every((r) => r.isMarked === isSelect);

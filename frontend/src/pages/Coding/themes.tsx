@@ -93,27 +93,27 @@ const ThemesPage = () => {
     const internalRef = useRef<StepHandle>(null);
     const stepRoute = location.pathname;
 
-    useEffect(() => {
-        registerStepRef(stepRoute, internalRef);
-    }, []);
+    // useEffect(() => {
+    //     registerStepRef(stepRoute, internalRef);
+    // }, []);
 
-    // Expose the imperative methods for this step via the forwarded ref.
-    useImperativeHandle(loadingState[location.pathname].stepRef, () => ({
-        validateStep: () => {
-            // if (Object.keys(contextFiles).length === 0) {
-            //     alert('Please add at least one context file.');
-            //     return false;
-            // }
-            // if (mainTopic.trim() === '') {
-            //     alert('Main topic is required.');
-            //     return false;
-            // }
-            return true;
-        },
-        resetStep: () => {
-            setThemes([]);
-        }
-    }));
+    // // Expose the imperative methods for this step via the forwarded ref.
+    // useImperativeHandle(loadingState[location.pathname].stepRef, () => ({
+    //     validateStep: () => {
+    //         // if (Object.keys(contextFiles).length === 0) {
+    //         //     alert('Please add at least one context file.');
+    //         //     return false;
+    //         // }
+    //         // if (mainTopic.trim() === '') {
+    //         //     alert('Main topic is required.');
+    //         //     return false;
+    //         // }
+    //         return true;
+    //     },
+    //     resetStep: () => {
+    //         setThemes([]);
+    //     }
+    // }));
 
     // Handle drop into a specific theme
     const handleDropToBucket = (themeId: string, code: string) => {

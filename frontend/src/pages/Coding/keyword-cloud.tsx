@@ -64,29 +64,29 @@ const KeywordCloudPage: FC = () => {
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
     const stepRoute = location.pathname;
 
-    useImperativeHandle(
-        loadingState[location.pathname].stepRef,
-        () => ({
-            validateStep: () => {
-                if (selectedKeywords.length < WORD_CLOUD_MIN_THRESHOLD) {
-                    alert(`Please select at least ${WORD_CLOUD_MIN_THRESHOLD} keywords.`);
-                    return false;
-                }
-                return true;
-            },
-            resetStep: () => {
-                setSelectedKeywords([mainTopic]);
-            }
-        }),
-        [selectedKeywords, mainTopic]
-    );
+    // useImperativeHandle(
+    //     loadingState[location.pathname].stepRef,
+    //     () => ({
+    //         validateStep: () => {
+    //             if (selectedKeywords.length < WORD_CLOUD_MIN_THRESHOLD) {
+    //                 alert(`Please select at least ${WORD_CLOUD_MIN_THRESHOLD} keywords.`);
+    //                 return false;
+    //             }
+    //             return true;
+    //         },
+    //         resetStep: () => {
+    //             setSelectedKeywords([mainTopic]);
+    //         }
+    //     }),
+    //     [selectedKeywords, mainTopic]
+    // );
 
-    const internalRef = useRef<StepHandle>(null);
+    // const internalRef = useRef<StepHandle>(null);
 
-    // Register this step's ref in your loading state.
-    useEffect(() => {
-        registerStepRef(stepRoute, internalRef);
-    }, []);
+    // // Register this step's ref in your loading state.
+    // useEffect(() => {
+    //     registerStepRef(stepRoute, internalRef);
+    // }, []);
 
     useEffect(() => {
         const timer = createTimer();

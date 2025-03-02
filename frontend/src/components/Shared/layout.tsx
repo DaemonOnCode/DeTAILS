@@ -35,9 +35,9 @@ export const Layout: FC<ILayout> = ({ children }) => {
     const { saveWorkspaceData, loadWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = useServerUtils();
 
-    useEffect(() => {
-        console.log('Workspaces:', workspaces, 'Current Workspace:', currentWorkspace);
-    }, [currentWorkspace]);
+    // useEffect(() => {
+    //     console.log('Workspaces:', workspaces, 'Current Workspace:', currentWorkspace);
+    // }, [currentWorkspace]);
 
     const isLoading = useRef(false);
 
@@ -167,7 +167,7 @@ export const Layout: FC<ILayout> = ({ children }) => {
         filteredRoutes = recursivePathHider(filteredRoutes, SHARED_ROUTES_TO_EXCLUDE);
     }
 
-    console.log('Layout remoteProcessing:', remoteProcessing, 'serviceStarting:', serviceStarting);
+    // console.log('Layout remoteProcessing:', remoteProcessing, 'serviceStarting:', serviceStarting);
 
     if (!remoteProcessing && serviceStarting) {
         return (

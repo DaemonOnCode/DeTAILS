@@ -8,8 +8,8 @@ const TxtFileIcon = ({ className = '' }) => (
         viewBox="0 0 120 120">
         <defs>
             <linearGradient id="e" x1="50%" x2="50%" y1="0%" y2="100%">
-                <stop offset="0%" stop-color="#F4D87E" />
-                <stop offset="100%" stop-color="#F5C52C" />
+                <stop offset="0%" stopColor="#F4D87E" />
+                <stop offset="100%" stopColor="#F5C52C" />
             </linearGradient>
             <filter
                 id="c"

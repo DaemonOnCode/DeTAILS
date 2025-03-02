@@ -208,12 +208,12 @@ class Post(BaseDataclass):
 class Comment(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
     dataset_id: str = field(metadata={"primary_key": True,"foreign_key": "datasets(id)", "not_null": True})
-    post_id: str = field(metadata={"foreign_key": "posts(id)", "not_null": True})
+    post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)", "not_null": True})
+    parent_id: Optional[str] = field(metadata={"primary_key": True})
     body: Optional[str] = None
     author: Optional[str] = None
     created_utc: Optional[int] = None
     link_id: Optional[str] = None
-    parent_id: Optional[str] = None
     controversiality: Optional[int] = None
     score_hidden: Optional[int] = None
     score: Optional[int] = None

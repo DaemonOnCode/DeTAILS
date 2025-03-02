@@ -16,13 +16,14 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     const location = useLocation();
     const navigate = useNavigate();
 
-    const { resetDataAfterPage } = useLoadingContext();
+    const { resetDataAfterPage, loadingState } = useLoadingContext();
 
     const [showProceedConfirmModal, setShowProceedConfirmModal] = useState(false);
 
     // Handler for confirming the proceed action.
     const handleConfirmProceed = async (e: any) => {
         setShowProceedConfirmModal(false);
+        await loadingState[location.pathname]?.stepRef.current?.downloadData?.();
         resetDataAfterPage(location.pathname);
         onNextClick && (await onNextClick(e));
         autoNavigateToNext && navigate('/coding/' + nextPage);
@@ -59,15 +60,18 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     }`}
                     onClick={async (e) => {
+                        e.preventDefault();
                         if (!isReady) {
-                            e.preventDefault();
                         } else {
                             // If unsaved data exists, show a confirmation modal on Proceed.
-                            if (false) {
-                                e.preventDefault();
+                            // e.preventDefault();
+                            const dataExists = loadingState[
+                                location.pathname
+                            ]?.stepRef.current?.checkDataExistence?.(location.pathname);
+                            console.log('Data exists:', dataExists);
+                            if (dataExists) {
                                 setShowProceedConfirmModal(true);
                             } else {
-                                e.preventDefault();
                                 onNextClick && (await onNextClick?.(e));
                                 autoNavigateToNext && navigate('/coding/' + nextPage);
                             }

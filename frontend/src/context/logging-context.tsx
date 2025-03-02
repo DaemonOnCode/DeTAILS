@@ -2,7 +2,6 @@ import { createContext, useContext, useMemo, FC, useState } from 'react';
 import { LOGGING, LOGGING_API_URL } from '../constants/Shared';
 import { ILayout } from '../types/Coding/shared';
 
-// Define the Logger type
 type Logger = {
     info: (message: string, context?: Record<string, any>) => Promise<void>;
     warning: (message: string, context?: Record<string, any>) => Promise<void>;
@@ -14,7 +13,6 @@ type Logger = {
     setType: (type: 'local' | 'remote') => void;
 };
 
-// Create a default logger that does nothing (for cases when the context is not provided)
 const defaultLogger: Logger = {
     info: async () => {},
     warning: async () => {},
