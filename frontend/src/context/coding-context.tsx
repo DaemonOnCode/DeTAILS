@@ -33,6 +33,7 @@ import {
 import { getThemeByCode } from '../utility/theme-finder';
 import { type } from 'os';
 import { downloadCodebook } from '../utility/codebook-downloader';
+import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -152,7 +153,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     }, [location]);
 
     const loadingStateInitialization: Record<
-        keyof typeof loadingState,
+        string,
         {
             relatedStates: {
                 state: any;
@@ -267,162 +268,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         ]
     );
 
-    useEffect(
-        () => {
-            console.log(loadingState, 'loadingState');
-            Object.entries(loadingStateInitialization).forEach(([k, v], idx) => {
-                console.log('Kvi', k, v, idx, loadingState[k].stepRef.current);
-                // const stepRef = loadingState[key].stepRef.current;
-                // console.log('StepRef:', stepRef);
-                if (loadingState[k].stepRef.current) {
-                    loadingState[k].stepRef.current!.resetStep = (currentPage: string) => {
-                        console.log('Resetting page:', currentPage);
-
-                        const currentPageIdx = Object.keys(loadingStateInitialization).indexOf(
-                            currentPage
-                        );
-                        if (currentPageIdx === -1) return;
-                        Object.entries(loadingStateInitialization).forEach(([key, value]) => {
-                            const states = value.relatedStates;
-                            states.forEach((state) => {
-                                const statePageIdx = Object.keys(
-                                    loadingStateInitialization
-                                ).indexOf(
-                                    // state
-                                    key
-                                );
-                                console.log('State:', state, statePageIdx, currentPageIdx);
-                                if (statePageIdx > currentPageIdx) {
-                                    // if (pageIdx > currentPageIdx) {
-                                    console.log('kv', key, value);
-                                    value.relatedStates.forEach((state) => {
-                                        console.log('State?:', state);
-                                        if (state.name.startsWith('set')) {
-                                            // let stateName = state.name.replace('set', '');
-                                            // const formattedName =
-                                            //     stateName.charAt(0).toLowerCase() + stateName.slice(1);
-                                            console.log(
-                                                'Formatted name:',
-                                                state.state,
-                                                state.name,
-                                                typeof state.state
-                                            );
-                                            const getDefaultValue = (value: any) => {
-                                                if (Array.isArray(value)) return [];
-                                                if (typeof value === 'string') return '';
-                                                if (typeof value === 'number') return 0;
-                                                return {};
-                                            };
-                                            console.log(
-                                                "State's init value:",
-                                                state.initValue,
-                                                state.name
-                                            );
-                                            if (state.initValue) {
-                                                (state.func as SetState<any>)(state.initValue);
-                                            } else {
-                                                (state.func as SetState<any>)(
-                                                    getDefaultValue(state.state)
-                                                );
-                                            }
-                                        } else {
-                                            console.log('Dispatch:', state.func, state.name);
-                                            (state.func as Dispatch<any>)({ type: 'RESET' });
-                                        }
-                                    });
-                                    // }
-                                }
-                            });
-                        });
-                    };
-                    // };
-
-                    loadingState[k].stepRef.current!.checkDataExistence = (currentPage: string) => {
-                        const currentPageIdx = Object.keys(loadingStateInitialization).indexOf(
-                            currentPage
-                        );
-                        return Object.entries(loadingStateInitialization).some(([key, value]) => {
-                            const states = value.relatedStates;
-                            return states.some((state) => {
-                                const statePageIdx = Object.keys(
-                                    loadingStateInitialization
-                                ).indexOf(
-                                    // state
-                                    key
-                                );
-                                console.log('State:', state, statePageIdx, currentPageIdx);
-                                if (statePageIdx > currentPageIdx) {
-                                    // Skip states from pages before the current one.
-                                    if (Array.isArray(state.state)) {
-                                        if (state.state.length > 0) {
-                                            return true;
-                                        }
-                                    } else if (typeof state.state === 'string') {
-                                        if (state.state !== '') {
-                                            return true;
-                                        }
-                                    } else if (typeof state.state === 'number') {
-                                        if (state.state !== 0) {
-                                            return true;
-                                        }
-                                    } else if (
-                                        typeof state.state === 'object' &&
-                                        state.state !== null
-                                    ) {
-                                        if (Object.keys(state.state).length > 0) {
-                                            return true;
-                                        }
-                                    }
-                                }
-                                return false;
-                            });
-                        });
-                    };
-
-                    loadingState[k].stepRef.current!.downloadData = async () => {
-                        // Iterate over each entry in the initialization object.
-                        for (const [key, value] of Object.entries(loadingStateInitialization)) {
-                            // Iterate over each related state for this key.
-                            for (const state of value.relatedStates) {
-                                const statePageIdx = Object.keys(
-                                    loadingStateInitialization
-                                ).indexOf(key);
-                                console.log('State:', state, statePageIdx);
-
-                                // Check if both the loadingState and the initialization have a downloadData property.
-                                if (loadingState[key].downloadData && value.downloadData) {
-                                    const downloadState = value.downloadData;
-                                    console.log('Downloading data for:', key, downloadState);
-
-                                    // Only proceed if there's data and the condition is not false.
-                                    if (
-                                        downloadState.data.length !== 0 &&
-                                        downloadState.condition !== false
-                                    ) {
-                                        await ipcRenderer.invoke('save-csv', {
-                                            data: downloadState.data,
-                                            fileName: downloadState.name
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    };
-                    // }
-                    // Object.values(loadingStateInitialization).flatMap((initialization) =>
-                    //     initialization.relatedStates.map((item) => item.state)
-                    // )
-                    // stepRef!.resetStep =
-                    // stepRef!.checkDataExistence =
-                }
-            });
-        },
-        Object.values(loadingStateInitialization).flatMap((initialization) =>
-            initialization.relatedStates.map((item) => item.state)
-        )
-    );
-    // useEffect(() => {
-    // }, []);
+    useLoadingSteps(loadingStateInitialization);
 
     const updateContext = (updates: Partial<ICodingContext>) => {
         console.log('Updates:', updates);

@@ -5,11 +5,15 @@ import React, {
     useEffect,
     useMemo,
     useContext,
-    FC
+    FC,
+    Dispatch
 } from 'react';
 import { v4 } from 'uuid';
 import { SetState } from '../types/Coding/shared';
 import { ILayout } from '../types/Coding/shared';
+import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
+import { ROUTES as CODING_ROUTES } from '../constants/Coding/shared';
+import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
 
 // Mode type for context
 export type ModeType = 'reddit' | 'interview' | null;
@@ -169,6 +173,58 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
     const [modeInput, setModeInput] = useState<string>('');
     const [selectedData, setSelectedData] = useState<string[]>([]);
     const [dataFilters, setDataFilters] = useState<Record<string, any>>({});
+
+    const loadingStateInitialization: Record<
+        string,
+        {
+            relatedStates: {
+                state: any;
+                func: SetState<any> | Dispatch<any>;
+                name: string;
+                initValue?: any;
+            }[];
+            downloadData?: { name: string; data: any[]; condition?: boolean };
+        }
+    > = useMemo(
+        () => ({
+            [`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_SOURCE}`]: {
+                relatedStates: [
+                    // {
+                    //     state: contextFiles,
+                    //     func: setContextFiles,
+                    //     name: 'setContextFiles'
+                    // }
+                ]
+            },
+            [`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}`]:
+                {
+                    relatedStates: [
+                        {
+                            state: modeInput,
+                            func: setModeInput,
+                            name: 'setModeInput'
+                        }
+                    ]
+                },
+            [`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_VIEWER}`]: {
+                relatedStates: [
+                    {
+                        state: selectedData,
+                        func: setSelectedData,
+                        name: 'setSelectedData'
+                    },
+                    {
+                        state: dataFilters,
+                        func: setDataFilters,
+                        name: 'setDataFilters'
+                    }
+                ]
+            }
+        }),
+        [modeInput, selectedData, dataFilters]
+    );
+
+    useLoadingSteps(loadingStateInitialization);
 
     // When switching type, reset metadata to the proper default.
     useEffect(() => {

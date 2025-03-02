@@ -9,7 +9,8 @@ const LoadingContext = createContext<ILoadingContext>({
     loadingState: {},
     loadingDispatch: () => {},
     registerStepRef: () => {},
-    resetDataAfterPage: () => {}
+    resetDataAfterPage: () => Promise.resolve(),
+    checkIfDataExists: () => false
 });
 
 export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
@@ -37,6 +38,10 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             stepRef: useRef<StepHandle>(initialRefState)
         },
         [`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`]: {
+            isLoading: false,
+            stepRef: useRef<StepHandle>(initialRefState)
+        },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`]: {
             isLoading: false,
             stepRef: useRef<StepHandle>(initialRefState)
         },
@@ -68,32 +73,58 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         loadingDispatch({ type: 'REGISTER_STEP_REF', payload: { route, ref: refObj } });
     };
 
-    const resetDataAfterPage = (page: string) => {
-        // Assume the wizard pages are in the insertion order of initialPageState.
+    const checkIfDataExists = (page: string): boolean => {
+        console.log('Checking data after page:', page);
+
+        const appRoutes = Object.keys(initialPageState);
+        const pageIndex = appRoutes.indexOf(page);
+        if (pageIndex === -1) return false;
+
+        // Get all routes after the specified page
+        const routesAfterPage = appRoutes.slice(pageIndex + 1);
+
+        // Return true if *any* later route's stepRef indicates data exists
+        return routesAfterPage.some((route) => {
+            const stepRef = loadingState[route]?.stepRef?.current;
+            if (stepRef?.checkDataExistence) {
+                console.log('Checking data existence for route:', route);
+                return stepRef.checkDataExistence(route); // pass route if needed
+            }
+            return false;
+        });
+    };
+
+    const resetDataAfterPage = async (page: string) => {
         console.log('Resetting data after page:', page);
+
         const appRoutes = Object.keys(initialPageState);
         const pageIndex = appRoutes.indexOf(page);
         if (pageIndex === -1) return;
-        // Reset every page after the provided page.
-        loadingDispatch({
-            type: 'RESET_PAGE_DATA',
-            payload: { route: page }
-        });
-        // appRoutes.forEach((route, index) => {
-        //     if (index > pageIndex) {
-        //         console.log(
-        //             'Resetting:',
-        //             route,
-        //             index,
-        //             loadingState[route],
-        //             loadingState[route]?.stepRef.current?.resetStep
-        //         );
-        //         loadingDispatch({
-        //             type: 'RESET_PAGE_DATA',
-        //             payload: { route }
-        //         });
-        //     }
-        // });
+
+        // Routes after the current page
+        const routesToReset = appRoutes.filter((_, idx) => idx > pageIndex);
+
+        // 1. Download data for each route (in sequence, awaiting each one)
+        for (const route of routesToReset) {
+            const stepRef = loadingState[route]?.stepRef.current;
+            if (stepRef?.downloadData) {
+                try {
+                    console.log('Downloading data for route:', route);
+                    await stepRef.downloadData(route); // Wait for it to finish
+                } catch (err) {
+                    console.error(`Error downloading data for route "${route}":`, err);
+                }
+            }
+        }
+
+        // 2. After all downloads are complete, reset the routes
+        for (const route of routesToReset) {
+            console.log('Dispatching RESET_PAGE_DATA for:', route);
+            loadingDispatch({
+                type: 'RESET_PAGE_DATA',
+                payload: { route }
+            });
+        }
     };
 
     const value = useMemo(
@@ -102,7 +133,8 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             loadingDispatch,
             // currentStepIndex,
             registerStepRef,
-            resetDataAfterPage
+            resetDataAfterPage,
+            checkIfDataExists
         }),
         [loadingState]
     );

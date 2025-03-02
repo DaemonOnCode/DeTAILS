@@ -16,15 +16,15 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     const location = useLocation();
     const navigate = useNavigate();
 
-    const { resetDataAfterPage, loadingState } = useLoadingContext();
+    const { resetDataAfterPage, loadingState, checkIfDataExists } = useLoadingContext();
 
     const [showProceedConfirmModal, setShowProceedConfirmModal] = useState(false);
 
     // Handler for confirming the proceed action.
     const handleConfirmProceed = async (e: any) => {
         setShowProceedConfirmModal(false);
-        await loadingState[location.pathname]?.stepRef.current?.downloadData?.();
-        resetDataAfterPage(location.pathname);
+        // await loadingState[location.pathname]?.stepRef.current?.downloadData?.();
+        await resetDataAfterPage(location.pathname);
         onNextClick && (await onNextClick(e));
         autoNavigateToNext && navigate('/coding/' + nextPage);
     };
@@ -65,9 +65,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                         } else {
                             // If unsaved data exists, show a confirmation modal on Proceed.
                             // e.preventDefault();
-                            const dataExists = loadingState[
-                                location.pathname
-                            ]?.stepRef.current?.checkDataExistence?.(location.pathname);
+                            const dataExists = checkIfDataExists(location.pathname);
                             console.log('Data exists:', dataExists);
                             if (dataExists) {
                                 setShowProceedConfirmModal(true);

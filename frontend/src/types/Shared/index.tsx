@@ -161,7 +161,7 @@ export interface ILoadingState {
 export interface StepHandle {
     validateStep?: () => boolean;
     resetStep: (currentPage: string) => void;
-    downloadData?: () => Promise<void>;
+    downloadData?: (currentPage: string) => Promise<void>;
     checkDataExistence?: (currentPage: string) => boolean;
 }
 
@@ -188,5 +188,6 @@ export interface ILoadingContext {
     loadingState: ILoadingState;
     loadingDispatch: Dispatch<LoadingAction>;
     registerStepRef: (route: string, refObj: RefObject<StepHandle>) => void;
-    resetDataAfterPage: (page: string) => void;
+    resetDataAfterPage: (page: string) => Promise<void>;
+    checkIfDataExists: (page: string) => boolean;
 }
