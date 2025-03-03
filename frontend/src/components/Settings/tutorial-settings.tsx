@@ -5,12 +5,13 @@ const TutorialSettings = () => {
     const { settings, updateSettings } = useSettings();
     const { tutorials } = settings;
 
-    const handleShowTutorialsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        updateSettings('tutorials', { showGlobal: e.target.checked });
+    const handleShowTutorialsChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        console.log('Show Tutorials Globally:', e.target.checked);
+        await updateSettings('tutorials', { showGlobal: e.target.checked });
     };
 
-    const handleClearSkipPages = () => {
-        updateSettings('tutorials', { skipPages: [] });
+    const handleClearSkipPages = async () => {
+        await updateSettings('tutorials', { skipPages: [] });
     };
 
     return (

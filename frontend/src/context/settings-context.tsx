@@ -1,8 +1,8 @@
-import { createContext, useState, FC, useCallback, useMemo, useContext } from 'react';
+import { createContext, useState, FC, useCallback, useMemo, useContext, useEffect } from 'react';
 import { ILayout } from '../types/Coding/shared';
+import _defaultSettings from '../default-settings.json';
 
-const fs = window.require('fs');
-const path = window.require('path');
+const { ipcRenderer } = window.require('electron');
 
 export interface ISettingsConfig {
     general: {
@@ -21,92 +21,151 @@ export interface ISettingsConfig {
         skipPages: string[];
         hasRun: boolean;
     };
+    transmission: {
+        path: string;
+    };
 }
 
-const defaultSettings: ISettingsConfig = {
-    general: {
-        theme: 'light',
-        language: 'en'
-    },
-    workspace: {
-        layout: 'grid'
-    },
-    devtools: {
-        showConsole: false,
-        enableRemoteDebugging: false
-    },
-    tutorials: {
-        showGlobal: false,
-        skipPages: [],
-        hasRun: false
-    }
-};
+// Keep defaultSettings private.
+const defaultSettings = _defaultSettings as ISettingsConfig;
 
 export interface ISettingsContext {
     settings: ISettingsConfig;
+    fetchSettings: () => Promise<void>;
+    settingsLoading: boolean;
     updateSettings: (
         section: keyof ISettingsConfig,
         updates: Partial<ISettingsConfig[typeof section]>
-    ) => void;
-    resetSettings: () => void;
-    skipTutorialGlobally: () => void;
-    skipTutorialForPage: (pageId: string) => void;
-    showTutorialForPage: (pageId: string) => void;
+    ) => Promise<void>;
+    resetSettings: () => Promise<void>;
+    resetSection: (section: keyof ISettingsConfig) => Promise<void>;
+    skipTutorialGlobally: () => Promise<void>;
+    skipTutorialForPage: (pageId: string) => Promise<void>;
+    showTutorialForPage: (pageId: string) => Promise<void>;
+    dirtySections: Record<keyof ISettingsConfig, boolean>;
+    markSectionDirty: (section: keyof ISettingsConfig, isDirty: boolean) => void;
 }
 
 export const SettingsContext = createContext<ISettingsContext>({
     settings: defaultSettings,
-    updateSettings: () => {},
-    resetSettings: () => {},
-    skipTutorialGlobally: () => {},
-    skipTutorialForPage: () => {},
-    showTutorialForPage: () => {}
+    fetchSettings: async () => {},
+    settingsLoading: true,
+    updateSettings: async () => {},
+    resetSettings: async () => {},
+    resetSection: async () => {},
+    skipTutorialGlobally: async () => {},
+    skipTutorialForPage: async () => {},
+    showTutorialForPage: async () => {},
+    dirtySections: {
+        general: false,
+        workspace: false,
+        devtools: false,
+        tutorials: false,
+        transmission: false
+    },
+    markSectionDirty: () => {}
 });
 
 export const SettingsProvider: FC<ILayout> = ({ children }) => {
     const [settings, setSettings] = useState<ISettingsConfig>(defaultSettings);
+    const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
+    const [dirtySections, setDirtySections] = useState<Record<keyof ISettingsConfig, boolean>>({
+        general: false,
+        workspace: false,
+        devtools: false,
+        tutorials: false,
+        transmission: false
+    });
 
-    const writeSettingsToFile = useCallback((config: ISettingsConfig) => {
-        console.log(__dirname, 'settings dirname');
-        const filePath = path.join(__dirname, './settings.json');
-        fs.writeFile(filePath, JSON.stringify(config, null, 2), (err: NodeJS.ErrnoException) => {
-            if (err) {
-                console.error('Error saving settings:', err);
-            } else {
-                console.log('Settings saved successfully!');
+    const fetchSettings = async () => {
+        setSettingsLoading(true);
+        try {
+            const savedSettings: ISettingsConfig = await ipcRenderer.invoke('get-settings');
+            console.log('Settings:', savedSettings);
+            if (savedSettings) {
+                setSettings(savedSettings);
             }
-        });
+        } catch (err) {
+            console.error('Error retrieving settings:', err);
+        } finally {
+            setSettingsLoading(false);
+        }
+    };
+    // Load settings on mount.
+    useEffect(() => {
+        fetchSettings();
     }, []);
 
+    // Update a specific section of settings.
     const updateSettings = useCallback(
-        (section: keyof ISettingsConfig, updates: Partial<ISettingsConfig[typeof section]>) => {
-            setSettings((prevSettings) => {
-                const newSettings = {
-                    ...prevSettings,
-                    [section]: {
-                        ...prevSettings[section],
-                        ...updates
-                    }
-                };
-                writeSettingsToFile(newSettings);
-                return newSettings;
-            });
+        async (
+            section: keyof ISettingsConfig,
+            updates: Partial<ISettingsConfig[typeof section]>
+        ) => {
+            const newSettings = {
+                ...settings,
+                [section]: {
+                    ...settings[section],
+                    ...updates
+                }
+            };
+            console.log('Updating settings:', newSettings);
+
+            try {
+                const updatedSettings: ISettingsConfig = await ipcRenderer.invoke(
+                    'set-settings',
+                    newSettings
+                );
+
+                console.log('Updated settings:', updatedSettings);
+                setSettings(updatedSettings);
+                // Once updated, clear the dirty flag for that section.
+                setDirtySections((prev) => ({ ...prev, [section]: false }));
+            } catch (err) {
+                console.error('Error updating settings:', err);
+            }
         },
-        [writeSettingsToFile]
+        [settings]
     );
 
-    const resetSettings = useCallback(() => {
-        setSettings(defaultSettings);
-        writeSettingsToFile(defaultSettings);
-    }, [writeSettingsToFile]);
+    // Reset the entire settings to defaults.
+    const resetSettings = useCallback(async () => {
+        try {
+            const resetSettings: ISettingsConfig = await ipcRenderer.invoke('reset-settings');
+            setSettings(resetSettings);
+            // Clear all dirty flags.
+            setDirtySections({
+                general: false,
+                workspace: false,
+                devtools: false,
+                tutorials: false,
+                transmission: false
+            });
+        } catch (err) {
+            console.error('Error resetting settings:', err);
+        }
+    }, []);
 
-    const skipTutorialGlobally = useCallback(() => {
-        updateSettings('tutorials', { showGlobal: false });
+    // Reset an individual section to its default values.
+    const resetSection = useCallback(
+        async (section: keyof ISettingsConfig) => {
+            try {
+                await updateSettings(section, defaultSettings[section]);
+                console.log(`Reset ${section} settings to default`);
+            } catch (error) {
+                console.error(`Error resetting ${section} settings:`, error);
+            }
+        },
+        [updateSettings]
+    );
+
+    const skipTutorialGlobally = useCallback(async () => {
+        await updateSettings('tutorials', { showGlobal: false });
     }, [updateSettings]);
 
     const skipTutorialForPage = useCallback(
-        (pageId: string) => {
-            updateSettings('tutorials', {
+        async (pageId: string) => {
+            await updateSettings('tutorials', {
                 skipPages: Array.from(new Set([...settings.tutorials.skipPages, pageId]))
             });
         },
@@ -114,30 +173,44 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
     );
 
     const showTutorialForPage = useCallback(
-        (pageId: string) => {
-            updateSettings('tutorials', {
+        async (pageId: string) => {
+            await updateSettings('tutorials', {
                 skipPages: settings.tutorials.skipPages.filter((id) => id !== pageId)
             });
         },
         [settings.tutorials.skipPages, updateSettings]
     );
 
+    // Helper to mark a section as having unsaved changes.
+    const markSectionDirty = useCallback((section: keyof ISettingsConfig, isDirty: boolean) => {
+        setDirtySections((prev) => ({ ...prev, [section]: isDirty }));
+    }, []);
+
     const value = useMemo(
         () => ({
             settings,
+            fetchSettings,
+            settingsLoading,
             updateSettings,
             resetSettings,
+            resetSection,
             skipTutorialGlobally,
             skipTutorialForPage,
-            showTutorialForPage
+            showTutorialForPage,
+            dirtySections,
+            markSectionDirty
         }),
         [
             settings,
+            settingsLoading,
             updateSettings,
             resetSettings,
+            resetSection,
             skipTutorialGlobally,
             skipTutorialForPage,
-            showTutorialForPage
+            showTutorialForPage,
+            dirtySections,
+            markSectionDirty
         ]
     );
 

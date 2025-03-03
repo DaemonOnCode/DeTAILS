@@ -27,7 +27,10 @@ import { StepHandle } from '../../types/Shared';
 const UploadDataPage = () => {
     const { type, datasetId, selectedData, setModeInput, modeInput } = useCollectionContext();
     const [searchParams] = useSearchParams();
+    // Determine dataset type from query parameter "type". If not provided, fallback to the modeInput's prefix.
     const datasetType = searchParams.get('type') ?? modeInput.split(':')[0];
+
+    console.log('Selected data:', datasetType);
     const navigate = useNavigate();
     const {
         setSampledPostIds,
@@ -41,18 +44,11 @@ const UploadDataPage = () => {
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = useServerUtils();
-    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
+    const { loadingState, loadingDispatch } = useLoadingContext();
     const location = useLocation();
+    const hasSavedRef = useRef(false);
 
     const postIds: string[] = selectedData;
-    // const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD;
-
-    const internalRef = useRef<StepHandle>(null);
-    const stepRoute = location.pathname;
-
-    useEffect(() => {
-        registerStepRef(stepRoute, internalRef);
-    }, []);
 
     const steps: TutorialStep[] = [
         {
@@ -71,6 +67,15 @@ const UploadDataPage = () => {
             placement: 'left'
         }
     ];
+
+    useEffect(() => {
+        return () => {
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true;
+            }
+        };
+    }, []);
 
     const processDataRef = useRef<{ run: () => Promise<void> } | null>(null);
 
@@ -92,19 +97,16 @@ const UploadDataPage = () => {
         loadingState[location.pathname].stepRef,
         () => ({
             validateStep: () => {
-                // if (selectedKeywords.length < WORD_CLOUD_MIN_THRESHOLD) {
-                //     alert(`Please select at least ${WORD_CLOUD_MIN_THRESHOLD} keywords.`);
-                //     return false;
-                // }
                 return true;
             },
             resetStep: () => {
                 setModeInput('');
             }
         }),
-        [modeInput]
+        [modeInput, setModeInput, loadingState, location.pathname]
     );
-    // If no type is selected, prompt user to go back to home
+
+    // If no type is selected, prompt user to go back to home.
     if (!type) {
         return (
             <div className="flex flex-col items-center justify-center h-screen">
@@ -127,11 +129,6 @@ const UploadDataPage = () => {
                 pageId={`route-/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`}
                 excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}`}>
                 <div className="h-page flex flex-col">
-                    {/* <header id="upload-header" className="p-4 bg-gray-100">
-                        <h1 className="text-2xl font-bold">
-                            {type === 'reddit' ? 'Reddit Data Upload' : 'Interview Data Upload'}
-                        </h1>
-                    </header> */}
                     <main id="upload-main" className="flex-1 overflow-hidden">
                         {datasetType === 'reddit' ? (
                             <LoadReddit processRef={processDataRef} />
@@ -139,7 +136,7 @@ const UploadDataPage = () => {
                             <LoadInterview />
                         ) : (
                             <div className="flex flex-col items-center justify-center h-maxPageContent">
-                                <p>Choose what type of data to retrieve from home page</p>
+                                <p>Choose what type of data to retrieve from Data selection page</p>
                                 <Link
                                     to={`/coding/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
                                     className="text-blue-500">

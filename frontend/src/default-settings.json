@@ -1,0 +1,21 @@
+{
+    "general": {
+        "theme": "light",
+        "language": "en"
+    },
+    "workspace": {
+        "layout": "grid"
+    },
+    "devtools": {
+        "showConsole": false,
+        "enableRemoteDebugging": false
+    },
+    "tutorials": {
+        "showGlobal": false,
+        "skipPages": [],
+        "hasRun": false
+    },
+    "transmission": {
+        "path": ""
+    }
+}

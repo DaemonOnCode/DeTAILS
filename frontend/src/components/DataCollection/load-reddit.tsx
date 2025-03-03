@@ -1,4 +1,4 @@
-import { FC, RefObject, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { FC, RefObject, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import { useCollectionContext } from '../../context/collection-context';
@@ -6,7 +6,7 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import TorrentDataTab from '../../components/DataCollection/load-torrent-data';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { LOADER_ROUTES } from '../../constants/Coding/shared';
 import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
@@ -23,11 +23,13 @@ const LoadReddit: FC<{
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
     const navigate = useNavigate();
-
     const { getServerUrl } = useServerUtils();
 
-    // New state for tab system and torrent inputs
-    const [activeTab, setActiveTab] = useState<'folder' | 'torrent'>('folder');
+    // Get query parameters for active tab.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const queryActiveTab = searchParams.get('activeTab') as 'folder' | 'torrent' | null;
+    const [activeTab, setActiveTab] = useState<'folder' | 'torrent'>(queryActiveTab ?? 'folder');
+
     const [torrentSubreddit, setTorrentSubreddit] = useState('');
     const [torrentStart, setTorrentStart] = useState('');
     const [torrentEnd, setTorrentEnd] = useState('');
@@ -35,33 +37,12 @@ const LoadReddit: FC<{
 
     const selectedFilesRef = useRef<{ getFiles: () => [string, string[]] } | null>(null);
 
-    // useEffect(() => {
-    //     // If a modeInput exists (and we’re not in torrent mode) then load the data.
-    //     // if (modeInput && activeTab !== 'torrent' && !loading) {
-    //     //     loadFolderData();
-    //     // } else if (modeInput && activeTab === 'torrent') {
-    //     //     loadTorrentData();
-    //     // }
-    //     console.log('modeInput:', modeInput, 'activeTab:', activeTab, 'loading:', loading);
-    //     if (modeInput) {
-    //         if (activeTab === 'folder') {
-    //             loadFolderData();
-    //         } else if (activeTab === 'torrent' && !data) {
-    //             loadTorrentData();
-    //         }
-    //     }
-    // }, [modeInput, activeTab]);
-
     useEffect(() => {
-        // const inputSplits = modeInput.split(':');
-        // if (inputSplits.length && inputSplits[0] === 'reddit') {
-        //     if (inputSplits[1] === 'torrent') {
-        //         loadTorrentData();
-        //     } else {
-        //         loadFolderData();
-        //     }
-        // }
-
+        // On mount, ensure the activeTab query parameter is set.
+        if (!queryActiveTab) {
+            searchParams.set('activeTab', activeTab);
+            setSearchParams(searchParams);
+        }
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
@@ -96,7 +77,6 @@ const LoadReddit: FC<{
         };
     }, [modeInput]);
 
-    // If the current context type is not "reddit", show an error message.
     if (modeInput && type !== 'reddit') {
         return (
             <div className="p-4">
@@ -107,19 +87,14 @@ const LoadReddit: FC<{
         );
     }
 
-    // // If data is loaded, show the table.
-    // const isDataLoaded = Boolean(modeInput);
-    // if (isDataLoaded) {
-    //     return (
-    //         // <div className="flex-1 overflow-auto">
-    //         <RedditTableRenderer data={data} loading={loading} />
-    //         // </div>
-    //     );
-    // }
-
-    // Handler for loading torrent data.
-
     const currentFolder = modeInput.split(':').slice(2).join(':');
+
+    // Handler to update active tab and the URL query parameter.
+    const updateActiveTab = (tab: 'folder' | 'torrent') => {
+        setActiveTab(tab);
+        searchParams.set('activeTab', tab);
+        setSearchParams(searchParams);
+    };
 
     return (
         <div className="flex flex-col h-full">
@@ -131,23 +106,16 @@ const LoadReddit: FC<{
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 text-gray-700'
                     }`}
-                    onClick={() => setActiveTab('folder')}>
+                    onClick={() => updateActiveTab('folder')}>
                     Local Folder
                 </button>
-                {/* <button
-                    className={`px-4 py-2 rounded ${
-                        activeTab === 'url' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                    onClick={() => setActiveTab('url')}>
-                    URL
-                </button> */}
                 <button
                     className={`px-4 py-2 rounded ${
                         activeTab === 'torrent'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 text-gray-700'
                     }`}
-                    onClick={() => setActiveTab('torrent')}>
+                    onClick={() => updateActiveTab('torrent')}>
                     Torrent
                 </button>
             </header>
@@ -171,18 +139,6 @@ const LoadReddit: FC<{
                         </div>
                     </div>
                 )}
-                {/* 
-                {activeTab === 'url' && (
-                    <div>
-                        <input
-                            type="text"
-                            value={modeInput}
-                            onChange={(e) => setModeInput(e.target.value)}
-                            placeholder="Type or paste text with URLs here"
-                            className="p-2 border border-gray-300 rounded w-96"
-                        />
-                    </div>
-                )} */}
 
                 {activeTab === 'torrent' && (
                     <TorrentDataTab

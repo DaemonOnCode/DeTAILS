@@ -74,20 +74,20 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         }
     };
 
-    const [loadingState, loadingDispatch] = useReducer(loadingReducer, {});
+    const [loadingState, loadingDispatch] = useReducer(loadingReducer, initialPageState);
 
-    useEffect(() => {
-        Object.entries(initialPageState).forEach(([route, config]) => {
-            loadingDispatch({
-                type: 'REGISTER_STEP_REF',
-                payload: {
-                    route,
-                    ref: config.stepRef,
-                    defaultData: { isLoading: config.isLoading, downloadData: config.downloadData }
-                }
-            });
-        });
-    }, []);
+    // useEffect(() => {
+    //     Object.entries(initialPageState).forEach(([route, config]) => {
+    //         loadingDispatch({
+    //             type: 'REGISTER_STEP_REF',
+    //             payload: {
+    //                 route,
+    //                 ref: config.stepRef,
+    //                 defaultData: { isLoading: config.isLoading, downloadData: config.downloadData }
+    //             }
+    //         });
+    //     });
+    // }, []);
 
     useEffect(() => {
         console.log('Loading state changed:', loadingState);

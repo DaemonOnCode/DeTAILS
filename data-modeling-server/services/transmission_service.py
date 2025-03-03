@@ -1,9 +1,12 @@
 import asyncio
+import os
+import sys
+import json
+import time
 from functools import lru_cache
 import aiohttp
-import time
 
-from constants import TRANSMISSION_RPC_URL
+from constants import TRANSMISSION_RPC_URL, PATHS, get_default_transmission_cmd  # PATHS is assumed to be a dict with key "settings"
 
 async def wait_for_transmission(timeout=15, interval=0.5):
     start_time = time.time()
@@ -25,26 +28,84 @@ async def read_stream(stream: aiohttp.StreamReader | None):
             break
         print(line.decode().strip())
 
+def get_transmission_cmd():
+    """
+    Checks the settings.json (from PATHS["settings"]) for a custom transmission command.
+    If provided and non-empty and valid, returns the custom command.
+    If the path is empty or only whitespace, writes the default path into the settings file
+    and returns the default command.
+    """
+    settings_path = PATHS.get("settings")
+    default_cmd = get_default_transmission_cmd()
+    default_path = default_cmd[0]
+    if settings_path and os.path.exists(settings_path):
+        try:
+            with open(settings_path, "r") as f:
+                data = json.load(f)
+            transmission_config = data.get("transmission", {})
+            custom_path = transmission_config.get("path", "")
+            if not custom_path.strip():
+                # Write the default path to settings file.
+                transmission_config["path"] = default_path
+                data["transmission"] = transmission_config
+                with open(settings_path, "w") as f:
+                    json.dump(data, f, indent=4)
+                print("Custom transmission path was empty; writing default path to settings:", default_path)
+                return default_cmd
+            else:
+                if os.path.exists(custom_path):
+                    return [custom_path, "--foreground"]
+                else:
+                    print("Custom transmission path provided but invalid; updating with default path.")
+                    transmission_config["path"] = default_path
+                    data["transmission"] = transmission_config
+                    with open(settings_path, "w") as f:
+                        json.dump(data, f, indent=4)
+                    return default_cmd
+        except Exception as e:
+            print("Error reading custom transmission settings:", e)
+    # Fallback if settings file doesn't exist.
+    return default_cmd
+
 class GlobalTransmissionDaemonManager:
     def __init__(self):
-        self._lock = asyncio.Lock()  
-        self._termination_lock = asyncio.Lock() 
+        self._lock = asyncio.Lock()
+        self._termination_lock = asyncio.Lock()
         self._ref_count = 0
         self._process = None
         self._stdout_task = None
         self._stderr_task = None
-        self._transmission_cmd = [
-            "/opt/homebrew/opt/transmission-cli/bin/transmission-daemon",
-            "--foreground",
-            "--config-dir", "/opt/homebrew/var/transmission/"
-        ]
+
+        # Dynamically determine the transmission command.
+        self._transmission_cmd = get_transmission_cmd()
+        # Check if the Transmission CLI exists.
+        self.transmission_present = os.path.exists(self._transmission_cmd[0])
+        if self.transmission_present:
+            print("Transmission CLI is present at:", self._transmission_cmd[0])
+        else:
+            print("Transmission CLI is not present at:", self._transmission_cmd[0])
+
+    def recheck_transmission(self):
+        """
+        Rechecks if the Transmission CLI exists based on the current command path
+        and updates the transmission_present property.
+        """
+        self.transmission_present = os.path.exists(self._transmission_cmd[0])
+        if self.transmission_present:
+            print("Recheck: Transmission CLI is present at:", self._transmission_cmd[0])
+        else:
+            print("Recheck: Transmission CLI is not present at:", self._transmission_cmd[0])
+        return self.transmission_present
 
     async def __aenter__(self):
+        # Prevent entering if termination is in progress.
         await self._termination_lock.acquire()
         self._termination_lock.release()
 
         async with self._lock:
             if self._ref_count == 0:
+                if not self.transmission_present:
+                    raise RuntimeError("Transmission CLI is not available on this system.")
                 self._process = await asyncio.create_subprocess_exec(
                     *self._transmission_cmd,
                     stdout=asyncio.subprocess.PIPE,
@@ -72,7 +133,8 @@ class GlobalTransmissionDaemonManager:
                     print("Transmission daemon terminated.")
                 finally:
                     self._termination_lock.release()
-                    
+
 @lru_cache
 def get_transmission_manager():
     return GlobalTransmissionDaemonManager()
+

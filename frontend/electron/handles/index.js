@@ -8,6 +8,7 @@ const { workspaceHandler } = require('./workspace');
 const { processingHandler } = require('./processing');
 const { interviewHandler } = require('./interview');
 const { webviewHandler } = require('./webview-render');
+const { settingsHandler } = require('./settings');
 // const { workerHandler } = require('./worker');
 
 const registerIpcHandlers = (...ctxs) => {
@@ -30,7 +31,8 @@ const registerIpcHandlers = (...ctxs) => {
         websocketHandler,
         workspaceHandler,
         processingHandler,
-        interviewHandler
+        interviewHandler,
+        settingsHandler
     ];
 
     handlerList.forEach((handler) => handler(...ctxs));

@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from controllers.miscellaneous_controller import link_creator, normalize_text, search_slice
 from database import PostsRepository, CommentsRepository
 from database.db_helpers import get_post_and_comments_from_id
 from models.miscellaneous_models import RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest
+from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 
 
 router = APIRouter()
@@ -87,3 +88,9 @@ async def get_post_title_from_id_endpoint(
 
     post = posts_repo.find_one({"dataset_id": dataset_id, "id": post_id}, columns=["id", "title", "selftext"])
     return post
+
+@router.get("/check-transmission")
+async def check_transmission_endpoint(
+    transmission_manager: GlobalTransmissionDaemonManager = Depends(get_transmission_manager)
+):
+    return {"exists": False } # transmission_manager.transmission_present}

@@ -70,7 +70,8 @@ const config = {
 
             GET_POST_ID_TITLE_BATCH: 'miscellaneous/get-post-title-from-id-batch',
             GET_POST_ID_TITLE: 'miscellaneous/get-post-title-from-id',
-            GET_POST_LINK_FROM_ID: 'miscellaneous/get-link-from-post'
+            GET_POST_LINK_FROM_ID: 'miscellaneous/get-link-from-post',
+            CHECK_TRANSMISSION: 'miscellaneous/check-transmission'
         }
     },
     electron: {},
