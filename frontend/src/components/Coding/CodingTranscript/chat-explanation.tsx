@@ -144,7 +144,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         }
     };
 
-    const handleReaction = (messageId: number, reaction: boolean, i: number) => {
+    const handleReaction = (messageId: number, reaction: boolean | undefined, i: number) => {
         // Open full chat if currently collapsed and only the first message is shown.
         if (chatCollapsed && messages.length === 1) {
             setChatCollapsed(false);
@@ -169,11 +169,13 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
 
         console.log(latestMessageWithCode, 'latest mc');
 
+        const currentReaction = reaction === current.reaction ? undefined : reaction;
+
         // When reaction is true (tick).
-        if (reaction) {
+        if (currentReaction) {
             // Toggle the reaction: if already true, unset it.
-            const oldReaction = newMsgs[idx].reaction;
-            newMsgs[idx].reaction = oldReaction === true ? undefined : true;
+            // const oldReaction = newMsgs[idx].reaction;
+            newMsgs[idx].reaction = true; //oldReaction === true ? undefined : true;
 
             // For non-EDIT_QUOTE commands, dispatch as before.
             if (current.command === 'REMOVE_QUOTE') {
@@ -215,7 +217,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     isMarked: true
                 });
             }
-        } else {
+        } else if (currentReaction === false) {
             console.log('Reaction', reaction);
             // Reaction is false (cross) or toggled to undefined.
             // Spawn human feedback if not already present.
@@ -228,13 +230,37 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     isEditable: true
                 });
             }
-            const oldReaction = newMsgs[idx].reaction;
-            newMsgs[idx].reaction = oldReaction === false ? undefined : false;
+            // const oldReaction = newMsgs[idx].reaction;
+            newMsgs[idx].reaction = false;
 
             console.log('Reaction 2', newMsgs);
 
             // If this message was marked as current (only possible for EDIT_QUOTE messages),
             // then try reverting to a previous code.
+            if (current.command === 'EDIT_QUOTE') {
+                const previousMsg = newMsgs[0];
+                console.log('Reaction 3', previousMsg);
+                // const previousMsg = newMsgs
+                //     .slice(0, idx)
+                //     .reverse()
+                //     .find((m) => m.code && m.command === 'EDIT_QUOTE');
+                if (previousMsg) {
+                    dispatchFunction({
+                        type: 'UPDATE_CODE',
+                        prevCode: current?.code,
+                        quote: initialExplanationWithCode.fullText,
+                        newCode: previousMsg.code
+                    });
+                    newMsgs = newMsgs.map((m) => ({
+                        ...m,
+                        isCurrentCode: m.id === previousMsg.id ? true : false
+                    }));
+                }
+            }
+        } else {
+            // Reaction is toggled to undefined.
+            newMsgs[idx].reaction = undefined;
+
             if (current.command === 'EDIT_QUOTE') {
                 const previousMsg = newMsgs[0];
                 console.log('Reaction 3', previousMsg);
@@ -370,6 +396,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                     value={msg.code || ''}
                                     onChange={(e) => {
                                         const newCode = e.target.value;
+                                        const currentMsg = messages.find((m) => m.id === msg.id);
                                         const updatedMessages = messages.map((m) =>
                                             m.id === msg.id
                                                 ? {
@@ -382,6 +409,13 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                         );
                                         updatedMessages[0].isCurrentCode = true;
                                         updateMessagesAndStore(updatedMessages);
+                                        dispatchFunction({
+                                            type: 'UPDATE_CODE',
+                                            prevCode: currentMsg?.code,
+                                            quote: initialExplanationWithCode.fullText,
+                                            newCode: messages[0].code
+                                        });
+                                        // handleReaction(msg.id, currentMsg?.reaction, i);
                                     }}
                                     className="p-1 border rounded w-full">
                                     <option value="">Select a code</option>
