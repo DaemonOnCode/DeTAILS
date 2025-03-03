@@ -7,7 +7,6 @@ import { ChatMessage } from '../../../types/Coding/shared';
 import { useTranscriptContext } from '../../../context/transcript-context';
 
 interface ChatExplanationProps {
-    // review: boolean;
     initialExplanationWithCode: {
         explanation: string;
         code: string;
@@ -20,7 +19,6 @@ interface ChatExplanationProps {
 }
 
 const ChatExplanation: FC<ChatExplanationProps> = ({
-    // review,
     initialExplanationWithCode,
     datasetId,
     postId,
@@ -37,7 +35,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
 
     const { getServerUrl } = useServerUtils();
 
-    // Update local state and persist chat history.
     const updateMessagesAndStore = (updatedMsgs: ChatMessage[]) => {
         setMessages(updatedMsgs);
         setChatHistories((prev) => ({ ...prev, [chatKey]: updatedMsgs }));
@@ -50,41 +47,39 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         });
     };
 
+    const updateMessageById = (
+        msgs: ChatMessage[],
+        targetId: number,
+        update: Partial<ChatMessage>
+    ) => {
+        return msgs.map((msg) => (msg.id === targetId ? { ...msg, ...update } : msg));
+    };
+
     const handleToggleChat = () => setChatCollapsed((prev) => !prev);
 
-    // Check if a given message can accept reactions.
     const isReactionEditable = (msg: ChatMessage, i: number): boolean => {
         if (i === messages.length - 1) return true;
         const nextMsg = messages[i + 1];
         return !!(nextMsg && (nextMsg.isThinking || nextMsg.isEditable));
     };
 
-    // Compute the latest new code from EDIT_QUOTE messages (if any) from full history.
-    const latestNewMessage = [...messages].reverse().find((message) => message.isCurrentCode);
-
-    // console.log(latestNewMessage, 'latest', messages, initialExplanationWithCode);
-
-    // Build chat history as an array of strings.
     const computeChatHistory = () => messages.map((m) => `${m.sender}: ${m.text}`);
 
-    // Handle human feedback submission.
     const handleSendComment = async (messageId: number) => {
         const comment = editableInputs[messageId]?.trim();
         if (!comment) return;
 
-        // Lock the current human message.
+        // Lock the human message.
         let newMsgs = messages.map((msg) =>
             msg.id === messageId ? { ...msg, text: comment, isEditable: false } : msg
         );
         setEditableInputs((prev) => ({ ...prev, [messageId]: '' }));
 
         // Append an LLM placeholder if the feedback came from Human.
-        const source = messages.find((m) => m.id === messageId);
-        if (source && source.sender === 'Human') {
-            const newId = messages.length + 1;
+        if (messages.find((m) => m.id === messageId)?.sender === 'Human') {
             newMsgs = [
                 ...newMsgs,
-                { id: newId, text: 'Thinking...', sender: 'LLM', isThinking: true }
+                { id: newMsgs.length + 1, text: 'Thinking...', sender: 'LLM', isThinking: true }
             ];
         }
         updateMessagesAndStore(newMsgs);
@@ -107,17 +102,14 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             const data = await res.json();
             const { explanation, agreement, command, alternate_codes } = data;
 
-            let finalMsgs = newMsgs.map((msg) =>
-                msg.id === newMsgs.length
-                    ? {
-                          ...msg,
-                          text: explanation || 'No explanation returned.',
-                          isThinking: false,
-                          command,
-                          alternate_codes
-                      }
-                    : msg
-            );
+            // Update the last message (LLM placeholder) with the result.
+            const targetId = newMsgs[newMsgs.length - 1].id;
+            let finalMsgs = updateMessageById(newMsgs, targetId, {
+                text: explanation || 'No explanation returned.',
+                isThinking: false,
+                command,
+                alternate_codes
+            });
 
             if (agreement) {
                 const lastHumanIndex = [...finalMsgs]
@@ -135,21 +127,19 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             updateMessagesAndStore(finalMsgs);
         } catch (err) {
             console.error('Error sending comment:', err);
-            let errorMsgs = newMsgs.map((msg) =>
-                msg.id === newMsgs.length
-                    ? { ...msg, text: 'There was an error. Please try again.', isThinking: false }
-                    : msg
-            );
+            const targetId = newMsgs[newMsgs.length - 1].id;
+            let errorMsgs = updateMessageById(newMsgs, targetId, {
+                text: 'There was an error. Please try again.',
+                isThinking: false
+            });
             updateMessagesAndStore(errorMsgs);
         }
     };
 
     const handleReaction = (messageId: number, reaction: boolean | undefined, i: number) => {
-        // Open full chat if currently collapsed and only the first message is shown.
         if (chatCollapsed && messages.length === 1) {
             setChatCollapsed(false);
         }
-
         const current = messages.find((m) => m.id === messageId);
         if (!current || current.sender !== 'LLM') return;
 
@@ -165,19 +155,11 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             newMsgs.splice(idx + 1, 1);
         }
 
-        const latestMessageWithCode = newMsgs.find((m) => m.isCurrentCode);
-
-        console.log(latestMessageWithCode, 'latest mc');
-
+        const latestNewMessage = [...newMsgs].reverse().find((message) => message.isCurrentCode);
         const currentReaction = reaction === current.reaction ? undefined : reaction;
 
-        // When reaction is true (tick).
         if (currentReaction) {
-            // Toggle the reaction: if already true, unset it.
-            // const oldReaction = newMsgs[idx].reaction;
-            newMsgs[idx].reaction = true; //oldReaction === true ? undefined : true;
-
-            // For non-EDIT_QUOTE commands, dispatch as before.
+            newMsgs[idx].reaction = true;
             if (current.command === 'REMOVE_QUOTE') {
                 dispatchFunction({
                     type: 'MARK_RESPONSE_BY_CODE_EXPLANATION',
@@ -195,19 +177,15 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     isMarked: true
                 });
             } else if (current.command === 'EDIT_QUOTE' && current.code) {
-                // Only mark as current code if the command is EDIT_QUOTE and code exists.
-
                 dispatchFunction({
                     type: 'UPDATE_CODE',
-                    prevCode: latestMessageWithCode?.code,
+                    prevCode: latestNewMessage?.code,
                     quote: initialExplanationWithCode.fullText,
                     newCode: current.code
                 });
-
                 newMsgs = newMsgs.map((m) => ({
                     ...m,
-                    // Set isCurrentCode true only on the message being approved.
-                    isCurrentCode: m.id === messageId ? true : false
+                    isCurrentCode: m.id === messageId
                 }));
                 dispatchFunction({
                     type: 'MARK_RESPONSE_BY_CODE_EXPLANATION',
@@ -218,11 +196,12 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 });
             }
         } else if (currentReaction === false) {
-            console.log('Reaction', reaction);
-            // Reaction is false (cross) or toggled to undefined.
-            // Spawn human feedback if not already present.
-            const last = newMsgs[newMsgs.length - 1];
-            if (!(last.sender === 'Human' && last.isEditable)) {
+            if (
+                !(
+                    newMsgs[newMsgs.length - 1].sender === 'Human' &&
+                    newMsgs[newMsgs.length - 1].isEditable
+                )
+            ) {
                 newMsgs.push({
                     id: newMsgs.length + 1,
                     text: '',
@@ -230,20 +209,9 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     isEditable: true
                 });
             }
-            // const oldReaction = newMsgs[idx].reaction;
             newMsgs[idx].reaction = false;
-
-            console.log('Reaction 2', newMsgs);
-
-            // If this message was marked as current (only possible for EDIT_QUOTE messages),
-            // then try reverting to a previous code.
             if (current.command === 'EDIT_QUOTE') {
                 const previousMsg = newMsgs[0];
-                console.log('Reaction 3', previousMsg);
-                // const previousMsg = newMsgs
-                //     .slice(0, idx)
-                //     .reverse()
-                //     .find((m) => m.code && m.command === 'EDIT_QUOTE');
                 if (previousMsg) {
                     dispatchFunction({
                         type: 'UPDATE_CODE',
@@ -253,21 +221,14 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     });
                     newMsgs = newMsgs.map((m) => ({
                         ...m,
-                        isCurrentCode: m.id === previousMsg.id ? true : false
+                        isCurrentCode: m.id === previousMsg.id
                     }));
                 }
             }
         } else {
-            // Reaction is toggled to undefined.
             newMsgs[idx].reaction = undefined;
-
             if (current.command === 'EDIT_QUOTE') {
                 const previousMsg = newMsgs[0];
-                console.log('Reaction 3', previousMsg);
-                // const previousMsg = newMsgs
-                //     .slice(0, idx)
-                //     .reverse()
-                //     .find((m) => m.code && m.command === 'EDIT_QUOTE');
                 if (previousMsg) {
                     dispatchFunction({
                         type: 'UPDATE_CODE',
@@ -277,7 +238,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     });
                     newMsgs = newMsgs.map((m) => ({
                         ...m,
-                        isCurrentCode: m.id === previousMsg.id ? true : false
+                        isCurrentCode: m.id === previousMsg.id
                     }));
                 }
             }
@@ -286,18 +247,17 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         updateMessagesAndStore(newMsgs);
     };
 
-    // Handle LLM refresh.
     const handleRefreshLLM = async (messageId: number) => {
         const idx = messages.findIndex((m) => m.id === messageId);
         if (idx === -1) return;
 
-        let newMsgs = messages.map((m) =>
-            m.id === messageId ? { ...m, text: 'Thinking...', isThinking: true } : m
-        );
+        let newMsgs = updateMessageById(messages, messageId, {
+            text: 'Thinking...',
+            isThinking: true
+        });
         updateMessagesAndStore(newMsgs);
 
         const partialHistory = messages.slice(0, idx).map((m) => `${m.sender}: ${m.text}`);
-
         const payload = {
             dataset_id: datasetId,
             post_id: postId,
@@ -315,33 +275,118 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             });
             const data = await res.json();
             const { explanation, command, alternate_codes } = data;
-
-            let finalMsgs = newMsgs.map((m) =>
-                m.id === messageId
-                    ? {
-                          ...m,
-                          text: explanation || 'No explanation returned.',
-                          isThinking: false,
-                          command,
-                          alternate_codes
-                      }
-                    : m
-            );
-            updateMessagesAndStore(finalMsgs);
+            newMsgs = updateMessageById(newMsgs, messageId, {
+                text: explanation || 'No explanation returned.',
+                isThinking: false,
+                command,
+                alternate_codes
+            });
+            updateMessagesAndStore(newMsgs);
         } catch (err) {
             console.error('Error refreshing LLM message:', err);
-            let errorMsgs = newMsgs.map((m) =>
-                m.id === messageId
-                    ? { ...m, text: 'There was an error. Please try again.', isThinking: false }
-                    : m
-            );
-            updateMessagesAndStore(errorMsgs);
+            newMsgs = updateMessageById(newMsgs, messageId, {
+                text: 'There was an error. Please try again.',
+                isThinking: false
+            });
+            updateMessagesAndStore(newMsgs);
         }
     };
 
-    // Render an individual message.
+    // Extract the repetitive reaction button markup into its own subcomponent.
+    const ReactionButtons = ({ msg, index }: { msg: ChatMessage; index: number }) => {
+        const canReact = isReactionEditable(msg, index);
+        if (!review) {
+            if (msg.sender === 'LLM') {
+                return (
+                    <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
+                        <button
+                            onClick={() => handleReaction(msg.id, true, index)}
+                            disabled={!canReact || msg.isThinking}
+                            className={`w-8 h-8 flex items-center justify-center rounded ${
+                                msg.reaction === true
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-gray-300 text-gray-500'
+                            } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-400'}`}>
+                            ✓
+                        </button>
+                        <button
+                            onClick={() => handleReaction(msg.id, false, index)}
+                            disabled={!canReact || msg.isThinking}
+                            className={`w-8 h-8 flex items-center justify-center rounded ${
+                                msg.reaction === false
+                                    ? 'bg-red-500 text-white'
+                                    : 'bg-gray-300 text-gray-500'
+                            } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
+                            ✕
+                        </button>
+                        {msg.id > 1 && (
+                            <button
+                                onClick={() => handleRefreshLLM(msg.id)}
+                                disabled={msg.isThinking}
+                                className={`w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-yellow-400 hover:text-white ${
+                                    msg.isThinking ? 'opacity-50 cursor-not-allowed' : ''
+                                }`}
+                                title="Refresh">
+                                <FaRedoAlt className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
+                );
+            } else if (msg.isEditable) {
+                return (
+                    <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
+                        <button
+                            onClick={() => handleSendComment(msg.id)}
+                            className="w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-blue-400 hover:text-white">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}>
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M4 4l16 8-16 8 4-8-4-8z"
+                                />
+                            </svg>
+                        </button>
+                    </div>
+                );
+            } else {
+                return (
+                    <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
+                        <button
+                            onClick={() => handleReaction(msg.id, true, index)}
+                            disabled={!canReact || msg.isThinking}
+                            className={`w-8 h-8 flex items-center justify-center rounded ${
+                                msg.reaction === true
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-gray-300 text-gray-500'
+                            } opacity-50 cursor-not-allowed`}>
+                            ✓
+                        </button>
+                        <button
+                            onClick={() => handleReaction(msg.id, false, index)}
+                            disabled={true}
+                            className={`w-8 h-8 flex items-center justify-center rounded ${
+                                msg.reaction === false
+                                    ? 'bg-red-500 text-white'
+                                    : 'bg-gray-300 text-gray-500'
+                            } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
+                            ✕
+                        </button>
+                    </div>
+                );
+            }
+        }
+        return null;
+    };
+
     const renderMessage = (msg: ChatMessage, i: number) => {
         const isInitial = i === 0 && msg.code;
+        const latestNewMessage = [...messages].reverse().find((message) => message.isCurrentCode);
         const bg = isInitial
             ? latestNewMessage?.code && latestNewMessage.reaction
                 ? generateColor(latestNewMessage.code)
@@ -349,10 +394,8 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             : msg.sender === 'LLM'
               ? '#f3f4f6'
               : '#eff6ff';
-
         const chainStyle =
             msg.sender === 'Human' && msg.isEditable ? 'border-l-4 border-gray-300 pl-4' : '';
-        const canReact = isReactionEditable(msg, i);
 
         return (
             <div key={msg.id} className="flex mb-4 w-full">
@@ -415,7 +458,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                             quote: initialExplanationWithCode.fullText,
                                             newCode: messages[0].code
                                         });
-                                        // handleReaction(msg.id, currentMsg?.reaction, i);
                                     }}
                                     className="p-1 border rounded w-full">
                                     <option value="">Select a code</option>
@@ -431,87 +473,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                     )}
                 </div>
 
-                {/* Reaction Buttons */}
-                {!review && (
-                    <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
-                        {msg.sender === 'LLM' ? (
-                            <>
-                                <button
-                                    onClick={() => handleReaction(msg.id, true, i)}
-                                    disabled={!canReact || msg.isThinking}
-                                    className={`w-8 h-8 flex items-center justify-center rounded ${
-                                        msg.reaction === true
-                                            ? 'bg-green-500 text-white'
-                                            : 'bg-gray-300 text-gray-500'
-                                    } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-400'}`}>
-                                    ✓
-                                </button>
-                                <button
-                                    onClick={() => handleReaction(msg.id, false, i)}
-                                    disabled={!canReact || msg.isThinking}
-                                    className={`w-8 h-8 flex items-center justify-center rounded ${
-                                        msg.reaction === false
-                                            ? 'bg-red-500 text-white'
-                                            : 'bg-gray-300 text-gray-500'
-                                    } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
-                                    ✕
-                                </button>
-                                {msg.id > 1 && (
-                                    <button
-                                        onClick={() => handleRefreshLLM(msg.id)}
-                                        disabled={msg.isThinking}
-                                        className={`w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-yellow-400 hover:text-white ${
-                                            msg.isThinking ? 'opacity-50 cursor-not-allowed' : ''
-                                        }`}
-                                        title="Refresh">
-                                        <FaRedoAlt className="h-4 w-4" />
-                                    </button>
-                                )}
-                            </>
-                        ) : msg.isEditable ? (
-                            <button
-                                onClick={() => handleSendComment(msg.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-blue-400 hover:text-white">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-4 w-4"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth={2}>
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M4 4l16 8-16 8 4-8-4-8z"
-                                    />
-                                </svg>
-                            </button>
-                        ) : (
-                            <>
-                                <button
-                                    onClick={() => handleReaction(msg.id, true, i)}
-                                    disabled={!canReact || msg.isThinking}
-                                    className={`w-8 h-8 flex items-center justify-center rounded ${
-                                        msg.reaction === true
-                                            ? 'bg-green-500 text-white'
-                                            : 'bg-gray-300 text-gray-500'
-                                    } opacity-50 cursor-not-allowed`}>
-                                    ✓
-                                </button>
-                                <button
-                                    onClick={() => handleReaction(msg.id, false, i)}
-                                    disabled={true}
-                                    className={`w-8 h-8 flex items-center justify-center rounded ${
-                                        msg.reaction === false
-                                            ? 'bg-red-500 text-white'
-                                            : 'bg-gray-300 text-gray-500'
-                                    } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
-                                    ✕
-                                </button>
-                            </>
-                        )}
-                    </div>
-                )}
+                {!review && <ReactionButtons msg={msg} index={i} />}
             </div>
         );
     };
@@ -519,7 +481,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     return (
         <div className="border rounded p-4 mb-4 relative">
             <div className="flex">
-                {/* Sticky Toggle Button on the left */}
                 <div className="sticky top-2 mr-2 self-start">
                     <button
                         onClick={handleToggleChat}
@@ -527,7 +488,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                         {chatCollapsed ? <FaChevronRight /> : <FaChevronDown />}
                     </button>
                 </div>
-                {/* Chat Content */}
                 <div className="flex-1">
                     <div className="max-h-72 overflow-y-auto relative">
                         {(chatCollapsed ? messages.slice(0, 1) : messages).map((m, i) =>
