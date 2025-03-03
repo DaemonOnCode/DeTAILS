@@ -63,6 +63,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All'
     >(showCoderType ? 'All' : 'New Data');
 
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [feedback, setFeedback] = useState('');
+
     const { filteredData, filteredPostIds } = useFilteredData({
         data,
         postIds,
@@ -165,8 +168,12 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     };
 
     const handleReRunCoding = () => {
-        handleRerun();
+        setShowFeedbackModal(true);
     };
+
+    // const handleReRunCoding = () => {
+    //     handleRerun();
+    // };
 
     const uniqueCodes = Array.from(new Set(filteredData.map((item) => item.code)));
 
@@ -215,16 +222,48 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             showCoderType={showCoderType}
                         />
                     </div>
-                    {showRerunCoding && !review && (
+                    {showRerunCoding && (
                         <div className="flex justify-center p-6">
                             <button
                                 onClick={handleReRunCoding}
                                 className="px-4 py-2 bg-green-500 text-white rounded">
-                                Re-run Coding
+                                {coderType !== 'LLM'
+                                    ? 'Remake complete codebook'
+                                    : 'Redo Deductive Coding'}
                             </button>
                         </div>
                     )}
                 </div>
+                {showFeedbackModal && (
+                    <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50">
+                        <div className="bg-white p-6 rounded shadow-lg w-80">
+                            <h2 className="text-xl font-bold mb-4">Provide Feedback</h2>
+                            <textarea
+                                className="w-full border border-gray-300 rounded p-2"
+                                rows={4}
+                                placeholder="Enter your feedback here..."
+                                value={feedback}
+                                onChange={(e) => setFeedback(e.target.value)}
+                            />
+                            <div className="flex justify-end mt-4">
+                                <button
+                                    onClick={() => setShowFeedbackModal(false)}
+                                    className="mr-2 px-4 py-2 bg-gray-300 rounded">
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        console.log('Feedback:', feedback);
+                                        setShowFeedbackModal(false);
+                                        handleRerun();
+                                    }}
+                                    className="px-4 py-2 bg-green-500 text-white rounded">
+                                    Submit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

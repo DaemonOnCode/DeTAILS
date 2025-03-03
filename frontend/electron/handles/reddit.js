@@ -250,7 +250,7 @@ const redditHandler = (...ctxs) => {
                                 searchAndHighlight(document.body, sentence);
                         
                                 } catch (error) {
-                                electronLogger.error('Error in injected script:', error);
+                                console.error('Error in injected script:', error);
                                 }
                             })();
                         `

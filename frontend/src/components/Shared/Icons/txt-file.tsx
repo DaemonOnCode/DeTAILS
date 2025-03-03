@@ -32,7 +32,7 @@ const TxtFileIcon = ({ className = '' }) => (
             <rect id="a" width="120" height="120" x="0" y="0" rx="28" />
             <path id="d" d="M-9 0h137v30H-9z" />
         </defs>
-        <g fill="none" fill-rule="evenodd">
+        <g fill="none" fillRule="evenodd">
             <mask id="b" fill="#fff">
                 <use xlinkHref="#a" />
             </mask>

@@ -129,6 +129,7 @@ export type FileCardProps = {
     filePath: string;
     fileName: string;
     onRemove: (file: string) => void;
+    onClick?: () => void;
 };
 
 export type NavigationBottomBarProps = {

@@ -7,6 +7,7 @@ const { websocketHandler } = require('./websocket');
 const { workspaceHandler } = require('./workspace');
 const { processingHandler } = require('./processing');
 const { interviewHandler } = require('./interview');
+const { webviewHandler } = require('./webview-render');
 // const { workerHandler } = require('./worker');
 
 const registerIpcHandlers = (...ctxs) => {
@@ -24,6 +25,7 @@ const registerIpcHandlers = (...ctxs) => {
         authHandler,
         redditHandler,
         fileHandler,
+        webviewHandler,
         dbHandler,
         websocketHandler,
         workspaceHandler,

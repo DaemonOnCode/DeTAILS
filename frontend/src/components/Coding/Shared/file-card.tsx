@@ -8,7 +8,7 @@ import TxtFileIcon from '../../Shared/Icons/txt-file';
 
 import { ImCross } from 'react-icons/im';
 
-const FileCard = ({ filePath, fileName, onRemove }: FileCardProps) => {
+const FileCard = ({ filePath, fileName, onRemove, onClick }: FileCardProps) => {
     const pdfResult = usePdfImage(fileName.endsWith('.pdf') ? filePath : '');
     const docxResult = useDocxImage(fileName.endsWith('.docx') ? filePath : '');
     const txtResult = useTxtImage(fileName.endsWith('.txt') ? filePath : '');
@@ -31,7 +31,9 @@ const FileCard = ({ filePath, fileName, onRemove }: FileCardProps) => {
     const error = pdfResult.error || docxResult.error || txtResult.error;
 
     return (
-        <div className="relative flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white">
+        <div
+            className="relative flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white hover:cursor-pointer"
+            onClick={() => onClick?.()}>
             <div className="absolute -top-2 -right-2 text-red-500 bg-white rounded-full font-bold border h-6 w-6 flex justify-center items-center">
                 <button onClick={() => onRemove(filePath)} className="">
                     <ImCross className="h-3 w-3" />
