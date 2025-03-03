@@ -72,7 +72,7 @@ export function baseResponseHandler<T>(
     config: Record<string, any>
 ): T[] {
     let newResponses: T[] = [];
-    console.log('Action:', action, 'Base');
+    // console.log('Action:', action, 'Base');
     switch (action.type) {
         case 'SET_CORRECT':
             return state.map((response, index) =>

@@ -1,4 +1,12 @@
-import React, { createContext, useReducer, useMemo, useState, useContext, useRef } from 'react';
+import React, {
+    createContext,
+    useReducer,
+    useMemo,
+    useState,
+    useContext,
+    useRef,
+    useEffect
+} from 'react';
 import { ILayout } from '../types/Coding/shared';
 import { ILoadingState, ILoadingContext, LoadingAction, StepHandle } from '../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
@@ -19,7 +27,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         resetStep: () => {},
         checkDataExistence: () => false
     };
-    const initialPageState = {
+    const initialPageState: ILoadingState = {
         [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`]: {
             isLoading: false,
             stepRef: useRef<StepHandle>(initialRefState)
@@ -66,11 +74,34 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         }
     };
 
-    const [loadingState, loadingDispatch] = useReducer(loadingReducer, initialPageState);
+    const [loadingState, loadingDispatch] = useReducer(loadingReducer, {});
+
+    useEffect(() => {
+        Object.entries(initialPageState).forEach(([route, config]) => {
+            loadingDispatch({
+                type: 'REGISTER_STEP_REF',
+                payload: {
+                    route,
+                    ref: config.stepRef,
+                    defaultData: { isLoading: config.isLoading, downloadData: config.downloadData }
+                }
+            });
+        });
+    }, []);
+
+    useEffect(() => {
+        console.log('Loading state changed:', loadingState);
+    }, [loadingState]);
     // const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-    const registerStepRef = (route: string, refObj: React.RefObject<StepHandle>) => {
-        loadingDispatch({ type: 'REGISTER_STEP_REF', payload: { route, ref: refObj } });
+    const registerStepRef = (route: string, refObj?: React.RefObject<StepHandle>) => {
+        loadingDispatch({
+            type: 'REGISTER_STEP_REF',
+            payload: {
+                route,
+                ref: refObj ?? initialPageState[route as keyof typeof initialPageState].stepRef
+            }
+        });
     };
 
     const checkIfDataExists = (page: string): boolean => {
@@ -102,7 +133,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         if (pageIndex === -1) return;
 
         // Routes after the current page
-        const routesToReset = appRoutes.filter((_, idx) => idx > pageIndex);
+        const routesToReset = appRoutes.slice(pageIndex + 1);
 
         // 1. Download data for each route (in sequence, awaiting each one)
         for (const route of routesToReset) {

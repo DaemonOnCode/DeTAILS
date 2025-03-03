@@ -14,6 +14,7 @@ import { ILayout } from '../types/Coding/shared';
 import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
 import { ROUTES as CODING_ROUTES } from '../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
+import { useLoadingContext } from './loading-context';
 
 // Mode type for context
 export type ModeType = 'reddit' | 'interview' | null;
@@ -153,6 +154,8 @@ export const CollectionContext = createContext<ExtendedICollectionContext>(defau
 
 export const CollectionProvider: FC<ILayout> = ({ children }) => {
     // Manage the "type" (reddit or interview)
+
+    const { loadingState } = useLoadingContext();
     const [type, setType] = useState<ModeType>(null);
 
     // Manage metadata: initially based on the type
@@ -209,6 +212,12 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
             [`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_VIEWER}`]: {
                 relatedStates: [
                     {
+                        state: datasetId,
+                        func: setDatasetId,
+                        name: 'setDatasetId',
+                        initValue: v4()
+                    },
+                    {
                         state: selectedData,
                         func: setSelectedData,
                         name: 'setSelectedData'
@@ -221,10 +230,29 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
                 ]
             }
         }),
-        [modeInput, selectedData, dataFilters]
+        [modeInput, selectedData, dataFilters, datasetId]
     );
 
-    useLoadingSteps(loadingStateInitialization);
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[
+            `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_SOURCE}`
+        ]?.stepRef
+    );
+
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[
+            `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}`
+        ]?.stepRef
+    );
+
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[
+            `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_VIEWER}`
+        ]?.stepRef
+    );
 
     // When switching type, reset metadata to the proper default.
     useEffect(() => {

@@ -1,6 +1,7 @@
 import { ILoadingState, LoadingAction } from '../types/Shared';
 
 export const loadingReducer = (state: ILoadingState, action: LoadingAction): ILoadingState => {
+    console.log('loadingReducer action:', action, 'state:', state);
     switch (action.type) {
         case 'SET_LOADING': {
             const { route, loading } = action.payload;
@@ -31,10 +32,10 @@ export const loadingReducer = (state: ILoadingState, action: LoadingAction): ILo
             };
         }
         case 'REGISTER_STEP_REF': {
-            const { route, ref } = action.payload;
+            const { route, ref, defaultData } = action.payload;
             return {
                 ...state,
-                [route]: { ...state[route], stepRef: ref }
+                [route]: { ...state[route], stepRef: ref, ...defaultData }
             };
         }
         case 'REGISTER_STEP_REF_MULTIPLE': {
@@ -43,7 +44,7 @@ export const loadingReducer = (state: ILoadingState, action: LoadingAction): ILo
                 const { route, ref } = item;
                 state[route].stepRef = ref;
             });
-            return state;
+            return { ...state };
         }
         case 'RESET_PAGE_DATA': {
             const { route, defaultData } = action.payload;

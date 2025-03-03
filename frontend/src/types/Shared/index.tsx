@@ -173,7 +173,11 @@ export type LoadingAction =
     | { type: 'SET_LOADING_DONE_ROUTE'; route: string }
     | {
           type: 'REGISTER_STEP_REF';
-          payload: { route: string; ref: RefObject<StepHandle> };
+          payload: {
+              route: string;
+              ref: RefObject<StepHandle>;
+              defaultData?: Omit<ILoadingState[string], 'stepRef'>;
+          };
       }
     | {
           type: 'REGISTER_STEP_REF_MULTIPLE';

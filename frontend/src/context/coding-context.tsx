@@ -268,7 +268,37 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         ]
     );
 
-    useLoadingSteps(loadingStateInitialization);
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[
+            `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`
+        ]?.stepRef
+    );
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[
+            `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+        ]?.stepRef
+    );
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[
+            `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`
+        ]?.stepRef
+    );
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[`/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`]?.stepRef
+    );
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`]?.stepRef
+    );
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`]
+            ?.stepRef
+    );
 
     const updateContext = (updates: Partial<ICodingContext>) => {
         console.log('Updates:', updates);

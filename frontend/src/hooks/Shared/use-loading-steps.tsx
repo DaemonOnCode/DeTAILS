@@ -1,8 +1,14 @@
-import { Dispatch, useEffect } from 'react';
-import { SetState } from '../../types/Coding/shared';
+import { useRef, useEffect, RefObject, useImperativeHandle, Dispatch } from 'react';
 import { useLoadingContext } from '../../context/loading-context';
-
+import { StepHandle } from '../../types/Shared';
+import { SetState } from '../../types/Coding/shared';
 const { ipcRenderer } = window.require('electron');
+
+export interface LoadingHandlerRef {
+    resetStep: (currentPath: string) => void;
+    checkDataExistence: (currentPath: string) => boolean;
+    downloadData: (currentPath: string) => Promise<void>;
+}
 
 export type LoadingStateInitialization = Record<
     string,
@@ -17,105 +23,71 @@ export type LoadingStateInitialization = Record<
     }
 >;
 
-export function useLoadingSteps(loadingStateInitialization: LoadingStateInitialization) {
+export function useLoadingSteps(
+    loadingStateInitialization: LoadingStateInitialization,
+    pathRef: RefObject<StepHandle>
+) {
     const { loadingState } = useLoadingContext();
-    useEffect(() => {
-        // Loop through *all* routes in your loadingStateInitialization
-        for (const [routeKey, routeConfig] of Object.entries(loadingStateInitialization)) {
-            console.log('useLoadingSteps – Setting up route:', routeKey);
-            const routeState = loadingState[routeKey];
-            console.log('useLoadingSteps – routeState:', routeState);
-            if (!routeState?.stepRef?.current) {
-                console.log('No stepRef.current, skipping', routeKey);
-                continue;
-            }
 
-            const stepRef = routeState.stepRef.current;
+    // const handlerRef = useRef<LoadingHandlerRef>({
+    //     resetStep: () => {},
+    //     checkDataExistence: () => false,
+    //     downloadData: async () => {}
+    // });
 
-            /**
-             * Reset only the states belonging to this specific route.
-             */
-            stepRef.resetStep = (currentPath: string) => {
+    useImperativeHandle(
+        pathRef,
+        () => ({
+            resetStep: (currentPath: string) => {
                 console.log('Resetting states for path:', currentPath);
-                loadingStateInitialization[currentPath]?.relatedStates.forEach(
-                    ({ state, func, name, initValue }) => {
-                        if (name.startsWith('set')) {
-                            // We treat this as a standard setState
-                            const getDefaultValue = (val: unknown) => {
-                                if (Array.isArray(val)) return [];
-                                if (typeof val === 'string') return '';
-                                if (typeof val === 'number') return 0;
-                                return {};
-                            };
-
-                            if (initValue !== undefined) {
-                                (func as SetState<any>)(initValue);
-                            } else {
-                                (func as SetState<any>)(getDefaultValue(state));
-                            }
-                        } else {
-                            // Otherwise, assume it's a reducer dispatch
-                            (func as Dispatch<any>)({ type: 'RESET' });
-                        }
+                const config = loadingStateInitialization[currentPath];
+                if (!config) {
+                    console.warn('No config found for path:', currentPath);
+                    return;
+                }
+                config.relatedStates.forEach(({ state, func, name, initValue }: any) => {
+                    if (name.startsWith('set')) {
+                        const getDefaultValue = (val: unknown) => {
+                            if (Array.isArray(val)) return [];
+                            if (typeof val === 'string') return '';
+                            if (typeof val === 'number') return 0;
+                            return {};
+                        };
+                        func(initValue !== undefined ? initValue : getDefaultValue(state));
+                    } else {
+                        func({ type: 'RESET' });
                     }
-                );
-            };
+                });
+            },
 
-            /**
-             * Check if any data for this route's related states actually exists.
-             */
-            stepRef.checkDataExistence = (currentPath: string) => {
-                console.log(
-                    'Checking data existence for path:',
-                    currentPath,
-                    loadingStateInitialization[currentPath]
-                );
+            checkDataExistence: (currentPath: string) => {
+                console.log('Checking data existence for path:', currentPath);
+                const config = loadingStateInitialization[currentPath];
+                if (!config) return false;
+                return config.relatedStates.some(({ state }: any) => {
+                    if (Array.isArray(state)) return state.length > 0;
+                    if (typeof state === 'string') return state.trim() !== '';
+                    if (typeof state === 'number') return state !== 0;
+                    if (state && typeof state === 'object') return Object.keys(state).length > 0;
+                    return false;
+                });
+            },
 
-                return loadingStateInitialization[currentPath]?.relatedStates.some(
-                    ({ state, name }) => {
-                        console.log(
-                            'Checking data existence for state:',
-                            name,
-                            'in route:',
-                            routeKey
-                        );
-                        if (Array.isArray(state)) return state.length > 0;
-                        if (typeof state === 'string') return state.trim() !== '';
-                        if (typeof state === 'number') return state !== 0;
-                        if (state && typeof state === 'object') {
-                            return Object.keys(state).length > 0;
-                        }
-                        return false;
-                    }
-                );
-            };
-
-            /**
-             * Download data (if needed) for this route.
-             */
-            stepRef.downloadData = async (currentPath: string) => {
-                console.log('downloadData for path:', currentPath);
-                // Only do it if both the route’s loadingState and config say we have downloadData
+            downloadData: async (currentPath: string) => {
+                console.log('Downloading data for path:', currentPath);
                 if (
-                    routeState.downloadData &&
-                    loadingStateInitialization[currentPath].downloadData
+                    loadingState[currentPath]?.downloadData &&
+                    loadingStateInitialization[currentPath]?.downloadData
                 ) {
                     const { data, name, condition } =
                         loadingStateInitialization[currentPath].downloadData!;
-                    // Download if data is non-empty and condition is not false
                     if (data.length > 0 && condition !== false) {
-                        await ipcRenderer.invoke('save-csv', {
-                            data,
-                            fileName: name
-                        });
+                        await ipcRenderer.invoke('save-csv', { data, fileName: name });
                         console.log(`Data downloaded for route: ${currentPath}`);
                     }
                 }
-            };
-        }
-    }, [
-        ...Object.values(loadingStateInitialization).flatMap((config) =>
-            config.relatedStates.map((item) => item.state)
-        )
-    ]);
+            }
+        }),
+        [loadingStateInitialization]
+    );
 }

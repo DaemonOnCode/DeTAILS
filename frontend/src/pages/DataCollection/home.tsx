@@ -103,7 +103,7 @@ const HomePage = () => {
                     </div>
 
                     {/* You can uncomment and add more cards as needed */}
-                    {/*
+
                     <Card
                         title="Interview Transcripts"
                         description="Retrieve interview transcripts from folder."
@@ -111,7 +111,7 @@ const HomePage = () => {
                         buttonColor="bg-blue-500 hover:bg-blue-600"
                         onButtonClick={handleInterviewImport}
                     />
-
+                    {/*
                     <Card
                         title="Local Sources"
                         description="Import datasets created outside of this toolkit. The CSV files must be encoded using UTF-8."
