@@ -67,9 +67,6 @@ const LeftPanel: FC<LeftPanelProps> = ({
             REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH,
             {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify({ post_ids: postIds, dataset_id: datasetId })
             }
         );

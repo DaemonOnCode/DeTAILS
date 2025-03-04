@@ -26,24 +26,28 @@ export const useApi = (): UseApiResult => {
             options: RequestInit & { rawResponse?: boolean } = {},
             customAbortController: AbortController | null = null
         ): Promise<FetchResponse<T>> => {
-            // Extract rawResponse flag and the remaining options.
             const { rawResponse, ...restOptions } = options;
-            // Use the provided AbortController or create a new one.
             const controller = customAbortController || new AbortController();
             const url = getServerUrl(route);
 
-            // Merge default headers with extra headers from settings and any provided options.
+            // Merge default headers with any provided headers.
             const defaultHeaders: Record<string, string> = {
                 'Content-Type': 'application/json',
                 'X-App-ID': settings.app.id
             };
 
+            // If the body is a FormData instance, do not set the Content-Type header.
+            const isFormData = restOptions.body instanceof FormData;
+            const mergedHeaders = isFormData
+                ? {
+                      ...((restOptions.headers as Record<string, string>) || {}),
+                      'X-App-ID': settings.app.id
+                  }
+                : { ...defaultHeaders, ...(restOptions.headers || {}) };
+
             const mergedOptions: RequestInit = {
                 ...restOptions,
-                headers: {
-                    ...defaultHeaders,
-                    ...(restOptions.headers || {})
-                },
+                headers: mergedHeaders,
                 signal: controller.signal
             };
 
@@ -58,7 +62,6 @@ export const useApi = (): UseApiResult => {
                     };
                 }
 
-                // If rawResponse is true, return the response object as data.
                 if (rawResponse) {
                     return { data: response as any, abort: controller.abort.bind(controller) };
                 }

@@ -52,9 +52,6 @@ const CodebookRefinement = () => {
 
         const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REFINE_CODEBOOK), {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
                 dataset_id: datasetId,
                 model: MODEL_LIST.GEMINI_FLASH,

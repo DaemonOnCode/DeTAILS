@@ -185,9 +185,6 @@ const ThemesPage = () => {
             };
         }>(REMOTE_SERVER_ROUTES.THEME_GENERATION, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
                 dataset_id: datasetId,
                 model: MODEL_LIST.GEMINI_FLASH,

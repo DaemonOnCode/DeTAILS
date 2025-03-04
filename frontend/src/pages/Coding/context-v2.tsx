@@ -177,8 +177,7 @@ const ContextPage = () => {
             }[];
         }>(REMOTE_SERVER_ROUTES.BUILD_CONTEXT, {
             method: 'POST',
-            body: formData,
-            headers: { 'Content-Type': '' } // override so FormData sets its own header
+            body: formData
         });
 
         if (error) {

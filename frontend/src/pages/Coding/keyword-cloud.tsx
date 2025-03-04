@@ -144,9 +144,6 @@ const KeywordCloudPage: FC = () => {
             }[];
         }>(REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
                 model: MODEL_LIST.GEMINI_FLASH,
                 mainTopic,

@@ -38,9 +38,6 @@ const ModelInfo = () => {
                 REMOTE_SERVER_ROUTES.GET_MODEL_METADATA,
                 {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify({
                         model_id: activeModelId,
                         dataset_id: datasetId ?? '',

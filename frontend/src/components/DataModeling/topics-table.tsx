@@ -24,9 +24,6 @@ const TopicsTable = () => {
                 REMOTE_SERVER_ROUTES.GET_MODEL_SAMPLES,
                 {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify({
                         model_id: activeModelId,
                         workspace_id: currentWorkspace?.id

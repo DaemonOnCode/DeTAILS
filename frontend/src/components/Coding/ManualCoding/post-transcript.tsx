@@ -102,7 +102,6 @@ const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
         setLoading(true);
         const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ postId, datasetId })
         });
 
