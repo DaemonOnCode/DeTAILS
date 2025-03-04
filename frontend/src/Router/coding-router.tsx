@@ -9,6 +9,7 @@ import {
     FlashcardsLoaderPage,
     ThemeGenerationLoaderPage,
     ThemeLoaderPage,
+    TorrentLoaderPage,
     WordCloudLoaderPage
 } from '../pages/Coding/Loader';
 import {
@@ -159,6 +160,10 @@ export const CodingRouter: RouteObject[] = [
             {
                 path: LOADER_ROUTES.DATA_LOADING_LOADER,
                 element: <DataLoadingLoaderPage />
+            },
+            {
+                path: LOADER_ROUTES.TORRENT_DATA_LOADER,
+                element: <TorrentLoaderPage />
             }
         ]
     }

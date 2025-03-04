@@ -61,8 +61,8 @@ const LoadReddit: FC<{
             run: async () => {
                 const inputSplits = modeInput.split(':');
                 if (inputSplits.length && inputSplits[0] === 'reddit') {
-                    navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
                     if (inputSplits[1] === 'torrent') {
+                        navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
                         if (selectedFilesRef.current?.getFiles) {
                             console.log(selectedFilesRef.current.getFiles(), 'current selected');
                             await handleLoadTorrentFromFiles(selectedFilesRef.current.getFiles());
@@ -70,6 +70,7 @@ const LoadReddit: FC<{
                             await handleLoadTorrent();
                         }
                     } else {
+                        navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
                         await loadFolderData(true, true);
                     }
                 }

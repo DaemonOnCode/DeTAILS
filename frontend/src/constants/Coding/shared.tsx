@@ -43,7 +43,8 @@ export enum LOADER_ROUTES {
     DEDUCTIVE_CODING_LOADER = 'deductive-coding-loader',
     THEME_GENERATION_LOADER = 'theme-generation-loader',
     DETAILS_LOADER = 'details-loader',
-    DATA_LOADING_LOADER = 'data-loading-loader'
+    DATA_LOADING_LOADER = 'data-loading-loader',
+    TORRENT_DATA_LOADER = 'torrent-data-loader'
 }
 
 export const DB_PATH = '../executables/test.db';

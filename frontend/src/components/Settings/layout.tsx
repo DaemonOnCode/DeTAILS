@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
+    AiSettingsPage,
     DevtoolsSettingsPage,
     GeneralSettingsPage,
     TransmissionSettings,
@@ -33,6 +34,7 @@ const SettingsLayout = ({
     const tabs = {
         general: <GeneralSettingsPage />,
         workspace: <WorkspaceSettingsPage />,
+        ai: <AiSettingsPage />,
         devtools: <DevtoolsSettingsPage />,
         tutorials: <TutorialSettingsPage />,
         transmission: <TransmissionSettings />
@@ -97,7 +99,7 @@ const SettingsLayout = ({
                                     className={`px-4 py-2 w-full text-left focus:outline-none capitalize ${
                                         currentTab === tab ? 'bg-gray-200' : ''
                                     }`}>
-                                    {tab}
+                                    {tab === 'ai' ? 'AI' : tab}
                                 </button>
                             </li>
                         ))}
