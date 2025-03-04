@@ -104,13 +104,13 @@ const HomePage = () => {
 
                     {/* You can uncomment and add more cards as needed */}
 
-                    <Card
+                    {/* <Card
                         title="Interview Transcripts"
                         description="Retrieve interview transcripts from folder."
                         buttonText="Retrieve Interviews"
                         buttonColor="bg-blue-500 hover:bg-blue-600"
                         onButtonClick={handleInterviewImport}
-                    />
+                    /> */}
                     {/*
                     <Card
                         title="Local Sources"

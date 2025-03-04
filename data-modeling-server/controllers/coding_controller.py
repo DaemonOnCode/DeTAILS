@@ -273,7 +273,8 @@ async def process_llm_task(
             )
             if retries == 0:
                 await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
-                raise e
+                # raise e
+                extracted_data = []
 
     return extracted_data
 

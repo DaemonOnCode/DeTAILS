@@ -7,6 +7,7 @@ import { downloadCodebook } from '../../../utility/codebook-downloader';
 import LeftPanel from './left-panel';
 import ReviewToggle from './review-toggle';
 import ValidationTable from './validation-table';
+import { DetailsLLMIcon } from '../../Shared/Icons';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
@@ -181,9 +182,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         // Add an id for tutorial targeting at the root container.
         <div
             id="unified-coding-page"
-            className="h-full flex flex-col -m-6 overflow-hidden responsive-text">
+            className="h-full flex flex-col -mx-6 overflow-hidden responsive-text">
             <div className="flex flex-1 overflow-y-auto">
-                <div className="w-1/4 border-r flex-1 overflow-auto p-6 pb-0">
+                <div className="w-1/4 border-r flex-1 overflow-auto px-6 pb-0">
                     <LeftPanel
                         postIds={filteredPostIds}
                         codes={uniqueCodes}
@@ -198,7 +199,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 </div>
                 <div className="w-3/4 flex flex-col h-full">
                     {/* Add an id to the controls container for tutorial targeting */}
-                    <div id="coding-controls" className="flex justify-evenly items-center p-6">
+                    <div
+                        id="coding-controls"
+                        className="flex justify-evenly items-center px-6 py-4">
                         {download && (
                             <button
                                 onClick={() => downloadCodebook(filteredData)}
@@ -223,10 +226,11 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                         />
                     </div>
                     {showRerunCoding && (
-                        <div className="flex justify-center p-6">
+                        <div className="flex justify-end py-4 px-6">
                             <button
                                 onClick={handleReRunCoding}
-                                className="px-4 py-2 bg-green-500 text-white rounded">
+                                className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
+                                <DetailsLLMIcon className="h-6 w-6" />
                                 {coderType !== 'LLM'
                                     ? 'Remake complete codebook'
                                     : 'Redo Deductive Coding'}
@@ -235,7 +239,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                     )}
                 </div>
                 {showFeedbackModal && (
-                    <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50">
+                    <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
                         <div className="bg-white p-6 rounded shadow-lg w-80">
                             <h2 className="text-xl font-bold mb-4">Provide Feedback</h2>
                             <textarea

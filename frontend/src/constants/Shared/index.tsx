@@ -19,15 +19,15 @@ export enum ROUTES {
 }
 
 export enum MODEL_LIST {
-    LLAMA_3_2 = 'ollama-llama3.2:3b',
-    LLAMA_3 = 'ollama-llama3',
-    LLAMA_3_3 = 'ollama-llama3.3',
-    NU_EXTRACT_1_5 = 'ollama-hf.co/DevQuasar/numind.NuExtract-v1.5-GGUF:Q4_K_M',
-    DEEPSEEK_R1_32b = 'ollama-deepseek-r1:32b',
-    DEEPSEEK_R1_70b_fp16 = 'ollama-deepseek-r1:70b-llama-distill-fp16',
+    // LLAMA_3_2 = 'ollama-llama3.2:3b',
+    // LLAMA_3 = 'ollama-llama3',
+    // LLAMA_3_3 = 'ollama-llama3.3',
+    // NU_EXTRACT_1_5 = 'ollama-hf.co/DevQuasar/numind.NuExtract-v1.5-GGUF:Q4_K_M',
+    // DEEPSEEK_R1_32b = 'ollama-deepseek-r1:32b',
+    // DEEPSEEK_R1_70b_fp16 = 'ollama-deepseek-r1:70b-llama-distill-fp16',
     GEMINI_FLASH_THINKING = 'gemini-2.0-flash-thinking-exp-01-21',
     GEMINI_FLASH = 'gemini-2.0-flash-001',
-    GEMINI = 'gemini-exp-1206'
+    GEMINI_PRO = 'gemini-2.0-pro-exp-02-05'
 }
 
 export const LOGGING = false;

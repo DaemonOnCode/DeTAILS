@@ -113,6 +113,7 @@ const CodebookCreation = () => {
             type: 'SET_LOADING_DONE_ROUTE',
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
         });
+        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`);
     };
 
     const handleNextClick = async () => {
@@ -241,7 +242,7 @@ const CodebookCreation = () => {
                     nextPage={`${ROUTES.DEDUCTIVE_CODING}`}
                     isReady={true}
                     onNextClick={handleNextClick}
-                    autoNavigateToNext={false}
+                    autoNavigateToNext={!settings.general.manualCoding}
                 />
             </div>
         </TutorialWrapper>

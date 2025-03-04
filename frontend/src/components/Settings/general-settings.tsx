@@ -12,6 +12,22 @@ const GeneralSettings = () => {
     return (
         <div>
             <h2 className="text-2xl font-bold mb-4">General Settings</h2>
+            <div className="mb-4">
+                <label className="flex items-center space-x-2">
+                    <input
+                        type="checkbox"
+                        checked={general.manualCoding}
+                        onChange={(e) =>
+                            updateSettings('general', {
+                                ...general,
+                                manualCoding: e.target.checked
+                            })
+                        }
+                        className="form-checkbox"
+                    />
+                    <span>Show Manual coding</span>
+                </label>
+            </div>
             {/* <div className="mb-4">
                 <label className="mr-2">Theme:</label>
                 <select

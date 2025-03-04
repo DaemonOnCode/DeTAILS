@@ -146,6 +146,7 @@ const DeductiveCodingPage = () => {
             type: 'SET_LOADING_DONE_ROUTE',
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
         });
+        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`);
     };
 
     const handleNextClick = async () => {

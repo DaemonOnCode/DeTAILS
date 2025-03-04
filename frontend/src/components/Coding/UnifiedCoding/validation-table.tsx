@@ -232,7 +232,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                         key={row.id}
                                         className={`transition-all duration-200 ${!review ? 'hover:bg-blue-200 cursor-pencil' : 'hover:bg-gray-100'} ${editIndex === row.id ? 'bg-yellow-100' : ''}`}
                                         onClick={() => !review && onViewTranscript(row.postId)}>
-                                        <td className="border border-gray-300 p-2 max-w-48">
+                                        <td className="border border-gray-300 p-2 max-w-48 ">
                                             {editIndex === row.id ? (
                                                 <input
                                                     type="text"
@@ -254,7 +254,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             )}
                                         </td>
 
-                                        <td className="border border-gray-300 p-2 max-w-64">
+                                        <td className="border border-gray-300 p-2 max-w-64 break-all">
                                             {editIndex === row.id ? (
                                                 <input
                                                     type="text"
@@ -276,7 +276,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             )}
                                         </td>
 
-                                        <td className="border border-gray-300 p-2 max-w-64">
+                                        <td className="border border-gray-300 p-2 max-w-64 break-all">
                                             {editIndex === row.id ? (
                                                 <input
                                                     type="text"

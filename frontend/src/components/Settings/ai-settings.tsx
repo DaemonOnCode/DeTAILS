@@ -18,11 +18,17 @@ const AISettings = () => {
         setSelectedModel(ai?.model || MODEL_LIST.GEMINI_FLASH_THINKING);
     }, [ai]);
 
+    useEffect(() => {
+        console.log('Selected model:', selectedModel);
+    }, [selectedModel]);
+
     const handleCredentialsPathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        // await updateSettings('ai', { googleCredentialsPath: e.target.value, model: selectedModel });
         setGoogleCredentialsPath(e.target.value);
     };
 
-    const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const handleModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        await updateSettings('ai', { googleCredentialsPath, model: e.target.value });
         setSelectedModel(e.target.value);
     };
 
@@ -43,6 +49,11 @@ const AISettings = () => {
                     placeholder="Enter path to Google credentials file"
                 />
             </div>
+            <button
+                onClick={handleUpdateAISettings}
+                className="px-4 py-2 mb-4 bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none">
+                Update Google Credentials path
+            </button>
             <div className="mb-4">
                 <label className="block mb-2 font-medium">Select Model</label>
                 <select
@@ -56,11 +67,6 @@ const AISettings = () => {
                     ))}
                 </select>
             </div>
-            <button
-                onClick={handleUpdateAISettings}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none">
-                Update AI Settings
-            </button>
         </div>
     );
 };

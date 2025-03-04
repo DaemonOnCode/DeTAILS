@@ -3,6 +3,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { generateRandomText } from '../../../utility/random-text-generator';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../constants/Coding/shared';
+import { useSettings } from '../../../context/settings-context';
 
 // Highlight colors
 const highlightColors = [
@@ -25,6 +26,8 @@ const DeductiveCoding = () => {
     const [resetting, setResetting] = useState(false);
 
     const [isPending, startTransition] = useTransition();
+
+    const { settings } = useSettings();
 
     useEffect(() => {
         const words = textLine.split(' ');
@@ -99,13 +102,15 @@ const DeductiveCoding = () => {
                 </div>
             </div>
 
-            <div className="mt-4 self-end">
-                <button
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    onClick={() => navigate(`/coding/${ROUTES.MANUAL_CODING}`)}>
-                    Go to Manual Coding →
-                </button>
-            </div>
+            {settings.general.manualCoding && (
+                <div className="mt-4 self-end">
+                    <button
+                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        onClick={() => navigate(`/coding/${ROUTES.MANUAL_CODING}`)}>
+                        Go to Manual Coding →
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

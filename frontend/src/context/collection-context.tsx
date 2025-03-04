@@ -211,12 +211,12 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
                 },
             [`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_VIEWER}`]: {
                 relatedStates: [
-                    {
-                        state: datasetId,
-                        func: setDatasetId,
-                        name: 'setDatasetId',
-                        initValue: v4()
-                    },
+                    // {
+                    //     state: datasetId,
+                    //     func: setDatasetId,
+                    //     name: 'setDatasetId',
+                    //     initValue: v4()
+                    // },
                     {
                         state: selectedData,
                         func: setSelectedData,
@@ -230,7 +230,7 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
                 ]
             }
         }),
-        [modeInput, selectedData, dataFilters, datasetId]
+        [modeInput, selectedData, dataFilters]
     );
 
     useLoadingSteps(
@@ -291,6 +291,12 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         }
         if (updates.selectedData !== undefined) {
             setSelectedData(updates.selectedData);
+        }
+
+        console.log('Data filters:', updates.dataFilters);
+
+        if (updates.dataFilters !== undefined) {
+            setDataFilters(updates.dataFilters);
         }
     };
 

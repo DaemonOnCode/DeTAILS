@@ -15,6 +15,7 @@ from constants import ACADEMIC_TORRENT_MAGNET, DATASETS_DIR, UPLOAD_DIR, TRANSMI
 from database import DatasetsRepository, CommentsRepository, PostsRepository
 from decorators.execution_time_logger import log_execution_time
 from models import Dataset, Comment, Post
+from routes.websocket_routes import ConnectionManager
 
 
 
@@ -236,7 +237,11 @@ async def run_command_async(command: str) -> str:
     return stdout.decode()
 
 
-async def process_reddit_data(subreddit: str, zst_filename: str):
+async def process_reddit_data(        
+        subreddit: str, zst_filename: str,
+    manager: ConnectionManager = None,
+    app_id: str = ""
+):
     intermediate_filename = "output.jsonl"
     regex = r'(?s)\{.*?"subreddit":\s*"' + subreddit + r'".*?\}'
     command = (
@@ -245,6 +250,8 @@ async def process_reddit_data(subreddit: str, zst_filename: str):
     )
     print("Running command:")
     print(command)
+    await manager.send_message(app_id, f"Extracting {subreddit} data from {zst_filename}...")
+    
     await run_command_async(command)
 
     base = os.path.splitext(os.path.basename(zst_filename))[0]
@@ -267,6 +274,7 @@ async def process_reddit_data(subreddit: str, zst_filename: str):
                 print("Skipping invalid JSON line.")
         outfile.write("\n]\n")
     print(f"Processed data saved to {output_filename}")
+    await manager.send_message(app_id, f"JSON extracted: {output_filename}")
     return output_filename
 
 
@@ -302,10 +310,18 @@ def generate_month_range(start_month: str, end_month: str):
     return wanted_range
 
 
-async def wait_for_metadata(c: Client, torrent: Torrent) -> Torrent:
+async def wait_for_metadata(
+        c: Client, torrent: Torrent ,
+    manager: ConnectionManager = None,
+    app_id: str = ""
+) -> Torrent:
     c.start_torrent(torrent.id)
     while torrent.metadata_percent_complete < 1.0:
         print(f"Metadata progress: {torrent.metadata_percent_complete * 100:.2f}%")
+        await manager.send_message(
+                app_id,
+                f"Metadata progress: {torrent.metadata_percent_complete * 100:.2f}%"
+            )
         await asyncio.sleep(0.5)
         torrent = c.get_torrent(torrent.id)
     print("Metadata download complete. Stopping torrent.")
@@ -313,13 +329,20 @@ async def wait_for_metadata(c: Client, torrent: Torrent) -> Torrent:
     return torrent
 
 
-async def verify_torrent_with_retry(c: Client, torrent: Torrent, torrent_url: str, download_dir: str) -> Torrent:
+async def verify_torrent_with_retry(
+        c: Client, torrent: Torrent, 
+        torrent_url: str, download_dir: str,
+    manager: ConnectionManager = None,
+    app_id: str = ""
+) -> Torrent:
     c.verify_torrent(torrent.id)
     while True:
         torrent = c.get_torrent(torrent.id)
         status = torrent.status
         if hasattr(torrent, "error") and torrent.error != 0:
             print(f"Verification error encountered: {torrent.error_string}. Re-adding torrent...")
+            error_msg = torrent.error_string
+            await manager.send_message(app_id, f"Verification error: {error_msg}. Re-adding torrent...")
             c.remove_torrent(torrent.id)
             await asyncio.sleep(10)
             torrent = c.add_torrent(torrent_url, download_dir=download_dir)
@@ -328,8 +351,10 @@ async def verify_torrent_with_retry(c: Client, torrent: Torrent, torrent_url: st
         if status not in ["check pending", "checking"]:
             break
         print(f"Verification in progress: {status}")
+        await manager.send_message(app_id, f"Verification in progress: {status}")
         await asyncio.sleep(5)
     print("Torrent verified. Starting download.")
+    await manager.send_message(app_id, "Torrent verified, proceeding to download...")
     return torrent
 
 
@@ -347,10 +372,20 @@ def get_files_to_process(torrent_files: list[TorrentFile], wanted_range: list, s
     return files_to_process
 
 
-async def process_single_file(c: Client, torrent: Torrent, file: TorrentFile, download_dir: str, subreddit: str):
+async def process_single_file(
+        c: Client, 
+        torrent: Torrent, 
+        file: TorrentFile, 
+        download_dir: str, 
+        subreddit: str,
+    manager: ConnectionManager = None,
+    app_id: str = ""
+):
     file_id = file.id
     file_name = file.name
     print(f"\n--- Processing file: {file_name} (ID: {file_id}) ---")
+
+    await manager.send_message(app_id, f"Processing file: {file_name} ...")
 
     torrent_files = c.get_torrent(torrent.id).get_files()
     all_file_ids = [f.id for f in torrent_files]
@@ -362,12 +397,31 @@ async def process_single_file(c: Client, torrent: Torrent, file: TorrentFile, do
 
     while True:
         torrent = c.get_torrent(torrent.id)
+
+        if hasattr(torrent, "error") and torrent.error != 0:
+            err_msg = f"Transmission error: {torrent.error_string}"
+            print(err_msg)
+            await manager.send_message(app_id, f"ERROR downloading {file_name}: {torrent.error_string}")
+            raise Exception(err_msg)
+        
         file_status = next((f for f in torrent.get_files() if f.id == file_id), None)
         if file_status and file_status.completed >= file_status.size:
             print(f"File {file_name} has been fully downloaded.")
+            await manager.send_message(
+                    app_id,
+                    f"File {file_name} fully downloaded ({file_status.completed}/{file_status.size} bytes)."
+                )
             break
         else:
-            print(f"Waiting for file {file_name} to complete... ({file_status.completed}/{file_status.size} bytes)")
+            if file_status and file_status.size != 0:
+                pct_done = (file_status.completed / file_status.size) * 100
+                print(f"Waiting for file {file_name}... {pct_done:.2f}% done")
+                await manager.send_message(
+                    app_id,
+                    f"Downloading {file_name}: {pct_done:.2f}% ({file_status.completed}/{file_status.size} bytes)"
+                )
+            else:
+                print(f"Waiting for file {file_name} to start...")
             await asyncio.sleep(10)
 
     file_path = os.path.join(download_dir, file_name)
@@ -375,6 +429,10 @@ async def process_single_file(c: Client, torrent: Torrent, file: TorrentFile, do
 
     while not os.path.exists(file_path_zst):
         print(f"Waiting for file {file_path_zst} to appear on disk (conversion in progress)...")
+        await manager.send_message(
+                app_id,
+                f"Waiting for file {file_path_zst} to appear on disk..."
+            )
         await asyncio.sleep(5)
 
     output_file = await process_reddit_data(subreddit, file_path_zst)
@@ -438,7 +496,9 @@ async def get_reddit_data_from_torrent(
     subreddit: str,
     start_month: str = "2005-06",
     end_month: str = "2023-12",
-    submissions_only: bool = True
+    submissions_only: bool = True,
+    manager: ConnectionManager = None,
+    app_id: str = ""
 ):
     TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = os.path.abspath(TRANSMISSION_DOWNLOAD_DIR)
     torrent_hash_string = ACADEMIC_TORRENT_MAGNET.split("btih:")[1].split("&")[0]
@@ -450,18 +510,20 @@ async def get_reddit_data_from_torrent(
         c.add_torrent(ACADEMIC_TORRENT_MAGNET, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
     current_torrent = c.get_torrent(torrent_hash_string)
 
-    current_torrent = await wait_for_metadata(c, current_torrent)
+    await manager.send_message(app_id, f"Torrent added for subreddit '{subreddit}' with ID: {current_torrent.id}")
+
+    current_torrent = await wait_for_metadata(c, current_torrent, manager=manager, app_id=app_id)
     torrent_files = current_torrent.get_files()
     wanted_range = generate_month_range(start_month, end_month)
     print(f"Identified files for processing: {wanted_range}")
-    files_to_process = get_files_to_process(torrent_files, wanted_range, submissions_only)
+    files_to_process = get_files_to_process(torrent_files, wanted_range, submissions_only, manager=manager, app_id=app_id)
     print(f"Files to process: {files_to_process}")
 
-    current_torrent = await verify_torrent_with_retry(c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+    current_torrent = await verify_torrent_with_retry(c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, manager=manager, app_id=app_id)
 
     output_files = []
     for file in files_to_process:
-        output_file = await process_single_file(c, current_torrent, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit)
+        output_file = await process_single_file(c, current_torrent, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit, manager=manager, app_id=app_id)
         output_files.append(output_file)
     print("All wanted files have been processed.")
     return output_files

@@ -11,6 +11,7 @@ export interface ISettingsConfig {
     general: {
         theme: 'light' | 'dark';
         language: string;
+        manualCoding: boolean;
     };
     workspace: {
         layout: 'grid' | 'list';

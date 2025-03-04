@@ -145,7 +145,7 @@ def load_state(data):
 
     # Convert JSON strings back to Python objects
     json_fields = [
-        "selected_data", "metadata", "models", "dataset_filters", "context_files", "keywords", "selected_keywords",
+        "selected_data", "metadata", "models", "data_filters", "context_files", "keywords", "selected_keywords",
         "keyword_table", "references_data", "themes", "research_questions",
         "sampled_post_responses", "sampled_post_with_themes_responses",
         "unseen_post_response", "unplaced_codes", "sampled_post_ids", "unseen_post_ids", "conflicting_responses"

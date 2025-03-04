@@ -4,7 +4,8 @@
     },
     "general": {
         "theme": "light",
-        "language": "en"
+        "language": "en",
+        "manualCoding": false
     },
     "workspace": {
         "layout": "grid"

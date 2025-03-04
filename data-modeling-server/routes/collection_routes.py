@@ -5,13 +5,15 @@ import os
 import shutil
 from typing import Dict
 from uuid import uuid4
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Form, Body
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Form, Body
 from controllers.collection_controller import create_dataset, delete_dataset, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, upload_dataset_file
+from headers.app_id import get_app_id
 from models.collection_models import FilterRedditPostsByDeleted, ParseDatasetRequest, ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
 from constants import DATASETS_DIR
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
+from routes.websocket_routes import manager
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_app_id)])
 
 
 @router.post("/datasets")
@@ -74,41 +76,80 @@ async def filter_posts_by_deleted_endpoint(
 
 @router.post("/download-reddit-data-from-torrent")
 async def download_reddit_from_torrent_endpoint(
-    request: ParseRedditFromTorrentRequest,
+    request: Request,
+    request_body: ParseRedditFromTorrentRequest,
     transmission_manager: GlobalTransmissionDaemonManager = Depends(get_transmission_manager)
 ):
+    app_id = request.headers.get("x-app-id")
+
     async with transmission_manager:
-        print(request.start_date, request.end_date)
-        start_date = datetime.strptime(request.start_date, "%Y-%m-%d")
-        end_date = datetime.strptime(request.end_date, "%Y-%m-%d")
+        await manager.send_message(app_id, f"Starting download for subreddit '{request_body.subreddit}' ...")
+
+        print(request_body.start_date, request_body.end_date)
+        start_date = datetime.strptime(request_body.start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(request_body.end_date, "%Y-%m-%d")
 
         start_month = start_date.strftime("%Y-%m")
         end_month = end_date.strftime("%Y-%m")
-        output_files = await get_reddit_data_from_torrent(request.subreddit, start_month, end_month, request.submissions_only)
-        print(output_files)
 
-        new_folder_name = f"academic-torrent-{request.subreddit}"
-        target_folder = os.path.join(DATASETS_DIR, new_folder_name)
-        if not os.path.exists(target_folder):
-            os.makedirs(target_folder)
-            print(f"Created folder: {target_folder}")
+        try:
+            await manager.send_message(
+                app_id,
+                f"Fetching torrent data for months {start_month} through {end_month}..."
+            )
 
-        for file_path in output_files:
-            if os.path.exists(file_path):
-                file_name = os.path.basename(file_path)
-                link_path = os.path.join(target_folder, file_name)
-                if os.path.lexists(link_path):
-                    os.remove(link_path)
-                os.symlink(os.path.abspath(file_path), link_path)
-                print(f"Created symlink: {link_path} -> {os.path.abspath(file_path)}")
-            else:
-                print(f"File not found: {file_path}")
+            output_files = await get_reddit_data_from_torrent(
+                request_body.subreddit, 
+                start_month, 
+                end_month, 
+                request_body.submissions_only,
+                manager=manager,              
+                app_id=app_id               
+            )
 
-        dataset_id = request.dataset_id
-        if not dataset_id:
-            dataset_id = str(uuid4())
-        
-        parse_reddit_files(dataset_id, target_folder, date_filter={"start_date": start_date, "end_date": end_date})
+            print(output_files)
+            await manager.send_message(app_id, f"Finished downloading {len(output_files)} file(s).")
+
+            new_folder_name = f"academic-torrent-{request_body.subreddit}"
+            target_folder = os.path.join(DATASETS_DIR, new_folder_name)
+            if not os.path.exists(target_folder):
+                os.makedirs(target_folder)
+                print(f"Created folder: {target_folder}")
+                await manager.send_message(app_id, f"Created dataset folder: {target_folder}")
+
+            for file_path in output_files:
+                if os.path.exists(file_path):
+                    file_name = os.path.basename(file_path)
+                    link_path = os.path.join(target_folder, file_name)
+                    if os.path.lexists(link_path):
+                        os.remove(link_path)
+                    os.symlink(os.path.abspath(file_path), link_path)
+                    print(f"Created symlink: {link_path} -> {os.path.abspath(file_path)}")
+                    await manager.send_message(
+                        app_id,
+                        f"Symlink created: {link_path} -> {os.path.abspath(file_path)}"
+                    )
+                else:
+                    print(f"File not found: {file_path}")
+                    await manager.send_message(
+                        app_id,
+                        f"WARNING: File not found on disk, skipping symlink: {file_path}"
+                    )
+
+            dataset_id = request_body.dataset_id
+            if not dataset_id:
+                dataset_id = str(uuid4())
+
+            await manager.send_message(app_id, f"Parsing files into dataset {dataset_id}...")
+
+            parse_reddit_files(dataset_id, target_folder, date_filter={"start_date": start_date, "end_date": end_date})
+
+            await manager.send_message(app_id, "Parsing complete. All steps finished.")
+
+        except Exception as e:
+            err_msg = f"ERROR: {str(e)}"
+            await manager.send_message(app_id, err_msg)
+            raise HTTPException(status_code=500, detail=err_msg)
 
     return {"message": "Reddit data downloaded from torrent."}
     
