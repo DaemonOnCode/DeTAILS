@@ -62,3 +62,13 @@ class RefineCodeRequest(BaseModel):
     post_id: str
     model: str
     dataset_id: str
+
+
+class RemakeCodebookRequest(GenerateInitialCodesRequest):
+    codebook: list
+    feedback: str = ""
+
+
+class RemakeDeductiveCodesRequest(DeductiveCodingRequest):
+    current_codebook: list
+    feedback: str = ""

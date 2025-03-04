@@ -73,21 +73,26 @@ const CodebookCreation = () => {
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
 
-        const { data: results, error } = await fetchData(
-            REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES,
-            {
-                method: 'POST',
-                body: JSON.stringify({
-                    dataset_id: datasetId,
-                    keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
-                    model: settings.ai.model,
-                    main_topic: mainTopic,
-                    additional_info: additionalInfo,
-                    research_questions: researchQuestions,
-                    sampled_post_ids: sampledPostIds ?? []
-                })
-            }
-        );
+        const { data: results, error } = await fetchData(REMOTE_SERVER_ROUTES.REMAKE_CODEBOOK, {
+            method: 'POST',
+            body: JSON.stringify({
+                dataset_id: datasetId,
+                keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
+                model: settings.ai.model,
+                main_topic: mainTopic,
+                additional_info: additionalInfo,
+                research_questions: researchQuestions,
+                sampled_post_ids: sampledPostIds ?? [],
+                codebook: sampledPostResponse.map((response) => ({
+                    post_id: response.postId,
+                    quote: response.quote,
+                    explanation: response.explanation,
+                    code: response.code,
+                    id: response.id,
+                    is_marked: response.isMarked
+                }))
+            })
+        });
 
         if (error) {
             console.error('Error in handleRedoCoding:', error);

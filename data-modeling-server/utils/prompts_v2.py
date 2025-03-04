@@ -465,3 +465,124 @@ Return your output strictly in valid JSON format:
 
 No additional commentary outside the JSON object.
 """
+
+
+class RemakerPrompts:
+    @staticmethod
+    def codebook_remake_prompt(main_topic: str,
+                               additional_info: str,
+                               research_questions: str,
+                               keyword_table: str,
+                               post_transcript: str,
+                               current_codebook: str,
+                               feedback: str):
+        return f"""
+PHASE 3 (Complete Codebook Remake) Requirements:
+
+1. INTEGRATIVE ANALYSIS:
+   - Review all provided data elements from the initial coding phase.
+   - Consider the Main Topic: {main_topic}
+   - Consider the Additional Information: {additional_info}
+   - Address the Research Questions: {research_questions}
+   - Utilize the Keyword Table (JSON): {keyword_table}
+   - Analyze the Post Transcript: {post_transcript}
+
+2. CODEBOOK REMAKE:
+   - Evaluate the CURRENT CODEBOOK: {current_codebook}
+   - Incorporate the OPTIONAL FEEDBACK: {feedback}
+   - Update existing codes, add new codes, or remove redundant codes based on the integrated analysis.
+   - Ensure that both in-vivo (participant language) and conceptual (researcher-generated) codes are maintained.
+   - Employ a dual coding approach:
+       • Semantic: Code the explicit, surface meaning.
+       • Latent: Code the underlying, implicit meaning.
+
+3. OUTPUT FORMAT:
+   - Generate your output strictly in valid JSON format.
+   - Each code entry must include the following fields:
+       • "quote": Extracted phrase from the transcript or codebook.
+       • "explanation": Explanation of how it relates to the code.
+       • "code": Updated or new keyword/code.
+       • "code_type": "semantic" or "latent".
+       • "comparison_notes": Notes on relationships to previous codes and feedback integration.
+       • "data_position": Reference (e.g., line numbers or section identifiers).
+
+Generate your output strictly in valid JSON format as follows:
+
+```json
+{{
+  "codes": [
+    {{
+      "quote": "Exact phrase from the transcript or codebook.",
+      "explanation": "Explanation of the code and its relevance.",
+      "code": "Updated or new keyword/code.",
+      "code_type": "semantic or latent",
+      "comparison_notes": "Notes on relationships to previous codes and feedback integration.",
+      "data_position": "Reference (e.g., line numbers or section identifiers)"
+    }},
+    ...
+  ]
+}}
+```
+
+No additional text outside the JSON.
+"""
+
+    @staticmethod
+    def deductive_codebook_remake_prompt(main_topic: str,
+                                         additional_info: str,
+                                         research_questions: str,
+                                         final_codebook: str,
+                                         current_codebook: str,
+                                         keyword_table: str,
+                                         post_transcript: str,
+                                         feedback: str):
+        return f"""
+PHASE 3 (Deductive Codebook Remake) Requirements:
+
+1. INTEGRATIVE ANALYSIS:
+   - Review all provided data elements from the final deductive coding phase.
+   - Consider the Main Topic: {main_topic}
+   - Consider the Additional Information: {additional_info}
+   - Address the Research Questions: {research_questions}
+   - Utilize the Final Codebook (Structured thematic codes in JSON): {final_codebook}
+   - Evaluate the CURRENT CODEBOOK used in the deductive coding phase: {current_codebook}
+   - Incorporate the Keyword Table (JSON): {keyword_table}
+   - Analyze the Post Transcript: {post_transcript}
+
+2. DEDUCTIVE CODEBOOK REMAKE & FEEDBACK INTEGRATION:
+   - Based on the integrative analysis, update the existing deductive codes.
+   - Incorporate the OPTIONAL FEEDBACK: {feedback}
+   - Adjust codes by updating existing codes, adding new ones, or removing redundant ones.
+   - Ensure that each code satisfies the predefined inclusion/exclusion criteria, aligning with the main topic.
+   - Differentiate clearly between surface (semantic) and underlying (latent) meanings.
+
+3. OUTPUT FORMAT:
+   - Generate your output strictly in valid JSON format.
+   - Each code entry must include the following fields:
+       • "quote": Extracted phrase from the transcript or codebook.
+       • "explanation": Explanation of the code and its relevance.
+       • "code": Updated or new keyword/code.
+       • "code_type": "semantic" or "latent".
+       • "comparison_notes": Notes on relationships to previous codes and how the feedback was applied.
+       • "data_position": Reference (e.g., line numbers or section identifiers)
+
+Generate your output strictly in valid JSON format as follows:
+
+```json
+{{
+  "codes": [
+    {{
+      "quote": "Exact phrase from the transcript or current codebook.",
+      "explanation": "Explanation of the code and its relevance.",
+      "code": "Updated or new keyword/code.",
+      "code_type": "semantic or latent",
+      "comparison_notes": "Notes on relationships to previous codes and feedback integration.",
+      "data_position": "Reference (e.g., line numbers or section identifiers)"
+    }},
+    ...
+  ]
+}}
+```
+
+No additional text outside the JSON.
+"""

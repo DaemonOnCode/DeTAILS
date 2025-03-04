@@ -40,6 +40,8 @@ const config = {
             GENERATE_CODES_WITH_THEMES: 'coding/generate-codes-with-themes',
             GENERATE_CODES_WITH_THEMES_AND_FEEDBACK:
                 'coding/generate-codes-with-themes-and-feedback',
+            REMAKE_CODEBOOK: 'coding/remake-codebook',
+            REDO_DEDUCTIVE_CODING: 'coding/remake-deductive-codes',
 
             SAMPLE_POSTS: 'coding/sample-posts',
             BUILD_CONTEXT: 'coding/build-context-from-topic',

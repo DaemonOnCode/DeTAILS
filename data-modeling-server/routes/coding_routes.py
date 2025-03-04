@@ -9,12 +9,12 @@ import numpy as np
 from config import Settings
 from controllers.coding_controller import get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
 from headers.app_id import get_app_id
-from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, SamplePostsRequest, ThemeGenerationRequest
+from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
 from routes.websocket_routes import manager
 
 from utils.coding_helpers import generate_transcript
 from database.db_helpers import get_post_and_comments_from_id
-from utils.prompts_v2 import ContextPrompt, DeductiveCoding, InitialCodePrompts, RefineCodebook, RefineSingleCode, ThemeGeneration
+from utils.prompts_v2 import ContextPrompt, DeductiveCoding, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
 
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
@@ -438,3 +438,157 @@ async def refine_single_code_endpoint(
     # parsed_response["alternate_codes"] = json.loads(parsed_response["alternate_codes"])
 
     return parsed_response
+
+
+@router.post("/remake-codebook")
+async def generate_codes_endpoint(request: Request,
+    request_body: RemakeCodebookRequest,
+    batch_size: int = 10  # Default batch size (can be overridden in request)
+):
+    dataset_id = request_body.dataset_id
+    if not dataset_id or len(request_body.sampled_post_ids) == 0:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+
+    app_id = request.headers.get("x-app-id")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
+
+
+    llm, _ = get_llm_and_embeddings(request_body.model)
+    final_results = []
+    function_id = str(uuid4())
+
+    async def process_post(post_id: str):
+        """Processes a single post asynchronously."""
+        try:
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+            post_data = get_post_and_comments_from_id(post_id, dataset_id)
+
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+            transcript = generate_transcript(post_data)
+
+            parsed_response = await process_llm_task(
+                app_id=app_id,
+                dataset_id=dataset_id,
+                post_id=post_id,
+                manager=manager,
+                llm_model=request_body.model,
+                regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+                prompt_builder_func=RemakerPrompts.codebook_remake_prompt,
+                llm_instance=llm,
+                main_topic=request_body.main_topic,
+                additional_info=request_body.additional_info,
+                research_questions=request_body.research_questions,
+                keyword_table=json.dumps(request_body.keyword_table),
+                function_id=function_id,
+                post_transcript=transcript,
+                current_codebook=json.dumps(request_body.codebook),
+                feedback = request_body.feedback,
+                store_response=True,
+            )
+
+            if isinstance(parsed_response, list):
+                parsed_response = {"codes": parsed_response}
+
+            codes = parsed_response.get("codes", [])
+            for code in codes:
+                code["postId"] = post_id
+                code["id"] = str(uuid4())
+
+            return codes
+
+        except Exception as e:
+            await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
+            return []
+
+    # Split posts into batches of `batch_size`
+    sampled_posts = request_body.sampled_post_ids
+    batches = [sampled_posts[i:i + batch_size] for i in range(0, len(sampled_posts), batch_size)]
+
+    for batch in batches:
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+        
+        # Process posts in the batch concurrently
+        batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+
+        for codes in batch_results:
+            final_results.extend(codes)
+
+    await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+    return {
+        "message": "Initial codes generated successfully!",
+        "data": final_results
+    }
+
+@router.post("/remake-deductive-codes")
+async def redo_deductive_coding_endpoint(
+    request: Request,
+    request_body: RemakeDeductiveCodesRequest,
+    batch_size: int = 10  
+):
+    dataset_id = request_body.dataset_id
+    if not dataset_id:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+
+    app_id = request.headers.get("x-app-id")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Deductive coding process started.")
+
+    final_results = []
+    posts = request_body.unseen_post_ids
+    llm, _ = get_llm_and_embeddings(request_body.model)
+
+    async def process_post(post_id: str):
+        """Processes a single post asynchronously."""
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+        post_data = get_post_and_comments_from_id(post_id, dataset_id)
+
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+        transcript = generate_transcript(post_data)
+
+        parsed_response = await process_llm_task(
+            app_id=app_id,
+            dataset_id=dataset_id,
+            post_id=post_id,
+            manager=manager,
+            llm_model=request_body.model,
+            regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+            prompt_builder_func=RemakerPrompts.deductive_codebook_remake_prompt,
+            llm_instance=llm,
+            final_codebook=json.dumps(request_body.final_codebook, indent=2),
+            keyword_table=json.dumps(request_body.keyword_table, indent=2),
+            main_topic=request_body.main_topic,
+            additional_info=request_body.additional_info,
+            research_questions=json.dumps(request_body.research_questions),
+            post_transcript=transcript,
+            current_codebook=json.dumps(request_body.current_codebook),
+            store_response=True,
+        )
+
+        # Process extracted codes
+        if isinstance(parsed_response, list):
+            parsed_response = {"codes": parsed_response}
+
+        codes = parsed_response.get("codes", [])
+        for code in codes:
+            code["postId"] = post_id
+            code["id"] = str(uuid4())
+
+        return codes
+
+    batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
+
+    for batch in batches:
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+        
+        batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+        
+        for codes in batch_results:
+            final_results.extend(codes)
+
+
+    await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+    return {
+        "message": "Deductive coding completed successfully!",
+        "data": final_results
+    }

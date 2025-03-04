@@ -102,7 +102,15 @@ const DeductiveCodingPage = () => {
                 keyword_table: keywordTable.filter(
                     (keywordRow) => keywordRow.isMarked !== undefined
                 ),
-                unseen_post_ids: unseenPostIds
+                unseen_post_ids: unseenPostIds,
+                current_codebook: unseenPostResponse.map((response) => ({
+                    post_id: response.postId,
+                    quote: response.quote,
+                    explanation: response.explanation,
+                    code: response.code,
+                    id: response.id,
+                    is_marked: response.isMarked
+                }))
             })
         });
 
