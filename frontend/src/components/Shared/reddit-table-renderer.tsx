@@ -5,6 +5,7 @@ import { RedditPosts } from '../../types/Coding/shared';
 import { useCollectionContext } from '../../context/collection-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { useApi } from '../../hooks/Shared/use-api';
 
 type RedditTableRendererProps = {
     data: RedditPosts;
@@ -24,6 +25,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
+    const { fetchData } = useApi();
     const { selectedData, setSelectedData, dataFilters, setDataFilters, datasetId } =
         useCollectionContext();
 
@@ -32,16 +34,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [pendingFilterEndTime, setPendingFilterEndTime] = useState(''); // ISO date string
     const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState(false);
 
-    // // Applied filter values (used in filtering logic)
-    // const [appliedFilterStartTime, setAppliedFilterStartTime] = useState('');
-    // const [appliedFilterEndTime, setAppliedFilterEndTime] = useState('');
-    // const [appliedFilterHideRemoved, setAppliedFilterHideRemoved] = useState(false);
-    // // This state will hold the IDs (as strings) of posts that should be filtered out
-    // const [filteredOutIds, setFilteredOutIds] = useState<string[]>([]);
-
-    const { getServerUrl } = useServerUtils();
-
-    // Filtering logic: use the applied filters.
     const filteredData = Object.entries(data).filter(
         ([id, { title, selftext, url, created_utc }]) => {
             // Basic search match.
@@ -132,54 +124,35 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setSelectedData(newSelectedPosts);
     };
 
-    // Function to apply filters.
     const handleApplyFilters = async () => {
         setFilterLoading(true);
         const currentFilters: Record<string, any> = {};
-        // If the hide removed option is enabled, simulate a network request that returns IDs to filter.
+
         if (pendingFilterHideRemoved) {
-            // Simulate processing to get IDs to hide.
+            const { data, error } = await fetchData<string[]>(
+                REMOTE_SERVER_ROUTES.FILTER_POSTS_BY_DELETED,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ dataset_id: datasetId })
+                }
+            );
 
-            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.FILTER_POSTS_BY_DELETED), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    dataset_id: datasetId
-                })
-            });
-            const data: string[] = await res.json();
-
-            console.log(data, 'filtered ids');
-
-            // const idsToHide = Object.entries(data)
-            //     .filter(([id, { title, selftext }]) => {
-            //         const loweredTitle = title.toLowerCase();
-            //         const loweredText = selftext.toLowerCase();
-            //         return (
-            //             loweredTitle.includes('[removed]') ||
-            //             loweredTitle.includes('[deleted]') ||
-            //             loweredText.includes('[removed]') ||
-            //             loweredText.includes('[deleted]')
-            //         );
-            //     })
-            //     .map(([id]) => id);
-            // // Simulate network delay.
-            // await new Promise((resolve) => setTimeout(resolve, 5000));
-            // setFilteredOutIds(data ?? []);
-            currentFilters['filteredOutIds'] = data ?? [];
+            if (error) {
+                console.error('Error filtering posts by deleted:', error);
+                currentFilters['filteredOutIds'] = [];
+            } else {
+                console.log(data, 'filtered ids');
+                currentFilters['filteredOutIds'] = data ?? [];
+            }
         } else {
-            // If not hiding, clear any previously filtered IDs.
             currentFilters['filteredOutIds'] = [];
         }
+
         // Apply the pending filters.
         currentFilters['filterStartTime'] = pendingFilterStartTime;
         currentFilters['filterEndTime'] = pendingFilterEndTime;
         currentFilters['filterHideRemoved'] = pendingFilterHideRemoved;
-        // setAppliedFilterStartTime(pendingFilterStartTime);
-        // setAppliedFilterEndTime(pendingFilterEndTime);
-        // setAppliedFilterHideRemoved(pendingFilterHideRemoved);
+
         setDataFilters(currentFilters);
         setFilterLoading(false);
         setIsFilterModalOpen(false);
@@ -192,10 +165,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setPendingFilterEndTime('');
         setPendingFilterHideRemoved(false);
         setDataFilters({});
-        // setAppliedFilterStartTime('');
-        // setAppliedFilterEndTime('');
-        // setAppliedFilterHideRemoved(false);
-        // setFilteredOutIds([]);
         setCurrentPage(1);
     };
 

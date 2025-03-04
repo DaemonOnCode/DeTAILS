@@ -17,34 +17,24 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { toast } from 'react-toastify';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 import { useToast } from '../../context/toast-context';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const { ipcRenderer } = window.require('electron');
 
 const WorkspaceSelectionPage: React.FC = () => {
-    // const { workspaces, addWorkspace, deleteWorkspace, updateWorkspace, setCurrentWorkspaceById } =
-    //     useWorkspaceContext();
     const { user } = useAuth();
-
     const { showToast } = useToast();
-
     const navigate = useNavigate();
-
     const [expanded, setExpanded] = useState<{ [key: string]: boolean }>({});
-    // const [newWorkspaceName, setNewWorkspaceName] = useState('');
     const [renamingWorkspace, setRenamingWorkspace] = useState<string | null>(null);
-    // const [renameWorkspaceName, setRenameWorkspaceName] = useState('');
     const [editingDescription, setEditingDescription] = useState<string | null>(null);
     const [newDescription, setNewDescription] = useState<string>('');
-
-    // const { getServerUrl } = useServerUtils();
-
     const {
         workspaces,
         currentWorkspace,
         addWorkspace,
         setWorkspaces,
         addWorkspaceBatch,
-        // setCurrentWorkspace,
         updateWorkspace,
         deleteWorkspace,
         setCurrentWorkspaceById,
@@ -53,68 +43,37 @@ const WorkspaceSelectionPage: React.FC = () => {
         workspaceLoading: loading
     } = useWorkspaceContext();
 
-    useEffect(() => {
-        setCurrentWorkspace(null);
-    }, []);
-
-    const [newWorkspaceName, setNewWorkspaceName] = useState<string>('');
-    // const [renameMode, setRenameMode] = useState<boolean>(false);
-    const [renameWorkspaceName, setRenameWorkspaceName] = useState<string>('');
-
-    // const [dropdownVisible, setDropdownVisible] = useState<boolean>(false);
-
     const { loadWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
 
-    // const handleCreateTempWorkspace = async () => {
-    //     try {
-    //         if (workspaces.some((ws) => ws.name === 'Temporary Workspace')) {
-    //             return; // Skip creating a temporary workspace if one exists
-    //         }
+    const [newWorkspaceName, setNewWorkspaceName] = useState<string>('');
+    const [renameWorkspaceName, setRenameWorkspaceName] = useState<string>('');
 
-    //         const response = await fetch(
-    //             getServerUrl(
-    //                 `${REMOTE_SERVER_ROUTES.CREATE_TEMP_WORKSPACE}?user_email=${encodeURIComponent(
-    //                     user?.email || ''
-    //                 )}`
-    //             ),
-    //             {
-    //                 method: 'POST',
-    //                 headers: { 'Content-Type': 'application/json' }
-    //             }
-    //         );
-    //         const tempWorkspace = await response.json();
+    // Reset current workspace on mount.
+    useEffect(() => {
+        setCurrentWorkspace(null);
+    }, [setCurrentWorkspace]);
 
-    //         addWorkspace({ id: tempWorkspace.id, name: 'Temporary Workspace' });
-    //         // setCurrentWorkspaceById(tempWorkspace.id);
-    //     } catch (error) {
-    //         console.error('Error creating temporary workspace:', error);
-    //     }
-    // };
-
+    // Fetch workspaces on mount.
     const isLoading = useRef(false);
 
     useEffect(() => {
         const fetchWorkspaces = async () => {
             if (isLoading.current) return;
             isLoading.current = true;
-            const controller = new AbortController();
-            const signal = controller.signal;
-
             try {
                 setWorkspaceLoading(true);
-
-                const response = await fetch(
-                    getServerUrl(
-                        `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
-                            user?.email || ''
-                        )}`
-                    ),
-                    { signal }
-                );
-
-                const data = await response.json();
-
+                // Build the full route with query string.
+                const route = `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
+                    user?.email || ''
+                )}`;
+                const workspaceResponse = await fetchData(route);
+                if (workspaceResponse.error) {
+                    console.error('Error fetching workspaces:', workspaceResponse.error.message);
+                    return;
+                }
+                const data = workspaceResponse.data;
                 if (Array.isArray(data) && data.length > 0) {
                     console.log('Workspaces:', data);
                     const newWorkspaces = data.map((workspace: any) => ({
@@ -123,86 +82,51 @@ const WorkspaceSelectionPage: React.FC = () => {
                         description: workspace.description || '',
                         updatedAt: workspace.updated_at || ''
                     }));
-
-                    // Update only if new workspaces differ from current state
                     setWorkspaces(newWorkspaces);
-                    // if (workspaces.length === 0) {
-                    //     console.log(
-                    //         'Adding workspaces:',
-                    //         newWorkspaces,
-                    //         newWorkspaces.find(
-                    //             (workspace) => workspace.name === 'Temporary Workspace'
-                    //         )
-                    //     );
-                    //     // addWorkspaceBatch(newWorkspaces);
-                    //     // setCurrentWorkspace(
-                    //     //     newWorkspaces.find(
-                    //     //         (workspace) => workspace.name === 'Temporary Workspace'
-                    //     //     )!
-                    //     // );
-                    // }
                     setWorkspaceLoading(false);
                 } else {
                     console.log('No workspaces found.');
-                    // Create a temporary workspace only if none exists
-                    // if (workspaces.length === 0) {
-                    //     await handleCreateTempWorkspace();
-                    // }
                 }
             } catch (error: any) {
-                if (error.name !== 'AbortError') {
-                    console.error('Error fetching workspaces:', error);
-                }
+                console.error('Error fetching workspaces:', error);
             } finally {
                 isLoading.current = false;
                 setWorkspaceLoading(false);
             }
-
-            return () => {
-                controller.abort();
-            };
         };
 
         if (user?.email) fetchWorkspaces();
-    }, []);
+    }, [user?.email, setWorkspaceLoading, setWorkspaces, fetchData]);
 
     // Add workspace
     const handleAddWorkspace = async () => {
         if (!newWorkspaceName.trim()) {
-            // toast.warning('Workspace name cannot be empty.');
             showToast({
                 type: 'warning',
                 message: 'Workspace name cannot be empty.'
             });
             return;
         }
-
         try {
-            const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.CREATE_WORKSPACE), {
+            const addResponse = await fetchData(REMOTE_SERVER_ROUTES.CREATE_WORKSPACE, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newWorkspaceName, user_email: user?.email })
             });
-
-            const result = await response.json();
-
+            if (addResponse.error) {
+                console.error('Error adding workspace:', addResponse.error.message);
+                return;
+            }
+            const result = addResponse.data;
             if (!result || !result.id) {
                 console.error('Invalid response from server:', result);
                 return;
             }
-
-            // Add workspace with client-provided name and placeholder description
             addWorkspace({
                 id: result.id,
-                name: newWorkspaceName, // Use the name entered by the user
-                description: '', // Placeholder description if none provided
+                name: newWorkspaceName,
+                description: '',
                 updatedAt: result.updated_at
             });
-
-            // Set the new workspace as the current workspace
-            // setCurrentWorkspace(result);
-
-            // Clear the input field
             setNewWorkspaceName('');
         } catch (error) {
             console.error('Error adding workspace:', error);
@@ -212,26 +136,26 @@ const WorkspaceSelectionPage: React.FC = () => {
     // Rename workspace
     const handleRenameWorkspace = async (workspaceId: string) => {
         if (!renameWorkspaceName.trim()) {
-            // toast.warning('Workspace name cannot be empty.');
             showToast({
                 type: 'warning',
                 message: 'Workspace name cannot be empty.'
             });
             return;
         }
-
         try {
-            await fetch(getServerUrl(REMOTE_SERVER_ROUTES.UPDATE_WORKSPACE), {
+            const renameResponse = await fetchData(REMOTE_SERVER_ROUTES.UPDATE_WORKSPACE, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: workspaceId,
                     name: renameWorkspaceName,
                     user_email: user?.email
                 })
             });
-            updateWorkspace(workspaceId || '', renameWorkspaceName);
-            // setRenameMode(false);
+            if (renameResponse.error) {
+                console.error('Error renaming workspace:', renameResponse.error.message);
+                return;
+            }
+            updateWorkspace(workspaceId, renameWorkspaceName);
             setRenameWorkspaceName('');
             setRenamingWorkspace(null);
         } catch (error) {
@@ -241,27 +165,21 @@ const WorkspaceSelectionPage: React.FC = () => {
 
     // Delete workspace
     const handleDeleteWorkspace = async (workspaceId: string) => {
-        // if (workspaces.length <= 1) {
-        //     toast.warning('You must have at least one workspace.');
-        //     return;
-        // }
-
         try {
-            const res = await Promise.allSettled([
-                fetch(getServerUrl(`${REMOTE_SERVER_ROUTES.DELETE_WORKSPACE}/${workspaceId}`), {
-                    method: 'DELETE'
-                }),
-                fetch(getServerUrl(REMOTE_SERVER_ROUTES.DELETE_STATE), {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        workspace_id: workspaceId || '',
-                        user_email: user?.email || ''
-                    })
+            const deleteWorkspacePromise = fetchData(
+                `${REMOTE_SERVER_ROUTES.DELETE_WORKSPACE}/${workspaceId}`,
+                { method: 'DELETE' }
+            );
+            const deleteStatePromise = fetchData(REMOTE_SERVER_ROUTES.DELETE_STATE, {
+                method: 'DELETE',
+                body: JSON.stringify({
+                    workspace_id: workspaceId,
+                    user_email: user?.email || ''
                 })
-            ]);
-            console.log('Delete workspace response:', res);
-            deleteWorkspace(workspaceId || '');
+            });
+            const results = await Promise.allSettled([deleteWorkspacePromise, deleteStatePromise]);
+            console.log('Delete workspace response:', results);
+            deleteWorkspace(workspaceId);
         } catch (error) {
             console.error('Error deleting workspace:', error);
         }
@@ -271,54 +189,6 @@ const WorkspaceSelectionPage: React.FC = () => {
         e.stopPropagation();
         setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
     };
-
-    // const handleAddWorkspace = () => {
-    //     if (!newWorkspaceName.trim()) {
-    //         toast.warning('Workspace name cannot be empty.');
-    //         return;
-    //     }
-
-    //     addWorkspace({ id: `${Date.now()}`, name: newWorkspaceName, description: '' });
-    //     setNewWorkspaceName('');
-    // };
-
-    // const handleDeleteWorkspace = async (id: string) => {
-    //     if (workspaces.length <= 1) {
-    //         toast.warning('You must have at least one workspace.');
-    //         return;
-    //     }
-
-    //     try {
-    //         const res = await Promise.allSettled([
-    //             fetch(getServerUrl(`${REMOTE_SERVER_ROUTES.DELETE_WORKSPACE}/${id}`), {
-    //                 method: 'DELETE'
-    //             }),
-    //             fetch(getServerUrl(REMOTE_SERVER_ROUTES.DELETE_STATE), {
-    //                 method: 'DELETE',
-    //                 headers: { 'Content-Type': 'application/json' },
-    //                 body: JSON.stringify({
-    //                     workspace_id: id || '',
-    //                     user_email: user?.email || ''
-    //                 })
-    //             })
-    //         ]);
-    //         console.log('Delete workspace response:', res);
-    //         deleteWorkspace(id || '');
-    //     } catch (error) {
-    //         console.error('Error deleting workspace:', error);
-    //     }
-    // };
-
-    // const handleRenameWorkspace = (id: string) => {
-    //     if (!renameWorkspaceName.trim()) {
-    //         toast.warning('Workspace name cannot be empty.');
-    //         return;
-    //     }
-
-    //     updateWorkspace(id, renameWorkspaceName, undefined);
-    //     setRenamingWorkspace(null);
-    //     setRenameWorkspaceName('');
-    // };
 
     const handleUpdateDescription = (id: string) => {
         updateWorkspace(id, undefined, newDescription);
@@ -337,7 +207,6 @@ const WorkspaceSelectionPage: React.FC = () => {
         return unsortedWorkspaces.sort((a, b) => {
             const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
             const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-
             return order === 'desc' ? dateB - dateA : dateA - dateB;
         });
     }
@@ -403,7 +272,11 @@ const WorkspaceSelectionPage: React.FC = () => {
                                     />
                                 ) : (
                                     <span
-                                        className={`text-gray-800 flex-1 ${workspace.id === currentWorkspace?.id ? 'font-bold' : 'font-medium'}`}>
+                                        className={`text-gray-800 flex-1 ${
+                                            workspace.id === currentWorkspace?.id
+                                                ? 'font-bold'
+                                                : 'font-medium'
+                                        }`}>
                                         {workspace.name}
                                     </span>
                                 )}

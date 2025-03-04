@@ -23,6 +23,7 @@ const registerIpcHandlers = (...ctxs) => {
     // processingHandler();
 
     const handlerList = [
+        settingsHandler,
         authHandler,
         redditHandler,
         fileHandler,
@@ -31,8 +32,7 @@ const registerIpcHandlers = (...ctxs) => {
         websocketHandler,
         workspaceHandler,
         processingHandler,
-        interviewHandler,
-        settingsHandler
+        interviewHandler
     ];
 
     handlerList.forEach((handler) => handler(...ctxs));

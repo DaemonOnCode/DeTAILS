@@ -5,6 +5,7 @@ import useServerUtils from '../../../hooks/Shared/get-server-url';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { ChatMessage } from '../../../types/Coding/shared';
 import { useTranscriptContext } from '../../../context/transcript-context';
+import { useApi } from '../../../hooks/Shared/use-api';
 
 interface ChatExplanationProps {
     initialExplanationWithCode: {
@@ -33,7 +34,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});
     const [chatCollapsed, setChatCollapsed] = useState<boolean>(true && !!messages.length);
 
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
 
     const updateMessagesAndStore = (updatedMsgs: ChatMessage[]) => {
         setMessages(updatedMsgs);
@@ -94,12 +95,16 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         };
 
         try {
-            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REFINE_CODE), {
+            const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.REFINE_CODE, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
+
+            if (error) {
+                console.error('Error refining code:', error);
+            } else {
+                console.log('Refine code result:', data);
+            }
             const { explanation, agreement, command, alternate_codes } = data;
 
             // Update the last message (LLM placeholder) with the result.
@@ -268,12 +273,16 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         };
 
         try {
-            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REFINE_CODE), {
+            const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.REFINE_CODE, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
+
+            if (error) {
+                console.error('Error refining code:', error);
+            } else {
+                console.log('Refine code result:', data);
+            }
             const { explanation, command, alternate_codes } = data;
             newMsgs = updateMessageById(newMsgs, messageId, {
                 text: explanation || 'No explanation returned.',

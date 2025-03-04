@@ -20,6 +20,7 @@ import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import { useLoadingContext } from '../../context/loading-context';
 import { StepHandle } from '../../types/Shared';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const DataViewerPage = () => {
     const { type, datasetId, selectedData, modeInput } = useCollectionContext();
@@ -38,7 +39,7 @@ const DataViewerPage = () => {
     const { data, loadFolderData, loadTorrentData, error, loading } = useRedditData();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
     const hasSavedRef = useRef(false);
     const location = useLocation();
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
@@ -64,12 +65,7 @@ const DataViewerPage = () => {
         };
     }, []);
 
-    const internalRef = useRef<StepHandle>(null);
     const stepRoute = location.pathname;
-
-    useEffect(() => {
-        registerStepRef(stepRoute, internalRef);
-    }, []);
 
     const steps: TutorialStep[] = [
         {
@@ -100,30 +96,39 @@ const DataViewerPage = () => {
         console.log('Sampling posts:', postIds);
 
         // Sample posts from the backend.
-        let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.SAMPLE_POSTS), {
+        const { data: sampleData, error: sampleError } = await fetchData<{
+            message: string;
+            sampled: string[]; // adjust type as needed
+            unseen: string[]; // adjust type as needed
+        }>(REMOTE_SERVER_ROUTES.SAMPLE_POSTS, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ dataset_id: datasetId, post_ids: postIds })
         });
 
-        let results = await res.json();
-        console.log('Results:', results);
+        if (sampleError) {
+            console.error('Error sampling posts:', sampleError);
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+            });
+            return;
+        }
 
-        setSampledPostIds(results['sampled']);
-        setUnseenPostIds(results['unseen']);
+        console.log('Results:', sampleData);
+
+        setSampledPostIds(sampleData['sampled']);
+        setUnseenPostIds(sampleData['unseen']);
 
         console.log(
             'Generate initial codes:',
-            results['sampled'],
+            sampleData['sampled'],
             keywordTable.filter((keyword) => keyword.isMarked !== undefined)
         );
-        res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES), {
+        const { data: codeData, error: codeError } = await fetchData<{
+            message: string;
+            data: any[]; // Replace any with a more specific type if available.
+        }>(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
                 dataset_id: datasetId,
                 keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
@@ -131,16 +136,24 @@ const DataViewerPage = () => {
                 main_topic: mainTopic,
                 additional_info: additionalInfo,
                 research_questions: researchQuestions,
-                sampled_post_ids: results['sampled'] ?? []
+                sampled_post_ids: sampleData.sampled ?? []
             })
         });
 
-        results = await res.json();
-        console.log('Results:', results);
+        if (codeError) {
+            console.error('Error generating initial codes:', codeError);
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+            });
+            return;
+        }
+
+        console.log('Results:', codeData);
 
         dispatchSampledPostResponse({
             type: 'SET_RESPONSES',
-            responses: results['data'].map((response: any) => ({ ...response, isMarked: true }))
+            responses: codeData['data'].map((response: any) => ({ ...response, isMarked: true }))
         });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',

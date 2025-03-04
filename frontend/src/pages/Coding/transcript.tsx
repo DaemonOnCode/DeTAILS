@@ -13,11 +13,13 @@ import { useCollectionContext } from '../../context/collection-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 import { TranscriptContextProvider } from '../../context/transcript-context';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const TranscriptPage = () => {
     const { id, state } = useParams<{ id: string; state: 'review' | 'refine' }>();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const { fetchData } = useApi();
     const split = searchParams.get('split');
     const codebook = searchParams.get('codebook');
     const type = searchParams.get('type');
@@ -538,14 +540,17 @@ const TranscriptPage = () => {
         if (!postId || !datasetId) return;
         setLoading(true);
         try {
-            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ postId, datasetId })
-            });
-            const fetchedPost = await res.json();
+            const { data: fetchedPost, error } = await fetchData<any>(
+                REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ postId, datasetId })
+                }
+            );
+            if (error) {
+                console.error('Error fetching post:', error);
+                return;
+            }
             console.log('Fetched post:', fetchedPost);
             setPost(fetchedPost);
         } catch (error) {

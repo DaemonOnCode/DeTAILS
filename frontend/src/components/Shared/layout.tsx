@@ -13,6 +13,7 @@ import { toast } from 'react-toastify';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import BookmarkToastOverlay from './bookmark-tab-toast';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -33,7 +34,7 @@ export const Layout: FC<ILayout> = ({ children }) => {
     }, [currentWorkspace?.id]);
 
     const { saveWorkspaceData, loadWorkspaceData } = useWorkspaceUtils();
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
 
     // useEffect(() => {
     //     console.log('Workspaces:', workspaces, 'Current Workspace:', currentWorkspace);
@@ -50,6 +51,93 @@ export const Layout: FC<ILayout> = ({ children }) => {
         }
     }, [workspaces, currentWorkspace]);
 
+    const handleImportWorkspace = async (e: any, imported_file_path: string) => {
+        try {
+            console.log('Importing workspace from ZIP file:', imported_file_path);
+            const fs = window.require('fs');
+            const fileBuffer = fs.readFileSync(imported_file_path);
+            const formData = new FormData();
+            formData.append('user_email', user?.email || '');
+            formData.append(
+                'file',
+                new Blob([fileBuffer], { type: 'application/zip' }),
+                imported_file_path.split('/').pop()
+            );
+            const { data: result, error } = await fetchData(REMOTE_SERVER_ROUTES.IMPORT_WORKSPACE, {
+                method: 'POST',
+                headers: {},
+                body: formData
+            });
+
+            if (error) {
+                console.error('Failed to import workspace:', error);
+                toast.warning('Failed to import workspace.');
+                return;
+            }
+            console.log('Workspace imported successfully:', result);
+            addWorkspaceBatch([...workspaces, result.workspace]);
+        } catch (error) {
+            console.error('Error importing workspace:', error);
+            toast.warning('An error occurred while importing the workspace.');
+        }
+    };
+
+    // Listener for Export Workspace
+    const handleExportWorkspace = async (e: any) => {
+        console.log('Exporting workspace', currentWorkspace);
+        try {
+            const { data: response, error } = await fetchData<Response>(
+                REMOTE_SERVER_ROUTES.EXPORT_WORKSPACE,
+                {
+                    method: 'POST',
+                    rawResponse: true,
+                    body: JSON.stringify({
+                        workspace_id: currentWorkspace?.id ?? '',
+                        user_email: user?.email ?? ''
+                    })
+                }
+            );
+
+            if (error) {
+                console.error('Failed to export workspace:', error);
+                toast.warning('Failed to export workspace.');
+                return;
+            }
+            console.warn('File System Access API not supported. Using fallback.');
+            const reader = response.body?.getReader();
+            const stream = new ReadableStream({
+                start(controller) {
+                    const pump = async () => {
+                        if (!reader) {
+                            controller.close();
+                            return;
+                        }
+                        const { done, value } = await reader.read();
+                        if (done) {
+                            controller.close();
+                            return;
+                        }
+                        controller.enqueue(value);
+                        pump();
+                    };
+                    pump();
+                }
+            });
+            const blob = await new Response(stream).blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'exported_workspace.zip';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            console.log('Workspace exported and file saved successfully.');
+        } catch (error) {
+            console.error('Error exporting workspace:', error);
+            toast.warning('An error occurred while exporting the workspace.');
+        }
+    };
     useEffect(() => {
         if (!currentWorkspace) return;
         // Listener for Save Workspace
@@ -59,89 +147,6 @@ export const Layout: FC<ILayout> = ({ children }) => {
         };
 
         // Listener for Import Workspace
-        const handleImportWorkspace = async (e: any, imported_file_path: string) => {
-            try {
-                console.log('Importing workspace from ZIP file:', imported_file_path);
-                const fs = window.require('fs');
-                const fileBuffer = fs.readFileSync(imported_file_path);
-                const formData = new FormData();
-                formData.append('user_email', user?.email || '');
-                formData.append(
-                    'file',
-                    new Blob([fileBuffer], { type: 'application/zip' }),
-                    imported_file_path.split('/').pop()
-                );
-                const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.IMPORT_WORKSPACE), {
-                    method: 'POST',
-                    body: formData
-                });
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Failed to import workspace:', errorText);
-                    toast.warning('Failed to import workspace.');
-                    return;
-                }
-                const result = await response.json();
-                console.log('Workspace imported successfully:', result);
-                addWorkspaceBatch([...workspaces, result.workspace]);
-            } catch (error) {
-                console.error('Error importing workspace:', error);
-                toast.warning('An error occurred while importing the workspace.');
-            }
-        };
-
-        // Listener for Export Workspace
-        const handleExportWorkspace = async (e: any) => {
-            console.log('Exporting workspace', currentWorkspace);
-            try {
-                const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.EXPORT_WORKSPACE), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        workspace_id: currentWorkspace?.id ?? '',
-                        user_email: user?.email ?? ''
-                    })
-                });
-                if (!response.ok) {
-                    console.error('Failed to export workspace:', await response.text());
-                    toast.warning('Failed to export workspace.');
-                    return;
-                }
-                console.warn('File System Access API not supported. Using fallback.');
-                const reader = response.body?.getReader();
-                const stream = new ReadableStream({
-                    start(controller) {
-                        const pump = async () => {
-                            if (!reader) {
-                                controller.close();
-                                return;
-                            }
-                            const { done, value } = await reader.read();
-                            if (done) {
-                                controller.close();
-                                return;
-                            }
-                            controller.enqueue(value);
-                            pump();
-                        };
-                        pump();
-                    }
-                });
-                const blob = await new Response(stream).blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'exported_workspace.zip';
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                console.log('Workspace exported and file saved successfully.');
-            } catch (error) {
-                console.error('Error exporting workspace:', error);
-                toast.warning('An error occurred while exporting the workspace.');
-            }
-        };
 
         // Register the IPC listeners
         ipcRenderer.on('menu-save-workspace', handleSaveWorkspace);

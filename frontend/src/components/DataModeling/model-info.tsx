@@ -4,6 +4,7 @@ import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { useCollectionContext } from '../../context/collection-context';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const ModelInfo = () => {
     const { datasetId } = useCollectionContext();
@@ -20,24 +21,11 @@ const ModelInfo = () => {
     } | null>(null);
 
     const { currentWorkspace } = useWorkspaceContext();
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
 
-    const fetchActiveModelMetadata = async (signal: AbortSignal) => {
+    const fetchActiveModelMetadata = async (signal: AbortController) => {
         try {
-            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_MODEL_METADATA), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model_id: activeModelId,
-                    dataset_id: datasetId ?? '',
-                    workspace_id: currentWorkspace?.id ?? ''
-                }),
-                signal
-            });
-
-            const data: {
+            const { data, error } = await fetchData<{
                 id: string;
                 dataset_id: string;
                 model_name: string;
@@ -46,8 +34,27 @@ const ModelInfo = () => {
                 start_time: string;
                 end_time: string;
                 num_topics: number;
-            } = await res.json();
-            console.log(data, res.ok);
+            }>(
+                REMOTE_SERVER_ROUTES.GET_MODEL_METADATA,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model_id: activeModelId,
+                        dataset_id: datasetId ?? '',
+                        workspace_id: currentWorkspace?.id ?? ''
+                    })
+                },
+                signal
+            );
+
+            if (error) {
+                console.error('Error fetching model metadata:', error);
+                return;
+            }
+
             setMetadata({
                 type: data.type,
                 createdOn: data.start_time,
@@ -62,7 +69,7 @@ const ModelInfo = () => {
 
     useEffect(() => {
         const controller = new AbortController();
-        if (activeModelId) fetchActiveModelMetadata(controller.signal);
+        if (activeModelId) fetchActiveModelMetadata(controller);
 
         return () => {
             controller.abort('Extra');

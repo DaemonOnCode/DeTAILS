@@ -4,29 +4,29 @@ import { useCollectionContext } from '../../../context/collection-context';
 import useServerUtils from '../../../hooks/Shared/get-server-url';
 import { createResource } from '../../../utility/resource-creator';
 import PostCards from '../CodingTranscript/post-cards';
+import { FetchResponse, useApi } from '../../../hooks/Shared/use-api';
 
 const fetchPostData = async (
     postIds: string[],
     datasetId: string,
-    getServerUrl: (route: string) => string
+    fetchData: <T = any>(
+        route: string,
+        options?: RequestInit,
+        customAbortController?: AbortController | null
+    ) => Promise<FetchResponse<T>>
 ) => {
     if (!postIds.length || !datasetId) {
         return [];
     }
-    // await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate delay
-    const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH), {
+    const { data, error } = await fetchData<any>(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ post_ids: postIds, dataset_id: datasetId })
     });
-
-    if (!res.ok) {
-        throw new Error('Failed to fetch data');
+    if (error) {
+        console.error('Failed to fetch data:', error);
+        return [];
     }
-
-    return res.json();
+    return data;
 };
 
 const TranscriptGrid = ({
@@ -37,14 +37,14 @@ const TranscriptGrid = ({
     onPostSelect: (postId: string) => void;
 }) => {
     const { datasetId } = useCollectionContext();
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
 
     const handleViewTranscript = (postId: string) => {
         console.log('Viewing transcript for post:', postId);
         onPostSelect(postId);
     };
 
-    const resource = createResource(fetchPostData(postIds, datasetId, getServerUrl));
+    const resource = createResource(fetchPostData(postIds, datasetId, fetchData));
 
     console.count('Transcripts Page Render');
     return (

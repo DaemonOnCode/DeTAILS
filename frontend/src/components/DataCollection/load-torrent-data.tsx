@@ -7,6 +7,7 @@ import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/S
 import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCollectionContext } from '../../context/collection-context';
+import { useApi } from '../../hooks/Shared/use-api';
 
 // Use Electron's shell API to open external links.
 const { shell } = window.require('electron');
@@ -36,6 +37,7 @@ const TorrentDataTab = ({
 }) => {
     const location = useLocation();
     const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
     const [transmissionExists, setTransmissionExists] = useState<boolean | null>(null);
     const [checking, setChecking] = useState<boolean>(false);
     const navigate = useNavigate();
@@ -44,17 +46,18 @@ const TorrentDataTab = ({
     // Function to check Transmission status.
     const checkTransmissionStatus = async () => {
         setChecking(true);
-        try {
-            await new Promise((resolve) => setTimeout(resolve, 5000));
-            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.CHECK_TRANSMISSION));
-            const data = await res.json();
-            setTransmissionExists(data.exists);
-        } catch (error) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        const { data, error } = await fetchData<{ exists: boolean }>(
+            REMOTE_SERVER_ROUTES.CHECK_TRANSMISSION
+        );
+
+        if (error) {
             console.error('Error checking transmission:', error);
             setTransmissionExists(false);
-        } finally {
-            setChecking(false);
+        } else {
+            setTransmissionExists(data.exists);
         }
+        setChecking(false);
     };
 
     // Initial check when component mounts.
@@ -169,8 +172,11 @@ const TorrentDataTab = ({
 
     // Otherwise, show the normal Torrent Data UI.
     const fetchTorrentData = async () => {
-        const res = fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_ALL_TORRENT_DATA));
-        const data = await (await res).json();
+        const { data, error } = await fetchData<any>(REMOTE_SERVER_ROUTES.GET_ALL_TORRENT_DATA);
+        if (error) {
+            console.error('Error fetching torrent data:', error);
+            return null;
+        }
         return data;
     };
 

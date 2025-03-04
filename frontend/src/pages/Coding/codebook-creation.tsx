@@ -12,12 +12,12 @@ import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
-// Import TutorialWrapper and TutorialStep type
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { StepHandle } from '../../types/Shared';
 import { useLoadingContext } from '../../context/loading-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const CodebookCreation = () => {
     const [searchParams] = useSearchParams();
@@ -42,6 +42,7 @@ const CodebookCreation = () => {
     const navigate = useNavigate();
     const { getServerUrl } = useServerUtils();
     const { datasetId } = useCollectionContext();
+    const { fetchData } = useApi();
 
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
     const hasSavedRef = useRef(false);
@@ -62,7 +63,49 @@ const CodebookCreation = () => {
 
     const stepRoute = location.pathname;
 
-    const handleRedoCoding = async () => {};
+    const handleRedoCoding = async () => {
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+        });
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
+
+        const { data: results, error } = await fetchData(
+            REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES,
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    dataset_id: datasetId,
+                    keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
+                    model: MODEL_LIST.GEMINI_FLASH,
+                    main_topic: mainTopic,
+                    additional_info: additionalInfo,
+                    research_questions: researchQuestions,
+                    sampled_post_ids: sampledPostIds ?? []
+                })
+            }
+        );
+
+        if (error) {
+            console.error('Error in handleRedoCoding:', error);
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+            });
+            return;
+        }
+
+        console.log('Results:', results);
+
+        dispatchSampledPostResponse({
+            type: 'SET_RESPONSES',
+            responses: results['data'].map((response: any) => ({ ...response, isMarked: true }))
+        });
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+        });
+    };
 
     const handleNextClick = async () => {
         navigate(getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER));
@@ -72,7 +115,16 @@ const CodebookCreation = () => {
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
         });
 
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING), {
+        const { data: results, error } = await fetchData<{
+            message: string;
+            data: {
+                id: string;
+                postId: string;
+                quote: string;
+                explanation: string;
+                code: string;
+            }[];
+        }>(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -82,15 +134,13 @@ const CodebookCreation = () => {
                 model: MODEL_LIST.GEMINI_FLASH,
                 final_codebook: sampledPostResponse
                     .filter((response) => response.isMarked === true)
-                    .map((response) => {
-                        return {
-                            post_id: response.postId,
-                            quote: response.quote,
-                            explanation: response.explanation,
-                            code: response.code,
-                            id: response.id
-                        };
-                    }),
+                    .map((response) => ({
+                        post_id: response.postId,
+                        quote: response.quote,
+                        explanation: response.explanation,
+                        code: response.code,
+                        id: response.id
+                    })),
                 main_topic: mainTopic,
                 additional_info: additionalInfo,
                 research_questions: researchQuestions,
@@ -101,16 +151,15 @@ const CodebookCreation = () => {
             })
         });
 
-        const results: {
-            message: string;
-            data: {
-                id: string;
-                postId: string;
-                quote: string;
-                explanation: string;
-                code: string;
-            }[];
-        } = await res.json();
+        if (error) {
+            console.error('Error in handleNextClick:', error);
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+            });
+            return;
+        }
+
         console.log('Results:', results);
 
         toast.info(
@@ -178,6 +227,7 @@ const CodebookCreation = () => {
                         review={reviewParam}
                         showCoderType={false}
                         showRerunCoding
+                        handleRerun={handleRedoCoding}
                     />
                     {/* </div> */}
                 </div>

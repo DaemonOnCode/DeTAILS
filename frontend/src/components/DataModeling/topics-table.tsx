@@ -3,6 +3,7 @@ import { useWorkspaceContext } from '../../context/workspace-context';
 import { useModelingContext } from '../../context/modeling-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const TopicsTable = () => {
     const { activeModelId } = useModelingContext();
@@ -15,34 +16,40 @@ const TopicsTable = () => {
     >([]);
 
     const { currentWorkspace } = useWorkspaceContext();
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
 
-    const fetchActiveModelMetadata = async (signal: AbortSignal) => {
+    const fetchActiveModelMetadata = async (controller: AbortController) => {
         try {
-            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_MODEL_SAMPLES), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+            const { data, error } = await fetchData<any>(
+                REMOTE_SERVER_ROUTES.GET_MODEL_SAMPLES,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model_id: activeModelId,
+                        workspace_id: currentWorkspace?.id
+                    })
                 },
-                body: JSON.stringify({
-                    model_id: activeModelId,
-                    workspace_id: currentWorkspace?.id
-                }),
-                signal
-            });
+                controller
+            );
 
-            const data = await res.json();
-            console.log(data, res.ok);
-            if (!res.ok) return;
+            console.log(data);
+            if (error) {
+                console.error('Error fetching model samples:', error);
+                return;
+            }
+
             setTopicData(data);
         } catch (e) {
-            console.log(e);
+            console.error(e);
         }
     };
 
     useEffect(() => {
         const controller = new AbortController();
-        if (activeModelId) fetchActiveModelMetadata(controller.signal);
+        if (activeModelId) fetchActiveModelMetadata(controller);
 
         return () => {
             controller.abort('Extra');

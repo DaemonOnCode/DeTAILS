@@ -22,6 +22,7 @@ import getServerUrl from '../../hooks/Shared/get-server-url';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../context/collection-context';
 import { StepHandle } from '../../types/Shared';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const ThemesPage = () => {
     const {
@@ -88,9 +89,9 @@ const ThemesPage = () => {
         };
     }, []);
 
+    const { fetchData } = useApi();
     const { getServerUrl } = useServerUtils();
 
-    const internalRef = useRef<StepHandle>(null);
     const stepRoute = location.pathname;
 
     // useEffect(() => {
@@ -176,7 +177,13 @@ const ThemesPage = () => {
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.THEME_GENERATION), {
+        const { data: results, error } = await fetchData<{
+            message: string;
+            data: {
+                themes: any[];
+                unplaced_codes: any[];
+            };
+        }>(REMOTE_SERVER_ROUTES.THEME_GENERATION, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -189,10 +196,15 @@ const ThemesPage = () => {
             })
         });
 
-        const results: {
-            message: string;
-            data: any;
-        } = await res.json();
+        if (error) {
+            console.error('Error refreshing themes:', error);
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+            });
+            return;
+        }
+
         console.log('Results:', results);
 
         setThemes(results.data.themes.map((theme: any) => ({ ...theme, name: theme.theme })));

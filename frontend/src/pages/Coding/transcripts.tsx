@@ -5,35 +5,36 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection-context';
 import { createResource } from '../../utility/resource-creator';
+import { FetchResponse, useApi } from '../../hooks/Shared/use-api';
 
 const fetchPostData = async (
     postIds: string[],
     datasetId: string,
-    getServerUrl: (route: string) => string
+    fetchData: <T = any>(
+        route: string,
+        options?: RequestInit,
+        customAbortController?: AbortController | null
+    ) => Promise<FetchResponse<T>>
 ) => {
     if (!postIds.length || !datasetId) {
         return [];
     }
-    const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH), {
+    const { data, error } = await fetchData<any>(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ post_ids: postIds, dataset_id: datasetId })
     });
-
-    if (!res.ok) {
-        throw new Error('Failed to fetch data');
+    if (error) {
+        console.error('Failed to fetch data:', error);
+        return [];
     }
-
-    return res.json();
+    return data;
 };
 
 const TranscriptsPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { datasetId, dataset } = useCollectionContext();
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
 
     // If location.state exists and has postIds, use them; otherwise derive from dataset.
     const postIds: string[] =
@@ -62,7 +63,7 @@ const TranscriptsPage = () => {
     };
 
     // Create a resource that will be used by Suspense to fetch post data.
-    const resource = createResource(fetchPostData(postIds, datasetId, getServerUrl));
+    const resource = createResource(fetchPostData(postIds, datasetId, fetchData));
 
     console.count('Transcripts Page Render');
 

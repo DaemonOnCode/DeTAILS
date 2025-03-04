@@ -8,6 +8,7 @@ import numpy as np
 
 from config import Settings
 from controllers.coding_controller import get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
+from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, SamplePostsRequest, ThemeGenerationRequest
 from routes.websocket_routes import manager
 
@@ -16,7 +17,7 @@ from database.db_helpers import get_post_and_comments_from_id
 from utils.prompts_v2 import ContextPrompt, DeductiveCoding, InitialCodePrompts, RefineCodebook, RefineSingleCode, ThemeGeneration
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_app_id)])
 settings = Settings()
 
 @router.post("/sample-posts")

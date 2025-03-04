@@ -11,6 +11,7 @@ import TopToolbar from '../Shared/top-toolbar';
 import PostTranscript from '../CodingTranscript/post-transcript';
 import ValidationTable from '../UnifiedCoding/validation-table';
 import { TranscriptContextProvider } from '../../../context/transcript-context';
+import { useApi } from '../../../hooks/Shared/use-api';
 
 const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
     const {
@@ -25,6 +26,7 @@ const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
     const { getServerUrl } = useServerUtils();
     const hasSavedRef = useRef(false);
     const navigate = useNavigate();
+    const { fetchData } = useApi();
 
     const currentConfig: {
         name: string;
@@ -98,19 +100,20 @@ const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
     const fetchPostById = async (postId: string, datasetId: string) => {
         if (!postId || !datasetId) return;
         setLoading(true);
-        try {
-            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ postId, datasetId })
-            });
-            const fetchedPost = await res.json();
-            setPost(fetchedPost);
-        } catch (error) {
-            console.error('Error fetching post:', error);
-        } finally {
-            setLoading(false);
+        const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId, datasetId })
+        });
+
+        if (error) {
+            console.error('Error fetching Reddit post:', error);
+            // Handle error as needed
+        } else {
+            setPost(data);
+            console.log('Fetched post:', data);
         }
+        setLoading(false);
     };
 
     useEffect(() => {

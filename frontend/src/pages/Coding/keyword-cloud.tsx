@@ -18,6 +18,7 @@ import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { useLoadingContext } from '../../context/loading-context';
 import { StepHandle } from '../../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const KeywordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -59,6 +60,7 @@ const KeywordCloudPage: FC = () => {
         }))
     );
     const { getServerUrl } = getServerUtils();
+    const { fetchData } = useApi();
     const hasSavedRef = useRef(false);
 
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
@@ -132,7 +134,15 @@ const KeywordCloudPage: FC = () => {
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS), {
+        const { data: results, error } = await fetchData<{
+            message: string;
+            keywords: {
+                word: string;
+                description: string;
+                inclusion_criteria: string[];
+                exclusion_criteria: string[];
+            }[];
+        }>(REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -151,7 +161,14 @@ const KeywordCloudPage: FC = () => {
             })
         });
 
-        const results = await res.json();
+        if (error) {
+            console.error('Error regenerating Keyword Cloud:', error);
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+            });
+            return;
+        }
         console.log(results, 'Keyword Cloud Page');
 
         const newKeywords: {

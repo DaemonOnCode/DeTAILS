@@ -16,6 +16,7 @@ import { useLoadingContext } from '../../context/loading-context';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { StepHandle } from '../../types/Shared';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -43,6 +44,7 @@ const ContextPage = () => {
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
+    const { fetchData } = useApi();
     const [newQuestion, setNewQuestion] = useState<string>('');
 
     const steps: TutorialStep[] = [
@@ -165,11 +167,7 @@ const ContextPage = () => {
         formData.append('researchQuestions', JSON.stringify(researchQuestions));
         formData.append('datasetId', datasetId);
 
-        let res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.BUILD_CONTEXT), {
-            method: 'POST',
-            body: formData
-        });
-        let results: {
+        const { data: results, error } = await fetchData<{
             message: string;
             keywords: {
                 word: string;
@@ -177,7 +175,20 @@ const ContextPage = () => {
                 inclusion_criteria: string[];
                 exclusion_criteria: string[];
             }[];
-        } = await res.json();
+        }>(REMOTE_SERVER_ROUTES.BUILD_CONTEXT, {
+            method: 'POST',
+            body: formData,
+            headers: { 'Content-Type': '' } // override so FormData sets its own header
+        });
+
+        if (error) {
+            console.error('Error building context:', error);
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+            });
+            return;
+        }
         console.log('Response from remote server', results);
 
         if (results.keywords.length > 0) {
@@ -194,7 +205,6 @@ const ContextPage = () => {
         });
         navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
     };
-    const internalRef = useRef<StepHandle>(null);
 
     // useEffect(() => {
     //     const stepRoute = location.pathname;

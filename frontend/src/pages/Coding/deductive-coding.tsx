@@ -16,6 +16,8 @@ import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { StepHandle } from '../../types/Shared';
 import { useLoadingContext } from '../../context/loading-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { toast } from 'react-toastify';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const DeductiveCodingPage = () => {
     const [searchParams] = useSearchParams();
@@ -27,7 +29,11 @@ const DeductiveCodingPage = () => {
         unseenPostIds,
         setThemes,
         setUnplacedCodes,
-        sampledPostResponse
+        sampledPostResponse,
+        keywordTable,
+        mainTopic,
+        additionalInfo,
+        researchQuestions
     } = useCodingContext();
     const location = useLocation();
 
@@ -36,6 +42,7 @@ const DeductiveCodingPage = () => {
     const { getServerUrl } = useServerUtils();
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
+    const { fetchData } = useApi();
 
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
     const hasSavedRef = useRef(false);
@@ -54,10 +61,82 @@ const DeductiveCodingPage = () => {
         };
     }, []);
 
-    const internalRef = useRef<StepHandle>(null);
     const stepRoute = location.pathname;
 
-    const handleRedoCoding = async () => {};
+    const handleRedoCoding = async () => {
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER));
+
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+        });
+
+        const { data: results, error } = await fetchData<{
+            message: string;
+            data: {
+                id: string;
+                postId: string;
+                quote: string;
+                explanation: string;
+                code: string;
+            }[];
+        }>(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING, {
+            method: 'POST',
+            body: JSON.stringify({
+                dataset_id: datasetId,
+                model: MODEL_LIST.GEMINI_FLASH,
+                final_codebook: sampledPostResponse
+                    .filter((response) => response.isMarked === true)
+                    .map((response) => ({
+                        post_id: response.postId,
+                        quote: response.quote,
+                        explanation: response.explanation,
+                        code: response.code,
+                        id: response.id
+                    })),
+                main_topic: mainTopic,
+                additional_info: additionalInfo,
+                research_questions: researchQuestions,
+                keyword_table: keywordTable.filter(
+                    (keywordRow) => keywordRow.isMarked !== undefined
+                ),
+                unseen_post_ids: unseenPostIds
+            })
+        });
+
+        if (error) {
+            console.error('Error in handleRedoCoding:', error);
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+            });
+            return;
+        }
+
+        console.log('Results:', results);
+
+        toast.info(
+            'LLM has finished coding data. You can head back to Deductive Coding page to see the results',
+            {
+                autoClose: false
+            }
+        );
+
+        dispatchUnseenPostResponse({
+            type: 'SET_RESPONSES',
+            responses: results['data'].map((response) => ({
+                ...response,
+                isMarked: true,
+                type: 'LLM',
+                comment: '',
+                theme: ''
+            }))
+        });
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+        });
+    };
 
     const handleNextClick = async () => {
         loadingDispatch({
@@ -66,7 +145,13 @@ const DeductiveCodingPage = () => {
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.THEME_GENERATION), {
+        const { data: results, error } = await fetchData<{
+            message: string;
+            data: {
+                themes: any[];
+                unplaced_codes: any[];
+            };
+        }>(REMOTE_SERVER_ROUTES.THEME_GENERATION, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -79,10 +164,14 @@ const DeductiveCodingPage = () => {
             })
         });
 
-        const results: {
-            message: string;
-            data: any;
-        } = await res.json();
+        if (error) {
+            console.error('Error in handleNextClick:', error);
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+            });
+            return;
+        }
         console.log('Results:', results);
 
         setThemes(results.data.themes.map((theme: any) => ({ ...theme, name: theme.theme })));
@@ -135,6 +224,7 @@ const DeductiveCodingPage = () => {
                         showFilterDropdown
                         applyFilters
                         coderType="LLM"
+                        handleRerun={handleRedoCoding}
                     />
                 </div>
                 <NavigationBottomBar

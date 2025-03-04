@@ -93,19 +93,6 @@ const UploadDataPage = () => {
         });
     };
 
-    useImperativeHandle(
-        loadingState[location.pathname].stepRef,
-        () => ({
-            validateStep: () => {
-                return true;
-            },
-            resetStep: () => {
-                setModeInput('');
-            }
-        }),
-        [modeInput, setModeInput, loadingState, location.pathname]
-    );
-
     // If no type is selected, prompt user to go back to home.
     if (!type) {
         return (

@@ -5,6 +5,9 @@ import _defaultSettings from '../default-settings.json';
 const { ipcRenderer } = window.require('electron');
 
 export interface ISettingsConfig {
+    app: {
+        id: string;
+    };
     general: {
         theme: 'light' | 'dark';
         language: string;
@@ -28,22 +31,23 @@ export interface ISettingsConfig {
 
 // Keep defaultSettings private.
 const defaultSettings = _defaultSettings as ISettingsConfig;
+type Sections = keyof Omit<ISettingsConfig, 'app'>;
 
 export interface ISettingsContext {
     settings: ISettingsConfig;
     fetchSettings: () => Promise<void>;
     settingsLoading: boolean;
     updateSettings: (
-        section: keyof ISettingsConfig,
+        section: Sections,
         updates: Partial<ISettingsConfig[typeof section]>
     ) => Promise<void>;
     resetSettings: () => Promise<void>;
-    resetSection: (section: keyof ISettingsConfig) => Promise<void>;
+    resetSection: (section: Sections) => Promise<void>;
     skipTutorialGlobally: () => Promise<void>;
     skipTutorialForPage: (pageId: string) => Promise<void>;
     showTutorialForPage: (pageId: string) => Promise<void>;
-    dirtySections: Record<keyof ISettingsConfig, boolean>;
-    markSectionDirty: (section: keyof ISettingsConfig, isDirty: boolean) => void;
+    dirtySections: Record<Sections, boolean>;
+    markSectionDirty: (section: Sections, isDirty: boolean) => void;
 }
 
 export const SettingsContext = createContext<ISettingsContext>({
@@ -69,7 +73,7 @@ export const SettingsContext = createContext<ISettingsContext>({
 export const SettingsProvider: FC<ILayout> = ({ children }) => {
     const [settings, setSettings] = useState<ISettingsConfig>(defaultSettings);
     const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
-    const [dirtySections, setDirtySections] = useState<Record<keyof ISettingsConfig, boolean>>({
+    const [dirtySections, setDirtySections] = useState<Record<Sections, boolean>>({
         general: false,
         workspace: false,
         devtools: false,
@@ -98,10 +102,7 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
 
     // Update a specific section of settings.
     const updateSettings = useCallback(
-        async (
-            section: keyof ISettingsConfig,
-            updates: Partial<ISettingsConfig[typeof section]>
-        ) => {
+        async (section: Sections, updates: Partial<ISettingsConfig[typeof section]>) => {
             const newSettings = {
                 ...settings,
                 [section]: {
@@ -148,7 +149,7 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
 
     // Reset an individual section to its default values.
     const resetSection = useCallback(
-        async (section: keyof ISettingsConfig) => {
+        async (section: Sections) => {
             try {
                 await updateSettings(section, defaultSettings[section]);
                 console.log(`Reset ${section} settings to default`);
@@ -182,7 +183,7 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
     );
 
     // Helper to mark a section as having unsaved changes.
-    const markSectionDirty = useCallback((section: keyof ISettingsConfig, isDirty: boolean) => {
+    const markSectionDirty = useCallback((section: Sections, isDirty: boolean) => {
         setDirtySections((prev) => ({ ...prev, [section]: isDirty }));
     }, []);
 

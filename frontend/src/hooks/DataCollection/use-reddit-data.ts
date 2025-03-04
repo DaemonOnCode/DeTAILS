@@ -5,6 +5,7 @@ import { useCollectionContext } from '../../context/collection-context';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import getServerUtils from '../Shared/get-server-url';
 import { useWorkspaceContext } from '../../context/workspace-context';
+import { useApi } from '../Shared/use-api';
 
 const { ipcRenderer } = window.require('electron');
 const fs = window.require('fs');
@@ -17,7 +18,7 @@ const useRedditData = () => {
 
     const { modeInput, setModeInput, datasetId, setDatasetId } = useCollectionContext();
     const { currentWorkspace } = useWorkspaceContext();
-    const { getServerUrl } = getServerUtils();
+    const { fetchData } = useApi();
 
     useEffect(() => {
         if (!modeInput && !datasetId) {
@@ -52,18 +53,18 @@ const useRedditData = () => {
                     formData.append('dataset_id', dataset_id);
                     formData.append('workspace_id', currentWorkspace?.id ?? '');
 
-                    const response = await fetch(
-                        getServerUrl(REMOTE_SERVER_ROUTES.UPLOAD_REDDIT_DATA),
+                    const uploadResponse = await fetchData(
+                        REMOTE_SERVER_ROUTES.UPLOAD_REDDIT_DATA,
                         {
                             method: 'POST',
                             body: formData
                         }
                     );
 
-                    if (!response.ok) {
-                        console.error(`Failed to upload file ${file}: ${response.statusText}`);
+                    if (uploadResponse.error) {
+                        console.error(`Failed to upload file ${file}:`, uploadResponse.error);
                     } else {
-                        const result = await response.json();
+                        const result = uploadResponse.data;
                         dataset_id = result.dataset_id;
                         console.log(`File ${file} uploaded successfully`, result);
                     }
@@ -75,13 +76,14 @@ const useRedditData = () => {
         console.log('Dataset ID:', dataset_id);
         setDatasetId(dataset_id);
 
-        await fetch(getServerUrl(REMOTE_SERVER_ROUTES.PARSE_REDDIT_DATA), {
+        const parseResponse = await fetchData(REMOTE_SERVER_ROUTES.PARSE_REDDIT_DATA, {
             method: 'POST',
-            body: JSON.stringify({ dataset_id }),
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            body: JSON.stringify({ dataset_id })
         });
+
+        if (parseResponse.error) {
+            console.error('Failed to parse Reddit data:', parseResponse.error);
+        }
 
         return dataset_id;
     };
@@ -93,21 +95,21 @@ const useRedditData = () => {
         all: boolean = true
     ) => {
         console.log('Fetching data from remote server', batch, offset, all, datasetId);
-        const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_BY_BATCH), {
+        const batchResponse = await fetchData(REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_BY_BATCH, {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
                 batch,
                 offset,
                 all
-            }),
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            })
         });
-        const resData = await response.json();
-        console.log(resData, 'getRedditPostDataByBatch');
-        return resData;
+        if (batchResponse.error) {
+            console.error('Error fetching batch data:', batchResponse.error);
+            return {};
+        }
+        console.log(batchResponse.data, 'getRedditPostDataByBatch');
+        return batchResponse.data;
     };
 
     const loadRedditDataInBackground = useCallback(
@@ -127,22 +129,20 @@ const useRedditData = () => {
                 throw new Error('Workspace not found');
             }
             let folderPath = modeInput.split(':')?.[2];
+            // Uncomment and modify if you want to prompt for a folder:
             // if (!modeInput && changeModeInput) {
-            //     // Prompt the user to select a folder.
             //     folderPath = await ipcRenderer.invoke('select-folder-reddit');
             //     setModeInput(`reddit:upload:${folderPath}`);
             // }
 
-            let dataset_id = datasetId;
+            let currentDatasetId = datasetId;
             if (addToDb) {
-                dataset_id = await sendFolderToBackendServer(folderPath);
+                currentDatasetId = await sendFolderToBackendServer(folderPath);
             }
-            console.log('Data sent to server, dataset_id: ', dataset_id);
-            const parsedData = await getRedditPostDataByBatch(dataset_id, 10, 0);
+            console.log('Data sent to server, dataset_id: ', currentDatasetId);
+            const parsedData = await getRedditPostDataByBatch(currentDatasetId, 10, 0);
             setData(parsedData);
             setError(null);
-
-            // await loadRedditDataInBackground(folderPath, parsedData);
         } catch (err) {
             console.error('Failed to load folder:', err);
             setError('Failed to load folder.');
@@ -166,13 +166,10 @@ const useRedditData = () => {
 
             if (addToDb) {
                 setModeInput(`reddit:torrent:${torrentSubreddit}|${torrentStart}|${torrentEnd}`);
-                const res = await fetch(
-                    getServerUrl(REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT),
+                const torrentResponse = await fetchData(
+                    REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT,
                     {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
                         body: JSON.stringify({
                             subreddit: torrentSubreddit,
                             start_date: torrentStart,
@@ -183,8 +180,11 @@ const useRedditData = () => {
                     }
                 );
 
-                const data = await res.json();
-                console.log('Torrent data:', data);
+                if (torrentResponse.error) {
+                    console.error('Failed to load torrent data:', torrentResponse.error);
+                } else {
+                    console.log('Torrent data:', torrentResponse.data);
+                }
             }
 
             const parsedData = await getRedditPostDataByBatch(datasetId, 10, 0);
@@ -200,13 +200,10 @@ const useRedditData = () => {
 
     const handleLoadTorrentFromFiles = async (data: [string, string[]]) => {
         const [subreddit, files] = data;
-        const res = await fetch(
-            getServerUrl(REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT),
+        const torrentFilesResponse = await fetchData(
+            REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT,
             {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify({
                     subreddit: subreddit,
                     files: files,
@@ -215,8 +212,11 @@ const useRedditData = () => {
             }
         );
 
-        const result = await res.json();
-        console.log('Torrent data:', result);
+        if (torrentFilesResponse.error) {
+            console.error('Error loading torrent files:', torrentFilesResponse.error);
+        } else {
+            console.log('Torrent data:', torrentFilesResponse.data);
+        }
     };
 
     return { data, error, loadFolderData, loadTorrentData, handleLoadTorrentFromFiles, loading };

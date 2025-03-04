@@ -7,6 +7,7 @@ import useServerUtils from '../../hooks/Shared/get-server-url';
 import { toast } from 'react-toastify';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { useCollectionContext } from '../../context/collection-context';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const Topbar = () => {
     const { models, activeModelId, setActiveModelId, updateModelName, removeModel } =
@@ -17,8 +18,7 @@ const Topbar = () => {
 
     const { currentWorkspace } = useWorkspaceContext();
     const { datasetId } = useCollectionContext();
-
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
 
     const navigate = useNavigate();
 
@@ -29,53 +29,56 @@ const Topbar = () => {
     };
 
     const handleSaveEdit = async () => {
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.ADD_MODEL), {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model_id: editModelId,
-                new_model_name: newName,
-                workspace_id: currentWorkspace?.id || '',
-                dataset_id: datasetId ?? ''
-            })
-        });
+        try {
+            const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.ADD_MODEL, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    model_id: editModelId,
+                    new_model_name: newName,
+                    workspace_id: currentWorkspace?.id || '',
+                    dataset_id: datasetId ?? ''
+                })
+            });
 
-        if (!res.ok) {
-            console.log('Error updating model name');
+            if (error) {
+                console.error('Error updating model name:', error);
+                toast.error('Error updating model name');
+                return;
+            }
+
+            if (editModelId) {
+                updateModelName(editModelId, newName);
+            }
+            setIsEditing(false);
+            setEditModelId(null);
+            toast.success('Model name updated');
+        } catch (e) {
+            console.error('Exception updating model name:', e);
             toast.error('Error updating model name');
-            return;
         }
-
-        if (editModelId) {
-            updateModelName(editModelId, newName);
-        }
-        setIsEditing(false);
-        setEditModelId(null);
-        toast.success('Model name updated');
     };
 
     const handleRemoveModel = async (id: string) => {
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.ADD_MODEL), {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model_id: id,
-                workspace_id: currentWorkspace?.id || '',
-                dataset_id: datasetId ?? ''
-            })
-        });
-
-        if (!res.ok) {
-            console.log('Error removing model');
+        try {
+            const { error } = await fetchData(REMOTE_SERVER_ROUTES.ADD_MODEL, {
+                method: 'DELETE',
+                body: JSON.stringify({
+                    model_id: id,
+                    workspace_id: currentWorkspace?.id || '',
+                    dataset_id: datasetId ?? ''
+                })
+            });
+            if (error) {
+                console.error('Error removing model:', error);
+                toast.error('Error removing model');
+                return;
+            }
+            removeModel(id);
+            toast.success('Model removed');
+        } catch (err) {
+            console.error('Exception removing model:', err);
             toast.error('Error removing model');
-            return;
         }
-        removeModel(id);
-        toast.success('Model removed');
     };
 
     const handleAddNewModel = () => {

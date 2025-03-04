@@ -86,9 +86,6 @@ const KeywordsTablePage: FC = () => {
         };
     }, [saveWorkspaceData]);
 
-    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
-    const stepRoute = location.pathname;
-
     // useImperativeHandle(
     //     loadingState[location.pathname].stepRef,
     //     () => ({

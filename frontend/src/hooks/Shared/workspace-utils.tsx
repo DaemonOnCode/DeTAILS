@@ -15,17 +15,17 @@ import {
     IModelingContext
 } from '../../types/Shared';
 import { useToast } from '../../context/toast-context';
+import { useApi } from './use-api';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
     const { currentWorkspace } = useWorkspaceContext();
-    const collectionContext = useCollectionContext(); // Now ExtendedICollectionContext
+    const collectionContext = useCollectionContext();
     const codingContext = useCodingContext();
     const modelingContext = useModelingContext();
     const { serviceStarting } = useWebSocket();
     const { showToast } = useToast();
-
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
 
     const getPayload = (
         currentWorkspace: IWorkspaceContext['currentWorkspace'],
@@ -113,25 +113,22 @@ const useWorkspaceUtils = () => {
             return;
         }
 
-        // Use updateContext to update the collection context.
+        // Update collection context.
         collectionContext.updateContext({
             datasetId: data.dataset_id ?? '',
             modeInput: data.mode_input ?? '',
-            // Update metadata only if we are in reddit mode.
             metadata: data.metadata,
             type: data.type ?? '',
-            // collectionContext.metadata.type === 'reddit'
-            //     ? { ...collectionContext.metadata, subreddit: data.subreddit ?? '' }
-            //     : collectionContext.metadata,
-            // Replace selectedPosts with selectedData.
             selectedData: data.selected_data ?? [],
             dataFilters: data.data_filters ?? {}
         });
 
+        // Update modeling context.
         modelingContext.updateContext({
             models: data.models ?? []
         });
 
+        // Update coding context.
         codingContext.updateContext({
             mainTopic: data.main_topic ?? '',
             additionalInfo: data.additional_info ?? '',
@@ -154,23 +151,31 @@ const useWorkspaceUtils = () => {
 
     const loadWorkspaceData = async () => {
         try {
-            const results = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.LOAD_STATE), {
+            const fetchResponse = await fetchData(REMOTE_SERVER_ROUTES.LOAD_STATE, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     workspace_id: currentWorkspace?.id || '',
                     user_email: user?.email || ''
                 })
             });
-            const parsedResults = await results.json();
 
+            if (fetchResponse.error) {
+                resetContextData(collectionContext, codingContext, modelingContext);
+                showToast({
+                    type: 'error',
+                    message: 'Error loading workspace data'
+                });
+                console.error('Error in loadWorkspaceData:', fetchResponse.error.message);
+                return;
+            }
+
+            const parsedResults = fetchResponse.data;
             if (parsedResults.success) {
                 updateContextData(parsedResults.data);
                 showToast({
                     message: 'Workspace data loaded successfully',
                     type: 'success'
                 });
-                // toast.success('Workspace data loaded successfully');
                 console.log('Workspace data loaded successfully');
             } else {
                 resetContextData(collectionContext, codingContext, modelingContext);
@@ -178,7 +183,6 @@ const useWorkspaceUtils = () => {
                     type: 'error',
                     message: 'Error loading workspace data'
                 });
-                // toast.error('Error loading workspace data');
                 console.error('Error in loadWorkspaceData:', parsedResults.message);
             }
             console.log('Loading workspace data:', parsedResults.data);
@@ -197,27 +201,32 @@ const useWorkspaceUtils = () => {
         console.log('Saving workspace data:', payload);
 
         try {
-            const results = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.SAVE_STATE), {
+            const fetchResponse = await fetchData(REMOTE_SERVER_ROUTES.SAVE_STATE, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
-            const parsedResults = await results.json();
+            if (fetchResponse.error) {
+                showToast({
+                    message: 'Error saving workspace data',
+                    type: 'error'
+                });
+                console.error('Error in saveWorkspaceData:', fetchResponse.error.message);
+                return;
+            }
 
+            const parsedResults = fetchResponse.data;
             if (parsedResults.success) {
                 showToast({
                     message: 'Workspace data saved successfully',
                     type: 'success'
                 });
-                // toast.success('Workspace data saved successfully');
                 console.log('Workspace data saved successfully');
             } else {
                 showToast({
                     message: 'Error saving workspace data',
                     type: 'error'
                 });
-                // toast.error('Error saving workspace data');
                 console.error('Error in saveWorkspaceData:', parsedResults.message);
             }
         } catch (error) {

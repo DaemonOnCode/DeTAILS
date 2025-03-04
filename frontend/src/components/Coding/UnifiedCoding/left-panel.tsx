@@ -4,6 +4,7 @@ import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import useServerUtils from '../../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../../context/collection-context';
 import { SetState } from '../../../types/Coding/shared';
+import { useApi } from '../../../hooks/Shared/use-api';
 
 interface LeftPanelProps {
     postIds: string[];
@@ -37,7 +38,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
 
     const containerRef = useRef<HTMLUListElement>(null);
 
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
     const { datasetId } = useCollectionContext();
 
     const handleSelect = (filter: string | null) => {
@@ -62,21 +63,22 @@ const LeftPanel: FC<LeftPanelProps> = ({
             return [];
         }
         setLoading(true);
-        const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ post_ids: postIds, dataset_id: datasetId })
-        });
+        const { data: results, error } = await fetchData<any[]>(
+            REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ post_ids: postIds, dataset_id: datasetId })
+            }
+        );
 
-        if (!res.ok) {
+        if (error) {
+            console.error('Failed to fetch data:', error);
             setLoading(false);
             throw new Error('Failed to fetch data');
         }
-
-        const results = await res.json();
-
         console.log('Results:', results);
 
         setPostIdTitles(

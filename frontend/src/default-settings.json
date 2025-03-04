@@ -1,4 +1,7 @@
 {
+    "app": {
+        "id": ""
+    },
     "general": {
         "theme": "light",
         "language": "en"

@@ -3,6 +3,7 @@ import { useCollectionContext } from '../../context/collection-context';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import getServerUtils from '../Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { useApi } from '../Shared/use-api';
 
 const { ipcRenderer } = window.require('electron');
 const fs = window.require('fs');
@@ -16,10 +17,9 @@ const useInterviewData = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
 
-    // In the new context structure, we use `modeInput` for interview input
     const { modeInput, setModeInput } = useCollectionContext();
     const { currentWorkspace } = useWorkspaceContext();
-    const { getServerUrl } = getServerUtils();
+    const { fetchData } = useApi();
 
     // Reset data if there's no interview input
     useEffect(() => {
@@ -29,7 +29,7 @@ const useInterviewData = () => {
     }, [modeInput]);
 
     // Helper function to send file data to the backend
-    const sendInterviewFileToBackend = async (filePath: string) => {
+    const sendInterviewFileToBackend = async (filePath: string): Promise<string> => {
         try {
             const fileContent = fs.readFileSync(filePath);
             const blob = new Blob([fileContent]); // Create a Blob for FormData compatibility
@@ -39,15 +39,15 @@ const useInterviewData = () => {
             formData.append('description', 'Interview Data File');
             formData.append('workspace_id', currentWorkspace?.id ?? '');
 
-            const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.UPLOAD_INTERVIEW_DATA), {
+            const uploadResponse = await fetchData(REMOTE_SERVER_ROUTES.UPLOAD_INTERVIEW_DATA, {
                 method: 'POST',
                 body: formData
             });
 
-            if (!response.ok) {
-                throw new Error(`Failed to upload file: ${response.statusText}`);
+            if (uploadResponse.error) {
+                throw new Error(`Failed to upload file: ${uploadResponse.error.message}`);
             }
-            const result = await response.json();
+            const result = uploadResponse.data;
             return result.dataset_id; // Assuming the backend returns a dataset_id
         } catch (error) {
             console.error('Error uploading interview file:', error);
@@ -56,17 +56,17 @@ const useInterviewData = () => {
     };
 
     // Helper function to send raw text to the backend
-    const sendInterviewTextToBackend = async (textData: string) => {
+    const sendInterviewTextToBackend = async (textData: string): Promise<string> => {
         try {
-            const response = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.UPLOAD_INTERVIEW_DATA), {
+            const textResponse = await fetchData(REMOTE_SERVER_ROUTES.UPLOAD_INTERVIEW_DATA, {
                 method: 'POST',
-                body: JSON.stringify({ text: textData, workspace_id: currentWorkspace?.id }),
-                headers: { 'Content-Type': 'application/json' }
+                body: JSON.stringify({ text: textData, workspace_id: currentWorkspace?.id })
             });
-            if (!response.ok) {
-                throw new Error(`Failed to upload text data: ${response.statusText}`);
+
+            if (textResponse.error) {
+                throw new Error(`Failed to upload text data: ${textResponse.error.message}`);
             }
-            const result = await response.json();
+            const result = textResponse.data;
             return result.dataset_id;
         } catch (error) {
             console.error('Error uploading interview text data:', error);
@@ -97,19 +97,15 @@ const useInterviewData = () => {
             }
 
             // After uploading, trigger parsing of the interview data.
-            const parseResponse = await fetch(
-                getServerUrl(REMOTE_SERVER_ROUTES.PARSE_INTERVIEW_DATA),
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ dataset_id }),
-                    headers: { 'Content-Type': 'application/json' }
-                }
-            );
+            const parseResponse = await fetchData(REMOTE_SERVER_ROUTES.PARSE_INTERVIEW_DATA, {
+                method: 'POST',
+                body: JSON.stringify({ dataset_id })
+            });
 
-            if (!parseResponse.ok) {
-                throw new Error(`Parsing failed: ${parseResponse.statusText}`);
+            if (parseResponse.error) {
+                throw new Error(`Parsing failed: ${parseResponse.error.message}`);
             }
-            const parsedData = await parseResponse.json();
+            const parsedData = parseResponse.data;
             setData(parsedData);
             setError(null);
         } catch (err) {

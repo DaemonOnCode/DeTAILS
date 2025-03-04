@@ -3,6 +3,7 @@ import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { useModelingContext } from '../../context/modeling-context';
+import { useApi } from '../../hooks/Shared/use-api';
 
 const SampleTable = () => {
     const { activeModelId } = useModelingContext();
@@ -15,33 +16,36 @@ const SampleTable = () => {
     >([]);
 
     const { currentWorkspace } = useWorkspaceContext();
-    const { getServerUrl } = useServerUtils();
+    const { fetchData } = useApi();
 
-    const fetchActiveModelMetadata = async (signal: AbortSignal) => {
+    const fetchActiveModelMetadata = async (signal: AbortController) => {
         try {
-            const res = await fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_MODEL_SAMPLES), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+            const { data, error } = await fetchData<any>(
+                REMOTE_SERVER_ROUTES.GET_MODEL_SAMPLES,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        model_id: activeModelId,
+                        workspace_id: currentWorkspace?.id
+                    })
                 },
-                body: JSON.stringify({
-                    model_id: activeModelId,
-                    workspace_id: currentWorkspace?.id
-                }),
                 signal
-            });
+            );
 
-            const data = await res.json();
-            if (!res.ok) return;
+            if (error) {
+                console.error('Error fetching model samples:', error);
+                return;
+            }
+
             setSamplesData(data);
         } catch (e) {
-            console.log(e);
+            console.error(e);
         }
     };
 
     useEffect(() => {
         const controller = new AbortController();
-        if (activeModelId) fetchActiveModelMetadata(controller.signal);
+        if (activeModelId) fetchActiveModelMetadata(controller);
 
         return () => {
             controller.abort('Extra');

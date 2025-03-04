@@ -1,6 +1,7 @@
 const { app, ipcMain } = require('electron');
 const fs = require('fs').promises;
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 const { findContextByName } = require('../utils/context');
 const { electronLogger } = require('../utils/electron-logger');
 
@@ -65,6 +66,13 @@ const readSettings = async () => {
         }
         // Merge parsed settings with defaults to ensure all sections/keys exist.
         const mergedSettings = mergeSettings(defaultSettings, parsedSettings);
+
+        // Check if app.id is an empty string. If so, update it with a new uuid.
+        if (mergedSettings.app && mergedSettings.app.id === '' && mergedSettings.app.id !== 'app') {
+            mergedSettings.app.id = uuidv4();
+            await fs.writeFile(settingsFilePath, JSON.stringify(mergedSettings, null, 2));
+        }
+
         // If merging changed the settings, update the file.
         if (JSON.stringify(mergedSettings) !== JSON.stringify(parsedSettings)) {
             await fs.writeFile(settingsFilePath, JSON.stringify(mergedSettings, null, 2));
@@ -73,6 +81,14 @@ const readSettings = async () => {
     } catch (error) {
         if (error.code === 'ENOENT') {
             // File doesn't exist; create it from default settings.
+            // Check and update the app id if necessary.
+            if (
+                defaultSettings.app &&
+                defaultSettings.app.id === '' &&
+                defaultSettings.app.id !== 'app'
+            ) {
+                defaultSettings.app.id = uuidv4();
+            }
             await fs.writeFile(settingsFilePath, JSON.stringify(defaultSettings, null, 2));
             return defaultSettings;
         }
@@ -100,12 +116,13 @@ const writeSettings = async (settings, globalCtx) => {
 };
 
 // Custom settings handler that sets up IPC listeners.
-const settingsHandler = (...ctxs) => {
+const settingsHandler = async (...ctxs) => {
     const globalCtx = findContextByName('global', ctxs);
 
     // Initialize global context settings if not already set.
     if (!globalCtx.getState().settings) {
-        globalCtx.setState({ settings: defaultSettings });
+        const settings = await readSettings();
+        globalCtx.setState({ settings });
     }
 
     // IPC handler for reading settings.

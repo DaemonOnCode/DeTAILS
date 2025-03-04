@@ -5,6 +5,7 @@ import { IRedditPostData } from '../../../types/Coding/shared';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
 import getServerUtils from '../../../hooks/Shared/get-server-url';
+import { useApi } from '../../../hooks/Shared/use-api';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -18,7 +19,7 @@ const ContentArea: FC<ContentAreaProps> = ({
     setSelectedPostData
 }) => {
     const { datasetId } = useCollectionContext();
-    const { getServerUrl } = getServerUtils();
+    const { fetchData } = useApi();
 
     useEffect(() => {
         console.log('Getting post by id, content area', selectedPost);
@@ -27,21 +28,27 @@ const ContentArea: FC<ContentAreaProps> = ({
             return;
         }
         // if (!USE_LOCAL_SERVER) {
-        fetch(getServerUrl(REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                postId: selectedPost.id,
-                datasetId: datasetId
-            })
-        })
-            .then((response) => response.json())
-            .then((data: IRedditPostData) => {
+        const fetchPostData = async () => {
+            const { data, error } = await fetchData<IRedditPostData>(
+                REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        postId: selectedPost.id,
+                        datasetId: datasetId
+                    })
+                }
+            );
+
+            if (error) {
+                console.error('Error fetching Reddit post data:', error);
+            } else {
                 console.log('Post data:', data);
                 setSelectedPostData(data);
-            });
+            }
+        };
+
+        fetchPostData();
         //     return;
         // }
         // ipcRenderer

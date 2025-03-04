@@ -80,6 +80,9 @@ app.whenReady().then(async () => {
 
     logger.info('Electron app is ready');
 
+    // Register other IPC handlers
+    registerIpcHandlers(globalCtx);
+
     // Create the main application window
     globalCtx.setState({ mainWindow: await createMainWindow(globalCtx) });
 
@@ -170,9 +173,6 @@ app.whenReady().then(async () => {
 
         app.exit(exitCode);
     });
-
-    // Register other IPC handlers
-    registerIpcHandlers(globalCtx);
 });
 
 app.on('window-all-closed', () => {

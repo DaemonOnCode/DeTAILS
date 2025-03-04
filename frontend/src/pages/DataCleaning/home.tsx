@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import RulesTable from '../../components/DataCleaning/rules-table';
 import WordPanel, { WordDetail } from '../../components/DataCleaning/word-panel';
 import CreateRuleModal from '../../components/DataCleaning/rule-modal';
@@ -7,23 +6,7 @@ import { Rule } from '../../types/DataCleaning/shared';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import useServerUtils from '../../hooks/Shared/get-server-url';
-
-const tryRequest = async (promise: Promise<Response>) => {
-    try {
-        const response = await promise;
-
-        if (!response.ok) {
-            const errorDetails = await response.json();
-            throw new Error(errorDetails?.message || 'Request failed');
-        }
-
-        const data = await response.json();
-        return { data }; // Mimic axios' response structure
-    } catch (error) {
-        console.error('Request failed', error);
-        throw error;
-    }
-};
+import { useApi } from '../../hooks/Shared/use-api';
 
 const HomePage = () => {
     const [rules, setRules] = useState<Rule[]>([]);
@@ -42,171 +25,171 @@ const HomePage = () => {
     });
 
     const { datasetId } = useCollectionContext();
-    const { getServerUrl } = useServerUtils();
-
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
 
+    const { fetchData } = useApi();
+
+    // Fetch rules using fetchData
     const fetchRules = async () => {
         try {
-            const response = await tryRequest(
-                fetch(getServerUrl(`data-filtering/datasets/rules`), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ dataset_id: datasetId })
-                })
-            );
-            setRules(response.data);
-        } catch {
-            // Errors are handled by tryRequest
+            const { data, error } = await fetchData<Rule[]>('data-filtering/datasets/rules', {
+                method: 'POST',
+
+                body: JSON.stringify({ dataset_id: datasetId })
+            });
+            if (error) {
+                console.error('Error fetching rules:', error);
+                return;
+            }
+            setRules(data);
+        } catch (err) {
+            console.error(err);
         }
     };
 
+    // Fetch processed data (posts, comments, included words, removed words)
     const fetchProcessedData = async () => {
         try {
             const [postsResponse, commentsResponse, includedWordsResponse, removedWordsResponse] =
                 await Promise.all([
-                    tryRequest(
-                        fetch(getServerUrl(`data-filtering/datasets/processed-posts`), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ dataset_id: datasetId })
-                        })
-                    ),
-                    tryRequest(
-                        fetch(getServerUrl(`data-filtering/datasets/processed-comments`), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ dataset_id: datasetId })
-                        })
-                    ),
-                    tryRequest(
-                        fetch(getServerUrl(`data-filtering/datasets/included-words`), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ dataset_id: datasetId })
-                        })
-                    ),
-                    tryRequest(
-                        fetch(getServerUrl(`data-filtering/datasets/removed-words`), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ dataset_id: datasetId })
-                        })
-                    )
+                    fetchData<any>('data-filtering/datasets/processed-posts', {
+                        method: 'POST',
+
+                        body: JSON.stringify({ dataset_id: datasetId })
+                    }),
+                    fetchData<any>('data-filtering/datasets/processed-comments', {
+                        method: 'POST',
+
+                        body: JSON.stringify({ dataset_id: datasetId })
+                    }),
+                    fetchData<any>('data-filtering/datasets/included-words', {
+                        method: 'POST',
+
+                        body: JSON.stringify({ dataset_id: datasetId })
+                    }),
+                    fetchData<any>('data-filtering/datasets/removed-words', {
+                        method: 'POST',
+
+                        body: JSON.stringify({ dataset_id: datasetId })
+                    })
                 ]);
 
+            // Assuming the responses are successful. You can check for error on each if needed.
             setProcessedPosts(postsResponse.data.posts);
             setProcessedComments(commentsResponse.data.comments);
 
+            const totalTokens =
+                includedWordsResponse.data.words.reduce(
+                    (acc: number, word: any) => acc + word.count_words,
+                    0
+                ) +
+                removedWordsResponse.data.words.reduce(
+                    (acc: number, word: any) => acc + word.count_words,
+                    0
+                );
+            const uniqueTokens =
+                includedWordsResponse.data.words.length + removedWordsResponse.data.words.length;
+
             setStats({
-                totalDocs: postsResponse.data + commentsResponse.data,
-                totalTokens:
-                    includedWordsResponse.data.words.reduce(
-                        (acc: number, word: any) => acc + word.count_words,
-                        0
-                    ) +
-                    removedWordsResponse.data.words.reduce(
-                        (acc: number, word: any) => acc + word.count_words,
-                        0
-                    ),
-                uniqueTokens:
-                    includedWordsResponse.data.words.length + removedWordsResponse.data.words.length
+                totalDocs: postsResponse.data + commentsResponse.data, // Adjust if needed
+                totalTokens,
+                uniqueTokens
             });
 
             setIncludedWords(includedWordsResponse.data.words);
             setRemovedWords(removedWordsResponse.data.words);
-        } catch {
-            // Errors are handled by tryRequest
+        } catch (err) {
+            console.error(err);
         }
     };
 
+    // Apply rules using fetchData
     const applyRules = async () => {
         setProcessing(true);
         try {
-            await tryRequest(
-                fetch(getServerUrl(`data-filtering/datasets/apply-rules`), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        dataset_id: datasetId,
-                        rules
-                    })
+            const { error } = await fetchData('data-filtering/datasets/apply-rules', {
+                method: 'POST',
+                body: JSON.stringify({
+                    dataset_id: datasetId,
+                    rules
                 })
-            );
-            await fetchProcessedData();
-        } catch {
-            // Errors are handled by tryRequest
+            });
+            if (error) {
+                console.error('Error applying rules:', error);
+            } else {
+                await fetchProcessedData();
+            }
+        } catch (err) {
+            console.error(err);
         }
         setProcessing(false);
     };
 
+    // Add a new rule using fetchData
     const addRule = async (newRule: Rule) => {
         try {
             const updatedRules = [...rules, { ...newRule, id: rules.length + 1 }];
             setRules(updatedRules);
 
-            await tryRequest(
-                fetch(getServerUrl(`data-filtering/datasets/add-rules`), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        dataset_id: datasetId,
-                        rules: updatedRules
-                    })
+            const { error } = await fetchData('data-filtering/datasets/add-rules', {
+                method: 'POST',
+                body: JSON.stringify({
+                    dataset_id: datasetId,
+                    rules: updatedRules
                 })
-            );
-        } catch {
-            // Errors are handled by tryRequest
+            });
+            if (error) {
+                console.error('Error adding rule:', error);
+            }
+        } catch (err) {
+            console.error(err);
         }
     };
 
+    // Delete rule(s) using fetchData
     const deleteRule = async (ruleId: number | null, deleteAll = false) => {
         try {
             const updatedRules = deleteAll ? [] : rules.filter((rule) => rule.id !== ruleId);
             setRules(updatedRules);
 
             if (deleteAll) {
-                await tryRequest(
-                    fetch(getServerUrl(`data-filtering/datasets/delete-rules`), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ dataset_id: datasetId })
-                    })
-                );
-            } else {
-                await tryRequest(
-                    fetch(getServerUrl(`data-filtering/datasets/rules`), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            dataset_id: datasetId,
-                            rules: updatedRules
-                        })
-                    })
-                );
-            }
-        } catch {
-            // Errors are handled by tryRequest
-        }
-    };
-
-    const reorderRules = async (updatedRules: Rule[]) => {
-        try {
-            setRules(updatedRules);
-
-            await tryRequest(
-                fetch(getServerUrl(`data-filtering/datasets/rules`), {
+                const { error } = await fetchData('data-filtering/datasets/delete-rules', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dataset_id: datasetId })
+                });
+                if (error) console.error('Error deleting all rules:', error);
+            } else {
+                const { error } = await fetchData('data-filtering/datasets/rules', {
+                    method: 'POST',
                     body: JSON.stringify({
                         dataset_id: datasetId,
                         rules: updatedRules
                     })
+                });
+                if (error) console.error('Error updating rules:', error);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    // Reorder rules using fetchData
+    const reorderRules = async (updatedRules: Rule[]) => {
+        try {
+            setRules(updatedRules);
+            const { error } = await fetchData('data-filtering/datasets/rules', {
+                method: 'POST',
+                body: JSON.stringify({
+                    dataset_id: datasetId,
+                    rules: updatedRules
                 })
-            );
-        } catch {
-            // Errors are handled by tryRequest
+            });
+            if (error) {
+                console.error('Error reordering rules:', error);
+            }
+        } catch (err) {
+            console.error(err);
         }
     };
 
