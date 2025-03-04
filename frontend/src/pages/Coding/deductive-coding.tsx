@@ -18,6 +18,7 @@ import { useLoadingContext } from '../../context/loading-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { toast } from 'react-toastify';
 import { useApi } from '../../hooks/Shared/use-api';
+import { useSettings } from '../../context/settings-context';
 
 const DeductiveCodingPage = () => {
     const [searchParams] = useSearchParams();
@@ -35,6 +36,7 @@ const DeductiveCodingPage = () => {
         additionalInfo,
         researchQuestions
     } = useCodingContext();
+    const { settings } = useSettings();
     const location = useLocation();
 
     const logger = useLogger();
@@ -84,7 +86,7 @@ const DeductiveCodingPage = () => {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
-                model: MODEL_LIST.GEMINI_FLASH,
+                model: settings.ai.model,
                 final_codebook: sampledPostResponse
                     .filter((response) => response.isMarked === true)
                     .map((response) => ({
@@ -155,7 +157,7 @@ const DeductiveCodingPage = () => {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
-                model: MODEL_LIST.GEMINI_FLASH,
+                model: settings.ai.model,
                 unseen_post_responses: unseenPostResponse,
                 sampled_post_responses: sampledPostResponse
             })

@@ -9,6 +9,10 @@
     "workspace": {
         "layout": "grid"
     },
+    "ai": {
+        "model": "gemini-2.0-flash-thinking-exp-01-21",
+        "googleCredentialsPath": ""
+    },
     "devtools": {
         "showConsole": false,
         "enableRemoteDebugging": false

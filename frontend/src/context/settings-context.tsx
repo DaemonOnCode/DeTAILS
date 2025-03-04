@@ -15,6 +15,10 @@ export interface ISettingsConfig {
     workspace: {
         layout: 'grid' | 'list';
     };
+    ai: {
+        model: string;
+        googleCredentialsPath: string;
+    };
     devtools: {
         showConsole: boolean;
         enableRemoteDebugging: boolean;
@@ -60,26 +64,19 @@ export const SettingsContext = createContext<ISettingsContext>({
     skipTutorialGlobally: async () => {},
     skipTutorialForPage: async () => {},
     showTutorialForPage: async () => {},
-    dirtySections: {
-        general: false,
-        workspace: false,
-        devtools: false,
-        tutorials: false,
-        transmission: false
-    },
+    dirtySections: Object.assign(
+        {},
+        ...Object.keys(defaultSettings).map((key) => ({ [key]: false }))
+    ),
     markSectionDirty: () => {}
 });
 
 export const SettingsProvider: FC<ILayout> = ({ children }) => {
     const [settings, setSettings] = useState<ISettingsConfig>(defaultSettings);
     const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
-    const [dirtySections, setDirtySections] = useState<Record<Sections, boolean>>({
-        general: false,
-        workspace: false,
-        devtools: false,
-        tutorials: false,
-        transmission: false
-    });
+    const [dirtySections, setDirtySections] = useState<Record<Sections, boolean>>(
+        Object.assign({}, ...Object.keys(defaultSettings).map((key) => ({ [key]: false })))
+    );
 
     const fetchSettings = async () => {
         setSettingsLoading(true);
@@ -135,13 +132,9 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
             const resetSettings: ISettingsConfig = await ipcRenderer.invoke('reset-settings');
             setSettings(resetSettings);
             // Clear all dirty flags.
-            setDirtySections({
-                general: false,
-                workspace: false,
-                devtools: false,
-                tutorials: false,
-                transmission: false
-            });
+            setDirtySections(
+                Object.assign({}, ...Object.keys(defaultSettings).map((key) => ({ [key]: false })))
+            );
         } catch (err) {
             console.error('Error resetting settings:', err);
         }

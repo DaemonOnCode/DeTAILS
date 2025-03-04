@@ -23,6 +23,7 @@ import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../context/collection-context';
 import { StepHandle } from '../../types/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
+import { useSettings } from '../../context/settings-context';
 
 const ThemesPage = () => {
     const {
@@ -38,6 +39,7 @@ const ThemesPage = () => {
 
     const { loadingState, registerStepRef, loadingDispatch } = useLoadingContext();
     const { datasetId } = useCollectionContext();
+    const { settings } = useSettings();
     const navigate = useNavigate();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -187,7 +189,7 @@ const ThemesPage = () => {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
-                model: MODEL_LIST.GEMINI_FLASH,
+                model: settings.ai.model,
                 unseen_post_responses: unseenPostResponse,
                 sampled_post_responses: sampledPostResponse
             })

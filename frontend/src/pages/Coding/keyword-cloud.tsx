@@ -19,6 +19,7 @@ import { useLoadingContext } from '../../context/loading-context';
 import { StepHandle } from '../../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
+import { useSettings } from '../../context/settings-context';
 
 const KeywordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -39,6 +40,7 @@ const KeywordCloudPage: FC = () => {
         researchQuestions,
         selectedWords
     } = useCodingContext();
+    const { settings } = useSettings();
     const location = useLocation();
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -145,7 +147,7 @@ const KeywordCloudPage: FC = () => {
         }>(REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS, {
             method: 'POST',
             body: JSON.stringify({
-                model: MODEL_LIST.GEMINI_FLASH,
+                model: settings.ai.model,
                 mainTopic,
                 additionalInfo,
                 researchQuestions,

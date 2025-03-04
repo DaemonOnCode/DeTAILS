@@ -11,6 +11,7 @@ import getServerUtils from '../../hooks/Shared/get-server-url';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection-context';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
+import { useSettings } from '../../context/settings-context';
 
 const CodebookRefinement = () => {
     const {
@@ -22,6 +23,7 @@ const CodebookRefinement = () => {
         setConflictingResponses,
         conflictingResponses
     } = useCodingContext();
+    const { settings } = useSettings();
 
     const navigate = useNavigate();
     const logger = useLogger();
@@ -54,7 +56,7 @@ const CodebookRefinement = () => {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
-                model: MODEL_LIST.GEMINI_FLASH,
+                model: settings.ai.model,
                 prevCodebook: sampledPostResponseCopy,
                 currentCodebook: sampledPostResponse
             })

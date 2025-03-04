@@ -18,10 +18,13 @@ import { StepHandle } from '../../types/Shared';
 import { useLoadingContext } from '../../context/loading-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
+import { useSettings } from '../../context/settings-context';
 
 const CodebookCreation = () => {
     const [searchParams] = useSearchParams();
     const reviewParam = searchParams.get('review') !== 'false';
+
+    const { settings } = useSettings();
 
     const {
         sampledPostResponse,
@@ -77,7 +80,7 @@ const CodebookCreation = () => {
                 body: JSON.stringify({
                     dataset_id: datasetId,
                     keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
-                    model: MODEL_LIST.GEMINI_FLASH,
+                    model: settings.ai.model,
                     main_topic: mainTopic,
                     additional_info: additionalInfo,
                     research_questions: researchQuestions,
@@ -128,7 +131,7 @@ const CodebookCreation = () => {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
-                model: MODEL_LIST.GEMINI_FLASH,
+                model: settings.ai.model,
                 final_codebook: sampledPostResponse
                     .filter((response) => response.isMarked === true)
                     .map((response) => ({

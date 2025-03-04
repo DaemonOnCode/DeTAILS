@@ -11,6 +11,7 @@ import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';
 import { useNavigate } from 'react-router-dom';
+import { useSettings } from '../../context/settings-context';
 
 const LoadData = () => {
     // With the new context, we now only have datasetId.
@@ -26,6 +27,7 @@ const LoadData = () => {
         dispatchSampledPostResponse
     } = useCodingContext();
 
+    const { settings } = useSettings();
     const navigate = useNavigate();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -97,7 +99,7 @@ const LoadData = () => {
             body: JSON.stringify({
                 dataset_id: datasetId,
                 keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
-                model: MODEL_LIST.GEMINI_FLASH,
+                model: settings.ai.model,
                 main_topic: mainTopic,
                 additional_info: additionalInfo,
                 research_questions: researchQuestions,

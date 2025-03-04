@@ -21,6 +21,7 @@ import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import { useLoadingContext } from '../../context/loading-context';
 import { StepHandle } from '../../types/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
+import { useSettings } from '../../context/settings-context';
 
 const DataViewerPage = () => {
     const { type, datasetId, selectedData, modeInput } = useCollectionContext();
@@ -36,6 +37,7 @@ const DataViewerPage = () => {
         researchQuestions,
         dispatchSampledPostResponse
     } = useCodingContext();
+    const { settings } = useSettings();
     const { data, loadFolderData, loadTorrentData, error, loading } = useRedditData();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -132,7 +134,7 @@ const DataViewerPage = () => {
             body: JSON.stringify({
                 dataset_id: datasetId,
                 keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
-                model: MODEL_LIST.GEMINI_FLASH,
+                model: settings.ai.model,
                 main_topic: mainTopic,
                 additional_info: additionalInfo,
                 research_questions: researchQuestions,

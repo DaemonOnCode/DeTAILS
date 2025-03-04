@@ -4,6 +4,7 @@ import { FaBrain, FaExclamationTriangle, FaTimesCircle } from 'react-icons/fa';
 import { useWebSocket } from '../../../context/websocket-context';
 import { useCollectionContext } from '../../../context/collection-context';
 import { MODEL_LIST } from '../../../constants/Shared';
+import { useSettings } from '../../../context/settings-context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -13,7 +14,9 @@ const Workflow = () => {
     const llm2Ref = useRef<HTMLDivElement>(null);
     const llm3Ref = useRef<HTMLDivElement>(null);
 
-    const modelName = MODEL_LIST.GEMINI_FLASH;
+    const { settings } = useSettings();
+
+    const modelName = settings.ai?.model || MODEL_LIST.GEMINI_FLASH_THINKING;
 
     const { registerCallback, unregisterCallback } = useWebSocket();
     // const { selectedPosts } = useCollectionContext();

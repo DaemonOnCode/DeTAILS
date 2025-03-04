@@ -17,6 +17,7 @@ import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { StepHandle } from '../../types/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
+import { useSettings } from '../../context/settings-context';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -40,6 +41,7 @@ const ContextPage = () => {
         setResearchQuestions,
         dispatchKeywordsTable
     } = useCodingContext();
+    const { settings } = useSettings();
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -160,7 +162,7 @@ const ContextPage = () => {
             const blob = new Blob([fileContent]);
             formData.append('contextFiles', blob, contextFiles[filePath]);
         });
-        formData.append('model', MODEL_LIST.GEMINI_FLASH);
+        formData.append('model', settings.ai.model);
         formData.append('mainTopic', mainTopic);
         formData.append('additionalInfo', additionalInfo ?? '');
         formData.append('retry', 'false');

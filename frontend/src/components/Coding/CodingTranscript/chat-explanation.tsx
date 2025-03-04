@@ -6,6 +6,7 @@ import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { ChatMessage } from '../../../types/Coding/shared';
 import { useTranscriptContext } from '../../../context/transcript-context';
 import { useApi } from '../../../hooks/Shared/use-api';
+import { useSettings } from '../../../context/settings-context';
 
 interface ChatExplanationProps {
     initialExplanationWithCode: {
@@ -33,6 +34,8 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});
     const [chatCollapsed, setChatCollapsed] = useState<boolean>(true && !!messages.length);
+
+    const { settings } = useSettings();
 
     const { fetchData } = useApi();
 
@@ -91,7 +94,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             code: initialExplanationWithCode.code,
             quote: initialExplanationWithCode.fullText,
             chat_history: [...computeChatHistory(), `Human: ${comment}`],
-            model: MODEL_LIST.GEMINI_FLASH
+            model: settings.ai.model
         };
 
         try {
@@ -269,7 +272,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             code: initialExplanationWithCode.code,
             quote: initialExplanationWithCode.fullText,
             chat_history: partialHistory,
-            model: MODEL_LIST.GEMINI_FLASH
+            model: settings.ai.model
         };
 
         try {
