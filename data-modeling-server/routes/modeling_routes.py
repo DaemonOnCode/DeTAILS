@@ -1,11 +1,12 @@
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, Request
 
 from controllers.modeling_controller import MODEL_FUNCTIONS, process_topic_modeling
 from database.models_table import ModelsRepository
+from headers.app_id import get_app_id
 from models.modeling_models import MetadataRequest, ModelListRequest, TopicModelingRequest, UpdateMetadataRequest
 from routes.websocket_routes import manager
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_app_id)])
 
 models_repo = ModelsRepository()
 # main_event_loop = asyncio.get_event_loop()
@@ -13,15 +14,16 @@ models_repo = ModelsRepository()
 # Dynamic route to handle topic modeling methods
 @router.post("/model/{method}")
 async def topic_model_endpoint(
+    request: Request,
     method: str = Path(..., description="The topic modeling method to use"),
-    request: TopicModelingRequest = None
+    request_body: TopicModelingRequest = None
 ):
     modeling_function = MODEL_FUNCTIONS.get(method)
 
     if not modeling_function:
         raise HTTPException(status_code=400, detail=f"Unsupported method: {method}")
 
-    return await process_topic_modeling(request, manager, method, modeling_function)
+    return await process_topic_modeling(request.headers.get("x-app-id"),request_body, manager, method, modeling_function)
 
 
 

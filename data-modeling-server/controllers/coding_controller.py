@@ -33,7 +33,7 @@ from database.db_helpers import get_post_and_comments_from_id
 llm_responses_repo = LlmResponsesRepository()
 
 
-async def process_post_with_llm(dataset_id, post_id, llm, prompt, regex = r"\"codes\":\s*(\[.*?\])"):
+async def process_post_with_llm(app_id, dataset_id, post_id, llm, prompt, regex = r"\"codes\":\s*(\[.*?\])"):
     try:
         post_data = get_post_and_comments_from_id(post_id, dataset_id)
         transcript = generate_transcript(post_data)
@@ -44,20 +44,20 @@ async def process_post_with_llm(dataset_id, post_id, llm, prompt, regex = r"\"co
 
         return [{"postId": post_id, "id": str(uuid4()), **code} for code in codes]
     except Exception as e:
-        await manager.broadcast(f"ERROR: {dataset_id}: Error processing post {post_id} - {str(e)}.")
+        await manager.send_message(app_id, f"ERROR: {dataset_id}: Error processing post {post_id} - {str(e)}.")
         return []
     
-async def run_coding_pipeline(request_body, prompt_generator):
+async def run_coding_pipeline(app_id, request_body, prompt_generator):
     dataset_id, posts, model = request_body.dataset_id, request_body.unseen_post_ids, request_body.model
     llm = OllamaLLM(model=model, num_ctx=30000, num_predict=30000, temperature=0.6, callbacks=[StreamingStdOutCallbackHandler()])
 
     final_results = []
     for post_id in posts:
-        await manager.broadcast(f"Dataset {dataset_id}: Processing post {post_id}...")
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Processing post {post_id}...")
         prompt = prompt_generator(request_body, post_id)
         final_results.extend(await process_post_with_llm(dataset_id, post_id, llm, prompt))
 
-    await manager.broadcast(f"Dataset {dataset_id}: All posts processed successfully.")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
     return {"message": "Coding completed successfully!", "data": final_results}
 
 
@@ -71,10 +71,10 @@ def initialize_vector_store(dataset_id: str, model: str, embeddings: Any):
     return vector_store
 
 @log_execution_time()
-async def save_context_files(dataset_id: str, contextFiles: List[UploadFile], vector_store: Chroma):
+async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[UploadFile], vector_store: Chroma):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     
-    await manager.broadcast(f"Dataset {dataset_id}: Uploading files...")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Uploading files...")
     await asyncio.sleep(5)
 
     for file in contextFiles:
@@ -109,19 +109,19 @@ async def save_context_files(dataset_id: str, contextFiles: List[UploadFile], ve
                 vector_store.add_documents(chunks)
 
                 success = True
-                await manager.broadcast(f"Dataset {dataset_id}: Successfully processed file {file_name}.")
+                await manager.send_message(app_id, f"Dataset {dataset_id}: Successfully processed file {file_name}.")
             except Exception as e:
                 retries -= 1
-                await manager.broadcast(
+                await manager.send_message(app_id, 
                     f"WARNING: Dataset {dataset_id}: Error processing file {file.filename} - {str(e)}. Retrying... ({3 - retries}/3)"
                 )
                 if retries == 0:
-                    await manager.broadcast(
+                    await manager.send_message(app_id, 
                         f"ERROR: Dataset {dataset_id}: Failed to process file {file.filename} after multiple attempts."
                     )
                     raise e
 
-    await manager.broadcast(f"Dataset {dataset_id}: Files uploaded successfully.")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Files uploaded successfully.")
     await asyncio.sleep(1)
 
 
@@ -176,6 +176,7 @@ def get_llm_and_embeddings(
 
 @log_execution_time()
 async def process_llm_task(
+    app_id: str,
     dataset_id: str,
     manager: ConnectionManager,
     llm_model: str,
@@ -197,7 +198,7 @@ async def process_llm_task(
     extracted_data = None
     function_id = function_id or str(uuid4())  
 
-    await manager.broadcast(f"Dataset {dataset_id}: LLM process started...")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: LLM process started...")
 
     while retries > 0 and not success:
         try:
@@ -208,7 +209,7 @@ async def process_llm_task(
                 if not rag_prompt_builder_func:
                     raise ValueError("RAG mode requires a 'rag_prompt_builder_func'.")
 
-                await manager.broadcast(f"Dataset {dataset_id}: Using Retrieval-Augmented Generation (RAG)...")
+                await manager.send_message(app_id, f"Dataset {dataset_id}: Using Retrieval-Augmented Generation (RAG)...")
 
                 # retrieved_docs = retriever.invoke(input_text)
 
@@ -224,7 +225,7 @@ async def process_llm_task(
                 if not prompt_builder_func:
                     raise ValueError("Standard LLM invocation requires a 'prompt_builder_func'.")
 
-                await manager.broadcast(f"Dataset {dataset_id}: Running direct LLM task...")
+                await manager.send_message(app_id, f"Dataset {dataset_id}: Running direct LLM task...")
 
                 prompt_text = prompt_builder_func(**prompt_params)
 
@@ -232,7 +233,7 @@ async def process_llm_task(
                 print("Prompt Text", prompt_text)
                 if stream_output:
                     async for chunk in llm_instance.stream(prompt_text):
-                        await manager.broadcast(f"Dataset {dataset_id}: {chunk}")
+                        await manager.send_message(app_id, f"Dataset {dataset_id}: {chunk}")
                 else:
                     response = await asyncio.to_thread(llm_instance.invoke, prompt_text)
 
@@ -246,7 +247,7 @@ async def process_llm_task(
             extracted_data = json.loads(json_str)
 
             success = True
-            await manager.broadcast(f"Dataset {dataset_id}: LLM process completed successfully.")
+            await manager.send_message(app_id, f"Dataset {dataset_id}: LLM process completed successfully.")
 
             if store_response and post_id:
                 # execute_query(
@@ -267,18 +268,18 @@ async def process_llm_task(
 
         except Exception as e:
             retries -= 1
-            await manager.broadcast(
+            await manager.send_message(app_id, 
                 f"WARNING: Dataset {dataset_id}: Error processing LLM response - {str(e)}. Retrying... ({retries}/{max_retries})"
             )
             if retries == 0:
-                await manager.broadcast(f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
+                await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
                 raise e
 
     return extracted_data
 
 
 # async def generate_keywords_with_context(model: str, dataset_id: str, mainTopic: str, researchQuestions: list[str], additionalInfo: str, retriever: Any, ):
-#     await manager.broadcast(f"Dataset {dataset_id}: Generating keywords...")
+#     await manager.send_message(app_id, f"Dataset {dataset_id}: Generating keywords...")
 
 #     # **Invoke LLM using the common function**
 #     parsed_keywords = await process_llm_task(
@@ -292,5 +293,5 @@ async def process_llm_task(
 #         additionalInfo=additionalInfo
 #     )
 
-#     await manager.broadcast(f"Dataset {dataset_id}: Processing complete.")
+#     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 #     print(parsed_keywords)

@@ -54,7 +54,7 @@ def is_preprocessing_needed(dataset_id: str, table: str) -> bool:
     return total_records != tokenized_records
 
 # Function to process posts with higher parallelization
-async def process_posts_batch_parallel(nlp, dataset_id: str, batch_size: int, total_records: int, num_threads: int, request: TopicModelingRequest = {}, type_: str = "", model_name: str = "", model_id: str = ""):
+async def process_posts_batch_parallel(app_id: str, nlp, dataset_id: str, batch_size: int, total_records: int, num_threads: int, request: TopicModelingRequest = {}, type_: str = "", model_name: str = "", model_id: str = ""):
     def process_batch(batch: List[Dict[str, Any]]):
         post_ids = [row["id"] for row in batch]
         titles = [row["title"] or "" for row in batch]  # Use empty string if title is None
@@ -78,7 +78,7 @@ async def process_posts_batch_parallel(nlp, dataset_id: str, batch_size: int, to
 
     print("Processing posts in parallel")
     processed_count = 0
-    await send_broadcast(
+    await send_broadcast(app_id, 
             manager=manager,
             type_=type_,
             dataset_id=dataset_id,
@@ -108,7 +108,7 @@ async def process_posts_batch_parallel(nlp, dataset_id: str, batch_size: int, to
         # Calculate and broadcast progress
         progress = (processed_count / total_records) * 100
         print(f"Processed {processed_count} posts. Progress: {progress:.2f}%")
-        await send_broadcast(
+        await send_broadcast(app_id, 
                 manager=manager,
                 type_=type_,
                 dataset_id=dataset_id,
@@ -121,7 +121,7 @@ async def process_posts_batch_parallel(nlp, dataset_id: str, batch_size: int, to
         await asyncio.sleep(0)
 
 # Function to process comments with higher parallelization
-async def process_comments_batch_parallel(nlp, dataset_id: str, batch_size: int, total_records: int, num_threads: int, request: TopicModelingRequest = {}, type_: str = "", model_name: str = "", model_id: str = ""):
+async def process_comments_batch_parallel(app_id: str, nlp, dataset_id: str, batch_size: int, total_records: int, num_threads: int, request: TopicModelingRequest = {}, type_: str = "", model_name: str = "", model_id: str = ""):
     def process_batch(batch: List[Dict[str, Any]]):
         comment_ids = [row["id"] for row in batch]
         bodies = [row["body"] or "" for row in batch]  # Use empty string if body is None
@@ -141,7 +141,7 @@ async def process_comments_batch_parallel(nlp, dataset_id: str, batch_size: int,
 
     print("Processing comments in parallel")
     processed_count = 0
-    await send_broadcast(
+    await send_broadcast(app_id, 
             manager=manager,
             type_=type_,
             dataset_id=dataset_id,
@@ -170,7 +170,7 @@ async def process_comments_batch_parallel(nlp, dataset_id: str, batch_size: int,
         # Calculate and broadcast progress
         progress = (processed_count / total_records) * 100
         print(f"Processed {processed_count} comments. Progress: {progress:.2f}%")
-        await send_broadcast(
+        await send_broadcast(app_id, 
                 manager=manager,
                 type_=type_,
                 dataset_id=dataset_id,
@@ -193,7 +193,7 @@ async def process_comments_batch_parallel_async(nlp, dataset_id, batch_size, tot
 
 
 # Wrapper function to process both posts and comments with high parallelization
-async def process_and_tokenize(dataset_id: str, batch_size: int = 1000, num_threads: int = 4, request: TopicModelingRequest = {}, type_: str = "", model_name: str = "", model_id: str = ""):
+async def process_and_tokenize(app_id: str, dataset_id: str, batch_size: int = 1000, num_threads: int = 4, request: TopicModelingRequest = {}, type_: str = "", model_name: str = "", model_id: str = ""):
     posts_needed = is_preprocessing_needed(dataset_id, "posts")
     comments_needed = is_preprocessing_needed(dataset_id, "comments")
 
@@ -211,10 +211,10 @@ async def process_and_tokenize(dataset_id: str, batch_size: int = 1000, num_thre
 
     # tasks = []
     if posts_needed:
-        await process_posts_batch_parallel_async(nlp, dataset_id, batch_size, total_posts, num_threads, request, type_, model_name, model_id)
+        await process_posts_batch_parallel_async(app_id, nlp, dataset_id, batch_size, total_posts, num_threads, request, type_, model_name, model_id)
         
     if comments_needed:
-        await process_comments_batch_parallel_async(nlp, dataset_id, batch_size, total_comments, num_threads, request, type_, model_name, model_id)
+        await process_comments_batch_parallel_async(app_id, nlp, dataset_id, batch_size, total_comments, num_threads, request, type_, model_name, model_id)
 
 
 
@@ -283,10 +283,12 @@ MODEL_FUNCTIONS = {
 }
 
 # Common broadcast messages
-async def send_broadcast(manager: ConnectionManager, type_: str, dataset_id: str, model_id: str, model_name:str, workspace_id: str, num_topics: int, message: str):
+async def send_broadcast(app_id: str, manager: ConnectionManager, type_: str, dataset_id: str, model_id: str, model_name:str, workspace_id: str, num_topics: int, message: str):
     print(f"Broadcasting {message} for {model_name} ({model_id})")
     models_repo.update({"id": model_id, "dataset_id": dataset_id}, {"stage": message if message != "end" else ""})
-    await manager.broadcast(json.dumps({
+    await manager.send_message(
+        app_id,
+        json.dumps({
         "type": type_,
         "dataset_id": dataset_id,
         "model_id": model_id,
@@ -300,6 +302,7 @@ async def send_broadcast(manager: ConnectionManager, type_: str, dataset_id: str
 # Common function to process topic modeling
 @log_execution_time()
 async def process_topic_modeling(
+    app_id: str,
     request: TopicModelingRequest,
     manager,
     type_: str,
@@ -311,32 +314,32 @@ async def process_topic_modeling(
         model_id, model_name = add_model_to_db(request.dataset_id, type_, request.num_topics)
 
         # Broadcast initial messages
-        await send_broadcast(manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "starting")
+        await send_broadcast(app_id, manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "starting")
         await asyncio.sleep(5)
-        await send_broadcast(manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "preprocessing")
+        await send_broadcast(app_id, manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "preprocessing")
         await asyncio.sleep(5)
         # Preprocessing
         loop = asyncio.get_event_loop()
         task = loop.run_in_executor(
             None,  # Default ThreadPoolExecutor
             lambda: asyncio.run(process_and_tokenize(
-                request.dataset_id, 1000, 4, request, type_, model_name, model_id
+                app_id, request.dataset_id, 1000, 4, request, type_, model_name, model_id
             ))
         )
         await task
-        await send_broadcast(manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "preprocessed")
+        await send_broadcast(app_id, manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "preprocessed")
         await asyncio.sleep(5)
 
         # Modeling
-        await send_broadcast(manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "modeling")
+        await send_broadcast(app_id, manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "modeling")
         await asyncio.sleep(5)
         topics = modeling_function(request.num_topics)
-        await send_broadcast(manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "modeled")
+        await send_broadcast(app_id, manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "modeled")
         await asyncio.sleep(5)
 
         # Update model in DB and finalize
         update_model_in_db(model_id, topics)
-        await send_broadcast(manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "end")
+        await send_broadcast(app_id, manager, type_, request.dataset_id, model_id, model_name, request.workspace_id, request.num_topics, "end")
 
         return {
             "method": type_,

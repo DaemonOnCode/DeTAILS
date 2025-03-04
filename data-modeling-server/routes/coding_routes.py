@@ -48,23 +48,26 @@ async def build_context_from_interests_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     dataset_id = datasetId
-    await manager.broadcast(f"Dataset {dataset_id}: Processing started.")
+
+    app_id = request.headers.get("x-app-id")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Processing started.")
 
     llm, embeddings = get_llm_and_embeddings(model, settings=settings)
 
     # Initialize vector store & process files
     print("Initialize vector store")
     vector_store = initialize_vector_store(dataset_id, model, embeddings)
-    await save_context_files(dataset_id, contextFiles, vector_store)
+    await save_context_files(app_id, dataset_id, contextFiles, vector_store)
 
     # Create retriever from vector store
-    await manager.broadcast(f"Dataset {dataset_id}: Creating retriever...")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Creating retriever...")
     retriever = vector_store.as_retriever(search_kwargs={'k': 20})
 
     # Build input for LLM
     input_text = ContextPrompt.context_builder(mainTopic, researchQuestions, additionalInfo)
 
     parsed_keywords = await process_llm_task(
+        app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
         llm_model=model,
@@ -78,7 +81,7 @@ async def build_context_from_interests_endpoint(
         llm_instance=llm
     )
 
-    await manager.broadcast(f"Dataset {dataset_id}: Processing complete.")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 
     return {
         "message": "Context built successfully!",
@@ -87,45 +90,48 @@ async def build_context_from_interests_endpoint(
 
 @router.post("/regenerate-keywords")
 async def regenerate_keywords_endpoint(
-    request: RegenerateKeywordsRequest,
+    request: Request,
+    request_body: RegenerateKeywordsRequest,
     # settings: Annotated[config.Settings, Depends(config.get_settings)],
 ):
-    dataset_id = request.datasetId
+    dataset_id = request_body.datasetId
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
-    await manager.broadcast(f"Dataset {dataset_id}: Regenerating keywords with feedback...")
+    app_id = request.headers.get("x-app-id")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Regenerating keywords with feedback...")
 
-    llm, embeddings = get_llm_and_embeddings(request.model, settings=settings)
+    llm, embeddings = get_llm_and_embeddings(request_body.model, settings=settings)
 
-    vector_store = initialize_vector_store(dataset_id, request.model, embeddings)
+    vector_store = initialize_vector_store(dataset_id, request_body.model, embeddings)
     retriever = vector_store.as_retriever(search_kwargs={'k': 30})
 
     parsed_keywords = await process_llm_task(
+        app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
-        llm_model=request.model,
+        llm_model=request_body.model,
         regex_pattern=r"```json\s*([\s\S]*?)\s*```", 
         rag_prompt_builder_func=ContextPrompt.regenerationPromptTemplate, 
         retriever=retriever, 
         llm_instance=llm,
         input_text=ContextPrompt.refined_context_builder( 
-            request.mainTopic, 
-            request.researchQuestions, 
-            request.additionalInfo, 
-            request.selectedKeywords, 
-            request.unselectedKeywords, 
-            request.extraFeedback
+            request_body.mainTopic, 
+            request_body.researchQuestions, 
+            request_body.additionalInfo, 
+            request_body.selectedKeywords, 
+            request_body.unselectedKeywords, 
+            request_body.extraFeedback
         ),
-        mainTopic=request.mainTopic,
-        researchQuestions=request.researchQuestions,
-        additionalInfo=request.additionalInfo,
-        selectedKeywords=request.selectedKeywords,
-        unselectedKeywords=request.unselectedKeywords,
-        extraFeedback=request.extraFeedback,
+        mainTopic=request_body.mainTopic,
+        researchQuestions=request_body.researchQuestions,
+        additionalInfo=request_body.additionalInfo,
+        selectedKeywords=request_body.selectedKeywords,
+        unselectedKeywords=request_body.unselectedKeywords,
+        extraFeedback=request_body.extraFeedback,
     )
 
-    await manager.broadcast(f"Dataset {dataset_id}: Processing complete.")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 
     return {
         "message": "Keywords regenerated successfully!",
@@ -133,7 +139,7 @@ async def regenerate_keywords_endpoint(
     }
 
 @router.post("/generate-initial-codes")
-async def generate_codes_endpoint(
+async def generate_codes_endpoint(request: Request,
     request_body: GenerateInitialCodesRequest,
     batch_size: int = 10  # Default batch size (can be overridden in request)
 ):
@@ -141,7 +147,8 @@ async def generate_codes_endpoint(
     if not dataset_id or len(request_body.sampled_post_ids) == 0:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
-    await manager.broadcast(f"Dataset {dataset_id}: Code generation process started.")
+    app_id = request.headers.get("x-app-id")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
 
     llm, _ = get_llm_and_embeddings(request_body.model)
@@ -151,13 +158,14 @@ async def generate_codes_endpoint(
     async def process_post(post_id: str):
         """Processes a single post asynchronously."""
         try:
-            await manager.broadcast(f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
             post_data = get_post_and_comments_from_id(post_id, dataset_id)
 
-            await manager.broadcast(f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
             transcript = generate_transcript(post_data)
 
             parsed_response = await process_llm_task(
+                app_id=app_id,
                 dataset_id=dataset_id,
                 post_id=post_id,
                 manager=manager,
@@ -185,7 +193,7 @@ async def generate_codes_endpoint(
             return codes
 
         except Exception as e:
-            await manager.broadcast(f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
+            await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
             return []
 
     # Split posts into batches of `batch_size`
@@ -193,7 +201,7 @@ async def generate_codes_endpoint(
     batches = [sampled_posts[i:i + batch_size] for i in range(0, len(sampled_posts), batch_size)]
 
     for batch in batches:
-        await manager.broadcast(f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
         
         # Process posts in the batch concurrently
         batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
@@ -201,7 +209,7 @@ async def generate_codes_endpoint(
         for codes in batch_results:
             final_results.extend(codes)
 
-    await manager.broadcast(f"Dataset {dataset_id}: All posts processed successfully.")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
     return {
         "message": "Initial codes generated successfully!",
@@ -210,6 +218,7 @@ async def generate_codes_endpoint(
 
 @router.post("/refine-codebook")
 async def refine_codebook_endpoint(
+    request: Request,
     request_body: CodebookRefinementRequest,
     # settings: Annotated[config.Settings, Depends(config.get_settings)],
 ):
@@ -217,7 +226,8 @@ async def refine_codebook_endpoint(
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
-    await manager.broadcast(f"Dataset {dataset_id}: Code generation process started.")
+    app_id = request.headers.get("x-app-id")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
     llm, _ = get_llm_and_embeddings(request_body.model, settings=settings)
     # Convert codebooks to JSON format
@@ -225,6 +235,7 @@ async def refine_codebook_endpoint(
     current_codebook_json = json.dumps(request_body.currentCodebook, indent=2)
 
     parsed_response = await process_llm_task(
+        app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
         llm_model=request_body.model,
@@ -244,7 +255,7 @@ async def refine_codebook_endpoint(
     for code in final_results:
         code["id"] = str(uuid4())
 
-    await manager.broadcast(f"Dataset {dataset_id}: Codebook refinement completed.")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Codebook refinement completed.")
 
     return {
         "message": "Refined codebook generated successfully!",
@@ -255,6 +266,7 @@ async def refine_codebook_endpoint(
 
 @router.post("/deductive-coding")
 async def deductive_coding_endpoint(
+    request: Request,
     request_body: DeductiveCodingRequest,
     batch_size: int = 10  
 ):
@@ -262,7 +274,8 @@ async def deductive_coding_endpoint(
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
-    await manager.broadcast(f"Dataset {dataset_id}: Deductive coding process started.")
+    app_id = request.headers.get("x-app-id")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Deductive coding process started.")
 
     final_results = []
     posts = request_body.unseen_post_ids
@@ -270,13 +283,14 @@ async def deductive_coding_endpoint(
 
     async def process_post(post_id: str):
         """Processes a single post asynchronously."""
-        await manager.broadcast(f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
         post_data = get_post_and_comments_from_id(post_id, dataset_id)
 
-        await manager.broadcast(f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
         transcript = generate_transcript(post_data)
 
         parsed_response = await process_llm_task(
+            app_id=app_id,
             dataset_id=dataset_id,
             post_id=post_id,
             manager=manager,
@@ -307,7 +321,7 @@ async def deductive_coding_endpoint(
     batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
 
     for batch in batches:
-        await manager.broadcast(f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
         
         batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
         
@@ -315,7 +329,7 @@ async def deductive_coding_endpoint(
             final_results.extend(codes)
 
 
-    await manager.broadcast(f"Dataset {dataset_id}: All posts processed successfully.")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
     return {
         "message": "Deductive coding completed successfully!",
@@ -325,6 +339,7 @@ async def deductive_coding_endpoint(
 
 @router.post("/theme-generation")
 async def theme_generation_endpoint(
+    request: Request,
     request_body: ThemeGenerationRequest,
     # settings: Annotated[config.Settings, Depends(config.get_settings)], 
 ):
@@ -332,7 +347,8 @@ async def theme_generation_endpoint(
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
-    await manager.broadcast(f"Dataset {dataset_id}: Theme generation process started.")
+    app_id = request.headers.get("x-app-id")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation process started.")
 
     llm, _ = get_llm_and_embeddings(request_body.model, settings=settings)
 
@@ -351,6 +367,7 @@ async def theme_generation_endpoint(
     ]
 
     parsed_response = await process_llm_task(
+        app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
         llm_model=request_body.model,
@@ -373,7 +390,7 @@ async def theme_generation_endpoint(
     placed_codes = {code for theme in themes for code in theme["codes"]}
     unplaced_codes = list(set(row["code"] for row in qec_table) - placed_codes)
 
-    await manager.broadcast(f"Dataset {dataset_id}: Theme generation completed.")
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation completed.")
 
     await asyncio.sleep(5)
 
@@ -388,28 +405,30 @@ async def theme_generation_endpoint(
 
 @router.post("/refine-code")
 async def refine_single_code_endpoint(
-    request: RefineCodeRequest
+    request: Request,
+    request_body: RefineCodeRequest
 ):
-    dataset_id = request.dataset_id
+    dataset_id = request_body.dataset_id
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
-    llm, _ = get_llm_and_embeddings(request.model)
-    post_data = get_post_and_comments_from_id(request.post_id, dataset_id)
+    llm, _ = get_llm_and_embeddings(request_body.model)
+    post_data = get_post_and_comments_from_id(request_body.post_id, dataset_id)
     transcript = generate_transcript(post_data)
 
-    *chat_history, user_comment = request.chat_history
+    *chat_history, user_comment = request_body.chat_history
 
     parsed_response = await process_llm_task(
+        app_id=request.headers.get("x-app-id"),
         dataset_id="",
         manager=manager,
-        llm_model=request.model,
+        llm_model=request_body.model,
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=RefineSingleCode.refine_single_code_prompt,
         llm_instance=llm,
         transcript=transcript,
-        code=request.code,
-        quote=request.quote,
+        code=request_body.code,
+        quote=request_body.quote,
         chat_history=chat_history,
         user_comment=user_comment
     )
