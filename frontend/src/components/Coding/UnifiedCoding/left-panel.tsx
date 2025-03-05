@@ -1,4 +1,4 @@
-import { FC, Suspense, useEffect, useRef, useState } from 'react';
+import { FC, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import PostTab from './post-tab';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import useServerUtils from '../../../hooks/Shared/get-server-url';
@@ -7,8 +7,11 @@ import { SetState } from '../../../types/Coding/shared';
 import { useApi } from '../../../hooks/Shared/use-api';
 
 interface LeftPanelProps {
+    totalPosts: number;
+    totalCodedPosts: number;
     postIds: string[];
     codes: string[];
+    filter: string | null;
     onFilterSelect: (filter: string | null) => void;
     showTypeFilterDropdown?: boolean;
     selectedTypeFilter: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
@@ -19,18 +22,27 @@ interface LeftPanelProps {
 }
 
 const LeftPanel: FC<LeftPanelProps> = ({
+    totalPosts,
+    totalCodedPosts,
     postIds,
     codes,
+    filter,
     onFilterSelect,
     showTypeFilterDropdown = false,
     selectedTypeFilter,
     handleSelectedTypeFilter,
     setCurrentPost,
-    showCoderType,
-    codedPostsCount
+    showCoderType
+    // codedPostsCount
 }) => {
+    // const postIds = useMemo(() => _postIds, [_postIds]);
+
     const [activeTab, setActiveTab] = useState<'posts' | 'codes'>('posts');
     const [selectedItem, setSelectedItem] = useState<string | null>(null);
+
+    useEffect(() => {
+        setSelectedItem(null);
+    }, [selectedTypeFilter]);
 
     const [postIdTitles, setPostIdTitles] = useState<{ id: string; title: string }[]>([]);
 
@@ -74,7 +86,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
         if (error) {
             console.error('Failed to fetch data:', error);
             setLoading(false);
-            throw new Error('Failed to fetch data');
+            // throw new Error('Failed to fetch data');
         }
         console.log('Results:', results);
 
@@ -147,7 +159,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                                     : 'hover:bg-blue-100'
                             }`}
                             onClick={() => handleSelect(null)}>
-                            All Posts ({allPostsCount})
+                            All Posts ({totalPosts})
                         </span>
                         <span
                             className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
@@ -157,7 +169,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                                     : 'hover:bg-blue-100'
                             }`}
                             onClick={() => handleSelect('coded-data')}>
-                            Coded Posts ({codedPostsCount})
+                            Coded Posts ({totalCodedPosts})
                         </span>
                     </div>
                 ) : (

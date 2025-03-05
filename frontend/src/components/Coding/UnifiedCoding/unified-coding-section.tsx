@@ -67,7 +67,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [feedback, setFeedback] = useState('');
 
-    const { filteredData, filteredPostIds } = useFilteredData({
+    const { filteredData, filteredPostIds, totalData, totalIds } = useFilteredData({
         data,
         postIds,
         filter,
@@ -165,6 +165,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     };
 
     const handleSelectedTypeFilter = (type: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All') => {
+        setFilter(null);
         setSelectedTypeFilter(type);
     };
 
@@ -176,7 +177,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     //     handleRerun();
     // };
 
-    const uniqueCodes = Array.from(new Set(filteredData.map((item) => item.code)));
+    const uniqueCodes = Array.from(new Set(totalData.map((item) => item.code)));
 
     return (
         // Add an id for tutorial targeting at the root container.
@@ -186,8 +187,11 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             <div className="flex flex-1 overflow-y-auto">
                 <div className="w-1/4 border-r flex-1 overflow-auto px-6 pb-0">
                     <LeftPanel
+                        totalPosts={totalIds}
+                        totalCodedPosts={new Set(totalData.map((data) => data.postId)).size}
                         postIds={filteredPostIds}
                         codes={uniqueCodes}
+                        filter={filter}
                         onFilterSelect={setFilter}
                         showTypeFilterDropdown={showFilterDropdown}
                         selectedTypeFilter={selectedTypeFilter}
