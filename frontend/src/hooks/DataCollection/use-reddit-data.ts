@@ -184,6 +184,8 @@ const useRedditData = () => {
 
                 if (torrentResponse.error) {
                     console.error('Failed to load torrent data:', torrentResponse.error);
+                    // setError('Failed to load torrent data.');
+                    throw new Error('Failed to load torrent data.');
                 } else {
                     console.log('Torrent data:', torrentResponse.data);
                 }
