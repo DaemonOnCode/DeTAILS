@@ -141,9 +141,9 @@ const ValidationTable: FC<ValidationTableProps> = ({
                     <button
                         onClick={() => onViewTranscript(currentPostId ?? null)}
                         className="text-blue-500 underline">
-                        {currentPostId ? 'visit this transcript' : 'visit a transcript'}
+                        {currentPostId ? 'visit this transcript' : 'visit transcript'}
                     </button>{' '}
-                    to add codes, or wait for the LLM to generate responses.
+                    to add codes
                 </p>
             </div>
         );

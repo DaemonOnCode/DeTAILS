@@ -225,7 +225,11 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             onReRunCoding={handleReRunCoding}
                             onUpdateResponses={handleUpdateResponses}
                             conflictingResponses={conflictingResponses}
-                            currentPostId={null}
+                            currentPostId={
+                                filter?.split('|')?.[1] === 'coded-data'
+                                    ? filter.split('|')?.[0]
+                                    : filter
+                            }
                             showCoderType={showCoderType}
                         />
                     </div>
