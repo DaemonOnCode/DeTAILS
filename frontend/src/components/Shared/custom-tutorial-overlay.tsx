@@ -134,7 +134,7 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
         const elem = document.querySelector(selector) as HTMLElement;
         if (!elem) return;
         if (targetRect.top < 0 || targetRect.bottom > window.innerHeight) {
-            elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            elem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     }, [targetRect, currentStepIndex, steps]);
 

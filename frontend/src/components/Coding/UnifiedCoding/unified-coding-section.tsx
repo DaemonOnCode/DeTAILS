@@ -236,6 +236,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                     {showRerunCoding && (
                         <div className="flex justify-end py-4 px-6">
                             <button
+                                id="redo-coding-btn"
                                 onClick={handleReRunCoding}
                                 className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
                                 <DetailsLLMIcon className="h-6 w-6" />

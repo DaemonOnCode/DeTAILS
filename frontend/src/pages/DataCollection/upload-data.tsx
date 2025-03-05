@@ -50,23 +50,36 @@ const UploadDataPage = () => {
 
     const postIds: string[] = selectedData;
 
-    const steps: TutorialStep[] = [
-        {
-            target: '#upload-header',
-            content: 'Welcome to the Data Upload Page. Here you can select and load your data.',
-            placement: 'bottom'
-        },
-        {
-            target: '#upload-main',
-            content: 'Depending on the data type, you will see the appropriate upload options.',
-            placement: 'top'
-        },
-        {
-            target: '#proceed-next-step',
-            content: 'Proceed to next step',
-            placement: 'left'
-        }
-    ];
+    const steps: TutorialStep[] =
+        datasetType === 'reddit'
+            ? [
+                  {
+                      target: '#upload-main',
+                      content:
+                          'Welcome to the Reddit Upload Page. Here you can select and load your data.',
+                      placement: 'bottom'
+                  },
+                  {
+                      target: '#reddit-dataset-tabs',
+                      content:
+                          'These tabs allow you to choose between loading data from a folder on your PC/Laptop or downloading from a torrent file containing all data.',
+                      placement: 'bottom'
+                  },
+                  {
+                      target: '#reddit-dataset-main',
+                      content:
+                          'In this area you can fill out the required information about the reddit dataset.',
+                      placement: 'bottom'
+                  },
+                  {
+                      target: '#proceed-next-step',
+                      content: 'Proceed to next step',
+                      placement: 'left'
+                  }
+              ]
+            : datasetType === 'interview'
+              ? []
+              : [];
 
     useEffect(() => {
         return () => {
@@ -134,8 +147,8 @@ const UploadDataPage = () => {
         <>
             <TutorialWrapper
                 steps={steps}
-                pageId={`route-/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`}
-                excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}`}>
+                pageId={location.pathname}
+                excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}`}>
                 <div className="h-page flex flex-col">
                     <main id="upload-main" className="flex-1 overflow-hidden">
                         {datasetType === 'reddit' ? (

@@ -242,6 +242,12 @@ const KeywordCloudPage: FC = () => {
             placement: 'bottom'
         },
         {
+            target: '.keyword2',
+            content:
+                'These are your keywords. Click on them to select or deselect them. You can also edit or delete by clicking on the respective icon when hovering.',
+            placement: 'right'
+        },
+        {
             target: '.refresh-keywords-btn',
             content:
                 'Click here to refresh the keyword cloud with new suggestions based on your feedback.',
@@ -261,7 +267,10 @@ const KeywordCloudPage: FC = () => {
     }, []);
 
     return (
-        <TutorialWrapper steps={steps} pageId={location.pathname}>
+        <TutorialWrapper
+            steps={steps}
+            pageId={location.pathname}
+            excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}`}>
             <div className="min-h-page flex justify-between flex-col">
                 <div className="relative flex justify-center items-center flex-col">
                     {/* Add an id for targeting the tutorial */}

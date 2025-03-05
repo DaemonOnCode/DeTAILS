@@ -70,6 +70,11 @@ const ThemesPage = () => {
             placement: 'top'
         },
         {
+            target: '#refresh-themes-button',
+            content: 'You can click on this to regenerate themes.',
+            placement: 'top'
+        },
+        {
             target: '#proceed-next-step',
             content: 'Step 4: Proceed to next step',
             placement: 'top'

@@ -198,13 +198,19 @@ const CodebookCreation = () => {
         {
             target: '#unified-coding-page',
             content:
-                'This area shows your unified coding interface with all your posts and coding responses.',
+                'This area shows your unified coding interface with all your posts and coding responses for Codebook.',
             placement: 'bottom'
         },
         {
             target: '#coding-controls',
             content:
-                'Use these controls to download the codebook or toggle review mode for your coding responses.',
+                'Use these controls to download the codebook or toggle review mode for coding responses.',
+            placement: 'bottom'
+        },
+        {
+            target: '#redo-coding-btn',
+            content:
+                'Use this button to create a new codebook based on the previous codebook and some optional feedback.',
             placement: 'top'
         },
         {
@@ -221,7 +227,10 @@ const CodebookCreation = () => {
     }, []);
 
     return (
-        <TutorialWrapper steps={steps} pageId={location.pathname}>
+        <TutorialWrapper
+            steps={steps}
+            pageId={location.pathname}
+            excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`}>
             <div className="h-page flex flex-col">
                 <div className="flex-1 overflow-hidden">
                     {/* Add an id to the container for tutorial targeting */}

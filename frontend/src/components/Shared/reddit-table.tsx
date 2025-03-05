@@ -62,6 +62,7 @@ const RedditTable: FC<RedditTableProps> = ({
                               <tr key={index} className="hover:bg-gray-50">
                                   <td className="px-4 py-6 border">
                                       <input
+                                          id={`reddit-post-checkbox-${index}`}
                                           type="checkbox"
                                           checked={selectedPosts.includes(post[0])}
                                           onChange={() => togglePostSelection(post[0])}

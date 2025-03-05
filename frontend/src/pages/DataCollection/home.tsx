@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import Card from '../../components/DataCollection/card';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { ROUTES } from '../../constants/DataCollection/shared';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
@@ -13,6 +13,7 @@ import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 
 const HomePage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const hasSavedRef = useRef(false);
 
     const { type, setType, modeInput } = useCollectionContext();
@@ -82,7 +83,7 @@ const HomePage = () => {
         <TutorialWrapper
             steps={steps}
             excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}`}
-            pageId="home-page">
+            pageId={location.pathname}>
             <div className="bg-white text-gray-800 h-page flex flex-col items-center space-y-8 w-full">
                 {/* Header */}
                 <h1 id="homepage-header" className="text-4xl font-bold text-center">

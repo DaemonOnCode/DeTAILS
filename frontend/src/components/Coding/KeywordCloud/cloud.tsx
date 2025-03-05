@@ -385,7 +385,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                 })}
 
                 {/* Render each keyword as a clickable element */}
-                {sortedKeywords.map((kw) => {
+                {sortedKeywords.map((kw, idx) => {
                     const isMain = kw.text === mainTopic;
                     const isSelected = selectedKeywords && selectedKeywords.includes(kw.text);
                     const bgClass = isSelected
@@ -417,7 +417,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                                     e.stopPropagation();
                                     toggleKeywordSelection && toggleKeywordSelection(kw.text);
                                 }}
-                                className={`cursor-pointer group relative flex items-center justify-center w-full h-full rounded-lg font-bold transition duration-200 transform hover:scale-125 ${bgClass}`}
+                                className={`keyword${idx} cursor-pointer group relative flex items-center justify-center w-full h-full rounded-lg font-bold transition duration-200 transform hover:scale-125 ${bgClass}`}
                                 style={{
                                     fontSize: isMain
                                         ? MAIN_TOPIC_FONT_SIZE

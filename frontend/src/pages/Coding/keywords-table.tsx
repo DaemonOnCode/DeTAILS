@@ -44,7 +44,14 @@ const KeywordsTablePage: FC = () => {
         },
         {
             target: '#table-section',
-            content: 'Review your keywords below. You can edit each field directly in the table.',
+            content:
+                'Review your keywords above. You can edit each field directly in the table if you wish to make changes.',
+            placement: 'bottom'
+        },
+        {
+            target: '#action-row-0',
+            content:
+                'Use these buttons to filter out which rows are to be used to further building the context for deductive coding.',
             placement: 'bottom'
         },
         {
@@ -274,9 +281,12 @@ const KeywordsTablePage: FC = () => {
                                                     }
                                                 />
                                             </td>
-                                            <td className="border border-gray-400 p-2">
+                                            <td
+                                                className="border border-gray-400 p-2"
+                                                id={`action-row-${index}`}>
                                                 <div className="flex items-center justify-center space-x-2">
                                                     <button
+                                                        id={`accept-btn-${index}`}
                                                         className={`w-8 h-8 flex items-center justify-center rounded ${
                                                             entry.isMarked === true
                                                                 ? 'bg-green-500 text-white'
@@ -295,6 +305,7 @@ const KeywordsTablePage: FC = () => {
                                                         ✓
                                                     </button>
                                                     <button
+                                                        id={`deselect-btn-${index}`}
                                                         className={`w-8 h-8 flex items-center justify-center rounded ${
                                                             entry.isMarked === false
                                                                 ? 'bg-red-500 text-white'
@@ -313,6 +324,7 @@ const KeywordsTablePage: FC = () => {
                                                         ✕
                                                     </button>
                                                     <button
+                                                        id={`delete-btn-${index}`}
                                                         className="w-8 h-8 flex items-center justify-center bg-red-600 text-white rounded hover:bg-red-700"
                                                         onClick={() => handleDeleteRow(index)}>
                                                         <FaTrash />

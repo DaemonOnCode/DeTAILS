@@ -174,6 +174,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             <div className="mb-4 flex items-center justify-between bg-gray-100 p-4 rounded">
                 {/* Search Input takes available space */}
                 <input
+                    id="reddit-table-search"
                     type="text"
                     placeholder="Search by title, text, or URL..."
                     value={searchTerm}
@@ -192,6 +193,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
                 {/* Filter Button */}
                 <button
+                    id="reddit-table-filter-button"
                     onClick={() => setIsFilterModalOpen(true)}
                     className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600 mr-4">
                     Filters
