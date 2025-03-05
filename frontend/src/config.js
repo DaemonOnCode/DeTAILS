@@ -25,6 +25,7 @@ const config = {
             DOWNLOAD_REDDIT_DATA_FROM_TORRENT: 'collections/download-reddit-data-from-torrent',
             FILTER_POSTS_BY_DELETED: 'collections/filter-posts-by-deleted',
             GET_ALL_TORRENT_DATA: 'collections/get-torrent-data',
+            PREPARE_REDDIT_TORRENT_DATA_FROM_FILES: 'collections/prepare-torrent-data-from-files',
 
             // ADD_DOCUMENTS_LANGCHAIN: 'coding/add-documents-langchain',
             REGENERATE_FLASHCARDS: 'coding/generate-additional-flashcards',

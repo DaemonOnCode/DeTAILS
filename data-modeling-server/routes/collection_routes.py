@@ -99,42 +99,62 @@ async def download_reddit_from_torrent_endpoint(
             )
 
             output_files = await get_reddit_data_from_torrent(
+                manager, app_id, 
                 request_body.subreddit, 
                 start_month, 
                 end_month, 
                 request_body.submissions_only,
-                manager=manager,              
-                app_id=app_id               
+                            
             )
 
             print(output_files)
             await manager.send_message(app_id, f"Finished downloading {len(output_files)} file(s).")
 
-            new_folder_name = f"academic-torrent-{request_body.subreddit}"
-            target_folder = os.path.join(DATASETS_DIR, new_folder_name)
-            if not os.path.exists(target_folder):
-                os.makedirs(target_folder)
-                print(f"Created folder: {target_folder}")
-                await manager.send_message(app_id, f"Created dataset folder: {target_folder}")
+            
+            # STEP 1: Create the academic folder one directory up from the downloaded files.
+            # Get the directory where the files were downloaded.
+            downloaded_dir = os.path.dirname(output_files[0])
+            # Now get one directory up from the downloaded directory.
+            parent_dir = os.path.dirname(downloaded_dir)
+            academic_folder_name = f"academic-torrent-{request_body.subreddit}"
+            academic_folder = os.path.join(parent_dir, academic_folder_name)
+            if not os.path.exists(academic_folder):
+                os.makedirs(academic_folder)
+                await manager.send_message(app_id, f"Created folder: {academic_folder}")
 
+            # STEP 2: Move each output file into the academic folder.
             for file_path in output_files:
                 if os.path.exists(file_path):
                     file_name = os.path.basename(file_path)
-                    link_path = os.path.join(target_folder, file_name)
-                    if os.path.lexists(link_path):
-                        os.remove(link_path)
-                    os.symlink(os.path.abspath(file_path), link_path)
-                    print(f"Created symlink: {link_path} -> {os.path.abspath(file_path)}")
+                    new_file_path = os.path.join(academic_folder, file_name)
+                    shutil.move(file_path, new_file_path)
                     await manager.send_message(
                         app_id,
-                        f"Symlink created: {link_path} -> {os.path.abspath(file_path)}"
+                        f"Moved file: {file_path} -> {new_file_path}"
                     )
                 else:
-                    print(f"File not found: {file_path}")
                     await manager.send_message(
                         app_id,
-                        f"WARNING: File not found on disk, skipping symlink: {file_path}"
+                        f"WARNING: File not found on disk, skipping move: {file_path}"
                     )
+
+            # STEP 3: In the datasets directory, create (or update) an academic folder with the same name,
+            # and for each file in the academic folder create a symlink.
+            datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
+            if not os.path.exists(datasets_academic_folder):
+                os.makedirs(datasets_academic_folder)
+                await manager.send_message(app_id, f"Created datasets folder: {datasets_academic_folder}")
+
+            for file_name in os.listdir(academic_folder):
+                source_file = os.path.join(academic_folder, file_name)
+                symlink_path = os.path.join(datasets_academic_folder, file_name)
+                if os.path.lexists(symlink_path):
+                    os.remove(symlink_path)
+                os.symlink(os.path.abspath(source_file), symlink_path)
+                await manager.send_message(
+                    app_id,
+                    f"Symlink created: {symlink_path} -> {os.path.abspath(source_file)}"
+                )
 
             dataset_id = request_body.dataset_id
             if not dataset_id:
@@ -142,7 +162,7 @@ async def download_reddit_from_torrent_endpoint(
 
             await manager.send_message(app_id, f"Parsing files into dataset {dataset_id}...")
 
-            parse_reddit_files(dataset_id, target_folder, date_filter={"start_date": start_date, "end_date": end_date})
+            parse_reddit_files(dataset_id, academic_folder, date_filter={"start_date": start_date, "end_date": end_date})
 
             await manager.send_message(app_id, "Parsing complete. All steps finished.")
 
@@ -157,27 +177,53 @@ async def download_reddit_from_torrent_endpoint(
 @router.get("/get-torrent-data")
 async def get_torrent_data_endpoint():
     datasets_directory = os.path.join(os.path.curdir, DATASETS_DIR)
-    downloaded_torrent_list = list(filter(lambda x: x.startswith("academic-torrent"), os.listdir(datasets_directory)))
-    datasets = list(map(lambda x: x[17:] ,downloaded_torrent_list))
-    print(datasets)
+    downloaded_torrent_list = [
+        d for d in os.listdir(datasets_directory)
+        if d.startswith("academic-torrent")
+    ]
+
     dataset_intervals: Dict[str, Dict[str, Dict[str, list[str]]]] = {}
+
     for dataset_folder_name in downloaded_torrent_list:
+        folder_path = os.path.join(datasets_directory, dataset_folder_name)
         dataset_name = dataset_folder_name[17:]
-        all_files = list(filter(lambda x: x.startswith("RC") or x.startswith("RS"),os.listdir(os.path.join(datasets_directory, dataset_folder_name))))
-        print(all_files)
-        dataset_intervals[dataset_name] = {}
-        dataset_intervals[dataset_name]["posts"] = {}
-        dataset_intervals[dataset_name]["comments"] = {}
+
+        all_files = [
+            f for f in os.listdir(folder_path)
+            if f.startswith("RC") or f.startswith("RS")
+        ]
+
+        broken_files = []
+
+        for f in all_files:
+            file_path = os.path.join(folder_path, f)
+            if os.path.islink(file_path):
+
+                target_path = os.readlink(file_path)
+                target_abs = os.path.join(folder_path, target_path)
+
+                if not os.path.exists(target_abs):
+                    print(f"Broken symlink detected: {file_path} -> {target_abs}")
+                    os.remove(file_path)
+                    broken_files.append(f)
+                    continue
+
+        all_files = [f for f in all_files if f not in broken_files]
+        print(f"Found {len(all_files)} valid files in folder: {folder_path}")
+
+        dataset_intervals[dataset_name] = {"posts": {}, "comments": {}}
         for name in all_files:
             year = name[3:7]
             month = name[8:10]
-            print(year, month)
-            type = "posts" if name.startswith("RS") else "comments"
+            doc_type = "posts" if name.startswith("RS") else "comments"
+            
             try:
-                dataset_intervals[dataset_name][type][year].append(month)
-            except:
-                dataset_intervals[dataset_name][type][year] = [month]
+                dataset_intervals[dataset_name][doc_type][year].append(month)
+            except KeyError:
+                dataset_intervals[dataset_name][doc_type][year] = [month]
+
     return dataset_intervals
+
 
 @router.post("/prepare-torrent-data-from-files")
 async def prepare_torrent_data_from_files(
@@ -222,7 +268,10 @@ async def prepare_torrent_data_from_files(
             file_name = os.path.basename(file_path)
             link_path = os.path.join(prepared_folder, file_name)
             if os.path.lexists(link_path):
-                os.remove(link_path)
+                try:
+                    os.remove(link_path)
+                except Exception as e:
+                    print(f"Error removing existing symlink: {link_path}", e)
             os.symlink(os.path.abspath(file_path), link_path)
             print(f"Created symlink: {link_path} -> {os.path.abspath(file_path)}")
         else:
@@ -230,7 +279,7 @@ async def prepare_torrent_data_from_files(
 
     parse_reddit_files(dataset_id, prepared_folder, date_filter=None)
 
-    shutil.rmtree(prepared_folder)
+    shutil.rmtree(prepared_folder, ignore_errors=True)
     print(f"Removed prepared folder: {prepared_folder}")
 
     return {"message": "Torrent files prepared and parsed.", "dataset_id": dataset_id}

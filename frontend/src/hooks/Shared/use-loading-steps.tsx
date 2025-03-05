@@ -48,6 +48,8 @@ export function useLoadingSteps(
                 config.relatedStates.forEach(({ state, func, name, initValue }: any) => {
                     if (name.startsWith('set')) {
                         const getDefaultValue = (val: unknown) => {
+                            if (initValue && typeof initValue === 'function') return initValue();
+                            if (initValue && typeof initValue === 'object') return initValue;
                             if (Array.isArray(val)) return [];
                             if (typeof val === 'string') return '';
                             if (typeof val === 'number') return 0;
@@ -64,7 +66,12 @@ export function useLoadingSteps(
                 console.log('Checking data existence for path:', currentPath);
                 const config = loadingStateInitialization[currentPath];
                 if (!config) return false;
-                return config.relatedStates.some(({ state }: any) => {
+                return config.relatedStates.some(({ state, initValue }: any) => {
+                    if (initValue && typeof initValue === 'function') return false;
+                    if (initValue && typeof initValue === 'object') {
+                        if (Array.isArray(initValue)) return initValue.length === state.length;
+                        return Object.keys(initValue).length === Object.keys(state).length;
+                    }
                     if (Array.isArray(state)) return state.length > 0;
                     if (typeof state === 'string') return state.trim() !== '';
                     if (typeof state === 'number') return state !== 0;

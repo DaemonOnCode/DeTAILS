@@ -1,4 +1,4 @@
-import { RefObject, Suspense, useEffect, useState } from 'react';
+import { RefObject, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { SetState } from '../../types/Coding/shared';
 import TorrentSelectionPanel from './torrent-selection-panel';
 import { createResource } from '../../utility/resource-creator';
@@ -38,15 +38,26 @@ const TorrentDataTab = ({
     const location = useLocation();
     const { getServerUrl } = useServerUtils();
     const { fetchData } = useApi();
-    const [transmissionExists, setTransmissionExists] = useState<boolean | null>(null);
     const [checking, setChecking] = useState<boolean>(false);
     const navigate = useNavigate();
-    const { type } = useCollectionContext();
 
-    // Function to check Transmission status.
+    const fetchTorrentData = useCallback(async () => {
+        const { data, error } = await fetchData<any>(REMOTE_SERVER_ROUTES.GET_ALL_TORRENT_DATA);
+        if (error) {
+            console.error('Error fetching torrent data:', error);
+            return null;
+        }
+        return data;
+    }, [fetchData]);
+
+    const dataResource = useMemo(() => createResource(fetchTorrentData()), [fetchTorrentData]);
+
+    const [transmissionExists, setTransmissionExists] = useState<boolean | null>(null);
+    // const { type } = useCollectionContext();
+
     const checkTransmissionStatus = async () => {
         setChecking(true);
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         const { data, error } = await fetchData<{ exists: boolean }>(
             REMOTE_SERVER_ROUTES.CHECK_TRANSMISSION
         );
@@ -170,17 +181,6 @@ const TorrentDataTab = ({
         );
     }
 
-    // Otherwise, show the normal Torrent Data UI.
-    const fetchTorrentData = async () => {
-        const { data, error } = await fetchData<any>(REMOTE_SERVER_ROUTES.GET_ALL_TORRENT_DATA);
-        if (error) {
-            console.error('Error fetching torrent data:', error);
-            return null;
-        }
-        return data;
-    };
-
-    const dataResource = createResource(fetchTorrentData());
     return (
         <div className="flex h-full w-full">
             {/* Left half: independent scroll */}

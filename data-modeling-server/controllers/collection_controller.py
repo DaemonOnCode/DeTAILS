@@ -238,9 +238,9 @@ async def run_command_async(command: str) -> str:
 
 
 async def process_reddit_data(        
+    manager: ConnectionManager,
+    app_id: str,
         subreddit: str, zst_filename: str,
-    manager: ConnectionManager = None,
-    app_id: str = ""
 ):
     intermediate_filename = "output.jsonl"
     regex = r'(?s)\{.*?"subreddit":\s*"' + subreddit + r'".*?\}'
@@ -311,9 +311,9 @@ def generate_month_range(start_month: str, end_month: str):
 
 
 async def wait_for_metadata(
+    manager: ConnectionManager,
+    app_id: str,
         c: Client, torrent: Torrent ,
-    manager: ConnectionManager = None,
-    app_id: str = ""
 ) -> Torrent:
     c.start_torrent(torrent.id)
     while torrent.metadata_percent_complete < 1.0:
@@ -325,15 +325,16 @@ async def wait_for_metadata(
         await asyncio.sleep(0.5)
         torrent = c.get_torrent(torrent.id)
     print("Metadata download complete. Stopping torrent.")
+    await manager.send_message(app_id, "Metadata download complete.")
     c.stop_torrent(torrent.id)
     return torrent
 
 
 async def verify_torrent_with_retry(
+    manager: ConnectionManager,
+    app_id: str,
         c: Client, torrent: Torrent, 
         torrent_url: str, download_dir: str,
-    manager: ConnectionManager = None,
-    app_id: str = ""
 ) -> Torrent:
     c.verify_torrent(torrent.id)
     while True:
@@ -373,13 +374,13 @@ def get_files_to_process(torrent_files: list[TorrentFile], wanted_range: list, s
 
 
 async def process_single_file(
+    manager: ConnectionManager,
+    app_id: str,
         c: Client, 
         torrent: Torrent, 
         file: TorrentFile, 
         download_dir: str, 
         subreddit: str,
-    manager: ConnectionManager = None,
-    app_id: str = ""
 ):
     file_id = file.id
     file_name = file.name
@@ -422,7 +423,7 @@ async def process_single_file(
                 )
             else:
                 print(f"Waiting for file {file_name} to start...")
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)
 
     file_path = os.path.join(download_dir, file_name)
     file_path_zst = file_path if file_path.endswith('.zst') else file_path + '.zst'
@@ -435,70 +436,23 @@ async def process_single_file(
             )
         await asyncio.sleep(5)
 
-    output_file = await process_reddit_data(subreddit, file_path_zst)
+    output_file = await process_reddit_data(manager, app_id, subreddit, file_path_zst)
+
+    await manager.send_message(app_id, f"Processed file: {file_name} ...")
+    print(f"Processing complete for file {file_name}.")
 
     c.stop_torrent(torrent.id)
     await asyncio.sleep(1)
     return output_file
 
-# async def wait_for_transmission(timeout=10):
-#     start_time = time.time()
-#     while time.time() - start_time < timeout:
-#         try:
-#             async with aiohttp.ClientSession() as session:
-#                 async with session.get("http://localhost:9091/transmission/rpc") as response:
-#                     if response.status == 200:
-#                         print("Transmission daemon is up and running.")
-#                         return True
-#         except Exception:
-#             await asyncio.sleep(0.5)
-#     print("Transmission daemon did not start in time.")
-#     return False
-
-# @asynccontextmanager
-# async def run_transmission_daemon():
-#     transmission_cmd = [
-#         "/opt/homebrew/opt/transmission-cli/bin/transmission-daemon",
-#         "--foreground",
-#         "--config-dir", "/opt/homebrew/var/transmission/",
-#         # "--log-level=info",
-#         # "--logfile", "/opt/homebrew/var/transmission/transmission-daemon.log"
-#     ]
-#     process = await asyncio.create_subprocess_exec(
-#         *transmission_cmd,
-#         stdout=asyncio.subprocess.PIPE,
-#         stderr=asyncio.subprocess.PIPE
-#     )
-    
-#     async def read_stream(stream):
-#         while True:
-#             line = await stream.readline()
-#             if not line:
-#                 break
-#             print(line.decode().strip())
-    
-#     # Create tasks to continuously read and print output.
-#     stdout_task = asyncio.create_task(read_stream(process.stdout))
-#     stderr_task = asyncio.create_task(read_stream(process.stderr))
-#     try:
-#         if not await wait_for_transmission():
-#             print("Warning: Transmission did not start properly.")
-#         print("Transmission daemon started.")
-#         yield process
-#     finally:
-#         process.terminate()
-#         await process.wait()
-#         stdout_task.cancel()
-#         stderr_task.cancel()
-#         print("Transmission daemon terminated.")
 
 async def get_reddit_data_from_torrent(
+    manager: ConnectionManager,
+    app_id: str,
     subreddit: str,
     start_month: str = "2005-06",
     end_month: str = "2023-12",
     submissions_only: bool = True,
-    manager: ConnectionManager = None,
-    app_id: str = ""
 ):
     TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = os.path.abspath(TRANSMISSION_DOWNLOAD_DIR)
     torrent_hash_string = ACADEMIC_TORRENT_MAGNET.split("btih:")[1].split("&")[0]
@@ -512,18 +466,19 @@ async def get_reddit_data_from_torrent(
 
     await manager.send_message(app_id, f"Torrent added for subreddit '{subreddit}' with ID: {current_torrent.id}")
 
-    current_torrent = await wait_for_metadata(c, current_torrent, manager=manager, app_id=app_id)
+    current_torrent = await wait_for_metadata(manager, app_id, c, current_torrent)
     torrent_files = current_torrent.get_files()
     wanted_range = generate_month_range(start_month, end_month)
     print(f"Identified files for processing: {wanted_range}")
-    files_to_process = get_files_to_process(torrent_files, wanted_range, submissions_only, manager=manager, app_id=app_id)
+    files_to_process = get_files_to_process(torrent_files, wanted_range, submissions_only)
     print(f"Files to process: {files_to_process}")
+    await manager.send_message(app_id, f"Files to process: {len(files_to_process)}")
 
-    current_torrent = await verify_torrent_with_retry(c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, manager=manager, app_id=app_id)
+    current_torrent = await verify_torrent_with_retry(manager, app_id, c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
 
     output_files = []
     for file in files_to_process:
-        output_file = await process_single_file(c, current_torrent, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit, manager=manager, app_id=app_id)
+        output_file = await process_single_file(manager, app_id, c, current_torrent, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit)
         output_files.append(output_file)
     print("All wanted files have been processed.")
     return output_files

@@ -47,10 +47,13 @@ const redditHandler = (...ctxs) => {
 
                 const url = `${config.backendURL[globalCtx.getState().processing]}/${config.backendRoutes.GET_REDDIT_POST_BY_ID}`;
 
+                console.log('url', url, postId, datasetId);
+
                 const res = await fetch(url, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-App-Id': globalCtx.getState().settings.app.id
                     },
                     body: JSON.stringify({ postId, datasetId })
                 });

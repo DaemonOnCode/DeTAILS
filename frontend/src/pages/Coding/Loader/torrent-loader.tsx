@@ -1,16 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-    AiOutlineLoading3Quarters,
-    AiOutlineCheckCircle,
-    AiOutlineCloseCircle
-} from 'react-icons/ai';
+import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { useWebSocket } from '../../../context/websocket-context';
 import { useLogger } from '../../../context/logging-context';
+import { useCollectionContext } from '../../../context/collection-context';
+import useRedditData from '../../../hooks/DataCollection/use-reddit-data';
 
-/**
- * Data model for the "high-level" pipeline steps
- */
+const path = window.require('path');
+
+// Data model for pipeline steps
 interface PipelineStep {
     label: string;
     status: 'idle' | 'in-progress' | 'complete' | 'error';
@@ -18,50 +16,74 @@ interface PipelineStep {
     messages: string[];
 }
 
-/**
- * Data model for each file being downloaded/processed
- */
+// Data model for each file
 interface FileStatus {
     fileName: string;
-    status: 'in-progress' | 'complete' | 'error';
+    status: 'in-progress' | 'extracting' | 'complete' | 'error';
     progress: number; // 0 -> 100
-    completedBytes: number; // how many bytes downloaded
-    totalBytes: number; // total bytes
-    messages: string[]; // any logs specific to this file
+    completedBytes: number;
+    totalBytes: number;
+    messages: string[];
 }
 
-/**
- * The main loader component
- */
-const TorrentLoader: React.FC = () => {
-    /**
-     * We keep:
-     * 1. A list of pipeline steps (metadata, verification, downloading, symlinks, parsing).
-     * 2. A map of fileName -> FileStatus for per-file tracking.
-     * 3. A log of all raw messages from the server.
-     */
-    const [steps, setSteps] = useState<PipelineStep[]>([
-        { label: 'Metadata', status: 'idle', progress: 0, messages: [] },
-        { label: 'Verification', status: 'idle', progress: 0, messages: [] },
-        { label: 'Downloading', status: 'idle', progress: 0, messages: [] },
-        { label: 'Symlinks', status: 'idle', progress: 0, messages: [] },
-        { label: 'Parsing', status: 'idle', progress: 0, messages: [] }
-    ]);
+// Helper function to format bytes into human-readable strings
+function formatBytes(bytes: number, decimals = 2): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
 
+// Helper to parse the mode input string (if needed)
+function parseModeInput(modeInput: string) {
+    // Expected format: "reddit:torrent:subreddit|start|end|postsOnly"
+    const parts = modeInput.split(':');
+    if (parts.length !== 3) {
+        throw new Error('Invalid mode input format');
+    }
+    const data = parts[2];
+    const [subreddit, start, end, postsOnlyStr] = data.split('|');
+    return {
+        subreddit,
+        start,
+        end,
+        postsOnly: postsOnlyStr === 'true'
+    };
+}
+
+const initialSteps: PipelineStep[] = [
+    { label: 'Metadata', status: 'idle', progress: 0, messages: [] },
+    { label: 'Verification', status: 'idle', progress: 0, messages: [] },
+    { label: 'Downloading', status: 'idle', progress: 0, messages: [] },
+    { label: 'Symlinks', status: 'idle', progress: 0, messages: [] },
+    { label: 'Parsing', status: 'idle', progress: 0, messages: [] }
+];
+
+const TorrentLoader: React.FC = () => {
+    const [steps, setSteps] = useState<PipelineStep[]>(initialSteps);
     const [files, setFiles] = useState<Record<string, FileStatus>>({});
     const [messages, setMessages] = useState<string[]>([]);
+    const [totalFiles, setTotalFiles] = useState<number>(0);
 
-    const handleWebSocketMessage = (message: string) => {
-        setMessages((prev) => [...prev, message]);
-        parseIncomingMessage(message);
-    };
+    // const logContainerRef = useRef<HTMLDivElement>(null);
+    const logBottomRef = useRef<HTMLDivElement>(null);
+    const fileBottomRef = useRef<HTMLDivElement>(null);
 
+    const totalFilesRef = useRef(0);
+
+    // Whenever totalFiles state updates, update the ref:
+    useEffect(() => {
+        totalFilesRef.current = totalFiles;
+    }, [totalFiles]);
+
+    const { modeInput } = useCollectionContext();
+    const { loadTorrentData } = useRedditData();
     const logger = useLogger();
     const { registerCallback, unregisterCallback } = useWebSocket();
 
-    /**
-     * Open WebSocket connection on mount
-     */
+    // ========== Lifecycle ==========
     useEffect(() => {
         registerCallback('theme-loader', handleWebSocketMessage);
         logger.info('Loaded Theme Loader Page');
@@ -71,21 +93,69 @@ const TorrentLoader: React.FC = () => {
             logger.info('Unloaded Theme Loader Page');
         };
     }, []);
+    const completedFiles = Object.values(files).filter((f) => f.status === 'complete').length;
+    const overallProgress = totalFiles > 0 ? (completedFiles / totalFiles) * 100 : 0;
 
-    /**
-     * Interpret server messages and update steps/files accordingly
-     */
+    useEffect(() => {
+        setSteps((prevSteps) => {
+            const updated = [...prevSteps];
+            const stepIndex = 2; // Downloading step
+            updated[stepIndex] = {
+                ...updated[stepIndex],
+                status: overallProgress === 100 ? 'complete' : 'in-progress',
+                progress: overallProgress,
+                messages: updated[stepIndex].messages
+            };
+            return updated;
+        });
+    }, [files, totalFiles, overallProgress]);
+
+    useEffect(() => {
+        // Auto-scroll the log to the bottom each time messages changes
+        logBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        fileBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    // ========== Retry logic ==========
+    const handleRetry = async () => {
+        // Reset all states
+        setSteps(initialSteps);
+        setFiles({});
+        setMessages([]);
+        setTotalFiles(0);
+        logger.info('Retrying request...');
+
+        try {
+            const { subreddit, start, end, postsOnly } = parseModeInput(modeInput);
+            await loadTorrentData(false, subreddit, start, end, postsOnly);
+        } catch (error) {
+            logger.error(`Retry failed: ${error}`);
+        }
+    };
+
+    // ========== WebSocket Handling ==========
+    const handleWebSocketMessage = (message: string) => {
+        setMessages((prev) => [...prev, message]);
+        parseIncomingMessage(message);
+    };
+
     const parseIncomingMessage = (msg: string) => {
-        // 1) Update pipeline steps if relevant
-        setSteps((prev) => {
-            // We'll copy the steps array so we can mutate safely
-            const updated = [...prev];
+        // 1) If "Files to process:" => set totalFiles
+        if (msg.includes('Files to process:')) {
+            const match = msg.match(/Files to process:\s*(\d+)/);
+            if (match) {
+                setTotalFiles(parseInt(match[1], 10));
+            }
+        }
 
-            // --- METADATA STEP ---
+        // 2) Update pipeline steps
+        setSteps((prevSteps) => {
+            const updated = [...prevSteps];
+
+            // -- METADATA --
             if (msg.includes('Metadata progress:')) {
                 const match = msg.match(/Metadata progress:\s+([\d.]+)/);
                 const percent = match ? parseFloat(match[1]) : 0;
-                // Mark as in-progress
                 updated[0] = {
                     ...updated[0],
                     status: 'in-progress',
@@ -102,9 +172,8 @@ const TorrentLoader: React.FC = () => {
                 };
             }
 
-            // --- VERIFICATION STEP ---
+            // -- VERIFICATION --
             if (msg.includes('Verification in progress:')) {
-                // We'll just set an arbitrary 50% if you want
                 updated[1] = {
                     ...updated[1],
                     status: 'in-progress',
@@ -121,8 +190,7 @@ const TorrentLoader: React.FC = () => {
                 };
             }
 
-            // --- DOWNLOADING STEP ---
-            // We'll treat "Finished downloading X files" as step complete
+            // -- DOWNLOADING --
             if (
                 msg.includes('Finished downloading') ||
                 msg.includes('All wanted files have been processed')
@@ -137,22 +205,18 @@ const TorrentLoader: React.FC = () => {
                 msg.toLowerCase().includes('downloading file') ||
                 msg.toLowerCase().includes('file has been fully downloaded')
             ) {
-                // If we see anything about downloading files, let's set the step in progress
                 if (updated[2].status !== 'complete') {
                     updated[2] = {
                         ...updated[2],
                         status: 'in-progress',
-                        // We'll keep the step's progress at 50 or so
                         progress: Math.max(updated[2].progress, 50),
                         messages: [...updated[2].messages, msg]
                     };
                 }
             }
 
-            // --- SYMLINKS STEP ---
-            // We'll interpret "Symlink created" as progress
+            // -- SYMLINKS --
             if (msg.includes('Symlink created:')) {
-                // If not already in progress or complete, set in progress
                 if (updated[3].status === 'idle') {
                     updated[3] = {
                         ...updated[3],
@@ -162,7 +226,6 @@ const TorrentLoader: React.FC = () => {
                     };
                 }
             }
-            // Once we see "Parsing files into dataset" we can assume symlinks are done
             if (msg.includes('Parsing files into dataset')) {
                 updated[3] = {
                     ...updated[3],
@@ -172,9 +235,8 @@ const TorrentLoader: React.FC = () => {
                 };
             }
 
-            // --- PARSING STEP ---
+            // -- PARSING --
             if (msg.includes('Parsing files into dataset')) {
-                // Indicate parsing started
                 updated[4] = {
                     ...updated[4],
                     status: 'in-progress',
@@ -191,10 +253,8 @@ const TorrentLoader: React.FC = () => {
                 };
             }
 
-            // --- ERRORS ---
-            // If we see the word "ERROR" or "error" we mark the current step as error
+            // -- ERRORS --
             if (msg.toLowerCase().includes('error')) {
-                // Find the first step that's in-progress or idle
                 const errIndex = updated.findIndex(
                     (s) => s.status === 'in-progress' || s.status === 'idle'
                 );
@@ -206,56 +266,50 @@ const TorrentLoader: React.FC = () => {
                     };
                 }
             }
-
             return updated;
         });
 
-        // 2) Update per-file info (if present)
-        setFiles((prev) => {
-            const updated = { ...prev };
+        // 3) Update file-specific info
+        setFiles((prevFiles) => {
+            const updated = { ...prevFiles };
 
-            // We’ll look for patterns:
-            //   "Processing file: foo.zst (ID: 123)"
-            //   "Downloading foo.zst: 40.00% (400 / 1000 bytes)"
-            //   "File foo.zst fully downloaded"
-            //   "ERROR downloading foo.zst: something"
-
-            // 2a) "Processing file: X"
-            if (msg.toLowerCase().includes('processing file:')) {
-                // Extract file name
-                // e.g. "Processing file: data_2020_01.zst"
-                const match = msg.match(/Processing file:\s+(.*?)(\s|\(|$)/i);
+            if (
+                msg.toLowerCase().includes('processing file:') ||
+                msg.toLowerCase().includes('processed file:')
+            ) {
+                const match = msg.match(/(Processing|Processed)\s+file:\s+(.*?)(\s|\(|\.\.\.|$)/i);
                 if (match) {
-                    const fileName = match[1].trim();
-                    if (!updated[fileName]) {
-                        updated[fileName] = {
-                            fileName,
+                    const fullPath = match[2].trim();
+                    const base = path.basename(fullPath);
+                    if (!updated[base]) {
+                        updated[base] = {
+                            fileName: base,
                             status: 'in-progress',
                             progress: 0,
                             completedBytes: 0,
                             totalBytes: 0,
                             messages: [msg]
                         };
+                    } else {
+                        updated[base].messages.push(msg);
                     }
                 }
             }
 
-            // 2b) "Downloading X: 12.34% (123456 / 1000000 bytes)"
             if (msg.toLowerCase().includes('downloading') && msg.includes('%')) {
-                // Attempt to parse file name, percent, completed, total
-                // Example: "Downloading data_2020_01.zst: 12.34% (123456/1000000 bytes)"
                 const match = msg.match(
                     /Downloading\s+(.*?):\s+([\d.]+)%\s+\(([\d]+)\/([\d]+)\s+bytes\)/i
                 );
                 if (match) {
-                    const fileName = match[1].trim();
+                    const fullPath = match[1].trim();
+                    const base = path.basename(fullPath);
                     const percent = parseFloat(match[2]);
                     const completed = parseInt(match[3], 10);
                     const total = parseInt(match[4], 10);
 
-                    if (!updated[fileName]) {
-                        updated[fileName] = {
-                            fileName,
+                    if (!updated[base]) {
+                        updated[base] = {
+                            fileName: base,
                             status: 'in-progress',
                             progress: percent,
                             completedBytes: completed,
@@ -263,31 +317,31 @@ const TorrentLoader: React.FC = () => {
                             messages: [msg]
                         };
                     } else {
-                        updated[fileName] = {
-                            ...updated[fileName],
+                        updated[base] = {
+                            ...updated[base],
                             status: 'in-progress',
                             progress: percent,
                             completedBytes: completed,
                             totalBytes: total,
-                            messages: [...updated[fileName].messages, msg]
+                            messages: [...updated[base].messages, msg]
                         };
                     }
                 }
             }
 
-            // 2c) "File X fully downloaded (Y / Z bytes)."
             if (msg.toLowerCase().includes('fully downloaded')) {
                 const match = msg.match(
                     /File\s+(.*)\s+fully downloaded.*\(([\d]+)\/([\d]+)\s+bytes\)/i
                 );
                 if (match) {
-                    const fileName = match[1].trim();
+                    const fullPath = match[1].trim();
+                    const base = path.basename(fullPath);
                     const completed = parseInt(match[2], 10);
                     const total = parseInt(match[3], 10);
 
-                    if (!updated[fileName]) {
-                        updated[fileName] = {
-                            fileName,
+                    if (!updated[base]) {
+                        updated[base] = {
+                            fileName: base,
                             status: 'complete',
                             progress: 100,
                             completedBytes: completed,
@@ -295,26 +349,50 @@ const TorrentLoader: React.FC = () => {
                             messages: [msg]
                         };
                     } else {
-                        updated[fileName] = {
-                            ...updated[fileName],
+                        updated[base] = {
+                            ...updated[base],
                             status: 'complete',
                             progress: 100,
                             completedBytes: completed,
                             totalBytes: total,
-                            messages: [...updated[fileName].messages, msg]
+                            messages: [...updated[base].messages, msg]
                         };
                     }
                 }
             }
 
-            // 2d) "ERROR downloading X:"
+            if (msg.includes('Extracting')) {
+                const match = msg.match(/Extracting.*from\s+(.*?\.zst)(\.\.\.)?/i);
+                if (match) {
+                    const fullPath = match[1].trim();
+                    const base = path.basename(fullPath);
+                    if (updated[base]) {
+                        updated[base].status = 'extracting';
+                        updated[base].messages.push(msg);
+                    }
+                }
+            }
+
+            if (msg.includes('JSON extracted:')) {
+                const match = msg.match(/JSON extracted:\s+(.*)\/(RS_[\d-]+)\.json/i);
+                if (match) {
+                    const base = match[2] + '.zst';
+                    if (updated[base]) {
+                        updated[base].status = 'complete';
+                        updated[base].progress = 100;
+                        updated[base].messages.push(msg);
+                    }
+                }
+            }
+
             if (msg.toLowerCase().includes('error downloading')) {
                 const match = msg.match(/ERROR downloading\s+(.*?):/i);
                 if (match) {
-                    const fileName = match[1].trim();
-                    if (!updated[fileName]) {
-                        updated[fileName] = {
-                            fileName,
+                    const fullPath = match[1].trim();
+                    const base = path.basename(fullPath);
+                    if (!updated[base]) {
+                        updated[base] = {
+                            fileName: base,
                             status: 'error',
                             progress: 0,
                             completedBytes: 0,
@@ -322,156 +400,165 @@ const TorrentLoader: React.FC = () => {
                             messages: [msg]
                         };
                     } else {
-                        updated[fileName] = {
-                            ...updated[fileName],
+                        updated[base] = {
+                            ...updated[base],
                             status: 'error',
-                            messages: [...updated[fileName].messages, msg]
+                            messages: [...updated[base].messages, msg]
                         };
                     }
                 }
             }
-
             return updated;
         });
     };
 
-    /**
-     * RENDER
-     */
-    // Convert the file map to an array so we can render easily
+    // Create an array of the file objects
     const fileList = Object.values(files);
 
     return (
-        <div className="h-page w-full flex items-center justify-center bg-gray-100 p-4">
-            <div className="flex flex-col lg:flex-row gap-6 w-full max-w-6xl bg-white rounded-lg shadow-lg overflow-hidden">
-                {/** Left Panel: Step Timeline + File Table */}
-                <div className="w-full lg:w-2/3 p-6 flex flex-col gap-8">
-                    {/* Pipeline Steps */}
-                    <div>
-                        <h2 className="text-xl font-bold mb-4">Overall Pipeline</h2>
-                        <div className="flex flex-col gap-4">
-                            {steps.map((step, index) => {
-                                const isInProgress = step.status === 'in-progress';
-                                const isComplete = step.status === 'complete';
-                                const isError = step.status === 'error';
+        <div className="h-page w-full flex flex-col lg:flex-row gap-6 max-w-6xl bg-white rounded-lg shadow-lg overflow-hidden">
+            {/* <div className="flex flex-col lg:flex-row gap-6 w-full max-w-6xl bg-white rounded-lg shadow-lg h-full overflow-hidden"> */}
+            {/* Left Panel: Steps + File List */}
+            <div className="w-full lg:w-2/3 p-6 flex flex-col h-full  min-h-0">
+                {/* Pipeline Steps */}
+                <div className="flex flex-col">
+                    <h2 className="text-xl font-bold mb-4">Overall Pipeline</h2>
+                    <div className="flex flex-col gap-4">
+                        {steps.map((step, index) => {
+                            const isInProgress = step.status === 'in-progress';
+                            const isComplete = step.status === 'complete';
+                            const isError = step.status === 'error';
 
-                                // Choose a color
-                                let barColor = 'bg-gray-300';
-                                if (isInProgress) barColor = 'bg-blue-400';
-                                if (isComplete) barColor = 'bg-green-500';
-                                if (isError) barColor = 'bg-red-500';
+                            let barColor = 'bg-gray-300';
+                            if (isInProgress) barColor = 'bg-blue-400';
+                            if (isComplete) barColor = 'bg-green-500';
+                            if (isError) barColor = 'bg-red-500';
 
-                                return (
-                                    <motion.div
-                                        key={step.label}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3, delay: index * 0.1 }}
-                                        className="flex flex-col">
-                                        <div className="flex justify-between text-sm font-semibold">
-                                            <span>{step.label}</span>
-                                            {step.progress > 0 && (
-                                                <span>{Math.round(step.progress)}%</span>
-                                            )}
-                                        </div>
-                                        <div className="w-full h-2 bg-gray-200 rounded mt-1 overflow-hidden">
-                                            <motion.div
-                                                className={`${barColor} h-2`}
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${step.progress}%` }}
-                                                transition={{ duration: 0.4 }}
-                                            />
-                                        </div>
-                                        {isError && (
-                                            <div className="text-xs text-red-600 mt-1">
-                                                An error occurred in this step. Check the log.
-                                            </div>
+                            return (
+                                <motion.div
+                                    key={step.label}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                                    className="flex flex-col">
+                                    <div className="flex justify-between text-sm font-semibold">
+                                        <span>{step.label}</span>
+                                        {step.progress > 0 && (
+                                            <span>{Math.round(step.progress)}%</span>
                                         )}
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* File-by-file Table */}
-                    <div>
-                        <h2 className="text-xl font-bold mb-4">File Downloads</h2>
-                        <div className="space-y-2">
-                            {fileList.length === 0 ? (
-                                <div className="text-sm text-gray-500">
-                                    No files processed yet...
-                                </div>
-                            ) : (
-                                fileList.map((f, idx) => {
-                                    const isComplete = f.status === 'complete';
-                                    const isError = f.status === 'error';
-                                    const isInProgress = f.status === 'in-progress';
-
-                                    let barColor = 'bg-blue-400';
-                                    if (isComplete) barColor = 'bg-green-500';
-                                    if (isError) barColor = 'bg-red-500';
-
-                                    return (
+                                    </div>
+                                    <div className="w-full h-2 bg-gray-200 rounded mt-1 overflow-hidden">
                                         <motion.div
-                                            key={f.fileName}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ duration: 0.3, delay: idx * 0.1 }}
-                                            className="p-3 bg-gray-50 rounded shadow-sm">
-                                            <div className="flex justify-between text-sm font-medium mb-1">
-                                                <span>{f.fileName}</span>
-                                                {f.totalBytes > 0 && (
-                                                    <span>
-                                                        {f.completedBytes}/{f.totalBytes} bytes
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="w-full h-2 bg-gray-200 rounded mt-1 overflow-hidden">
-                                                <motion.div
-                                                    className={`${barColor} h-2`}
-                                                    initial={{ width: 0 }}
-                                                    animate={{ width: `${f.progress}%` }}
-                                                    transition={{ duration: 0.4 }}
-                                                />
-                                            </div>
-                                            {isError && (
-                                                <div className="text-xs text-red-600 mt-1">
-                                                    Error in this file. Check the log.
-                                                </div>
-                                            )}
-                                            {isComplete && (
-                                                <div className="text-xs text-green-600 mt-1">
-                                                    Download complete!
-                                                </div>
-                                            )}
-                                        </motion.div>
-                                    );
-                                })
-                            )}
-                        </div>
+                                            className={`${barColor} h-2`}
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${step.progress}%` }}
+                                            transition={{ duration: 0.4 }}
+                                        />
+                                    </div>
+                                    {isError && (
+                                        <div className="text-xs text-red-600 mt-1">
+                                            An error occurred. Check the log.
+                                        </div>
+                                    )}
+                                </motion.div>
+                            );
+                        })}
                     </div>
                 </div>
 
-                {/** Right Panel: Detailed Log */}
-                <div className="w-full lg:w-1/3 bg-gray-50 p-4 border-l border-gray-200 overflow-auto">
-                    <h3 className="font-bold mb-2">Detailed Log</h3>
-                    <div className="h-full max-h-[70vh] overflow-y-auto text-xs leading-5">
-                        <AnimatePresence>
-                            {messages.map((msg, idx) => (
+                <h2 className="text-xl font-bold mb-4 mt-8">File Downloads</h2>
+                {/* File-by-file Display */}
+                {/* <div className="flex flex-col h-full"> */}
+                <div className="space-y-2 flex-1 overflow-y-auto min-h-0">
+                    {fileList.length === 0 ? (
+                        <div className="text-sm text-gray-500">No files processed yet...</div>
+                    ) : (
+                        fileList.map((f, idx) => {
+                            const isComplete = f.status === 'complete';
+                            const isError = f.status === 'error';
+                            const isExtracting = f.status === 'extracting';
+
+                            let barColor = 'bg-blue-400';
+                            if (isComplete) barColor = 'bg-green-500';
+                            if (isError) barColor = 'bg-red-500';
+
+                            return (
                                 <motion.div
-                                    key={idx}
-                                    initial={{ opacity: 0, y: 5 }}
+                                    key={f.fileName}
+                                    initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -5 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="mb-1">
-                                    {msg}
+                                    transition={{ duration: 0.3, delay: idx * 0.1 }}
+                                    className="p-3 bg-gray-50 rounded shadow-sm">
+                                    <div className="flex justify-between text-sm font-medium mb-1">
+                                        <span>{f.fileName}</span>
+                                        {f.totalBytes > 0 && (
+                                            <span>
+                                                {formatBytes(f.completedBytes)}/
+                                                {formatBytes(f.totalBytes)}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {isExtracting && (
+                                        <div className="flex items-center text-xs text-gray-600 mb-1">
+                                            <AiOutlineLoading3Quarters className="animate-spin mr-1" />
+                                            <span>Extracting data...</span>
+                                        </div>
+                                    )}
+                                    <div className="w-full h-2 bg-gray-200 rounded mt-1 overflow-hidden">
+                                        <motion.div
+                                            className={`${barColor} h-2`}
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${f.progress}%` }}
+                                            transition={{ duration: 0.4 }}
+                                        />
+                                    </div>
+                                    {isError && (
+                                        <div className="text-xs text-red-600 mt-1">
+                                            Error in this file. Check the log.
+                                        </div>
+                                    )}
+                                    {isComplete && (
+                                        <div className="text-xs text-green-600 mt-1">
+                                            File process complete!
+                                        </div>
+                                    )}
                                 </motion.div>
-                            ))}
-                        </AnimatePresence>
-                    </div>
+                            );
+                        })
+                    )}
+                    <div ref={fileBottomRef} />
+                </div>
+                {/* </div> */}
+            </div>
+
+            {/* Right Panel: Detailed Log + Retry */}
+            <div className="w-full lg:w-1/3 bg-gray-50 p-4 border-l border-gray-200 h-full flex flex-col  min-h-0">
+                <h3 className="font-bold mb-2">Detailed Log</h3>
+                <div className="flex-1 overflow-y-auto text-xs leading-5">
+                    <AnimatePresence>
+                        {messages.map((msg, idx) => (
+                            <motion.div
+                                key={idx}
+                                initial={{ opacity: 0, y: 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -5 }}
+                                transition={{ duration: 0.2 }}
+                                className="mb-1">
+                                {msg}
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
+                    <div ref={logBottomRef} />
+                </div>
+                <div className="mt-4">
+                    <button
+                        onClick={handleRetry}
+                        className="w-full py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none">
+                        Retry Request
+                    </button>
                 </div>
             </div>
+            {/* </div> */}
         </div>
     );
 };

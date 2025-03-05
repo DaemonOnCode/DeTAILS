@@ -197,6 +197,12 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
                     //     func: setContextFiles,
                     //     name: 'setContextFiles'
                     // }
+                    // {
+                    //     state: datasetId,
+                    //     func: setDatasetId,
+                    //     name: 'setDatasetId',
+                    //     initValue: v4
+                    // }
                 ]
             },
             [`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}`]:
@@ -211,12 +217,6 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
                 },
             [`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_VIEWER}`]: {
                 relatedStates: [
-                    // {
-                    //     state: datasetId,
-                    //     func: setDatasetId,
-                    //     name: 'setDatasetId',
-                    //     initValue: v4()
-                    // },
                     {
                         state: selectedData,
                         func: setSelectedData,

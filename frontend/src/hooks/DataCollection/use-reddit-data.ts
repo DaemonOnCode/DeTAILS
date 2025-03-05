@@ -165,7 +165,9 @@ const useRedditData = () => {
             }
 
             if (addToDb) {
-                setModeInput(`reddit:torrent:${torrentSubreddit}|${torrentStart}|${torrentEnd}`);
+                setModeInput(
+                    `reddit:torrent:${torrentSubreddit}|${torrentStart}|${torrentEnd}|${torrentPostsOnly}`
+                );
                 const torrentResponse = await fetchData(
                     REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT,
                     {
@@ -199,9 +201,11 @@ const useRedditData = () => {
     };
 
     const handleLoadTorrentFromFiles = async (data: [string, string[]]) => {
-        const [subreddit, files] = data;
+        const subreddit = data[0][0],
+            files = data[0][1];
+        console.log('Loading torrent data from files:', subreddit, files, datasetId);
         const torrentFilesResponse = await fetchData(
-            REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT,
+            REMOTE_SERVER_ROUTES.PREPARE_REDDIT_TORRENT_DATA_FROM_FILES,
             {
                 method: 'POST',
                 body: JSON.stringify({

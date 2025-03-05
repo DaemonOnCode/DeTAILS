@@ -4,12 +4,13 @@ import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import useServerUtils from '../../hooks/Shared/get-server-url';
-import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import TorrentDataTab from '../../components/DataCollection/load-torrent-data';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
-import { LOADER_ROUTES } from '../../constants/Coding/shared';
+import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
+import { useLoadingContext } from '../../context/loading-context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -23,8 +24,7 @@ const LoadReddit: FC<{
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
     const navigate = useNavigate();
-    const { getServerUrl } = useServerUtils();
-
+    const { loadingDispatch } = useLoadingContext();
     // Get query parameters for active tab.
     const [searchParams, setSearchParams] = useSearchParams();
     const queryActiveTab = searchParams.get('activeTab') as 'folder' | 'torrent' | null;
@@ -51,9 +51,33 @@ const LoadReddit: FC<{
         };
     }, []);
 
+    useEffect(() => {
+        if (modeInput) {
+            const splits = modeInput.split(':');
+            if (splits.length >= 2) {
+                const subMode = splits[1]; // e.g. "torrent" or "upload"
+                if (subMode === 'torrent') {
+                    updateActiveTab('torrent');
+                } else if (subMode === 'upload') {
+                    updateActiveTab('folder');
+                }
+            }
+        }
+    }, [modeInput]);
+
     const handleLoadTorrent = async () => {
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
+        });
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
         const postsOnly = torrentMode === 'posts';
         await loadTorrentData(true, torrentSubreddit, torrentStart, torrentEnd, postsOnly);
+        // navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`);
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
+        });
     };
 
     useImperativeHandle(processRef, () => {
@@ -62,11 +86,12 @@ const LoadReddit: FC<{
                 const inputSplits = modeInput.split(':');
                 if (inputSplits.length && inputSplits[0] === 'reddit') {
                     if (inputSplits[1] === 'torrent') {
-                        navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
                         if (selectedFilesRef.current?.getFiles) {
+                            navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
                             console.log(selectedFilesRef.current.getFiles(), 'current selected');
                             await handleLoadTorrentFromFiles(selectedFilesRef.current.getFiles());
                         } else {
+                            navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
                             await handleLoadTorrent();
                         }
                     } else {

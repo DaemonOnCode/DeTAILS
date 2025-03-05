@@ -9,6 +9,28 @@ const maxReconnectAttempts = 5;
 const baseDelay = 1000; // in milliseconds
 let reconnectAttempts = 0;
 
+const sendToMainWindow = (globalCtx, channel, payload, retries = 0) => {
+    const maxRetries = 5;
+    const delay = baseDelay * Math.pow(2, retries);
+    try {
+        const mainWindow = globalCtx.getState().mainWindow;
+        if (!mainWindow) {
+            throw new Error('Main window not available');
+        }
+        mainWindow.webContents.send(channel, payload);
+        electronLogger.log(`Sent on channel "${channel}": ${JSON.stringify(payload)}`);
+    } catch (e) {
+        electronLogger.error(`Failed to send on channel "${channel}" (attempt ${retries + 1}):`, e);
+        if (retries < maxRetries) {
+            setTimeout(() => {
+                sendToMainWindow(globalCtx, channel, payload, retries + 1);
+            }, delay);
+        } else {
+            electronLogger.error(`Max retry attempts reached for channel "${channel}".`);
+        }
+    }
+};
+
 const decodeMessage = (data) => {
     try {
         if (Buffer.isBuffer(data)) {
@@ -31,7 +53,6 @@ const connectWS = (globalCtx) => {
     try {
         electronLogger.log('Connecting to WebSocket...');
         const url = new URL(config.backendURL[globalCtx.getState().processing]);
-
         const settings = globalCtx.getState().settings;
         console.log('settings', settings);
         const appId = (settings && settings.app.id) ?? 'default';
@@ -52,12 +73,7 @@ const connectWS = (globalCtx) => {
         electronLogger.log('WebSocket connected');
         // Reset reconnection attempts after a successful connection.
         reconnectAttempts = 0;
-        try {
-            globalCtx.getState().mainWindow.webContents.send('ws-connected');
-        } catch (e) {
-            electronLogger.log('Application closed');
-            electronLogger.log(e);
-        }
+        sendToMainWindow(globalCtx, 'ws-connected', {});
     });
 
     wsInstance.on('close', (code, reason) => {
@@ -68,24 +84,14 @@ const connectWS = (globalCtx) => {
             message = reason ? reason.toString() : 'No reason provided';
         }
         electronLogger.log('WebSocket closed:', code, message);
-        try {
-            wsInstance = null;
-            globalCtx.setState({ websocket: null });
-            globalCtx.getState().mainWindow.webContents.send('ws-closed', { code, message });
-        } catch (e) {
-            electronLogger.log('Application closed');
-            electronLogger.log(e);
-        }
+        wsInstance = null;
+        globalCtx.setState({ websocket: null });
+        sendToMainWindow(globalCtx, 'ws-closed', { code, message });
     });
 
     wsInstance.on('error', (error) => {
         electronLogger.error('WebSocket error:', error.message);
-        try {
-            globalCtx.getState().mainWindow.webContents.send('ws-error', error.message);
-        } catch (e) {
-            electronLogger.log('Application closed');
-            electronLogger.log(e);
-        }
+        sendToMainWindow(globalCtx, 'ws-error', error.message);
         // If an error occurs, try to reconnect with exponential backoff.
         if (reconnectAttempts < maxReconnectAttempts) {
             const delay = baseDelay * Math.pow(2, reconnectAttempts);
@@ -111,15 +117,10 @@ const connectWS = (globalCtx) => {
             }
             wsInstance = null;
             globalCtx.setState({ websocket: null });
-            try {
-                globalCtx.getState().mainWindow.webContents.send('ws-closed', {
-                    code: 1006,
-                    message: 'WebSocket not connected'
-                });
-            } catch (e) {
-                electronLogger.log('Application closed');
-                electronLogger.log(e);
-            }
+            sendToMainWindow(globalCtx, 'ws-closed', {
+                code: 1006,
+                message: 'WebSocket not connected'
+            });
             return;
         }
 
@@ -136,12 +137,7 @@ const connectWS = (globalCtx) => {
             wsInstance.send('pong');
         }
 
-        try {
-            globalCtx.getState().mainWindow.webContents.send('ws-message', message);
-        } catch (e) {
-            electronLogger.log('Application closed');
-            electronLogger.log(e);
-        }
+        sendToMainWindow(globalCtx, 'ws-message', message);
     });
 };
 
