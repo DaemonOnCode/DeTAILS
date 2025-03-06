@@ -104,7 +104,7 @@ async def regenerate_keywords_endpoint(
     llm, embeddings = get_llm_and_embeddings(request_body.model, settings=settings)
 
     vector_store = initialize_vector_store(dataset_id, request_body.model, embeddings)
-    retriever = vector_store.as_retriever(search_kwargs={'k': 30})
+    retriever = vector_store.as_retriever(search_kwargs={'k': 50})
 
     parsed_keywords = await process_llm_task(
         app_id=app_id,
