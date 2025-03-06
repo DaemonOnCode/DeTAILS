@@ -259,6 +259,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 {/* Left Section: Transcript */}
                 <div className="flex-1 flex flex-col overflow-hidden">
                     <button
+                        id="transcript-back-button"
                         title={
                             allChatsResolved
                                 ? 'Go back to previous page'
@@ -270,6 +271,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         ← <span className="underline">Back to Posts</span>
                     </button>
                     <div
+                        id="transcript-container"
                         className={`flex-1 overflow-y-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}
                         onMouseUp={() => handleTextSelection(_selectionRef)}
                         onClick={() => {

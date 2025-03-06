@@ -82,7 +82,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     );
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" id="transcript-metadata">
             <div>
                 <h3 className="text-lg font-bold mb-2">Codes</h3>
                 <ul className="space-y-2">

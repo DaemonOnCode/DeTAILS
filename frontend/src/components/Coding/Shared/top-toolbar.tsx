@@ -44,7 +44,9 @@ const TopToolbar: FC<TopToolbarProps> = ({
     };
 
     return (
-        <div className="bg-gray-200 p-3 border-b flex items-center space-x-6">
+        <div
+            className="bg-gray-200 p-3 border-b flex items-center space-x-6"
+            id="transcript-toolbar">
             {/* Code Actions Dropdown */}
             <div
                 className="relative"
