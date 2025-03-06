@@ -50,12 +50,27 @@ const DataViewerPage = () => {
     const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD;
 
     useEffect(() => {
-        const inputSplits = modeInput.split(':');
-        if (inputSplits.length && inputSplits[0] === 'reddit') {
-            if (inputSplits[1] === 'torrent') {
-                loadTorrentData();
-            } else {
-                loadFolderData();
+        if (loadingState[stepRoute]?.isLoading) {
+            const inputSplits = modeInput.split(':');
+            if (inputSplits.length && inputSplits[0] === 'reddit') {
+                if (inputSplits[1] === 'torrent') {
+                    if (inputSplits[3] === 'files') {
+                        navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
+                    } else {
+                        navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
+                    }
+                } else {
+                    navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
+                }
+            }
+        } else {
+            const inputSplits = modeInput.split(':');
+            if (inputSplits.length && inputSplits[0] === 'reddit') {
+                if (inputSplits[1] === 'torrent') {
+                    loadTorrentData();
+                } else {
+                    loadFolderData();
+                }
             }
         }
 
@@ -179,11 +194,11 @@ const DataViewerPage = () => {
         });
     };
 
-    useEffect(() => {
-        if (loadingState[stepRoute]?.isLoading) {
-            navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
-        }
-    }, []);
+    // useEffect(() => {
+    //     if (loadingState[stepRoute]?.isLoading) {
+    //         navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
+    //     }
+    // }, []);
 
     const isDataLoaded = Boolean(modeInput);
 

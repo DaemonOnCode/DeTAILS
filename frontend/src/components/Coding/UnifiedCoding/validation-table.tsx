@@ -114,6 +114,10 @@ const ValidationTable: FC<ValidationTableProps> = ({
 
     let totalColumns = 3;
 
+    if (showCoderType && codeResponses.some((row) => 'subCode' in row)) {
+        totalColumns += 1;
+    }
+
     if (showThemes && codeResponses.some((row) => 'theme' in row)) {
         totalColumns += 1;
     }
@@ -158,6 +162,11 @@ const ValidationTable: FC<ValidationTableProps> = ({
                             <th className="max-w-48 p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
                                 Code
                             </th>
+                            {showCoderType && codeResponses.some((r) => 'subCode' in r) && (
+                                <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
+                                    Sub-code
+                                </th>
+                            )}
                             <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
                                 Quote
                             </th>
@@ -254,6 +263,29 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             )}
                                         </td>
 
+                                        {'subCode' in row && (
+                                            <td className="border border-gray-300 p-2">
+                                                {editIndex === row.id ? (
+                                                    <input
+                                                        type="text"
+                                                        value={editableRow.theme || ''}
+                                                        onChange={(e) =>
+                                                            handleInputChange(
+                                                                'theme',
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                        className="border border-gray-400 p-1 w-full rounded outline-none focus:ring-2 ring-blue-400"
+                                                    />
+                                                ) : row.subCode ? (
+                                                    <>{row.subCode}</>
+                                                ) : (
+                                                    <span className="text-gray-400 italic">
+                                                        No sub code
+                                                    </span>
+                                                )}
+                                            </td>
+                                        )}
                                         <td className="border border-gray-300 p-2 max-w-64 break-all">
                                             {editIndex === row.id ? (
                                                 <input

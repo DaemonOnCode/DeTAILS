@@ -37,11 +37,13 @@ class CodingContext(BaseModel):
     keyword_table: list = []
     references_data: dict = {}
     themes: list = []
+    grouped_codes: list = []
     research_questions: list = []
     sampled_post_responses: list = []
     sampled_post_with_themes_responses: list = []
     unseen_post_response: list = []
     unplaced_codes: list = []
+    unplaced_subcodes: list = []
     sampled_post_ids: list = []
     unseen_post_ids: list = []
     conflicting_responses: list = []

@@ -9,12 +9,12 @@ import numpy as np
 from config import Settings
 from controllers.coding_controller import get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
 from headers.app_id import get_app_id
-from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
+from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
 from routes.websocket_routes import manager
 
 from utils.coding_helpers import generate_transcript
 from database.db_helpers import get_post_and_comments_from_id
-from utils.prompts_v2 import ContextPrompt, DeductiveCoding, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
+from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GroupCodes, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
 
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
@@ -591,4 +591,66 @@ async def redo_deductive_coding_endpoint(
     return {
         "message": "Deductive coding completed successfully!",
         "data": final_results
+    }
+
+
+@router.post("/group-codes")
+async def group_codes_endpoint(
+    request: Request,
+    request_body: GroupCodesRequest
+):
+    dataset_id = request_body.dataset_id
+    if not dataset_id:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+
+    app_id = request.headers.get("x-app-id")
+
+    llm, _ = get_llm_and_embeddings(request_body.model, settings=settings)
+
+    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
+
+    grouped_qec = defaultdict(list)
+    for row in rows:
+        grouped_qec[row["code"]].append({
+            "quote": row["quote"],
+            "explanation": row["explanation"]
+        })
+
+    qec_table = [
+        {"code": code, "instances": instances}
+        for code, instances in grouped_qec.items()
+    ]
+
+    print(qec_table, grouped_qec)
+
+    parsed_response = await process_llm_task(
+        app_id=app_id,
+        dataset_id=dataset_id,
+        manager=manager,
+        llm_model=request_body.model,
+        regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+        prompt_builder_func=GroupCodes.group_codes_prompt,
+        llm_instance=llm,
+        codes=json.dumps(list(grouped_qec.keys())),
+        qec_table=json.dumps(qec_table)
+    )
+
+    print(parsed_response)
+
+    if isinstance(parsed_response, list):
+        parsed_response = {"higher_level_codes": parsed_response}
+
+    higher_level_codes = parsed_response.get("higher_level_codes", [])
+    for higher_level_code in higher_level_codes:
+        higher_level_code["id"] = str(uuid4())
+
+    placed_codes = {code for higher_level_code in higher_level_codes for code in higher_level_code["codes"]}
+    unplaced_codes = list(set(row["code"] for row in qec_table) - placed_codes)
+
+    return {
+        "message": "Codes grouped successfully!",
+        "data": {
+            "higher_level_codes": higher_level_codes,
+            "unplaced_codes": unplaced_codes
+        }
     }

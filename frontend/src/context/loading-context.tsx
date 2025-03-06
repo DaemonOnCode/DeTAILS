@@ -63,6 +63,11 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             downloadData: true,
             stepRef: useRef<StepHandle>(initialRefState)
         },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`]: {
+            isLoading: false,
+            downloadData: true,
+            stepRef: useRef<StepHandle>(initialRefState)
+        },
         [`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`]: {
             isLoading: false,
             downloadData: true,

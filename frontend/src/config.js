@@ -53,6 +53,7 @@ const config = {
             REGENERATE_KEYWORDS: 'coding/regenerate-keywords',
             REFINE_CODEBOOK: 'coding/refine-codebook',
             REFINE_CODE: 'coding/refine-code',
+            GROUP_CODES: 'coding/group-codes',
 
             CREATE_WORKSPACE: 'workspaces/create-workspace',
             GET_WORKSPACES: 'workspaces/get-workspaces',

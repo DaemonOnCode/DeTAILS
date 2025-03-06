@@ -72,3 +72,9 @@ class RemakeCodebookRequest(GenerateInitialCodesRequest):
 class RemakeDeductiveCodesRequest(DeductiveCodingRequest):
     current_codebook: list
     feedback: str = ""
+
+class GroupCodesRequest(BaseModel):
+    dataset_id: str
+    model: str
+    sampled_post_responses: list
+    unseen_post_responses: list

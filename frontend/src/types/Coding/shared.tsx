@@ -211,6 +211,12 @@ export type ThemeBucket = {
     codes: string[];
 };
 
+export type GroupedCodeBucket = {
+    id: string;
+    name: string;
+    codes: string[];
+};
+
 type Action<T> =
     | { type: 'SET_CORRECT'; index: number }
     | { type: 'SET_ALL_CORRECT' }

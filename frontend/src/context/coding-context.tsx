@@ -17,7 +17,8 @@ import {
     IReference,
     IQECResponse,
     ThemeBucket,
-    SetState
+    SetState,
+    GroupedCodeBucket
 } from '../types/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
 import { ROUTES } from '../constants/Coding/shared';
@@ -30,7 +31,7 @@ import {
     unseenDataResponseReducer,
     keywordTableReducer
 } from '../reducers/coding';
-import { getThemeByCode } from '../utility/theme-finder';
+import { getGroupedCodeOfSubCode, getThemeByCode } from '../utility/theme-finder';
 import { type } from 'os';
 import { downloadCodebook } from '../utility/codebook-downloader';
 import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
@@ -71,6 +72,10 @@ export const CodingContext = createContext<ICodingContext>({
     setThemes: () => {},
     unplacedCodes: [],
     setUnplacedCodes: () => {},
+    groupedCodes: [],
+    setGroupedCodes: () => {},
+    unplacedSubCodes: [],
+    setUnplacedSubCodes: () => {},
     researchQuestions: [],
     setResearchQuestions: () => {},
     sampledPostIds: [],
@@ -129,6 +134,11 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     const [themes, setThemes] = useState<ThemeBucket[]>([]);
 
     const [unplacedCodes, setUnplacedCodes] = useState<string[]>([]);
+
+    const [groupedCodes, setGroupedCodes] = useState<GroupedCodeBucket[]>([]);
+
+    // State for codes that have not been placed into any bucket
+    const [unplacedSubCodes, setUnplacedSubCodes] = useState<string[]>([]);
 
     // const toggleMode = useCallback(() => {
     //     setCurrentMode((prevMode: Mode) => {
@@ -226,6 +236,40 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                 ],
                 downloadData: { name: 'deductive_codebook', data: unseenPostResponse }
             },
+            [`/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`]: {
+                relatedStates: [
+                    { state: groupedCodes, func: setGroupedCodes, name: 'setGroupedCodes' },
+                    {
+                        state: unplacedSubCodes,
+                        func: setUnplacedSubCodes,
+                        name: 'setUnplacedSubCodes'
+                    }
+                ],
+                downloadData: {
+                    name: 'codebook_with_grouped_codes',
+                    condition: groupedCodes.length > 0,
+                    data: [
+                        ...sampledPostResponse.map((post) => ({
+                            postId: post.postId,
+                            id: post.id,
+                            code: getGroupedCodeOfSubCode(post.code, groupedCodes),
+                            quote: post.quote,
+                            explanation: post.explanation,
+                            comment: post.comment,
+                            subCode: post.code
+                        })),
+                        ...unseenPostResponse.map((post) => ({
+                            postId: post.postId,
+                            id: post.id,
+                            code: getGroupedCodeOfSubCode(post.code, groupedCodes),
+                            quote: post.quote,
+                            explanation: post.explanation,
+                            comment: post.comment,
+                            subCode: post.code
+                        }))
+                    ]
+                }
+            },
             [`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`]: {
                 relatedStates: [
                     { state: themes, func: setThemes, name: 'setThemes' },
@@ -240,7 +284,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                             quote: post.quote,
                             coded_word: post.code,
                             reasoning: post.explanation,
-                            theme: getThemeByCode(post.code, themes),
+                            theme: getThemeByCode(post.code, themes, groupedCodes),
                             id: post.id
                         })),
                         ...unseenPostResponse.map((post) => ({
@@ -248,7 +292,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                             quote: post.quote,
                             coded_word: post.code,
                             reasoning: post.explanation,
-                            theme: getThemeByCode(post.code, themes),
+                            theme: getThemeByCode(post.code, themes, groupedCodes),
                             id: post.id
                         }))
                     ]
@@ -297,6 +341,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     );
     useLoadingSteps(
         loadingStateInitialization,
+        loadingState[`/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`]?.stepRef
+    );
+    useLoadingSteps(
+        loadingStateInitialization,
         loadingState[`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`]
             ?.stepRef
     );
@@ -334,6 +382,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         }
         if (updates.themes) setThemes(updates.themes);
         if (updates.unplacedCodes) setUnplacedCodes(updates.unplacedCodes);
+        if (updates.groupedCodes) setGroupedCodes(updates.groupedCodes);
+        if (updates.unplacedSubCodes) setUnplacedSubCodes(updates.unplacedSubCodes);
         if (updates.researchQuestions) setResearchQuestions(updates.researchQuestions);
         if (updates.sampledPostIds) setSampledPostIds(updates.sampledPostIds);
         if (updates.unseenPostIds) setUnseenPostIds(updates.unseenPostIds);
@@ -361,6 +411,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         });
         setThemes([]);
         setUnplacedCodes([]);
+        setGroupedCodes([]);
+        setUnplacedSubCodes([]);
         setResearchQuestions([]);
         setSampledPostIds([]);
         setUnseenPostIds([]);
@@ -420,6 +472,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             setThemes,
             unplacedCodes,
             setUnplacedCodes,
+            groupedCodes,
+            setGroupedCodes,
+            unplacedSubCodes,
+            setUnplacedSubCodes,
             researchQuestions,
             setResearchQuestions,
             sampledPostIds,
@@ -449,6 +505,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             unseenPostResponse,
             themes,
             unplacedCodes,
+            groupedCodes,
+            unplacedSubCodes,
             researchQuestions,
             sampledPostIds,
             unseenPostIds,

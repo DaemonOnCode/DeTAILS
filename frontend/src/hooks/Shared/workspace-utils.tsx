@@ -59,7 +59,9 @@ const useWorkspaceUtils = () => {
                 references: codingContext.references || {},
                 sampled_post_responses: codingContext.sampledPostResponse || [],
                 themes: codingContext.themes || [],
+                grouped_codes: codingContext.groupedCodes || [],
                 unplaced_codes: codingContext.unplacedCodes || [],
+                unplaced_subcodes: codingContext.unplacedSubCodes || [],
                 sampled_post_with_themes_responses:
                     codingContext.sampledPostWithThemeResponse || [],
                 unseen_post_response: codingContext.unseenPostResponse || [],
@@ -138,11 +140,13 @@ const useWorkspaceUtils = () => {
             keywordTable: data.keyword_table ?? [],
             references: data.references ?? {},
             themes: data.themes ?? [],
+            groupedCodes: data.grouped_codes ?? [],
             researchQuestions: data.research_questions ?? [],
             sampledPostResponse: data.sampled_post_responses ?? [],
             sampledPostWithThemeResponse: data.sampled_post_with_themes_responses ?? [],
             unseenPostResponse: data.unseen_post_response ?? [],
             unplacedCodes: data.unplaced_codes ?? [],
+            unplacedSubCodes: data.unplaced_subcodes ?? [],
             sampledPostIds: data.sampled_post_ids ?? [],
             unseenPostIds: data.unseen_post_ids ?? [],
             conflictingResponses: data.conflicting_responses ?? []

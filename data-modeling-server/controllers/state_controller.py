@@ -39,11 +39,13 @@ def save_state(data):
     keyword_table = json.dumps(coding_context.keyword_table)
     references_data = json.dumps(coding_context.references_data)
     themes = json.dumps(coding_context.themes)
+    grouped_codes = json.dumps(coding_context.grouped_codes)
     research_questions = json.dumps(coding_context.research_questions)
     sampled_post_responses = json.dumps(coding_context.sampled_post_responses)
     sampled_post_with_themes_responses = json.dumps(coding_context.sampled_post_with_themes_responses)
     unseen_post_response = json.dumps(coding_context.unseen_post_response)
     unplaced_codes = json.dumps(coding_context.unplaced_codes)
+    unplaced_subcodes = json.dumps(coding_context.unplaced_subcodes)
     sampled_post_ids = json.dumps(coding_context.sampled_post_ids)
     unseen_post_ids = json.dumps(coding_context.unseen_post_ids)
     conflicting_responses = json.dumps(coding_context.conflicting_responses)
@@ -68,11 +70,13 @@ def save_state(data):
         keyword_table=keyword_table,
         references_data=references_data,
         themes=themes,
+        grouped_codes=grouped_codes,
         research_questions=research_questions,
         sampled_post_responses=sampled_post_responses,
         sampled_post_with_themes_responses=sampled_post_with_themes_responses,
         unseen_post_response=unseen_post_response,
         unplaced_codes=unplaced_codes,
+        unplaced_subcodes=unplaced_subcodes,
         sampled_post_ids=sampled_post_ids,
         unseen_post_ids=unseen_post_ids,
         conflicting_responses=conflicting_responses,
@@ -146,9 +150,9 @@ def load_state(data):
     # Convert JSON strings back to Python objects
     json_fields = [
         "selected_data", "metadata", "models", "data_filters", "context_files", "keywords", "selected_keywords",
-        "keyword_table", "references_data", "themes", "research_questions",
+        "keyword_table", "references_data", "themes", "grouped_codes", "research_questions",
         "sampled_post_responses", "sampled_post_with_themes_responses",
-        "unseen_post_response", "unplaced_codes", "sampled_post_ids", "unseen_post_ids", "conflicting_responses"
+        "unseen_post_response", "unplaced_codes", "unplaced_subcodes", "sampled_post_ids", "unseen_post_ids", "conflicting_responses"
     ]
 
     for field in json_fields:

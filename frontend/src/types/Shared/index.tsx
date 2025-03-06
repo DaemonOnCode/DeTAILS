@@ -118,6 +118,10 @@ export interface ICodingContext {
     setThemes: SetState<ThemeBucket[]>;
     unplacedCodes: string[];
     setUnplacedCodes: SetState<string[]>;
+    groupedCodes: ThemeBucket[];
+    setGroupedCodes: SetState<ThemeBucket[]>;
+    unplacedSubCodes: string[];
+    setUnplacedSubCodes: SetState<string[]>;
     researchQuestions: string[];
     setResearchQuestions: SetState<string[]>;
     sampledPostIds: string[];

@@ -28,8 +28,8 @@ const DeductiveCodingPage = () => {
         unseenPostResponse,
         dispatchUnseenPostResponse,
         unseenPostIds,
-        setThemes,
-        setUnplacedCodes,
+        setGroupedCodes,
+        setUnplacedSubCodes,
         sampledPostResponse,
         keywordTable,
         mainTopic,
@@ -152,17 +152,17 @@ const DeductiveCodingPage = () => {
     const handleNextClick = async () => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
         });
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
 
         const { data: results, error } = await fetchData<{
             message: string;
             data: {
-                themes: any[];
+                higher_level_codes: any[];
                 unplaced_codes: any[];
             };
-        }>(REMOTE_SERVER_ROUTES.THEME_GENERATION, {
+        }>(REMOTE_SERVER_ROUTES.GROUP_CODES, {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
@@ -173,20 +173,21 @@ const DeductiveCodingPage = () => {
         });
 
         if (error) {
-            console.error('Error in handleNextClick:', error);
+            console.error('Error refreshing themes:', error);
             loadingDispatch({
                 type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
             });
             return;
         }
-        console.log('Results:', results);
 
-        setThemes(results.data.themes.map((theme: any) => ({ ...theme, name: theme.theme })));
-        setUnplacedCodes(results.data.unplaced_codes);
+        console.log('Results:', results);
+        setGroupedCodes(results.data.higher_level_codes);
+        setUnplacedSubCodes(results.data.unplaced_codes);
+
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+            route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
         });
     };
 
@@ -246,7 +247,7 @@ const DeductiveCodingPage = () => {
                 </div>
                 <NavigationBottomBar
                     previousPage={`${ROUTES.CODEBOOK_CREATION}`}
-                    nextPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`}
+                    nextPage={`${ROUTES.FINALIZING_CODES}`}
                     isReady={true}
                     onNextClick={handleNextClick}
                 />

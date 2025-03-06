@@ -11,13 +11,13 @@ import PostView from '../../components/Coding/Analysis/post-view';
 import CodeView from '../../components/Coding/Analysis/code-view';
 import { downloadCodebook } from '../../utility/codebook-downloader';
 import { groupByCode, groupByPostId } from '../../utility/group-items';
-import { getThemeByCode } from '../../utility/theme-finder';
+import { getGroupedCodeOfSubCode, getThemeByCode } from '../../utility/theme-finder';
 
 const { ipcRenderer } = window.require('electron');
 
 const FinalPage = () => {
     const { datasetId } = useCollectionContext();
-    const { themes, sampledPostResponse, unseenPostResponse } = useCodingContext();
+    const { themes, sampledPostResponse, unseenPostResponse, groupedCodes } = useCodingContext();
     const [renderedPost, setRenderedPost] = useState<{
         id: string;
         link: string;
@@ -75,9 +75,9 @@ const FinalPage = () => {
         ...sampledPostResponse.map((post) => ({
             postId: post.postId,
             quote: post.quote,
-            coded_word: post.code,
+            coded_word: getGroupedCodeOfSubCode(post.code, groupedCodes),
             reasoning: post.explanation,
-            theme: getThemeByCode(post.code, themes),
+            theme: getThemeByCode(post.code, themes, groupedCodes),
             id: post.id
         })),
         ...unseenPostResponse
@@ -85,9 +85,9 @@ const FinalPage = () => {
             .map((post) => ({
                 postId: post.postId,
                 quote: post.quote,
-                coded_word: post.code,
+                coded_word: getGroupedCodeOfSubCode(post.code, groupedCodes),
                 reasoning: post.explanation,
-                theme: getThemeByCode(post.code, themes),
+                theme: getThemeByCode(post.code, themes, groupedCodes),
                 id: post.id
             }))
     ];

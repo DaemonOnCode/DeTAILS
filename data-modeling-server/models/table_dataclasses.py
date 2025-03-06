@@ -118,11 +118,13 @@ class WorkspaceState(BaseDataclass):
     keyword_table: Optional[str] = None  # JSON string for list
     references_data: Optional[str] = None  # JSON string for dict
     themes: Optional[str] = None  # JSON string for list
+    grouped_codes: Optional[str] = None  # JSON string for list
     research_questions: Optional[str] = None  # JSON string for list
     sampled_post_responses: Optional[str] = None  # JSON string for list
     sampled_post_with_themes_responses: Optional[str] = None  # JSON string for list
     unseen_post_response: Optional[str] = None  # JSON string for list
     unplaced_codes: Optional[str] = None  # JSON string for list
+    unplaced_subcodes: Optional[str] = None  # JSON string for list
     sampled_post_ids: Optional[str] = None  # JSON string for list
     unseen_post_ids: Optional[str] = None  # JSON string for list
     conflicting_responses: Optional[str] = None  # JSON string for list

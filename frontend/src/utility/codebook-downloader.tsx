@@ -8,15 +8,19 @@ export function downloadCodebook(filteredData: any[], fileName?: string) {
     filteredData.forEach((row) => {
         if ('type' in row && 'theme' in row) {
             csvRows.push(
-                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","${row.theme || 'N/A'}","${row.type || 'N/A'}"`
+                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","${row.theme || 'N/A'}","${row.type || 'N/A'}","${row.subCode || 'N/A'}"`
             );
         } else if ('theme' in row) {
             csvRows.push(
-                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","${row.theme || 'N/A'}","N/A"`
+                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","${row.theme || 'N/A'}","N/A","${row.subCode || 'N/A'}"`
+            );
+        } else if ('subCode' in row) {
+            csvRows.push(
+                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","${row.theme || 'N/A'}","N/A","${row.subCode}"`
             );
         } else {
             csvRows.push(
-                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","N/A","N/A"`
+                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","N/A","N/A","N/A"`
             );
         }
     });

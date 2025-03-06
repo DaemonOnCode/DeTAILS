@@ -661,3 +661,98 @@ Generate your output strictly in valid JSON format as follows:
 
 No additional text outside the JSON.
 """
+    
+class GroupCodes:
+    @staticmethod
+    def group_codes_prompt(codes: str, qec_table: str):
+        return f"""
+You are an advanced AI model specialized in Braun & Clarke’s Reflexive Thematic Analysis method. Use the following instructions to group the provided codes into higher-level themes based on the associated QEC data.:
+
+- Assess the provisional groupings for coherence and fit with the data.
+- Check if each emerging higher-level code (theme) tells a convincing story about the dataset.
+- Determine whether any candidate codes should be merged, split, or discarded.
+ 
+- Fine-tune and finalize higher-level codes so each has a clear central concept.
+- Write a concise definition capturing the essence of each grouping.
+- Ensure the groupings form a coherent overall story about the data.
+
+Your tasks:
+1. **Review the QEC Data**:  
+   - The QEC table (quote-explanation-code data) contains the detailed segments (quotes), the rationale (explanation), and the assigned code.
+   - Example structure in JSON:
+     ```json
+     {{
+        "code": "CodeName",
+        "instances": [
+          {{
+            "quote": "The quote here.",
+            "explanation": "Explanation for why this code was chosen."
+          }}
+          // Additional instances...
+        ]
+      }}
+     ```
+    QEC Data: 
+    ```json
+    {qec_table}
+    ```
+2. **Examine the List of Unique Codes**:  
+   - This is a simple array of code names extracted from the QEC table, e.g.:
+     ```json
+     ["Code1", "Code2", "Code3", ...]
+     ```
+    - Unique Codes:
+    ```json
+     {codes}
+     ```
+   - These are the existing lower-level codes that may need to be merged or refined into broader categories.
+
+3. **Develop Higher-Level Codes**:  
+   - Group related lower-level codes under more encompassing, conceptual headings.
+   - Name each higher-level code in a succinct, meaningful way.
+   - Provide a **short definition** explaining the unifying concept and why these codes logically fit together.
+   - Ensure that each higher-level code strictly captures not more than 5-7 lower-level codes.
+
+4. **Check for Fit and Coherence**:  
+   - For each higher-level code, confirm it is consistent with the original quotes and explanations.
+   - If any code doesn’t fit or contradicts the grouping, consider re-grouping or discarding it.
+   - Be prepared to revise (split, merge, rename) during this review.
+
+5. **Ensure Distinctness**:  
+   - Make sure each higher-level code is meaningfully different from the others.
+   - Avoid overlapping definitions or repeated coverage of the same pattern.
+
+6. **Finalize Output**:  
+   - Return the result in **valid JSON** only, following a structure similar to the one below (you may include additional fields such as `relationship` or `notes` if needed).
+   - Do **not** include any text outside the JSON object.
+
+### **Output Format**  
+```json
+{{
+  "higher_level_codes": [
+    {{
+      "name": "NameOfHigherLevelCode1",
+      "codes": [
+        "RelevantLowerLevelCodeA",
+        "RelevantLowerLevelCodeB"
+      ]
+    }},
+    {{
+      "name": "NameOfHigherLevelCode2",
+      "codes": [
+        "RelevantLowerLevelCodeC",
+        "RelevantLowerLevelCodeD"
+      ]
+    }}
+    // Additional higher-level code objects...
+  ]
+}}
+```
+
+**Important**:
+- Provide clear, compelling names for each higher-level code.
+- Ensure that each higher-level code strictly captures not more than 7 lower-level codes.
+- Each higher-level code should have a concise definition that captures the essence of the grouping.
+- Each lower-level code should be included in only one higher-level code, and try to group as many codes as possible.
+- Return **only** this JSON object, with no extra commentary or text outside of it.
+"""
