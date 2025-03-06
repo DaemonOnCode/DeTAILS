@@ -98,19 +98,21 @@ const TorrentDataTab = ({
                 <h2 className="text-xl font-bold mb-4">Transmission Daemon Not Found</h2>
                 {platform === 'windows' ? (
                     <div>
-                        <h3 className="font-semibold mb-2">Windows Installation Instructions:</h3>
+                        <h3 className="font-semibold mb-2">
+                            Installation Instructions for Windows:
+                        </h3>
                         <ol className="list-decimal ml-6 mb-4">
                             <li>Download Transmission for Windows from the official website.</li>
                             <li>Run the installer to install the daemon.</li>
-                            <li>
+                            {/* <li>
                                 Configure the Transmission settings (e.g. configuration directory)
                                 as needed.
-                            </li>
+                            </li> */}
                         </ol>
                     </div>
                 ) : platform === 'macos' ? (
                     <div>
-                        <h3 className="font-semibold mb-2">macOS Installation Instructions:</h3>
+                        <h3 className="font-semibold mb-2">Installation Instructions for MacOS:</h3>
                         <ol className="list-decimal ml-6 mb-4">
                             <li>
                                 Install Homebrew if not already installed.{' '}
@@ -127,18 +129,18 @@ const TorrentDataTab = ({
                     </div>
                 ) : platform === 'linux' ? (
                     <div>
-                        <h3 className="font-semibold mb-2">Linux Installation Instructions:</h3>
+                        <h3 className="font-semibold mb-2">Installation Instructions for Linux:</h3>
                         <ol className="list-decimal ml-6 mb-4">
                             <li>
                                 Install Transmission daemon using your package manager, e.g. run{' '}
                                 <code>sudo apt-get install transmission-daemon</code> on
                                 Debian/Ubuntu.
                             </li>
-                            <li>
+                            {/* <li>
                                 Configure the daemon (check the config file in{' '}
                                 <code>~/.config/transmission/</code> or{' '}
                                 <code>/etc/transmission-daemon/settings.json</code>).
-                            </li>
+                            </li> */}
                             <li>
                                 Restart the daemon with{' '}
                                 <code>sudo service transmission-daemon restart</code>.
@@ -216,15 +218,6 @@ const TorrentDataTab = ({
                 <div className="mb-4">
                     <div className="flex space-x-4">
                         <button
-                            onClick={() => setTorrentMode('posts')}
-                            className={`px-4 py-2 rounded focus:outline-none transition-colors ${
-                                torrentMode === 'posts'
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                            }`}>
-                            Posts Only
-                        </button>
-                        <button
                             onClick={() => setTorrentMode('postsAndComments')}
                             className={`px-4 py-2 rounded focus:outline-none transition-colors ${
                                 torrentMode === 'postsAndComments'
@@ -232,6 +225,15 @@ const TorrentDataTab = ({
                                     : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
                             }`}>
                             Posts + Comments
+                        </button>
+                        <button
+                            onClick={() => setTorrentMode('posts')}
+                            className={`px-4 py-2 rounded focus:outline-none transition-colors ${
+                                torrentMode === 'posts'
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                            }`}>
+                            Posts Only
                         </button>
                     </div>
                 </div>

@@ -36,13 +36,15 @@ if (!process.env.NODE_ENV === 'development') {
 // Function to clean up and gracefully exit
 const cleanupAndExit = async (globalCtx, signal) => {
     electronLogger.log('Cleaning up and exiting...');
-    electronLogger.log('Clearing localStorage via session API...');
-    const ses = session.defaultSession;
-    try {
-        await ses.clearStorageData({ storages: ['localstorage'] });
-        electronLogger.log('LocalStorage cleared via session API.');
-    } catch (err) {
-        electronLogger.error('Error clearing localStorage via session API:', err);
+    if (!globalCtx.getState().settings.general.keepSignedIn) {
+        electronLogger.log('Clearing localStorage via session API...');
+        const ses = session.defaultSession;
+        try {
+            await ses.clearStorageData({ storages: ['localstorage'] });
+            electronLogger.log('LocalStorage cleared via session API.');
+        } catch (err) {
+            electronLogger.error('Error clearing localStorage via session API:', err);
+        }
     }
 
     electronLogger.log(`Received signal: ${signal}`);

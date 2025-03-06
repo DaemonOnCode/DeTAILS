@@ -10,9 +10,9 @@ export enum ROUTES {
     // WORD_CLOUD = 'word-cloud',
     KEYWORD_TABLE = 'keyword-table',
     LOAD_DATA = 'load-data',
-    DATA_SOURCE = 'data-source',
-    DATASET_CREATION = 'dataset-creation',
-    DATA_VIEWER = 'view-dataset',
+    DATA_SOURCE = 'data-type',
+    DATASET_CREATION = 'data-source',
+    DATA_VIEWER = 'dataset-creation',
     //  GENERATION = 'generation',
     // INITIAL_CODING = 'initial-coding',
     // CODING_VALIDATION = 'coding-validation',
@@ -29,7 +29,8 @@ export enum ROUTES {
     ANALYSIS = 'analysis',
     TRANSCRIPT = 'transcript/:id/:state',
     TRANSCRIPTS = 'transcripts',
-    MANUAL_CODING = 'manual-coding'
+    MANUAL_CODING = 'manual-coding',
+    FINALIZING_CODES = 'finalizing-codes'
 }
 
 export enum LOADER_ROUTES {

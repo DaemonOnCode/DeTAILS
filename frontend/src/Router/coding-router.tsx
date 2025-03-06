@@ -25,7 +25,8 @@ import {
     AnalysisPage,
     CodebookCreationPage,
     ManualCodingPage,
-    DeductiveCodingPage
+    DeductiveCodingPage,
+    FinalizingCodesPage
 } from '../pages/Coding';
 import { ROUTES as COLLECTION_ROUTES } from '../constants/DataCollection/shared';
 import {
@@ -102,6 +103,10 @@ export const CodingRouter: RouteObject[] = [
         //         element: <EncodedDataPage />
         //     }
         // ]
+    },
+    {
+        path: ROUTES.FINALIZING_CODES,
+        element: <FinalizingCodesPage />
     },
     {
         path: ROUTES.THEMATIC_ANALYSIS,

@@ -84,7 +84,7 @@ const DataViewerPage = () => {
         {
             target: '#reddit-table-search',
             content: 'Use this to search for specific entries (Only supports exact text matching).',
-            placement: 'top'
+            placement: 'bottom'
         },
         {
             target: '#reddit-table-filter-button',

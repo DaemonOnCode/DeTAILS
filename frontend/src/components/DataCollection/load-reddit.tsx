@@ -33,7 +33,9 @@ const LoadReddit: FC<{
     const [torrentSubreddit, setTorrentSubreddit] = useState('');
     const [torrentStart, setTorrentStart] = useState('');
     const [torrentEnd, setTorrentEnd] = useState('');
-    const [torrentMode, setTorrentMode] = useState<'posts' | 'postsAndComments'>('posts');
+    const [torrentMode, setTorrentMode] = useState<'posts' | 'postsAndComments'>(
+        'postsAndComments'
+    );
 
     const selectedFilesRef = useRef<{ getFiles: () => [string, string[]] } | null>(null);
 

@@ -66,11 +66,13 @@ export function useLoadingSteps(
                 console.log('Checking data existence for path:', currentPath);
                 const config = loadingStateInitialization[currentPath];
                 if (!config) return false;
-                return config.relatedStates.some(({ state, initValue }: any) => {
+                return config.relatedStates.some(({ state, initValue, name }: any) => {
+                    console.log('Checking state:', state, initValue, name);
                     if (initValue && typeof initValue === 'function') return false;
                     if (initValue && typeof initValue === 'object') {
-                        if (Array.isArray(initValue)) return initValue.length === state.length;
-                        return Object.keys(initValue).length === Object.keys(state).length;
+                        console.log('Checking object w InitVal:', state, initValue);
+                        if (Array.isArray(initValue)) return state.length > initValue.length;
+                        return Object.keys(initValue).length < Object.keys(state).length;
                     }
                     if (Array.isArray(state)) return state.length > 0;
                     if (typeof state === 'string') return state.trim() !== '';

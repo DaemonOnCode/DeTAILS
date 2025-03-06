@@ -192,7 +192,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     {
                         state: selectedKeywords,
                         func: setSelectedKeywords,
-                        name: 'setSelectedKeywords'
+                        name: 'setSelectedKeywords',
+                        initValue: [mainTopic]
                     }
                 ]
             },

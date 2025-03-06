@@ -5,6 +5,8 @@ import { useLogger } from '../../context/logging-context';
 import LoginAnimation from '../../components/Login/login-animation';
 import { GoogleIcon } from '../../components/Shared/Icons';
 import { FaCog } from 'react-icons/fa';
+import { useState } from 'react';
+import { useSettings } from '../../context/settings-context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -13,6 +15,10 @@ const LoginPage = () => {
 
     const logger = useLogger();
     const { login, remoteProcessing, setProcessing } = useAuth();
+
+    // const [checked, setChecked] = useState(false);
+
+    const { updateSettings, settings } = useSettings();
 
     const handleGoogleLogin = async () => {
         console.log('Started onclick');
@@ -61,7 +67,7 @@ const LoginPage = () => {
             <LoginAnimation
                 GoogleOauth={
                     <div className="flex h-full w-screen items-start justify-center">
-                        <div className=" max-w-sm sm:max-w-md px-8 py- sm:p-3 bg-white rounded shadow-lg flex flex-col gap-y-4">
+                        <div className=" max-w-sm sm:max-w-md px-8 py-2 sm:p-3 bg-white rounded shadow-lg flex flex-col gap-y-4">
                             {/* <div>
                                 <p className="mb-4 text-lg text-gray-500 text-center">
                                     Processing Mode
@@ -88,7 +94,7 @@ const LoginPage = () => {
                                 </div>
                             </div> */}
                             <div
-                                className="flex justify-center items-center gap-x-4 cursor-pointer"
+                                className="flex justify-center items-center gap-x-4 cursor-pointer py-2 px-4 rounded-lg bg-white border border-gray-300 hover:bg-gray-100 transition duration-150"
                                 onClick={handleGoogleLogin}>
                                 <div className=" flex justify-center items-center">
                                     <button
@@ -101,7 +107,26 @@ const LoginPage = () => {
                                     Log in with Google
                                 </h1>
                             </div>
+
+                            {/* <div> */}
+                            <div className="flex justify-center items-center w-full">
+                                <input
+                                    type="checkbox"
+                                    id="keepLoggedIn"
+                                    checked={settings.general.keepSignedIn}
+                                    onChange={(e) =>
+                                        updateSettings('general', {
+                                            keepSignedIn: e.target.checked
+                                        })
+                                    }
+                                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor="keepLoggedIn" className="ml-2 text-gray-700">
+                                    Keep me logged in
+                                </label>
+                            </div>
                         </div>
+                        {/* </div> */}
                     </div>
                 }
             />

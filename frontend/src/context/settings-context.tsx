@@ -12,6 +12,7 @@ export interface ISettingsConfig {
         theme: 'light' | 'dark';
         language: string;
         manualCoding: boolean;
+        keepSignedIn: boolean;
     };
     workspace: {
         layout: 'grid' | 'list';

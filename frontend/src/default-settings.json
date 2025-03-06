@@ -5,6 +5,7 @@
     "general": {
         "theme": "light",
         "language": "en",
+        "keepSignedIn": false,
         "manualCoding": false
     },
     "workspace": {
