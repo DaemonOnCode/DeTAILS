@@ -386,6 +386,15 @@ def omit_first_if_matches_structure(data: list) -> list:
 
 
 def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: dict[str,datetime] = None):
+
+    existing_posts_count = post_repo.count({"dataset_id": dataset_id})
+    if existing_posts_count > 0:
+        post_repo.delete({"dataset_id": dataset_id})
+
+    existing_comments_count = comment_repo.count({"dataset_id": dataset_id})
+    if existing_comments_count > 0:
+        comment_repo.delete({"dataset_id": dataset_id})
+
     dataset_path = dataset_path or f"datasets/{dataset_id}"
     post_files = [f for f in os.listdir(dataset_path) if f.startswith("RS") and f.endswith(".json")]
     comment_files = [f for f in os.listdir(dataset_path) if f.startswith("RC") and f.endswith(".json")]
@@ -463,6 +472,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     dataset_id=dataset_id
                 ))
             comment_repo.insert_batch(comments)
+
 
     update_dataset(dataset_id, name=subreddit)
 
