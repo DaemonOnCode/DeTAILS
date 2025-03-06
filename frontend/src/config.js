@@ -26,6 +26,7 @@ const config = {
             FILTER_POSTS_BY_DELETED: 'collections/filter-posts-by-deleted',
             GET_ALL_TORRENT_DATA: 'collections/get-torrent-data',
             PREPARE_REDDIT_TORRENT_DATA_FROM_FILES: 'collections/prepare-torrent-data-from-files',
+            GET_TORRENT_STATUS: 'collections/torrent-status',
 
             // ADD_DOCUMENTS_LANGCHAIN: 'coding/add-documents-langchain',
             REGENERATE_FLASHCARDS: 'coding/generate-additional-flashcards',

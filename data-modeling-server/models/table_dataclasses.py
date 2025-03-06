@@ -271,3 +271,40 @@ class TempTokenStat(BaseDataclass):
     dataset_id: str = field(metadata={"primary_key": True}),
     token: str = field(metadata={"primary_key": True}),
     pos: str = field(metadata={"primary_key": True}),
+
+@dataclass
+class TorrentDownloadProgress(BaseDataclass):
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "primary_key": True})
+    dataset_id: str = field(metadata={"foreign_key": "datasets(id)", "primary_key": True})
+    run_id: str = field(metadata={"not_null": True})
+    status: str = field(metadata={"not_null": True}, default="idle")  # idle, in-progress, complete, error
+    progress: Optional[float] = field(default=0.0)  # Overall percentage
+    completed_files: Optional[int] = field(default=0)  # Number of completed files
+    total_files: Optional[int] = field(default=0)  # Total files to process
+    messages: Optional[str] = field(default="[]")  # JSON-encoded list of messages
+    created_at: Optional[datetime] = field(default_factory=datetime.now)
+    updated_at: Optional[datetime] = field(default_factory=datetime.now)
+
+@dataclass
+class PipelineStep(BaseDataclass):
+    run_id: str = field(metadata={"not_null": True, "primary_key": True})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
+    dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
+    step_label: str = field(metadata={"primary_key": True})  # e.g., Metadata, Downloading, Parsing
+    status: str = field(default="idle")  # idle, in-progress, complete, error
+    progress: Optional[float] = field(default=0.0)  # 0 to 100
+    messages: Optional[str] = field(default="[]")  # JSON list of messages
+    updated_at: Optional[datetime] = field(default_factory=datetime.now)
+
+@dataclass
+class FileStatus(BaseDataclass):
+    run_id: str = field(metadata={"not_null": True, "primary_key": True})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
+    dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
+    file_name: str = field(metadata={"primary_key": True})  # Unique per run
+    status: str = field(default="in-progress")  # in-progress, extracting, complete, error
+    progress: Optional[float] = field(default=0.0)  # Percentage completed
+    completed_bytes: Optional[int] = field(default=0)  # Downloaded bytes
+    total_bytes: Optional[int] = field(default=0)  # Total file size
+    messages: Optional[str] = field(default="[]")  # JSON-encoded list of messages
+    updated_at: Optional[datetime] = field(default_factory=datetime.now)

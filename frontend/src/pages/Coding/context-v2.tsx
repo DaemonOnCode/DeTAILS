@@ -56,7 +56,7 @@ const ContextPage = () => {
         },
         {
             target: '#topic-section',
-            content: 'Enter your main topic and additional information.'
+            content: 'Enter your main topic of interest and related additional information.'
         },
         {
             target: '#research-section',

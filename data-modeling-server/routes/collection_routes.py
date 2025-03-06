@@ -6,15 +6,16 @@ import shutil
 from typing import Dict
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Form, Body
-from controllers.collection_controller import create_dataset, delete_dataset, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, upload_dataset_file
+from controllers.collection_controller import create_dataset, delete_dataset, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, update_run_progress, upload_dataset_file
+from database import PipelineStepsRepository, TorrentDownloadProgressRepository
 from headers.app_id import get_app_id
-from models.collection_models import FilterRedditPostsByDeleted, ParseDatasetRequest, ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
+from models.collection_models import FilterRedditPostsByDeleted, GetTorrentStatusRequest, ParseDatasetRequest, ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
 from constants import DATASETS_DIR
+from models import PipelineStep, TorrentDownloadProgress
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 from routes.websocket_routes import manager
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
-
 
 @router.post("/datasets")
 async def upload_dataset_endpoint(file: UploadFile = File(...), description: str = Form(None), dataset_id: str = Form(None), workspace_id: str = Form(...)):
@@ -73,6 +74,7 @@ async def filter_posts_by_deleted_endpoint(
     print(filtered_ids)
     return filtered_ids
 
+progress_repo = TorrentDownloadProgressRepository()
 
 @router.post("/download-reddit-data-from-torrent")
 async def download_reddit_from_torrent_endpoint(
@@ -82,8 +84,32 @@ async def download_reddit_from_torrent_endpoint(
 ):
     app_id = request.headers.get("x-app-id")
 
+    run_id = str(uuid4())
+
+    pipeline_repo = PipelineStepsRepository()
+
+    progress_repo.insert(TorrentDownloadProgress(
+        workspace_id=request_body.workspace_id,
+        dataset_id=request_body.dataset_id,
+        run_id=run_id,
+        status="in-progress"
+    ))
+
+    pipeline_repo.insert_batch(
+        list(map(
+            lambda step: PipelineStep(
+                workspace_id=request_body.workspace_id,
+                dataset_id=request_body.dataset_id,
+                run_id=run_id,
+                step_label=step
+            ), ["Metadata", "Verification", "Downloading", "Symlinks", "Parsing"]
+        ))
+    )
+
     async with transmission_manager:
-        await manager.send_message(app_id, f"Starting download for subreddit '{request_body.subreddit}' ...")
+        message = f"Starting download for subreddit '{request_body.subreddit}' ..."
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
 
         print(request_body.start_date, request_body.end_date)
         start_date = datetime.strptime(request_body.start_date, "%Y-%m-%d")
@@ -93,23 +119,23 @@ async def download_reddit_from_torrent_endpoint(
         end_month = end_date.strftime("%Y-%m")
 
         try:
-            await manager.send_message(
-                app_id,
-                f"Fetching torrent data for months {start_month} through {end_month}..."
-            )
+            message = f"Fetching torrent data for months {start_month} through {end_month}..."
+            await manager.send_message(app_id, message)
+            update_run_progress(run_id, message)
 
             output_files = await get_reddit_data_from_torrent(
-                manager, app_id, 
+                manager, app_id, run_id,
+                request_body.dataset_id, request_body.workspace_id,
                 request_body.subreddit, 
                 start_month, 
                 end_month, 
                 request_body.submissions_only,
-                            
             )
 
             print(output_files)
-            await manager.send_message(app_id, f"Finished downloading {len(output_files)} file(s).")
-
+            message = f"Finished downloading {len(output_files)} file(s)."
+            await manager.send_message(app_id, message)
+            update_run_progress(run_id, message)
             
             # STEP 1: Create the academic folder one directory up from the downloaded files.
             # Get the directory where the files were downloaded.
@@ -120,7 +146,9 @@ async def download_reddit_from_torrent_endpoint(
             academic_folder = os.path.join(parent_dir, academic_folder_name)
             if not os.path.exists(academic_folder):
                 os.makedirs(academic_folder)
-                await manager.send_message(app_id, f"Created folder: {academic_folder}")
+                message = f"Created folder: {academic_folder}"
+                await manager.send_message(app_id, message)
+                update_run_progress(run_id, message)
 
             # STEP 2: Move each output file into the academic folder.
             for file_path in output_files:
@@ -128,22 +156,23 @@ async def download_reddit_from_torrent_endpoint(
                     file_name = os.path.basename(file_path)
                     new_file_path = os.path.join(academic_folder, file_name)
                     shutil.move(file_path, new_file_path)
-                    await manager.send_message(
-                        app_id,
-                        f"Moved file: {file_path} -> {new_file_path}"
-                    )
+                    message = f"Moved file: {file_path} -> {new_file_path}"
+                    await manager.send_message(app_id, message)
+                    update_run_progress(run_id, message)
                 else:
-                    await manager.send_message(
-                        app_id,
-                        f"WARNING: File not found on disk, skipping move: {file_path}"
-                    )
+                    message = f"WARNING: File not found on disk, skipping move: {file_path}"
+                    await manager.send_message(app_id, message)
+                    update_run_progress(run_id, message)
 
             # STEP 3: In the datasets directory, create (or update) an academic folder with the same name,
             # and for each file in the academic folder create a symlink.
             datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
             if not os.path.exists(datasets_academic_folder):
                 os.makedirs(datasets_academic_folder)
-                await manager.send_message(app_id, f"Created datasets folder: {datasets_academic_folder}")
+                message = f"Created datasets folder: {datasets_academic_folder}"
+                await manager.send_message(app_id, message)
+                update_run_progress(run_id, message)
+
 
             for file_name in os.listdir(academic_folder):
                 source_file = os.path.join(academic_folder, file_name)
@@ -151,24 +180,28 @@ async def download_reddit_from_torrent_endpoint(
                 if os.path.lexists(symlink_path):
                     os.remove(symlink_path)
                 os.symlink(os.path.abspath(source_file), symlink_path)
-                await manager.send_message(
-                    app_id,
-                    f"Symlink created: {symlink_path} -> {os.path.abspath(source_file)}"
-                )
+                message = f"Symlink created: {symlink_path} -> {os.path.abspath(source_file)}"
+                await manager.send_message(app_id, message)
+                update_run_progress(run_id, message)
 
             dataset_id = request_body.dataset_id
             if not dataset_id:
                 dataset_id = str(uuid4())
 
-            await manager.send_message(app_id, f"Parsing files into dataset {dataset_id}...")
+            message = f"Parsing files into dataset {dataset_id}..."
+            await manager.send_message(app_id, message)
+            update_run_progress(run_id, message)
 
             parse_reddit_files(dataset_id, academic_folder, date_filter={"start_date": start_date, "end_date": end_date})
 
-            await manager.send_message(app_id, "Parsing complete. All steps finished.")
+            message = "Parsing complete. All steps finished."
+            await manager.send_message(app_id, message)
+            update_run_progress(run_id, message)
 
         except Exception as e:
             err_msg = f"ERROR: {str(e)}"
             await manager.send_message(app_id, err_msg)
+            update_run_progress(run_id, err_msg)
             raise HTTPException(status_code=500, detail=err_msg)
 
     return {"message": "Reddit data downloaded from torrent."}
@@ -283,3 +316,10 @@ async def prepare_torrent_data_from_files(
     print(f"Removed prepared folder: {prepared_folder}")
 
     return {"message": "Torrent files prepared and parsed.", "dataset_id": dataset_id}
+
+@router.post("/torrent-status")
+async def get_torrent_status_endpoint(
+    request: Request,
+    request_body: GetTorrentStatusRequest
+):
+    return progress_repo.get_current_status(request_body.workspace_id, request_body.dataset_id)

@@ -5,6 +5,9 @@ import { useWebSocket } from '../../../context/websocket-context';
 import { useLogger } from '../../../context/logging-context';
 import { useCollectionContext } from '../../../context/collection-context';
 import useRedditData from '../../../hooks/DataCollection/use-reddit-data';
+import { useApi } from '../../../hooks/Shared/use-api';
+import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
+import { useWorkspaceContext } from '../../../context/workspace-context';
 
 const path = window.require('path');
 
@@ -67,6 +70,10 @@ const TorrentLoader: React.FC = () => {
     const [messages, setMessages] = useState<string[]>([]);
     const [totalFiles, setTotalFiles] = useState<number>(0);
 
+    const { currentWorkspace } = useWorkspaceContext();
+    const { datasetId, modeInput } = useCollectionContext();
+    const { fetchData } = useApi();
+
     // const logContainerRef = useRef<HTMLDivElement>(null);
     const logBottomRef = useRef<HTMLDivElement>(null);
     const fileBottomRef = useRef<HTMLDivElement>(null);
@@ -78,10 +85,66 @@ const TorrentLoader: React.FC = () => {
         totalFilesRef.current = totalFiles;
     }, [totalFiles]);
 
-    const { modeInput } = useCollectionContext();
     const { loadTorrentData } = useRedditData();
     const logger = useLogger();
     const { registerCallback, unregisterCallback } = useWebSocket();
+
+    const loadRunState = async () => {
+        const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.GET_TORRENT_STATUS, {
+            method: 'POST',
+            body: JSON.stringify({ workspace_id: currentWorkspace?.id, dataset_id: datasetId })
+        });
+        if (error) {
+            console.error('Error fetching run state:', error);
+            return;
+        }
+        try {
+            const state = JSON.parse(data[0].run_state);
+
+            // Parse messages if they're JSON strings.
+            const parsedSteps = state.steps.map((step: any) => ({
+                ...step,
+                messages:
+                    typeof step.messages === 'string' ? JSON.parse(step.messages) : step.messages
+            }));
+
+            // Sort the steps in the desired order:
+            const desiredOrder = ['Metadata', 'Verification', 'Downloading', 'Symlinks', 'Parsing'];
+            const sortedSteps = parsedSteps.sort(
+                (a: any, b: any) => desiredOrder.indexOf(a.label) - desiredOrder.indexOf(b.label)
+            );
+            setSteps(sortedSteps);
+
+            // For files, if the messages are stored as JSON strings, parse them:
+            const parsedFiles: Record<string, FileStatus> = {};
+            for (const key in state.files) {
+                const file = state.files[key];
+                // Use the basename for both the key and the fileName property
+                const base = path.basename(file.fileName);
+                parsedFiles[base] = {
+                    ...file,
+                    fileName: base,
+                    messages:
+                        typeof file.messages === 'string'
+                            ? JSON.parse(file.messages)
+                            : file.messages
+                };
+            }
+            setFiles(parsedFiles);
+
+            // Set the total files
+            totalFilesRef.current = Object.keys(state.files).length;
+            setTotalFiles(totalFilesRef.current);
+
+            // Optionally update overall progress, totalFiles, etc.
+        } catch (e) {
+            console.error('Error parsing run state:', e);
+        }
+    };
+
+    useEffect(() => {
+        loadRunState();
+    }, []);
 
     // ========== Lifecycle ==========
     useEffect(() => {
@@ -109,6 +172,30 @@ const TorrentLoader: React.FC = () => {
             return updated;
         });
     }, [files, totalFiles, overallProgress]);
+
+    // useEffect(() => {
+    //     // Calculate the number of completed files
+    //     const completedFilesCount = Object.values(files).filter(
+    //         (file) => file.status === 'complete'
+    //     ).length;
+
+    //     // Compute overall progress as a percentage
+    //     const computedOverallProgress =
+    //         totalFiles > 0 ? (completedFilesCount / totalFiles) * 100 : 0;
+
+    //     // Update the Downloading step (index 2) accordingly
+    //     setSteps((prevSteps) => {
+    //         const updated = [...prevSteps];
+    //         const downloadingIndex = 2; // Assuming step at index 2 is "Downloading"
+    //         updated[downloadingIndex] = {
+    //             ...updated[downloadingIndex],
+    //             status: computedOverallProgress === 100 ? 'complete' : 'in-progress',
+    //             progress: computedOverallProgress,
+    //             messages: updated[downloadingIndex].messages
+    //         };
+    //         return updated;
+    //     });
+    // }, [files, totalFiles]);
 
     useEffect(() => {
         // Auto-scroll the log to the bottom each time messages changes
@@ -422,7 +509,7 @@ const TorrentLoader: React.FC = () => {
             <div className="w-full lg:w-2/3 p-6 flex flex-col h-full  min-h-0">
                 {/* Pipeline Steps */}
                 <div className="flex flex-col">
-                    <h2 className="text-xl font-bold mb-4">Overall Pipeline</h2>
+                    <h2 className="text-xl font-bold mb-4">Torrent Pipeline</h2>
                     <div className="flex flex-col gap-4">
                         {steps.map((step, index) => {
                             const isInProgress = step.status === 'in-progress';

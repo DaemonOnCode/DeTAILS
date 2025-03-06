@@ -1,20 +1,19 @@
 import asyncio
-from contextlib import asynccontextmanager
 from datetime import datetime
 import json
 import os
-import subprocess
+import re
 import time
 from uuid import uuid4
 from aiofiles import open as async_open
-import aiohttp
 from fastapi import HTTPException, UploadFile
 from transmission_rpc import Client, Torrent, File as TorrentFile
 
 from constants import ACADEMIC_TORRENT_MAGNET, DATASETS_DIR, UPLOAD_DIR, TRANSMISSION_DOWNLOAD_DIR
-from database import DatasetsRepository, CommentsRepository, PostsRepository
+from database import DatasetsRepository, CommentsRepository, PostsRepository, PipelineStepsRepository, FileStatusRepository, TorrentDownloadProgressRepository
 from decorators.execution_time_logger import log_execution_time
-from models import Dataset, Comment, Post
+from models import Dataset, Comment, Post, TorrentDownloadProgress
+from models.table_dataclasses import FileStatus
 from routes.websocket_routes import ConnectionManager
 
 
@@ -25,6 +24,253 @@ post_repo = PostsRepository()
 
 # Database repository
 dataset_repo = DatasetsRepository()
+
+pipeline_repo = PipelineStepsRepository()
+file_repo = FileStatusRepository()
+progress_repo = TorrentDownloadProgressRepository()
+
+TRANSMISSION_DOWNLOAD_DIR_ABS = os.path.abspath(TRANSMISSION_DOWNLOAD_DIR)
+
+def normalize_file_key(file_key: str) -> str:
+    """
+    If the file_key is an absolute path that starts with TRANSMISSION_DOWNLOAD_DIR,
+    convert it to a relative path; otherwise, return the key unchanged.
+    """
+    if file_key.startswith(TRANSMISSION_DOWNLOAD_DIR_ABS):
+        return os.path.relpath(file_key, TRANSMISSION_DOWNLOAD_DIR_ABS)
+    return file_key
+
+
+def get_file_key_full(msg: str, pattern: str, group_index: int = 2) -> str:
+    m = re.search(pattern, msg, re.IGNORECASE)
+    if m:
+        key = m.group(group_index).strip()
+        if key.endswith("..."):
+            key = key[:-3].strip()
+        return normalize_file_key(key)
+    return None
+
+def update_run_progress(run_id: str, new_message: str):
+    """
+    Updates the run's progress based on the received message.
+    Mirrors the logic of your TypeScript function, using full file keys for file-related updates.
+    """
+    # === Update Workspace Progress ===
+    progress = progress_repo.get_progress(run_id)
+    messages = json.loads(progress.messages) if progress.messages else []
+    messages.append(new_message)
+    workspace_updates = {"messages": json.dumps(messages)}
+    if re.search(r"(Parsing complete|All steps finished)", new_message):
+        workspace_updates["status"] = "complete"
+        workspace_updates["progress"] = 100.0
+    progress_repo.update_progress(run_id, workspace_updates)
+
+    # === Update Pipeline Steps ===
+    # -- METADATA --
+    if "Metadata progress:" in new_message:
+        m = re.search(r"Metadata progress:\s+([\d.]+)", new_message)
+        if m:
+            percent = float(m.group(1))
+            step_data = pipeline_repo.get_step_progress(run_id, "Metadata")
+            step_messages = json.loads(step_data.messages) if step_data.messages else []
+            step_messages.append(new_message)
+            new_progress = max(getattr(step_data, "progress", 0), percent)
+            pipeline_repo.update_step_progress(
+                run_id, "Metadata",
+                {"messages": json.dumps(step_messages), "status": "in-progress", "progress": new_progress}
+            )
+    elif "Metadata download complete" in new_message:
+        step_data = pipeline_repo.get_step_progress(run_id, "Metadata")
+        step_messages = json.loads(step_data.messages) if step_data.messages else []
+        step_messages.append(new_message)
+        pipeline_repo.update_step_progress(
+            run_id, "Metadata",
+            {"messages": json.dumps(step_messages), "status": "complete", "progress": 100.0}
+        )
+
+    # -- VERIFICATION --
+    if "Verification in progress:" in new_message:
+        step_data = pipeline_repo.get_step_progress(run_id, "Verification")
+        step_messages = json.loads(step_data.messages) if step_data.messages else []
+        step_messages.append(new_message)
+        pipeline_repo.update_step_progress(
+            run_id, "Verification",
+            {"messages": json.dumps(step_messages), "status": "in-progress", "progress": 50.0}
+        )
+    elif "Torrent verified" in new_message:
+        step_data = pipeline_repo.get_step_progress(run_id, "Verification")
+        step_messages = json.loads(step_data.messages) if step_data.messages else []
+        step_messages.append(new_message)
+        pipeline_repo.update_step_progress(
+            run_id, "Verification",
+            {"messages": json.dumps(step_messages), "status": "complete", "progress": 100.0}
+        )
+
+    # -- DOWNLOADING --
+    if "Finished downloading" in new_message or "All wanted files have been processed" in new_message:
+        step_data = pipeline_repo.get_step_progress(run_id, "Downloading")
+        step_messages = json.loads(step_data.messages) if step_data.messages else []
+        step_messages.append(new_message)
+        pipeline_repo.update_step_progress(
+            run_id, "Downloading",
+            {"messages": json.dumps(step_messages), "status": "complete", "progress": 100.0}
+        )
+    elif ("downloading file" in new_message.lower()) or ("file has been fully downloaded" in new_message.lower()):
+        step_data = pipeline_repo.get_step_progress(run_id, "Downloading")
+        step_messages = json.loads(step_data.messages) if step_data.messages else []
+        step_messages.append(new_message)
+        current_progress = getattr(step_data, "progress", 0)
+        new_progress = float(max(current_progress, 50))
+        pipeline_repo.update_step_progress(
+            run_id, "Downloading",
+            {"messages": json.dumps(step_messages), "status": "in-progress", "progress": new_progress}
+        )
+
+    # -- SYMLINKS --
+    if "Symlink created:" in new_message:
+        step_data = pipeline_repo.get_step_progress(run_id, "Symlinks")
+        step_messages = json.loads(step_data.messages) if step_data.messages else []
+        step_messages.append(new_message)
+        if step_data.status == "idle":
+            pipeline_repo.update_step_progress(
+                run_id, "Symlinks",
+                {"messages": json.dumps(step_messages), "status": "in-progress", "progress": 50.0}
+            )
+        else:
+            pipeline_repo.update_step_progress(
+                run_id, "Symlinks",
+                {"messages": json.dumps(step_messages)}
+            )
+    if "Parsing files into dataset" in new_message:
+        # Mark Symlinks as complete.
+        step_data = pipeline_repo.get_step_progress(run_id, "Symlinks")
+        step_messages = json.loads(step_data.messages) if step_data.messages else []
+        step_messages.append(new_message)
+        pipeline_repo.update_step_progress(
+            run_id, "Symlinks",
+            {"messages": json.dumps(step_messages), "status": "complete", "progress": 100.0}
+        )
+
+    # -- PARSING --
+    if "Parsing files into dataset" in new_message:
+        step_data = pipeline_repo.get_step_progress(run_id, "Parsing")
+        step_messages = json.loads(step_data.messages) if step_data.messages else []
+        step_messages.append(new_message)
+        pipeline_repo.update_step_progress(
+            run_id, "Parsing",
+            {"messages": json.dumps(step_messages), "status": "in-progress", "progress": 30.0}
+        )
+    if "Parsing complete" in new_message or "All steps finished" in new_message:
+        step_data = pipeline_repo.get_step_progress(run_id, "Parsing")
+        step_messages = json.loads(step_data.messages) if step_data.messages else []
+        step_messages.append(new_message)
+        pipeline_repo.update_step_progress(
+            run_id, "Parsing",
+            {"messages": json.dumps(step_messages), "status": "complete", "progress": 100.0}
+        )
+
+    # -- ERRORS --
+    if "error" in new_message.lower():
+        for step in ["Metadata", "Verification", "Downloading", "Symlinks", "Parsing"]:
+            step_data = pipeline_repo.get_step_progress(run_id, step)
+            if step_data.status in ["idle", "in-progress"]:
+                step_messages = json.loads(step_data.messages) if step_data.messages else []
+                step_messages.append(new_message)
+                pipeline_repo.update_step_progress(
+                    run_id, step,
+                    {"messages": json.dumps(step_messages), "status": "error"}
+                )
+                break
+
+    # -- Processing/Processed File --
+    if "processing file:" in new_message.lower() or "processed file:" in new_message.lower():
+        key = get_file_key_full(new_message, r"(Processing|Processed)\s+file:\s+(.*?)(?:\s|\(|\.\.\.|$)")
+        if key:
+            file_data = file_repo.get_file_progress(run_id, key)
+            file_messages = json.loads(file_data.messages) if file_data.messages else []
+            file_messages.append(new_message)
+            file_repo.update_file_progress(run_id, key, {"messages": json.dumps(file_messages)})
+
+    # -- Downloading File Progress --
+    if "downloading" in new_message.lower() and "%" in new_message:
+        key = get_file_key_full(new_message, r"Downloading\s+(.*?):\s+([\d.]+)%\s+\((\d+)/(\d+)\s+bytes\)", group_index=1)
+        if key:
+            m = re.search(r"Downloading\s+(.*?):\s+([\d.]+)%\s+\((\d+)/(\d+)\s+bytes\)", new_message, re.IGNORECASE)
+            percent = float(m.group(2))
+            completed = int(m.group(3))
+            total = int(m.group(4))
+            file_data = file_repo.get_file_progress(run_id, key)
+            file_messages = json.loads(file_data.messages) if file_data.messages else []
+            file_messages.append(new_message)
+            file_repo.update_file_progress(
+                run_id, key,
+                {"messages": json.dumps(file_messages), "status": "in-progress",
+                 "progress": percent, "completed_bytes": completed, "total_bytes": total}
+            )
+
+    # -- Fully Downloaded File --
+    if "fully downloaded" in new_message.lower():
+        key = get_file_key_full(new_message, r"File\s+(.*)\s+fully downloaded.*\((\d+)/(\d+)\s+bytes\)", group_index=1)
+        if key:
+            m = re.search(r"File\s+(.*)\s+fully downloaded.*\((\d+)/(\d+)\s+bytes\)", new_message, re.IGNORECASE)
+            completed = int(m.group(2))
+            total = int(m.group(3))
+            file_data = file_repo.get_file_progress(run_id, key)
+            file_messages = json.loads(file_data.messages) if file_data.messages else []
+            file_messages.append(new_message)
+            file_repo.update_file_progress(
+                run_id, key,
+                {"messages": json.dumps(file_messages), "status": "complete",
+                 "progress": 100.0, "completed_bytes": completed, "total_bytes": total}
+            )
+
+    # -- Extracting File --
+    if "Extracting" in new_message:
+        key = get_file_key_full(new_message, r"Extracting.*from\s+(.*?\.zst)(?:\.{3})?", group_index=1)
+        if key:
+            file_data = file_repo.get_file_progress(run_id, key)
+            file_messages = json.loads(file_data.messages) if file_data.messages else []
+            file_messages.append(new_message)
+            file_repo.update_file_progress(run_id, key, {"messages": json.dumps(file_messages), "status": "extracting"})
+
+    # -- JSON Extracted --
+    if "JSON extracted:" in new_message:
+        m = re.search(r"JSON extracted:\s+(.*)/(RS_[\d-]+)\.json", new_message, re.IGNORECASE)
+        if m:
+            # Reconstruct the file key as inserted: the relative path should be the same as f.name.
+            dir_part = m.group(1).strip()  # e.g. "/Volumes/Crucial X9/abc/transmission-downloads/reddit/submissions"
+            # Get the relative directory by removing the download dir prefix:
+            rel_dir = os.path.relpath(dir_part, os.path.abspath("../transmission-downloads"))
+            key = os.path.join(rel_dir, m.group(2) + ".zst")
+            file_data = file_repo.get_file_progress(run_id, key)
+            file_messages = json.loads(file_data.messages) if file_data.messages else []
+            file_messages.append(new_message)
+            file_repo.update_file_progress(
+                run_id, key,
+                {"messages": json.dumps(file_messages), "status": "complete", "progress": 100.0}
+            )
+
+    # -- Error Downloading File --
+    if "error downloading" in new_message.lower():
+        key = get_file_key_full(new_message, r"ERROR downloading\s+(.*?):", group_index=1)
+        if key:
+            file_data = file_repo.get_file_progress(run_id, key)
+            file_messages = json.loads(file_data.messages) if file_data.messages else []
+            file_messages.append(new_message)
+            file_repo.update_file_progress(
+                run_id, key,
+                {"messages": json.dumps(file_messages), "status": "error"}
+            )
+
+    
+def delete_run(run_id: str):
+    """
+    Deletes all records associated with a run_id once it is completed.
+    """
+    progress_repo.delete_progress_for_run(run_id)
+    pipeline_repo.delete_steps_for_run(run_id)
+    file_repo.delete_files_for_run(run_id)
+    print(f"Run {run_id} deleted successfully.")
 
 def create_dataset(description: str, dataset_id: str = None, workspace_id: str = None):
     """Create a new dataset entry."""
@@ -240,6 +486,7 @@ async def run_command_async(command: str) -> str:
 async def process_reddit_data(        
     manager: ConnectionManager,
     app_id: str,
+    run_id: str,
         subreddit: str, zst_filename: str,
 ):
     intermediate_filename = "output.jsonl"
@@ -250,7 +497,9 @@ async def process_reddit_data(
     )
     print("Running command:")
     print(command)
-    await manager.send_message(app_id, f"Extracting {subreddit} data from {zst_filename}...")
+    message = f"Extracting {subreddit} data from {zst_filename}..."
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
     
     await run_command_async(command)
 
@@ -274,7 +523,10 @@ async def process_reddit_data(
                 print("Skipping invalid JSON line.")
         outfile.write("\n]\n")
     print(f"Processed data saved to {output_filename}")
-    await manager.send_message(app_id, f"JSON extracted: {output_filename}")
+    message = f"JSON extracted: {output_filename}"
+    print(message)
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
     return output_filename
 
 
@@ -313,19 +565,22 @@ def generate_month_range(start_month: str, end_month: str):
 async def wait_for_metadata(
     manager: ConnectionManager,
     app_id: str,
+    run_id: str,
         c: Client, torrent: Torrent ,
 ) -> Torrent:
     c.start_torrent(torrent.id)
     while torrent.metadata_percent_complete < 1.0:
-        print(f"Metadata progress: {torrent.metadata_percent_complete * 100:.2f}%")
-        await manager.send_message(
-                app_id,
-                f"Metadata progress: {torrent.metadata_percent_complete * 100:.2f}%"
-            )
+        message = f"Metadata progress: {torrent.metadata_percent_complete * 100:.2f}%"
+        print(message)
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
         await asyncio.sleep(0.5)
         torrent = c.get_torrent(torrent.id)
-    print("Metadata download complete. Stopping torrent.")
-    await manager.send_message(app_id, "Metadata download complete.")
+
+    message = "Metadata download complete. Stopping torrent."
+    print(message)
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
     c.stop_torrent(torrent.id)
     return torrent
 
@@ -333,6 +588,7 @@ async def wait_for_metadata(
 async def verify_torrent_with_retry(
     manager: ConnectionManager,
     app_id: str,
+    run_id: str,
         c: Client, torrent: Torrent, 
         torrent_url: str, download_dir: str,
 ) -> Torrent:
@@ -341,9 +597,11 @@ async def verify_torrent_with_retry(
         torrent = c.get_torrent(torrent.id)
         status = torrent.status
         if hasattr(torrent, "error") and torrent.error != 0:
-            print(f"Verification error encountered: {torrent.error_string}. Re-adding torrent...")
-            error_msg = torrent.error_string
-            await manager.send_message(app_id, f"Verification error: {error_msg}. Re-adding torrent...")
+            message = f"Verification error: {torrent.error_string}. Re-adding torrent..."
+            print(message)
+            await manager.send_message(app_id, message)
+            update_run_progress(run_id, message)
+
             c.remove_torrent(torrent.id)
             await asyncio.sleep(10)
             torrent = c.add_torrent(torrent_url, download_dir=download_dir)
@@ -351,15 +609,19 @@ async def verify_torrent_with_retry(
             continue
         if status not in ["check pending", "checking"]:
             break
-        print(f"Verification in progress: {status}")
-        await manager.send_message(app_id, f"Verification in progress: {status}")
+        message = f"Verification in progress: {status}"
+        print(message)
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
         await asyncio.sleep(5)
-    print("Torrent verified. Starting download.")
-    await manager.send_message(app_id, "Torrent verified, proceeding to download...")
+    message = "Torrent verified. Starting download."
+    print(message)
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
     return torrent
 
 
-def get_files_to_process(torrent_files: list[TorrentFile], wanted_range: list, submissions_only: bool):
+def get_files_to_process(torrent_files: list[TorrentFile], wanted_range: list, submissions_only: bool) -> list[TorrentFile]:
     files_to_process = []
     for file in torrent_files:
         print(file.name, file.name.split("_")[1], file.name.split("_")[1] in wanted_range)
@@ -376,6 +638,7 @@ def get_files_to_process(torrent_files: list[TorrentFile], wanted_range: list, s
 async def process_single_file(
     manager: ConnectionManager,
     app_id: str,
+    run_id: str,
         c: Client, 
         torrent: Torrent, 
         file: TorrentFile, 
@@ -386,7 +649,9 @@ async def process_single_file(
     file_name = file.name
     print(f"\n--- Processing file: {file_name} (ID: {file_id}) ---")
 
-    await manager.send_message(app_id, f"Processing file: {file_name} ...")
+    message = f"Processing file: {file_name} ..."
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
 
     torrent_files = c.get_torrent(torrent.id).get_files()
     all_file_ids = [f.id for f in torrent_files]
@@ -400,27 +665,27 @@ async def process_single_file(
         torrent = c.get_torrent(torrent.id)
 
         if hasattr(torrent, "error") and torrent.error != 0:
-            err_msg = f"Transmission error: {torrent.error_string}"
+            err_msg = f"ERROR downloading {file_name}: {torrent.error_string}"
             print(err_msg)
-            await manager.send_message(app_id, f"ERROR downloading {file_name}: {torrent.error_string}")
+            await manager.send_message(app_id, err_msg)
+            update_run_progress(run_id, err_msg)
             raise Exception(err_msg)
         
         file_status = next((f for f in torrent.get_files() if f.id == file_id), None)
         if file_status and file_status.completed >= file_status.size:
             print(f"File {file_name} has been fully downloaded.")
-            await manager.send_message(
-                    app_id,
-                    f"File {file_name} fully downloaded ({file_status.completed}/{file_status.size} bytes)."
-                )
+            message = f"File {file_name} fully downloaded ({file_status.completed}/{file_status.size} bytes)."
+            print(message)
+            await manager.send_message(app_id, message)
+            update_run_progress(run_id, message)
             break
         else:
             if file_status and file_status.size != 0:
                 pct_done = (file_status.completed / file_status.size) * 100
-                print(f"Waiting for file {file_name}... {pct_done:.2f}% done")
-                await manager.send_message(
-                    app_id,
-                    f"Downloading {file_name}: {pct_done:.2f}% ({file_status.completed}/{file_status.size} bytes)"
-                )
+                message = f"Downloading {file_name}: {pct_done:.2f}% ({file_status.completed}/{file_status.size} bytes)"
+                print(message)
+                await manager.send_message(app_id, message)
+                update_run_progress(run_id, message)
             else:
                 print(f"Waiting for file {file_name} to start...")
             await asyncio.sleep(5)
@@ -429,16 +694,18 @@ async def process_single_file(
     file_path_zst = file_path if file_path.endswith('.zst') else file_path + '.zst'
 
     while not os.path.exists(file_path_zst):
-        print(f"Waiting for file {file_path_zst} to appear on disk (conversion in progress)...")
-        await manager.send_message(
-                app_id,
-                f"Waiting for file {file_path_zst} to appear on disk..."
-            )
+        message = f"Waiting for file {file_path_zst} to appear on disk..."
+        print(message)
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
         await asyncio.sleep(5)
 
-    output_file = await process_reddit_data(manager, app_id, subreddit, file_path_zst)
+    output_file = await process_reddit_data(manager, app_id, run_id, subreddit, file_path_zst)
 
-    await manager.send_message(app_id, f"Processed file: {file_name} ...")
+    message = f"Processed file: {file_name} ..."
+    # print(message)
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
     print(f"Processing complete for file {file_name}.")
 
     c.stop_torrent(torrent.id)
@@ -449,6 +716,9 @@ async def process_single_file(
 async def get_reddit_data_from_torrent(
     manager: ConnectionManager,
     app_id: str,
+    run_id: str,
+    dataset_id: str,
+    workspace_id: str,
     subreddit: str,
     start_month: str = "2005-06",
     end_month: str = "2023-12",
@@ -464,23 +734,36 @@ async def get_reddit_data_from_torrent(
         c.add_torrent(ACADEMIC_TORRENT_MAGNET, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
     current_torrent = c.get_torrent(torrent_hash_string)
 
-    await manager.send_message(app_id, f"Torrent added for subreddit '{subreddit}' with ID: {current_torrent.id}")
+    message = f"Torrent added for subreddit '{subreddit}' with ID: {current_torrent.id}"
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
 
-    current_torrent = await wait_for_metadata(manager, app_id, c, current_torrent)
+
+    current_torrent = await wait_for_metadata(manager, app_id, run_id, c, current_torrent)
     torrent_files = current_torrent.get_files()
     wanted_range = generate_month_range(start_month, end_month)
     print(f"Identified files for processing: {wanted_range}")
     files_to_process = get_files_to_process(torrent_files, wanted_range, submissions_only)
     print(f"Files to process: {files_to_process}")
-    await manager.send_message(app_id, f"Files to process: {len(files_to_process)}")
+    message = f"Files to process: {len(files_to_process)}"
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
 
-    current_torrent = await verify_torrent_with_retry(manager, app_id, c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+    file_repo.insert_batch(
+        list(map(lambda f: FileStatus(run_id=run_id, file_name=f.name,workspace_id=workspace_id, dataset_id=dataset_id), files_to_process))
+    )
+
+    current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
 
     output_files = []
     for file in files_to_process:
-        output_file = await process_single_file(manager, app_id, c, current_torrent, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit)
+        output_file = await process_single_file(manager, app_id, run_id, c, current_torrent, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit)
         output_files.append(output_file)
-    print("All wanted files have been processed.")
+    
+    message = "All wanted files have been processed."
+    print(message)
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
     return output_files
 
 

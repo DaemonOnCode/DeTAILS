@@ -177,7 +177,8 @@ const useRedditData = () => {
                             start_date: torrentStart,
                             end_date: torrentEnd,
                             submissions_only: torrentPostsOnly,
-                            dataset_id: datasetId
+                            dataset_id: datasetId,
+                            workspace_id: currentWorkspace.id
                         })
                     }
                 );

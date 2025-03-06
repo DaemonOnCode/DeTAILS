@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, DatasetsRepository, PostsRepository, CommentsRepository, LlmResponsesRepository
+from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, DatasetsRepository, PostsRepository, CommentsRepository, LlmResponsesRepository, FileStatusRepository, PipelineStepsRepository, TorrentDownloadProgressRepository
 from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware
 from routes import coding_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
 
@@ -25,7 +25,11 @@ initialize_database([
     CommentsRepository,
     # TokenizedPostsRepository,
     # TokenizedCommentsRepository,
-    LlmResponsesRepository
+    LlmResponsesRepository,
+
+    TorrentDownloadProgressRepository,
+    FileStatusRepository,
+    PipelineStepsRepository
 ])
 
 print("Database initialized!")

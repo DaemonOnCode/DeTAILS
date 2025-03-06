@@ -57,7 +57,9 @@ export const useApi = (): UseApiResult => {
                 if (!response.ok) {
                     return {
                         data: undefined,
-                        error: new Error(`HTTP error! Status: ${response.status}`),
+                        error: new Error(
+                            `HTTP error! Status: ${response.status}, ${await response.text()}`
+                        ),
                         abort: controller.abort.bind(controller)
                     };
                 }
