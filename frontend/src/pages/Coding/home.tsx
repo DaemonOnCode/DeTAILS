@@ -66,7 +66,7 @@ const HomePage: FC = () => {
             <div className="flex-grow flex flex-col">
                 <h1 className="flex text-2xl font-bold p-4 text-center justify-center gap-1">
                     Welcome to{' '}
-                    <img src={'/details-full-logo.png'} alt="DeTAILS Logo" className="h-7" />
+                    <img src={'details-full-logo.png'} alt="DeTAILS Logo" className="h-7" />
                 </h1>
                 <p className="text-center text-gray-600 mb-4">
                     Deductive Thematic Analysis with Iterative LLM Support
@@ -79,7 +79,9 @@ const HomePage: FC = () => {
                             key={idx}
                             className="border border-gray-300 rounded-lg p-4 shadow hover:shadow-lg transition-shadow flex flex-col justify-between">
                             <div>
-                                <h2 className="text-xl font-semibold mb-2">{card.title}</h2>
+                                <h2 className="text-xl font-semibold mb-2">
+                                    Step {idx + 1}: {card.title}
+                                </h2>
                                 <p className="text-sm mb-3">{card.description}</p>
                                 <ul className="list-disc pl-5 text-sm text-gray-700">
                                     {card.steps.map((step, sIdx) => (
@@ -89,8 +91,7 @@ const HomePage: FC = () => {
                             </div>
 
                             {/* Example button linking to next route */}
-                            <div className="mt-4">
-                                {/* If you have a route per card, you can wrap this in Link component */}
+                            {/* <div className="mt-4">
                                 <button
                                     className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                                     onClick={() => {
@@ -104,7 +105,7 @@ const HomePage: FC = () => {
                                     }}>
                                     Go to {card.title}
                                 </button>
-                            </div>
+                            </div> */}
                         </div>
                     ))}
                 </div>

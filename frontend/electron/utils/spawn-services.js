@@ -45,11 +45,24 @@ const spawnService = async (config, globalCtx) => {
         const extraConfig = {
             cwd: config.folder,
             shell: true,
-            stdio: 'inherit'
+            stdio: ['pipe', 'pipe', 'pipe']
         };
         const service = spawn(config.command, config.args, extraConfig);
 
         spawnedProcesses.push({ name: config.name, process: service });
+
+        if (service.stdout) {
+            service.stdout.on('data', (data) => {
+                electronLogger.log(`[${config.name} stdout]: ${data.toString()}`);
+            });
+        }
+
+        // Capture stderr
+        if (service.stderr) {
+            service.stderr.on('data', (data) => {
+                electronLogger.error(`[${config.name} stderr]: ${data.toString()}`);
+            });
+        }
 
         service.on('spawn', (data) => {
             electronLogger.log(`Spawned ${config.name}`);

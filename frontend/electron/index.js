@@ -66,10 +66,10 @@ const cleanupAndExit = async (globalCtx, signal) => {
     }
     // Perform cleanup tasks here if needed
     if (!signal) {
-        // app.exit();
+        app.exit();
         return;
     }
-    app.quit();
+    app.exit();
 };
 
 // Wait for the app to be ready
@@ -101,9 +101,9 @@ app.whenReady().then(async () => {
     // Register signal handlers
     ['SIGINT', 'SIGTERM', 'SIGABRT', 'SIGHUP', 'SIGSEGV'].forEach((signal) => {
         electronLogger.log(`Registering handler for signal: ${signal}`);
-        process.on(signal, () => {
+        process.on(signal, async () => {
             electronLogger.log(`Handler triggered for signal: ${signal}`);
-            cleanupAndExit(globalCtx, signal);
+            await cleanupAndExit(globalCtx, signal);
         });
     });
 
@@ -156,9 +156,10 @@ app.whenReady().then(async () => {
         electronLogger.log('closed app with x');
     });
 
-    app.on('before-quit', async () => {
+    app.on('before-quit', async (event) => {
+        event.preventDefault();
         electronLogger.log('before-quit');
-        // cleanupAndExit(globalCtx);
+        await cleanupAndExit(globalCtx);
         globalCtx.setState({ isQuitting: true });
     });
 
@@ -169,7 +170,7 @@ app.whenReady().then(async () => {
 
     app.on('quit', async (event, exitCode) => {
         console.log('quit event triggered', 'cleaning up and exiting');
-        await cleanupAndExit(globalCtx);
+        // await cleanupAndExit(globalCtx);
 
         electronLogger.log(`App is quitting with exit code: ${exitCode}`);
 

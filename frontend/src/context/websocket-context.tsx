@@ -43,7 +43,7 @@ const WebSocketSingleton = (() => {
         console.log('WebSocket singleton initialized');
     };
 
-    const attemptReconnect = (initiateWebSocketConnection: () => Promise<void>) => {
+    const attemptReconnect = (initiateWebSocketConnection: () => void) => {
         retryCount += 1;
         if (retryCount > 10) {
             // toast.error('WebSocket server is offline. Max retries reached.');
@@ -51,7 +51,7 @@ const WebSocketSingleton = (() => {
         }
         const retryDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff
         console.log(`Reconnecting WebSocket in ${retryDelay / 1000}s...`);
-        setTimeout(async () => await initiateWebSocketConnection(), retryDelay);
+        setTimeout(initiateWebSocketConnection, retryDelay);
     };
 
     const deinitialize = async () => {
@@ -128,12 +128,10 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         }, 60000);
     };
 
-    const initiateWebSocketConnection = async () => {
-        try {
-            await ipcRenderer.invoke('connect-ws', '');
-        } catch (error) {
+    const initiateWebSocketConnection = () => {
+        ipcRenderer.invoke('connect-ws', '').catch((error: any) => {
             console.error('Failed to initiate WebSocket connection:', error);
-        }
+        });
     };
 
     const monitorWebSocketStatus = useCallback(
@@ -149,7 +147,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
                 }
             });
 
-            ipcRenderer.on('ws-closed', async () => {
+            ipcRenderer.on('ws-closed', () => {
                 // console.log('WebSocket closed', isAuthenticated);
                 if (!isAuthenticated) return;
                 // toast.warning('WebSocket disconnected. Attempting to reconnect...');
@@ -159,10 +157,10 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         [isAuthenticated]
     );
 
-    const pollBackendServices = async () => {
+    const pollBackendServices = () => {
         console.log('Polling backend services...');
         setServiceStarting(true);
-        await initiateWebSocketConnection();
+        initiateWebSocketConnection();
 
         const handleServiceStarted = (event: any, serviceName: string) => {
             console.log('Service started:', serviceName);
@@ -170,6 +168,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
                 console.log('Backend service started');
                 toast.info('Backend service started');
             }
+            initiateWebSocketConnection();
         };
 
         const handleServiceStopped = (event: any, serviceName: string) => {
@@ -205,7 +204,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
     useEffect(() => {
         WebSocketSingleton.initialize(handleMessage, monitorWebSocketStatus, !remoteProcessing);
 
-        let cleanup: () => void | Promise<() => void> = () => {
+        let cleanup = () => {
             console.log('User logged out. De-initializing WebSocket...');
             // setServiceStarting(false);
         };
@@ -213,7 +212,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
             setServiceStarting(false);
             initiateWebSocketConnection();
         } else {
-            cleanup = () => pollBackendServices();
+            cleanup = pollBackendServices();
         }
 
         return () => {

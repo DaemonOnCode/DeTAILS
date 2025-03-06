@@ -247,7 +247,7 @@ const ContextPage = () => {
                 <div className="w-full h-full flex justify-between flex-col relative">
                     <div className="max-h-maxPageContent h-maxPageContent">
                         <section id="file-section" className="max-h-3/5 h-3/5 border-b-2">
-                            <h1>Selected Context files</h1>
+                            <h1>Upload research literature to find keywords</h1>
                             <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto max-w-screen-sm lg:max-w-screen-lg">
                                 <label
                                     className="flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50"

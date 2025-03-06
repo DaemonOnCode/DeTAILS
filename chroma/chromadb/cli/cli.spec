@@ -31,6 +31,7 @@ a = Analysis(
         'chromadb.telemetry.product.posthog',
         'chromadb.rate_limit.simple_rate_limit',
         'chromadb.segment.impl.metadata.sqlite',
+        'chromadb.telemetry.product.posthog'
     ],
     hookspath=[],
     hooksconfig={},

@@ -124,6 +124,8 @@ const connectWS = (globalCtx) => {
             return;
         }
 
+        sendToMainWindow(globalCtx, 'ws-connected', {});
+
         const message = decodeMessage(data);
         if (message === null) {
             electronLogger.error('Failed to decode message.');

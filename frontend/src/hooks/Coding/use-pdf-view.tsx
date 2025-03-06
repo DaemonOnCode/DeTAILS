@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { GlobalWorkerOptions, getDocument, version } from 'pdfjs-dist';
 
-GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
+GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
 
 interface UsePdfImageResult {
     imgSrc: string | null;

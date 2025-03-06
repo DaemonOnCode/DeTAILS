@@ -8,7 +8,9 @@ interface ReviewToggleProps {
 
 const ReviewToggle: React.FC<ReviewToggleProps> = ({ review, setReview }) => {
     return (
-        <div className="flex text-center justify-center items-center p-2 lg:p-4 gap-x-2">
+        <div
+            className="flex text-center justify-center items-center p-2 lg:p-4 gap-x-2"
+            id="review-edit-pill">
             <span
                 className={`cursor-pointer select-none ${
                     review ? 'font-bold text-blue-500' : 'text-gray-700'

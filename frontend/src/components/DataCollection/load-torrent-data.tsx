@@ -57,7 +57,7 @@ const TorrentDataTab = ({
 
     const checkTransmissionStatus = async () => {
         setChecking(true);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // await new Promise((resolve) => setTimeout(resolve, 1000));
         const { data, error } = await fetchData<{ exists: boolean }>(
             REMOTE_SERVER_ROUTES.CHECK_TRANSMISSION
         );

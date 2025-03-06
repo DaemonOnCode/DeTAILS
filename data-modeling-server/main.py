@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from constants import DATASETS_DIR, TRANSMISSION_DOWNLOAD_DIR
 from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, DatasetsRepository, PostsRepository, CommentsRepository, LlmResponsesRepository, FileStatusRepository, PipelineStepsRepository, TorrentDownloadProgressRepository
 from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware
 from routes import coding_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
@@ -33,6 +34,11 @@ initialize_database([
 ])
 
 print("Database initialized!")
+
+os.mkdir(DATASETS_DIR) if not os.path.exists(DATASETS_DIR) else None
+os.mkdir(TRANSMISSION_DOWNLOAD_DIR) if not os.path.exists(TRANSMISSION_DOWNLOAD_DIR) else None
+print("Directories created!")
+
 print("Starting FastAPI server...")
 app = FastAPI()
 

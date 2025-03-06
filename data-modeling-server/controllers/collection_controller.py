@@ -421,7 +421,11 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
         if file["type"] == "submissions":
             posts = []
             for p in filtered_data:
-                created = p.get("created_utc", 0)
+                try:
+                    created = float(p.get("created_utc", 0))
+                except (ValueError, TypeError):
+                    created = 0.0
+
                 if date_filter:
                     if (start_ts and created < start_ts) or (end_ts and created > end_ts):
                         continue
@@ -450,7 +454,11 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
         elif file["type"] == "comments":
             comments = []
             for c in filtered_data:
-                created = c.get("created_utc", 0)
+                try:
+                    created = float(c.get("created_utc", 0))
+                except (ValueError, TypeError):
+                    created = 0.0
+
                 if date_filter:
                     if (start_ts and created < start_ts) or (end_ts and created > end_ts):
                         continue

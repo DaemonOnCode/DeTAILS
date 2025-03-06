@@ -461,7 +461,7 @@ const TorrentLoader: React.FC = () => {
             }
 
             if (msg.includes('JSON extracted:')) {
-                const match = msg.match(/JSON extracted:\s+(.*)\/(RS_[\d-]+)\.json/i);
+                const match = msg.match(/JSON extracted:\s+(.*)\/(R[S|C]_[\d-]+)\.json/i);
                 if (match) {
                     const base = match[2] + '.zst';
                     if (updated[base]) {
@@ -554,6 +554,10 @@ const TorrentLoader: React.FC = () => {
                 </div>
 
                 <h2 className="text-xl font-bold mb-4 mt-8">File Downloads</h2>
+                <p className="text-sm">
+                    RC (Reddit Comments) and RS (Reddit Submissions/Posts) are downloaded seperately
+                    and combined at the end
+                </p>
                 {/* File-by-file Display */}
                 {/* <div className="flex flex-col h-full"> */}
                 <div className="space-y-2 flex-1 overflow-y-auto min-h-0">
@@ -588,7 +592,7 @@ const TorrentLoader: React.FC = () => {
                                     {isExtracting && (
                                         <div className="flex items-center text-xs text-gray-600 mb-1">
                                             <AiOutlineLoading3Quarters className="animate-spin mr-1" />
-                                            <span>Extracting data...</span>
+                                            <span>Extracting data for subreddit requested...</span>
                                         </div>
                                     )}
                                     <div className="w-full h-2 bg-gray-200 rounded mt-1 overflow-hidden">

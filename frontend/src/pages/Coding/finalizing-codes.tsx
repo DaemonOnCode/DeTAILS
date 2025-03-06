@@ -223,20 +223,43 @@ const FinalzingCodes = () => {
     }, []);
 
     // Optionally add tutorial steps if needed
-    const steps: TutorialStep[] = [];
+    const steps: TutorialStep[] = [
+        {
+            target: '#finalized-main',
+            content: 'This is the finalizing codes page. Here you can review and edit your codes.',
+            placement: 'bottom'
+        },
+        {
+            target: '#review-edit-toggle',
+            content:
+                'Click this button to toggle between review, where you can analyze the LLM generated codes and edit mode, where you can update the higher level codes formed from sub codes.',
+            placement: 'bottom'
+        },
+        {
+            target: '#finalized-code-table',
+            content:
+                'This table displays all the code responses. You can review the codes and their responses here.',
+            placement: 'top'
+        },
+        {
+            target: '#proceed-next-step',
+            content: 'Step 4: Proceed to next step',
+            placement: 'top'
+        }
+    ];
 
     return (
         <TutorialWrapper
             steps={steps}
             pageId={location.pathname}
             excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`}>
-            <div className="h-page flex flex-col">
+            <main className="h-page flex flex-col" id="finalized-main">
                 {/* Toggle at the top (Review vs. Edit) */}
                 <ReviewToggle review={review} setReview={setReview} />
                 {/* <div className="flex-1 overflow-hidden"> */}
                 {review ? (
                     // REVIEW MODE: Display a table with code responses (adjust prop names as needed)
-                    <div className="flex-1 overflow-auto pb-6">
+                    <div className="flex-1 overflow-auto pb-6" id="finalized-code-table">
                         <ValidationTable
                             codeResponses={[
                                 ...sampledPostResponse.map((r) => ({
@@ -315,7 +338,7 @@ const FinalzingCodes = () => {
                     isReady={unplacedSubCodes.length === 0}
                     onNextClick={handleNextClick}
                 />
-            </div>
+            </main>
         </TutorialWrapper>
     );
 };

@@ -6,7 +6,7 @@ import shutil
 from typing import Dict
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Form, Body
-from controllers.collection_controller import create_dataset, delete_dataset, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, update_run_progress, upload_dataset_file
+from controllers.collection_controller import create_dataset, delete_dataset, delete_run, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, update_run_progress, upload_dataset_file
 from database import PipelineStepsRepository, TorrentDownloadProgressRepository
 from headers.app_id import get_app_id
 from models.collection_models import FilterRedditPostsByDeleted, GetTorrentStatusRequest, ParseDatasetRequest, ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
@@ -203,6 +203,8 @@ async def download_reddit_from_torrent_endpoint(
             await manager.send_message(app_id, err_msg)
             update_run_progress(run_id, err_msg)
             raise HTTPException(status_code=500, detail=err_msg)
+        finally:
+            delete_run(run_id)
 
     return {"message": "Reddit data downloaded from torrent."}
     

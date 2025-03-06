@@ -21,7 +21,7 @@
         "concurrently": "^9.1.0",
         "cross-env": "^7.0.3",
         "electron": "^33.2.0",
-        "mammoth": "^1.8.0",
+        "mammoth": "^1.9.0",
         "postcss": "^8.4.19",
         "prettier": "^3.3.3",
         "react-scripts": "^5.0.1",

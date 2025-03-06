@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { GlobalWorkerOptions, getDocument, version } from 'pdfjs-dist';
 
 // Set up PDF.js worker
-GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
+GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
 
 const PdfFirstPageImage = ({ pdfUrl = '', scale = 1.5 }) => {
     console.log('PdfFirstPageImage rendering...', pdfUrl);
