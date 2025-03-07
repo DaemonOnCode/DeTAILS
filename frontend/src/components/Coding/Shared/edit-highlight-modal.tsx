@@ -24,7 +24,7 @@ const EditHighlightModal: FC<EditHighlightModalProps> = ({
 
     // When a new transcript selection is made, transition to confirmation phase and re-open the modal.
     useEffect(() => {
-        if (selectedText) {
+        if (selectedText && selectedReference) {
             setPhase('selectReplacement');
             // Re-open the modal after the transcript selection is made.
             setIsHighlightModalOpen(true);

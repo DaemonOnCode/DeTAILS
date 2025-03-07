@@ -1,3 +1,4 @@
+import e from 'express';
 import {
     KeywordEntry,
     KeywordsTableAction,
@@ -24,7 +25,11 @@ export const keywordTableReducer = (
         case 'SET_ALL_UNMARKED':
             return [...state.map((response) => ({ ...response, isMarked: undefined }))];
         case 'ADD_MANY':
-            return [...state.filter((entry) => entry.isMarked === true), ...action.entries];
+            let newEntries = action.entries.filter(
+                (entry) => state.findIndex((s) => s.word === entry.word) === -1
+            );
+            // return [...state, ...action.entries.filter((entry) => newEntries.length === 0)];
+            return [...state.filter((entry) => entry.isMarked === true), ...newEntries];
         case 'UPDATE_FIELD':
             return state.map((entry, i) =>
                 i === action.index

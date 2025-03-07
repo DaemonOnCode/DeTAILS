@@ -145,7 +145,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         if (split !== undefined) {
             if (coderType) {
                 params.append('type', coderType);
-            } else if (selectedTypeFilter !== 'All') {
+            } else if (selectedTypeFilter) {
                 params.append('type', selectedTypeFilter);
             } else {
                 params.append('split', split.toString());

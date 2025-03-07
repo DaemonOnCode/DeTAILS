@@ -507,7 +507,7 @@ async def process_reddit_data(
     run_id: str,
         subreddit: str, zst_filename: str,
 ):
-    intermediate_filename = "output.jsonl"
+    intermediate_filename = f"output_{time.time()}.jsonl"
     regex = r'(?s)\{.*?"subreddit":\s*"' + subreddit + r'".*?\}'
     command = (
         f'zstd -cdq --memory=2048MB -T8 "{zst_filename}" | '

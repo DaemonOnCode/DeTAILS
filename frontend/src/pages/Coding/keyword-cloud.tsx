@@ -182,6 +182,17 @@ const KeywordCloudPage: FC = () => {
             ...newKeywords.map((k) => ({ ...k, isMarked: true }))
         ]);
 
+        dispatchKeywordsTable({
+            type: 'ADD_MANY',
+            entries: newKeywords.map((keyword) => ({
+                word: keyword.word,
+                description: keyword.description,
+                inclusion_criteria: keyword.inclusion_criteria,
+                exclusion_criteria: keyword.exclusion_criteria,
+                isMarked: true
+            }))
+        });
+
         setKeywords((prevKeywords) => {
             const filteredPrevKeywords = prevKeywords.filter((keyword) =>
                 selectedKeywords.includes(keyword)
@@ -211,7 +222,7 @@ const KeywordCloudPage: FC = () => {
         e.preventDefault();
         await logger.info('Starting Codebook Generation');
         console.log('Navigating to codebook');
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
+        // navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
 
         console.log('response', response, selectedKeywords);
 

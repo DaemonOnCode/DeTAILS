@@ -5,6 +5,8 @@ ollama/*
 models/*
 log-viewer/*
 data-modeling-server/*
+zstd/*
+ripgrep/*
 temp/*
 .env
 !**/*.sh

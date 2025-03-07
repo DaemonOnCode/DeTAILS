@@ -32,6 +32,36 @@ else
     mkdir executables
 fi
 
+
+
+# Build ripgrep
+echo "Entering ripgrep"
+cd ./ripgrep
+echo "Building ripgrep"
+cargo build --release --features 'pcre2'
+echo "Copying the built ripgrep"
+mkdir -p ../executables/ripgrep
+cp ./target/release/rg ../executables/ripgrep/
+echo "Exiting ripgrep"
+cd ..
+echo "Ripgrep built sucessfully"
+
+
+# Build zstd
+echo "Entering zstd"
+cd ./zstd
+echo "Building zstd"
+make
+echo "Copying the built zstd"
+mkdir -p ../executables/zstd
+cp ./programs/zstd ../executables/zstd/
+cp ./programs/zstdgrep ../executables/zstd/
+cp ./programs/zstdless ../executables/zstd/
+echo "Exiting zstd"
+cd ..
+echo "Zstd built sucessfully"
+
+
 # Build the backend
 echo "Entering the backend"
 cd ./data-modeling-server

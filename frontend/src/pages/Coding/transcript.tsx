@@ -450,6 +450,44 @@ const TranscriptPage = () => {
                     }
                 }
             }
+        ],
+        [
+            JSON.stringify({
+                state: 'review',
+                codebook: 'true',
+                type: 'Codebook',
+                split: null
+            }),
+            {
+                name: 'Review',
+                review: true,
+                backFunction: () =>
+                    navigate(
+                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}?review=true`
+                    ),
+                codebook: {
+                    responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    },
+                    showThemes: false
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                }
+            }
         ]
     ]);
 
