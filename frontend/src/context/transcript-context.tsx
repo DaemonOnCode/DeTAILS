@@ -83,7 +83,7 @@ interface ITranscriptContext {
     handleSegmentInteraction: (segment: Segment, isPermanent?: boolean) => void;
     handleSegmentLeave: (isPermanent?: boolean) => void;
     // Transcript processing helpers
-    splitIntoSegments: (text: string) => string[];
+    // splitIntoSegments: (text: string) => string[];
     processTranscript: (
         post: any,
         extraCodes?: string[]
@@ -125,7 +125,7 @@ const TranscriptContext = createContext<ITranscriptContext>({
     removeSelection: () => {},
     handleSegmentInteraction: () => {},
     handleSegmentLeave: () => {},
-    splitIntoSegments: () => [],
+    // splitIntoSegments: () => [],
     processTranscript: () => ({
         processedSegments: [],
         codeSet: [],
@@ -285,15 +285,15 @@ export const TranscriptContextProvider: FC<{
     };
 
     // Helper: Split text into segments.
-    const splitIntoSegments = (text: string): string[] => {
-        const newlineToken = '<NEWLINE>';
-        const cleanedText = text.replace(/\n+/g, newlineToken);
-        const segments = cleanedText
-            .split(/(?<=[.?!:,])/)
-            .map((segment) => segment.trim())
-            .filter(Boolean);
-        return segments.map((segment) => segment.replace(new RegExp(newlineToken, 'g'), '\n'));
-    };
+    // const splitIntoSegments = (text: string): string[] => {
+    //     const newlineToken = '<NEWLINE>';
+    //     const cleanedText = text.replace(/\n+/g, newlineToken);
+    //     const segments = cleanedText
+    //         .split(/(?<=[.?!:,])/)
+    //         .map((segment) => segment.trim())
+    //         .filter(Boolean);
+    //     return segments.map((segment) => segment.replace(new RegExp(newlineToken, 'g'), '\n'));
+    // };
 
     // Helper function for comment traversal
     function traverseComments(comment: any, parentId: string | null): any[] {
@@ -388,21 +388,22 @@ export const TranscriptContextProvider: FC<{
         setHoveredCodeText(segment.relatedCodeText);
 
         // Directly find explanations by code match
-        const explanations = segment.relatedCodeText.flatMap((code) =>
-            codeResponses
-                .filter((r) => r.code === code)
-                .map((r) => ({
-                    explanation: r.explanation,
-                    code: r.code,
-                    fullText: r.quote
-                }))
-        );
-
-        setSelectedExplanations(
-            Array.from(new Set(explanations.map((e) => JSON.stringify(e)))).map((str) =>
-                JSON.parse(str)
-            )
-        );
+        const foundExplanations: { explanation: string; code: string; fullText: string }[] = [];
+        segment.relatedCodeText.forEach((code) => {
+            codeResponses.forEach((response) => {
+                if (response.code === code && segment.fullText === response.quote) {
+                    foundExplanations.push({
+                        explanation: response.explanation,
+                        code: response.code,
+                        fullText: response.quote
+                    });
+                }
+            });
+        });
+        const unique: Explanation[] = Array.from(
+            new Set(foundExplanations.map((e) => JSON.stringify(e)))
+        ).map((str) => JSON.parse(str));
+        setSelectedExplanations(unique);
     };
 
     const handleSegmentLeave = (isPermanent: boolean = true) => {
@@ -444,7 +445,7 @@ export const TranscriptContextProvider: FC<{
             handleSegmentLeave,
             restoreSelection,
             removeSelection,
-            splitIntoSegments,
+            // splitIntoSegments,
             processTranscript,
             selectionRangeRef,
             containerRef
