@@ -21,7 +21,10 @@ a = Analysis(
         'routes',
         'utils',
         'chromadb.utils.embedding_functions.onnx_mini_lm_l6_v2',
-        'pydantic.deprecated.decorator'
+        'chromadb.telemetry.product.posthog',
+        'pydantic.deprecated.decorator',
+        'transmission_rpc',
+        'chromadb.api.fastapi'
     ],
     hookspath=[],
     hooksconfig={},
@@ -42,7 +45,7 @@ exe = EXE(
     debug=True,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,

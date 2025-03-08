@@ -54,7 +54,7 @@ const connectWS = (globalCtx) => {
         electronLogger.log('Connecting to WebSocket...');
         const url = new URL(config.backendURL[globalCtx.getState().processing]);
         const settings = globalCtx.getState().settings;
-        console.log('settings', settings);
+        // console.log('settings', settings);
         const appId = (settings && settings.app.id) ?? 'default';
 
         const wsUrl = `ws://${url.host}${url.pathname}/notifications/ws?app=${appId}`;

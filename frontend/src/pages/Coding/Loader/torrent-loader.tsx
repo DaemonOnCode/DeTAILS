@@ -99,43 +99,53 @@ const TorrentLoader: React.FC = () => {
             return;
         }
         try {
-            const state = JSON.parse(data[0].run_state);
+            if (data.length !== 0 && data[0].run_state) {
+                const state = JSON.parse(data[0].run_state);
 
-            // Parse messages if they're JSON strings.
-            const parsedSteps = state.steps.map((step: any) => ({
-                ...step,
-                messages:
-                    typeof step.messages === 'string' ? JSON.parse(step.messages) : step.messages
-            }));
-
-            // Sort the steps in the desired order:
-            const desiredOrder = ['Metadata', 'Verification', 'Downloading', 'Symlinks', 'Parsing'];
-            const sortedSteps = parsedSteps.sort(
-                (a: any, b: any) => desiredOrder.indexOf(a.label) - desiredOrder.indexOf(b.label)
-            );
-            setSteps(sortedSteps);
-
-            // For files, if the messages are stored as JSON strings, parse them:
-            const parsedFiles: Record<string, FileStatus> = {};
-            for (const key in state.files) {
-                const file = state.files[key];
-                // Use the basename for both the key and the fileName property
-                const base = path.basename(file.fileName);
-                parsedFiles[base] = {
-                    ...file,
-                    fileName: base,
+                // Parse messages if they're JSON strings.
+                const parsedSteps = state.steps.map((step: any) => ({
+                    ...step,
                     messages:
-                        typeof file.messages === 'string'
-                            ? JSON.parse(file.messages)
-                            : file.messages
-                };
+                        typeof step.messages === 'string'
+                            ? JSON.parse(step.messages)
+                            : step.messages
+                }));
+
+                // Sort the steps in the desired order:
+                const desiredOrder = [
+                    'Metadata',
+                    'Verification',
+                    'Downloading',
+                    'Symlinks',
+                    'Parsing'
+                ];
+                const sortedSteps = parsedSteps.sort(
+                    (a: any, b: any) =>
+                        desiredOrder.indexOf(a.label) - desiredOrder.indexOf(b.label)
+                );
+                setSteps(sortedSteps);
+
+                // For files, if the messages are stored as JSON strings, parse them:
+                const parsedFiles: Record<string, FileStatus> = {};
+                for (const key in state.files) {
+                    const file = state.files[key];
+                    // Use the basename for both the key and the fileName property
+                    const base = path.basename(file.fileName);
+                    parsedFiles[base] = {
+                        ...file,
+                        fileName: base,
+                        messages:
+                            typeof file.messages === 'string'
+                                ? JSON.parse(file.messages)
+                                : file.messages
+                    };
+                }
+                setFiles(parsedFiles);
+
+                // Set the total files
+                totalFilesRef.current = Object.keys(state.files).length;
+                setTotalFiles(totalFilesRef.current);
             }
-            setFiles(parsedFiles);
-
-            // Set the total files
-            totalFilesRef.current = Object.keys(state.files).length;
-            setTotalFiles(totalFilesRef.current);
-
             // Optionally update overall progress, totalFiles, etc.
         } catch (e) {
             console.error('Error parsing run state:', e);
@@ -625,7 +635,7 @@ const TorrentLoader: React.FC = () => {
             {/* Right Panel: Detailed Log + Retry */}
             <div className="w-full lg:w-1/3 bg-gray-50 p-4 border-l border-gray-200 h-full flex flex-col  min-h-0">
                 <h3 className="font-bold mb-2">Detailed Log</h3>
-                <div className="flex-1 overflow-y-auto text-xs leading-5">
+                <div className="flex-1 overflow-y-auto text-xs leading-5 break-words">
                     <AnimatePresence>
                         {messages.map((msg, idx) => (
                             <motion.div

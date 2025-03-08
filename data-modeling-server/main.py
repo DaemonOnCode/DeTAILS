@@ -13,32 +13,6 @@ from routes import coding_routes, collection_routes, websocket_routes, miscellan
 load_dotenv()
 print(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
 
-print("Initializing database...")
-initialize_database([
-    WorkspacesRepository, 
-    WorkspaceStatesRepository, 
-    # RulesRepository,
-    # TokenStatsRepository,
-    # TokenStatsDetailedRepository,
-    # ModelsRepository,
-    DatasetsRepository, 
-    PostsRepository, 
-    CommentsRepository,
-    # TokenizedPostsRepository,
-    # TokenizedCommentsRepository,
-    LlmResponsesRepository,
-
-    TorrentDownloadProgressRepository,
-    FileStatusRepository,
-    PipelineStepsRepository
-])
-
-print("Database initialized!")
-
-os.mkdir(DATASETS_DIR) if not os.path.exists(DATASETS_DIR) else None
-os.mkdir(TRANSMISSION_DOWNLOAD_DIR) if not os.path.exists(TRANSMISSION_DOWNLOAD_DIR) else None
-print("Directories created!")
-
 print("Starting FastAPI server...")
 app = FastAPI()
 
@@ -71,6 +45,32 @@ def health_check():
 
 
 if __name__ == "__main__":
+    print("Initializing database...")
+    initialize_database([
+        WorkspacesRepository, 
+        WorkspaceStatesRepository, 
+        # RulesRepository,
+        # TokenStatsRepository,
+        # TokenStatsDetailedRepository,
+        # ModelsRepository,
+        DatasetsRepository, 
+        PostsRepository, 
+        CommentsRepository,
+        # TokenizedPostsRepository,
+        # TokenizedCommentsRepository,
+        LlmResponsesRepository,
+
+        TorrentDownloadProgressRepository,
+        FileStatusRepository,
+        PipelineStepsRepository
+    ])
+
+    print("Database initialized!")
+
+    os.mkdir(DATASETS_DIR) if not os.path.exists(DATASETS_DIR) else None
+    # os.mkdir(TRANSMISSION_DOWNLOAD_DIR) if not os.path.exists(TRANSMISSION_DOWNLOAD_DIR) else None
+    print("Directories created!")
+    
     is_pyinstaller = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
     uvicorn.run(
         "main:app",

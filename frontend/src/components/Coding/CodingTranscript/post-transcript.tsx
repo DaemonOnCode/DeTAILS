@@ -246,6 +246,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         (chat) => chat[chat.length - 1].reaction === true
     );
 
+    console.log('All Chats Resolved:', allChatsResolved, chatHistories);
+
     const handleBackClick = () => {
         if (!allChatsResolved) return;
         onBack();

@@ -166,6 +166,7 @@ const KeywordCloudPage: FC = () => {
                 type: 'SET_LOADING_DONE_ROUTE',
                 route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
             });
+            navigate(`/coding/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
             return;
         }
         console.log(results, 'Keyword Cloud Page');
@@ -210,7 +211,6 @@ const KeywordCloudPage: FC = () => {
         navigate(`/coding/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
         await logger.info('Keyword Cloud refreshed');
         console.log('Keyword Cloud refreshed');
-        await logger.info('Keyword Cloud refreshed');
     };
 
     const refreshKeywords = () => {

@@ -1,10 +1,12 @@
 ::-webkit-scrollbar {
-    width: 0.5rem;
+    width: 0.5rem; /* Vertical scrollbar width */
+    height: 0.5rem; /* Horizontal scrollbar height */
 }
 
 @media (max-width: 1023px) {
     ::-webkit-scrollbar {
         width: 0.25rem;
+        height: 0.25rem;
     }
 }
 

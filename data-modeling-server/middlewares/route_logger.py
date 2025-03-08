@@ -5,8 +5,8 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import Message
 
+from constants import LOG_FILE
 
-LOG_FILE = "logs.jsonl"
 
 def write_log(entry: dict):
     with open(LOG_FILE, "a") as f:

@@ -9,7 +9,7 @@ from aiofiles import open as async_open
 from fastapi import HTTPException, UploadFile
 from transmission_rpc import Client, Torrent, File as TorrentFile
 
-from constants import ACADEMIC_TORRENT_MAGNET, DATASETS_DIR, UPLOAD_DIR, TRANSMISSION_DOWNLOAD_DIR
+from constants import ACADEMIC_TORRENT_MAGNET, DATASETS_DIR, PATHS, UPLOAD_DIR, TRANSMISSION_DOWNLOAD_DIR, get_app_data_path
 from database import DatasetsRepository, CommentsRepository, PostsRepository, PipelineStepsRepository, FileStatusRepository, TorrentDownloadProgressRepository
 from decorators.execution_time_logger import log_execution_time
 from models import Dataset, Comment, Post, TorrentDownloadProgress
@@ -29,7 +29,7 @@ pipeline_repo = PipelineStepsRepository()
 file_repo = FileStatusRepository()
 progress_repo = TorrentDownloadProgressRepository()
 
-TRANSMISSION_DOWNLOAD_DIR_ABS = os.path.abspath(TRANSMISSION_DOWNLOAD_DIR)
+TRANSMISSION_DOWNLOAD_DIR_ABS = PATHS["transmission"]
 
 def normalize_file_key(file_key: str) -> str:
     """
@@ -240,7 +240,7 @@ def update_run_progress(run_id: str, new_message: str):
             # Reconstruct the file key as inserted: the relative path should be the same as f.name.
             dir_part = m.group(1).strip()  # e.g. "/Volumes/Crucial X9/abc/transmission-downloads/reddit/submissions"
             # Get the relative directory by removing the download dir prefix:
-            rel_dir = os.path.relpath(dir_part, os.path.abspath("../transmission-downloads"))
+            rel_dir = os.path.relpath(dir_part, PATHS["transmission"])
             key = os.path.join(rel_dir, m.group(2) + ".zst")
             file_data = file_repo.get_file_progress(run_id, key)
             file_messages = json.loads(file_data.messages) if file_data.messages else []
@@ -395,7 +395,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
     if existing_comments_count > 0:
         comment_repo.delete({"dataset_id": dataset_id})
 
-    dataset_path = dataset_path or f"datasets/{dataset_id}"
+    dataset_path = dataset_path or os.path.join(DATASETS_DIR,dataset_id)
     post_files = [f for f in os.listdir(dataset_path) if f.startswith("RS") and f.endswith(".json")]
     comment_files = [f for f in os.listdir(dataset_path) if f.startswith("RC") and f.endswith(".json")]
 
@@ -500,32 +500,47 @@ async def run_command_async(command: str) -> str:
         print("Command executed successfully.")
     return stdout.decode()
 
-
-async def process_reddit_data(        
+async def process_reddit_data(
     manager: ConnectionManager,
     app_id: str,
     run_id: str,
-        subreddit: str, zst_filename: str,
+    subreddit: str,
+    zst_filename: str,
 ):
+    # Create a unique intermediate filename
+    directory = os.path.dirname(zst_filename)
     intermediate_filename = f"output_{time.time()}.jsonl"
+    # output_dir = directory.replace(" ", "\\ ")
+    intermediate_file = os.path.join(directory, intermediate_filename)#.replace(" ", "\ ")
+    print(f"Intermediate file: {intermediate_file}")
+
     regex = r'(?s)\{.*?"subreddit":\s*"' + subreddit + r'".*?\}'
+
+    # Use the PATHS dictionary to get the executable paths
+    zstd_executable = PATHS["executables"]["zstd"]
+    ripgrep_executable = PATHS["executables"]["ripgrep"]
+
+    # Build the command string using the absolute paths
+    escaped_intermediate_file = intermediate_file.replace(" ", "\\ ")
     command = (
-        f'zstd -cdq --memory=2048MB -T8 "{zst_filename}" | '
-        f"rg -P '{regex}' > {intermediate_filename} || true"
+        f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" | '
+        f'"{ripgrep_executable}" -P \'{regex}\' > {escaped_intermediate_file}  || true'
     )
     print("Running command:")
     print(command)
+    
     message = f"Extracting {subreddit} data from {zst_filename}..."
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
     
     await run_command_async(command)
 
+    # Create the output JSON file name based on the original zst_filename
     base = os.path.splitext(os.path.basename(zst_filename))[0]
-    directory = os.path.dirname(zst_filename)
     output_filename = os.path.join(directory, f"{base}.json")
 
-    with open(intermediate_filename, "r", encoding="utf-8") as infile, \
+    # Process the intermediate file and convert to a JSON array
+    with open(intermediate_file, "r", encoding="utf-8") as infile, \
          open(output_filename, "w", encoding="utf-8") as outfile:
         outfile.write("[\n")
         first = True
@@ -540,12 +555,22 @@ async def process_reddit_data(
             except json.JSONDecodeError:
                 print("Skipping invalid JSON line.")
         outfile.write("\n]\n")
+    
     print(f"Processed data saved to {output_filename}")
     message = f"JSON extracted: {output_filename}"
     print(message)
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
+    
+    # Remove the intermediate file
+    try:
+        os.remove(f"{intermediate_file}")
+        print(f"Intermediate file {intermediate_filename} removed.")
+    except Exception as e:
+        print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
+    
     return output_filename
+
 
 
 def wait_for_file_stable(file_path, stable_time=5, poll_interval=2) -> bool:
@@ -614,6 +639,7 @@ async def verify_torrent_with_retry(
     while True:
         torrent = c.get_torrent(torrent.id)
         status = torrent.status
+        print(f"Torrent status: {status}")
         if hasattr(torrent, "error") and torrent.error != 0:
             message = f"Verification error: {torrent.error_string}. Re-adding torrent..."
             print(message)
@@ -626,6 +652,7 @@ async def verify_torrent_with_retry(
             c.verify_torrent(torrent.id)
             continue
         if status not in ["check pending", "checking"]:
+            print("Torrent status is not 'check pending' or 'checking' - breaking.", status)
             break
         message = f"Verification in progress: {status}"
         print(message)
@@ -742,15 +769,28 @@ async def get_reddit_data_from_torrent(
     end_month: str = "2023-12",
     submissions_only: bool = True,
 ):
-    TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = os.path.abspath(TRANSMISSION_DOWNLOAD_DIR)
+    TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = os.path.abspath(PATHS["transmission"])
     torrent_hash_string = ACADEMIC_TORRENT_MAGNET.split("btih:")[1].split("&")[0]
     
     c = Client(host="localhost", port=9091, username="transmission", password="password")
 
     torrents = c.get_torrents()
     if not any(t.hashString == torrent_hash_string for t in torrents):
+        # c.remove_torrent()
+        # await asyncio.sleep(10)
         c.add_torrent(ACADEMIC_TORRENT_MAGNET, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
     current_torrent = c.get_torrent(torrent_hash_string)
+
+    print("Current download dir: ", current_torrent.download_dir, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+    if current_torrent.download_dir != TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR:
+        c.move_torrent_data(current_torrent.id, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+        await asyncio.sleep(10)
+        c.verify_torrent(current_torrent.id)
+        await asyncio.sleep(10)
+        current_torrent = c.get_torrent(torrent_hash_string)
+        # c.remove_torrent(current_torrent.id)
+        # await asyncio.sleep(10)
+        # current_torrent = c.add_torrent(ACADEMIC_TORRENT_MAGNET, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
 
     message = f"Torrent added for subreddit '{subreddit}' with ID: {current_torrent.id}"
     await manager.send_message(app_id, message)

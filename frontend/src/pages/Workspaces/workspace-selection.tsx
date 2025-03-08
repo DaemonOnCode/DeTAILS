@@ -190,10 +190,18 @@ const WorkspaceSelectionPage: React.FC = () => {
         setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
     };
 
-    const handleUpdateDescription = (id: string) => {
+    const handleUpdateDescription = async (id: string) => {
         updateWorkspace(id, undefined, newDescription);
         setEditingDescription(null);
         setNewDescription('');
+
+        await fetchData(REMOTE_SERVER_ROUTES.UPDATE_WORKSPACE, {
+            method: 'PUT',
+            body: JSON.stringify({
+                id,
+                description: newDescription
+            })
+        });
     };
 
     const handleWorkspaceClick = (workspaceId: string) => {
@@ -223,21 +231,21 @@ const WorkspaceSelectionPage: React.FC = () => {
         <div className="h-page">
             <div className="flex justify-between items-center mb-4">
                 <h1 className="text-2xl font-bold">Workspace Management</h1>
-                <div className="flex items-center gap-2">
-                    <input
-                        type="text"
-                        placeholder="New Workspace Name"
-                        value={newWorkspaceName}
-                        onChange={(e) => setNewWorkspaceName(e.target.value)}
-                        className="px-3 py-2 border rounded-md text-gray-700"
-                    />
-                    <button
-                        onClick={handleAddWorkspace}
-                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center gap-2">
-                        <FiFolderPlus />
-                        Add
-                    </button>
-                </div>
+            </div>
+            <div className="flex items-center gap-2 my-4">
+                <input
+                    type="text"
+                    placeholder="New Workspace Name"
+                    value={newWorkspaceName}
+                    onChange={(e) => setNewWorkspaceName(e.target.value)}
+                    className="px-3 py-2 border rounded-md text-gray-700 w-full max-w-lg min-w-36"
+                />
+                <button
+                    onClick={handleAddWorkspace}
+                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center gap-2">
+                    <FiFolderPlus />
+                    Add
+                </button>
             </div>
             <div className="bg-white shadow-md rounded-lg">
                 <div className="p-4 border-b">
@@ -248,11 +256,10 @@ const WorkspaceSelectionPage: React.FC = () => {
                         <div className="text-gray-600 text-center">No workspaces found.</div>
                     )}
                     {sortWorkspacesByUpdatedAt(workspaces).map((workspace) => (
-                        <div
-                            key={workspace.id}
-                            className="mb-2"
-                            onClick={() => handleWorkspaceClick(workspace.id)}>
-                            <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2 rounded">
+                        <div key={workspace.id} className="mb-2">
+                            <div
+                                className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                onClick={() => handleWorkspaceClick(workspace.id)}>
                                 <span onClick={(e) => toggleExpand(e, workspace.id)}>
                                     {expanded[workspace.id] ? (
                                         <FiChevronDown className="text-gray-600" />
@@ -313,15 +320,22 @@ const WorkspaceSelectionPage: React.FC = () => {
                                     {editingDescription === workspace.id ? (
                                         <textarea
                                             value={newDescription}
-                                            onChange={(e) => setNewDescription(e.target.value)}
-                                            onBlur={() => handleUpdateDescription(workspace.id)}
+                                            onChange={(e) => {
+                                                // e.stopPropagation();
+                                                setNewDescription(e.target.value);
+                                            }}
+                                            onBlur={(e) => {
+                                                // e.stopPropagation();
+                                                handleUpdateDescription(workspace.id);
+                                            }}
                                             className="w-full px-2 py-1 border rounded-md text-gray-700"
                                             autoFocus
                                         />
                                     ) : (
                                         <p
                                             className="text-sm text-gray-600 cursor-pointer hover:underline"
-                                            onClick={() => {
+                                            onClick={(e) => {
+                                                // e.stopPropagation();
                                                 setEditingDescription(workspace.id);
                                                 setNewDescription(workspace.description || '');
                                             }}>

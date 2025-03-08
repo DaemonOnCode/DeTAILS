@@ -244,6 +244,9 @@ const TorrentSelectionPanel: React.FC<{
     return (
         <div className="flex flex-col flex-1 overflow-y-auto w-full">
             <h2 className="text-xl font-bold mb-4">Previously Downloaded Data</h2>
+            {Object.keys(dataResponse).length === 0 && (
+                <div className="text-sm text-gray-500 py-2">No data available</div>
+            )}
             {Object.keys(dataResponse).map((subreddit) => {
                 const postsAvailable = Object.keys(dataResponse[subreddit].posts).length > 0;
                 const commentsAvailable = Object.keys(dataResponse[subreddit].comments).length > 0;

@@ -82,31 +82,30 @@ async def download_reddit_from_torrent_endpoint(
     request_body: ParseRedditFromTorrentRequest,
     transmission_manager: GlobalTransmissionDaemonManager = Depends(get_transmission_manager)
 ):
-    app_id = request.headers.get("x-app-id")
-
-    run_id = str(uuid4())
-
-    pipeline_repo = PipelineStepsRepository()
-
-    progress_repo.insert(TorrentDownloadProgress(
-        workspace_id=request_body.workspace_id,
-        dataset_id=request_body.dataset_id,
-        run_id=run_id,
-        status="in-progress"
-    ))
-
-    pipeline_repo.insert_batch(
-        list(map(
-            lambda step: PipelineStep(
-                workspace_id=request_body.workspace_id,
-                dataset_id=request_body.dataset_id,
-                run_id=run_id,
-                step_label=step
-            ), ["Metadata", "Verification", "Downloading", "Symlinks", "Parsing"]
-        ))
-    )
-
     async with transmission_manager:
+        app_id = request.headers.get("x-app-id")
+
+        run_id = str(uuid4())
+
+        pipeline_repo = PipelineStepsRepository()
+
+        progress_repo.insert(TorrentDownloadProgress(
+            workspace_id=request_body.workspace_id,
+            dataset_id=request_body.dataset_id,
+            run_id=run_id,
+            status="in-progress"
+        ))
+
+        pipeline_repo.insert_batch(
+            list(map(
+                lambda step: PipelineStep(
+                    workspace_id=request_body.workspace_id,
+                    dataset_id=request_body.dataset_id,
+                    run_id=run_id,
+                    step_label=step
+                ), ["Metadata", "Verification", "Downloading", "Symlinks", "Parsing"]
+            ))
+        )
         message = f"Starting download for subreddit '{request_body.subreddit}' ..."
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message)
@@ -202,6 +201,7 @@ async def download_reddit_from_torrent_endpoint(
             err_msg = f"ERROR: {str(e)}"
             await manager.send_message(app_id, err_msg)
             update_run_progress(run_id, err_msg)
+            print(err_msg)
             raise HTTPException(status_code=500, detail=err_msg)
         finally:
             delete_run(run_id)
@@ -211,7 +211,7 @@ async def download_reddit_from_torrent_endpoint(
 
 @router.get("/get-torrent-data")
 async def get_torrent_data_endpoint():
-    datasets_directory = os.path.join(os.path.curdir, DATASETS_DIR)
+    datasets_directory = DATASETS_DIR
     downloaded_torrent_list = [
         d for d in os.listdir(datasets_directory)
         if d.startswith("academic-torrent")
@@ -256,6 +256,15 @@ async def get_torrent_data_endpoint():
                 dataset_intervals[dataset_name][doc_type][year].append(month)
             except KeyError:
                 dataset_intervals[dataset_name][doc_type][year] = [month]
+
+    datasets_to_remove = []
+    for dataset in dataset_intervals:
+        if not dataset_intervals[dataset]["posts"].keys() and \
+           not dataset_intervals[dataset]["comments"].keys():
+            datasets_to_remove.append(dataset)
+    
+    for dataset in datasets_to_remove:
+        del dataset_intervals[dataset]
 
     return dataset_intervals
 

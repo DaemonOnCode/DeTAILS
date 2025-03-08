@@ -49,7 +49,7 @@ const cleanupAndExit = async (globalCtx, signal) => {
 
     electronLogger.log(`Received signal: ${signal}`);
     await logger.info('Process exited', { signal });
-    electronLogger.log('Closing spawned processes...', spawnedProcesses);
+    // electronLogger.log('Closing spawned processes...', spawnedProcesses);
     for (const { name, process } of spawnedProcesses) {
         electronLogger.log(`Terminating process: ${name}`);
         try {

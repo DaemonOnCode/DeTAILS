@@ -130,21 +130,23 @@ export const TranscriptContextProvider: FC<{
 
     const gatherChatHistory = () => {
         let allChatHistory: Record<string, ChatMessage[]> = {};
-        codeResponses.forEach((response) => {
-            allChatHistory[`${postId}-${response.code}-${response.quote}`] =
-                response.chatHistory ?? [
-                    {
-                        id: 1,
-                        text: response.explanation,
-                        sender: 'LLM',
-                        code: response.code,
-                        reaction: true,
-                        isEditable: false,
-                        command: 'ACCEPT_QUOTE',
-                        isCurrentCode: true
-                    }
-                ];
-        });
+        codeResponses
+            .filter((response) => response.postId === postId)
+            .forEach((response) => {
+                allChatHistory[`${postId}-${response.code}-${response.quote}`] =
+                    response.chatHistory ?? [
+                        {
+                            id: 1,
+                            text: response.explanation,
+                            sender: 'LLM',
+                            code: response.code,
+                            reaction: true,
+                            isEditable: false,
+                            command: 'ACCEPT_QUOTE',
+                            isCurrentCode: true
+                        }
+                    ];
+            });
         return allChatHistory;
     };
     // State hooks

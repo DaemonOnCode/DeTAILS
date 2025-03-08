@@ -12,6 +12,7 @@ from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 from google.auth import load_credentials_from_file
 
 import config
+from chromadb.config import Settings as ChromaDBSettings
 from decorators import log_execution_time
 from models.table_dataclasses import LlmResponse
 from routes.websocket_routes import ConnectionManager, manager
@@ -67,6 +68,7 @@ def initialize_vector_store(dataset_id: str, model: str, embeddings: Any):
         embedding_function=embeddings,
         collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}"[:60],
         client=chroma_client,
+        client_settings=ChromaDBSettings(anonymized_telemetry=False)
     )
     return vector_store
 

@@ -1,6 +1,17 @@
+#!/bin/bash
+
 echo "Going to the root directory"
 cd ..
 echo "Current directory: $(pwd)"
+
+
+if [[ "$(uname)" == "Darwin" ]]; then
+  echo "macOS detected. Running dot_clean -m..."
+  dot_clean -m .
+else
+  echo "Not running on macOS. Skipping dot_clean."
+fi
+
 
 if [ -d "./executables" ]; then
     echo "executables directory exists"
@@ -72,6 +83,7 @@ pyinstaller main.spec
 echo "Copying the built backend"
 mkdir -p ../executables/data-modeling-server
 cp -r ./dist/main ../executables/data-modeling-server/
+# cp .env ../executables/data-modeling-server/
 echo "Deactivating the environment"
 deactivate
 echo "Exiting the backend"

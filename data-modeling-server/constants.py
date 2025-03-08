@@ -3,10 +3,9 @@ import sys
 
 APP_NAME = "details"
 
-DATABASE_PATH = "data_modeling.db"
 
-UPLOAD_DIR = "uploaded_jsons"
-DATASETS_DIR = "datasets"
+
+EXECUTABLE_FOLDER = "../executables"
 
 TRANSMISSION_DOWNLOAD_DIR = "../transmission-downloads"
 ACADEMIC_TORRENT_MAGNET = "magnet:?xt=urn:btih:ba051999301b109eab37d16f027b3f49ade2de13&tr=https%3A%2F%2Facademictorrents.com%2Fannounce.php&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce"
@@ -26,8 +25,18 @@ def get_app_data_path() -> str:
     else:
         return os.getcwd()
 
+UPLOAD_DIR = os.path.join(get_app_data_path(), APP_NAME, "executables", "uploaded_jsons")
+DATASETS_DIR = os.path.join(get_app_data_path(), APP_NAME, "executables", "datasets")
+DATABASE_PATH = os.path.join(get_app_data_path(), APP_NAME, "executables", "data_modeling.db")
+LOG_FILE = os.path.join(get_app_data_path(), APP_NAME, "executables", "logs.jsonl")
+
 PATHS = {
-    "settings": os.path.join(get_app_data_path(), APP_NAME, "settings.json")
+    "settings": os.path.join(get_app_data_path(), APP_NAME, "settings.json"),
+    "executables": {
+        "ripgrep": os.path.join(get_app_data_path(), APP_NAME, "executables", "ripgrep", "rg"),
+        "zstd": os.path.join(get_app_data_path(), APP_NAME, "executables", "zstd", "zstd"),
+    },
+    "transmission": os.path.join(get_app_data_path(), APP_NAME, "executables", "transmission_downloads"),
 }
 
 def get_default_transmission_cmd():
