@@ -60,6 +60,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
     const { processedSegments, codeSet, codeColors } = processTranscript(post, extraCodes);
 
+    console.log('Processed Segments:', processedSegments);
     useEffect(() => {
         if (!codeSet.every((code, i) => code === additionalCodes[i])) {
             setAdditionalCodes(codeSet);

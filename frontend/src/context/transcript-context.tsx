@@ -22,6 +22,33 @@ import {
 } from '../types/Coding/shared';
 import { generateColor } from '../utility/color-generator';
 
+// Define interfaces for our types.
+interface ExtendedSegment {
+    id: string;
+    type: 'title' | 'selftext' | 'comment' | 'reply';
+    parent_id: string | null;
+    start: number;
+    end: number;
+    matchedText: string;
+    // fullCodeText: string;
+    backgroundColours: string[];
+    relatedCodeText: string[];
+    fullText: string;
+    index: string;
+}
+
+interface TranscriptData {
+    id: string;
+    text: string;
+    type: 'title' | 'selftext' | 'comment' | 'reply';
+    parent_id: string | null;
+}
+
+interface Code {
+    text: string;
+    code: string;
+}
+
 interface ITranscriptContext {
     review: boolean;
     // State values and setters
@@ -184,56 +211,58 @@ export const TranscriptContextProvider: FC<{
         console.log('Selected text:', selectedText);
         if (!selectedText) return;
 
-        let commonAncestor: HTMLElement;
-        if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
-            commonAncestor = range.commonAncestorContainer as HTMLElement;
-        } else {
-            commonAncestor =
-                range.commonAncestorContainer.parentElement ||
-                containerRef.current ||
-                document.body;
-        }
+        setSelectedText(selectedText);
 
-        const foundSegments: HTMLSpanElement[] = [];
-        const walker: TreeWalker = document.createTreeWalker(
-            commonAncestor,
-            NodeFilter.SHOW_ELEMENT,
-            {
-                acceptNode: (node: Node): number => {
-                    if (node instanceof HTMLElement && node.hasAttribute('data-segment-id')) {
-                        return NodeFilter.FILTER_ACCEPT;
-                    }
-                    return NodeFilter.FILTER_SKIP;
-                }
-            }
-        );
+        // let commonAncestor: HTMLElement;
+        // if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
+        //     commonAncestor = range.commonAncestorContainer as HTMLElement;
+        // } else {
+        //     commonAncestor =
+        //         range.commonAncestorContainer.parentElement ||
+        //         containerRef.current ||
+        //         document.body;
+        // }
 
-        let currentNode: Node | null = walker.currentNode;
-        while (currentNode) {
-            if (currentNode instanceof HTMLSpanElement && range.intersectsNode(currentNode)) {
-                foundSegments.push(currentNode);
-            }
-            currentNode = walker.nextNode();
-        }
+        // const foundSegments: HTMLSpanElement[] = [];
+        // const walker: TreeWalker = document.createTreeWalker(
+        //     commonAncestor,
+        //     NodeFilter.SHOW_ELEMENT,
+        //     {
+        //         acceptNode: (node: Node): number => {
+        //             if (node instanceof HTMLElement && node.hasAttribute('data-segment-id')) {
+        //                 return NodeFilter.FILTER_ACCEPT;
+        //             }
+        //             return NodeFilter.FILTER_SKIP;
+        //         }
+        //     }
+        // );
 
-        if (foundSegments.length === 0 && containerRef.current) {
-            const containerSegments: HTMLSpanElement[] = Array.from(
-                containerRef.current.querySelectorAll('span[data-segment-id]')
-            );
-            containerSegments.forEach((segment) => {
-                if (range.intersectsNode(segment)) {
-                    foundSegments.push(segment);
-                }
-            });
-        }
+        // let currentNode: Node | null = walker.currentNode;
+        // while (currentNode) {
+        //     if (currentNode instanceof HTMLSpanElement && range.intersectsNode(currentNode)) {
+        //         foundSegments.push(currentNode);
+        //     }
+        //     currentNode = walker.nextNode();
+        // }
 
-        // Combine the text from all found segments.
-        const combinedText: string = foundSegments
-            .map((span) => span.textContent?.trim() || '')
-            .join(' ');
+        // if (foundSegments.length === 0 && containerRef.current) {
+        //     const containerSegments: HTMLSpanElement[] = Array.from(
+        //         containerRef.current.querySelectorAll('span[data-segment-id]')
+        //     );
+        //     containerSegments.forEach((segment) => {
+        //         if (range.intersectsNode(segment)) {
+        //             foundSegments.push(segment);
+        //         }
+        //     });
+        // }
 
-        console.log(combinedText, 'combined text');
-        setSelectedText(combinedText || selectedText);
+        // // Combine the text from all found segments.
+        // const combinedText: string = foundSegments
+        //     .map((span) => span.textContent?.trim() || '')
+        //     .join(' ');
+
+        // console.log(combinedText, 'combined text');
+        // setSelectedText(combinedText || selectedText);
     };
 
     // Restore the saved selection.
@@ -266,118 +295,114 @@ export const TranscriptContextProvider: FC<{
         return segments.map((segment) => segment.replace(new RegExp(newlineToken, 'g'), '\n'));
     };
 
-    // Wrap processTranscript in useCallback so that its reference remains stable.
-    const processTranscript = (post: any, extraCodes: string[] = []) => {
-        // console.log('inside processTranscript', post, codeResponses, extraCodes);
+    // Helper function for comment traversal
+    function traverseComments(comment: any, parentId: string | null): any[] {
+        return [
+            {
+                id: comment.id,
+                text: comment.body,
+                type: 'comment',
+                parent_id: parentId
+            },
+            ...(comment.comments || []).flatMap((c: any) => traverseComments(c, comment.id))
+        ];
+    }
 
+    function escapeRegExp(text: string) {
+        return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    const processTranscript = (post: any, extraCodes: string[] = []) => {
         const codeSet = Array.from(new Set([...codes.map((c: any) => c.code), ...extraCodes]));
-        // setAdditionalCodes(codeSet);
-        // Map each code to a color.
         const codeColors: Record<string, string> = {};
         codeSet.forEach((code: string) => {
             codeColors[code] = generateColor(code);
         });
 
-        // Build a flat transcript map from title, selftext, and comments.
-        const transcriptFlatMap: {
-            id: string;
-            text: string;
-            type: 'title' | 'selftext' | 'comment' | 'reply';
-            parent_id: string | null;
-        }[] = [
+        // Build transcript flat map (same as original)
+        const transcriptFlatMap = [
             { id: post.id, text: post.title, type: 'title', parent_id: null },
-            { id: post.id, text: post.selftext, type: 'selftext', parent_id: null }
+            { id: post.id, text: post.selftext, type: 'selftext', parent_id: null },
+            ...post.comments.flatMap((comment: any) => traverseComments(comment, post.id))
         ];
 
-        const traverseComments = (comments: any[], parentId: string | null) => {
-            comments.forEach((comment: any) => {
-                transcriptFlatMap.push({
-                    id: comment.id,
-                    text: comment.body,
-                    type: 'comment',
-                    parent_id: parentId
-                });
-                if (comment.comments) {
-                    traverseComments(comment.comments, comment.id);
-                }
-            });
+        // Get unique code texts sorted by length
+        const codeTexts = codes.map((c: any) => c.text);
+        const uniqueCodeTexts = Array.from(new Set(codeTexts)).sort((a, b) => b.length - a.length);
+
+        const splitRegex = new RegExp(`(${uniqueCodeTexts.map(escapeRegExp).join('|')})`, 'g');
+
+        // Create segments using exact matches
+        const segments = transcriptFlatMap.flatMap((data, dataIndex) => {
+            const splitSegments: any[] = data.text.split(splitRegex);
+            return splitSegments
+                .map((segment, splitIndex) => {
+                    if (!segment) return null;
+                    const isCodeSegment = splitIndex % 2 === 1;
+
+                    const matchedCodes = isCodeSegment
+                        ? codes.filter((c: any) => c.text === segment)
+                        : [];
+
+                    return {
+                        line: segment,
+                        id: data.id,
+                        type: data.type,
+                        parent_id: data.parent_id,
+                        backgroundColours: matchedCodes.map((c: any) => codeColors[c.code]),
+                        relatedCodeText: matchedCodes.map((c: any) => c.code),
+                        fullText: isCodeSegment ? segment : '',
+                        index: `${dataIndex}|${splitIndex}`
+                    };
+                })
+                .filter(Boolean);
+        });
+
+        return {
+            processedSegments: segments as Segment[],
+            codeSet,
+            codeColors
         };
-        traverseComments(post.comments, post.id);
-
-        // Create segments by splitting each text field.
-        const segments = transcriptFlatMap.flatMap((data, idx1) => {
-            const segmentTexts = splitIntoSegments(data.text);
-            return segmentTexts.map((line, idx2) => ({
-                line,
-                id: data.id,
-                type: data.type,
-                parent_id: data.parent_id,
-                backgroundColours: [] as string[],
-                relatedCodeText: [] as string[],
-                fullText: '' as string,
-                index: `${idx1}|${idx2}`
-            }));
-        });
-
-        // Associate codes with segments based on similarity.
-        segments.forEach((segment: any) => {
-            codes.forEach(({ text, code }: any) => {
-                const segmentedCodeTexts = splitIntoSegments(text);
-                segmentedCodeTexts.forEach((segmentedText: string) => {
-                    const similarity = ratio(segment.line, segmentedText);
-                    if (similarity >= 90) {
-                        segment.backgroundColours.push(codeColors[code]);
-                        segment.relatedCodeText.push(code);
-                        segment.fullText = text;
-                    }
-                });
-            });
-        });
-
-        const processedSegments: Segment[] = segments.map((segment: any) => ({
-            ...segment,
-            backgroundColours: Array.from(new Set(segment.backgroundColours)),
-            relatedCodeText: Array.from(new Set(segment.relatedCodeText))
-        }));
-
-        return { processedSegments, codeSet, codeColors };
     };
 
-    const handleSegmentInteraction = (segment: Segment, isPermanent: boolean = false) => {
+    const handleSegmentInteraction = (segment: Segment, isPermanent = false) => {
         if (review && isPermanent) {
             setSwitchModalOn(true);
             return;
         }
 
-        if (isPermanent) {
-            setSelectedSegment(segment);
-        } else {
-            setHoveredSegment(segment);
+        if (selectedSegment) {
+            return;
         }
+
+        // if (isPermanent) {
+        //     setSelectedSegment(segment);
+        // } else {
+        //     setHoveredSegment(segment);
+        // }
+        // setHoveredCodeText(segment.relatedCodeText);
+
+        const targetSegment = isPermanent ? setSelectedSegment : setHoveredSegment;
+        targetSegment(segment);
+
         setHoveredCodeText(segment.relatedCodeText);
 
-        // Filter related explanations based on the segment's related codes.
-        const foundExplanations: { explanation: string; code: string; fullText: string }[] = [];
-        segment.relatedCodeText.forEach((code) => {
-            codeResponses.forEach((response) => {
-                if (response.code === code) {
-                    const splitQuote = splitIntoSegments(response.quote);
-                    splitQuote.forEach((quote) => {
-                        if (ratio(segment.line, quote) >= 90) {
-                            foundExplanations.push({
-                                code: response.code,
-                                explanation: response.explanation || '',
-                                fullText: response.quote
-                            });
-                        }
-                    });
-                }
-            });
-        });
-        const unique: Explanation[] = Array.from(
-            new Set(foundExplanations.map((e) => JSON.stringify(e)))
-        ).map((str) => JSON.parse(str));
-        setSelectedExplanations(unique);
+        // Directly find explanations by code match
+        const explanations = segment.relatedCodeText.flatMap((code) =>
+            codeResponses
+                .filter((r) => r.code === code)
+                .map((r) => ({
+                    explanation: r.explanation,
+                    code: r.code,
+                    fullText: r.quote
+                }))
+        );
+
+        setSelectedExplanations(
+            Array.from(new Set(explanations.map((e) => JSON.stringify(e)))).map((str) =>
+                JSON.parse(str)
+            )
+        );
     };
 
     const handleSegmentLeave = (isPermanent: boolean = true) => {

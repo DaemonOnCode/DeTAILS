@@ -331,7 +331,7 @@ export type Segment = {
     backgroundColours: string[];
     relatedCodeText: string[];
     fullText: string;
-    index: number;
+    index: number | string;
 };
 
 export type PageState = {
