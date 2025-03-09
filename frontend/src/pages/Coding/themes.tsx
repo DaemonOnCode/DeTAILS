@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import Bucket from '../../components/Coding/Themes/bucket';
@@ -221,6 +221,31 @@ const ThemesPage = () => {
         navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`);
     };
 
+    const handleMoveToMiscellaneous = useCallback(() => {
+        setThemes((prevBuckets) => {
+            if (prevBuckets.find((bucket) => bucket.name === 'Miscellaneous')) {
+                return prevBuckets.map((bucket) => {
+                    if (bucket.name === 'Miscellaneous') {
+                        return {
+                            ...bucket,
+                            codes: [...bucket.codes, ...unplacedCodes]
+                        };
+                    }
+                    return bucket;
+                });
+            }
+            return [
+                ...prevBuckets,
+                {
+                    id: (prevBuckets.length + 1).toString(),
+                    name: 'Miscellaneous',
+                    codes: unplacedCodes
+                }
+            ];
+        });
+        setUnplacedCodes([]);
+    }, [unplacedCodes]);
+
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
             navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
@@ -236,37 +261,50 @@ const ThemesPage = () => {
                 excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}`}>
                 <div className="h-page flex flex-col">
                     <header id="themes-header" className="py-4">
-                        <h1 className="text-2xl font-bold mb-4">Themes and Codes Organizer</h1>
+                        <h1 className="text-2xl font-bold">Themes and Codes Organizer</h1>
                     </header>
                     {unplacedCodes.length > 0 && (
-                        <p className="text-red-500">
+                        <p className="text-red-500 pb-4">
                             Review the unplaced codes bucket at the end and ensure all codes are
                             assigned to some bucket before proceeding
                         </p>
                     )}
-                    <main className="flex-1 overflow-auto pb-6">
+                    <main className="flex-1 overflow-hidden size-full">
                         <DndProvider backend={HTML5Backend} context={window}>
-                            <div className="container mx-auto">
-                                <div id="bucket-section" className="grid grid-cols-3 gap-6">
-                                    {themes.map((theme) => (
-                                        <Bucket
-                                            key={theme.id}
-                                            theme={theme}
-                                            onDrop={handleDropToBucket}
-                                            onDelete={handleDeleteTheme}
-                                        />
-                                    ))}
+                            <div className="flex flex-1 overflow-hidden size-full">
+                                {/* Left Column: Theme Buckets (70% width) */}
+                                <div className="w-[70%] flex-1 overflow-auto px-4">
+                                    <div id="bucket-section" className="grid grid-cols-2 gap-6">
+                                        {themes.map((theme) => (
+                                            <Bucket
+                                                key={theme.id}
+                                                theme={theme}
+                                                onDrop={handleDropToBucket}
+                                                onDelete={handleDeleteTheme}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                                <div id="unplaced-codes">
-                                    <UnplacedCodesBox
-                                        unplacedCodes={unplacedCodes}
-                                        onDrop={handleDropToUnplaced}
-                                    />
+                                {/* Right Column: Unplaced Codes (30% width) */}
+                                <div className="w-[30%] flex flex-col px-4 gap-2">
+                                    <div className="flex-1 overflow-auto" id="unplaced-codes">
+                                        <UnplacedCodesBox
+                                            unplacedCodes={unplacedCodes}
+                                            onDrop={handleDropToUnplaced}
+                                        />
+                                    </div>
+                                    <div className="flex justify-center items-center">
+                                        <button
+                                            disabled={!unplacedCodes.length}
+                                            className={`${unplacedCodes.length ? 'bg-blue-500 cursor-pointer' : 'bg-gray-500 cursor-not-allowed'} p-2 w-fit text-white rounded`}
+                                            onClick={handleMoveToMiscellaneous}>
+                                            Move rest to Miscellaneous
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </DndProvider>
                     </main>
-
                     <div className="pt-4 flex justify-between">
                         <button
                             id="add-theme-button"

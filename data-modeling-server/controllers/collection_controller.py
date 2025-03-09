@@ -707,54 +707,65 @@ async def process_single_file(
     c.start_torrent(torrent.id)
     print(f"Downloading file {file_name}...")
 
-    while True:
-        torrent = c.get_torrent(torrent.id)
-
-        if hasattr(torrent, "error") and torrent.error != 0:
-            err_msg = f"ERROR downloading {file_name}: {torrent.error_string}"
-            print(err_msg)
-            await manager.send_message(app_id, err_msg)
-            update_run_progress(run_id, err_msg)
-            raise Exception(err_msg)
-        
-        file_status = next((f for f in torrent.get_files() if f.id == file_id), None)
-        if file_status and file_status.completed >= file_status.size:
-            print(f"File {file_name} has been fully downloaded.")
-            message = f"File {file_name} fully downloaded ({file_status.completed}/{file_status.size} bytes)."
-            print(message)
-            await manager.send_message(app_id, message)
-            update_run_progress(run_id, message)
-            break
-        else:
-            if file_status and file_status.size != 0:
-                pct_done = (file_status.completed / file_status.size) * 100
-                message = f"Downloading {file_name}: {pct_done:.2f}% ({file_status.completed}/{file_status.size} bytes)"
-                print(message)
-                await manager.send_message(app_id, message)
-                update_run_progress(run_id, message)
-            else:
-                print(f"Waiting for file {file_name} to start...")
-            await asyncio.sleep(5)
-
     file_path = os.path.join(download_dir, file_name)
     file_path_zst = file_path if file_path.endswith('.zst') else file_path + '.zst'
 
-    while not os.path.exists(file_path_zst):
-        message = f"Waiting for file {file_path_zst} to appear on disk..."
-        print(message)
+    try:
+        while True:
+            torrent = c.get_torrent(torrent.id)
+
+            if hasattr(torrent, "error") and torrent.error != 0:
+                err_msg = f"ERROR downloading {file_name}: {torrent.error_string}"
+                print(err_msg)
+                await manager.send_message(app_id, err_msg)
+                update_run_progress(run_id, err_msg)
+                raise Exception(err_msg)
+            
+            file_status = next((f for f in torrent.get_files() if f.id == file_id), None)
+            if file_status and file_status.completed >= file_status.size:
+                print(f"File {file_name} has been fully downloaded.")
+                message = f"File {file_name} fully downloaded ({file_status.completed}/{file_status.size} bytes)."
+                print(message)
+                await manager.send_message(app_id, message)
+                update_run_progress(run_id, message)
+                break
+            else:
+                if file_status and file_status.size != 0:
+                    pct_done = (file_status.completed / file_status.size) * 100
+                    message = f"Downloading {file_name}: {pct_done:.2f}% ({file_status.completed}/{file_status.size} bytes)"
+                    print(message)
+                    await manager.send_message(app_id, message)
+                    update_run_progress(run_id, message)
+                else:
+                    print(f"Waiting for file {file_name} to start...")
+                await asyncio.sleep(5)
+
+
+        while not os.path.exists(file_path_zst):
+            message = f"Waiting for file {file_path_zst} to appear on disk..."
+            print(message)
+            await manager.send_message(app_id, message)
+            update_run_progress(run_id, message)
+            await asyncio.sleep(5)
+
+        output_file = await process_reddit_data(manager, app_id, run_id, subreddit, file_path_zst)
+
+        message = f"Processed file: {file_name} ..."
+        # print(message)
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message)
-        await asyncio.sleep(5)
+        print(f"Processing complete for file {file_name}.")
 
-    output_file = await process_reddit_data(manager, app_id, run_id, subreddit, file_path_zst)
+    except Exception as e:
+        print(f"Error processing file {file_name}: {e}")
+        message = f"Error processing file {file_name}: {e}"
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
+    finally:
+        c.stop_torrent(torrent.id)
+        if os.path.exists(file_path_zst):
+            os.remove(file_path_zst)
 
-    message = f"Processed file: {file_name} ..."
-    # print(message)
-    await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
-    print(f"Processing complete for file {file_name}.")
-
-    c.stop_torrent(torrent.id)
     await asyncio.sleep(1)
     return output_file
 

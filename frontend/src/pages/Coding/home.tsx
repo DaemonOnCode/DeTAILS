@@ -33,22 +33,22 @@ const HomePage: FC = () => {
         {
             title: 'Codebook Creation',
             description:
-                'Create a codebook from a sample of your data. Add, update, or delete sub codes suggested by the LLM or created manually.',
-            steps: ['Review LLM Sub codes', 'Add Custom Sub codes', 'Refine Codebook'],
+                'Create a codebook from a sample of your data. Add, update, or delete sub-codes suggested by the LLM or created manually.',
+            steps: ['Review LLM Sub-codes', 'Add Custom Sub-codes', 'Refine Codebook'],
             route: `${ROUTES.CODEBOOK_CREATION}` // update if needed
         },
         {
             title: 'Deductive Coding',
             description:
                 'Apply your finalized codebook to the remaining data for a thorough, deductive thematic analysis.',
-            steps: ['Apply Sub codes', 'Review Results'],
+            steps: ['Apply Sub-codes', 'Review Results'],
             route: `${ROUTES.DEDUCTIVE_CODING}` // update if needed
         },
         {
             title: 'Finalizing Codes',
             description:
                 'Consolidate sub-codes into higher-level codes, ensuring your codebook is organized and ready for theme generation.',
-            steps: ['Review Sub codes', 'Group & Merge', 'Finalize Code Hierarchy'],
+            steps: ['Review Sub-codes', 'Group & Merge', 'Finalize Code Hierarchy'],
             route: `${ROUTES.FINALIZING_CODES}` // update if needed
         },
         {

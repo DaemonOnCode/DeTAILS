@@ -12,21 +12,25 @@ import { ILoadingState, ILoadingContext, LoadingAction, StepHandle } from '../ty
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
 import { ROUTES } from '../constants/Coding/shared';
 import { loadingReducer } from '../reducers/loading';
+import { useLocation } from 'react-router-dom';
 
 const LoadingContext = createContext<ILoadingContext>({
     loadingState: {},
     loadingDispatch: () => {},
     registerStepRef: () => {},
     resetDataAfterPage: () => Promise.resolve(),
-    checkIfDataExists: () => false
+    checkIfDataExists: () => false,
+    requestArrayRef: { current: {} }
 });
 
 export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
+    const location = useLocation();
     const initialRefState: StepHandle = {
         validateStep: () => false,
         resetStep: () => {},
         checkDataExistence: () => false
     };
+    const requestArrayRef = useRef<Record<string, ((...e: any) => void)[]> | null>({});
     const initialPageState: ILoadingState = {
         [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`]: {
             isLoading: false,
@@ -160,8 +164,30 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
                 type: 'RESET_PAGE_DATA',
                 payload: { route }
             });
+            if (requestArrayRef?.current && requestArrayRef.current[route]) {
+                requestArrayRef.current[route].forEach((abort) => {
+                    console.log('Aborting request:', route);
+                    abort();
+                });
+            }
         }
     };
+
+    useEffect(() => {
+        console.log("Inside loading context's useEffect", location.pathname);
+        // return () => {
+        console.log('Cleanup loading context:', location.pathname);
+        if (location.pathname === `/${SHARED_ROUTES.WORKSPACE}`) {
+            console.log('Aborting requests:', requestArrayRef.current);
+            if (!requestArrayRef.current) return;
+            Object.values(requestArrayRef.current).forEach((abortArray) => {
+                abortArray.forEach((abort) => {
+                    abort(new Error('Operation cancelled: Moved out of workspace'));
+                });
+            });
+        }
+        // };
+    }, [location.pathname]);
 
     const value = useMemo(
         () => ({
@@ -170,7 +196,8 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             // currentStepIndex,
             registerStepRef,
             resetDataAfterPage,
-            checkIfDataExists
+            checkIfDataExists,
+            requestArrayRef
         }),
         [loadingState]
     );

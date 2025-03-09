@@ -22,7 +22,7 @@ const UnplacedCodesBox = ({
     return (
         <div
             ref={drop}
-            className={`mt-8 p-4 border border-dashed border-gray-500 rounded-lg bg-gray-50 ${
+            className={`p-4 border border-dashed border-gray-500 rounded-lg bg-gray-50 ${
                 isOver ? 'bg-yellow-100' : ''
             }`}
             style={{ minHeight: '100px' }}>

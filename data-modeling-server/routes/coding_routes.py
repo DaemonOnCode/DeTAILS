@@ -141,7 +141,7 @@ async def regenerate_keywords_endpoint(
 @router.post("/generate-initial-codes")
 async def generate_codes_endpoint(request: Request,
     request_body: GenerateInitialCodesRequest,
-    batch_size: int = 10  # Default batch size (can be overridden in request)
+    batch_size: int = 5  # Default batch size (can be overridden in request)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id or len(request_body.sampled_post_ids) == 0:
@@ -268,7 +268,7 @@ async def refine_codebook_endpoint(
 async def deductive_coding_endpoint(
     request: Request,
     request_body: DeductiveCodingRequest,
-    batch_size: int = 10  
+    batch_size: int = 5  
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -443,7 +443,7 @@ async def refine_single_code_endpoint(
 @router.post("/remake-codebook")
 async def generate_codes_endpoint(request: Request,
     request_body: RemakeCodebookRequest,
-    batch_size: int = 10  # Default batch size (can be overridden in request)
+    batch_size: int = 5  # Default batch size (can be overridden in request)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id or len(request_body.sampled_post_ids) == 0:
@@ -524,7 +524,7 @@ async def generate_codes_endpoint(request: Request,
 async def redo_deductive_coding_endpoint(
     request: Request,
     request_body: RemakeDeductiveCodesRequest,
-    batch_size: int = 10  
+    batch_size: int = 5  
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:

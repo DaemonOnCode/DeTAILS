@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
@@ -203,7 +203,11 @@ const FinalzingCodes = () => {
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
-            navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
+            navigate(
+                getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                    text: 'Finalizing codes...'
+                })
+            );
         }
     }, []);
 
@@ -222,6 +226,33 @@ const FinalzingCodes = () => {
         };
     }, []);
 
+    const handleMoveToMiscellaneous = useCallback(() => {
+        console.log('Moving rest to Miscellaneous');
+
+        setGroupedCodes((prevBuckets) => {
+            if (prevBuckets.find((bucket) => bucket.name === 'Miscellaneous')) {
+                return prevBuckets.map((bucket) => {
+                    if (bucket.name === 'Miscellaneous') {
+                        return {
+                            ...bucket,
+                            codes: [...bucket.codes, ...unplacedSubCodes]
+                        };
+                    }
+                    return bucket;
+                });
+            }
+            return [
+                ...prevBuckets,
+                {
+                    id: (prevBuckets.length + 1).toString(),
+                    name: 'Miscellaneous',
+                    codes: unplacedSubCodes
+                }
+            ];
+        });
+        setUnplacedSubCodes([]);
+    }, [unplacedSubCodes]);
+
     // Optionally add tutorial steps if needed
     const steps: TutorialStep[] = [
         {
@@ -230,9 +261,9 @@ const FinalzingCodes = () => {
             placement: 'bottom'
         },
         {
-            target: '#review-edit-toggle',
+            target: '#review-edit-pill',
             content:
-                'Click this button to toggle between review, where you can analyze the LLM generated codes and edit mode, where you can update the higher level codes formed from sub codes.',
+                'Click this button to toggle between review, where you can analyze the LLM generated codes and edit mode, where you can update the higher level codes formed from sub-codes.',
             placement: 'bottom'
         },
         {
@@ -253,26 +284,22 @@ const FinalzingCodes = () => {
             steps={steps}
             pageId={location.pathname}
             excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`}>
-            <main className="h-page flex flex-col" id="finalized-main">
+            <main className="h-page w-full flex flex-col" id="finalized-main">
                 {/* Toggle at the top (Review vs. Edit) */}
+                {unplacedSubCodes.length > 0 && (
+                    <p className="mb-4 text-red-500">
+                        Go into edit mode, place unplaced sub-codes into code buckets to proceed.
+                    </p>
+                )}
                 <ReviewToggle review={review} setReview={setReview} />
                 {/* <div className="flex-1 overflow-hidden"> */}
-                {review ? (
-                    // REVIEW MODE: Display a table with code responses (adjust prop names as needed)
-                    <div className="flex-1 overflow-auto pb-6" id="finalized-code-table">
-                        <ValidationTable
-                            codeResponses={[
-                                ...sampledPostResponse.map((r) => ({
-                                    postId: r.postId,
-                                    id: r.id,
-                                    code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                                    quote: r.quote,
-                                    explanation: r.explanation,
-                                    comment: r.comment,
-                                    subCode: r.code
-                                })),
-                                ...unseenPostResponse.map((r) => {
-                                    return {
+                <div className=" flex flex-col flex-1 overflow-hidden h-full">
+                    {review ? (
+                        // REVIEW MODE: Display a table with code responses (adjust prop names as needed)
+                        <div className="flex-1 overflow-auto pb-6" id="finalized-code-table">
+                            <ValidationTable
+                                codeResponses={[
+                                    ...sampledPostResponse.map((r) => ({
                                         postId: r.postId,
                                         id: r.id,
                                         code: getGroupedCodeOfSubCode(r.code, groupedCodes),
@@ -280,55 +307,82 @@ const FinalzingCodes = () => {
                                         explanation: r.explanation,
                                         comment: r.comment,
                                         subCode: r.code
-                                    };
-                                })
-                            ]} // You may need to adjust this based on your data shape
-                            onViewTranscript={() => {}}
-                            dispatchCodeResponses={() => {}}
-                            onReRunCoding={() => {}}
-                            onUpdateResponses={() => {}}
-                            review={true}
-                        />
-                    </div>
-                ) : (
-                    // EDIT MODE: Show bucket interface for codes with drag and drop
-                    <>
-                        <div className="flex-1 overflow-auto pb-6">
-                            <DndProvider backend={HTML5Backend} context={window}>
-                                <div className="container mx-auto">
-                                    <div className="grid grid-cols-3 gap-6">
-                                        {groupedCodes.map((bucket) => (
-                                            <Bucket
-                                                key={bucket.id}
-                                                theme={bucket}
-                                                onDrop={handleDropToBucket}
-                                                onDelete={handleDeleteBucket}
-                                            />
-                                        ))}
+                                    })),
+                                    ...unseenPostResponse.map((r) => {
+                                        return {
+                                            postId: r.postId,
+                                            id: r.id,
+                                            code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+                                            quote: r.quote,
+                                            explanation: r.explanation,
+                                            comment: r.comment,
+                                            subCode: r.code
+                                        };
+                                    })
+                                ]} // You may need to adjust this based on your data shape
+                                onViewTranscript={() => {}}
+                                dispatchCodeResponses={() => {}}
+                                onReRunCoding={() => {}}
+                                onUpdateResponses={() => {}}
+                                review={true}
+                            />
+                        </div>
+                    ) : (
+                        // EDIT MODE: Show bucket interface for codes with drag and drop
+                        <>
+                            <div className="flex flex-col size-full">
+                                <DndProvider backend={HTML5Backend} context={window}>
+                                    <div className="flex flex-1 overflow-hidden size-full">
+                                        {/* Left Column: Buckets (70% width) */}
+                                        <div className="w-[70%] flex-1 overflow-auto px-4">
+                                            <div className="grid grid-cols-2 gap-6">
+                                                {groupedCodes.map((bucket) => (
+                                                    <Bucket
+                                                        key={bucket.id}
+                                                        theme={bucket}
+                                                        onDrop={handleDropToBucket}
+                                                        onDelete={handleDeleteBucket}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {/* Right Column: Unplaced Codes (30% width) */}
+                                        <div className="flex flex-col h-full w-[30%] px-4 gap-2">
+                                            <div className="flex-1 overflow-auto">
+                                                <UnplacedCodesBox
+                                                    unplacedCodes={unplacedSubCodes}
+                                                    onDrop={handleDropToUnplaced}
+                                                />
+                                            </div>
+                                            <div className="flex justify-center items-center">
+                                                <button
+                                                    disabled={!unplacedSubCodes.length}
+                                                    className={`${unplacedSubCodes.length ? 'bg-blue-500 cursor-pointer' : 'bg-gray-500 cursor-not-allowed'} p-2 w-fit text-white rounded`}
+                                                    onClick={handleMoveToMiscellaneous}>
+                                                    Move rest to Miscellaneous
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <UnplacedCodesBox
-                                        unplacedCodes={unplacedSubCodes}
-                                        onDrop={handleDropToUnplaced}
-                                    />
+                                </DndProvider>
+                                <div className="pt-4 flex justify-between">
+                                    <button
+                                        onClick={handleAddBucket}
+                                        className="px-4 py-2 bg-blue-500 text-white rounded">
+                                        + Add New Code
+                                    </button>
+                                    <button
+                                        id="refresh-themes-button"
+                                        onClick={handleRefreshCodes}
+                                        className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
+                                        <DetailsLLMIcon className="h-6 w-6" />
+                                        Redo grouping
+                                    </button>
                                 </div>
-                            </DndProvider>
-                        </div>
-                        <div className="pt-4 flex justify-between">
-                            <button
-                                onClick={handleAddBucket}
-                                className="px-4 py-2 bg-blue-500 text-white rounded">
-                                + Add New Code
-                            </button>
-                            <button
-                                id="refresh-themes-button"
-                                onClick={handleRefreshCodes}
-                                className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
-                                <DetailsLLMIcon className="h-6 w-6" />
-                                Redo grouping
-                            </button>
-                        </div>
-                    </>
-                )}
+                            </div>
+                        </>
+                    )}
+                </div>
                 {/* </div> */}
 
                 {/* Navigation at the bottom */}

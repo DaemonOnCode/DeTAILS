@@ -198,4 +198,5 @@ export interface ILoadingContext {
     registerStepRef: (route: string, refObj: RefObject<StepHandle>) => void;
     resetDataAfterPage: (page: string) => Promise<void>;
     checkIfDataExists: (page: string) => boolean;
+    requestArrayRef: RefObject<Record<string, ((...e: any) => void)[]> | null>;
 }

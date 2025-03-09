@@ -260,7 +260,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                         <div className="bg-white p-6 rounded shadow-lg w-80">
                             <h2 className="text-xl font-bold mb-4">Provide Feedback</h2>
                             <textarea
-                                className="w-full border border-gray-300 rounded p-2"
+                                className="w-full border border-gray-300 rounded p-2 resize-none"
                                 rows={4}
                                 placeholder="Enter your feedback here..."
                                 value={feedback}

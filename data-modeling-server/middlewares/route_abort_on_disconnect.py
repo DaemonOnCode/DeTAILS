@@ -1,4 +1,5 @@
 import asyncio
+from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 class AbortOnDisconnectMiddleware:
@@ -6,34 +7,36 @@ class AbortOnDisconnectMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
-        # Only apply to HTTP requests
-        # if scope["type"] != "http":
-        #     await self.app(scope, receive, send)
-        #     return
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        
+        queue = asyncio.Queue()
 
-        # Create an event that will be triggered if a disconnect occurs
-        disconnect_event = asyncio.Event()
+        async def message_poller(sentinel, handler_task):
+            nonlocal queue
+            while True:
+                message = await receive()
+                if message["type"] == "http.disconnect":
+                    handler_task.cancel()
+                    return sentinel 
+                await queue.put(message)
 
-        async def wrapped_receive():
-            message = await receive()
-            if message["type"] == "http.disconnect":
-                disconnect_event.set()
-            return message
+        sentinel = object()
+        handler_task = asyncio.create_task(self.app(scope, queue.get, send))
+        asyncio.create_task(message_poller(sentinel, handler_task))
 
-        # Run the main application and disconnect watcher concurrently
-        app_task = asyncio.create_task(self.app(scope, wrapped_receive, send))
-        disconnect_task = asyncio.create_task(disconnect_event.wait())
-
-        done, pending = await asyncio.wait(
-            {app_task, disconnect_task},
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-
-        # If the disconnect event happened before the app finished,
-        # cancel the app task.
-        if disconnect_task in done:
-            app_task.cancel()
-            # Optionally, you can perform cleanup here or log the disconnect.
-        else:
-            disconnect_task.cancel()
-            await app_task
+        try:
+            return await handler_task
+        except asyncio.CancelledError:
+            print("Cancelling request due to disconnect")
+            await send({
+                "type": "http.response.start",
+                "status": 499,
+                "headers": [],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": b"",
+                "more_body": False,
+            })

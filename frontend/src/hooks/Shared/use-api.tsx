@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useSettings } from '../../context/settings-context';
+import { useLoadingContext } from '../../context/loading-context';
+import { useLocation } from 'react-router-dom';
 
 export type FetchResponse<T = any> =
     | { data: T; error?: never; abort: () => void }
@@ -19,6 +21,9 @@ export interface UseApiResult {
 export const useApi = (): UseApiResult => {
     const { getServerUrl } = useServerUtils();
     const { settings } = useSettings();
+    const location = useLocation();
+
+    const { requestArrayRef } = useLoadingContext();
 
     const fetchData = useCallback(
         async <T = any,>(
@@ -50,6 +55,13 @@ export const useApi = (): UseApiResult => {
                 headers: mergedHeaders,
                 signal: controller.signal
             };
+
+            if (requestArrayRef.current !== null) {
+                requestArrayRef.current[location.pathname] = [
+                    ...(requestArrayRef.current[location.pathname] || []),
+                    controller.abort.bind(controller)
+                ];
+            }
 
             try {
                 const response = await fetch(url, mergedOptions);

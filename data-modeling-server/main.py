@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from constants import DATASETS_DIR, TRANSMISSION_DOWNLOAD_DIR
+from constants import DATASETS_DIR, PATHS
 from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, DatasetsRepository, PostsRepository, CommentsRepository, LlmResponsesRepository, FileStatusRepository, PipelineStepsRepository, TorrentDownloadProgressRepository
-from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware
+from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware, AbortOnDisconnectMiddleware
 from routes import coding_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
 
 load_dotenv()
@@ -25,6 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(AbortOnDisconnectMiddleware)
 app.add_middleware(ExecutionTimeMiddleware)
 app.add_middleware(ErrorHandlingMiddleware)
 app.add_middleware(LoggingMiddleware)
@@ -68,9 +69,9 @@ if __name__ == "__main__":
     print("Database initialized!")
 
     os.mkdir(DATASETS_DIR) if not os.path.exists(DATASETS_DIR) else None
-    # os.mkdir(TRANSMISSION_DOWNLOAD_DIR) if not os.path.exists(TRANSMISSION_DOWNLOAD_DIR) else None
+    os.mkdir(PATHS["transmission"]) if not os.path.exists(PATHS["transmission"]) else None
     print("Directories created!")
-    
+
     is_pyinstaller = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
     uvicorn.run(
         "main:app",

@@ -103,12 +103,16 @@ const ContextPage = () => {
 
     const checkIfReady = Object.keys(contextFiles).length > 0 && mainTopic.length > 0;
 
+    const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
         logger.info('Loaded Context Page');
 
         return () => {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                saveWorkspaceData();
+                hasSavedRef.current = true;
+            }
             logger.info('Unloaded Context Page').then(() => {
                 logger.time('Context Page stay time', { time: timer.end() });
             });
@@ -285,7 +289,7 @@ const ContextPage = () => {
                                         interest:
                                     </p>
                                     <textarea
-                                        className="p-2 border border-gray-300 rounded w-96"
+                                        className="p-2 border border-gray-300 rounded w-96 resize-none"
                                         value={additionalInfo}
                                         onChange={(e) => setAdditionalInfo(e.target.value)}
                                     />
@@ -298,7 +302,7 @@ const ContextPage = () => {
                                     <p>Research Questions:</p>
                                     <div className="flex items-center">
                                         <textarea
-                                            className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
+                                            className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none"
                                             placeholder="Type your research question here..."
                                             value={newQuestion}
                                             onChange={(e) => setNewQuestion(e.target.value)}
@@ -315,7 +319,7 @@ const ContextPage = () => {
                                         {researchQuestions.map((question, index) => (
                                             <li key={index} className="flex items-start mb-4">
                                                 <textarea
-                                                    className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none overflow-auto auto-height"
+                                                    className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none"
                                                     value={question}
                                                     onChange={(e) =>
                                                         updateQuestion(index, e.target.value)

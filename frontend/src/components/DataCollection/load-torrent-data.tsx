@@ -8,6 +8,7 @@ import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCollectionContext } from '../../context/collection-context';
 import { useApi } from '../../hooks/Shared/use-api';
+import { TORRENT_END_DATE, TORRENT_START_DATE } from '../../constants/DataCollection/shared';
 
 const { shell } = window.require('electron');
 
@@ -89,6 +90,10 @@ const TorrentDataTab = ({
     if (transmissionExists === null) {
         return <div>Checking Transmission daemon availability...</div>;
     }
+
+    const torrentDisabledCheck =
+        torrentSubreddit === '' ||
+        new Date(torrentStart).getTime() > new Date(torrentEnd).getTime();
 
     // If Transmission is not present, show installation instructions along with a re-check and settings navigation button.
     if (!transmissionExists) {
@@ -199,7 +204,9 @@ const TorrentDataTab = ({
                 <div className="mb-4">
                     <label className="block mb-1">Start Date</label>
                     <input
-                        type="date"
+                        type="month"
+                        min={TORRENT_START_DATE}
+                        max={TORRENT_END_DATE}
                         value={torrentStart}
                         onChange={(e) => setTorrentStart(e.target.value)}
                         className="p-2 border border-gray-300 rounded w-54 lg:w-96"
@@ -208,7 +215,9 @@ const TorrentDataTab = ({
                 <div className="mb-4">
                     <label className="block mb-1">End Date</label>
                     <input
-                        type="date"
+                        type="month"
+                        min={TORRENT_START_DATE}
+                        max={TORRENT_END_DATE}
                         value={torrentEnd}
                         onChange={(e) => setTorrentEnd(e.target.value)}
                         className="p-2 border border-gray-300 rounded w-54 lg:w-96"
@@ -237,8 +246,14 @@ const TorrentDataTab = ({
                     </div>
                 </div>
                 <button
+                    title={
+                        torrentDisabledCheck
+                            ? 'Please fill in all fields properly to load torrent data'
+                            : 'Load torrent data'
+                    }
+                    disabled={torrentDisabledCheck}
                     onClick={handleLoadTorrent}
-                    className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
+                    className={`px-4 py-2 text-white rounded ${!torrentDisabledCheck ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 hover:bg-gray-500'}`}>
                     Load Torrent Data
                 </button>
             </div>

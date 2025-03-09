@@ -84,7 +84,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     return (
         <div className="space-y-6" id="transcript-metadata">
             <div>
-                <h3 className="text-lg font-bold mb-2">Sub codes</h3>
+                <h3 className="text-lg font-bold mb-2">Sub-codes</h3>
                 <ul className="space-y-2">
                     {(hoveredCodeText || agreedCodes).map((code, index) => (
                         <li
@@ -140,7 +140,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                                 <div className="mt-2">
                                     <textarea
                                         placeholder="New code..."
-                                        className="w-full p-2 border rounded"
+                                        className="w-full p-2 border rounded resize-y"
                                         value={
                                             comments[
                                                 JSON.stringify({
@@ -157,7 +157,8 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                                                 }),
                                                 e.target.value
                                             )
-                                        }></textarea>
+                                        }
+                                    />
                                 </div>
                                 <button
                                     className="w-full bg-blue-500 p-4 rounded"

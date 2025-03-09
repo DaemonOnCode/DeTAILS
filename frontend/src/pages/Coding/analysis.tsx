@@ -34,10 +34,10 @@ const FinalPage = () => {
         logger.info('Loaded Final Page');
 
         return () => {
-            if (!hasSavedRef.current) {
-                saveWorkspaceData();
-                hasSavedRef.current = true;
-            }
+            // if (!hasSavedRef.current) {
+            saveWorkspaceData();
+            //     hasSavedRef.current = true;
+            // }
             logger.info('Unloaded Final Page').then(() => {
                 logger.time('Final Page stay time', { time: timer.end() });
             });

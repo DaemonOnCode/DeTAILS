@@ -203,17 +203,15 @@ const DataViewerPage = () => {
     const isDataLoaded = Boolean(modeInput);
 
     // If no type is selected, prompt user to go back to home
-    if (!type) {
+    if (!type || !modeInput) {
         return (
-            <div className="flex flex-col items-center justify-center h-screen">
-                <p className="text-xl mb-4">
-                    No data type selected. Please return to the Data Source page to select a type.
-                </p>
-                <button
-                    onClick={() => navigate('../')}
-                    className="px-4 py-2 bg-blue-500 text-white rounded">
-                    Go to Data Source
-                </button>
+            <div className="flex flex-col items-center justify-center h-page">
+                <p className="mb-4">Choose data source to create dataset.</p>
+                <Link
+                    to={`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
+                    className="text-blue-500">
+                    Go back to Data source
+                </Link>
             </div>
         );
     }

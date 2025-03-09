@@ -154,7 +154,11 @@ const DeductiveCodingPage = () => {
             type: 'SET_LOADING_ROUTE',
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
         });
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
+        navigate(
+            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                text: 'Finalizing codes...'
+            })
+        );
 
         const { data: results, error } = await fetchData<{
             message: string;

@@ -71,11 +71,6 @@ const HomePage = () => {
             content:
                 'These cards allow you to retrieve or import your data from various sources. Select on a card to proceed with dataset creation',
             placement: 'bottom'
-        },
-        {
-            target: '#proceed-next-step',
-            content: 'Proceed to next step',
-            placement: 'top'
         }
     ];
 

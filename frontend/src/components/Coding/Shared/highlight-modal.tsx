@@ -59,7 +59,7 @@ const HighlightModal: FC<HighlightModalProps> = ({
                 </select>
                 {addReasoning && (
                     <textarea
-                        className="w-full p-2 border rounded mb-4"
+                        className="w-full p-2 border rounded mb-4 resize-none"
                         placeholder="Add explanation here..."
                         value={reasoning ?? ''}
                         onChange={(e) => setReasoning!(e.target.value)}

@@ -11,6 +11,7 @@ import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
 import { useLoadingContext } from '../../context/loading-context';
+import { TORRENT_END_DATE, TORRENT_START_DATE } from '../../constants/DataCollection/shared';
 
 const { ipcRenderer, shell } = window.require('electron');
 
@@ -33,8 +34,8 @@ const LoadReddit: FC<{
     const [activeTab, setActiveTab] = useState<'folder' | 'torrent'>(queryActiveTab ?? 'torrent');
 
     const [torrentSubreddit, setTorrentSubreddit] = useState('');
-    const [torrentStart, setTorrentStart] = useState('');
-    const [torrentEnd, setTorrentEnd] = useState('');
+    const [torrentStart, setTorrentStart] = useState(TORRENT_START_DATE);
+    const [torrentEnd, setTorrentEnd] = useState(TORRENT_END_DATE);
     const [torrentMode, setTorrentMode] = useState<'posts' | 'postsAndComments'>(
         'postsAndComments'
     );
@@ -123,7 +124,10 @@ const LoadReddit: FC<{
         );
     }
 
-    const currentFolder = modeInput.split(':').slice(2).join(':');
+    const currentFolder =
+        modeInput.split(':').slice(0, 2).join(':') === 'reddit:upload'
+            ? modeInput.split(':').slice(2).join(':')
+            : '';
 
     // Handler to update active tab and the URL query parameter.
     const updateActiveTab = (tab: 'folder' | 'torrent') => {

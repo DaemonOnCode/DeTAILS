@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 
 const dotVariants = {
     animate: (delay: number) => ({
@@ -14,9 +15,12 @@ const dotVariants = {
 };
 
 const DataLoading: React.FC = () => {
+    const [searchParams] = useSearchParams();
+    const newText = searchParams.get('text');
+
     return (
         <div className="flex flex-col items-center justify-center min-h-page w-full">
-            <div className="mb-4 px-6 py-3 text-3xl font-bold">Loading data...</div>
+            <div className="mb-4 px-6 py-3 text-3xl font-bold">{newText ?? 'Loading data'}...</div>
             <div className="flex space-x-2">
                 <motion.span
                     custom={0}

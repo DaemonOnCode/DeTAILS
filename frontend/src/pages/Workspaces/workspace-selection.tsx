@@ -328,7 +328,7 @@ const WorkspaceSelectionPage: React.FC = () => {
                                                 // e.stopPropagation();
                                                 handleUpdateDescription(workspace.id);
                                             }}
-                                            className="w-full px-2 py-1 border rounded-md text-gray-700"
+                                            className="w-full px-2 py-1 border rounded-md text-gray-700 resize-none"
                                             autoFocus
                                         />
                                     ) : (

@@ -348,9 +348,10 @@ const KeywordCloudPage: FC = () => {
                             <textarea
                                 value={feedback}
                                 onChange={handleFeedbackChange}
-                                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                 rows={4}
-                                placeholder="Enter your feedback here..."></textarea>
+                                placeholder="Enter your feedback here..."
+                            />
                             <div className="flex justify-end mt-4">
                                 <button
                                     onClick={() => setIsFeedbackOpen(false)}
