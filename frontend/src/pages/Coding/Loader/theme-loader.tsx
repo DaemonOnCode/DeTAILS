@@ -3,6 +3,7 @@ import { Variants, motion, useAnimation } from 'framer-motion';
 import { FaLaptop, FaToolbox, FaFileAlt } from 'react-icons/fa';
 import { useLogger } from '../../../context/logging-context';
 import { useWebSocket } from '../../../context/websocket-context';
+import { DetailsIcon } from '../../../components/Shared/Icons';
 
 const generateRectangles = () => {
     return Array.from({ length: 30 }, (_, index) => ({
@@ -116,9 +117,9 @@ const ThemeLoaderPage = () => {
                         ))}
                     </motion.div>
 
-                    <div className="flex flex-col items-center justify-center w-24 h-24 bg-gray-300 rounded-md shadow-md text-gray-800">
-                        <FaToolbox size={30} className="mb-2" />
-                        <span className="text-sm font-bold">Toolkit</span>
+                    <div className="flex flex-col items-center justify-center w-24 h-24 bg-gray-300 rounded-md shadow-md text-gray-800 p-2">
+                        <DetailsIcon className="h-20 w-20" />
+                        {/* <span className="text-sm font-bold">Toolkit</span> */}
                     </div>
                 </div>
             )}

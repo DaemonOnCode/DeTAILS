@@ -1,4 +1,4 @@
-import { FC, useState, useMemo, useEffect } from 'react';
+import { FC, useState, useMemo, useEffect, useCallback, useRef, useImperativeHandle } from 'react';
 import { useTranscriptContext } from '../../../context/transcript-context';
 import { IReference } from '../../../types/Coding/shared';
 import RedditComments from './reddit-comments';
@@ -12,6 +12,7 @@ import DeleteCodeModal from '../Shared/delete-code-modal';
 import EditHighlightModal from '../Shared/edit-highlight-modal';
 import DeleteHighlightModal from '../Shared/delete-highlight-modal';
 import SwitchModal from './switch-modal';
+import lodash from 'lodash';
 
 const PostTranscript: FC<PostTranscriptProps> = ({
     post,
@@ -35,7 +36,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     isEditHighlightModalOpen,
     setIsEditHighlightModalOpen,
     isDeleteHighlightModalOpen,
-    setDeleteIsHighlightModalOpen
+    setDeleteIsHighlightModalOpen,
+    clearedToLeaveRef
 }) => {
     // Get common state and helpers from the Transcript Context.
     const {
@@ -58,7 +60,10 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         setSwitchModalOn
     } = useTranscriptContext();
 
-    const { processedSegments, codeSet, codeColors } = processTranscript(post, extraCodes);
+    const { processedSegments, codeSet, codeColors } = useMemo(
+        () => processTranscript(post, extraCodes),
+        [post, extraCodes, codeResponses]
+    );
 
     console.log('Processed Segments:', processedSegments);
     useEffect(() => {
@@ -74,24 +79,27 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
     const [addHighlightModalHidden, setAddHighlightModalHidden] = useState(false);
 
-    const currentReferences = useMemo(
-        () =>
-            Object.fromEntries(
-                codeSet.map((code) => [
-                    code,
-                    codeResponses
-                        .filter((response) => response.code === code && response.postId === post.id)
-                        .map((response) => ({
-                            text: response.quote,
-                            isComment: true,
-                            postId: response.postId
-                        }))
-                ])
-            ),
-        [codeSet, codeResponses, post.id]
-    );
+    const currentReferences = useMemo(() => {
+        console.log('remaking Current References:', codeSet, codeResponses, post.id);
+        return Object.fromEntries(
+            codeSet.map((code) => [
+                code,
+                codeResponses
+                    .filter((response) => response.code === code && response.postId === post.id)
+                    .map((response) => ({
+                        text: response.quote,
+                        isComment: true,
+                        postId: response.postId
+                    }))
+            ])
+        );
+    }, [codeSet, codeResponses, post.id]);
 
     const [references, setReferences] = useState<Record<string, IReference[]>>(currentReferences);
+
+    useEffect(() => {
+        setReferences(currentReferences);
+    }, [codeResponses]);
 
     const setCodes = (value: any, type: string) => {
         if (!isActive) return;
@@ -116,9 +124,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     newCode
                 });
                 if (newCode) {
-                    // @ts-ignore
                     setAdditionalCodes((prevCodes) =>
-                        prevCodes.map((code) => (code === selectedCode ? newCode : code))
+                        prevCodes.map((code) => (code === selectedCode ? (newCode ?? code) : code))
                     );
                 }
                 break;
@@ -216,7 +223,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 });
                 break;
             case 'EDIT_HIGHLIGHT':
-                difference = findSingleKeyDifference(currentReferences, references, 'modified');
+                // difference = findSingleKeyDifference(currentReferences, references, 'modified');
                 console.log('Edit Difference:', difference, extra);
                 dispatchCodeResponse({
                     type: 'EDIT_HIGHLIGHT',
@@ -243,8 +250,10 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         setIsHighlightModalOpen(false);
     };
 
-    const allChatsResolved = Object.values(chatHistories).every(
-        (chat) => chat[chat.length - 1].reaction === true
+    const allChatsResolved = Object.values(chatHistories).every((chat) =>
+        chat[chat.length - 1].isEditable && chat[chat.length - 1].sender === 'Human'
+            ? chat[chat.length - 2].reaction
+            : chat[chat.length - 1].reaction
     );
 
     console.log('All Chats Resolved:', allChatsResolved, chatHistories);
@@ -253,6 +262,24 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         if (!allChatsResolved) return;
         onBack();
     };
+
+    const transcriptHandleMouseUp = useCallback(
+        lodash.throttle(() => {
+            handleTextSelection(_selectionRef);
+        }, 100),
+        [handleTextSelection, _selectionRef]
+    );
+
+    const transcriptHandleMouseClick = useCallback(() => {
+        handleSegmentLeave(false);
+        setSelectedSegment(null);
+    }, []);
+
+    useImperativeHandle(clearedToLeaveRef, () => {
+        return {
+            check: allChatsResolved
+        };
+    }, [allChatsResolved]);
 
     return !post ? (
         <p>Post not found</p>
@@ -276,11 +303,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     <div
                         id="transcript-container"
                         className={`flex-1 overflow-y-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}
-                        onMouseUp={() => handleTextSelection(_selectionRef)}
-                        onClick={() => {
-                            handleSegmentLeave(false);
-                            setSelectedSegment(null);
-                        }}
+                        onMouseUp={transcriptHandleMouseUp}
+                        onClick={transcriptHandleMouseClick}
                         ref={containerRef}>
                         <div className="mb-6">
                             <h2 className="text-xl font-bold mb-2 relative">

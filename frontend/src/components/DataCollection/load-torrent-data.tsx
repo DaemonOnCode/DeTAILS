@@ -9,7 +9,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useCollectionContext } from '../../context/collection-context';
 import { useApi } from '../../hooks/Shared/use-api';
 
-// Use Electron's shell API to open external links.
 const { shell } = window.require('electron');
 
 const TorrentDataTab = ({

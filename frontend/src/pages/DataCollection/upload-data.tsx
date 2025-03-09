@@ -28,6 +28,7 @@ const UploadDataPage = () => {
     const { type, datasetId, selectedData, setModeInput, modeInput } = useCollectionContext();
     const [searchParams] = useSearchParams();
     // Determine dataset type from query parameter "type". If not provided, fallback to the modeInput's prefix.
+    console.log('Selected mode:', modeInput);
     const datasetType = searchParams.get('type') ?? modeInput.split(':')[0];
 
     console.log('Selected data:', datasetType);

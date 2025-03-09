@@ -238,6 +238,12 @@ const ThemesPage = () => {
                     <header id="themes-header" className="py-4">
                         <h1 className="text-2xl font-bold mb-4">Themes and Codes Organizer</h1>
                     </header>
+                    {unplacedCodes.length > 0 && (
+                        <p className="text-red-500">
+                            Review the unplaced codes bucket at the end and ensure all codes are
+                            assigned to some bucket before proceeding
+                        </p>
+                    )}
                     <main className="flex-1 overflow-auto pb-6">
                         <DndProvider backend={HTML5Backend} context={window}>
                             <div className="container mx-auto">

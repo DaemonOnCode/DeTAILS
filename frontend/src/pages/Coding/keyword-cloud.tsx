@@ -284,6 +284,10 @@ const KeywordCloudPage: FC = () => {
             excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}`}>
             <div className="min-h-page flex justify-between flex-col">
                 <div className="relative flex justify-center items-center flex-col">
+                    <p className="py-4">
+                        These keywords are generated using the context you provided DeTAILS. Please
+                        select 5 or more to proceed{' '}
+                    </p>
                     {/* Add an id for targeting the tutorial */}
                     <div id="keyword-cloud" className="w-full">
                         <KeywordCloud

@@ -69,7 +69,12 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
 
     const computeChatHistory = () => messages.map((m) => `${m.sender}: ${m.text}`);
 
-    const handleSendComment = async (messageId: number) => {
+    const handleSendComment = async (
+        e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+        messageId: number
+    ) => {
+        e.preventDefault();
+        e.stopPropagation();
         const comment = editableInputs[messageId]?.trim();
         if (!comment) return;
 
@@ -144,7 +149,14 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         }
     };
 
-    const handleReaction = (messageId: number, reaction: boolean | undefined, i: number) => {
+    const handleReaction = (
+        e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+        messageId: number,
+        reaction: boolean | undefined,
+        i: number
+    ) => {
+        e.preventDefault();
+        e.stopPropagation();
         if (chatCollapsed && messages.length === 1) {
             setChatCollapsed(false);
         }
@@ -255,7 +267,12 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         updateMessagesAndStore(newMsgs);
     };
 
-    const handleRefreshLLM = async (messageId: number) => {
+    const handleRefreshLLM = async (
+        e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+        messageId: number
+    ) => {
+        e.preventDefault();
+        e.stopPropagation();
         const idx = messages.findIndex((m) => m.id === messageId);
         if (idx === -1) return;
 
@@ -312,7 +329,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 return (
                     <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
                         <button
-                            onClick={() => handleReaction(msg.id, true, index)}
+                            onClick={(e) => handleReaction(e, msg.id, true, index)}
                             disabled={!canReact || msg.isThinking}
                             className={`w-8 h-8 flex items-center justify-center rounded ${
                                 msg.reaction === true
@@ -322,7 +339,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                             ✓
                         </button>
                         <button
-                            onClick={() => handleReaction(msg.id, false, index)}
+                            onClick={(e) => handleReaction(e, msg.id, false, index)}
                             disabled={!canReact || msg.isThinking}
                             className={`w-8 h-8 flex items-center justify-center rounded ${
                                 msg.reaction === false
@@ -333,7 +350,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                         </button>
                         {msg.id > 1 && (
                             <button
-                                onClick={() => handleRefreshLLM(msg.id)}
+                                onClick={(e) => handleRefreshLLM(e, msg.id)}
                                 disabled={msg.isThinking}
                                 className={`w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-yellow-400 hover:text-white ${
                                     msg.isThinking ? 'opacity-50 cursor-not-allowed' : ''
@@ -348,7 +365,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 return (
                     <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
                         <button
-                            onClick={() => handleSendComment(msg.id)}
+                            onClick={(e) => handleSendComment(e, msg.id)}
                             className="w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-blue-400 hover:text-white">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -370,7 +387,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 return (
                     <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
                         <button
-                            onClick={() => handleReaction(msg.id, true, index)}
+                            onClick={(e) => handleReaction(e, msg.id, true, index)}
                             disabled={!canReact || msg.isThinking}
                             className={`w-8 h-8 flex items-center justify-center rounded ${
                                 msg.reaction === true
@@ -380,7 +397,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                             ✓
                         </button>
                         <button
-                            onClick={() => handleReaction(msg.id, false, index)}
+                            onClick={(e) => handleReaction(e, msg.id, false, index)}
                             disabled={true}
                             className={`w-8 h-8 flex items-center justify-center rounded ${
                                 msg.reaction === false

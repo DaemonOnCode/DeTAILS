@@ -1,4 +1,4 @@
-import { FC, useState } from 'react';
+import { FC, memo, useState } from 'react';
 import { useTranscriptContext } from '../../../context/transcript-context';
 import { generateColor } from '../../../utility/color-generator';
 import type { Segment } from '../../../types/Coding/shared';
@@ -7,7 +7,7 @@ interface HighlightedSegmentProps {
     segment: Segment;
 }
 
-const HighlightedSegment: FC<HighlightedSegmentProps> = ({ segment }) => {
+const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
     // const [isHovered, setIsHovered] = useState(false);
     const {
         selectedText,
@@ -82,6 +82,6 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = ({ segment }) => {
             })}
         </span>
     );
-};
+});
 
 export default HighlightedSegment;

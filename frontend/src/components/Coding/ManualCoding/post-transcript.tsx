@@ -115,6 +115,8 @@ const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
         setLoading(false);
     };
 
+    const allClearedToLeaveRef = useRef<{ check: boolean } | null>(null);
+
     useEffect(() => {
         const timer = createTimer();
         logger.info('Transcript Page Loaded');
@@ -227,6 +229,7 @@ const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                         codeResponses={currentConfig?.bottomTranscript?.responses ?? []}>
                         <PostTranscript
                             post={post}
+                            clearedToLeaveRef={allClearedToLeaveRef}
                             onBack={onBack}
                             _selectionRef={_selectionRef}
                             review={currentConfig.review}

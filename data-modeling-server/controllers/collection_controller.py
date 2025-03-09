@@ -4,6 +4,7 @@ import json
 import os
 import re
 import time
+from typing import Dict
 from uuid import uuid4
 from aiofiles import open as async_open
 from fastapi import HTTPException, UploadFile
@@ -802,6 +803,11 @@ async def get_reddit_data_from_torrent(
     wanted_range = generate_month_range(start_month, end_month)
     print(f"Identified files for processing: {wanted_range}")
     files_to_process = get_files_to_process(torrent_files, wanted_range, submissions_only)
+    already_existing_files = get_torrent_files_by_subreddit(subreddit)
+    print(f"Already existing files: {already_existing_files}")
+    message = f'Files already downloaded: {(", ").join(already_existing_files)}'
+    await manager.send_message(app_id, message)
+    files_to_process = list(filter(lambda f: os.path.splitext(os.path.basename(f.name))[0] not in already_existing_files, files_to_process))
     print(f"Files to process: {files_to_process}")
     message = f"Files to process: {len(files_to_process)}"
     await manager.send_message(app_id, message)
@@ -828,3 +834,70 @@ async def get_reddit_data_from_torrent(
 
 def filter_posts_by_deleted(dataset_id: str):
     return post_repo.get_filtered_post_ids(dataset_id)
+
+
+def get_all_torrent_data():
+    datasets_directory = DATASETS_DIR
+    downloaded_torrent_list = [
+        d for d in os.listdir(datasets_directory)
+        if d.startswith("academic-torrent")
+    ]
+
+    dataset_intervals: Dict[str, Dict[str, Dict[str, list[str]]]] = {}
+
+    for dataset_folder_name in downloaded_torrent_list:
+        folder_path = os.path.join(datasets_directory, dataset_folder_name)
+        dataset_name = dataset_folder_name[17:]
+
+        all_files = [
+            f for f in os.listdir(folder_path)
+            if f.startswith("RC") or f.startswith("RS")
+        ]
+
+        broken_files = []
+
+        for f in all_files:
+            file_path = os.path.join(folder_path, f)
+            if os.path.islink(file_path):
+
+                target_path = os.readlink(file_path)
+                target_abs = os.path.join(folder_path, target_path)
+
+                if not os.path.exists(target_abs):
+                    print(f"Broken symlink detected: {file_path} -> {target_abs}")
+                    os.remove(file_path)
+                    broken_files.append(f)
+                    continue
+
+        all_files = [f for f in all_files if f not in broken_files]
+        print(f"Found {len(all_files)} valid files in folder: {folder_path}")
+
+        dataset_intervals[dataset_name] = {"posts": {}, "comments": {}}
+        for name in all_files:
+            year = name[3:7]
+            month = name[8:10]
+            doc_type = "posts" if name.startswith("RS") else "comments"
+            
+            try:
+                dataset_intervals[dataset_name][doc_type][year].append(month)
+            except KeyError:
+                dataset_intervals[dataset_name][doc_type][year] = [month]
+
+    datasets_to_remove = []
+    for dataset in dataset_intervals:
+        if not dataset_intervals[dataset]["posts"].keys() and \
+           not dataset_intervals[dataset]["comments"].keys():
+            datasets_to_remove.append(dataset)
+    
+    for dataset in datasets_to_remove:
+        del dataset_intervals[dataset]
+
+    return dataset_intervals
+
+
+def get_torrent_files_by_subreddit(subreddit: str):
+    datasets_directory = DATASETS_DIR
+    return list(map(lambda x: os.path.splitext(x)[0], os.listdir(os.path.join(datasets_directory, f"academic-torrent-{subreddit}"))))
+
+
+    

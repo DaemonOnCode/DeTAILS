@@ -230,7 +230,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                                                 onClick={() =>
                                                     navigate(SHARED_ROUTES.AUTHENTICATED_SETTINGS, {
                                                         state: {
-                                                            from: location.pathname
+                                                            from: `${location.pathname}${location.search}`
                                                         }
                                                     })
                                                 }>

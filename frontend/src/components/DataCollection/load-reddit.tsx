@@ -12,7 +12,7 @@ import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
 import { useLoadingContext } from '../../context/loading-context';
 
-const { ipcRenderer } = window.require('electron');
+const { ipcRenderer, shell } = window.require('electron');
 
 const LoadReddit: FC<{
     processRef: RefObject<{ run: () => Promise<void> } | null>;
@@ -28,7 +28,9 @@ const LoadReddit: FC<{
     // Get query parameters for active tab.
     const [searchParams, setSearchParams] = useSearchParams();
     const queryActiveTab = searchParams.get('activeTab') as 'folder' | 'torrent' | null;
-    const [activeTab, setActiveTab] = useState<'folder' | 'torrent'>(queryActiveTab ?? 'folder');
+    console.log('queryActiveTab', queryActiveTab);
+
+    const [activeTab, setActiveTab] = useState<'folder' | 'torrent'>(queryActiveTab ?? 'torrent');
 
     const [torrentSubreddit, setTorrentSubreddit] = useState('');
     const [torrentStart, setTorrentStart] = useState('');
@@ -39,10 +41,14 @@ const LoadReddit: FC<{
 
     const selectedFilesRef = useRef<{ getFiles: () => [string, string[]] } | null>(null);
 
+    const handleExternelLink = () => {
+        shell.openExternal('https://git.uwaterloo.ca/jrwallace/PASS');
+    };
     useEffect(() => {
         // On mount, ensure the activeTab query parameter is set.
         if (!queryActiveTab) {
-            searchParams.set('activeTab', activeTab);
+            searchParams.set('activeTab', modeInput.split(':')[1]);
+            console.log('setting active tab', activeTab, searchParams.toString());
             setSearchParams(searchParams);
         }
         return () => {
@@ -54,6 +60,7 @@ const LoadReddit: FC<{
     }, []);
 
     useEffect(() => {
+        console.log('modeInput', modeInput);
         if (modeInput) {
             const splits = modeInput.split(':');
             if (splits.length >= 2) {
@@ -122,6 +129,7 @@ const LoadReddit: FC<{
     const updateActiveTab = (tab: 'folder' | 'torrent') => {
         setActiveTab(tab);
         searchParams.set('activeTab', tab);
+        console.log('setting active tab', tab, searchParams.toString());
         setSearchParams(searchParams);
     };
 
@@ -131,15 +139,6 @@ const LoadReddit: FC<{
             <header className="p-4 border-b flex space-x-4" id="reddit-dataset-tabs">
                 <button
                     className={`px-4 py-2 rounded ${
-                        activeTab === 'folder'
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-200 text-gray-700'
-                    }`}
-                    onClick={() => updateActiveTab('folder')}>
-                    Local Folder
-                </button>
-                <button
-                    className={`px-4 py-2 rounded ${
                         activeTab === 'torrent'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 text-gray-700'
@@ -147,12 +146,30 @@ const LoadReddit: FC<{
                     onClick={() => updateActiveTab('torrent')}>
                     Torrent
                 </button>
+                <button
+                    className={`px-4 py-2 rounded ${
+                        activeTab === 'folder'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-200 text-gray-700'
+                    }`}
+                    onClick={() => updateActiveTab('folder')}>
+                    Local Folder
+                </button>
             </header>
 
             {/* Main content area */}
             <main className="flex-1 min-h-0 overflow-auto p-4" id="reddit-dataset-main">
                 {activeTab === 'folder' && (
                     <div>
+                        <p className="mb-4">
+                            Follow instructions at{' '}
+                            <span
+                                className="text-blue-500 underline cursor-pointer"
+                                onClick={handleExternelLink}>
+                                PASS
+                            </span>{' '}
+                            to create dataset for DeTAILS
+                        </p>
                         <button
                             onClick={async () => {
                                 let folderPath = await ipcRenderer.invoke('select-folder-reddit');

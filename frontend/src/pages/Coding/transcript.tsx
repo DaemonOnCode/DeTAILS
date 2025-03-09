@@ -46,6 +46,8 @@ const TranscriptPage = () => {
 
     const { datasetId } = useCollectionContext();
 
+    const allClearedToLeaveRef = useRef<{ check: boolean } | null>(null);
+
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
 
@@ -529,6 +531,26 @@ const TranscriptPage = () => {
     //     )
     // );
 
+    const componentRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (
+                !allClearedToLeaveRef.current?.check &&
+                !componentRef.current?.contains(e.target as Node)
+            ) {
+                e.preventDefault();
+                e.stopPropagation();
+                alert('Check if all explanations are complete to leave the page');
+            }
+        };
+
+        document.addEventListener('click', handleClickOutside, true);
+        return () => {
+            document.removeEventListener('click', handleClickOutside, true);
+        };
+    }, []);
+
     const [post, setPost] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [showCodebook, setShowCodebook] = useState(false);
@@ -671,11 +693,11 @@ const TranscriptPage = () => {
         }
     ];
 
-    console.log('TranscriptPage -> tutorialSteps', tutorialSteps);
-
     return (
-        <TutorialWrapper steps={tutorialSteps} pageId={`${location.pathname}${location.search}`}>
-            <main className="h-screen flex flex-col -m-6" id="transcript-main">
+        <TutorialWrapper
+            steps={tutorialSteps}
+            pageId={`/coding/transcript?review=${state === 'review'}`}>
+            <main className="h-screen flex flex-col -m-6" id="transcript-main" ref={componentRef}>
                 {/* {splitIsTrue ? (
                 <div className="flex justify-center p-3">
                     <button className="bg-blue-500 text-white rounded px-4 py-2">Split View</button>
@@ -783,6 +805,7 @@ const TranscriptPage = () => {
                                             }>
                                             <PostTranscript
                                                 post={post}
+                                                clearedToLeaveRef={allClearedToLeaveRef}
                                                 onBack={() =>
                                                     (
                                                         currentConfig?.backFunction ??
@@ -848,6 +871,7 @@ const TranscriptPage = () => {
                                     }>
                                     <PostTranscript
                                         post={post}
+                                        clearedToLeaveRef={allClearedToLeaveRef}
                                         _selectionRef={bottomSelectionRef}
                                         onBack={() =>
                                             (currentConfig?.backFunction ?? window.history.back)()

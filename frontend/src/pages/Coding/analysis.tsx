@@ -12,6 +12,7 @@ import CodeView from '../../components/Coding/Analysis/code-view';
 import { downloadCodebook } from '../../utility/codebook-downloader';
 import { groupByCode, groupByPostId } from '../../utility/group-items';
 import { getGroupedCodeOfSubCode, getThemeByCode } from '../../utility/theme-finder';
+import { toast } from 'react-toastify';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -99,8 +100,13 @@ const FinalPage = () => {
     const groupedByCode = useMemo(() => groupByCode(finalCodeResponses), [finalCodeResponses]);
     const allCodes = Object.keys(groupedByCode);
 
-    const handleDownloadCodebook = () => {
-        downloadCodebook(finalCodeResponses);
+    const handleDownloadCodebook = async () => {
+        const success = await downloadCodebook(finalCodeResponses);
+        if (success) {
+            toast.success('Codebook downloaded successfully');
+        } else {
+            toast.error('Download cancelled or failed');
+        }
     };
 
     // If no data

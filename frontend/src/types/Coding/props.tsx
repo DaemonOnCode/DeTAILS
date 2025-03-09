@@ -1,4 +1,4 @@
-import { Dispatch, MutableRefObject } from 'react';
+import { Dispatch, MutableRefObject, RefObject } from 'react';
 import {
     Comments,
     ContentAreaTabs,
@@ -221,6 +221,7 @@ export type PostTranscriptProps = {
     setIsEditHighlightModalOpen: SetState<boolean>;
     isDeleteHighlightModalOpen: boolean;
     setDeleteIsHighlightModalOpen: SetState<boolean>;
+    clearedToLeaveRef: RefObject<{ check: boolean } | null>;
 };
 
 export interface CodeViewProps {

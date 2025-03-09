@@ -1,7 +1,13 @@
-export function downloadCodebook(filteredData: any[], fileName?: string) {
+export async function downloadCodebook(
+    filteredData: any[],
+    fileName?: string,
+    _window: any = window
+) {
     if (!filteredData.length) {
-        return;
+        return false;
     }
+
+    // Build CSV rows
     const headers = ['Post ID', 'Sentence', 'Coded Word', 'Theme', 'Type'];
     const csvRows = [headers.join(',')];
 
@@ -26,12 +32,38 @@ export function downloadCodebook(filteredData: any[], fileName?: string) {
     });
 
     const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName ?? 'codebook.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+    // Use the File System Access API if available
+    if (_window.showSaveFilePicker) {
+        try {
+            const options = {
+                suggestedName: fileName ?? 'codebook.csv',
+                types: [
+                    {
+                        description: 'CSV Files',
+                        accept: { 'text/csv': ['.csv'] }
+                    }
+                ]
+            };
+            const handle = await _window.showSaveFilePicker(options);
+            const writable = await handle.createWritable();
+            await writable.write(csvContent);
+            await writable.close();
+            return true;
+        } catch (error) {
+            console.error('File save cancelled or failed', error);
+            return false;
+        }
+    } else {
+        // Fallback: trigger a download via a hidden link.
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName ?? 'codebook.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+        // Note: this fallback cannot reliably tell if the user saved or cancelled.
+        return true;
+    }
 }

@@ -327,8 +327,8 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             style={{
                 width: '100%',
                 maxWidth: '100vw',
-                height: 'calc(100vh - 7rem)',
-                maxHeight: 'calc(100vh - 7rem)',
+                height: 'calc(100vh - 11rem)',
+                maxHeight: 'calc(100vh - 11rem)',
                 margin: '0 auto'
             }}>
             {/* Editing Modal */}

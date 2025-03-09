@@ -72,6 +72,7 @@ const KeywordsTablePage: FC = () => {
         const result = await saveCSV(ipcRenderer, keywordTable, 'KeywordTable');
         console.log(result);
         setSaving(false);
+        toast.success('Keyword Table saved as CSV');
         await logger.info('KeywordTable saved as CSV');
     };
 
@@ -81,6 +82,7 @@ const KeywordsTablePage: FC = () => {
         const result = await saveExcel(ipcRenderer, keywordTable, 'KeywordTable');
         console.log(result);
         setSaving(false);
+        toast.success('Keyword Table saved as Excel');
         await logger.info('KeywordTable saved as Excel');
     };
 

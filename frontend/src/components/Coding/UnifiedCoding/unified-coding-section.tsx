@@ -8,6 +8,7 @@ import LeftPanel from './left-panel';
 import ReviewToggle from './review-toggle';
 import ValidationTable from './validation-table';
 import { DetailsLLMIcon } from '../../Shared/Icons';
+import { toast } from 'react-toastify';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
@@ -208,7 +209,14 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                         className="flex justify-evenly items-center px-6 py-4">
                         {download && (
                             <button
-                                onClick={() => downloadCodebook(filteredData)}
+                                onClick={async () => {
+                                    const success = await downloadCodebook(filteredData);
+                                    if (success) {
+                                        toast.success('Codebook downloaded successfully');
+                                    } else {
+                                        toast.error('Download cancelled or failed');
+                                    }
+                                }}
                                 className="px-4 py-2 bg-green-500 text-white rounded">
                                 Download Codebook
                             </button>

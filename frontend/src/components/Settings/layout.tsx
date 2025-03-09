@@ -32,10 +32,10 @@ const SettingsLayout = ({
     }, []);
 
     const tabs = {
-        general: <GeneralSettingsPage />,
-        workspace: <WorkspaceSettingsPage />,
+        // general: <GeneralSettingsPage />,
+        // workspace: <WorkspaceSettingsPage />,
         ai: <AiSettingsPage />,
-        devtools: <DevtoolsSettingsPage />,
+        // devtools: <DevtoolsSettingsPage />,
         tutorials: <TutorialSettingsPage />,
         transmission: <TransmissionSettings />
     };
@@ -44,7 +44,7 @@ const SettingsLayout = ({
 
     // Parse query params to get the current tab.
     const queryParams = new URLSearchParams(location.search);
-    const currentTab: Tab = (queryParams.get('tab') as Tab) ?? 'general';
+    const currentTab: Tab = (queryParams.get('tab') as Tab) ?? Object.keys(tabs)[0];
 
     // Helper to change the tab in the URL.
     const handleTabChange = (newTab: Tab) => {

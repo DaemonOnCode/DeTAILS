@@ -55,9 +55,10 @@ const TorrentSelectionPanel: React.FC<{
 
         if (isAnyFileSelected && activeSubreddit) {
             setModeInput(`reddit:torrent:${activeSubreddit}:files`);
-        } else {
-            setModeInput('');
         }
+        // else {
+        //     setModeInput((prev) => prev!=='' ? prev : '');
+        // }
     }, [selected, activeSubreddit, setModeInput]);
 
     useImperativeHandle(

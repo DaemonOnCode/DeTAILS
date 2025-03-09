@@ -78,13 +78,13 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     const agreedCodes = useMemo(
         () =>
             codeSet.filter((code) => conflictingCodes.every((conflict) => conflict.code !== code)),
-        [codeSet, conflictingCodes]
+        [codeSet, conflictingCodes, codeResponses]
     );
 
     return (
         <div className="space-y-6" id="transcript-metadata">
             <div>
-                <h3 className="text-lg font-bold mb-2">Codes</h3>
+                <h3 className="text-lg font-bold mb-2">Sub codes</h3>
                 <ul className="space-y-2">
                     {(hoveredCodeText || agreedCodes).map((code, index) => (
                         <li

@@ -150,6 +150,7 @@ I need a refined list of 5 keywords based on the following research inputs:
 
 Instructions:
 - Modify existing keywords based on feedback.
+- Generate keywords consisting 1-3 words only.
 - Adjust descriptions, inclusion, and exclusion criteria.
 - REMOVE any keywords related to unselected themes.
 - Keep JSON format strict.
