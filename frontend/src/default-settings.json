@@ -25,6 +25,7 @@
         "hasRun": false
     },
     "transmission": {
-        "path": ""
+        "path": "",
+        "downloadDir": ""
     }
 }

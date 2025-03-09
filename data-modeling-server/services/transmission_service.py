@@ -34,19 +34,26 @@ def get_transmission_cmd():
     If provided and non-empty and valid, returns the custom command.
     If the path is empty or only whitespace, writes the default path into the settings file
     and returns the default command.
+    Also checks for a custom download directory; if empty, writes a default download directory.
     """
     settings_path = PATHS.get("settings")
     default_cmd = get_default_transmission_cmd()
     default_path = default_cmd[0]
+    print("Default transmission command:", default_cmd)
     if settings_path and os.path.exists(settings_path):
         try:
             with open(settings_path, "r") as f:
                 data = json.load(f)
             transmission_config = data.get("transmission", {})
             custom_path = transmission_config.get("path", "")
+            download_dir = transmission_config.get("downloadDir", "")
+            # If the transmission path is empty, update with default path.
             if not custom_path.strip():
-                # Write the default path to settings file.
                 transmission_config["path"] = default_path
+                # If downloadDir is also empty, set default download directory.
+                if not download_dir.strip():
+                    default_download_dir = PATHS["transmission"]
+                    transmission_config["downloadDir"] = default_download_dir
                 data["transmission"] = transmission_config
                 with open(settings_path, "w") as f:
                     json.dump(data, f, indent=4)
@@ -54,10 +61,20 @@ def get_transmission_cmd():
                 return default_cmd
             else:
                 if os.path.exists(custom_path):
+                    # If the custom download directory is empty, update it.
+                    if not download_dir.strip():
+                        default_download_dir = PATHS["transmission"]
+                        transmission_config["downloadDir"] = default_download_dir
+                        data["transmission"] = transmission_config
+                        with open(settings_path, "w") as f:
+                            json.dump(data, f, indent=4)
                     return [custom_path, "--foreground"]
                 else:
                     print("Custom transmission path provided but invalid; updating with default path.")
                     transmission_config["path"] = default_path
+                    if not download_dir.strip():
+                        default_download_dir = PATHS["transmission"]
+                        transmission_config["downloadDir"] = default_download_dir
                     data["transmission"] = transmission_config
                     with open(settings_path, "w") as f:
                         json.dump(data, f, indent=4)

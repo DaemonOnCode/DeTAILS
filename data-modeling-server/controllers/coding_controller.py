@@ -298,3 +298,18 @@ async def process_llm_task(
 
 #     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 #     print(parsed_keywords)
+
+
+def filter_codes_by_transcript(codes: list[dict], transcript: str) -> list[dict]:
+    filtered_codes = []
+    # For case-insensitive matching, lower both the transcript and the quote.
+    transcript_lower = transcript.lower()
+    for code in codes:
+        quote = code.get("quote", "").strip()
+        # Check if quote is not empty and exists in transcript.
+        # For case-insensitive check, compare lower-case versions.
+        if quote and quote.lower() in transcript_lower:
+            filtered_codes.append(code)
+        else:
+            print(f"Filtered out code entry, quote not found in transcript: {quote}")
+    return filtered_codes

@@ -8,7 +8,13 @@ import React, {
     useEffect
 } from 'react';
 import { ILayout } from '../types/Coding/shared';
-import { ILoadingState, ILoadingContext, LoadingAction, StepHandle } from '../types/Shared';
+import {
+    ILoadingState,
+    ILoadingContext,
+    LoadingAction,
+    StepHandle,
+    ModalCallbacks
+} from '../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
 import { ROUTES } from '../constants/Coding/shared';
 import { loadingReducer } from '../reducers/loading';
@@ -20,7 +26,10 @@ const LoadingContext = createContext<ILoadingContext>({
     registerStepRef: () => {},
     resetDataAfterPage: () => Promise.resolve(),
     checkIfDataExists: () => false,
-    requestArrayRef: { current: {} }
+    requestArrayRef: { current: {} },
+    showProceedConfirmModal: false,
+    setShowProceedConfirmModal: () => {},
+    openModal: (_id: string, _callback: (e: React.MouseEvent) => void | Promise<void>) => {}
 });
 
 export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
@@ -30,6 +39,38 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         resetStep: () => {},
         checkDataExistence: () => false
     };
+
+    const [modalCallbacks, setModalCallbacks] = useState<ModalCallbacks>({});
+    const [activeModalId, setActiveModalId] = useState<string | null>(null);
+    const [showProceedConfirmModal, setShowProceedConfirmModal] = useState(false);
+
+    const openModal = (id: string, callback: (e: React.MouseEvent) => void) => {
+        setModalCallbacks((prev) => ({ ...prev, [id]: callback }));
+        setActiveModalId(id);
+        setShowProceedConfirmModal(true);
+    };
+
+    // When confirmed, call the callback associated with the active modal ID.
+    const handleConfirmProceed = async (e: React.MouseEvent) => {
+        setShowProceedConfirmModal(false);
+        if (activeModalId && modalCallbacks[activeModalId]) {
+            const result = modalCallbacks[activeModalId](e);
+            if (result !== undefined && typeof result.then === 'function') {
+                await result;
+            }
+        }
+        // Remove the callback for the active modal ID.
+        setModalCallbacks((prev) => {
+            const { [activeModalId as string]: _, ...rest } = prev;
+            return rest;
+        });
+        setActiveModalId(null);
+    };
+
+    const handleCancelProceed = () => {
+        setShowProceedConfirmModal(false);
+    };
+
     const requestArrayRef = useRef<Record<string, ((...e: any) => void)[]> | null>({});
     const initialPageState: ILoadingState = {
         [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`]: {
@@ -169,6 +210,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
                     console.log('Aborting request:', route);
                     abort();
                 });
+                requestArrayRef.current[route] = [];
             }
         }
     };
@@ -180,11 +222,16 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         if (location.pathname === `/${SHARED_ROUTES.WORKSPACE}`) {
             console.log('Aborting requests:', requestArrayRef.current);
             if (!requestArrayRef.current) return;
-            Object.values(requestArrayRef.current).forEach((abortArray) => {
+            Object.entries(requestArrayRef.current).forEach(([route, abortArray]) => {
+                if (route === `/${SHARED_ROUTES.WORKSPACE}`) return;
                 abortArray.forEach((abort) => {
                     abort(new Error('Operation cancelled: Moved out of workspace'));
                 });
             });
+
+            for (const route in requestArrayRef.current) {
+                requestArrayRef.current[route] = [];
+            }
         }
         // };
     }, [location.pathname]);
@@ -197,12 +244,41 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             registerStepRef,
             resetDataAfterPage,
             checkIfDataExists,
+            showProceedConfirmModal,
+            setShowProceedConfirmModal,
+            openModal,
             requestArrayRef
         }),
-        [loadingState]
+        [loadingState, showProceedConfirmModal]
     );
 
-    return <LoadingContext.Provider value={value}>{children}</LoadingContext.Provider>;
+    return (
+        <LoadingContext.Provider value={value}>
+            {children}
+            {showProceedConfirmModal && (
+                <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                        <h2 className="text-xl font-bold mb-4">Confirm Proceed</h2>
+                        <p className="mb-4">
+                            Proceeding will remove unsaved data. Are you sure you want to continue?
+                        </p>
+                        <div className="flex justify-end">
+                            <button
+                                onClick={handleCancelProceed}
+                                className="mr-4 bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={(e) => handleConfirmProceed(e)}
+                                className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">
+                                Yes, Proceed
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </LoadingContext.Provider>
+    );
 };
 
 export const useLoadingContext = () => useContext(LoadingContext);

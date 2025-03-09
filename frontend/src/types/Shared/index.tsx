@@ -199,4 +199,11 @@ export interface ILoadingContext {
     resetDataAfterPage: (page: string) => Promise<void>;
     checkIfDataExists: (page: string) => boolean;
     requestArrayRef: RefObject<Record<string, ((...e: any) => void)[]> | null>;
+    showProceedConfirmModal: boolean;
+    setShowProceedConfirmModal: SetState<boolean>;
+    openModal: (_id: string, _callback: (e: React.MouseEvent) => void | Promise<void>) => void;
+}
+
+export interface ModalCallbacks {
+    [id: string]: (e: React.MouseEvent) => void | Promise<void>;
 }

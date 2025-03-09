@@ -47,7 +47,8 @@ const CodebookCreation = () => {
     const { datasetId } = useCollectionContext();
     const { fetchData } = useApi();
 
-    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
+    const { loadingState, loadingDispatch, checkIfDataExists, resetDataAfterPage, openModal } =
+        useLoadingContext();
     const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
@@ -244,7 +245,16 @@ const CodebookCreation = () => {
                         review={reviewParam}
                         showCoderType={false}
                         showRerunCoding
-                        handleRerun={handleRedoCoding}
+                        handleRerun={() => {
+                            if (checkIfDataExists(location.pathname)) {
+                                openModal('codebook-redo', async () => {
+                                    await resetDataAfterPage(location.pathname);
+                                    await handleRedoCoding();
+                                });
+                            } else {
+                                handleRedoCoding();
+                            }
+                        }}
                     />
                     {/* </div> */}
                 </div>

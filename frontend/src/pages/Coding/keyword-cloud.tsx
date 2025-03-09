@@ -65,7 +65,8 @@ const KeywordCloudPage: FC = () => {
     const { fetchData } = useApi();
     const hasSavedRef = useRef(false);
 
-    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
+    const { loadingState, loadingDispatch, openModal, checkIfDataExists, resetDataAfterPage } =
+        useLoadingContext();
     const stepRoute = location.pathname;
 
     // useImperativeHandle(
@@ -126,7 +127,14 @@ const KeywordCloudPage: FC = () => {
         setFeedback('');
         setIsFeedbackOpen(false); // Close the modal
 
-        refreshKeywordCloud();
+        if (checkIfDataExists(location.pathname)) {
+            openModal('keyword-feedback-submitted', async () => {
+                await resetDataAfterPage(location.pathname);
+                await refreshKeywordCloud();
+            });
+        } else {
+            refreshKeywordCloud();
+        }
     };
 
     const refreshKeywordCloud = async () => {
@@ -136,6 +144,7 @@ const KeywordCloudPage: FC = () => {
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
+
         const { data: results, error } = await fetchData<{
             message: string;
             keywords: {

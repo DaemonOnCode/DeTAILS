@@ -46,7 +46,8 @@ const DeductiveCodingPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { fetchData } = useApi();
 
-    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
+    const { loadingState, loadingDispatch, openModal, resetDataAfterPage, checkIfDataExists } =
+        useLoadingContext();
     const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
@@ -246,7 +247,16 @@ const DeductiveCodingPage = () => {
                         showFilterDropdown
                         applyFilters
                         coderType="LLM"
-                        handleRerun={handleRedoCoding}
+                        handleRerun={() => {
+                            if (checkIfDataExists(location.pathname)) {
+                                openModal('deductive-coding-redo', async () => {
+                                    await resetDataAfterPage(location.pathname);
+                                    await handleRedoCoding();
+                                });
+                            } else {
+                                handleRedoCoding();
+                            }
+                        }}
                     />
                 </div>
                 <NavigationBottomBar

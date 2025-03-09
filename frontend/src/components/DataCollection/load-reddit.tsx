@@ -6,7 +6,7 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import TorrentDataTab from '../../components/DataCollection/load-torrent-data';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
@@ -18,6 +18,7 @@ const { ipcRenderer, shell } = window.require('electron');
 const LoadReddit: FC<{
     processRef: RefObject<{ run: () => Promise<void> } | null>;
 }> = ({ processRef }) => {
+    const location = useLocation();
     const { modeInput, setModeInput, metadata, metadataDispatch, type, datasetId } =
         useCollectionContext();
     const { data, loadFolderData, loadTorrentData, error, handleLoadTorrentFromFiles, loading } =
@@ -25,7 +26,8 @@ const LoadReddit: FC<{
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
     const navigate = useNavigate();
-    const { loadingDispatch } = useLoadingContext();
+    const { loadingDispatch, resetDataAfterPage, openModal, checkIfDataExists } =
+        useLoadingContext();
     // Get query parameters for active tab.
     const [searchParams, setSearchParams] = useSearchParams();
     const queryActiveTab = searchParams.get('activeTab') as 'folder' | 'torrent' | null;
@@ -33,11 +35,14 @@ const LoadReddit: FC<{
 
     const [activeTab, setActiveTab] = useState<'folder' | 'torrent'>(queryActiveTab ?? 'torrent');
 
-    const [torrentSubreddit, setTorrentSubreddit] = useState('');
-    const [torrentStart, setTorrentStart] = useState(TORRENT_START_DATE);
-    const [torrentEnd, setTorrentEnd] = useState(TORRENT_END_DATE);
+    const modeSplits = modeInput.split(':')[1] === 'files' && modeInput.split(':');
+    const [torrentSubreddit, setTorrentSubreddit] = useState(modeSplits ? modeSplits[2] : '');
+    const [torrentStart, setTorrentStart] = useState(
+        modeSplits ? modeSplits[3] : TORRENT_START_DATE
+    );
+    const [torrentEnd, setTorrentEnd] = useState(modeSplits ? modeSplits[4] : TORRENT_END_DATE);
     const [torrentMode, setTorrentMode] = useState<'posts' | 'postsAndComments'>(
-        'postsAndComments'
+        modeSplits ? (modeSplits[5] === 'false' ? 'posts' : 'postsAndComments') : 'postsAndComments'
     );
 
     const selectedFilesRef = useRef<{ getFiles: () => [string, string[]] } | null>(null);
@@ -176,8 +181,18 @@ const LoadReddit: FC<{
                         </p>
                         <button
                             onClick={async () => {
-                                let folderPath = await ipcRenderer.invoke('select-folder-reddit');
-                                setModeInput(`reddit:upload:${folderPath}`);
+                                if (checkIfDataExists(location.pathname)) {
+                                    openModal('deductive-coding-redo', async () => {
+                                        await resetDataAfterPage(location.pathname);
+                                        let folderPath =
+                                            await ipcRenderer.invoke('select-folder-reddit');
+                                        setModeInput(`reddit:upload:${folderPath}`);
+                                    });
+                                } else {
+                                    let folderPath =
+                                        await ipcRenderer.invoke('select-folder-reddit');
+                                    setModeInput(`reddit:upload:${folderPath}`);
+                                }
                             }}
                             className="p-2 border border-gray-300 rounded w-96 mb-4">
                             Select Folder
@@ -201,7 +216,16 @@ const LoadReddit: FC<{
                         setTorrentEnd={setTorrentEnd}
                         torrentMode={torrentMode}
                         setTorrentMode={setTorrentMode}
-                        handleLoadTorrent={handleLoadTorrent}
+                        handleLoadTorrent={async () => {
+                            if (checkIfDataExists(location.pathname)) {
+                                openModal('load-reddit-torrent', async () => {
+                                    await resetDataAfterPage(location.pathname);
+                                    await handleLoadTorrent();
+                                });
+                            } else {
+                                await handleLoadTorrent();
+                            }
+                        }}
                     />
                 )}
             </main>

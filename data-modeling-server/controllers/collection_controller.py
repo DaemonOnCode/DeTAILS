@@ -30,13 +30,23 @@ pipeline_repo = PipelineStepsRepository()
 file_repo = FileStatusRepository()
 progress_repo = TorrentDownloadProgressRepository()
 
-TRANSMISSION_DOWNLOAD_DIR_ABS = PATHS["transmission"]
+def get_current_download_dir():
+    with open(PATHS["settings"], "r") as f:
+        settings = json.load(f)
+        print(settings)
+        if settings["transmission"]["downloadDir"] == "" :
+            settings["transmission"]["downloadDir"] = PATHS["transmission"]
+            with open(PATHS["settings"], "w") as f:
+                json.dump(settings, f, indent=4)
+        return settings["transmission"]["downloadDir"]
+
 
 def normalize_file_key(file_key: str) -> str:
     """
     If the file_key is an absolute path that starts with TRANSMISSION_DOWNLOAD_DIR,
     convert it to a relative path; otherwise, return the key unchanged.
     """
+    TRANSMISSION_DOWNLOAD_DIR_ABS = get_current_download_dir()
     if file_key.startswith(TRANSMISSION_DOWNLOAD_DIR_ABS):
         return os.path.relpath(file_key, TRANSMISSION_DOWNLOAD_DIR_ABS)
     return file_key
@@ -781,7 +791,7 @@ async def get_reddit_data_from_torrent(
     end_month: str = "2023-12",
     submissions_only: bool = True,
 ):
-    TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = os.path.abspath(PATHS["transmission"])
+    TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = get_current_download_dir()
     torrent_hash_string = ACADEMIC_TORRENT_MAGNET.split("btih:")[1].split("&")[0]
     
     c = Client(host="localhost", port=9091, username="transmission", password="password")
@@ -909,6 +919,3 @@ def get_all_torrent_data():
 def get_torrent_files_by_subreddit(subreddit: str):
     datasets_directory = DATASETS_DIR
     return list(map(lambda x: os.path.splitext(x)[0], os.listdir(os.path.join(datasets_directory, f"academic-torrent-{subreddit}"))))
-
-
-    

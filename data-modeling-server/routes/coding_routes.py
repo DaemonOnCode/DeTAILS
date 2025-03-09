@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 import numpy as np
 
 from config import Settings
-from controllers.coding_controller import get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
+from controllers.coding_controller import filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
 from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
 from routes.websocket_routes import manager
@@ -190,6 +190,7 @@ async def generate_codes_endpoint(request: Request,
                 code["postId"] = post_id
                 code["id"] = str(uuid4())
 
+            codes = filter_codes_by_transcript(codes, transcript)
             return codes
 
         except Exception as e:
@@ -316,6 +317,7 @@ async def deductive_coding_endpoint(
             code["postId"] = post_id
             code["id"] = str(uuid4())
 
+        codes = filter_codes_by_transcript(codes, transcript)
         return codes
 
     batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
@@ -494,6 +496,8 @@ async def generate_codes_endpoint(request: Request,
                 code["postId"] = post_id
                 code["id"] = str(uuid4())
 
+            codes = filter_codes_by_transcript(codes, transcript)
+
             return codes
 
         except Exception as e:
@@ -573,6 +577,7 @@ async def redo_deductive_coding_endpoint(
             code["postId"] = post_id
             code["id"] = str(uuid4())
 
+        codes = filter_codes_by_transcript(codes, transcript)
         return codes
 
     batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]

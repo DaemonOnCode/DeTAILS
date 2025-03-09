@@ -32,6 +32,7 @@ export interface ISettingsConfig {
     };
     transmission: {
         path: string;
+        downloadDir: string;
     };
 }
 

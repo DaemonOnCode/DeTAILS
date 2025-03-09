@@ -37,7 +37,8 @@ const ThemesPage = () => {
     } = useCodingContext();
     const location = useLocation();
 
-    const { loadingState, registerStepRef, loadingDispatch } = useLoadingContext();
+    const { loadingState, openModal, resetDataAfterPage, checkIfDataExists, loadingDispatch } =
+        useLoadingContext();
     const { datasetId } = useCollectionContext();
     const { settings } = useSettings();
     const navigate = useNavigate();
@@ -314,7 +315,16 @@ const ThemesPage = () => {
                         </button>
                         <button
                             id="refresh-themes-button"
-                            onClick={handleRefreshThemes}
+                            onClick={() => {
+                                if (checkIfDataExists(location.pathname)) {
+                                    openModal('refresh-themes-submitted', async () => {
+                                        await resetDataAfterPage(location.pathname);
+                                        await handleRefreshThemes();
+                                    });
+                                } else {
+                                    handleRefreshThemes();
+                                }
+                            }}
                             className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
                             <DetailsLLMIcon className="h-6 w-6" />
                             Refresh Themes
