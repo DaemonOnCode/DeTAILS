@@ -774,6 +774,7 @@ async def process_single_file(
     finally:
         c.stop_torrent(torrent.id)
         if os.path.exists(file_path_zst):
+            print(f"Removing file {file_path_zst}")
             os.remove(file_path_zst)
 
     await asyncio.sleep(1)

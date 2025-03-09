@@ -158,7 +158,11 @@ export function baseResponseHandler<T>(
                 response.postId === action.postId &&
                 response.quote === action.sentence &&
                 response.code === action.code
-                    ? { ...response, quote: action.newSentence }
+                    ? {
+                          ...response,
+                          quote: action.newSentence,
+                          rangeMarker: action.rangeMarker ?? undefined
+                      }
                     : response
             );
         case 'SET_CHAT_HISTORY':
@@ -188,6 +192,14 @@ export function baseResponseHandler<T>(
             return state.map((response: any) =>
                 response.quote === action.quote && response.code === action.prevCode
                     ? { ...response, code: action.newCode }
+                    : response
+            );
+        case 'UPSERT_MARKER':
+            return state.map((response: any) =>
+                response.code === action.code &&
+                response.quote === action.quote &&
+                response.postId === action.postId
+                    ? { ...response, rangeMarker: action.rangeMarker }
                     : response
             );
         case 'RESET':
@@ -223,6 +235,8 @@ export const sampleDataResponseReducer = (
         case 'SET_CHAT_HISTORY':
         case 'UPDATE_CODE':
         case 'RESET':
+        case 'UPSERT_MARKER':
+        case 'RERUN_CODING':
             let baseData = baseResponseHandler(state, action, {});
             console.log('Base Data:', baseData, state);
             return baseData;
@@ -256,6 +270,7 @@ export const sampleDataWithThemeResponseReducer = (
         case 'EDIT_HIGHLIGHT':
         case 'SET_CHAT_HISTORY':
         case 'RESET':
+        case 'UPSERT_MARKER':
             return baseResponseHandler(state, action, {});
         case 'UPDATE_THEMES':
             console.log('Themes:', action.themes);
@@ -298,6 +313,7 @@ export const unseenDataResponseReducer = (
         case 'SET_CHAT_HISTORY':
         case 'UPDATE_CODE':
         case 'RESET':
+        case 'UPSERT_MARKER':
             return baseResponseHandler(state, action, {});
 
         default:

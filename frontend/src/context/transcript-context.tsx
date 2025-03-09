@@ -96,6 +96,21 @@ interface ITranscriptContext {
     // Refs for DOM access
     selectionRangeRef: MutableRefObject<Range | null>;
     containerRef: RefObject<HTMLDivElement>;
+    selectedTextMarker:
+        | {
+              itemId: string;
+              quote: string;
+              range: [number, number];
+          }[]
+        | null;
+    setSelectedTextMarker: SetState<
+        | {
+              itemId: string;
+              quote: string;
+              range: [number, number];
+          }[]
+        | null
+    >;
 }
 
 const TranscriptContext = createContext<ITranscriptContext>({
@@ -133,7 +148,9 @@ const TranscriptContext = createContext<ITranscriptContext>({
         codeColors: {}
     }),
     selectionRangeRef: { current: null },
-    containerRef: { current: null }
+    containerRef: { current: null },
+    selectedTextMarker: null,
+    setSelectedTextMarker: () => {}
 });
 
 export const TranscriptContextProvider: FC<{
@@ -156,7 +173,7 @@ export const TranscriptContextProvider: FC<{
 
     const codes = codeResponses
         .filter((r) => r.postId === postId)
-        .map((r) => ({ text: r.quote, code: r.code }));
+        .map((r) => ({ text: r.quote, code: r.code, rangeMarker: r.rangeMarker }));
 
     console.log(
         'All responses:',
@@ -194,6 +211,14 @@ export const TranscriptContextProvider: FC<{
     const [hoveredCodeText, setHoveredCodeText] = useState<string[] | null>(null);
     const [additionalCodes, setAdditionalCodes] = useState<string[]>([]);
     const [switchModalOn, setSwitchModalOn] = useState(false);
+    const [selectedTextMarker, setSelectedTextMarker] = useState<
+        | {
+              itemId: string;
+              quote: string;
+              range: [number, number];
+          }[]
+        | null
+    >(null);
 
     const [chatHistories, setChatHistories] =
         useState<Record<string, ChatMessage[]>>(gatherChatHistory());
@@ -262,15 +287,68 @@ export const TranscriptContextProvider: FC<{
             console.log('No selection found or empty range.');
             return;
         }
-        const range: Range = selection.getRangeAt(0);
-        selectionRangeRef.current = range;
-        _selectionRef.current = range;
-        const selectedText: string = selection.toString().trim();
-        console.log('Selected text:', selectedText);
-        if (!selectedText) return;
+        const selectionRange: Range = selection.getRangeAt(0);
+        selectionRangeRef.current = selectionRange;
+        _selectionRef.current = selectionRange;
+        // Get the selected text (quote).
+        const overallSelectedText: string = selection.toString().trim();
+        console.log('Overall selected text (quote):', overallSelectedText);
+        if (!overallSelectedText) return;
 
-        setSelectedText(selectedText);
+        // Use a known container for the transcript.
+        const container = document.getElementById('transcript-container');
+        if (!container) {
+            console.log('Transcript container not found.');
+            return;
+        }
 
+        // Query all spans with a data-segment-id inside the container.
+        const spans = container.querySelectorAll('span[data-segment-id]');
+        const segmentsInfo: {
+            range: [number, number];
+            itemId: string;
+            quote: string;
+        }[] = [];
+
+        spans.forEach((span) => {
+            // Check if the selection range intersects this span.
+            if (selectionRange.intersectsNode(span)) {
+                const segId = span.getAttribute('data-segment-id') || '';
+                const quote = span.textContent?.trim() || '';
+
+                // Default to the full text of the span.
+                let start = 0;
+                let end = quote.length;
+
+                // If the selection starts inside this span, adjust the start offset.
+                if (span.contains(selectionRange.startContainer)) {
+                    if (selectionRange.startContainer.nodeType === Node.TEXT_NODE) {
+                        // This assumes the text node is a direct child of the span.
+                        start = selectionRange.startOffset;
+                    }
+                }
+
+                // If the selection ends inside this span, adjust the end offset.
+                if (span.contains(selectionRange.endContainer)) {
+                    if (selectionRange.endContainer.nodeType === Node.TEXT_NODE) {
+                        end = selectionRange.endOffset;
+                    }
+                }
+
+                segmentsInfo.push({
+                    range: [start, end],
+                    itemId: segId,
+                    quote: quote
+                });
+            }
+        });
+
+        console.log('Segments Info:', segmentsInfo);
+
+        // Optionally update state: for example, concatenate all segment quotes.
+        setSelectedText(overallSelectedText);
+
+        setSelectedTextMarker(segmentsInfo);
         // let commonAncestor: HTMLElement;
         // if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
         //     commonAncestor = range.commonAncestorContainer as HTMLElement;
@@ -637,7 +715,9 @@ export const TranscriptContextProvider: FC<{
             // splitIntoSegments,
             processTranscript,
             selectionRangeRef,
-            containerRef
+            containerRef,
+            selectedTextMarker,
+            setSelectedTextMarker
         }),
         [
             review,
@@ -653,7 +733,8 @@ export const TranscriptContextProvider: FC<{
             selectedSegment,
             codeResponses,
             // splitIntoSegments,
-            processTranscript
+            processTranscript,
+            selectedTextMarker
         ]
     );
 

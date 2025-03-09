@@ -79,6 +79,11 @@ export interface IQECResponse extends IQECRow {
     isMarked?: boolean;
     comment: string;
     chatHistory?: ChatMessage[];
+    rangeMarker?: {
+        itemId: string;
+        quote: string;
+        range: [number, number];
+    }[];
 }
 
 export interface IQECTRow extends IQECRow {
@@ -89,6 +94,11 @@ export interface IQECTResponse extends IQECTRow {
     isMarked?: boolean;
     comment: string;
     chatHistory?: ChatMessage[];
+    rangeMarker?: {
+        itemId: string;
+        quote: string;
+        range: [number, number];
+    }[];
 }
 
 export interface IQECTTyRow extends IQECTRow {
@@ -99,6 +109,11 @@ export interface IQECTTyResponse extends IQECTTyRow {
     isMarked?: boolean;
     comment: string;
     chatHistory?: ChatMessage[];
+    rangeMarker?: {
+        itemId: string;
+        quote: string;
+        range: [number, number];
+    }[];
 }
 
 export interface IRedditPost {
@@ -295,6 +310,7 @@ export type BaseResponseHandlerActions<T> =
           sentence: string;
           newSentence: string;
           code: string;
+          rangeMarker?: { itemId: string; quote: string; range: [number, number] }[];
       }
     | {
           type: 'SET_CHAT_HISTORY';
@@ -304,7 +320,14 @@ export type BaseResponseHandlerActions<T> =
           chatHistory?: ChatMessage[];
       }
     | { type: 'UPDATE_CODE'; newCode: string; quote: string; prevCode: string }
-    | { type: 'RESET' };
+    | { type: 'RESET' }
+    | {
+          type: 'UPSERT_MARKER';
+          quote: string;
+          rangeMarker: { itemId: string; quote: string; range: [number, number] }[];
+          postId: string;
+          code: string;
+      };
 
 export type SampleDataResponseReducerActions = BaseResponseHandlerActions<IQECResponse>;
 // | { type: 'UPDATE_CODE'; newCode: string; quote: string; prevCode: string };

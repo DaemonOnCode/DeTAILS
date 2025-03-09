@@ -57,7 +57,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         handleSegmentLeave,
         chatHistories,
         switchModalOn,
-        setSwitchModalOn
+        setSwitchModalOn,
+        selectedTextMarker
     } = useTranscriptContext();
 
     const { processedSegments, codeSet, codeColors } = useMemo(
@@ -218,7 +219,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         explanation: reasoning,
                         isMarked: true,
                         comment: '',
-                        theme: 'Some theme'
+                        theme: 'Some theme',
+                        rangeMarker: selectedTextMarker
                     }
                 });
                 break;
@@ -230,7 +232,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     postId: post.id,
                     sentence: extra?.reference.text,
                     code: extra?.code,
-                    newSentence: extra?.newText
+                    newSentence: extra?.newText,
+                    rangeMarker: selectedTextMarker
                 });
                 break;
             case 'DELETE_HIGHLIGHT':
