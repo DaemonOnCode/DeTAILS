@@ -157,7 +157,7 @@ const DeductiveCodingPage = () => {
         });
         navigate(
             getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                text: 'Finalizing codes...'
+                text: 'Finalizing codes'
             })
         );
 

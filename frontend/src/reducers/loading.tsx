@@ -51,6 +51,11 @@ export const loadingReducer = (state: ILoadingState, action: LoadingAction): ILo
             state[route].stepRef.current?.resetStep(route);
             return state;
         }
+        case 'SET_FIRST_RUN_DONE':
+            return {
+                ...state,
+                [action.route]: { ...state[action.route], isFirstRun: false }
+            };
         default:
             return state;
     }

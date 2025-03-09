@@ -144,14 +144,14 @@ async def download_reddit_from_torrent_endpoint(
             # Get the directory where the files were downloaded.
             academic_folder = None
 
-            if len(output_files):
+            if len(output_files) > 0:
                 downloaded_dir = os.path.dirname(output_files[0])
                 # Now get one directory up from the downloaded directory.
                 parent_dir = os.path.dirname(downloaded_dir)
                 academic_folder_name = f"academic-torrent-{request_body.subreddit}"
                 academic_folder = os.path.join(parent_dir, academic_folder_name)
                 if not os.path.exists(academic_folder):
-                    os.makedirs(academic_folder)
+                    os.makedirs(academic_folder, exist_ok=True)
                     message = f"Created folder: {academic_folder}"
                     await manager.send_message(app_id, message)
                     update_run_progress(run_id, message)
@@ -192,6 +192,7 @@ async def download_reddit_from_torrent_endpoint(
 
             if not academic_folder:
                 academic_folder = os.path.join(DATASETS_DIR, f"academic-torrent-{request_body.subreddit}")
+                os.makedirs(academic_folder, exist_ok=True)
             dataset_id = request_body.dataset_id
             if not dataset_id:
                 dataset_id = str(uuid4())
@@ -200,9 +201,16 @@ async def download_reddit_from_torrent_endpoint(
             await manager.send_message(app_id, message)
             update_run_progress(run_id, message)
 
-            parse_reddit_files(dataset_id, academic_folder, date_filter={"start_date": start_date, "end_date": end_date})
+            if os.path.exists(academic_folder or ""):
+                parse_reddit_files(dataset_id, academic_folder, date_filter={"start_date": start_date, "end_date": end_date})
 
             message = "Parsing complete. All steps finished."
+            await manager.send_message(app_id, message)
+            update_run_progress(run_id, message)
+
+
+
+            message = "Loading dataset, this may take a few moments..."
             await manager.send_message(app_id, message)
             update_run_progress(run_id, message)
 

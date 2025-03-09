@@ -654,8 +654,8 @@ async def verify_torrent_with_retry(
         if hasattr(torrent, "error") and torrent.error != 0:
             message = f"Verification error: {torrent.error_string}. Re-adding torrent..."
             print(message)
-            await manager.send_message(app_id, message)
-            update_run_progress(run_id, message)
+            # await manager.send_message(app_id, message)
+            # update_run_progress(run_id, message)
 
             c.remove_torrent(torrent.id)
             await asyncio.sleep(10)
@@ -793,6 +793,7 @@ async def get_reddit_data_from_torrent(
     submissions_only: bool = True,
 ):
     TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = get_current_download_dir()
+    print(f"Transmission download dir: {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}")
     torrent_hash_string = ACADEMIC_TORRENT_MAGNET.split("btih:")[1].split("&")[0]
     
     c = Client(host="localhost", port=9091, username="transmission", password="password")
@@ -829,7 +830,8 @@ async def get_reddit_data_from_torrent(
     print(f"Already existing files: {already_existing_files}")
     message = f'Files already downloaded: {(", ").join(already_existing_files)}'
     await manager.send_message(app_id, message)
-    files_to_process = list(filter(lambda f: os.path.splitext(os.path.basename(f.name))[0] not in already_existing_files, files_to_process))
+    if len(already_existing_files) == 0:
+        files_to_process = list(filter(lambda f: os.path.splitext(os.path.basename(f.name))[0] not in already_existing_files, files_to_process))
     print(f"Files to process: {files_to_process}")
     message = f"Files to process: {len(files_to_process)}"
     await manager.send_message(app_id, message)
@@ -919,4 +921,6 @@ def get_all_torrent_data():
 
 def get_torrent_files_by_subreddit(subreddit: str):
     datasets_directory = DATASETS_DIR
+    if not os.path.exists(os.path.join(datasets_directory, f"academic-torrent-{subreddit}")):
+        return []
     return list(map(lambda x: os.path.splitext(x)[0], os.listdir(os.path.join(datasets_directory, f"academic-torrent-{subreddit}"))))

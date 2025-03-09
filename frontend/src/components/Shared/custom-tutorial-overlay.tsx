@@ -254,7 +254,7 @@ const CustomTutorialOverlay: React.FC<CustomTutorialOverlayProps> = ({
             {fullScreenBlur}
             <div
                 ref={tooltipRef}
-                className="fixed z-[10000] bg-white p-3 rounded-lg max-w-[300px] text-center shadow-md pointer-events-auto">
+                className="fixed z-[10000] bg-white p-3 rounded-lg max-w-[300px] text-center shadow-md pointer-events-auto outline-2 outline outline-red-500">
                 <p className="m-0">{steps[currentStepIndex].content}</p>
                 <div className="mt-3 flex justify-between gap-2">
                     <button

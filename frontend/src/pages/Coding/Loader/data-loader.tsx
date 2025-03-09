@@ -20,7 +20,7 @@ const DataLoading: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-page w-full">
-            <div className="mb-4 px-6 py-3 text-3xl font-bold">{newText ?? 'Loading data'}...</div>
+            <div className="mb-4 px-6 py-3 text-3xl font-bold">{newText ?? 'Loading data'}</div>
             <div className="flex space-x-2">
                 <motion.span
                     custom={0}

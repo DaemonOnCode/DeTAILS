@@ -265,7 +265,7 @@ const ThemesPage = () => {
                         <h1 className="text-2xl font-bold">Themes and Codes Organizer</h1>
                     </header>
                     {unplacedCodes.length > 0 && (
-                        <p className="text-red-500 pb-4">
+                        <p className="text-red-500 pb-4 text-center">
                             Review the unplaced codes bucket at the end and ensure all codes are
                             assigned to some bucket before proceeding
                         </p>

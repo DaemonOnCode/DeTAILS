@@ -206,7 +206,7 @@ const FinalzingCodes = () => {
         if (loadingState[stepRoute]?.isLoading) {
             navigate(
                 getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                    text: 'Finalizing codes...'
+                    text: 'Finalizing codes'
                 })
             );
         }
@@ -288,7 +288,7 @@ const FinalzingCodes = () => {
             <main className="h-page w-full flex flex-col" id="finalized-main">
                 {/* Toggle at the top (Review vs. Edit) */}
                 {unplacedSubCodes.length > 0 && (
-                    <p className="mb-4 text-red-500">
+                    <p className="mb-4 text-red-500 text-center">
                         Go into edit mode, place unplaced sub-codes into code buckets to proceed.
                     </p>
                 )}

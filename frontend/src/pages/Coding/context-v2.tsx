@@ -254,7 +254,8 @@ const ContextPage = () => {
                             <h1>
                                 Provide context for DeTAILS by uploading literature (e.g., research
                                 papers), formulating research questions, identifying topics of
-                                interest, and including additiona information related to your topic-
+                                interest, and including additional information related to your
+                                topic-
                             </h1>
                             <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto max-w-screen-sm lg:max-w-screen-lg">
                                 <label

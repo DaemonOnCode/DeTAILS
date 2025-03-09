@@ -197,7 +197,7 @@ const TorrentDataTab = ({
                         type="text"
                         value={torrentSubreddit}
                         onChange={(e) => setTorrentSubreddit(e.target.value)}
-                        placeholder="Enter subreddit name"
+                        placeholder="Enter exact subreddit name"
                         className="p-2 border border-gray-300 rounded w-54 lg:w-96"
                     />
                 </div>

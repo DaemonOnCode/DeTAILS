@@ -61,7 +61,14 @@ export const keywordTableReducer = (
             }
             return [...state, newRow];
         case 'UNDO_DELETE_ROW':
-            return [...state.splice(action.index, 0, action.entry)];
+            console.log(
+                'Undo delete:',
+                action.index,
+                state
+                // state.splice(action.index, 0, action.entry)
+            );
+            // state.splice(action.index, 0, action.entry);
+            return [...state, action.entry];
         case 'DELETE_ROW':
             return state.filter((_, i) => i !== action.index);
         case 'RESET':

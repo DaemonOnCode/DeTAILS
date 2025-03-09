@@ -157,6 +157,7 @@ export interface IWorkspaceContext {
 export interface ILoadingState {
     [route: string]: {
         isLoading: boolean;
+        isFirstRun: boolean;
         downloadData?: boolean;
         stepRef: React.RefObject<StepHandle>;
     };
@@ -190,7 +191,8 @@ export type LoadingAction =
     | {
           type: 'RESET_PAGE_DATA';
           payload: { route: string; defaultData?: ILoadingState[string] };
-      };
+      }
+    | { type: 'SET_FIRST_RUN_DONE'; route: string };
 
 export interface ILoadingContext {
     loadingState: ILoadingState;
