@@ -12,10 +12,12 @@ import {
     IWorkspaceContext,
     AuthContextType,
     ICodingContext,
-    IModelingContext
+    IModelingContext,
+    ILoadingContext
 } from '../../types/Shared';
 import { useToast } from '../../context/toast-context';
 import { useApi } from './use-api';
+import { useLoadingContext } from '../../context/loading-context';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
@@ -23,6 +25,7 @@ const useWorkspaceUtils = () => {
     const collectionContext = useCollectionContext();
     const codingContext = useCodingContext();
     const modelingContext = useModelingContext();
+    const loadingContext = useLoadingContext();
     const { serviceStarting } = useWebSocket();
     const { showToast } = useToast();
     const { fetchData } = useApi();
@@ -32,7 +35,8 @@ const useWorkspaceUtils = () => {
         user: AuthContextType['user'],
         collectionContext: ExtendedICollectionContext,
         codingContext: ICodingContext,
-        modelingContext: IModelingContext
+        modelingContext: IModelingContext,
+        loadingContext: ILoadingContext
     ) => {
         return {
             workspace_id: currentWorkspace?.id || '',
@@ -68,6 +72,14 @@ const useWorkspaceUtils = () => {
                 sampled_post_ids: codingContext.sampledPostIds || [],
                 unseen_post_ids: codingContext.unseenPostIds || [],
                 conflicting_responses: codingContext.conflictingResponses || []
+            },
+            loading_context: {
+                page_state:
+                    Object.fromEntries(
+                        Object.entries(loadingContext.loadingState)
+                            .filter(([_, value]) => value && 'isFirstRun' in value)
+                            .map(([key, value]) => [key, value.isFirstRun])
+                    ) || {}
             }
         };
     };
@@ -77,7 +89,8 @@ const useWorkspaceUtils = () => {
         user,
         collectionContext,
         codingContext,
-        modelingContext
+        modelingContext,
+        loadingContext
     });
 
     useEffect(() => {
@@ -86,9 +99,10 @@ const useWorkspaceUtils = () => {
             user,
             collectionContext,
             codingContext,
-            modelingContext
+            modelingContext,
+            loadingContext
         };
-    }, [currentWorkspace, user, collectionContext, codingContext, modelingContext]);
+    }, [currentWorkspace, user, collectionContext, codingContext, modelingContext, loadingContext]);
 
     const getWorkspaceData = () => {
         const { currentWorkspace, user, collectionContext, codingContext, modelingContext } =
@@ -98,7 +112,8 @@ const useWorkspaceUtils = () => {
             user,
             collectionContext,
             codingContext,
-            modelingContext
+            modelingContext,
+            loadingContext
         );
     };
 
@@ -112,6 +127,7 @@ const useWorkspaceUtils = () => {
             collectionContext.resetContext();
             codingContext.resetContext();
             modelingContext.resetContext();
+            loadingContext.resetContext();
             return;
         }
 
@@ -150,6 +166,10 @@ const useWorkspaceUtils = () => {
             sampledPostIds: data.sampled_post_ids ?? [],
             unseenPostIds: data.unseen_post_ids ?? [],
             conflictingResponses: data.conflicting_responses ?? []
+        });
+
+        loadingContext.updateContext({
+            pageState: data.page_state ?? {}
         });
     };
 

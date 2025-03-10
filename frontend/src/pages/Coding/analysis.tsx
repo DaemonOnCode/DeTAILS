@@ -13,6 +13,8 @@ import { downloadCodebook } from '../../utility/codebook-downloader';
 import { groupByCode, groupByPostId } from '../../utility/group-items';
 import { getGroupedCodeOfSubCode, getThemeByCode } from '../../utility/theme-finder';
 import { toast } from 'react-toastify';
+import { useLocation } from 'react-router-dom';
+import { useLoadingContext } from '../../context/loading-context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -24,6 +26,9 @@ const FinalPage = () => {
         link: string;
         sentence: string;
     }>({ id: '', link: '', sentence: '' });
+
+    const location = useLocation();
+    const { loadingState } = useLoadingContext();
 
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -108,6 +113,14 @@ const FinalPage = () => {
             toast.error('Download cancelled or failed');
         }
     };
+
+    if (loadingState[location.pathname]?.isFirstRun) {
+        return (
+            <p className="h-page w-full flex justify-center items-center">
+                Please complete the previous page and click on proceed to continue with this page.
+            </p>
+        );
+    }
 
     // If no data
     if (finalCodeResponses.length === 0) {

@@ -192,7 +192,14 @@ export type LoadingAction =
           type: 'RESET_PAGE_DATA';
           payload: { route: string; defaultData?: ILoadingState[string] };
       }
-    | { type: 'SET_FIRST_RUN_DONE'; route: string };
+    | { type: 'SET_FIRST_RUN_DONE'; route: string }
+    | { type: 'SET_REST_UNDONE'; route: string }
+    | {
+          type: 'UPDATE_PAGE_STATE';
+          payload: {
+              [route: string]: boolean;
+          };
+      };
 
 export interface ILoadingContext {
     loadingState: ILoadingState;
@@ -204,6 +211,12 @@ export interface ILoadingContext {
     showProceedConfirmModal: boolean;
     setShowProceedConfirmModal: SetState<boolean>;
     openModal: (_id: string, _callback: (e: React.MouseEvent) => void | Promise<void>) => void;
+    updateContext: (updates: {
+        pageState: {
+            [route: string]: boolean;
+        };
+    }) => void;
+    resetContext: () => void;
 }
 
 export interface ModalCallbacks {

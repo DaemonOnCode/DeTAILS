@@ -161,7 +161,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             setChatCollapsed(false);
         }
         const current = messages.find((m) => m.id === messageId);
-        if (!current || current.sender !== 'LLM') return;
+        if (!current || current.sender !== 'LLM' || !current.code) return;
 
         let newMsgs = [...messages];
         const idx = newMsgs.findIndex((m) => m.id === messageId);
@@ -398,7 +398,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                         </button>
                         <button
                             onClick={(e) => handleReaction(e, msg.id, false, index)}
-                            disabled={true}
+                            disabled={!canReact || msg.isThinking}
                             className={`w-8 h-8 flex items-center justify-center rounded ${
                                 msg.reaction === false
                                     ? 'bg-red-500 text-white'

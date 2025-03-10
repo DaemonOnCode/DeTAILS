@@ -280,6 +280,14 @@ const FinalzingCodes = () => {
         }
     ];
 
+    if (loadingState[location.pathname]?.isFirstRun) {
+        return (
+            <p className="h-page w-full flex justify-center items-center">
+                Please complete the previous page and click on proceed to continue with this page.
+            </p>
+        );
+    }
+
     return (
         <TutorialWrapper
             steps={steps}

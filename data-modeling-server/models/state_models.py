@@ -9,6 +9,7 @@ class SaveStateRequest(BaseModel):
     coding_context: Dict[str, Any]
     collection_context: Dict[str, Any]
     modeling_context: Dict[str, Any]
+    loading_context: Dict[str, Any]
 
 class LoadStateRequest(BaseModel):
     workspace_id: str
@@ -48,3 +49,5 @@ class CodingContext(BaseModel):
     unseen_post_ids: list = []
     conflicting_responses: list = []
 
+class LoadingContext(BaseModel):
+    page_state: dict = {}

@@ -52,10 +52,30 @@ export const loadingReducer = (state: ILoadingState, action: LoadingAction): ILo
             return state;
         }
         case 'SET_FIRST_RUN_DONE':
-            return {
-                ...state,
-                [action.route]: { ...state[action.route], isFirstRun: false }
-            };
+            const doneAfter = action.route;
+            let donePageIndex = Object.keys(state).indexOf(doneAfter) + 1;
+            state[Object.keys(state)[donePageIndex]].isFirstRun = false;
+            return { ...state };
+        case 'SET_REST_UNDONE':
+            const resetAfter = action.route;
+            let pageIndex = Object.keys(state).indexOf(resetAfter);
+            Object.keys(state).forEach((key, idx) => {
+                if (idx > pageIndex) {
+                    state[key].isFirstRun = true;
+                }
+            });
+            return { ...state };
+        case 'UPDATE_PAGE_STATE': {
+            const pageState = action.payload; // payload is the complete page state object
+            Object.entries(pageState).forEach(([route, isFirstRun]) => {
+                if (state[route]) {
+                    state[route].isFirstRun = isFirstRun ?? true;
+                }
+            });
+            return { ...state };
+        }
+
+        // return { ...state };
         default:
             return state;
     }

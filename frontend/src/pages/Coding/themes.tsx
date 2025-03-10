@@ -24,6 +24,7 @@ import { useCollectionContext } from '../../context/collection-context';
 import { StepHandle } from '../../types/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
+import { getGroupedCodeOfSubCode } from '../../utility/theme-finder';
 
 const ThemesPage = () => {
     const {
@@ -33,7 +34,8 @@ const ThemesPage = () => {
         unseenPostResponse,
         unplacedCodes,
         setUnplacedCodes,
-        dispatchSampledPostWithThemeResponse
+        dispatchSampledPostWithThemeResponse,
+        groupedCodes
     } = useCodingContext();
     const location = useLocation();
 
@@ -196,8 +198,24 @@ const ThemesPage = () => {
             body: JSON.stringify({
                 dataset_id: datasetId,
                 model: settings.ai.model,
-                unseen_post_responses: unseenPostResponse,
-                sampled_post_responses: sampledPostResponse
+                unseen_post_responses: unseenPostResponse.map((r) => ({
+                    postId: r.postId,
+                    id: r.id,
+                    code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+                    quote: r.quote,
+                    explanation: r.explanation,
+                    comment: r.comment,
+                    subCode: r.code
+                })),
+                sampled_post_responses: sampledPostResponse.map((r) => ({
+                    postId: r.postId,
+                    id: r.id,
+                    code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+                    quote: r.quote,
+                    explanation: r.explanation,
+                    comment: r.comment,
+                    subCode: r.code
+                }))
             })
         });
 
@@ -252,6 +270,14 @@ const ThemesPage = () => {
             navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
         }
     }, []);
+
+    if (loadingState[stepRoute]?.isFirstRun) {
+        return (
+            <p className="h-page w-full flex justify-center items-center">
+                Please complete the previous page and click on proceed to continue with this page.
+            </p>
+        );
+    }
 
     return (
         <>

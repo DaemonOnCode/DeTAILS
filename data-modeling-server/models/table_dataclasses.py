@@ -129,6 +129,9 @@ class WorkspaceState(BaseDataclass):
     unseen_post_ids: Optional[str] = None  # JSON string for list
     conflicting_responses: Optional[str] = None  # JSON string for list
 
+    # Loading Context
+    page_state: Optional[str] = None
+
     # Metadata
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
 

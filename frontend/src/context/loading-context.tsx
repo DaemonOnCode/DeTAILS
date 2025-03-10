@@ -29,7 +29,9 @@ const LoadingContext = createContext<ILoadingContext>({
     requestArrayRef: { current: {} },
     showProceedConfirmModal: false,
     setShowProceedConfirmModal: () => {},
-    openModal: (_id: string, _callback: (e: React.MouseEvent) => void | Promise<void>) => {}
+    openModal: (_id: string, _callback: (e: React.MouseEvent) => void | Promise<void>) => {},
+    updateContext: () => {},
+    resetContext: () => {}
 });
 
 export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
@@ -75,7 +77,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
     const initialPageState: ILoadingState = {
         [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`]: {
             isLoading: false,
-            isFirstRun: true,
+            isFirstRun: false,
             stepRef: useRef<StepHandle>(initialRefState)
         },
         [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`]: {
@@ -209,6 +211,10 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             }
         }
 
+        loadingDispatch({
+            type: 'SET_REST_UNDONE',
+            route: page
+        });
         // 2. After all downloads are complete, reset the routes
         for (const route of routesToReset) {
             console.log('Dispatching RESET_PAGE_DATA for:', route);
@@ -247,6 +253,24 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         // };
     }, [location.pathname]);
 
+    const updateContext = (updates: {
+        pageState: {
+            [route: string]: boolean;
+        };
+    }) => {
+        loadingDispatch({
+            type: 'UPDATE_PAGE_STATE',
+            payload: updates.pageState
+        });
+    };
+
+    const resetContext = () => {
+        loadingDispatch({
+            type: 'SET_REST_UNDONE',
+            route: Object.keys(initialPageState)[0]
+        });
+    };
+
     const value = useMemo(
         () => ({
             loadingState,
@@ -258,7 +282,9 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             showProceedConfirmModal,
             setShowProceedConfirmModal,
             openModal,
-            requestArrayRef
+            requestArrayRef,
+            updateContext,
+            resetContext
         }),
         [loadingState, showProceedConfirmModal]
     );

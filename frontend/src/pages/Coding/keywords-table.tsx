@@ -25,6 +25,7 @@ const KeywordsTablePage: FC = () => {
     const { keywordTable, dispatchKeywordsTable } = useCodingContext();
     const { datasetId } = useCollectionContext();
     const [saving, setSaving] = useState(false);
+    const { loadingState } = useLoadingContext();
 
     const navigate = useNavigate();
     const logger = useLogger();
@@ -166,6 +167,14 @@ const KeywordsTablePage: FC = () => {
             index
         });
     };
+
+    if (loadingState[location.pathname]?.isFirstRun) {
+        return (
+            <p className="h-page w-full flex justify-center items-center">
+                Please complete the previous page and click on proceed to continue with this page.
+            </p>
+        );
+    }
 
     const isReadyCheck = keywordTable.some((entry) => entry.isMarked === true);
 

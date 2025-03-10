@@ -20,6 +20,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
         resetDataAfterPage,
         showProceedConfirmModal,
         setShowProceedConfirmModal,
+        loadingDispatch,
         loadingState,
         checkIfDataExists,
         openModal
@@ -67,16 +68,29 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             // e.preventDefault();
                             const dataExists = checkIfDataExists(location.pathname);
                             console.log('Data exists:', dataExists);
+                            const nextPageFull = '/coding/' + nextPage;
                             if (dataExists) {
                                 openModal('nav-proceed-btn', async (e: any) => {
                                     // setShowProceedConfirmModal(false);
                                     await resetDataAfterPage(location.pathname);
                                     onNextClick && (await onNextClick(e));
-                                    autoNavigateToNext && navigate('/coding/' + nextPage);
+                                    loadingDispatch({
+                                        type: 'SET_FIRST_RUN_DONE',
+                                        route: location.pathname
+                                    });
+                                    autoNavigateToNext && navigate(nextPageFull);
                                 });
                             } else {
                                 onNextClick && (await onNextClick?.(e));
-                                autoNavigateToNext && navigate('/coding/' + nextPage);
+                                loadingDispatch({
+                                    type: 'SET_REST_UNDONE',
+                                    route: location.pathname
+                                });
+                                loadingDispatch({
+                                    type: 'SET_FIRST_RUN_DONE',
+                                    route: location.pathname
+                                });
+                                autoNavigateToNext && navigate(nextPageFull);
                             }
                         }
                     }}>
