@@ -23,7 +23,6 @@ import {
 } from '../types/Coding/shared';
 import { generateColor } from '../utility/color-generator';
 
-// Define interfaces for our types.
 interface ExtendedSegment {
     id: string;
     type: 'title' | 'selftext' | 'comment' | 'reply';
@@ -31,7 +30,6 @@ interface ExtendedSegment {
     start: number;
     end: number;
     matchedText: string;
-    // fullCodeText: string;
     backgroundColours: string[];
     relatedCodeText: string[];
     fullText: string;
@@ -75,6 +73,7 @@ interface ITranscriptContext {
     codes: {
         text: string;
         code: string;
+        rangeMarker?: { itemId: string; range: [number, number] };
     }[];
     allExplanations: Explanation[];
     // Selection helpers
@@ -84,7 +83,6 @@ interface ITranscriptContext {
     handleSegmentInteraction: (segment: Segment, isPermanent?: boolean) => void;
     handleSegmentLeave: (isPermanent?: boolean) => void;
     // Transcript processing helpers
-    // splitIntoSegments: (text: string) => string[];
     processTranscript: (
         post: any,
         extraCodes?: string[]
@@ -134,7 +132,6 @@ const TranscriptContext = createContext<ITranscriptContext>({
     removeSelection: () => {},
     handleSegmentInteraction: () => {},
     handleSegmentLeave: () => {},
-    // splitIntoSegments: () => [],
     processTranscript: () => ({
         processedSegments: [],
         codeSet: [],
@@ -154,50 +151,66 @@ export const TranscriptContextProvider: FC<{
 }> = ({ children, review, codeResponses, postId }) => {
     console.log('Running provider', review);
 
-    const allExplanations: Explanation[] = codeResponses
-        .filter((r) => r.postId === postId)
-        .map((r) => ({
-            explanation: r.explanation,
-            code: r.code,
-            fullText: r.quote
-        }));
+    /**
+     * We now store these in state so they can update if codeResponses changes.
+     */
+    const [allExplanations, setAllExplanations] = useState<Explanation[]>([]);
+    const [codes, setCodes] = useState<
+        { text: string; code: string; rangeMarker?: { itemId: string; range: [number, number] } }[]
+    >([]);
 
-    console.log('All explanations:', allExplanations);
-
-    const codes = codeResponses
-        .filter((r) => r.postId === postId)
-        .map((r) => ({ text: r.quote, code: r.code, rangeMarker: r.rangeMarker }));
-
-    console.log(
-        'All responses:',
-        codeResponses.filter((r) => r.postId === postId)
-    );
-
-    const gatherChatHistory = useCallback(() => {
-        let allChatHistory: Record<string, ChatMessage[]> = {};
+    /**
+     * Recomputes allExplanations, codes, and chatHistories whenever codeResponses or postId changes.
+     */
+    useEffect(() => {
         console.log(
-            'Gathering chat history',
-            codeResponses.filter((response) => response.postId === postId)
+            'codeResponses or postId changed – recalc explanations, codes, chat history.',
+            codeResponses.filter((r) => r.postId === postId)
         );
+
+        // 1) Build new explanations
+        const newAllExplanations: Explanation[] = codeResponses
+            .filter((r) => r.postId === postId)
+            .map((r) => ({
+                explanation: r.explanation,
+                code: r.code,
+                fullText: r.quote
+            }));
+
+        // 2) Build new codes
+        const newCodes = codeResponses
+            .filter((r) => r.postId === postId)
+            .map((r) => ({
+                text: r.quote,
+                code: r.code,
+                rangeMarker: r.rangeMarker
+            }));
+
+        // 3) Rebuild chat histories
+        const newChatHistories: Record<string, ChatMessage[]> = {};
         codeResponses
             .filter((response) => response.postId === postId)
             .forEach((response) => {
-                allChatHistory[`${postId}-${response.code}-${response.quote}`] =
-                    response.chatHistory ?? [
-                        {
-                            id: 1,
-                            text: response.explanation,
-                            sender: 'LLM',
-                            code: response.code,
-                            reaction: true,
-                            isEditable: false,
-                            command: 'ACCEPT_QUOTE',
-                            isCurrentCode: true
-                        }
-                    ];
+                const key = `${postId}-${response.code}-${response.quote}`;
+                newChatHistories[key] = response.chatHistory ?? [
+                    {
+                        id: 1,
+                        text: response.explanation,
+                        sender: 'LLM',
+                        code: response.code,
+                        reaction: true,
+                        isEditable: false,
+                        command: 'ACCEPT_QUOTE',
+                        isCurrentCode: true
+                    }
+                ];
             });
-        return allChatHistory;
+
+        setAllExplanations(newAllExplanations);
+        setCodes(newCodes);
+        setChatHistories(newChatHistories);
     }, [codeResponses, postId]);
+
     // State hooks
     const [selectedText, setSelectedText] = useState<string | null>(null);
     const [hoveredCode, setHoveredCode] = useState<string | null>(null);
@@ -209,70 +222,46 @@ export const TranscriptContextProvider: FC<{
         range: [number, number];
     } | null>(null);
 
-    const [chatHistories, setChatHistories] =
-        useState<Record<string, ChatMessage[]>>(gatherChatHistory());
+    const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
 
     const [hoveredSegment, setHoveredSegment] = useState<Segment | null>(null);
     const [selectedSegment, setSelectedSegment] = useState<Segment | null>(null);
 
-    const [selectedExplanations, setSelectedExplanations] =
-        useState<Explanation[]>(allExplanations);
+    // By default, we'll show all newAllExplanations, but we can refine which ones are selected
+    // when the user hovers or selects a segment
+    const [selectedExplanations, setSelectedExplanations] = useState<Explanation[]>([]);
 
     const activeSegment = selectedSegment || hoveredSegment;
 
     const selectionRangeRef = useRef<Range | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
+    // Re-run any additional logic if codeResponses changes and we have a selectedSegment
     useEffect(() => {
-        console.log('Code responses changed');
-        setChatHistories(gatherChatHistory());
-        if (selectedSegment) {
-            const currentCodes = Array.from(
-                new Set(
-                    codeResponses
-                        .filter((r) => r.postId === postId && r.quote === selectedSegment?.fullText)
-                        .map((r) => r.code)
-                )
-            );
+        if (!selectedSegment) return;
 
-            if (currentCodes.length === 0) return;
+        console.log('Re-check codes for currently selected segment, if any.');
 
-            setHoveredCodeText(currentCodes ?? []);
-            setSelectedExplanations(
-                allExplanations.filter(
-                    (e) => currentCodes.includes(e.code) && e.fullText === selectedSegment?.fullText
-                )
-            );
-        }
-    }, [codeResponses]);
+        const currentCodes = Array.from(
+            new Set(
+                codeResponses
+                    .filter((r) => r.postId === postId && r.quote === selectedSegment.fullText)
+                    .map((r) => r.code)
+            )
+        );
 
-    function getSelectionOffsets(
-        container: HTMLElement,
-        range: Range
-    ): { selectionStart: number; selectionEnd: number } {
-        let selectionStart = 0;
-        let selectionEnd = 0;
-        let currentOffset = 0;
-        let foundStart = false;
+        setHoveredCodeText(currentCodes);
 
-        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
-        let node: Node | null = null;
+        const filteredExplanations = allExplanations.filter(
+            (e) => currentCodes.includes(e.code) && e.fullText === selectedSegment.fullText
+        );
 
-        while ((node = walker.nextNode())) {
-            const nodeText = node.textContent || '';
-            // When we find the start node, record the offset.
-            if (!foundStart && node === range.startContainer) {
-                selectionStart = currentOffset + range.startOffset;
-                foundStart = true;
-            }
-            if (node === range.endContainer) {
-                selectionEnd = currentOffset + range.endOffset;
-                break;
-            }
-            currentOffset += nodeText.length;
-        }
-        return { selectionStart, selectionEnd };
-    }
+        setSelectedExplanations(filteredExplanations);
+    }, [codeResponses, selectedSegment, postId, allExplanations]);
+
+    // --------------------------------------------------
+    // Selection + highlight logic
+    // --------------------------------------------------
 
     const handleTextSelection = (_selectionRef: React.MutableRefObject<Range | null>): void => {
         console.log('Handling text selection from TranscriptContext');
@@ -300,12 +289,11 @@ export const TranscriptContextProvider: FC<{
             return;
         }
 
-        // Walk up the DOM until we find a data-segment-id.
-        // Then extract the itemId (the part before "|").
+        // Attempt to find the data-segment-id up the chain
         const findItemIdFromElement = (el: HTMLElement | null): string | null => {
             while (el) {
                 const ds = el.getAttribute?.('data-segment-id');
-                if (ds) return ds.split('|')[0]; // e.g. "comment123"
+                if (ds) return ds.split('|')[0];
                 el = el.parentElement;
             }
             return null;
@@ -315,28 +303,23 @@ export const TranscriptContextProvider: FC<{
         const endItemId = findItemIdFromElement(endNode);
 
         if (!startItemId || !endItemId) {
-            console.log('Could not find data-segment-id for either the start or end.');
+            console.log('Could not find data-segment-id for either start or end.');
             return;
         }
 
-        // If user selection spans multiple items, bail out
+        // If user selection spans multiple items, bail
         if (startItemId !== endItemId) {
             console.log('Selection spans multiple items; not handled.');
             return;
         }
 
-        // The user is selecting within exactly one item (e.g., one comment)
         const selectedItemId = startItemId;
-
-        // Get the transcript container in order to query inside it
         const container = document.getElementById('transcript-container');
         if (!container) {
             console.log('Transcript container not found.');
             return;
         }
 
-        // Grab all <span> elements that have data-segment-id starting with
-        // `selectedItemId + "|"`. Sort them by segment number for stable text order.
         const itemSpans = Array.from(
             container.querySelectorAll(`span[data-segment-id^="${selectedItemId}|"]`)
         ) as HTMLElement[];
@@ -346,40 +329,33 @@ export const TranscriptContextProvider: FC<{
             return;
         }
 
+        // Sort itemSpans by the integer after the "|"
         itemSpans.sort((a, b) => {
             const aIndex = parseInt(a.getAttribute('data-segment-id')!.split('|')[1], 10) || 0;
             const bIndex = parseInt(b.getAttribute('data-segment-id')!.split('|')[1], 10) || 0;
             return aIndex - bIndex;
         });
 
-        // We'll compute the selection's start/end offset relative to
-        // the concatenated text of these spans
         let relativeSelectionStart = 0;
         let relativeSelectionEnd = 0;
         let foundStart = false;
         let currentOffset = 0;
 
-        // Walk through each span’s text nodes in order
         for (const span of itemSpans) {
             const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT, null);
             let node: Node | null;
             while ((node = walker.nextNode())) {
                 const nodeText = node.textContent ?? '';
-
-                // If this is the start node, record offset
                 if (!foundStart && node === range.startContainer) {
                     relativeSelectionStart = currentOffset + range.startOffset;
                     foundStart = true;
                 }
-                // If this is the end node, record offset and finish
                 if (node === range.endContainer) {
                     relativeSelectionEnd = currentOffset + range.endOffset;
                     break;
                 }
-
                 currentOffset += nodeText.length;
             }
-            // Once we’ve found the end, no need to keep looping
             if (relativeSelectionEnd > 0) {
                 break;
             }
@@ -388,14 +364,12 @@ export const TranscriptContextProvider: FC<{
         console.log('Selected item ID:', selectedItemId);
         console.log('Relative selection offsets:', relativeSelectionStart, relativeSelectionEnd);
 
-        // Store in your marker state
         setSelectedTextMarker({
             itemId: selectedItemId,
             range: [relativeSelectionStart, relativeSelectionEnd]
         });
     };
 
-    // Restore the saved selection.
     const restoreSelection = (): void => {
         console.log('Restoring selection from TranscriptContext');
         if (!selectionRangeRef.current) return;
@@ -405,7 +379,6 @@ export const TranscriptContextProvider: FC<{
         selection.addRange(selectionRangeRef.current);
     };
 
-    // Remove the active selection.
     const removeSelection = (): void => {
         console.log('Removing selection from TranscriptContext');
         const selection = window.getSelection();
@@ -414,25 +387,10 @@ export const TranscriptContextProvider: FC<{
         selectionRangeRef.current = null;
     };
 
-    interface TextInterval {
-        start: number;
-        end: number;
-        text: string;
-        codes: string[]; // now an array of codes
-    }
+    // --------------------------------------------------
+    // Transcript Processing (unchanged from your snippet)
+    // --------------------------------------------------
 
-    // Helper: Split text into segments.
-    // const splitIntoSegments = (text: string): string[] => {
-    //     const newlineToken = '<NEWLINE>';
-    //     const cleanedText = text.replace(/\n+/g, newlineToken);
-    //     const segments = cleanedText
-    //         .split(/(?<=[.?!:,])/)
-    //         .map((segment) => segment.trim())
-    //         .filter(Boolean);
-    //     return segments.map((segment) => segment.replace(new RegExp(newlineToken, 'g'), '\n'));
-    // };
-
-    // Helper function for comment traversal
     function traverseComments(comment: any, parentId: string | null): any[] {
         return [
             {
@@ -465,23 +423,21 @@ export const TranscriptContextProvider: FC<{
     const normalizeText = (text: string) => {
         return text
             .toLowerCase()
-            .replace(/\s+/g, ' ') // Collapse multiple whitespace
-            .replace(/[^\w\s]|_/g, '') // Remove punctuation
+            .replace(/\s+/g, ' ')
+            .replace(/[^\w\s]|_/g, '')
             .trim();
     };
 
     const processTranscript = useCallback(
-        (post: any, extraCodes: string[] | undefined) => {
-            if (!extraCodes) extraCodes = [];
+        (post: any, extraCodes: string[] = []) => {
             const codeSet = Array.from(new Set([...codes.map((c) => c.code), ...extraCodes]));
             const codeColors: Record<string, string> = {};
 
-            // 1) Build the color lookup
             codeSet.forEach((code) => {
                 codeColors[code] = generateColor(code);
             });
 
-            // 2) Build the code => original quote map
+            // Build code => originalQuote map
             const codeToOriginalQuote: Record<string, string> = {};
             codes.forEach((c) => {
                 codeToOriginalQuote[c.code] = c.text;
@@ -494,15 +450,13 @@ export const TranscriptContextProvider: FC<{
                 ...post.comments.flatMap((comment: any) => traverseComments(comment, post.id))
             ];
 
-            // Separate codes with vs. without rangeMarker
             const codesWithMarker = codes.filter((c) => c.rangeMarker);
             const codesWithoutMarker = codes.filter((c) => !c.rangeMarker);
 
-            // For each transcript item
             const segments = transcriptFlatMap.flatMap((data, dataIndex) => {
                 const text = data.text;
 
-                // Step 1: intervals from codes with rangeMarker for this item
+                // Intervals from codes with rangeMarker
                 const markerIntervals: CodeInterval[] = codesWithMarker
                     .filter((c) => c.rangeMarker?.itemId === dataIndex.toString())
                     .map((c) => ({
@@ -512,7 +466,7 @@ export const TranscriptContextProvider: FC<{
                         text: text.slice(c.rangeMarker?.range[0] ?? 0, c.rangeMarker?.range[1] ?? 0)
                     }));
 
-                // Step 2: intervals from codes without rangeMarker (string matching)
+                // Intervals from codes w/o marker (string matching)
                 const normalizedText = normalizeText(text);
                 const matchingIntervals: CodeInterval[] = codesWithoutMarker.flatMap((c) => {
                     const normalizedCodeText = normalizeText(c.text);
@@ -520,8 +474,6 @@ export const TranscriptContextProvider: FC<{
                     const fuzzyScore = exactMatch
                         ? 100
                         : ratio(normalizedText, normalizedCodeText, { full_process: true });
-
-                    // If text is “close enough,” find all occurrences
                     if (fuzzyScore >= 85) {
                         const positions = getAllPositions(text, c.text);
                         return positions.map((pos) => ({
@@ -534,25 +486,15 @@ export const TranscriptContextProvider: FC<{
                     return [];
                 });
 
-                // Step 3: combine intervals
                 const allIntervals = [...markerIntervals, ...matchingIntervals];
-
-                // If no intervals, single segment with no codes
                 if (allIntervals.length === 0) {
+                    // Single segment with no codes
                     return [
-                        createSegment(
-                            text,
-                            data,
-                            dataIndex,
-                            0,
-                            [], // no active codes
-                            codeColors,
-                            codeToOriginalQuote
-                        )
+                        createSegment(text, data, dataIndex, 0, [], codeColors, codeToOriginalQuote)
                     ];
                 }
 
-                // Step 4: build "start" and "end" events
+                // Build start/end events
                 const events: TextEvent[] = [];
                 allIntervals.forEach(({ start, end, code }) => {
                     events.push({ position: start, type: 'start', code });
@@ -565,7 +507,6 @@ export const TranscriptContextProvider: FC<{
                         a.position - b.position || (a.type === 'end' && b.type === 'start' ? -1 : 1)
                 );
 
-                // Step 5: generate final segments
                 const itemSegments: Segment[] = [];
                 let currentPos = 0;
                 const currentCodes = new Set<string>();
@@ -580,7 +521,7 @@ export const TranscriptContextProvider: FC<{
                                     data,
                                     dataIndex,
                                     itemSegments.length,
-                                    Array.from(currentCodes), // the codes active until now
+                                    Array.from(currentCodes),
                                     codeColors,
                                     codeToOriginalQuote
                                 )
@@ -595,7 +536,7 @@ export const TranscriptContextProvider: FC<{
                     }
                 });
 
-                // Add trailing text, if any
+                // Trailing text
                 if (currentPos < text.length) {
                     itemSegments.push(
                         createSegment(
@@ -618,9 +559,6 @@ export const TranscriptContextProvider: FC<{
         [codes]
     );
 
-    // Helper function to create segments
-    // codeToOriginalQuote[code] is the full text for that code's snippet
-
     const createSegment = (
         segmentText: string,
         data: any,
@@ -630,7 +568,6 @@ export const TranscriptContextProvider: FC<{
         codeColors: Record<string, string>,
         codeToOriginalQuote: Record<string, string>
     ): Segment => {
-        // Build an object code => originalQuote
         const mapOfQuotes: Record<string, string> = {};
         activeCodes.forEach((code) => {
             mapOfQuotes[code] = codeToOriginalQuote[code];
@@ -644,11 +581,7 @@ export const TranscriptContextProvider: FC<{
             index: `${dataIndex}|${segmentIndex}`,
             relatedCodeText: activeCodes,
             backgroundColours: activeCodes.map((code) => codeColors[code]),
-            // If you want to keep "fullText" for quick text display, that’s OK,
-            // but it might just be the sub-segment portion:
             fullText: segmentText,
-
-            // The big improvement: for each code, store the *actual* original text
             codeQuotes: mapOfQuotes
         };
     };
@@ -665,37 +598,37 @@ export const TranscriptContextProvider: FC<{
         return positions;
     };
 
+    // --------------------------------------------------
+    // Segment Interaction
+    // --------------------------------------------------
     const handleSegmentInteraction = useCallback(
         (segment: Segment | null, isPermanent = false, relatedCodeText?: string[]) => {
             if (!segment) return;
+
             if (review && isPermanent) {
                 setSwitchModalOn(true);
                 return;
             }
 
             if (selectedSegment) {
+                // If there's already a permanently selectedSegment, do nothing
                 return;
             }
 
-            const targetSegment = isPermanent ? setSelectedSegment : setHoveredSegment;
-            targetSegment(segment);
+            const targetSetter = isPermanent ? setSelectedSegment : setHoveredSegment;
+            targetSetter(segment);
 
             const currentCodeText = relatedCodeText ?? segment.relatedCodeText;
-
-            console.log('Handling segment interaction', segment, currentCodeText);
             setHoveredCodeText(currentCodeText);
 
-            // Directly find explanations by code match
-            const foundExplanations: { explanation: string; code: string; fullText: string }[] = [];
+            // Gather matching explanations
+            const foundExplanations: Explanation[] = [];
 
             currentCodeText.forEach((code) => {
-                // Now, instead of comparing `segment.fullText` with `response.quote`,
-                // we check segment.codeQuotes[code].
                 codeResponses.forEach((response) => {
                     if (response.code === code) {
-                        // If the user’s code matches the response’s code:
-                        const originalSnippet = segment.codeQuotes?.[code];
-                        // Compare that snippet with response.quote:
+                        // Instead of comparing segment.fullText to response.quote,
+                        // we can use segment.codeQuotes[code] if needed.
                         if (segment.fullText === response.quote) {
                             foundExplanations.push({
                                 explanation: response.explanation,
@@ -707,12 +640,10 @@ export const TranscriptContextProvider: FC<{
                 });
             });
 
-            // Remove duplicates (if any)
             const uniqueExplanations = Array.from(
                 new Set(foundExplanations.map((e) => JSON.stringify(e)))
             ).map((str) => JSON.parse(str));
 
-            console.log('Found explanations:', uniqueExplanations);
             setSelectedExplanations(uniqueExplanations);
         },
         [codeResponses, selectedSegment, review]
@@ -728,6 +659,9 @@ export const TranscriptContextProvider: FC<{
         }
     };
 
+    // --------------------------------------------------
+    // Build the provider value
+    // --------------------------------------------------
     const value = useMemo(
         () => ({
             review,
@@ -757,7 +691,6 @@ export const TranscriptContextProvider: FC<{
             handleSegmentLeave,
             restoreSelection,
             removeSelection,
-            // splitIntoSegments,
             processTranscript,
             selectionRangeRef,
             containerRef,
@@ -772,12 +705,12 @@ export const TranscriptContextProvider: FC<{
             additionalCodes,
             chatHistories,
             activeSegment,
-            selectedExplanations,
-            switchModalOn,
             hoveredSegment,
             selectedSegment,
-            codeResponses,
-            // splitIntoSegments,
+            selectedExplanations,
+            switchModalOn,
+            codes,
+            allExplanations,
             processTranscript,
             selectedTextMarker
         ]

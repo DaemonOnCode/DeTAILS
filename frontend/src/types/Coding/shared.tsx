@@ -324,6 +324,16 @@ export type BaseResponseHandlerActions<T> =
           rangeMarker: { itemId: string; quote: string; range: [number, number] }[];
           postId: string;
           code: string;
+      }
+    | {
+          type: 'SYNC_CHAT_STATE';
+          postId: string;
+          quote: string;
+          refresh?: boolean;
+          currentCode?: string;
+          prevCode: string;
+          chatHistory: ChatMessage[];
+          isMarked?: boolean;
       };
 
 export type SampleDataResponseReducerActions = BaseResponseHandlerActions<IQECResponse>;

@@ -209,6 +209,76 @@ export function baseResponseHandler<T>(
                     ? { ...response, rangeMarker: action.rangeMarker }
                     : response
             );
+        case 'SYNC_CHAT_STATE': {
+            const {
+                postId,
+                quote,
+                prevCode, // The old code to match on
+                currentCode, // The new code to set (optional)
+                chatHistory, // The new chatHistory array (optional)
+                isMarked, // The new isMarked flag (optional)
+                refresh // If true, we’ll do special “refresh” logic below
+            } = action;
+
+            console.log('SYNC_CHAT_STATE action:', action);
+
+            return state.map((response: any) => {
+                // We match the existing snippet by (postId, quote, code = prevCode)
+                if (
+                    response.postId === postId &&
+                    response.quote === quote &&
+                    response.code === prevCode
+                ) {
+                    // Clone the existing snippet
+                    const updated = { ...response };
+
+                    // If we have a new chatHistory, set it first
+                    if (Array.isArray(chatHistory)) {
+                        updated.chatHistory = chatHistory;
+                    }
+
+                    // If user provided a non-empty currentCode, replace the old code
+                    if (typeof currentCode === 'string' && currentCode.trim() !== '') {
+                        updated.code = currentCode;
+                    }
+
+                    // Update isMarked if provided
+                    if (typeof isMarked !== 'undefined') {
+                        updated.isMarked = isMarked;
+                    }
+
+                    // -------------------------------------
+                    // If "refresh" is true, do the extra clearing
+                    // -------------------------------------
+                    if (refresh && Array.isArray(updated.chatHistory)) {
+                        updated.chatHistory = updated.chatHistory
+                            .map((msg: any) => {
+                                // Clear LLM reactions & thinking state
+                                if (msg.sender === 'LLM') {
+                                    return {
+                                        ...msg,
+                                        reaction: undefined,
+                                        isThinking: false
+                                    };
+                                }
+                                return msg;
+                            })
+                            .filter((msg: any) => {
+                                // Remove any human messages still "isEditable"
+                                if (msg.sender === 'Human' && msg.isEditable) {
+                                    return false;
+                                }
+                                return true;
+                            });
+                    }
+
+                    console.log('Updated snippet after SYNC_CHAT_STATE:', updated);
+                    return updated;
+                }
+                return response;
+            });
+        }
+
         case 'RESET':
             return [];
         case 'RERUN_CODING':
@@ -244,6 +314,7 @@ export const sampleDataResponseReducer = (
         case 'RESET':
         case 'UPSERT_MARKER':
         case 'RERUN_CODING':
+        case 'SYNC_CHAT_STATE':
             let baseData = baseResponseHandler(state, action, {});
             console.log('Base Data:', baseData, state);
             return baseData;
@@ -278,6 +349,7 @@ export const sampleDataWithThemeResponseReducer = (
         case 'SET_CHAT_HISTORY':
         case 'RESET':
         case 'UPSERT_MARKER':
+        case 'SYNC_CHAT_STATE':
             return baseResponseHandler(state, action, {});
         case 'UPDATE_THEMES':
             console.log('Themes:', action.themes);
@@ -321,6 +393,7 @@ export const unseenDataResponseReducer = (
         case 'UPDATE_CODE':
         case 'RESET':
         case 'UPSERT_MARKER':
+        case 'SYNC_CHAT_STATE':
             return baseResponseHandler(state, action, {});
 
         default:
