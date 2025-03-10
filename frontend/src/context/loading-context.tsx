@@ -55,6 +55,10 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
     // When confirmed, call the callback associated with the active modal ID.
     const handleConfirmProceed = async (e: React.MouseEvent) => {
         setShowProceedConfirmModal(false);
+        loadingDispatch({
+            type: 'SET_REST_UNDONE',
+            route: location.pathname
+        });
         if (activeModalId && modalCallbacks[activeModalId]) {
             const result = modalCallbacks[activeModalId](e);
             if (result !== undefined && typeof result.then === 'function') {

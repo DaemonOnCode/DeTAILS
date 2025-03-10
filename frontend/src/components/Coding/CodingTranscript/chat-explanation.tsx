@@ -163,7 +163,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             setChatCollapsed(false);
         }
         const current = messages.find((m) => m.id === messageId);
-        if (!current || current.sender !== 'LLM' || !current.code) return;
+        if (!current || current.sender !== 'LLM') return;
 
         let newMsgs = [...messages];
         const idx = newMsgs.findIndex((m) => m.id === messageId);
@@ -353,9 +353,11 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                         {msg.id > 1 && (
                             <button
                                 onClick={(e) => handleRefreshLLM(e, msg.id)}
-                                disabled={msg.isThinking}
-                                className={`w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600 hover:bg-yellow-400 hover:text-white ${
-                                    msg.isThinking ? 'opacity-50 cursor-not-allowed' : ''
+                                disabled={!canReact || msg.isThinking}
+                                className={`w-8 h-8 flex items-center justify-center rounded bg-gray-300 text-gray-600  hover:text-white ${
+                                    !canReact || msg.isThinking
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : 'hover:bg-yellow-400'
                                 }`}
                                 title="Refresh">
                                 <FaRedoAlt className="h-4 w-4" />
@@ -405,7 +407,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                 msg.reaction === false
                                     ? 'bg-red-500 text-white'
                                     : 'bg-gray-300 text-gray-500'
-                            } ${!canReact || msg.isThinking ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400'}`}>
+                            }  opacity-50 cursor-not-allowed`}>
                             ✕
                         </button>
                     </div>

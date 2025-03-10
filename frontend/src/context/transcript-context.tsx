@@ -696,7 +696,7 @@ export const TranscriptContextProvider: FC<{
                         // If the user’s code matches the response’s code:
                         const originalSnippet = segment.codeQuotes?.[code];
                         // Compare that snippet with response.quote:
-                        if (originalSnippet && originalSnippet === response.quote) {
+                        if (segment.fullText === response.quote) {
                             foundExplanations.push({
                                 explanation: response.explanation,
                                 code: response.code,
