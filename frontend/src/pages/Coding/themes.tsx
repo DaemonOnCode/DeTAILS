@@ -348,6 +348,10 @@ const ThemesPage = () => {
                                         await handleRefreshThemes();
                                     });
                                 } else {
+                                    loadingDispatch({
+                                        type: 'SET_REST_UNDONE',
+                                        route: location.pathname
+                                    });
                                     handleRefreshThemes();
                                 }
                             }}

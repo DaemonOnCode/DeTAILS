@@ -830,7 +830,7 @@ async def get_reddit_data_from_torrent(
     print(f"Already existing files: {already_existing_files}")
     message = f'Files already downloaded: {(", ").join(already_existing_files)}'
     await manager.send_message(app_id, message)
-    if len(already_existing_files) == 0:
+    if len(already_existing_files) != 0:
         files_to_process = list(filter(lambda f: os.path.splitext(os.path.basename(f.name))[0] not in already_existing_files, files_to_process))
     print(f"Files to process: {files_to_process}")
     message = f"Files to process: {len(files_to_process)}"

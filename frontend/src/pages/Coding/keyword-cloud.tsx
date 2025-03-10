@@ -133,6 +133,10 @@ const KeywordCloudPage: FC = () => {
                 await refreshKeywordCloud();
             });
         } else {
+            loadingDispatch({
+                type: 'SET_REST_UNDONE',
+                route: location.pathname
+            });
             refreshKeywordCloud();
         }
     };
