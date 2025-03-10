@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import time
@@ -5,13 +6,26 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from constants import DATASETS_DIR, PATHS
+from constants import DATASETS_DIR, PATHS, get_default_transmission_cmd
 from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, DatasetsRepository, PostsRepository, CommentsRepository, LlmResponsesRepository, FileStatusRepository, PipelineStepsRepository, TorrentDownloadProgressRepository
 from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware, AbortOnDisconnectMiddleware
 from routes import coding_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
 
 load_dotenv()
 print(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+
+def set_initial_settings():
+    with open(PATHS["settings"], "r") as f:
+        settings = json.load(f)
+        if settings["transmission"]["downloadDir"] == "" :
+            settings["transmission"]["downloadDir"] = PATHS["transmission"]
+        if settings["transmission"]["path"] == "":
+            default_cmd = get_default_transmission_cmd()
+            default_path = default_cmd[0]
+            settings["transmission"]["path"] = default_path
+        with open(PATHS["settings"], "w") as f:
+            json.dump(settings, f, indent=4)
+        
 
 print("Starting FastAPI server...")
 app = FastAPI()
@@ -68,6 +82,11 @@ if __name__ == "__main__":
 
     print("Database initialized!")
 
+    print("Setting initial settings...")
+    set_initial_settings()
+    print("Initial settings set!")
+
+    print("Creating directories...")
     os.mkdir(DATASETS_DIR) if not os.path.exists(DATASETS_DIR) else None
     os.mkdir(PATHS["transmission"]) if not os.path.exists(PATHS["transmission"]) else None
     print("Directories created!")

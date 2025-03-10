@@ -76,6 +76,9 @@ echo "Zstd built sucessfully"
 # Build the backend
 echo "Entering the backend"
 cd ./data-modeling-server
+echo "Removing the old build"
+rm -rf ./dist
+rm -rf ./build
 echo "Setting environment"
 source ./.venv/bin/activate
 echo "Building the backend"

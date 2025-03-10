@@ -239,25 +239,40 @@ export const TranscriptContextProvider: FC<{
     // Re-run any additional logic if codeResponses changes and we have a selectedSegment
     useEffect(() => {
         if (!selectedSegment) return;
+        // If fullText is stored as an array, guard for that:
+        if (!Array.isArray(selectedSegment.fullText)) return;
 
         console.log('Re-check codes for currently selected segment, if any.');
 
+        // 1) Find all codes whose "quote" is in this segment’s fullText array
         const currentCodes = Array.from(
             new Set(
                 codeResponses
-                    .filter((r) => r.postId === postId && r.quote === selectedSegment.fullText)
+                    .filter(
+                        (r) => r.postId === postId && selectedSegment.fullText.includes(r.quote)
+                    )
                     .map((r) => r.code)
             )
         );
 
         setHoveredCodeText(currentCodes);
 
+        // 2) Filter explanations similarly:
+        // Explanation is relevant if:
+        //   - e.code is in currentCodes
+        //   - e.fullText is one of the strings in selectedSegment.fullText
         const filteredExplanations = allExplanations.filter(
-            (e) => currentCodes.includes(e.code) && e.fullText === selectedSegment.fullText
+            (e) => currentCodes.includes(e.code) && selectedSegment.fullText.includes(e.fullText)
         );
 
         setSelectedExplanations(filteredExplanations);
     }, [codeResponses, selectedSegment, postId, allExplanations]);
+
+    useEffect(() => {
+        if (!selectedSegment && !hoveredSegment) {
+            setSelectedExplanations(allExplanations);
+        }
+    }, [selectedSegment, hoveredSegment, allExplanations]);
 
     // --------------------------------------------------
     // Selection + highlight logic
@@ -559,7 +574,7 @@ export const TranscriptContextProvider: FC<{
         [codes]
     );
 
-    const createSegment = (
+    function createSegment(
         segmentText: string,
         data: any,
         dataIndex: number,
@@ -567,24 +582,38 @@ export const TranscriptContextProvider: FC<{
         activeCodes: string[],
         codeColors: Record<string, string>,
         codeToOriginalQuote: Record<string, string>
-    ): Segment => {
-        const mapOfQuotes: Record<string, string> = {};
-        activeCodes.forEach((code) => {
-            mapOfQuotes[code] = codeToOriginalQuote[code];
-        });
+    ): Segment {
+        // For each code active in this segment, retrieve its original snippet from codeToOriginalQuote
+        const relevantOriginalQuotes = activeCodes.map((code) => codeToOriginalQuote[code] || '');
 
         return {
+            // The partial text from the post for this sub-segment
             line: segmentText,
+
             id: data.id,
             type: data.type,
             parent_id: data.parent_id,
             index: `${dataIndex}|${segmentIndex}`,
+
+            // The codes relevant to this particular segment
             relatedCodeText: activeCodes,
+
+            // A color for each code, one-to-one with activeCodes
             backgroundColours: activeCodes.map((code) => codeColors[code]),
-            fullText: segmentText,
-            codeQuotes: mapOfQuotes
+
+            // Now store an array of the original snippet(s) for the codes in this segment
+            fullText: relevantOriginalQuotes,
+
+            // Optionally also store a map from code => that code’s original snippet
+            codeQuotes: activeCodes.reduce(
+                (acc, code) => {
+                    acc[code] = codeToOriginalQuote[code] || '';
+                    return acc;
+                },
+                {} as Record<string, string>
+            )
         };
-    };
+    }
 
     const getAllPositions = (text: string, search: string) => {
         const positions = [];
@@ -629,7 +658,10 @@ export const TranscriptContextProvider: FC<{
                     if (response.code === code) {
                         // Instead of comparing segment.fullText to response.quote,
                         // we can use segment.codeQuotes[code] if needed.
-                        if (segment.fullText === response.quote) {
+                        if (
+                            Array.isArray(segment.fullText) &&
+                            segment.fullText.includes(response.quote)
+                        ) {
                             foundExplanations.push({
                                 explanation: response.explanation,
                                 code: response.code,

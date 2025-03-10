@@ -223,6 +223,10 @@ const LoadReddit: FC<{
                                     await handleLoadTorrent();
                                 });
                             } else {
+                                loadingDispatch({
+                                    type: 'SET_REST_UNDONE',
+                                    route: location.pathname
+                                });
                                 await handleLoadTorrent();
                             }
                         }}

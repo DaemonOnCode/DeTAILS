@@ -360,7 +360,7 @@ export type Segment = {
     parent_id: string | null;
     backgroundColours: string[];
     relatedCodeText: string[];
-    fullText: string;
+    fullText: string[];
     index: number | string;
     codeQuotes: Record<string, string>;
 };

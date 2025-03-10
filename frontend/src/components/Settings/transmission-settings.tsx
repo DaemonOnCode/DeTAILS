@@ -7,7 +7,7 @@ const TransmissionSettings = () => {
     const { transmission } = settings;
     const [transmissionPath, setTransmissionPath] = useState<string>(transmission.path);
     const [transmissionDownloadPath, setTransmissionDownloadPath] = useState<string>(
-        transmission.downloadDir
+        transmission?.downloadDir || ''
     );
 
     // Update local state if the context settings change.

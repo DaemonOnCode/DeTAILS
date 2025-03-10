@@ -620,23 +620,50 @@ async def wait_for_metadata(
     manager: ConnectionManager,
     app_id: str,
     run_id: str,
-        c: Client, torrent: Torrent ,
+    c: Client,
+    torrent: Torrent
 ) -> Torrent:
     c.start_torrent(torrent.id)
+
+    # 1) Keep going while metadata is incomplete
     while torrent.metadata_percent_complete < 1.0:
         message = f"Metadata progress: {torrent.metadata_percent_complete * 100:.2f}%"
         print(message)
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1)
         torrent = c.get_torrent(torrent.id)
 
-    message = "Metadata download complete. Stopping torrent."
+    message = "Metadata download complete. Verifying metadata..."
     print(message)
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
+
+    # 2) Once 100%, poll until we see a non-empty file list
+    #    or a certain timeout if you want to avoid infinite loops
+    timeout_seconds = 15
+    check_interval = 1
+    t0 = time.time()
+
+    while True:
+        torrent = c.get_torrent(torrent.id)
+        torrent_files = torrent.get_files()
+        if torrent_files:
+            print(f"Torrent has {len(torrent_files)} files.")
+            break
+        if (time.time() - t0) > timeout_seconds:
+            print("Still no files after 15s. Something is off, but continuing.")
+            break
+        await asyncio.sleep(check_interval)
+
+    message = "Metadata fully loaded. Stopping torrent."
+    print(message)
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
+
     c.stop_torrent(torrent.id)
     return torrent
+
 
 
 async def verify_torrent_with_retry(
@@ -710,6 +737,11 @@ async def process_single_file(
     update_run_progress(run_id, message)
 
     torrent_files = c.get_torrent(torrent.id).get_files()
+
+    print(torrent_files, "TORRENT FILES")
+    
+    print(f"Setting file {file_name} as wanted, others as unwanted {file_id}", )
+
     all_file_ids = [f.id for f in torrent_files]
     other_ids = [fid for fid in all_file_ids if fid != file_id]
     c.change_torrent(torrent.id, files_wanted=[file_id], files_unwanted=other_ids)
@@ -809,7 +841,7 @@ async def get_reddit_data_from_torrent(
     if current_torrent.download_dir != TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR:
         c.move_torrent_data(current_torrent.id, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
         await asyncio.sleep(10)
-        c.verify_torrent(current_torrent.id)
+        current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
         await asyncio.sleep(10)
         current_torrent = c.get_torrent(torrent_hash_string)
         # c.remove_torrent(current_torrent.id)

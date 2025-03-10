@@ -30,7 +30,7 @@ exports.createMainWindow = async (...ctxs) => {
         webPreferences: {
             nodeIntegration: true,
             enableRemoteModule: true,
-            devTools: process.env.NODE_ENV !== 'production',
+            devTools: false, //process.env.NODE_ENV !== 'production',
             contextIsolation: false,
             webSecurity: false,
             nodeIntegrationInWorker: true
