@@ -26,8 +26,8 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
     // If there are no background colours, render the text plainly.
     if (segment.backgroundColours.length === 0) {
         return (
-            <span data-segment-id={segment.index} className="relative z-10">
-                {segment.line}{' '}
+            <span data-segment-id={segment.index} className="relative z-10 mr-0.5">
+                {segment.line}
             </span>
         );
     }

@@ -143,7 +143,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
             default:
                 break;
         }
-        setSelectedCode('');
+        setSelectedCode('null');
     };
 
     // Helper to detect a single key difference between two reference maps.
@@ -223,6 +223,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         rangeMarker: selectedTextMarker
                     }
                 });
+                setSelectedCode('null');
+                setReasoning('');
                 break;
             case 'EDIT_HIGHLIGHT':
                 // difference = findSingleKeyDifference(currentReferences, references, 'modified');

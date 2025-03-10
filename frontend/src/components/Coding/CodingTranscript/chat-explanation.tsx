@@ -29,7 +29,9 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
 }) => {
     const { chatHistories, setChatHistories, review } = useTranscriptContext();
     const chatKey = `${postId}-${initialExplanationWithCode.code}-${initialExplanationWithCode.fullText}`;
-    const initialMessages = chatHistories[chatKey] || existingChatHistory;
+    const initialMessages = chatHistories[chatKey] ?? existingChatHistory;
+
+    // console.log('initialMessages:', initialMessages);
 
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});

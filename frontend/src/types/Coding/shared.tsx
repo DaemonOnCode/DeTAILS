@@ -81,9 +81,8 @@ export interface IQECResponse extends IQECRow {
     chatHistory?: ChatMessage[];
     rangeMarker?: {
         itemId: string;
-        quote: string;
         range: [number, number];
-    }[];
+    };
 }
 
 export interface IQECTRow extends IQECRow {
@@ -96,9 +95,8 @@ export interface IQECTResponse extends IQECTRow {
     chatHistory?: ChatMessage[];
     rangeMarker?: {
         itemId: string;
-        quote: string;
         range: [number, number];
-    }[];
+    };
 }
 
 export interface IQECTTyRow extends IQECTRow {
@@ -111,9 +109,8 @@ export interface IQECTTyResponse extends IQECTTyRow {
     chatHistory?: ChatMessage[];
     rangeMarker?: {
         itemId: string;
-        quote: string;
         range: [number, number];
-    }[];
+    };
 }
 
 export interface IRedditPost {
@@ -355,6 +352,7 @@ export type Segment = {
     relatedCodeText: string[];
     fullText: string;
     index: number | string;
+    codeQuotes: Record<string, string>;
 };
 
 export type PageState = {

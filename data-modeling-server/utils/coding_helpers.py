@@ -12,7 +12,7 @@ def generate_transcript(post):
 
         for comment in comments:
             indent = "  " * depth  # Indentation for nested comments
-            result += f"{indent}- {comment['body']}\n"
+            result += f"{indent} {comment['body']}\n"
             if 'comments' in comment and comment['comments']:
                 result += process_comments(comment['comments'], depth + 1)
         return result

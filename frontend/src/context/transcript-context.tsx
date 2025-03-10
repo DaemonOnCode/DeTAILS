@@ -96,21 +96,14 @@ interface ITranscriptContext {
     // Refs for DOM access
     selectionRangeRef: MutableRefObject<Range | null>;
     containerRef: RefObject<HTMLDivElement>;
-    selectedTextMarker:
-        | {
-              itemId: string;
-              quote: string;
-              range: [number, number];
-          }[]
-        | null;
-    setSelectedTextMarker: SetState<
-        | {
-              itemId: string;
-              quote: string;
-              range: [number, number];
-          }[]
-        | null
-    >;
+    selectedTextMarker: {
+        itemId: string;
+        range: [number, number];
+    } | null;
+    setSelectedTextMarker: SetState<{
+        itemId: string;
+        range: [number, number];
+    } | null>;
 }
 
 const TranscriptContext = createContext<ITranscriptContext>({
@@ -211,14 +204,10 @@ export const TranscriptContextProvider: FC<{
     const [hoveredCodeText, setHoveredCodeText] = useState<string[] | null>(null);
     const [additionalCodes, setAdditionalCodes] = useState<string[]>([]);
     const [switchModalOn, setSwitchModalOn] = useState(false);
-    const [selectedTextMarker, setSelectedTextMarker] = useState<
-        | {
-              itemId: string;
-              quote: string;
-              range: [number, number];
-          }[]
-        | null
-    >(null);
+    const [selectedTextMarker, setSelectedTextMarker] = useState<{
+        itemId: string;
+        range: [number, number];
+    } | null>(null);
 
     const [chatHistories, setChatHistories] =
         useState<Record<string, ChatMessage[]>>(gatherChatHistory());
@@ -246,159 +235,164 @@ export const TranscriptContextProvider: FC<{
                 )
             );
 
-            // const unionWithoutIntersection = Array.from(
-            //     new Set([
-            //         ...(currentSegment?.relatedCodeText ?? []).filter(
-            //             (item) => !currentCodes.includes(item)
-            //         ),
-            //         ...currentCodes.filter(
-            //             (item) => !currentSegment?.relatedCodeText.includes(item)
-            //         )
-            //     ])
-            // );
-
-            // console.log(
-            //     'Updating explanations',
-            //     unionWithoutIntersection,
-            //     currentCodes,
-            //     currentSegment?.relatedCodeText
-            // );
             if (currentCodes.length === 0) return;
 
             setHoveredCodeText(currentCodes ?? []);
-            // const previousSet = new Set(
-            //     codeResponses
-            //         .filter((r) => r.postId === postId && r.quote === currentSegment?.fullText)
-            //         .map((r) => r.code)
-            // );
-
-            // const currentCodes = Array.from(
-
-            // );
-            // setSelectedSegment(null);
-            // handleSegmentInteraction(currentSegment, true);
+            setSelectedExplanations(
+                allExplanations.filter(
+                    (e) => currentCodes.includes(e.code) && e.fullText === selectedSegment?.fullText
+                )
+            );
         }
     }, [codeResponses]);
 
-    const handleTextSelection = (_selectionRef: MutableRefObject<Range | null>): void => {
+    function getSelectionOffsets(
+        container: HTMLElement,
+        range: Range
+    ): { selectionStart: number; selectionEnd: number } {
+        let selectionStart = 0;
+        let selectionEnd = 0;
+        let currentOffset = 0;
+        let foundStart = false;
+
+        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+        let node: Node | null = null;
+
+        while ((node = walker.nextNode())) {
+            const nodeText = node.textContent || '';
+            // When we find the start node, record the offset.
+            if (!foundStart && node === range.startContainer) {
+                selectionStart = currentOffset + range.startOffset;
+                foundStart = true;
+            }
+            if (node === range.endContainer) {
+                selectionEnd = currentOffset + range.endOffset;
+                break;
+            }
+            currentOffset += nodeText.length;
+        }
+        return { selectionStart, selectionEnd };
+    }
+
+    const handleTextSelection = (_selectionRef: React.MutableRefObject<Range | null>): void => {
         console.log('Handling text selection from TranscriptContext');
-        const selection: Selection | null = window.getSelection();
+        const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) {
             console.log('No selection found or empty range.');
             return;
         }
-        const selectionRange: Range = selection.getRangeAt(0);
-        selectionRangeRef.current = selectionRange;
-        _selectionRef.current = selectionRange;
-        // Get the selected text (quote).
-        const overallSelectedText: string = selection.toString().trim();
-        console.log('Overall selected text (quote):', overallSelectedText);
+
+        // Grab the user’s selection range
+        const range = selection.getRangeAt(0);
+        _selectionRef.current = range;
+
+        const overallSelectedText = selection.toString().trim();
         if (!overallSelectedText) return;
 
-        // Use a known container for the transcript.
+        console.log('Overall selected text (quote):', overallSelectedText);
+        setSelectedText(overallSelectedText);
+
+        // Identify the start and end text nodes’ parent elements
+        const startNode = range.startContainer.parentElement;
+        const endNode = range.endContainer.parentElement;
+        if (!startNode || !endNode) {
+            console.log('Could not find start or end parentElement.');
+            return;
+        }
+
+        // Walk up the DOM until we find a data-segment-id.
+        // Then extract the itemId (the part before "|").
+        const findItemIdFromElement = (el: HTMLElement | null): string | null => {
+            while (el) {
+                const ds = el.getAttribute?.('data-segment-id');
+                if (ds) return ds.split('|')[0]; // e.g. "comment123"
+                el = el.parentElement;
+            }
+            return null;
+        };
+
+        const startItemId = findItemIdFromElement(startNode);
+        const endItemId = findItemIdFromElement(endNode);
+
+        if (!startItemId || !endItemId) {
+            console.log('Could not find data-segment-id for either the start or end.');
+            return;
+        }
+
+        // If user selection spans multiple items, bail out
+        if (startItemId !== endItemId) {
+            console.log('Selection spans multiple items; not handled.');
+            return;
+        }
+
+        // The user is selecting within exactly one item (e.g., one comment)
+        const selectedItemId = startItemId;
+
+        // Get the transcript container in order to query inside it
         const container = document.getElementById('transcript-container');
         if (!container) {
             console.log('Transcript container not found.');
             return;
         }
 
-        // Query all spans with a data-segment-id inside the container.
-        const spans = container.querySelectorAll('span[data-segment-id]');
-        const segmentsInfo: {
-            range: [number, number];
-            itemId: string;
-            quote: string;
-        }[] = [];
+        // Grab all <span> elements that have data-segment-id starting with
+        // `selectedItemId + "|"`. Sort them by segment number for stable text order.
+        const itemSpans = Array.from(
+            container.querySelectorAll(`span[data-segment-id^="${selectedItemId}|"]`)
+        ) as HTMLElement[];
 
-        spans.forEach((span) => {
-            // Check if the selection range intersects this span.
-            if (selectionRange.intersectsNode(span)) {
-                const segId = span.getAttribute('data-segment-id') || '';
-                const quote = span.textContent?.trim() || '';
+        if (itemSpans.length === 0) {
+            console.log('No spans found for itemId:', selectedItemId);
+            return;
+        }
 
-                // Default to the full text of the span.
-                let start = 0;
-                let end = quote.length;
-
-                // If the selection starts inside this span, adjust the start offset.
-                if (span.contains(selectionRange.startContainer)) {
-                    if (selectionRange.startContainer.nodeType === Node.TEXT_NODE) {
-                        // This assumes the text node is a direct child of the span.
-                        start = selectionRange.startOffset;
-                    }
-                }
-
-                // If the selection ends inside this span, adjust the end offset.
-                if (span.contains(selectionRange.endContainer)) {
-                    if (selectionRange.endContainer.nodeType === Node.TEXT_NODE) {
-                        end = selectionRange.endOffset;
-                    }
-                }
-
-                segmentsInfo.push({
-                    range: [start, end],
-                    itemId: segId,
-                    quote: quote
-                });
-            }
+        itemSpans.sort((a, b) => {
+            const aIndex = parseInt(a.getAttribute('data-segment-id')!.split('|')[1], 10) || 0;
+            const bIndex = parseInt(b.getAttribute('data-segment-id')!.split('|')[1], 10) || 0;
+            return aIndex - bIndex;
         });
 
-        console.log('Segments Info:', segmentsInfo);
+        // We'll compute the selection's start/end offset relative to
+        // the concatenated text of these spans
+        let relativeSelectionStart = 0;
+        let relativeSelectionEnd = 0;
+        let foundStart = false;
+        let currentOffset = 0;
 
-        // Optionally update state: for example, concatenate all segment quotes.
-        setSelectedText(overallSelectedText);
+        // Walk through each span’s text nodes in order
+        for (const span of itemSpans) {
+            const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT, null);
+            let node: Node | null;
+            while ((node = walker.nextNode())) {
+                const nodeText = node.textContent ?? '';
 
-        setSelectedTextMarker(segmentsInfo);
-        // let commonAncestor: HTMLElement;
-        // if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
-        //     commonAncestor = range.commonAncestorContainer as HTMLElement;
-        // } else {
-        //     commonAncestor =
-        //         range.commonAncestorContainer.parentElement ||
-        //         containerRef.current ||
-        //         document.body;
-        // }
+                // If this is the start node, record offset
+                if (!foundStart && node === range.startContainer) {
+                    relativeSelectionStart = currentOffset + range.startOffset;
+                    foundStart = true;
+                }
+                // If this is the end node, record offset and finish
+                if (node === range.endContainer) {
+                    relativeSelectionEnd = currentOffset + range.endOffset;
+                    break;
+                }
 
-        // const foundSegments: HTMLSpanElement[] = [];
-        // const walker: TreeWalker = document.createTreeWalker(
-        //     commonAncestor,
-        //     NodeFilter.SHOW_ELEMENT,
-        //     {
-        //         acceptNode: (node: Node): number => {
-        //             if (node instanceof HTMLElement && node.hasAttribute('data-segment-id')) {
-        //                 return NodeFilter.FILTER_ACCEPT;
-        //             }
-        //             return NodeFilter.FILTER_SKIP;
-        //         }
-        //     }
-        // );
+                currentOffset += nodeText.length;
+            }
+            // Once we’ve found the end, no need to keep looping
+            if (relativeSelectionEnd > 0) {
+                break;
+            }
+        }
 
-        // let currentNode: Node | null = walker.currentNode;
-        // while (currentNode) {
-        //     if (currentNode instanceof HTMLSpanElement && range.intersectsNode(currentNode)) {
-        //         foundSegments.push(currentNode);
-        //     }
-        //     currentNode = walker.nextNode();
-        // }
+        console.log('Selected item ID:', selectedItemId);
+        console.log('Relative selection offsets:', relativeSelectionStart, relativeSelectionEnd);
 
-        // if (foundSegments.length === 0 && containerRef.current) {
-        //     const containerSegments: HTMLSpanElement[] = Array.from(
-        //         containerRef.current.querySelectorAll('span[data-segment-id]')
-        //     );
-        //     containerSegments.forEach((segment) => {
-        //         if (range.intersectsNode(segment)) {
-        //             foundSegments.push(segment);
-        //         }
-        //     });
-        // }
-
-        // // Combine the text from all found segments.
-        // const combinedText: string = foundSegments
-        //     .map((span) => span.textContent?.trim() || '')
-        //     .join(' ');
-
-        // console.log(combinedText, 'combined text');
-        // setSelectedText(combinedText || selectedText);
+        // Store in your marker state
+        setSelectedTextMarker({
+            itemId: selectedItemId,
+            range: [relativeSelectionStart, relativeSelectionEnd]
+        });
     };
 
     // Restore the saved selection.
@@ -477,122 +471,146 @@ export const TranscriptContextProvider: FC<{
     };
 
     const processTranscript = useCallback(
-        (
-            post: any,
-            // codes: { code: string; text: string }[],
-            extraCodes: string[] | undefined
-        ) => {
-            if (!extraCodes) {
-                extraCodes = [];
-            }
+        (post: any, extraCodes: string[] | undefined) => {
+            if (!extraCodes) extraCodes = [];
             const codeSet = Array.from(new Set([...codes.map((c) => c.code), ...extraCodes]));
             const codeColors: Record<string, string> = {};
+
+            // 1) Build the color lookup
             codeSet.forEach((code) => {
                 codeColors[code] = generateColor(code);
             });
 
-            // Flatten all text content (post title, selftext, and comments)
+            // 2) Build the code => original quote map
+            const codeToOriginalQuote: Record<string, string> = {};
+            codes.forEach((c) => {
+                codeToOriginalQuote[c.code] = c.text;
+            });
+
+            // Flatten transcript data
             const transcriptFlatMap = [
                 { id: post.id, text: post.title, type: 'title', parent_id: null },
                 { id: post.id, text: post.selftext, type: 'selftext', parent_id: null },
                 ...post.comments.flatMap((comment: any) => traverseComments(comment, post.id))
             ];
 
-            const processedCodes = codes.map((c: any) => ({
-                ...c,
-                normalized: normalizeText(c.text)
-            }));
+            // Separate codes with vs. without rangeMarker
+            const codesWithMarker = codes.filter((c) => c.rangeMarker);
+            const codesWithoutMarker = codes.filter((c) => !c.rangeMarker);
 
+            // For each transcript item
             const segments = transcriptFlatMap.flatMap((data, dataIndex) => {
                 const text = data.text;
+
+                // Step 1: intervals from codes with rangeMarker for this item
+                const markerIntervals: CodeInterval[] = codesWithMarker
+                    .filter((c) => c.rangeMarker?.itemId === dataIndex.toString())
+                    .map((c) => ({
+                        start: c.rangeMarker?.range[0] ?? 0,
+                        end: c.rangeMarker?.range[1] ?? 0,
+                        code: c.code,
+                        text: text.slice(c.rangeMarker?.range[0] ?? 0, c.rangeMarker?.range[1] ?? 0)
+                    }));
+
+                // Step 2: intervals from codes without rangeMarker (string matching)
                 const normalizedText = normalizeText(text);
+                const matchingIntervals: CodeInterval[] = codesWithoutMarker.flatMap((c) => {
+                    const normalizedCodeText = normalizeText(c.text);
+                    const exactMatch = text.includes(c.text);
+                    const fuzzyScore = exactMatch
+                        ? 100
+                        : ratio(normalizedText, normalizedCodeText, { full_process: true });
 
-                // Find all matches using combination of exact and fuzzy
-                const matches = processedCodes
-                    .map((code) => {
-                        const exactMatch = text.includes(code.text);
-                        const fuzzyScore = exactMatch
-                            ? 100
-                            : ratio(normalizedText, code.normalized, { full_process: true });
+                    // If text is “close enough,” find all occurrences
+                    if (fuzzyScore >= 85) {
+                        const positions = getAllPositions(text, c.text);
+                        return positions.map((pos) => ({
+                            start: pos,
+                            end: pos + c.text.length,
+                            code: c.code,
+                            text: c.text
+                        }));
+                    }
+                    return [];
+                });
 
-                        return {
-                            code: code.code,
-                            text: code.text,
-                            score: exactMatch ? 100 : fuzzyScore,
-                            positions: getAllPositions(text, code.text)
-                        };
-                    })
-                    .filter((m) => m.score >= 85);
+                // Step 3: combine intervals
+                const allIntervals = [...markerIntervals, ...matchingIntervals];
 
-                // Merge matches using interval tree approach
-                const intervals = matches.flatMap((m) =>
-                    m.positions.map((pos) => ({
-                        start: pos,
-                        end: pos + m.text.length,
-                        code: m.code,
-                        text: m.text,
-                        score: m.score
-                    }))
-                ); // Generate and sort events
+                // If no intervals, single segment with no codes
+                if (allIntervals.length === 0) {
+                    return [
+                        createSegment(
+                            text,
+                            data,
+                            dataIndex,
+                            0,
+                            [], // no active codes
+                            codeColors,
+                            codeToOriginalQuote
+                        )
+                    ];
+                }
+
+                // Step 4: build "start" and "end" events
                 const events: TextEvent[] = [];
-                intervals.forEach(({ start, end, code }) => {
+                allIntervals.forEach(({ start, end, code }) => {
                     events.push({ position: start, type: 'start', code });
                     events.push({ position: end, type: 'end', code });
                 });
 
-                // Sort events: position asc, end before start at same position
+                // Sort events
                 events.sort(
                     (a, b) =>
                         a.position - b.position || (a.type === 'end' && b.type === 'start' ? -1 : 1)
                 );
 
-                // Process events to build segments
-                const segments: Segment[] = [];
+                // Step 5: generate final segments
+                const itemSegments: Segment[] = [];
                 let currentPos = 0;
-                const activeCodes = new Set<string>();
-                let currentCodes = new Set<string>();
+                const currentCodes = new Set<string>();
 
-                events.forEach((event, i) => {
+                events.forEach((event) => {
                     if (event.position > currentPos) {
-                        // Add segment from currentPos to event.position
                         const segmentText = text.slice(currentPos, event.position);
                         if (segmentText) {
-                            segments.push(
+                            itemSegments.push(
                                 createSegment(
                                     segmentText,
                                     data,
                                     dataIndex,
-                                    segments.length,
-                                    Array.from(currentCodes),
-                                    codeColors
+                                    itemSegments.length,
+                                    Array.from(currentCodes), // the codes active until now
+                                    codeColors,
+                                    codeToOriginalQuote
                                 )
                             );
                         }
                         currentPos = event.position;
                     }
-
-                    // Update active codes
-                    event.type === 'start'
-                        ? currentCodes.add(event.code)
-                        : currentCodes.delete(event.code);
+                    if (event.type === 'start') {
+                        currentCodes.add(event.code);
+                    } else {
+                        currentCodes.delete(event.code);
+                    }
                 });
 
-                // Add remaining text after last event
+                // Add trailing text, if any
                 if (currentPos < text.length) {
-                    const segmentText = text.slice(currentPos);
-                    segments.push(
+                    itemSegments.push(
                         createSegment(
-                            segmentText,
+                            text.slice(currentPos),
                             data,
                             dataIndex,
-                            segments.length,
+                            itemSegments.length,
                             Array.from(currentCodes),
-                            codeColors
+                            codeColors,
+                            codeToOriginalQuote
                         )
                     );
                 }
 
-                return segments;
+                return itemSegments;
             });
 
             return { processedSegments: segments, codeSet, codeColors };
@@ -601,23 +619,39 @@ export const TranscriptContextProvider: FC<{
     );
 
     // Helper function to create segments
+    // codeToOriginalQuote[code] is the full text for that code's snippet
+
     const createSegment = (
-        text: string,
+        segmentText: string,
         data: any,
         dataIndex: number,
         segmentIndex: number,
         activeCodes: string[],
-        codeColors: Record<string, string>
-    ): Segment => ({
-        line: text,
-        id: data.id,
-        type: data.type,
-        parent_id: data.parent_id,
-        backgroundColours: activeCodes.map((code) => codeColors[code]),
-        relatedCodeText: activeCodes,
-        fullText: activeCodes.length > 0 ? text : '',
-        index: `${dataIndex}|${segmentIndex}`
-    });
+        codeColors: Record<string, string>,
+        codeToOriginalQuote: Record<string, string>
+    ): Segment => {
+        // Build an object code => originalQuote
+        const mapOfQuotes: Record<string, string> = {};
+        activeCodes.forEach((code) => {
+            mapOfQuotes[code] = codeToOriginalQuote[code];
+        });
+
+        return {
+            line: segmentText,
+            id: data.id,
+            type: data.type,
+            parent_id: data.parent_id,
+            index: `${dataIndex}|${segmentIndex}`,
+            relatedCodeText: activeCodes,
+            backgroundColours: activeCodes.map((code) => codeColors[code]),
+            // If you want to keep "fullText" for quick text display, that’s OK,
+            // but it might just be the sub-segment portion:
+            fullText: segmentText,
+
+            // The big improvement: for each code, store the *actual* original text
+            codeQuotes: mapOfQuotes
+        };
+    };
 
     const getAllPositions = (text: string, search: string) => {
         const positions = [];
@@ -631,47 +665,58 @@ export const TranscriptContextProvider: FC<{
         return positions;
     };
 
-    const handleSegmentInteraction = (
-        segment: Segment | null,
-        isPermanent = false,
-        relatedCodeText?: string[]
-    ) => {
-        if (!segment) return;
-        if (review && isPermanent) {
-            setSwitchModalOn(true);
-            return;
-        }
+    const handleSegmentInteraction = useCallback(
+        (segment: Segment | null, isPermanent = false, relatedCodeText?: string[]) => {
+            if (!segment) return;
+            if (review && isPermanent) {
+                setSwitchModalOn(true);
+                return;
+            }
 
-        if (selectedSegment) {
-            return;
-        }
+            if (selectedSegment) {
+                return;
+            }
 
-        const targetSegment = isPermanent ? setSelectedSegment : setHoveredSegment;
-        targetSegment(segment);
+            const targetSegment = isPermanent ? setSelectedSegment : setHoveredSegment;
+            targetSegment(segment);
 
-        const currentCodeText = relatedCodeText ?? segment.relatedCodeText;
+            const currentCodeText = relatedCodeText ?? segment.relatedCodeText;
 
-        console.log('Handling segment interaction', segment, currentCodeText);
-        setHoveredCodeText(currentCodeText);
+            console.log('Handling segment interaction', segment, currentCodeText);
+            setHoveredCodeText(currentCodeText);
 
-        // Directly find explanations by code match
-        const foundExplanations: { explanation: string; code: string; fullText: string }[] = [];
-        currentCodeText.forEach((code) => {
-            codeResponses.forEach((response) => {
-                if (response.code === code && segment.fullText === response.quote) {
-                    foundExplanations.push({
-                        explanation: response.explanation,
-                        code: response.code,
-                        fullText: response.quote
-                    });
-                }
+            // Directly find explanations by code match
+            const foundExplanations: { explanation: string; code: string; fullText: string }[] = [];
+
+            currentCodeText.forEach((code) => {
+                // Now, instead of comparing `segment.fullText` with `response.quote`,
+                // we check segment.codeQuotes[code].
+                codeResponses.forEach((response) => {
+                    if (response.code === code) {
+                        // If the user’s code matches the response’s code:
+                        const originalSnippet = segment.codeQuotes?.[code];
+                        // Compare that snippet with response.quote:
+                        if (originalSnippet && originalSnippet === response.quote) {
+                            foundExplanations.push({
+                                explanation: response.explanation,
+                                code: response.code,
+                                fullText: response.quote
+                            });
+                        }
+                    }
+                });
             });
-        });
-        const unique: Explanation[] = Array.from(
-            new Set(foundExplanations.map((e) => JSON.stringify(e)))
-        ).map((str) => JSON.parse(str));
-        setSelectedExplanations(unique);
-    };
+
+            // Remove duplicates (if any)
+            const uniqueExplanations = Array.from(
+                new Set(foundExplanations.map((e) => JSON.stringify(e)))
+            ).map((str) => JSON.parse(str));
+
+            console.log('Found explanations:', uniqueExplanations);
+            setSelectedExplanations(uniqueExplanations);
+        },
+        [codeResponses, selectedSegment, review]
+    );
 
     const handleSegmentLeave = (isPermanent: boolean = true) => {
         setHoveredSegment(null);

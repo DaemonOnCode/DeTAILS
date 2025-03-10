@@ -119,6 +119,7 @@ const EditHighlightModal: FC<EditHighlightModalProps> = ({
                                             newText: selectedText
                                         });
                                         setSelectedText(null);
+                                        setSelectedReference(null);
                                         setIsHighlightModalOpen(false);
                                     } else {
                                         alert('Please select a new text region.');
