@@ -2,6 +2,9 @@ import { FC, useState } from 'react';
 import { RedditPosts } from '../../types/Coding/shared';
 import RedditViewModal from '../Coding/Shared/reddit-view-modal';
 import { RedditTableProps } from '../../types/Coding/props';
+import { Link } from 'react-router-dom';
+import { ROUTES } from '../../constants/Coding/shared';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 
 const RedditTable: FC<RedditTableProps> = ({
     data,
@@ -58,6 +61,7 @@ const RedditTable: FC<RedditTableProps> = ({
                               </tr>
                           ))
                         : // Render actual data rows when not loading
+
                           data.map((post, index) => (
                               <tr key={index} className="hover:bg-gray-50">
                                   <td className="px-4 py-6 border">
@@ -84,6 +88,17 @@ const RedditTable: FC<RedditTableProps> = ({
                           ))}
                 </tbody>
             </table>
+            {data.length === 0 && (
+                <p className="text-center w-full mt-8">
+                    Data not found, recheck subreddit details
+                    <br />
+                    <Link
+                        to={`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
+                        className="underline text-blue-500">
+                        Load data again
+                    </Link>
+                </p>
+            )}
             {selectedPost && (
                 <RedditViewModal
                     isViewOpen={selectedPost !== null}

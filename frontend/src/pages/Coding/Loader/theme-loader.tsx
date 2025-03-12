@@ -117,7 +117,7 @@ const ThemeLoaderPage = () => {
                         ))}
                     </motion.div>
 
-                    <div className="flex flex-col items-center justify-center w-24 h-24 bg-gray-300 rounded-md shadow-md text-gray-800 p-2">
+                    <div className="flex flex-col items-center justify-center w-24 h-24 rounded-md text-gray-800 p-2">
                         <DetailsIcon className="h-20 w-20" />
                         {/* <span className="text-sm font-bold">Toolkit</span> */}
                     </div>

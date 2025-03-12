@@ -28,6 +28,9 @@ class TorrentDownloadProgressRepository(BaseRepository[TorrentDownloadProgress])
     progress,
     completed_files,
     total_files,
+    subreddit,
+    start_month,
+    end_month,
     messages
   FROM torrent_download_progress
   WHERE workspace_id = ? AND dataset_id = ?
@@ -39,7 +42,10 @@ SELECT json_object(
        'progress', o.progress,
        'completedFiles', o.completed_files,
        'totalFiles', o.total_files,
-       'messages', o.messages
+       'messages', o.messages,
+       'subreddit', o.subreddit,
+        'startMonth', o.start_month,
+        'endMonth', o.end_month
   ),
   'steps', (
     SELECT json_group_array(

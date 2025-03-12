@@ -4,7 +4,6 @@ import { useTranscriptContext } from '../../../context/transcript-context';
 import ChatExplanation from './chat-explanation';
 
 interface RelatedCodesProps {
-    // review: boolean;
     postId: string;
     datasetId: string;
     codeSet: string[];
@@ -20,7 +19,6 @@ interface RelatedCodesProps {
 }
 
 const RelatedCodes: FC<RelatedCodesProps> = ({
-    // review,
     postId,
     datasetId,
     codeResponses,
@@ -30,18 +28,12 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     codeColors,
     dispatchFunction
 }) => {
-    // Use CodingContext for code-related state.
     const { dispatchSampledPostResponse, conflictingResponses, setConflictingResponses } =
         useCodingContext();
-
-    // Use TranscriptContext for shared transcript state.
     const { chatHistories, hoveredCodeText, setHoveredCode, selectedExplanations } =
         useTranscriptContext();
-    // Local state for comment inputs (for conflicting codes).
     const [comments, setComments] = useState<Record<string, string>>({});
 
-    // First check transcript context for any stored chat history;
-    // if not found, fallback to chatHistory stored in codeResponses.
     function getStoredChatHistory(postId: string, code: string, quote: string) {
         const key = `${postId}-${code}-${quote}`;
         if (chatHistories && chatHistories[key]) {
@@ -74,7 +66,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
         });
     };
 
-    // Filter out any codes that appear in the conflicting codes list.
+    // Filter out codes that appear in conflictingCodes.
     const agreedCodes = useMemo(
         () =>
             codeSet.filter((code) => conflictingCodes.every((conflict) => conflict.code !== code)),
@@ -82,14 +74,17 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     );
 
     return (
-        <div className="space-y-6" id="transcript-metadata">
-            <div>
-                <h3 className="text-lg font-bold mb-2">Sub-codes</h3>
+        // This parent container is set up as a flex column with a fixed height.
+        // Adjust the height as needed (e.g., using h-screen or a specific pixel value).
+        <div className="flex flex-col h-full gap-4" id="transcript-metadata">
+            {/* Sub-codes Section */}
+            <h3 className="text-lg font-bold">Sub-codes</h3>
+            <div className="flex-1 overflow-y-auto">
                 <ul className="space-y-2">
                     {(hoveredCodeText || agreedCodes).map((code, index) => (
                         <li
                             key={index}
-                            className="p-2 rounded bg-gray-200"
+                            className="p-2 rounded bg-gray-200 cursor-pointer"
                             onMouseEnter={() => code && setHoveredCode(code)}
                             onMouseLeave={() => setHoveredCode(null)}
                             style={{ backgroundColor: codeColors[code] || '#ddd' }}>
@@ -98,8 +93,10 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                     ))}
                 </ul>
             </div>
-            <div>
-                <h3 className="text-lg font-bold mb-2">Explanations</h3>
+
+            {/* Explanations Section */}
+            <h3 className="text-lg font-bold">Explanations</h3>
+            <div className="flex-1 overflow-y-auto">
                 {selectedExplanations.map((explanationItem) => {
                     const existingChat = getStoredChatHistory(
                         postId,
@@ -118,8 +115,10 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                     );
                 })}
             </div>
+
+            {/* Conflicting Codes Section (only rendered if present) */}
             {conflictingCodes.length > 0 && (
-                <div>
+                <div className="flex-1 overflow-y-auto">
                     <h3 className="text-lg font-bold mb-2">Conflicting Codes</h3>
                     <ul className="space-y-4">
                         {conflictingCodes.map((conflict, index) => (
@@ -133,7 +132,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                                 <p>Quote: {conflict.quote}</p>
                                 <p>Disagreement Explanation: {conflict.explanation}</p>
                                 <button
-                                    className="w-full bg-blue-500 p-4 rounded"
+                                    className="w-full bg-blue-500 p-4 rounded text-white"
                                     onClick={() => onAgreeWithLLM(conflict.code, conflict.quote)}>
                                     Agree with LLM
                                 </button>
@@ -161,7 +160,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                                     />
                                 </div>
                                 <button
-                                    className="w-full bg-blue-500 p-4 rounded"
+                                    className="w-full bg-blue-500 p-4 rounded text-white"
                                     onClick={() =>
                                         onAddOwnCode(
                                             comments[

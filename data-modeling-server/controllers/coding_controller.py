@@ -27,6 +27,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.callbacks import StreamingStdOutCallbackHandler
 from langchain_ollama import OllamaLLM
 
+from services.llm_service import GlobalQueueManager
 from utils.coding_helpers import generate_transcript
 from database import LlmResponsesRepository
 from database.db_helpers import get_post_and_comments_from_id
@@ -193,6 +194,7 @@ async def process_llm_task(
     llm_instance: Any = None,
     store_response: bool = True,  
     stream_output: bool = False,  
+    llm_queue_manager: GlobalQueueManager = None,
     **prompt_params
 ):
     max_retries = retries
@@ -206,6 +208,8 @@ async def process_llm_task(
         try:
 
             response = None
+            job_id = None
+            response_future = None
 
             if retriever:
                 if not rag_prompt_builder_func:
@@ -222,7 +226,7 @@ async def process_llm_task(
                 question_answer_chain = create_stuff_documents_chain(llm=llm_instance, prompt=prompt_template)
                 rag_chain = create_retrieval_chain(retriever=retriever, combine_docs_chain=question_answer_chain)
 
-                response = await asyncio.to_thread(rag_chain.invoke,{"input": input_text})  
+                job_id, response_future = await llm_queue_manager.submit_task(rag_chain.invoke,{"input": input_text})  
             else:
                 if not prompt_builder_func:
                     raise ValueError("Standard LLM invocation requires a 'prompt_builder_func'.")
@@ -237,7 +241,9 @@ async def process_llm_task(
                     async for chunk in llm_instance.stream(prompt_text):
                         await manager.send_message(app_id, f"Dataset {dataset_id}: {chunk}")
                 else:
-                    response = await asyncio.to_thread(llm_instance.invoke, prompt_text)
+                    job_id, response_future = await llm_queue_manager.submit_task(llm_instance.invoke, prompt_text)
+
+            response = await response_future
 
             print("Response", response)
             response = response["answer"] if retriever else response.content
@@ -252,10 +258,6 @@ async def process_llm_task(
             await manager.send_message(app_id, f"Dataset {dataset_id}: LLM process completed successfully.")
 
             if store_response and post_id:
-                # execute_query(
-                #     f"INSERT INTO llm_responses (dataset_id, model, response, id, additional_info, function_id) VALUES (?, ?, ?, ?, ?, ?)",
-                #     (dataset_id, llm_model, response.lower(), str(uuid4()), "LLM Response", function_id)
-                # )
                 llm_responses_repo.insert(
                     LlmResponse(
                         dataset_id=dataset_id,
@@ -277,6 +279,8 @@ async def process_llm_task(
                 await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
                 extracted_data = []
                 raise e
+            print("Error, waiting for 30 seconds", e)
+            await asyncio.sleep(30)
 
     return extracted_data
 

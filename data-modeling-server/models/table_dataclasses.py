@@ -282,6 +282,9 @@ class TorrentDownloadProgress(BaseDataclass):
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "primary_key": True})
     dataset_id: str = field(metadata={"foreign_key": "datasets(id)", "primary_key": True})
     run_id: str = field(metadata={"not_null": True})
+    subreddit: str = field(metadata={"not_null": True})
+    start_month: str = field(metadata={"not_null": True})
+    end_month: str = field(metadata={"not_null": True})
     status: str = field(metadata={"not_null": True}, default="idle")  # idle, in-progress, complete, error
     progress: Optional[float] = field(default=0.0)  # Overall percentage
     completed_files: Optional[int] = field(default=0)  # Number of completed files

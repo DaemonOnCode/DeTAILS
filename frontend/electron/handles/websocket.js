@@ -5,7 +5,7 @@ const { electronLogger } = require('../utils/electron-logger');
 const config = require('../../src/config')('electron');
 
 let wsInstance = null;
-const maxReconnectAttempts = 5;
+const maxReconnectAttempts = 3;
 const baseDelay = 1000; // in milliseconds
 let reconnectAttempts = 0;
 

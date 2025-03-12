@@ -33,7 +33,7 @@ progress_repo = TorrentDownloadProgressRepository()
 def get_current_download_dir():
     with open(PATHS["settings"], "r") as f:
         settings = json.load(f)
-        print(settings)
+        # print(settings)
         if settings["transmission"]["downloadDir"] == "" :
             settings["transmission"]["downloadDir"] = PATHS["transmission"]
             with open(PATHS["settings"], "w") as f:
@@ -77,6 +77,20 @@ def update_run_progress(run_id: str, new_message: str):
     progress_repo.update_progress(run_id, workspace_updates)
 
     # === Update Pipeline Steps ===
+    # -- DATA --
+    # if "Starting download" in new_message:
+    #     m = re.search(r"Starting download for subreddit\s+'([^']+)'", new_message)
+    #     if m:
+    #         subreddit = m.group(1)
+    #         progress_repo.update_progress(run_id, {"subreddit": subreddit})
+
+    # if "Fetching torrent data for months" in new_message:
+    #     m = re.search(r"Fetching torrent data for months\s+([\d-]+)\s+through\s+([\d-]+)", new_message)
+    #     if m:
+    #         start_month = m.group(1)
+    #         end_month = m.group(2)
+    #         progress_repo.update_progress(run_id, {"start_month": start_month, "end_month": end_month})
+
     # -- METADATA --
     if "Metadata progress:" in new_message:
         m = re.search(r"Metadata progress:\s+([\d.]+)", new_message)
@@ -246,7 +260,7 @@ def update_run_progress(run_id: str, new_message: str):
 
     # -- JSON Extracted --
     if "JSON extracted:" in new_message:
-        m = re.search(r"JSON extracted:\s+(.*)/(RS_[\d-]+)\.json", new_message, re.IGNORECASE)
+        m = re.search(r"JSON extracted:\s+(.*)/(R[S|C]_[\d-]+)\.json", new_message, re.IGNORECASE)
         if m:
             # Reconstruct the file key as inserted: the relative path should be the same as f.name.
             dir_part = m.group(1).strip()  # e.g. "/Volumes/Crucial X9/abc/transmission-downloads/reddit/submissions"
@@ -860,7 +874,8 @@ async def get_reddit_data_from_torrent(
     files_to_process = get_files_to_process(torrent_files, wanted_range, submissions_only)
     already_existing_files = get_torrent_files_by_subreddit(subreddit)
     print(f"Already existing files: {already_existing_files}")
-    message = f'Files already downloaded: {(", ").join(already_existing_files)}'
+    files_already_downloaded = list(filter(lambda f: os.path.splitext(os.path.basename(f.name))[0] in already_existing_files, files_to_process))
+    message = f'Files already downloaded: {(", ").join([os.path.splitext(os.path.basename(f.name))[0] for f in files_already_downloaded])}'
     await manager.send_message(app_id, message)
     if len(already_existing_files) != 0:
         files_to_process = list(filter(lambda f: os.path.splitext(os.path.basename(f.name))[0] not in already_existing_files, files_to_process))

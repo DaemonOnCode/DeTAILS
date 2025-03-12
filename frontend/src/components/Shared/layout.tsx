@@ -209,7 +209,7 @@ export const Layout: FC<ILayout> = ({ children }) => {
                         }}
                     />
                 </div>
-                <h1 className="text-3xl font-bold mb-4">Starting Services...</h1>
+                <h1 className="text-3xl font-bold mb-4">Starting Services</h1>
                 <p className="text-lg text-gray-600">
                     Please wait while we initialize the backend services. This may take a few
                     moments.

@@ -3,10 +3,18 @@ import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useSettings } from '../../context/settings-context';
 import { useLoadingContext } from '../../context/loading-context';
 import { useLocation } from 'react-router-dom';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 
 export type FetchResponse<T = any> =
     | { data: T; error?: never; abort: () => void }
-    | { error: Error; data?: never; abort: () => void };
+    | {
+          error: {
+              message: string;
+              name: string;
+          };
+          data?: never;
+          abort: () => void;
+      };
 
 export type FetchRequest<T = any> = (
     route: string,
@@ -56,11 +64,21 @@ export const useApi = (): UseApiResult => {
                 signal: controller.signal
             };
 
-            if (requestArrayRef.current !== null) {
+            if (
+                requestArrayRef.current !== null
+                // &&
+                // !(
+                //     route === REMOTE_SERVER_ROUTES.SAVE_STATE ||
+                //     route === REMOTE_SERVER_ROUTES.LOAD_STATE
+                // )
+            ) {
+                console.log('Request array ref is not null for:', location.pathname);
                 requestArrayRef.current[location.pathname] = [
                     ...(requestArrayRef.current[location.pathname] || []),
                     controller.abort.bind(controller)
                 ];
+            } else {
+                console.log('Request array ref is null for:', location.pathname);
             }
 
             try {

@@ -21,6 +21,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
         showProceedConfirmModal,
         setShowProceedConfirmModal,
         loadingDispatch,
+        abortRequests,
         loadingState,
         checkIfDataExists,
         openModal
@@ -72,6 +73,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             if (dataExists) {
                                 openModal('nav-proceed-btn', async (e: any) => {
                                     // setShowProceedConfirmModal(false);
+                                    abortRequests(location.pathname);
                                     await resetDataAfterPage(location.pathname);
                                     onNextClick && (await onNextClick(e));
                                     loadingDispatch({
@@ -81,11 +83,12 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                                     autoNavigateToNext && navigate(nextPageFull);
                                 });
                             } else {
-                                onNextClick && (await onNextClick?.(e));
+                                abortRequests(location.pathname);
                                 loadingDispatch({
                                     type: 'SET_REST_UNDONE',
                                     route: location.pathname
                                 });
+                                onNextClick && (await onNextClick?.(e));
                                 loadingDispatch({
                                     type: 'SET_FIRST_RUN_DONE',
                                     route: location.pathname

@@ -175,10 +175,12 @@ const KeywordCloudPage: FC = () => {
 
         if (error) {
             console.error('Error regenerating Keyword Cloud:', error);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
-            });
+            if (error.name !== 'AbortError') {
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+                });
+            }
             navigate(`/coding/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
             return;
         }

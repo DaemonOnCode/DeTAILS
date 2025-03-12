@@ -12,6 +12,7 @@ from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
 from routes.websocket_routes import manager
 
+from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
 from database.db_helpers import get_post_and_comments_from_id
 from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GroupCodes, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
@@ -43,6 +44,7 @@ async def build_context_from_interests_endpoint(
     researchQuestions: str = Form(...),
     retry: bool = Form(False),
     datasetId: str = Form(...),
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
 ):
     if not datasetId:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
@@ -78,7 +80,8 @@ async def build_context_from_interests_endpoint(
         mainTopic=mainTopic,
         researchQuestions=researchQuestions,
         additionalInfo=additionalInfo,
-        llm_instance=llm
+        llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
     )
 
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
@@ -92,6 +95,7 @@ async def build_context_from_interests_endpoint(
 async def regenerate_keywords_endpoint(
     request: Request,
     request_body: RegenerateKeywordsRequest,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
     # settings: Annotated[config.Settings, Depends(config.get_settings)],
 ):
     dataset_id = request_body.datasetId
@@ -115,6 +119,7 @@ async def regenerate_keywords_endpoint(
         rag_prompt_builder_func=ContextPrompt.regenerationPromptTemplate, 
         retriever=retriever, 
         llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
         input_text=ContextPrompt.refined_context_builder( 
             request_body.mainTopic, 
             request_body.researchQuestions, 
@@ -141,7 +146,8 @@ async def regenerate_keywords_endpoint(
 @router.post("/generate-initial-codes")
 async def generate_codes_endpoint(request: Request,
     request_body: GenerateInitialCodesRequest,
-    batch_size: int = 5  # Default batch size (can be overridden in request)
+    batch_size: int = 100,  
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id or len(request_body.sampled_post_ids) == 0:
@@ -173,6 +179,7 @@ async def generate_codes_endpoint(request: Request,
                 regex_pattern=r"\"codes\":\s*(\[.*?\])",
                 prompt_builder_func=InitialCodePrompts.initial_code_prompt,
                 llm_instance=llm,
+                llm_queue_manager=llm_queue_manager,
                 main_topic=request_body.main_topic,
                 additional_info=request_body.additional_info,
                 research_questions=request_body.research_questions,
@@ -221,6 +228,7 @@ async def generate_codes_endpoint(request: Request,
 async def refine_codebook_endpoint(
     request: Request,
     request_body: CodebookRefinementRequest,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
     # settings: Annotated[config.Settings, Depends(config.get_settings)],
 ):
     dataset_id = request_body.dataset_id
@@ -243,6 +251,7 @@ async def refine_codebook_endpoint(
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=RefineCodebook.refine_codebook_prompt,  # Non-RAG prompt
         llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
         prev_codebook_json=prev_codebook_json,
         current_codebook_json=current_codebook_json
     )
@@ -269,7 +278,8 @@ async def refine_codebook_endpoint(
 async def deductive_coding_endpoint(
     request: Request,
     request_body: DeductiveCodingRequest,
-    batch_size: int = 5  
+    batch_size: int = 100,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -299,6 +309,7 @@ async def deductive_coding_endpoint(
             regex_pattern=r"```json\s*([\s\S]*?)\s*```",
             prompt_builder_func=DeductiveCoding.deductive_coding_prompt,
             llm_instance=llm,
+            llm_queue_manager=llm_queue_manager,
             final_codebook=json.dumps(request_body.final_codebook, indent=2),
             keyword_table=json.dumps(request_body.keyword_table, indent=2),
             main_topic=request_body.main_topic,
@@ -343,6 +354,7 @@ async def deductive_coding_endpoint(
 async def theme_generation_endpoint(
     request: Request,
     request_body: ThemeGenerationRequest,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
     # settings: Annotated[config.Settings, Depends(config.get_settings)], 
 ):
     dataset_id = request_body.dataset_id
@@ -376,6 +388,7 @@ async def theme_generation_endpoint(
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=ThemeGeneration.theme_generation_prompt,
         llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
         qec_table=json.dumps({"codes": qec_table}), 
         unique_codes = json.dumps(list(grouped_qec.keys()))
     )
@@ -408,7 +421,8 @@ async def theme_generation_endpoint(
 @router.post("/refine-code")
 async def refine_single_code_endpoint(
     request: Request,
-    request_body: RefineCodeRequest
+    request_body: RefineCodeRequest,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -428,6 +442,7 @@ async def refine_single_code_endpoint(
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=RefineSingleCode.refine_single_code_prompt,
         llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
         transcript=transcript,
         code=request_body.code,
         quote=request_body.quote,
@@ -445,7 +460,8 @@ async def refine_single_code_endpoint(
 @router.post("/remake-codebook")
 async def generate_codes_endpoint(request: Request,
     request_body: RemakeCodebookRequest,
-    batch_size: int = 5  # Default batch size (can be overridden in request)
+    batch_size: int = 1000,  # Default batch size (can be overridden in request)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id or len(request_body.sampled_post_ids) == 0:
@@ -477,6 +493,7 @@ async def generate_codes_endpoint(request: Request,
                 regex_pattern=r"```json\s*([\s\S]*?)\s*```",
                 prompt_builder_func=RemakerPrompts.codebook_remake_prompt,
                 llm_instance=llm,
+                llm_queue_manager=llm_queue_manager,
                 main_topic=request_body.main_topic,
                 additional_info=request_body.additional_info,
                 research_questions=request_body.research_questions,
@@ -528,7 +545,8 @@ async def generate_codes_endpoint(request: Request,
 async def redo_deductive_coding_endpoint(
     request: Request,
     request_body: RemakeDeductiveCodesRequest,
-    batch_size: int = 5  
+    batch_size: int = 1000,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)  
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -558,6 +576,7 @@ async def redo_deductive_coding_endpoint(
             regex_pattern=r"```json\s*([\s\S]*?)\s*```",
             prompt_builder_func=RemakerPrompts.deductive_codebook_remake_prompt,
             llm_instance=llm,
+            llm_queue_manager=llm_queue_manager,
             final_codebook=json.dumps(request_body.final_codebook, indent=2),
             keyword_table=json.dumps(request_body.keyword_table, indent=2),
             main_topic=request_body.main_topic,
@@ -602,7 +621,8 @@ async def redo_deductive_coding_endpoint(
 @router.post("/group-codes")
 async def group_codes_endpoint(
     request: Request,
-    request_body: GroupCodesRequest
+    request_body: GroupCodesRequest,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -636,6 +656,7 @@ async def group_codes_endpoint(
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=GroupCodes.group_codes_prompt,
         llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
         codes=json.dumps(list(grouped_qec.keys())),
         qec_table=json.dumps(qec_table)
     )

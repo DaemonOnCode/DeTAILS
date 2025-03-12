@@ -9,6 +9,7 @@ import ReviewToggle from './review-toggle';
 import ValidationTable from './validation-table';
 import { DetailsLLMIcon } from '../../Shared/Icons';
 import { toast } from 'react-toastify';
+import { useLoadingContext } from '../../../context/loading-context';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
@@ -58,6 +59,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         dispatchSampledPostResponse,
         dispatchUnseenPostResponse
     } = useCodingContext();
+
+    // const { } = useLoadingContext();
 
     const [review, setReview] = useState(reviewParam ?? true);
     const [filter, setFilter] = useState<string | null>(null);
@@ -273,9 +276,10 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={() => {
+                                    onClick={async () => {
                                         console.log('Feedback:', feedback);
                                         setShowFeedbackModal(false);
+
                                         handleRerun();
                                     }}
                                     className="px-4 py-2 bg-green-500 text-white rounded">

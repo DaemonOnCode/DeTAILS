@@ -94,7 +94,10 @@ async def download_reddit_from_torrent_endpoint(
             workspace_id=request_body.workspace_id,
             dataset_id=request_body.dataset_id,
             run_id=run_id,
-            status="in-progress"
+            status="in-progress",
+            subreddit=request_body.subreddit,
+            start_month=request_body.start_date,
+            end_month=request_body.end_date
         ))
 
         pipeline_repo.insert_batch(

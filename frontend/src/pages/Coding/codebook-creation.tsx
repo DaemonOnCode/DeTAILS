@@ -160,10 +160,12 @@ const CodebookCreation = () => {
 
         if (error) {
             console.error('Error in handleNextClick:', error);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
-            });
+            if (error.name !== 'AbortError') {
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+                });
+            }
             return;
         }
 

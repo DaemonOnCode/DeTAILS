@@ -140,10 +140,12 @@ const DataViewerPage = () => {
 
         if (sampleError) {
             console.error('Error sampling posts:', sampleError);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
-            });
+            if (sampleError.name !== 'AbortError') {
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+                });
+            }
             return;
         }
 
@@ -175,10 +177,12 @@ const DataViewerPage = () => {
 
         if (codeError) {
             console.error('Error generating initial codes:', codeError);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
-            });
+            if (codeError.name !== 'AbortError') {
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+                });
+            }
             return;
         }
 

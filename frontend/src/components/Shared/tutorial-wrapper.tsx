@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import CustomTutorialOverlay, { TutorialStep } from './custom-tutorial-overlay';
 import { useSettings } from '../../context/settings-context';
 
@@ -24,9 +24,12 @@ const TutorialWrapper: React.FC<TutorialWrapperProps> = ({
     const { settings, skipTutorialGlobally, skipTutorialForPage, updateSettings } = useSettings();
 
     // Determine if the tutorial should be shown based on context settings.
-    const effectiveShowTutorial =
-        settings.tutorials.showGlobal &&
-        (!pageId || !settings.tutorials.skipPages.includes(pageId));
+    const effectiveShowTutorial = useMemo(
+        () =>
+            settings.tutorials.showGlobal &&
+            (!pageId || !settings.tutorials.skipPages.includes(pageId)),
+        [settings.tutorials, pageId]
+    );
 
     // Local state for controlling whether to show the tutorial overlay.
     const [showOverlay, setShowOverlay] = useState(false);
@@ -35,6 +38,13 @@ const TutorialWrapper: React.FC<TutorialWrapperProps> = ({
     const [showPrompt, setShowPrompt] = useState(false);
 
     useEffect(() => {
+        console.log(
+            'effectiveShowTutorial',
+            settings.tutorials.showGlobal,
+            effectiveShowTutorial,
+            promptOnFirstPage,
+            settings.tutorials.hasRun
+        );
         if (effectiveShowTutorial) {
             if (promptOnFirstPage && !settings.tutorials.hasRun) {
                 setShowPrompt(true);
@@ -44,33 +54,32 @@ const TutorialWrapper: React.FC<TutorialWrapperProps> = ({
         }
     }, [effectiveShowTutorial, promptOnFirstPage, settings.tutorials.hasRun]);
 
-    const handleSkipPrompt = () => {
+    const handleSkipPrompt = async () => {
         // If the user skips on the first page, disable tutorials globally and mark this page as done.
         if (pageId) {
-            skipTutorialForPage(pageId);
+            await skipTutorialForPage(pageId);
         }
-        skipTutorialGlobally();
-        updateSettings('tutorials', { hasRun: true });
+        await updateSettings('tutorials', { hasRun: true, showGlobal: false });
         setShowPrompt(false);
     };
 
-    const handleShowTutorial = () => {
+    const handleShowTutorial = async () => {
         // Reset skipPages so that all pages will show their tutorials,
         // and mark that the global prompt has been handled.
-        updateSettings('tutorials', { hasRun: true, skipPages: [] });
+        await updateSettings('tutorials', { hasRun: true, skipPages: [] });
         setShowPrompt(false);
         setShowOverlay(true);
     };
 
-    const handleOverlayFinish = () => {
+    const handleOverlayFinish = async () => {
         // Mark this page as done.
         if (pageId) {
             console.log('pageid', pageId);
-            skipTutorialForPage(pageId);
+            await skipTutorialForPage(pageId);
         }
         if (lastPage) {
             // On the final page, once the tutorial finishes, disable tutorials globally.
-            skipTutorialGlobally();
+            await skipTutorialGlobally();
         }
         onFinish?.();
         setShowOverlay(false);
@@ -101,7 +110,7 @@ const TutorialWrapper: React.FC<TutorialWrapperProps> = ({
             {effectiveShowTutorial && showOverlay && (
                 <CustomTutorialOverlay
                     steps={steps}
-                    run={true}
+                    run={showOverlay}
                     excludedTarget={excludedTarget}
                     onFinish={handleOverlayFinish}
                 />

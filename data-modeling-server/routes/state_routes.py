@@ -11,7 +11,7 @@ from models.state_models import LoadStateRequest, SaveStateRequest
 router = APIRouter()
 
 @router.post("/save-state")
-def save_state_endpoint(request: SaveStateRequest):
+async def save_state_endpoint(request: SaveStateRequest):
     if request.workspace_id is None or request.workspace_id == "":
         raise HTTPException(status_code=400, detail="workspace_id is required")
     try:
@@ -26,7 +26,7 @@ def save_state_endpoint(request: SaveStateRequest):
 
 
 @router.post("/load-state")
-def load_state_endpoint(request: LoadStateRequest):
+async def load_state_endpoint(request: LoadStateRequest):
     try:
         result = load_state(request)
         # print("Loaded state", result)
@@ -37,7 +37,7 @@ def load_state_endpoint(request: LoadStateRequest):
     
 
 @router.delete("/delete-state")
-def delete_state_endpoint(request: LoadStateRequest):
+async def delete_state_endpoint(request: LoadStateRequest):
     try:
         print("Deleting state", request.workspace_id, request.user_email)
         delete_state(request)
@@ -49,7 +49,7 @@ def delete_state_endpoint(request: LoadStateRequest):
 
 
 @router.post("/export-workspace")
-def export_workspace_endpoint(request: LoadStateRequest):
+async def export_workspace_endpoint(request: LoadStateRequest):
     workspace_id = request.workspace_id
     user_email = request.user_email
     if workspace_id is None or workspace_id == "" or user_email is None or user_email == "":

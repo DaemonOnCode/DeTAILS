@@ -143,10 +143,12 @@ const FinalzingCodes = () => {
 
         if (error) {
             console.error('Error in handleNextClick:', error);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
-            });
+            if (error.name !== 'AbortError') {
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+                });
+            }
             return;
         }
         console.log('Results:', results);
@@ -184,10 +186,12 @@ const FinalzingCodes = () => {
 
         if (error) {
             console.error('Error refreshing themes:', error);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
-            });
+            if (error.name !== 'AbortError') {
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
+                });
+            }
             return;
         }
 

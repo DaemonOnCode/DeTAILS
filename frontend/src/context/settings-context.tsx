@@ -158,7 +158,7 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
 
     const skipTutorialGlobally = useCallback(async () => {
         await updateSettings('tutorials', { showGlobal: false });
-    }, [updateSettings]);
+    }, [settings.tutorials.showGlobal]);
 
     const skipTutorialForPage = useCallback(
         async (pageId: string) => {

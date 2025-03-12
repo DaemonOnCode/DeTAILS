@@ -221,10 +221,12 @@ const ThemesPage = () => {
 
         if (error) {
             console.error('Error refreshing themes:', error);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
-            });
+            if (error.name !== 'AbortError') {
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+                });
+            }
             return;
         }
 

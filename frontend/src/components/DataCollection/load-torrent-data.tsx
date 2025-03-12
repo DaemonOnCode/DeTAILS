@@ -93,7 +93,11 @@ const TorrentDataTab = ({
 
     const torrentDisabledCheck =
         torrentSubreddit === '' ||
-        new Date(torrentStart).getTime() > new Date(torrentEnd).getTime();
+        torrentStart === '' ||
+        torrentEnd === '' ||
+        new Date(torrentStart).getTime() > new Date(torrentEnd).getTime() ||
+        new Date(torrentStart).getTime() < new Date(TORRENT_START_DATE).getTime() ||
+        new Date(torrentEnd).getTime() > new Date(TORRENT_END_DATE).getTime();
 
     // If Transmission is not present, show installation instructions along with a re-check and settings navigation button.
     if (!transmissionExists) {

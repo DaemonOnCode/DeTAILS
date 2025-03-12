@@ -31,7 +31,9 @@ const LoadingContext = createContext<ILoadingContext>({
     setShowProceedConfirmModal: () => {},
     openModal: (_id: string, _callback: (e: React.MouseEvent) => void | Promise<void>) => {},
     updateContext: () => {},
-    resetContext: () => {}
+    resetContext: () => {},
+    abortRequests: () => {},
+    abortRequestsByRoute: () => {}
 });
 
 export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
@@ -77,7 +79,6 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         setShowProceedConfirmModal(false);
     };
 
-    const requestArrayRef = useRef<Record<string, ((...e: any) => void)[]> | null>({});
     const initialPageState: ILoadingState = {
         [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`]: {
             isLoading: false,
@@ -141,6 +142,9 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         }
     };
 
+    const requestArrayRef = useRef<Record<string, ((...e: any) => void)[]> | null>(
+        Object.fromEntries(Object.keys(initialPageState).map((route) => [route, []]))
+    );
     const [loadingState, loadingDispatch] = useReducer(loadingReducer, initialPageState);
 
     // useEffect(() => {
@@ -192,6 +196,35 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         });
     };
 
+    const abortRequests = (route: string) => {
+        const routeIdx = Object.keys(initialPageState).indexOf(route);
+        Object.keys(initialPageState).forEach((route, idx) => {
+            if (routeIdx <= idx && requestArrayRef.current) {
+                console.log('Aborting request:', route, requestArrayRef.current[route]);
+                (requestArrayRef.current[route] ?? []).forEach((abort) => {
+                    abort({
+                        name: 'AbortError',
+                        message: 'Operation cancelled: Moved out of workspace'
+                    });
+                });
+                requestArrayRef.current[route] = [];
+            }
+        });
+    };
+
+    const abortRequestsByRoute = (route: string) => {
+        if (requestArrayRef.current && requestArrayRef.current[route]) {
+            requestArrayRef.current[route].forEach((abort) => {
+                console.log('Aborting request:', route);
+                abort({
+                    name: 'AbortError',
+                    message: 'Operation cancelled: Moved out of workspace'
+                });
+            });
+            requestArrayRef.current[route] = [];
+        }
+    };
+
     const resetDataAfterPage = async (page: string) => {
         console.log('Resetting data after page:', page);
 
@@ -226,13 +259,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
                 type: 'RESET_PAGE_DATA',
                 payload: { route }
             });
-            if (requestArrayRef?.current && requestArrayRef.current[route]) {
-                requestArrayRef.current[route].forEach((abort) => {
-                    console.log('Aborting request:', route);
-                    abort();
-                });
-                requestArrayRef.current[route] = [];
-            }
+            abortRequests(route);
         }
     };
 
@@ -246,7 +273,10 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             Object.entries(requestArrayRef.current).forEach(([route, abortArray]) => {
                 if (route === `/${SHARED_ROUTES.WORKSPACE}`) return;
                 abortArray.forEach((abort) => {
-                    abort(new Error('Operation cancelled: Moved out of workspace'));
+                    abort({
+                        name: 'AbortError',
+                        message: 'Operation cancelled: Moved out of workspace'
+                    });
                 });
             });
 
@@ -288,7 +318,9 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             openModal,
             requestArrayRef,
             updateContext,
-            resetContext
+            resetContext,
+            abortRequests,
+            abortRequestsByRoute
         }),
         [loadingState, showProceedConfirmModal]
     );

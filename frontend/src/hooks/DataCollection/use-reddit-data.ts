@@ -63,6 +63,7 @@ const useRedditData = () => {
 
                     if (uploadResponse.error) {
                         console.error(`Failed to upload file ${file}:`, uploadResponse.error);
+                        setError(uploadResponse.error.name);
                     } else {
                         const result = uploadResponse.data;
                         dataset_id = result.dataset_id;
@@ -106,6 +107,7 @@ const useRedditData = () => {
         });
         if (batchResponse.error) {
             console.error('Error fetching batch data:', batchResponse.error);
+            setError(batchResponse.error.name);
             return {};
         }
         console.log(batchResponse.data, 'getRedditPostDataByBatch');
@@ -186,7 +188,7 @@ const useRedditData = () => {
                 if (torrentResponse.error) {
                     console.error('Failed to load torrent data:', torrentResponse.error);
                     // setError('Failed to load torrent data.');
-                    throw new Error('Failed to load torrent data.');
+                    setError(torrentResponse.error.name);
                 } else {
                     console.log('Torrent data:', torrentResponse.data);
                 }
@@ -221,6 +223,7 @@ const useRedditData = () => {
 
         if (torrentFilesResponse.error) {
             console.error('Error loading torrent files:', torrentFilesResponse.error);
+            setError(torrentFilesResponse.error.name);
         } else {
             console.log('Torrent data:', torrentFilesResponse.data);
         }

@@ -154,7 +154,15 @@ export const TranscriptContextProvider: FC<{
     /**
      * We now store these in state so they can update if codeResponses changes.
      */
-    const [allExplanations, setAllExplanations] = useState<Explanation[]>([]);
+    const [allExplanations, setAllExplanations] = useState<Explanation[]>(
+        codeResponses
+            .filter((r) => r.postId === postId)
+            .map((r) => ({
+                explanation: r.explanation,
+                code: r.code,
+                fullText: r.quote
+            }))
+    );
     const [codes, setCodes] = useState<
         { text: string; code: string; rangeMarker?: { itemId: string; range: [number, number] } }[]
     >([]);
@@ -632,7 +640,8 @@ export const TranscriptContextProvider: FC<{
     // --------------------------------------------------
     const handleSegmentInteraction = useCallback(
         (segment: Segment | null, isPermanent = false, relatedCodeText?: string[]) => {
-            if (!segment) return;
+            console.log('Handling segment interaction:', segment, isPermanent);
+            if (!segment || !segment.fullText.length) return;
 
             if (review && isPermanent) {
                 setSwitchModalOn(true);

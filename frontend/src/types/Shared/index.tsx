@@ -217,6 +217,8 @@ export interface ILoadingContext {
         };
     }) => void;
     resetContext: () => void;
+    abortRequests: (page: string) => void;
+    abortRequestsByRoute: (route: string) => void;
 }
 
 export interface ModalCallbacks {

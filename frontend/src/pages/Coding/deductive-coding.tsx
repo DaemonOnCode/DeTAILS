@@ -117,21 +117,25 @@ const DeductiveCodingPage = () => {
 
         if (error) {
             console.error('Error in handleRedoCoding:', error);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
-            });
+            if (error.name) {
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+                });
+            }
             return;
         }
 
         console.log('Results:', results);
 
-        toast.info(
-            'LLM has finished coding data. You can head back to Deductive Coding page to see the results',
-            {
-                autoClose: false
-            }
-        );
+        if (settings.general.manualCoding) {
+            toast.info(
+                'LLM has finished coding data. You can head back to Deductive Coding page to see the results',
+                {
+                    autoClose: false
+                }
+            );
+        }
 
         dispatchUnseenPostResponse({
             type: 'SET_RESPONSES',

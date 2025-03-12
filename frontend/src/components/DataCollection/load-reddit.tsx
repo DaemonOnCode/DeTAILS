@@ -88,6 +88,7 @@ const LoadReddit: FC<{
         navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
         const postsOnly = torrentMode === 'posts';
         await loadTorrentData(true, torrentSubreddit, torrentStart, torrentEnd, postsOnly);
+        console.log('error', error);
         if (error) return;
         navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`);
         loadingDispatch({
