@@ -189,6 +189,7 @@ const useRedditData = () => {
                     console.error('Failed to load torrent data:', torrentResponse.error);
                     // setError('Failed to load torrent data.');
                     setError(torrentResponse.error.name);
+                    throw new Error('Failed to load torrent data.');
                 } else {
                     console.log('Torrent data:', torrentResponse.data);
                 }
@@ -197,9 +198,16 @@ const useRedditData = () => {
             const parsedData = await getRedditPostDataByBatch(datasetId, 10, 0);
             setData(parsedData);
             setError(null);
+            return {
+                data: parsedData,
+                error: null
+            };
         } catch (err) {
             console.error('Failed to load torrent data:', err);
             setError('Failed to load torrent data.');
+            return {
+                error: 'Failed to load torrent data.'
+            };
         } finally {
             setLoading(false);
         }

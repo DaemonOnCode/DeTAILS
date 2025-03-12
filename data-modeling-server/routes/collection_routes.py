@@ -146,12 +146,19 @@ async def download_reddit_from_torrent_endpoint(
             # STEP 1: Create the academic folder one directory up from the downloaded files.
             # Get the directory where the files were downloaded.
             academic_folder = None
+            academic_folder_name = f"academic-torrent-{request_body.subreddit}"
+
+            datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
+            if not os.path.exists(datasets_academic_folder):
+                os.makedirs(datasets_academic_folder)
+                message = f"Created datasets folder: {datasets_academic_folder}"
+                await manager.send_message(app_id, message)
+                update_run_progress(run_id, message)
 
             if len(output_files) > 0:
                 downloaded_dir = os.path.dirname(output_files[0])
                 # Now get one directory up from the downloaded directory.
                 parent_dir = os.path.dirname(downloaded_dir)
-                academic_folder_name = f"academic-torrent-{request_body.subreddit}"
                 academic_folder = os.path.join(parent_dir, academic_folder_name)
                 if not os.path.exists(academic_folder):
                     os.makedirs(academic_folder, exist_ok=True)
@@ -160,38 +167,26 @@ async def download_reddit_from_torrent_endpoint(
                     update_run_progress(run_id, message)
 
                 # STEP 2: Move each output file into the academic folder.
-                for file_path in output_files:
-                    if os.path.exists(file_path):
-                        file_name = os.path.basename(file_path)
-                        new_file_path = os.path.join(academic_folder, file_name)
-                        shutil.move(file_path, new_file_path)
-                        message = f"Moved file: {file_path} -> {new_file_path}"
-                        await manager.send_message(app_id, message)
-                        update_run_progress(run_id, message)
-                    else:
-                        message = f"WARNING: File not found on disk, skipping move: {file_path}"
-                        await manager.send_message(app_id, message)
-                        update_run_progress(run_id, message)
+                # for file_path in output_files:
+                #     if os.path.exists(file_path):
+                #         file_name = os.path.basename(file_path)
+                #         new_file_path = os.path.join(academic_folder, file_name)
+                #         shutil.move(file_path, new_file_path)
+                #         message = f"Moved file: {file_path} -> {new_file_path}"
+                #         await manager.send_message(app_id, message)
+                #         update_run_progress(run_id, message)
+                #     else:
+                #         message = f"WARNING: File not found on disk, skipping move: {file_path}"
+                #         await manager.send_message(app_id, message)
+                #         update_run_progress(run_id, message)
 
                 # STEP 3: In the datasets directory, create (or update) an academic folder with the same name,
                 # and for each file in the academic folder create a symlink.
-                datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
-                if not os.path.exists(datasets_academic_folder):
-                    os.makedirs(datasets_academic_folder)
-                    message = f"Created datasets folder: {datasets_academic_folder}"
-                    await manager.send_message(app_id, message)
-                    update_run_progress(run_id, message)
+                
 
 
-                for file_name in os.listdir(academic_folder):
-                    source_file = os.path.join(academic_folder, file_name)
-                    symlink_path = os.path.join(datasets_academic_folder, file_name)
-                    if os.path.lexists(symlink_path):
-                        os.remove(symlink_path)
-                    os.symlink(os.path.abspath(source_file), symlink_path)
-                    message = f"Symlink created: {symlink_path} -> {os.path.abspath(source_file)}"
-                    await manager.send_message(app_id, message)
-                    update_run_progress(run_id, message)
+                # for file_name in os.listdir(academic_folder):
+                    
 
             if not academic_folder:
                 academic_folder = os.path.join(DATASETS_DIR, f"academic-torrent-{request_body.subreddit}")

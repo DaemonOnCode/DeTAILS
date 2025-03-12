@@ -10,6 +10,7 @@ import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../../constant
 import { ROUTES, LOADER_ROUTES } from '../../../constants/Coding/shared';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 import { useLoadingContext } from '../../../context/loading-context';
+import { useLocation } from 'react-router-dom';
 const path = window.require('path');
 
 // Data model for pipeline steps
@@ -88,6 +89,7 @@ const TorrentLoader: React.FC = () => {
     const { currentWorkspace } = useWorkspaceContext();
     const { datasetId, modeInput } = useCollectionContext();
     const { fetchData } = useApi();
+    const location = useLocation();
     const { abortRequestsByRoute } = useLoadingContext();
 
     const logBottomRef = useRef<HTMLDivElement>(null);
@@ -180,14 +182,15 @@ const TorrentLoader: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        registerCallback('theme-loader', handleWebSocketMessage);
+        console.log("Registering callback for 'torrent-loader'");
+        registerCallback('torrent-loader', handleWebSocketMessage);
         logger.info('Loaded Theme Loader Page');
 
         return () => {
-            unregisterCallback('theme-loader');
+            unregisterCallback('torrent-loader');
             logger.info('Unloaded Theme Loader Page');
         };
-    }, []);
+    }, [totalFiles]);
 
     const completedFiles = Object.values(files).filter((f) => f.status === 'complete').length;
     const overallProgress = totalFiles > 0 ? (completedFiles / totalFiles) * 100 : 0;
@@ -215,16 +218,18 @@ const TorrentLoader: React.FC = () => {
     const handleRetry = async () => {
         setSteps(initialSteps);
         setFiles({});
-        setMessages([]);
+        setMessages(['Retrying request...']);
         setTotalFiles(0);
+        setDownloadedFiles([]);
         logger.info('Retrying request...');
         try {
             abortRequestsByRoute(
                 `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`
             );
-            abortRequestsByRoute(`/${SHARED_ROUTES.CODING}/${LOADER_ROUTES.TORRENT_DATA_LOADER}`);
+            abortRequestsByRoute(location.pathname);
+            await new Promise((resolve) => setTimeout(resolve, 10000));
             const { subreddit, start, end, postsOnly } = parseModeInput(modeInput);
-            await loadTorrentData(false, subreddit, start, end, postsOnly);
+            await loadTorrentData(true, subreddit, start, end, postsOnly);
         } catch (error) {
             logger.error(`Retry failed: ${error}`);
         }
@@ -353,24 +358,24 @@ const TorrentLoader: React.FC = () => {
                 }
             }
             // SYMLINKS
-            if (msg.includes('Symlink created:')) {
-                if (updated[3].status === 'idle') {
-                    updated[3] = {
-                        ...updated[3],
-                        status: 'in-progress',
-                        progress: 50,
-                        messages: [...updated[3].messages, msg]
-                    };
-                }
-            }
-            if (msg.includes('Parsing files into dataset')) {
-                updated[3] = {
-                    ...updated[3],
-                    status: 'complete',
-                    progress: 100,
-                    messages: [...updated[3].messages, msg]
-                };
-            }
+            // if (msg.includes('Symlink created:')) {
+            //     if (updated[3].status === 'idle') {
+            //         updated[3] = {
+            //             ...updated[3],
+            //             status: 'in-progress',
+            //             progress: 50,
+            //             messages: [...updated[3].messages, msg]
+            //         };
+            //     }
+            // }
+            // if (msg.includes('Parsing files into dataset')) {
+            //     updated[3] = {
+            //         ...updated[3],
+            //         status: 'complete',
+            //         progress: 100,
+            //         messages: [...updated[3].messages, msg]
+            //     };
+            // }
             // PARSING
             if (msg.includes('Parsing files into dataset')) {
                 updated[4] = {
@@ -581,6 +586,8 @@ const TorrentLoader: React.FC = () => {
                 <div className="flex flex-col h-max gap-4">
                     {/* <div className="flex flex-col"> */}
                     {steps.map((step, index) => {
+                        if (index === 3) return <></>;
+
                         const isInProgress = step.status === 'in-progress';
                         const isComplete = step.status === 'complete';
                         const isError = step.status === 'error';

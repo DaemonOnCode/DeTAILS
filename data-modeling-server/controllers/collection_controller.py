@@ -3,6 +3,7 @@ from datetime import datetime
 import json
 import os
 import re
+import shutil
 import time
 from typing import Dict
 from uuid import uuid4
@@ -731,16 +732,15 @@ def get_files_to_process(torrent_files: list[TorrentFile], wanted_range: list, s
             files_to_process.append(file)
     return files_to_process
 
-
 async def process_single_file(
     manager: ConnectionManager,
     app_id: str,
     run_id: str,
-        c: Client, 
-        torrent: Torrent, 
-        file: TorrentFile, 
-        download_dir: str, 
-        subreddit: str,
+    c: Client, 
+    torrent: Torrent, 
+    file: TorrentFile, 
+    download_dir: str, 
+    subreddit: str,
 ):
     file_id = file.id
     file_name = file.name
@@ -752,10 +752,7 @@ async def process_single_file(
 
     torrent_files = c.get_torrent(torrent.id).get_files()
 
-    print(torrent_files, "TORRENT FILES")
-    
-    print(f"Setting file {file_name} as wanted, others as unwanted {file_id}", )
-
+    print(f"Setting file {file_name} as wanted, others as unwanted {file_id}")
     all_file_ids = [f.id for f in torrent_files]
     other_ids = [fid for fid in all_file_ids if fid != file_id]
     c.change_torrent(torrent.id, files_wanted=[file_id], files_unwanted=other_ids)
@@ -769,7 +766,6 @@ async def process_single_file(
     try:
         while True:
             torrent = c.get_torrent(torrent.id)
-
             if hasattr(torrent, "error") and torrent.error != 0:
                 err_msg = f"ERROR downloading {file_name}: {torrent.error_string}"
                 print(err_msg)
@@ -796,18 +792,50 @@ async def process_single_file(
                     print(f"Waiting for file {file_name} to start...")
                 await asyncio.sleep(5)
 
-
+        # Wait until the .zst file appears on disk.
         while not os.path.exists(file_path_zst):
             message = f"Waiting for file {file_path_zst} to appear on disk..."
             print(message)
             await manager.send_message(app_id, message)
             update_run_progress(run_id, message)
             await asyncio.sleep(5)
-
+        
+        # Process the file now in the academic folder.
         output_file = await process_reddit_data(manager, app_id, run_id, subreddit, file_path_zst)
 
+        # Determine the academic folder.
+        # Assuming download_dir is the directory where Transmission downloads files,
+        # we place the academic folder one directory up.
+        parent_dir = os.path.dirname(os.path.dirname(file_path_zst))
+        academic_folder_name = f"academic-torrent-{subreddit}"
+        academic_folder = os.path.join(parent_dir, academic_folder_name)
+        if not os.path.exists(academic_folder):
+            os.makedirs(academic_folder, exist_ok=True)
+            msg = f"Created academic folder: {academic_folder}"
+            print(msg)
+            await manager.send_message(app_id, msg)
+            update_run_progress(run_id, msg)
+
+        # Move the downloaded file into the academic folder.
+        academic_file_path = os.path.join(academic_folder, os.path.basename(output_file))
+        shutil.move(output_file, academic_file_path)
+        msg = f"Moved file: {output_file} -> {academic_file_path}"
+        print(msg)
+        await manager.send_message(app_id, msg)
+        update_run_progress(run_id, msg)
+
+        # source_file = os.path.join(academic_folder, output_file)
+        datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
+        symlink_path = os.path.join(datasets_academic_folder, os.path.splitext(os.path.basename(file_name))[0] + ".json")
+        if os.path.lexists(symlink_path):
+            os.remove(symlink_path)
+        os.symlink(academic_file_path, symlink_path)
+        message = f"Symlink created: {symlink_path} -> {academic_file_path}"
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
+
+
         message = f"Processed file: {file_name} ..."
-        # print(message)
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message)
         print(f"Processing complete for file {file_name}.")
@@ -825,7 +853,6 @@ async def process_single_file(
 
     await asyncio.sleep(1)
     return output_file
-
 
 async def get_reddit_data_from_torrent(
     manager: ConnectionManager,

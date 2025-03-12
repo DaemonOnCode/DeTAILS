@@ -236,6 +236,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
     };
 
     const abortRequestsByRoute = (route: string) => {
+        console.log('Aborting requests for route:', route, requestArrayRef.current);
         if (requestArrayRef.current && requestArrayRef.current[route]) {
             requestArrayRef.current[route].forEach((abort) => {
                 console.log('Aborting request:', route);
