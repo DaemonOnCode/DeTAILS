@@ -12,7 +12,7 @@ import { DetailsIcon } from './Icons';
 const formatRouteName = (path: string, workspaceName: string = 'Temporary') => {
     if (path === 'coding') {
         return (
-            <span className="break-all flex items-center gap-1">
+            <span className="overflow-wrap flex items-center gap-1">
                 <span className="inline-flex items-center">
                     <DetailsIcon className="h-6 w-6 inline-block" />:
                 </span>
@@ -218,7 +218,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                                         }}
                                         className="w-6 lg:w-10 h-6 lg:h-10 rounded-full border-2 border-gray-300"
                                     />
-                                    <span className="m-2 break-words max-w-28  responsive-text">
+                                    <span className="m-2 overflow-wrap max-w-28  responsive-text">
                                         {user.name}
                                     </span>
                                 </div>

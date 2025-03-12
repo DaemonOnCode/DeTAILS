@@ -565,7 +565,7 @@ const TorrentLoader: React.FC = () => {
                 {/* Torrent Pipeline Heading + Metadata */}
                 <div className="mb-4">
                     <h2 className="text-xl font-bold">Torrent Pipeline</h2>
-                    <div className="flex justify-evenly w-full break-all text-sm text-gray-600 mt-1">
+                    <div className="flex justify-evenly w-full overflow-wrap text-sm text-gray-600 mt-1">
                         <p>
                             <strong>Name:</strong> {torrentMetadata.name || 'N/A'}
                         </p>
@@ -703,7 +703,7 @@ const TorrentLoader: React.FC = () => {
             {/* Right Panel: Detailed Log + Retry */}
             <div className="w-full lg:w-1/3 bg-gray-50 p-4 border-l border-gray-200 h-full flex flex-col min-h-0">
                 <h3 className="font-bold mb-2">Detailed Log</h3>
-                <div className="flex-1 overflow-y-auto text-xs leading-5 break-words">
+                <div className="flex-1 overflow-y-auto text-xs leading-5 overflow-wrap">
                     <AnimatePresence>
                         {messages.map((msg, idx) => (
                             <motion.div

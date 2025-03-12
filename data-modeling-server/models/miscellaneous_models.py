@@ -21,3 +21,6 @@ class RedditPostIDAndTitleRequestBatch(BaseModel):
 class RedditPostIDAndTitleRequest(BaseModel):
     post_id: str
     dataset_id: str
+
+class UserCredentialTestRequest(BaseModel):
+    credential_path: str

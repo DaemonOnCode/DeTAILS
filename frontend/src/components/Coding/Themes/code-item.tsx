@@ -21,7 +21,7 @@ const CodeItem: FC<CodeItemProps> = ({ code }) => {
             style={{
                 backgroundColor: generateColor(code)
             }}
-            className={`p-2 border rounded-md shadow-md cursor-move break-words ${
+            className={`p-2 border rounded-md shadow-md cursor-move overflow-wrap ${
                 isDragging ? 'opacity-50' : 'opacity-100'
             }`}>
             {code}

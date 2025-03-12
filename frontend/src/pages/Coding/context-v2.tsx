@@ -18,6 +18,7 @@ import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { StepHandle } from '../../types/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
+import { toast } from 'react-toastify';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -46,7 +47,7 @@ const ContextPage = () => {
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
-    const { fetchData } = useApi();
+    const { fetchLLMData } = useApi();
     const [newQuestion, setNewQuestion] = useState<string>('');
 
     const steps: TutorialStep[] = [
@@ -173,7 +174,7 @@ const ContextPage = () => {
         formData.append('researchQuestions', JSON.stringify(researchQuestions));
         formData.append('datasetId', datasetId);
 
-        const { data: results, error } = await fetchData<{
+        const { data: results, error } = await fetchLLMData<{
             message: string;
             keywords: {
                 word: string;
@@ -189,6 +190,10 @@ const ContextPage = () => {
         if (error) {
             console.error('Error building context:', error);
             if (error.name !== 'AbortError') {
+                toast.error('Error building context. Please try again.');
+                navigate(
+                    `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`
+                );
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
                     route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`

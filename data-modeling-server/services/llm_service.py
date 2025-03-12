@@ -14,7 +14,13 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 class GlobalQueueManager:
-    def __init__(self, max_queue_size: int = 10, num_workers: int = 3, auto_start: bool = True):
+    def __init__(
+        self, 
+        max_queue_size: int = 10, 
+        num_workers: int = 3, 
+        auto_start: bool = True,
+        rate_limit_per_minute: Optional[int] = None  # New parameter
+    ):
         self._max_queue_size = max_queue_size
         self._num_workers = num_workers
         self.worker_tasks: List[asyncio.Task] = []
@@ -23,11 +29,18 @@ class GlobalQueueManager:
         self.pending_tasks = {}  # Mapping from job_id to its concurrent.futures.Future
         self._lock = threading.Lock()  # Protects job_counter and pending_tasks
 
+        # Rate limiting parameters:
+        # If a rate_limit_per_minute is provided, we convert it to a rate per second.
+        self.rate_limit_per_minute = rate_limit_per_minute
+        self.rate_limit_per_sec = rate_limit_per_minute / 60.0 if rate_limit_per_minute else None
+        self.last_request_time = 0.0  # Track the last time a task was started
+        self.rate_lock = asyncio.Lock()  # Protects rate limit timing
+
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self.loop_thread: Optional[threading.Thread] = None
         self.queue: Optional[asyncio.Queue] = None  # Will be created on the manager's loop
 
-        logger.info(f"[INIT] GlobalQueueManager initialized with max_queue_size={max_queue_size}, num_workers={num_workers}")
+        logger.info(f"[INIT] GlobalQueueManager initialized with max_queue_size={max_queue_size}, num_workers={num_workers}, rate_limit_per_minute={rate_limit_per_minute}")
 
         if auto_start:
             try:
@@ -75,6 +88,19 @@ class GlobalQueueManager:
                 if cfut.cancelled():
                     logger.debug(f"[WORKER-{worker_id}] Skipping cancelled job {job_id}")
                     continue
+
+                # Custom rate-limiting logic (if a rate limit is set).
+                if self.rate_limit_per_sec:
+                    async with self.rate_lock:
+                        now = self.loop.time()
+                        min_interval = 1.0 / self.rate_limit_per_sec
+                        elapsed = now - self.last_request_time
+                        if elapsed < min_interval:
+                            delay = min_interval - elapsed
+                            logger.debug(f"[WORKER-{worker_id}] Rate limiting active. Sleeping for {delay:.3f} seconds before processing job {job_id}")
+                            await asyncio.sleep(delay)
+                        self.last_request_time = self.loop.time()
+
                 logger.debug(f"[WORKER-{worker_id}] Processing job {job_id}")
                 try:
                     if asyncio.iscoroutinefunction(func):
@@ -90,10 +116,9 @@ class GlobalQueueManager:
                     except Exception as e:
                         # If the future is cancelled, you can safely ignore or log the error.
                         if cfut.cancelled():
-                            print(f"Job {job_id} result not set because the future was cancelled.")
+                            logger.debug(f"[WORKER-{worker_id}] Job {job_id} result not set because the future was cancelled.")
                         else:
                             raise e
-
                     logger.debug(f"[WORKER-{worker_id}] Finished job {job_id} with result: {result}")
             except asyncio.CancelledError:
                 logger.info(f"[WORKER-{worker_id}] Cancelled")
@@ -150,4 +175,4 @@ class GlobalQueueManager:
 
 @lru_cache
 def get_llm_manager():
-    return GlobalQueueManager(max_queue_size=20, num_workers=5)
+    return GlobalQueueManager(max_queue_size=20, num_workers=5, rate_limit_per_minute=10)

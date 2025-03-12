@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer components {
+    .overflow-wrap {
+        @apply supports-[overflow-wrap:anywhere]:[overflow-wrap:anywhere]
+supports-[not(overflow-wrap:anywhere)]:[word-break:normal];
+    }
+
     .responsive-text {
         @apply text-xs sm:text-sm lg:text-base;
     }

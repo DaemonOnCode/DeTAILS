@@ -198,6 +198,7 @@ async def generate_codes_endpoint(request: Request,
                 code["id"] = str(uuid4())
 
             codes = filter_codes_by_transcript(codes, transcript)
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
         except Exception as e:
@@ -329,6 +330,7 @@ async def deductive_coding_endpoint(
             code["id"] = str(uuid4())
 
         codes = filter_codes_by_transcript(codes, transcript)
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
         return codes
 
     batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
@@ -514,7 +516,7 @@ async def generate_codes_endpoint(request: Request,
                 code["id"] = str(uuid4())
 
             codes = filter_codes_by_transcript(codes, transcript)
-
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
         except Exception as e:
@@ -597,6 +599,7 @@ async def redo_deductive_coding_endpoint(
             code["id"] = str(uuid4())
 
         codes = filter_codes_by_transcript(codes, transcript)
+        await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
         return codes
 
     batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]

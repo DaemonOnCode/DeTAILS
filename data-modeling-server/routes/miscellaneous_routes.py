@@ -1,9 +1,15 @@
+import json
+import os
 from fastapi import APIRouter, Depends, HTTPException
+from google.oauth2 import service_account, credentials
+from google.auth.transport.requests import Request
+import google.auth.exceptions
 
 from controllers.miscellaneous_controller import link_creator, normalize_text, search_slice
 from database import PostsRepository, CommentsRepository
 from database.db_helpers import get_post_and_comments_from_id
-from models.miscellaneous_models import RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest
+from errors.credential_errors import InvalidCredentialError, MissingCredentialError
+from models.miscellaneous_models import RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest, UserCredentialTestRequest
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 
 
@@ -94,3 +100,67 @@ async def check_transmission_endpoint(
     transmission_manager: GlobalTransmissionDaemonManager = Depends(get_transmission_manager)
 ):
     return {"exists": transmission_manager.transmission_present}
+
+
+@router.post("/test-user-credentials")
+async def test_user_credentials_endpoint(
+    request_body: UserCredentialTestRequest
+):
+    print("Testing user credentials...", request_body.credential_path)
+    if not os.path.exists(request_body.credential_path):
+        print(f"Error: The file '{request_body.credential_path}' does not exist.")
+        raise MissingCredentialError(f"The file '{request_body.credential_path}' does not exist.")
+
+    # Try to load the file as JSON
+    try:
+        if not request_body.credential_path.endswith('.json'):
+            print("Error: The file is not a JSON file.")
+            raise MissingCredentialError("The file is not a JSON file.")
+        with open(request_body.credential_path, 'r') as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        print("Error: The file is not a valid JSON.")
+        raise MissingCredentialError("The file is not a valid JSON")
+    
+    with open(request_body.credential_path, 'r') as f:
+            data = json.load(f)
+    
+    try:
+        cred_type = data.get('type')
+    except Exception as e:
+        print("Error: Credential type not found in JSON.")
+        raise InvalidCredentialError("Credential type not found in JSON.")
+    
+    if cred_type == 'service_account':
+        print("Detected Service Account credentials.")
+        try:
+            creds = service_account.Credentials.from_service_account_file(
+                request_body.credential_path,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]  # Adjust as needed
+            )
+            creds.refresh(Request())
+            print("Service Account credentials are valid!")
+            return {"valid": True}
+        except google.auth.exceptions.RefreshError as e:
+            print("Service Account credentials are invalid or revoked:", e)
+            raise InvalidCredentialError("Service Account credentials are invalid or revoked.")
+    elif cred_type == 'authorized_user':
+        print("Detected Authorized User credentials.")
+        try:
+            creds = credentials.Credentials(
+                token=None,
+                refresh_token=data.get("refresh_token"),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=data.get("client_id"),
+                client_secret=data.get("client_secret"),
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            creds.refresh(Request())
+            print("User credentials are valid!")
+            return {"valid": True}
+        except google.auth.exceptions.RefreshError as e:
+            print("User credentials are invalid or expired:", e)
+            raise InvalidCredentialError("User credentials are invalid or expired.")
+    else:
+        print("Unknown credential type:", cred_type)
+        raise InvalidCredentialError("Unknown credential type.")

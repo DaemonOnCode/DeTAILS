@@ -219,6 +219,10 @@ export interface ILoadingContext {
     resetContext: () => void;
     abortRequests: (page: string) => void;
     abortRequestsByRoute: (route: string) => void;
+    openCredentialModalForCredentialError: (
+        errorMessage: string,
+        resolver: (newPath: string) => void
+    ) => void;
 }
 
 export interface ModalCallbacks {

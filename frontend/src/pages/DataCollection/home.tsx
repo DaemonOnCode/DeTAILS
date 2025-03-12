@@ -10,18 +10,24 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation-botto
 // Import TutorialWrapper and TutorialStep from your shared components
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
+import { useLoadingContext } from '../../context/loading-context';
 
 const HomePage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const hasSavedRef = useRef(false);
 
+    const { loadingState, loadingDispatch } = useLoadingContext();
     const { type, setType, modeInput } = useCollectionContext();
 
     // Event Handlers
     const handleRedditRetrieval = () => {
         console.log('Retrieve Reddit clicked');
         if (!modeInput) setType('reddit');
+        loadingDispatch({
+            type: 'SET_FIRST_RUN_DONE',
+            route: location.pathname
+        });
         navigate(
             `/coding/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}?type=reddit`
         );
@@ -30,6 +36,10 @@ const HomePage = () => {
     const handleInterviewImport = () => {
         console.log('Retrieve Interviews clicked');
         if (!modeInput) setType('interview');
+        loadingDispatch({
+            type: 'SET_FIRST_RUN_DONE',
+            route: location.pathname
+        });
         navigate(
             `/coding/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}?type=interview`
         );
@@ -73,6 +83,14 @@ const HomePage = () => {
             placement: 'bottom'
         }
     ];
+
+    if (loadingState[location.pathname]?.isFirstRun) {
+        return (
+            <p className="h-page w-full flex justify-center items-center">
+                Please complete the previous page and click on proceed to continue with this page.
+            </p>
+        );
+    }
 
     return (
         <TutorialWrapper

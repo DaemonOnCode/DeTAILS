@@ -62,7 +62,7 @@ const KeywordCloudPage: FC = () => {
         }))
     );
     const { getServerUrl } = getServerUtils();
-    const { fetchData } = useApi();
+    const { fetchLLMData } = useApi();
     const hasSavedRef = useRef(false);
 
     const { loadingState, loadingDispatch, openModal, checkIfDataExists, resetDataAfterPage } =
@@ -149,7 +149,7 @@ const KeywordCloudPage: FC = () => {
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
 
-        const { data: results, error } = await fetchData<{
+        const { data: results, error } = await fetchLLMData<{
             message: string;
             keywords: {
                 word: string;

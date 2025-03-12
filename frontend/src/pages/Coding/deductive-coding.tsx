@@ -44,7 +44,7 @@ const DeductiveCodingPage = () => {
     const { getServerUrl } = useServerUtils();
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { fetchData } = useApi();
+    const { fetchLLMData } = useApi();
 
     const { loadingState, loadingDispatch, openModal, resetDataAfterPage, checkIfDataExists } =
         useLoadingContext();
@@ -74,7 +74,7 @@ const DeductiveCodingPage = () => {
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
         });
 
-        const { data: results, error } = await fetchData<{
+        const { data: results, error } = await fetchLLMData<{
             message: string;
             data: {
                 id: string;
@@ -165,7 +165,7 @@ const DeductiveCodingPage = () => {
             })
         );
 
-        const { data: results, error } = await fetchData<{
+        const { data: results, error } = await fetchLLMData<{
             message: string;
             data: {
                 higher_level_codes: any[];
@@ -183,6 +183,8 @@ const DeductiveCodingPage = () => {
 
         if (error) {
             console.error('Error refreshing themes:', error);
+            toast.error('Error finalizing codes');
+            navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`);
             loadingDispatch({
                 type: 'SET_LOADING_DONE_ROUTE',
                 route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`

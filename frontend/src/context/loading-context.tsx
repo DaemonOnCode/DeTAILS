@@ -20,6 +20,8 @@ import { ROUTES } from '../constants/Coding/shared';
 import { loadingReducer } from '../reducers/loading';
 import { useLocation } from 'react-router-dom';
 
+const { ipcRenderer } = window.require('electron');
+
 const LoadingContext = createContext<ILoadingContext>({
     loadingState: {},
     loadingDispatch: () => {},
@@ -33,7 +35,8 @@ const LoadingContext = createContext<ILoadingContext>({
     updateContext: () => {},
     resetContext: () => {},
     abortRequests: () => {},
-    abortRequestsByRoute: () => {}
+    abortRequestsByRoute: () => {},
+    openCredentialModalForCredentialError: () => {}
 });
 
 export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
@@ -48,14 +51,50 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
     const [activeModalId, setActiveModalId] = useState<string | null>(null);
     const [showProceedConfirmModal, setShowProceedConfirmModal] = useState(false);
 
+    const [showCredentialModal, setShowCredentialModal] = useState<boolean>(false);
+    const [credentialErrorMessage, setCredentialErrorMessage] = useState<string>('');
+    // Store a resolver to be called when the user selects a file.
+    const [credentialModalResolver, setCredentialModalResolver] = useState<
+        ((newPath: string | null) => void) | null
+    >(null);
+
+    // Register a modal and open it.
     const openModal = (id: string, callback: (e: React.MouseEvent) => void) => {
         setModalCallbacks((prev) => ({ ...prev, [id]: callback }));
         setActiveModalId(id);
         setShowProceedConfirmModal(true);
     };
 
-    // When confirmed, call the callback associated with the active modal ID.
-    const handleConfirmProceed = async (e: React.MouseEvent) => {
+    const openCredentialModalForCredentialError = (
+        errorMessage: string,
+        resolver: (newPath: string) => void
+    ) => {
+        setCredentialErrorMessage(errorMessage);
+        setCredentialModalResolver(() => resolver);
+        setShowCredentialModal(true);
+    };
+
+    // When user selects "Download and Proceed"
+    const handleDownloadAndProceed = async (e: React.MouseEvent) => {
+        setShowProceedConfirmModal(false);
+        // Call resetDataAfterPage to download data and then reset state
+        await resetDataAfterPage(location.pathname, true);
+        if (activeModalId && modalCallbacks[activeModalId]) {
+            const result = modalCallbacks[activeModalId](e);
+            if (result !== undefined && typeof result.then === 'function') {
+                await result;
+            }
+        }
+        // Remove the callback for the active modal ID.
+        setModalCallbacks((prev) => {
+            const { [activeModalId as string]: _, ...rest } = prev;
+            return rest;
+        });
+        setActiveModalId(null);
+    };
+
+    // When user selects "Proceed Without Download"
+    const handleProceedWithoutDownload = async (e: React.MouseEvent) => {
         setShowProceedConfirmModal(false);
         loadingDispatch({
             type: 'SET_REST_UNDONE',
@@ -75,6 +114,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         setActiveModalId(null);
     };
 
+    // Cancel just closes the modal.
     const handleCancelProceed = () => {
         setShowProceedConfirmModal(false);
     };
@@ -147,23 +187,9 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
     );
     const [loadingState, loadingDispatch] = useReducer(loadingReducer, initialPageState);
 
-    // useEffect(() => {
-    //     Object.entries(initialPageState).forEach(([route, config]) => {
-    //         loadingDispatch({
-    //             type: 'REGISTER_STEP_REF',
-    //             payload: {
-    //                 route,
-    //                 ref: config.stepRef,
-    //                 defaultData: { isLoading: config.isLoading, downloadData: config.downloadData }
-    //             }
-    //         });
-    //     });
-    // }, []);
-
     useEffect(() => {
         console.log('Loading state changed:', loadingState);
     }, [loadingState]);
-    // const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
     const registerStepRef = (route: string, refObj?: React.RefObject<StepHandle>) => {
         loadingDispatch({
@@ -182,15 +208,12 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         const pageIndex = appRoutes.indexOf(page);
         if (pageIndex === -1) return false;
 
-        // Get all routes after the specified page
         const routesAfterPage = appRoutes.slice(pageIndex + 1);
-
-        // Return true if *any* later route's stepRef indicates data exists
         return routesAfterPage.some((route) => {
             const stepRef = loadingState[route]?.stepRef?.current;
             if (stepRef?.checkDataExistence) {
                 console.log('Checking data existence for route:', route);
-                return stepRef.checkDataExistence(route); // pass route if needed
+                return stepRef.checkDataExistence(route);
             }
             return false;
         });
@@ -225,25 +248,26 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         }
     };
 
-    const resetDataAfterPage = async (page: string) => {
+    const resetDataAfterPage = async (page: string, download = false) => {
         console.log('Resetting data after page:', page);
 
         const appRoutes = Object.keys(initialPageState);
         const pageIndex = appRoutes.indexOf(page);
         if (pageIndex === -1) return;
 
-        // Routes after the current page
         const routesToReset = appRoutes.slice(pageIndex + 1);
 
-        // 1. Download data for each route (in sequence, awaiting each one)
-        for (const route of routesToReset) {
-            const stepRef = loadingState[route]?.stepRef.current;
-            if (stepRef?.downloadData) {
-                try {
-                    console.log('Downloading data for route:', route);
-                    await stepRef.downloadData(route); // Wait for it to finish
-                } catch (err) {
-                    console.error(`Error downloading data for route "${route}":`, err);
+        if (download) {
+            // 1. Download data for each route sequentially.
+            for (const route of routesToReset) {
+                const stepRef = loadingState[route]?.stepRef.current;
+                if (stepRef?.downloadData) {
+                    try {
+                        console.log('Downloading data for route:', route);
+                        await stepRef.downloadData(route);
+                    } catch (err) {
+                        console.error(`Error downloading data for route "${route}":`, err);
+                    }
                 }
             }
         }
@@ -252,7 +276,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             type: 'SET_REST_UNDONE',
             route: page
         });
-        // 2. After all downloads are complete, reset the routes
+        // 2. Reset the routes and abort any ongoing requests.
         for (const route of routesToReset) {
             console.log('Dispatching RESET_PAGE_DATA for:', route);
             loadingDispatch({
@@ -265,7 +289,6 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
 
     useEffect(() => {
         console.log("Inside loading context's useEffect", location.pathname);
-        // return () => {
         console.log('Cleanup loading context:', location.pathname);
         if (location.pathname === `/${SHARED_ROUTES.WORKSPACE}`) {
             console.log('Aborting requests:', requestArrayRef.current);
@@ -284,7 +307,6 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
                 requestArrayRef.current[route] = [];
             }
         }
-        // };
     }, [location.pathname]);
 
     const updateContext = (updates: {
@@ -309,7 +331,6 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         () => ({
             loadingState,
             loadingDispatch,
-            // currentStepIndex,
             registerStepRef,
             resetDataAfterPage,
             checkIfDataExists,
@@ -320,7 +341,8 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             updateContext,
             resetContext,
             abortRequests,
-            abortRequestsByRoute
+            abortRequestsByRoute,
+            openCredentialModalForCredentialError
         }),
         [loadingState, showProceedConfirmModal]
     );
@@ -333,18 +355,61 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
                     <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
                         <h2 className="text-xl font-bold mb-4">Confirm Proceed</h2>
                         <p className="mb-4">
-                            Proceeding will remove unsaved data. Are you sure you want to continue?
+                            Proceeding will remove unsaved data. Would you like to download your
+                            data before proceeding?
                         </p>
-                        <div className="flex justify-end">
+                        <div className="flex justify-end space-x-4">
                             <button
                                 onClick={handleCancelProceed}
-                                className="mr-4 bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">
+                                className="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">
                                 Cancel
                             </button>
                             <button
-                                onClick={(e) => handleConfirmProceed(e)}
+                                onClick={(e) => handleDownloadAndProceed(e)}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                Download and Proceed
+                            </button>
+                            <button
+                                onClick={(e) => handleProceedWithoutDownload(e)}
                                 className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">
-                                Yes, Proceed
+                                Proceed Without Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showCredentialModal && (
+                <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                        <h2 className="text-xl font-bold mb-4">Credential Error</h2>
+                        <p className="mb-4">{credentialErrorMessage}</p>
+                        <div className="flex justify-end space-x-4">
+                            <button
+                                onClick={async (e) => {
+                                    if (credentialModalResolver) {
+                                        // Optionally simulate a delay.
+                                        await new Promise((resolve) => setTimeout(resolve, 1000));
+                                        const newPath = await ipcRenderer.invoke('select-file', [
+                                            'json'
+                                        ]);
+                                        console.log('Selected file:', newPath);
+                                        credentialModalResolver(newPath);
+                                        setShowCredentialModal(false);
+                                    }
+                                }}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                Choose Credential File
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    if (credentialModalResolver) {
+                                        // Signal cancellation by resolving with null.
+                                        credentialModalResolver(null);
+                                    }
+                                    setShowCredentialModal(false);
+                                }}
+                                className="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">
+                                Cancel
                             </button>
                         </div>
                     </div>

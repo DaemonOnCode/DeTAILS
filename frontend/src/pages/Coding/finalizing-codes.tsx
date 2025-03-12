@@ -22,6 +22,7 @@ import { useLogger } from '../../context/logging-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';
 import { getGroupedCodeOfSubCode } from '../../utility/theme-finder';
+import { toast } from 'react-toastify';
 
 const FinalzingCodes = () => {
     const location = useLocation();
@@ -41,7 +42,7 @@ const FinalzingCodes = () => {
     const { datasetId } = useCollectionContext();
     const { settings } = useSettings();
     const navigate = useNavigate();
-    const { fetchData } = useApi();
+    const { fetchLLMData } = useApi();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
@@ -109,7 +110,7 @@ const FinalzingCodes = () => {
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
-        const { data: results, error } = await fetchData<{
+        const { data: results, error } = await fetchLLMData<{
             message: string;
             data: {
                 themes: any[];
@@ -144,6 +145,8 @@ const FinalzingCodes = () => {
         if (error) {
             console.error('Error in handleNextClick:', error);
             if (error.name !== 'AbortError') {
+                toast.error('Error generating themes. Please try again.');
+                navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
                     route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
@@ -168,7 +171,7 @@ const FinalzingCodes = () => {
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
 
-        const { data: results, error } = await fetchData<{
+        const { data: results, error } = await fetchLLMData<{
             message: string;
             data: {
                 higher_level_codes: any[];

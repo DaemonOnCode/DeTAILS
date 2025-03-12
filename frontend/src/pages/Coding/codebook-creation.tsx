@@ -45,7 +45,7 @@ const CodebookCreation = () => {
     const navigate = useNavigate();
     const { getServerUrl } = useServerUtils();
     const { datasetId } = useCollectionContext();
-    const { fetchData } = useApi();
+    const { fetchLLMData } = useApi();
 
     const { loadingState, loadingDispatch, checkIfDataExists, resetDataAfterPage, openModal } =
         useLoadingContext();
@@ -74,7 +74,7 @@ const CodebookCreation = () => {
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
 
-        const { data: results, error } = await fetchData(REMOTE_SERVER_ROUTES.REMAKE_CODEBOOK, {
+        const { data: results, error } = await fetchLLMData(REMOTE_SERVER_ROUTES.REMAKE_CODEBOOK, {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
@@ -125,7 +125,7 @@ const CodebookCreation = () => {
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
         });
 
-        const { data: results, error } = await fetchData<{
+        const { data: results, error } = await fetchLLMData<{
             message: string;
             data: {
                 id: string;
@@ -161,6 +161,8 @@ const CodebookCreation = () => {
         if (error) {
             console.error('Error in handleNextClick:', error);
             if (error.name !== 'AbortError') {
+                toast.error('Error generating codebook. Please try again.');
+                navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
                     route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`

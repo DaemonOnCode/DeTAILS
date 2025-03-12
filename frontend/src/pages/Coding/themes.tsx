@@ -99,7 +99,7 @@ const ThemesPage = () => {
         };
     }, []);
 
-    const { fetchData } = useApi();
+    const { fetchLLMData } = useApi();
     const { getServerUrl } = useServerUtils();
 
     const stepRoute = location.pathname;
@@ -187,7 +187,7 @@ const ThemesPage = () => {
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
-        const { data: results, error } = await fetchData<{
+        const { data: results, error } = await fetchLLMData<{
             message: string;
             data: {
                 themes: any[];

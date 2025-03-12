@@ -286,7 +286,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                                 )}
                                             </td>
                                         )}
-                                        <td className="border border-gray-300 p-2 max-w-64 break-all">
+                                        <td className="border border-gray-300 p-2 max-w-64 overflow-wrap">
                                             {editIndex === row.id ? (
                                                 <input
                                                     type="text"
@@ -308,7 +308,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             )}
                                         </td>
 
-                                        <td className="border border-gray-300 p-2 max-w-64 break-all">
+                                        <td className="border border-gray-300 p-2 max-w-64 overflow-wrap">
                                             {editIndex === row.id ? (
                                                 <input
                                                     type="text"

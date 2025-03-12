@@ -4,6 +4,8 @@ import { generateRandomText } from '../../../utility/random-text-generator';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../constants/Coding/shared';
 import { useSettings } from '../../../context/settings-context';
+import { useCodingContext } from '../../../context/coding-context';
+import { useWebSocket } from '../../../context/websocket-context';
 
 // Highlight colors
 const highlightColors = [
@@ -17,6 +19,9 @@ const highlightColors = [
 ];
 
 const DeductiveCoding = () => {
+    const { registerCallback, unregisterCallback } = useWebSocket();
+    const { unseenPostIds } = useCodingContext();
+
     const [highlightedWords, setHighlightedWords] = useState<{ index: number; color: string }[]>(
         []
     );
@@ -28,6 +33,29 @@ const DeductiveCoding = () => {
     const [isPending, startTransition] = useTransition();
 
     const { settings } = useSettings();
+
+    const [postsFinished, setPostsFinished] = useState<number>(0);
+
+    const handleWebsocketMessage = (message: string) => {
+        console.log('Websocket message:', message);
+        const match = message.match(
+            /Dataset\s+([^}]+):\s+Generated codes for post\s+([^}]+)\.\.\./
+        );
+
+        if (match) {
+            console.log('Match:', match);
+            const datasetId = match[1];
+            const postId = match[2];
+            if (unseenPostIds.includes(postId)) {
+                setPostsFinished((prev) => prev + 1);
+            }
+        }
+    };
+
+    useEffect(() => {
+        registerCallback('codebook-loader', handleWebsocketMessage);
+        return () => unregisterCallback('codebook-loader');
+    }, []);
 
     useEffect(() => {
         const words = textLine.split(' ');
@@ -74,7 +102,11 @@ const DeductiveCoding = () => {
         <div className="flex flex-col h-page px-4">
             <div className="flex-grow flex justify-center items-center">
                 <div className="bg-white shadow-lg p-6 rounded-lg w-full max-w-3xl text-left border">
-                    <h2 className="text-2xl font-semibold mb-4">🔍 Deductive Coding in Progress</h2>
+                    <h2 className="text-2xl font-semibold mb-2">🔍 Deductive Coding in Progress</h2>
+                    <p className="mb-4">
+                        {postsFinished}/{unseenPostIds.length} completed. Please wait, this may take
+                        a moment...
+                    </p>
                     <p className="text-lg font-mono leading-relaxed whitespace-pre-line">
                         {textLine.split(' ').map((word, idx) => {
                             const highlight = highlightedWords.find((h) => h.index === idx);

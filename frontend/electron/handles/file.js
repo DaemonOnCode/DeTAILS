@@ -119,6 +119,16 @@ const fileHandler = (...ctxs) => {
         await logger.info('Saved file:', { filePath: result.filePath });
         return result.filePath; // Return the saved file path
     });
+
+    ipcMain.handle('select-file', async (event, extensions) => {
+        await logger.info('Selecting file');
+        const result = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [{ name: 'Documents', extensions: extensions }]
+        });
+        electronLogger.log('Selected file:', { filePath: result.filePaths[0] });
+        return result.filePaths[0] ?? ''; // Return the selected file path
+    });
 };
 
 module.exports = { fileHandler };

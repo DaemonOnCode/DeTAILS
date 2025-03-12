@@ -22,6 +22,7 @@ import { useLoadingContext } from '../../context/loading-context';
 import { StepHandle } from '../../types/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
+import { toast } from 'react-toastify';
 
 const DataViewerPage = () => {
     const { type, datasetId, selectedData, modeInput } = useCollectionContext();
@@ -41,7 +42,7 @@ const DataViewerPage = () => {
     const { data, loadFolderData, loadTorrentData, error, loading } = useRedditData();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { fetchData } = useApi();
+    const { fetchData, fetchLLMData } = useApi();
     const hasSavedRef = useRef(false);
     const location = useLocation();
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
@@ -159,7 +160,7 @@ const DataViewerPage = () => {
             sampleData['sampled'],
             keywordTable.filter((keyword) => keyword.isMarked !== undefined)
         );
-        const { data: codeData, error: codeError } = await fetchData<{
+        const { data: codeData, error: codeError } = await fetchLLMData<{
             message: string;
             data: any[]; // Replace any with a more specific type if available.
         }>(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES, {
@@ -178,9 +179,10 @@ const DataViewerPage = () => {
         if (codeError) {
             console.error('Error generating initial codes:', codeError);
             if (codeError.name !== 'AbortError') {
+                toast.error('Error generating initial codes');
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`
                 });
             }
             return;
@@ -203,6 +205,14 @@ const DataViewerPage = () => {
     //         navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
     //     }
     // }, []);
+
+    if (loadingState[stepRoute]?.isFirstRun) {
+        return (
+            <p className="h-page w-full flex justify-center items-center">
+                Please complete the previous page and click on proceed to continue with this page.
+            </p>
+        );
+    }
 
     const isDataLoaded = Boolean(modeInput);
 

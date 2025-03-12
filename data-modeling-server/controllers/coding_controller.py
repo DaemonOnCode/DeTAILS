@@ -13,7 +13,9 @@ from google.auth import load_credentials_from_file
 
 import config
 from chromadb.config import Settings as ChromaDBSettings
+from constants import PATHS
 from decorators import log_execution_time
+from errors.credential_errors import MissingCredentialError
 from models.table_dataclasses import LlmResponse
 from routes.websocket_routes import ConnectionManager, manager
 
@@ -34,6 +36,13 @@ from database.db_helpers import get_post_and_comments_from_id
 
 llm_responses_repo = LlmResponsesRepository()
 
+
+def get_credential_path():
+    with open(PATHS["settings"], "r") as f:
+        settings = json.load(f)
+        if not settings["ai"]["googleCredentialsPath"]:
+            return MissingCredentialError("Google credentials path not set.")
+        return settings["ai"]["googleCredentialsPath"]
 
 async def process_post_with_llm(app_id, dataset_id, post_id, llm, prompt, regex = r"\"codes\":\s*(\[.*?\])"):
     try:
@@ -142,7 +151,7 @@ def get_llm_and_embeddings(
             if model.startswith("google"):
                 model_name = "-".join(model.split("-")[1:])
             # print(settings.google_application_credentials)
-            creds, project_id = load_credentials_from_file(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+            creds, project_id = load_credentials_from_file(get_credential_path() or os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
             print(creds.quota_project_id, project_id)
             embeddings = VertexAIEmbeddings(
                 model="text-embedding-005",
@@ -279,8 +288,8 @@ async def process_llm_task(
                 await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
                 extracted_data = []
                 raise e
-            print("Error, waiting for 30 seconds", e)
-            await asyncio.sleep(30)
+            print("Error, waiting for 60 seconds", e)
+            await asyncio.sleep(60)
 
     return extracted_data
 

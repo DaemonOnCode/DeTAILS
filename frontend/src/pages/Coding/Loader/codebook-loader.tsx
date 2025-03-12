@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, Variants } from 'framer-motion';
+import { useWebSocket } from '../../../context/websocket-context';
+import { useCodingContext } from '../../../context/coding-context';
 
 const CodebookAnimation: React.FC = () => {
+    const { registerCallback, unregisterCallback } = useWebSocket();
+    const { sampledPostIds } = useCodingContext();
+
     const numPages = 6;
     const colors = ['#4F46E5', '#3B82F6', '#6366F1', '#93C5FD', '#A78BFA', '#C084FC'];
 
@@ -16,6 +21,8 @@ const CodebookAnimation: React.FC = () => {
         Array.from({ length: numPages }, (_, i) => i)
     );
 
+    const [postsFinished, setPostsFinished] = useState<number>(0);
+
     const typingTexts = [
         '-------- -----\n-- --- --\n-- ----------\n- - - - - -',
         '----- ----- -\n----------\n- - - - -\n -- -- --',
@@ -24,6 +31,27 @@ const CodebookAnimation: React.FC = () => {
         '--- ---- -----\n- - -- -- -\n- -- -- --\n- - - - -',
         '--------------\n-- -- --- --\n - ---- -- --\n-- -- --'
     ];
+
+    const handleWebsocketMessage = (message: string) => {
+        console.log('Websocket message:', message);
+        const match = message.match(
+            /Dataset\s+([^}]+):\s+Generated codes for post\s+([^}]+)\.\.\./
+        );
+
+        if (match) {
+            console.log('Match:', match);
+            const datasetId = match[1];
+            const postId = match[2];
+            if (sampledPostIds.includes(postId)) {
+                setPostsFinished((prev) => prev + 1);
+            }
+        }
+    };
+
+    useEffect(() => {
+        registerCallback('codebook-loader', handleWebsocketMessage);
+        return () => unregisterCallback('codebook-loader');
+    }, []);
 
     useEffect(() => {
         let timer: NodeJS.Timeout;
@@ -130,7 +158,11 @@ const CodebookAnimation: React.FC = () => {
 
     return (
         <div className="min-h-page w-full flex flex-col items-center justify-center">
-            <h1 className="text-3xl font-bold mb-16 text-gray-900">Generating Codebook</h1>
+            <h1 className="text-3xl font-bold mb-8 text-gray-900">Generating Codebook</h1>
+            <p className=" mb-16">
+                {postsFinished}/{sampledPostIds.length} completed. Please wait, this may take a
+                moment...
+            </p>
 
             {/* Stacking Phase */}
             {isStacking && (

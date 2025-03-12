@@ -9,7 +9,10 @@ export type FetchResponse<T = any> =
     | { data: T; error?: never; abort: () => void }
     | {
           error: {
-              message: string;
+              message: {
+                  error_message: string;
+                  error: string;
+              };
               name: string;
           };
           data?: never;
@@ -22,16 +25,35 @@ export type FetchRequest<T = any> = (
     customAbortController?: AbortController | null
 ) => Promise<FetchResponse<T>>;
 
+export type FetchLLMResponse<T = any> =
+    | { data: T; error?: never; abort: () => void }
+    | {
+          error: {
+              message: string;
+              name: string;
+          };
+          data?: never;
+          abort: () => void;
+      };
+
+export type FetchLLMRequest<T = any> = (
+    route: string,
+    options?: RequestInit & { rawResponse?: boolean },
+    customAbortController?: AbortController | null
+) => Promise<FetchLLMResponse<T>>;
+
 export interface UseApiResult {
     fetchData: <T = any>(...args: Parameters<FetchRequest<T>>) => ReturnType<FetchRequest<T>>;
+    fetchLLMData: <T = any>(
+        ...args: Parameters<FetchLLMRequest<T>>
+    ) => ReturnType<FetchLLMRequest<T>>;
 }
 
 export const useApi = (): UseApiResult => {
     const { getServerUrl } = useServerUtils();
-    const { settings } = useSettings();
+    const { settings, updateSettings } = useSettings();
     const location = useLocation();
-
-    const { requestArrayRef } = useLoadingContext();
+    const { requestArrayRef, openCredentialModalForCredentialError } = useLoadingContext();
 
     const fetchData = useCallback(
         async <T = any,>(
@@ -43,13 +65,11 @@ export const useApi = (): UseApiResult => {
             const controller = customAbortController || new AbortController();
             const url = getServerUrl(route);
 
-            // Merge default headers with any provided headers.
             const defaultHeaders: Record<string, string> = {
                 'Content-Type': 'application/json',
                 'X-App-ID': settings.app.id
             };
 
-            // If the body is a FormData instance, do not set the Content-Type header.
             const isFormData = restOptions.body instanceof FormData;
             const mergedHeaders = isFormData
                 ? {
@@ -64,14 +84,7 @@ export const useApi = (): UseApiResult => {
                 signal: controller.signal
             };
 
-            if (
-                requestArrayRef.current !== null
-                // &&
-                // !(
-                //     route === REMOTE_SERVER_ROUTES.SAVE_STATE ||
-                //     route === REMOTE_SERVER_ROUTES.LOAD_STATE
-                // )
-            ) {
+            if (requestArrayRef.current !== null) {
                 console.log('Request array ref is not null for:', location.pathname);
                 requestArrayRef.current[location.pathname] = [
                     ...(requestArrayRef.current[location.pathname] || []),
@@ -85,11 +98,16 @@ export const useApi = (): UseApiResult => {
                 const response = await fetch(url, mergedOptions);
 
                 if (!response.ok) {
+                    const errorResponse = await response.json();
                     return {
                         data: undefined,
-                        error: new Error(
-                            `HTTP error! Status: ${response.status}, ${await response.text()}`
-                        ),
+                        error: {
+                            message: {
+                                error_message: errorResponse.error_message,
+                                error: errorResponse.error
+                            },
+                            name: 'FetchError'
+                        },
                         abort: controller.abort.bind(controller)
                     };
                 }
@@ -105,8 +123,72 @@ export const useApi = (): UseApiResult => {
                 return { data: undefined, error, abort: controller.abort.bind(controller) };
             }
         },
-        [getServerUrl, settings.app.id]
+        [getServerUrl, settings.app.id, location.pathname, requestArrayRef]
     );
 
-    return { fetchData };
+    const fetchLLMData = useCallback(
+        async <T = any,>(
+            route: string,
+            options: RequestInit & { rawResponse?: boolean } = {},
+            customAbortController: AbortController | null = null
+        ): Promise<FetchLLMResponse<T>> => {
+            // Check credentials using the current file path.
+            let credentialsResponse = await fetchData(REMOTE_SERVER_ROUTES.CHECK_CREDENTIALS, {
+                method: 'POST',
+                body: JSON.stringify({
+                    credential_path: settings.ai.googleCredentialsPath
+                })
+            });
+
+            // If credentials are invalid, show the credential modal until valid credentials are provided or the user cancels.
+            while (credentialsResponse.error) {
+                const errorMessage =
+                    credentialsResponse.error?.message.error_message ?? 'Invalid credentials';
+                // The promise now resolves to a string or null.
+                const newCredentialPath: string | null = await new Promise((resolve) => {
+                    openCredentialModalForCredentialError(errorMessage, resolve);
+                });
+                // If the user cancels (null), exit and return the credentials error.
+                if (newCredentialPath === null) {
+                    return {
+                        error: {
+                            message: 'User cancelled credential input',
+                            name: 'CredentialError'
+                        },
+                        abort: () => {}
+                    };
+                }
+                // Update the settings with the new credential file path.
+                await updateSettings('ai', { googleCredentialsPath: newCredentialPath });
+
+                // Re-run the credentials check with the updated file path.
+                credentialsResponse = await fetchData(REMOTE_SERVER_ROUTES.CHECK_CREDENTIALS, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        credential_path: newCredentialPath
+                    })
+                });
+            }
+
+            // Once credentials are valid, perform the LLM call.
+            const result = await fetchData(route, options, customAbortController);
+            if (result.error) {
+                return {
+                    error: {
+                        message:
+                            typeof result.error.message === 'object'
+                                ? result.error.message.error_message
+                                : result.error.message,
+                        name: result.error.name
+                    },
+                    abort: result.abort
+                };
+            } else {
+                return result as { data: T; abort: () => void };
+            }
+        },
+        [fetchData, openCredentialModalForCredentialError, settings, updateSettings]
+    );
+
+    return { fetchData, fetchLLMData };
 };
