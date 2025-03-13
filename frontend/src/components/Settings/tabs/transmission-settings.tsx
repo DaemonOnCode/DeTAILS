@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSettings } from '../../context/settings-context';
+import { useSettings } from '../../../context/settings-context';
 
 const TransmissionSettings = () => {
     const { settings, updateSettings } = useSettings();

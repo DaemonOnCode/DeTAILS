@@ -98,18 +98,33 @@ export const useApi = (): UseApiResult => {
                 const response = await fetch(url, mergedOptions);
 
                 if (!response.ok) {
-                    const errorResponse = await response.json();
-                    return {
-                        data: undefined,
-                        error: {
-                            message: {
-                                error_message: errorResponse.error_message,
-                                error: errorResponse.error
+                    try {
+                        const errorResponse = await response.json();
+                        return {
+                            data: undefined,
+                            error: {
+                                message: {
+                                    error_message: errorResponse.error_message,
+                                    error: errorResponse.error
+                                },
+                                name: 'FetchError'
                             },
-                            name: 'FetchError'
-                        },
-                        abort: controller.abort.bind(controller)
-                    };
+                            abort: controller.abort.bind(controller)
+                        };
+                    } catch (e) {
+                        console.error('Error fetching data:', e);
+                        return {
+                            data: undefined,
+                            error: {
+                                message: {
+                                    error_message: 'Error fetching data',
+                                    error: 'FetchError'
+                                },
+                                name: 'FetchError'
+                            },
+                            abort: controller.abort.bind(controller)
+                        };
+                    }
                 }
 
                 if (rawResponse) {
@@ -120,7 +135,14 @@ export const useApi = (): UseApiResult => {
                 return { data, abort: controller.abort.bind(controller) };
             } catch (error: any) {
                 console.error('Fetch error:', error);
-                return { data: undefined, error, abort: controller.abort.bind(controller) };
+                return {
+                    data: undefined,
+                    error: {
+                        message: error,
+                        name: 'FetchError'
+                    },
+                    abort: controller.abort.bind(controller)
+                };
             }
         },
         [getServerUrl, settings.app.id, location.pathname, requestArrayRef]
@@ -132,44 +154,45 @@ export const useApi = (): UseApiResult => {
             options: RequestInit & { rawResponse?: boolean } = {},
             customAbortController: AbortController | null = null
         ): Promise<FetchLLMResponse<T>> => {
-            // Check credentials using the current file path.
-            let credentialsResponse = await fetchData(REMOTE_SERVER_ROUTES.CHECK_CREDENTIALS, {
-                method: 'POST',
-                body: JSON.stringify({
-                    credential_path: settings.ai.googleCredentialsPath
-                })
-            });
-
-            // If credentials are invalid, show the credential modal until valid credentials are provided or the user cancels.
-            while (credentialsResponse.error) {
-                const errorMessage =
-                    credentialsResponse.error?.message.error_message ?? 'Invalid credentials';
-                // The promise now resolves to a string or null.
-                const newCredentialPath: string | null = await new Promise((resolve) => {
-                    openCredentialModalForCredentialError(errorMessage, resolve);
-                });
-                // If the user cancels (null), exit and return the credentials error.
-                if (newCredentialPath === null) {
-                    return {
-                        error: {
-                            message: 'User cancelled credential input',
-                            name: 'CredentialError'
-                        },
-                        abort: () => {}
-                    };
-                }
-                // Update the settings with the new credential file path.
-                await updateSettings('ai', { googleCredentialsPath: newCredentialPath });
-
-                // Re-run the credentials check with the updated file path.
-                credentialsResponse = await fetchData(REMOTE_SERVER_ROUTES.CHECK_CREDENTIALS, {
+            if (!settings.ai.model.startsWith('google')) {
+                // Check credentials using the current file path.
+                let credentialsResponse = await fetchData(REMOTE_SERVER_ROUTES.CHECK_CREDENTIALS, {
                     method: 'POST',
                     body: JSON.stringify({
-                        credential_path: newCredentialPath
+                        credential_path: settings.ai.googleCredentialsPath
                     })
                 });
-            }
 
+                // If credentials are invalid, show the credential modal until valid credentials are provided or the user cancels.
+                while (credentialsResponse.error) {
+                    const errorMessage =
+                        credentialsResponse.error?.message.error_message ?? 'Invalid credentials';
+                    // The promise now resolves to a string or null.
+                    const newCredentialPath: string | null = await new Promise((resolve) => {
+                        openCredentialModalForCredentialError(errorMessage, resolve);
+                    });
+                    // If the user cancels (null), exit and return the credentials error.
+                    if (newCredentialPath === null) {
+                        return {
+                            error: {
+                                message: 'User cancelled credential input',
+                                name: 'CredentialError'
+                            },
+                            abort: () => {}
+                        };
+                    }
+                    // Update the settings with the new credential file path.
+                    await updateSettings('ai', { googleCredentialsPath: newCredentialPath });
+
+                    // Re-run the credentials check with the updated file path.
+                    credentialsResponse = await fetchData(REMOTE_SERVER_ROUTES.CHECK_CREDENTIALS, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            credential_path: newCredentialPath
+                        })
+                    });
+                }
+            }
             // Once credentials are valid, perform the LLM call.
             const result = await fetchData(route, options, customAbortController);
             if (result.error) {

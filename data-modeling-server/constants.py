@@ -27,6 +27,7 @@ def get_app_data_path() -> str:
 
 UPLOAD_DIR = os.path.join(get_app_data_path(), APP_NAME, "executables", "uploaded_jsons")
 DATASETS_DIR = os.path.join(get_app_data_path(), APP_NAME, "executables", "datasets")
+CONTEXT_FILES_DIR = os.path.join(get_app_data_path(), APP_NAME, "executables", "context_files")
 DATABASE_PATH = os.path.join(get_app_data_path(), APP_NAME, "executables", "data_modeling.db")
 LOG_FILE = os.path.join(get_app_data_path(), APP_NAME, "executables", "logs.jsonl")
 

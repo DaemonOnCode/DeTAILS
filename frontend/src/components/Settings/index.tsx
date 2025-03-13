@@ -1,7 +1,7 @@
-export { default as GeneralSettingsPage } from './general-settings';
-export { default as WorkspaceSettingsPage } from './workspace-settings';
+export { default as GeneralSettingsPage } from './tabs/general-settings';
+export { default as WorkspaceSettingsPage } from './tabs/workspace-settings';
+export { default as DevtoolsSettingsPage } from './tabs/devtools-settings';
+export { default as TutorialSettingsPage } from './tabs/tutorial-settings';
+export { default as TransmissionSettings } from './tabs/transmission-settings';
+export { default as AiSettingsPage } from './tabs/ai-settings';
 export { default as SettingsLayout } from './layout';
-export { default as DevtoolsSettingsPage } from './devtools-settings';
-export { default as TutorialSettingsPage } from './tutorial-settings';
-export { default as TransmissionSettings } from './transmission-settings';
-export { default as AiSettingsPage } from './ai-settings';

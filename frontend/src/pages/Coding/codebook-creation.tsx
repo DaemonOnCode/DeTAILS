@@ -167,6 +167,7 @@ const CodebookCreation = () => {
                     type: 'SET_LOADING_DONE_ROUTE',
                     route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
                 });
+                throw new Error(error.message);
             }
             return;
         }

@@ -146,6 +146,8 @@ const DataViewerPage = () => {
                     type: 'SET_LOADING_DONE_ROUTE',
                     route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
                 });
+                // navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`);
+                throw new Error(sampleError.message.error_message);
             }
             return;
         }
@@ -180,11 +182,19 @@ const DataViewerPage = () => {
             console.error('Error generating initial codes:', codeError);
             if (codeError.name !== 'AbortError') {
                 toast.error('Error generating initial codes');
+                navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
                 });
+                console.error(
+                    'Error generating initial codes:',
+                    codeError,
+                    'navigate to dataset creation'
+                );
+                throw new Error(codeError.message);
             }
+            console.error("Should end here if there's an error");
             return;
         }
 

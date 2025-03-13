@@ -151,6 +151,7 @@ const FinalzingCodes = () => {
                     type: 'SET_LOADING_DONE_ROUTE',
                     route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
                 });
+                throw new Error(error.message);
             }
             return;
         }

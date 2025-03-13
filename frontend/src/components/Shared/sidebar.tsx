@@ -69,16 +69,17 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
     const forcedActiveRoute = searchParams.get('sidebarActive');
 
     useEffect(() => {
-        if (isRouteHighlighted(location.pathname)) {
-            const segments = location.pathname.split('/').filter(Boolean);
-            const newOpenDropdowns = openDropdowns;
-            let currentPath = '';
-            segments.forEach((segment) => {
-                currentPath += `/${segment}`;
-                newOpenDropdowns.add(currentPath);
-            });
-            setOpenDropdowns(newOpenDropdowns);
-        }
+        const segments = location.pathname.split('/').filter(Boolean);
+        segments.push(
+            ...(LOADER_TO_ROUTE_MAP[location.pathname]?.split('/').filter(Boolean) || [])
+        );
+        const newOpenDropdowns = new Set<string>();
+        let currentPath = '';
+        segments.forEach((segment) => {
+            currentPath += `/${segment}`;
+            newOpenDropdowns.add(currentPath);
+        });
+        setOpenDropdowns(newOpenDropdowns);
     }, [location.pathname]);
 
     const toggleDropdown = (path: string) => {

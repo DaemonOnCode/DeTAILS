@@ -31,13 +31,14 @@ class ConnectionManager:
             del self.keep_alive_tasks[app_id]
 
     async def send_message(self, app_id: str, message: str):
-        """Send a message to a specific app."""
         if app_id in self.active_connections:
             websocket = self.active_connections[app_id]
             try:
                 await websocket.send_text(message)
             except Exception as e:
                 print(f"Failed to send message to {app_id}: {e}")
+                # Optionally, you might want to retry here instead of immediately removing.
+                # For now, we'll remove the connection if sending fails.
                 self.remove_connection(app_id)
         else:
             print(f"No active connection for app {app_id}")
@@ -70,14 +71,18 @@ class ConnectionManager:
     #             print(f"Error sending message to Discord webhook: {e}")
 
     async def keep_alive(self, app_id: str, websocket: WebSocket):
-        """Send periodic pings to keep the connection alive."""
         try:
             while True:
-                await asyncio.sleep(15)  # Sends a ping every 15 seconds
-                await websocket.send_text("ping")
-        except Exception as e:
-            print(f"Keep-alive failed for {app_id}: {e}")
-            self.remove_connection(app_id)
+                await asyncio.sleep(15)
+                # Send a ping message without expecting a JSON response.
+                try:
+                    await websocket.send_text("ping")
+                except Exception as e:
+                    print(f"Keep-alive failed for {app_id}: {e}")
+                    self.remove_connection(app_id)
+                    break
+        except asyncio.CancelledError:
+            pass
 
 
 manager = ConnectionManager()
@@ -85,15 +90,9 @@ manager = ConnectionManager()
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, app: str = Query(...)):
-    """
-    Handle WebSocket connection for a specific app.
-    The client connects with a URL like:
-      ws://<host>/ws?app=yourUniqueAppId
-    """
-    app_id = app  # You can treat this as the app ID
+    app_id = app
     await websocket.accept()
     await manager.add_connection(app_id, websocket)
-
     try:
         while True:
             data = await websocket.receive_text()
@@ -106,6 +105,7 @@ async def websocket_endpoint(websocket: WebSocket, app: str = Query(...)):
                 else:
                     print(f"No target_app specified in message from {app_id}: {data}")
             except json.JSONDecodeError:
+                # For non-JSON messages (e.g. "pong"), simply log them.
                 print(f"Received non-JSON message from {app_id}: {data}")
     except WebSocketDisconnect:
         print(f"WebSocket disconnected for app: {app_id}")
@@ -113,7 +113,6 @@ async def websocket_endpoint(websocket: WebSocket, app: str = Query(...)):
         print(f"Error in WebSocket for app {app_id}: {e}")
     finally:
         manager.remove_connection(app_id)
-
 
 @router.websocket("/notify")
 async def notify_endpoint(websocket: WebSocket):

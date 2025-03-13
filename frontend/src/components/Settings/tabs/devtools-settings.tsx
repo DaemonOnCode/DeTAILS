@@ -1,6 +1,6 @@
 // DevtoolsSettings.tsx
 import React from 'react';
-import { useSettings } from '../../context/settings-context';
+import { useSettings } from '../../../context/settings-context';
 
 const DevtoolsSettings = () => {
     const { settings, updateSettings } = useSettings();

@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import time
 from typing import Any, List, Optional
 from uuid import uuid4
@@ -13,7 +14,7 @@ from google.auth import load_credentials_from_file
 
 import config
 from chromadb.config import Settings as ChromaDBSettings
-from constants import PATHS
+from constants import CONTEXT_FILES_DIR, PATHS
 from decorators import log_execution_time
 from errors.credential_errors import MissingCredentialError
 from models.table_dataclasses import LlmResponse
@@ -28,6 +29,7 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.callbacks import StreamingStdOutCallbackHandler
 from langchain_ollama import OllamaLLM
+from starlette.concurrency import run_in_threadpool
 
 from services.llm_service import GlobalQueueManager
 from utils.coding_helpers import generate_transcript
@@ -89,18 +91,34 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
     await manager.send_message(app_id, f"Dataset {dataset_id}: Uploading files...")
     await asyncio.sleep(5)
 
+    print(f"Processing context files for dataset {dataset_id}..., num files: {len(contextFiles)}")
+
+    for file in contextFiles:
+        print(f"Processing file: {file.filename}, size: {file.size}")
+
+    if not os.path.exists(CONTEXT_FILES_DIR):
+        os.makedirs(CONTEXT_FILES_DIR)
+
+    for file in os.listdir(CONTEXT_FILES_DIR):
+        file_path = os.path.join(CONTEXT_FILES_DIR, file)
+        if os.path.isfile(file_path) and file.startswith(dataset_id):
+            os.remove(file_path)
+
     for file in contextFiles:
         retries = 3
         success = False
+        file_content = await file.read()
         while retries > 0 and not success:
             try:
-                file_content = await file.read()
                 file_name = file.filename
 
-                temp_file_path = f"./context_files/{dataset_id}_{time.time()}_{file_name}"
-                os.makedirs("./context_files", exist_ok=True)
+                temp_file_path = os.path.join(CONTEXT_FILES_DIR, f"{dataset_id}_{time.time()}_{file_name}")
                 with open(temp_file_path, "wb") as temp_file:
                     temp_file.write(file_content)
+
+                print("Temp file path:", temp_file_path)
+                if not os.path.exists(temp_file_path):
+                    print("File does not exist!")
 
                 # Determine loader based on file extension.
                 ext = file_name.split('.')[-1].lower()
@@ -114,11 +132,9 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
                     raise ValueError(f"Unsupported file type: {ext}")
 
                 # Load and process the document
-                docs = loader.load()
-                chunks = text_splitter.split_documents(docs)
-
-                # Add documents to vector store
-                vector_store.add_documents(chunks)
+                docs = await run_in_threadpool(loader.load)
+                chunks = await run_in_threadpool(text_splitter.split_documents, docs)
+                await run_in_threadpool(vector_store.add_documents, chunks)
 
                 success = True
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Successfully processed file {file_name}.")
@@ -141,8 +157,8 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
 def get_llm_and_embeddings(
     model: str,
     settings: config.Settings = None,
-    num_ctx: int = 30000,
-    num_predict: int = 30000,
+    num_ctx: int = 100_000,
+    num_predict: int = 8_000,
     temperature: float = 0.6
 ):
     try:
@@ -177,7 +193,7 @@ def get_llm_and_embeddings(
                 temperature=temperature,
                 callbacks=[StreamingStdOutCallbackHandler()]
             )
-            embeddings = OllamaEmbeddings(model=model)
+            embeddings = OllamaEmbeddings(model=model_name)
         else:
             raise ValueError(f"Unsupported model type: {model}")
 
@@ -288,8 +304,8 @@ async def process_llm_task(
                 await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
                 extracted_data = []
                 raise e
-            print("Error, waiting for 60 seconds", e)
-            await asyncio.sleep(60)
+            # print("Error, waiting for 60 seconds", e)
+            # await asyncio.sleep(60)
 
     return extracted_data
 

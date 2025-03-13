@@ -5,7 +5,7 @@ const { electronLogger } = require('../utils/electron-logger');
 const config = require('../../src/config')('electron');
 
 let wsInstance = null;
-const maxReconnectAttempts = 3;
+const maxReconnectAttempts = 5;
 const baseDelay = 1000; // in milliseconds
 let reconnectAttempts = 0;
 
@@ -77,16 +77,31 @@ const connectWS = (globalCtx) => {
     });
 
     wsInstance.on('close', (code, reason) => {
-        let message = '';
-        if (reason instanceof ArrayBuffer || ArrayBuffer.isView(reason)) {
-            message = new TextDecoder('utf-8').decode(reason);
+        if (reconnectAttempts < maxReconnectAttempts) {
+            const delay = baseDelay * Math.pow(2, reconnectAttempts);
+            electronLogger.log(
+                `Attempting to reconnect in ${delay}ms... (Attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`
+            );
+            reconnectAttempts++;
+            setTimeout(() => {
+                connectWS(globalCtx);
+            }, delay);
         } else {
-            message = reason ? reason.toString() : 'No reason provided';
+            electronLogger.log(
+                'Max reconnection attempts reached. No further reconnection will be attempted.'
+            );
+
+            let message = '';
+            if (reason instanceof ArrayBuffer || ArrayBuffer.isView(reason)) {
+                message = new TextDecoder('utf-8').decode(reason);
+            } else {
+                message = reason ? reason.toString() : 'No reason provided';
+            }
+            electronLogger.log('WebSocket closed:', code, message);
+            wsInstance = null;
+            globalCtx.setState({ websocket: null });
+            sendToMainWindow(globalCtx, 'ws-closed', { code, message });
         }
-        electronLogger.log('WebSocket closed:', code, message);
-        wsInstance = null;
-        globalCtx.setState({ websocket: null });
-        sendToMainWindow(globalCtx, 'ws-closed', { code, message });
     });
 
     wsInstance.on('error', (error) => {

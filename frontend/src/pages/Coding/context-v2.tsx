@@ -198,6 +198,7 @@ const ContextPage = () => {
                     type: 'SET_LOADING_DONE_ROUTE',
                     route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
                 });
+                throw new Error(error.message);
             }
             return;
         }
@@ -350,7 +351,7 @@ const ContextPage = () => {
                         nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
                         isReady={checkIfReady}
                         onNextClick={handleOnNextClick}
-                        autoNavigateToNext={false}
+                        // autoNavigateToNext={false}
                         disabledTooltipText="Files or main topic is missing"
                     />
                 </div>

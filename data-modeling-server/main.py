@@ -9,7 +9,7 @@ import uvicorn
 from constants import DATASETS_DIR, PATHS, get_default_transmission_cmd
 from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, DatasetsRepository, PostsRepository, CommentsRepository, LlmResponsesRepository, FileStatusRepository, PipelineStepsRepository, TorrentDownloadProgressRepository
 from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware, AbortOnDisconnectMiddleware
-from routes import coding_routes, collection_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
+from routes import coding_routes, collection_routes, ollama_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
 
 load_dotenv()
 print(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
@@ -53,6 +53,7 @@ app.include_router(coding_routes.router, prefix="/api/coding", tags=["coding"])
 app.include_router(miscellaneous_routes.router, prefix="/api/miscellaneous", tags=["miscellaneous"])
 app.include_router(workspace_routes.router, prefix="/api/workspaces", tags=["workspace"])
 app.include_router(state_routes.router, prefix="/api/state", tags=["state"])
+app.include_router(ollama_routes.router, prefix="/api/ollama", tags=["ollama"])
 
 @app.get("/")
 def health_check():

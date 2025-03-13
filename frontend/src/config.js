@@ -77,7 +77,12 @@ const config = {
             GET_POST_ID_TITLE: 'miscellaneous/get-post-title-from-id',
             GET_POST_LINK_FROM_ID: 'miscellaneous/get-link-from-post',
             CHECK_TRANSMISSION: 'miscellaneous/check-transmission',
-            CHECK_CREDENTIALS: 'miscellaneous/test-user-credentials'
+            CHECK_CREDENTIALS: 'miscellaneous/test-user-credentials',
+
+            OLLAMA_PULL: 'ollama/pull-model',
+            OLLAMA_DELETE: 'ollama/delete-model',
+            OLLAMA_LIST: 'ollama/list-models',
+            OLLAMA_MODEL_METADATA: 'ollama/model-metadata'
         }
     },
     electron: {},

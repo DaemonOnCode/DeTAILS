@@ -1,5 +1,5 @@
 import { ChangeEvent } from 'react';
-import { useSettings } from '../../context/settings-context';
+import { useSettings } from '../../../context/settings-context';
 
 const GeneralSettings = () => {
     const { settings, updateSettings } = useSettings();

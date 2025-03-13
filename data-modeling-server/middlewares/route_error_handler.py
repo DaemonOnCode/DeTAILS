@@ -10,6 +10,7 @@ from errors.credential_errors import CredentialError, InvalidCredentialError, Mi
 from errors.database_errors import (
     QueryExecutionError, RecordNotFoundError, InsertError, UpdateError, DeleteError
 )
+from errors.ollama_errors import InvalidModelError, OllamaError, PullModelError, DeleteModelError
 
 logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -86,6 +87,27 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             logging.error(f"CredentialError: {str(e)}")
             traceback.print_exc()
             return JSONResponse(status_code=400, content={"error":e.__class__.__name__,"error_message": f"Invalid or Missing credentials: {str(e)}"})
+        
+        except InvalidModelError as e:
+            logging.error(f"InvalidModelError: {str(e)}")
+            traceback.print_exc()
+            return JSONResponse(status_code=404, content={"error":e.__class__.__name__,"error_message": f"Invalid model: {str(e)}"})
+        
+        except PullModelError as e:
+            logging.error(f"PullModelError: {str(e)}")
+            traceback.print_exc()
+            return JSONResponse(status_code=500, content={"error":e.__class__.__name__,"error_message": f"Pull error: {str(e)}"})
+
+        except DeleteModelError as e:
+            logging.error(f"DeleteModelError: {str(e)}")
+            traceback.print_exc()
+            return JSONResponse(status_code=500, content={"error":e.__class__.__name__,"error_message": f"Delete operation failed: {str(e)}"})
+
+        except OllamaError as e:
+            logging.error(f"OllamaError: {str(e)}")
+            traceback.print_exc()
+            return JSONResponse(status_code=500, content={"error":e.__class__.__name__,"error_message": f"Ollama error: {str(e)}"})
+        
 
         except Exception as e:
             logging.critical(f"Unhandled exception: {str(e)}")

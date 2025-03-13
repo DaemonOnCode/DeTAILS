@@ -183,12 +183,15 @@ const DeductiveCodingPage = () => {
 
         if (error) {
             console.error('Error refreshing themes:', error);
-            toast.error('Error finalizing codes');
-            navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
-            });
+            if (error.name !== 'AbortError') {
+                toast.error('Error finalizing codes');
+                navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`);
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
+                });
+                throw new Error(error.message);
+            }
             return;
         }
 

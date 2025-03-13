@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { NavigationBottomBarProps } from '../../../types/Coding/props';
 import { TooltipMessages } from '../../../constants/Shared';
 import { useLoadingContext } from '../../../context/loading-context';
+import { ROUTES as SHARED_ROUTES } from '../../../constants/Shared';
 
 const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     isReady,
@@ -69,31 +70,36 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             // e.preventDefault();
                             const dataExists = checkIfDataExists(location.pathname);
                             console.log('Data exists:', dataExists);
-                            const nextPageFull = '/coding/' + nextPage;
-                            if (dataExists) {
-                                openModal('nav-proceed-btn', async (e: any) => {
-                                    // setShowProceedConfirmModal(false);
+                            const nextPageFull = `/${SHARED_ROUTES.CODING}/${nextPage}`;
+                            try {
+                                if (dataExists) {
+                                    openModal('nav-proceed-btn', async (e: any) => {
+                                        // setShowProceedConfirmModal(false);
+                                        abortRequests(location.pathname);
+                                        await resetDataAfterPage(location.pathname);
+                                        onNextClick && (await onNextClick(e));
+                                        loadingDispatch({
+                                            type: 'SET_FIRST_RUN_DONE',
+                                            route: location.pathname
+                                        });
+                                        autoNavigateToNext && navigate(nextPageFull);
+                                    });
+                                } else {
                                     abortRequests(location.pathname);
-                                    await resetDataAfterPage(location.pathname);
-                                    onNextClick && (await onNextClick(e));
+                                    loadingDispatch({
+                                        type: 'SET_REST_UNDONE',
+                                        route: location.pathname
+                                    });
+                                    onNextClick && (await onNextClick?.(e));
                                     loadingDispatch({
                                         type: 'SET_FIRST_RUN_DONE',
                                         route: location.pathname
                                     });
                                     autoNavigateToNext && navigate(nextPageFull);
-                                });
-                            } else {
-                                abortRequests(location.pathname);
-                                loadingDispatch({
-                                    type: 'SET_REST_UNDONE',
-                                    route: location.pathname
-                                });
-                                onNextClick && (await onNextClick?.(e));
-                                loadingDispatch({
-                                    type: 'SET_FIRST_RUN_DONE',
-                                    route: location.pathname
-                                });
-                                autoNavigateToNext && navigate(nextPageFull);
+                                }
+                            } catch (e) {
+                                console.error('Error in NavigationBottomBar:', e);
+                                navigate(location.pathname);
                             }
                         }
                     }}>

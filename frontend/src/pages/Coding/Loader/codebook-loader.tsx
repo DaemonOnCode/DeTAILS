@@ -44,9 +44,9 @@ const CodebookAnimation: React.FC = () => {
             const postId = match[2];
 
             console.log('Sampled post ids:', sampledPostIds, 'Post id:', postId);
-            if (sampledPostIds.includes(postId)) {
-                setPostsFinished((prev) => prev + 1);
-            }
+            // if (sampledPostIds.includes(postId)) {
+            setPostsFinished((prev) => prev + 1);
+            // }
         }
     };
 

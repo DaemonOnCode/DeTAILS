@@ -185,8 +185,8 @@ const spawnServices = async (globalCtx) => {
 
     const executablesPath =
         process.env.NODE_ENV === 'development'
-            ? path.join(__dirname, '..', '..', '..', 'executables')
-            : resourceBinariesPath;
+            ? binariesPath //path.join(__dirname, '..', '..', '..', 'executables')
+            : binariesPath;
     const serviceConfig = servicesConfig(executablesPath);
 
     if (spawnedProcesses.length > 0) {
