@@ -276,6 +276,41 @@ def update_run_progress(run_id: str, new_message: str):
                 {"messages": json.dumps(file_messages), "status": "complete", "progress": 100.0}
             )
 
+
+    if "No data found" in new_message:
+        m = re.search(r"No data found for\s+.+?\s+in file\s+(.+?)\.", new_message, re.IGNORECASE)
+        if m:
+            # Reconstruct the file key as inserted: the relative path should be the same as f.name.
+            # dir_part = m.group(1).strip()  # e.g. "/Volumes/Crucial X9/abc/transmission-downloads/reddit/submissions"
+            # # Get the relative directory by removing the download dir prefix:
+            # rel_dir = os.path.relpath(dir_part, PATHS["transmission"])
+            key =  m.group(1)+".zst"
+            file_data = file_repo.get_file_progress(run_id, key)
+            file_messages = json.loads(file_data.messages) if file_data.messages else []
+            file_messages.append(new_message)
+            file_repo.update_file_progress(
+                run_id, key,
+                {"messages": json.dumps(file_messages), "status": "empty", "progress": 100.0}
+            )
+
+
+        # -- Files Already Downloaded --
+    if "Files already downloaded" in new_message:
+        # Expecting message of the form:
+        # "Files already downloaded: file1, file2, file3"
+        m = re.search(r"Files already downloaded:\s*(.*)", new_message)
+        if m:
+            file_list_str = m.group(1).strip()
+            # If no files are listed, default to an empty list.
+            if file_list_str:
+                files_already_downloaded = [f.strip() for f in file_list_str.split(",")]
+            else:
+                files_already_downloaded = []
+            progress_repo.update_progress(
+                run_id,
+                {"files_already_downloaded": json.dumps(files_already_downloaded)}
+            )
+
     # -- Error Downloading File --
     if "error downloading" in new_message.lower():
         key = get_file_key_full(new_message, r"ERROR downloading\s+(.*?):", group_index=1)
@@ -834,11 +869,16 @@ async def process_single_file(
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message)
 
-
         message = f"Processed file: {file_name} ..."
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message)
         print(f"Processing complete for file {file_name}.")
+
+        print("File size", os.stat(academic_file_path))
+        if os.stat(academic_file_path).st_size <= 5: # Files created contain an empty list, which is 5 bytes long.
+            message = f"No data found for {subreddit} in file {file_name}."
+            await manager.send_message(app_id, message)
+            update_run_progress(run_id, message)
 
     except Exception as e:
         print(f"Error processing file {file_name}: {e}")
@@ -904,6 +944,7 @@ async def get_reddit_data_from_torrent(
     files_already_downloaded = list(filter(lambda f: os.path.splitext(os.path.basename(f.name))[0] in already_existing_files, files_to_process))
     message = f'Files already downloaded: {(", ").join([os.path.splitext(os.path.basename(f.name))[0] for f in files_already_downloaded])}'
     await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
     if len(already_existing_files) != 0:
         files_to_process = list(filter(lambda f: os.path.splitext(os.path.basename(f.name))[0] not in already_existing_files, files_to_process))
     print(f"Files to process: {files_to_process}")
@@ -992,9 +1033,15 @@ def get_all_torrent_data():
 
     return dataset_intervals
 
-
 def get_torrent_files_by_subreddit(subreddit: str):
     datasets_directory = DATASETS_DIR
-    if not os.path.exists(os.path.join(datasets_directory, f"academic-torrent-{subreddit}")):
+    dir_path = os.path.join(datasets_directory, f"academic-torrent-{subreddit}")
+    if not os.path.exists(dir_path):
         return []
-    return list(map(lambda x: os.path.splitext(x)[0], os.listdir(os.path.join(datasets_directory, f"academic-torrent-{subreddit}"))))
+    # List only those files that are either not symlinks or are valid symlinks.
+    valid_files = [
+        os.path.splitext(f)[0]
+        for f in os.listdir(dir_path)
+        if (not os.path.islink(os.path.join(dir_path, f))) or os.path.exists(os.path.join(dir_path, f))
+    ]
+    return valid_files

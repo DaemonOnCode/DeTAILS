@@ -1,7 +1,7 @@
 import { FC, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { RouteObject } from 'react-router-dom';
-import { RouteIcons, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { LOADER_TO_ROUTE_MAP, RouteIcons, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth-context';
 import { AppRouteArray } from '../../types/Shared';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
@@ -64,15 +64,21 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
 
     const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
 
+    const searchParams = new URLSearchParams(location.search);
+
+    const forcedActiveRoute = searchParams.get('sidebarActive');
+
     useEffect(() => {
-        const segments = location.pathname.split('/').filter(Boolean);
-        const newOpenDropdowns = new Set<string>();
-        let currentPath = '';
-        segments.forEach((segment) => {
-            currentPath += `/${segment}`;
-            newOpenDropdowns.add(currentPath);
-        });
-        setOpenDropdowns(newOpenDropdowns);
+        if (isRouteHighlighted(location.pathname)) {
+            const segments = location.pathname.split('/').filter(Boolean);
+            const newOpenDropdowns = openDropdowns;
+            let currentPath = '';
+            segments.forEach((segment) => {
+                currentPath += `/${segment}`;
+                newOpenDropdowns.add(currentPath);
+            });
+            setOpenDropdowns(newOpenDropdowns);
+        }
     }, [location.pathname]);
 
     const toggleDropdown = (path: string) => {
@@ -98,6 +104,57 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
         const indexRoute = children.find((child) => child.index);
         return indexRoute ? indexRoute.path || '' : null;
     };
+
+    const findRouteFullPath = (
+        routes: AppRouteArray,
+        targetPath: string,
+        parentPath: string = ''
+    ): string | null => {
+        for (const route of routes) {
+            if (route.hidden) continue; // Skip hidden routes normally
+            if (route.path) {
+                const fullPath = `${parentPath}/${route.path}`.replace(/\/+/g, '/');
+                if (route.path === targetPath) {
+                    return fullPath;
+                }
+                if (route.children) {
+                    const result = findRouteFullPath(route.children, targetPath, fullPath);
+                    if (result) return result;
+                }
+            }
+        }
+        return null;
+    };
+
+    function isRouteHighlighted(fullPath: string, routePath?: string) {
+        if (forcedActiveRoute && forcedActiveRoute === routePath) {
+            return true;
+        }
+
+        if (LOADER_TO_ROUTE_MAP[location.pathname] === fullPath) {
+            return true;
+        }
+
+        return location.pathname === fullPath;
+    }
+
+    useEffect(() => {
+        if (forcedActiveRoute) {
+            const forcedFullPath = findRouteFullPath(routes, forcedActiveRoute);
+            if (forcedFullPath) {
+                const segments = forcedFullPath.split('/').filter(Boolean);
+                let currentPath = '';
+                const newOpenDropdowns = new Set<string>();
+                segments.forEach((segment) => {
+                    currentPath += `/${segment}`;
+                    newOpenDropdowns.add(currentPath);
+                });
+                setOpenDropdowns(newOpenDropdowns);
+            }
+        }
+        // We intentionally do not reinitialize openDropdowns on every location change
+        // so that manual toggles persist.
+    }, [forcedActiveRoute, routes]);
 
     // Render the routes recursively
     const renderRoutes = (routes: AppRouteArray, parentPath = ''): JSX.Element[] => {
@@ -125,7 +182,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                                         : null}
                                     <button
                                         className={`flex-grow text-left p-2 rounded-lg transition font-medium responsive-text ${
-                                            isCurrentPath(fullPath)
+                                            isRouteHighlighted(fullPath, route.path)
                                                 ? 'bg-blue-500 text-white'
                                                 : 'hover:bg-gray-700'
                                         }`}
@@ -172,7 +229,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                             to={fullPath}
                             state={{ from: location.pathname }}
                             className={`p-2 rounded-lg transition font-medium flex justify-start items-center gap-x-2 responsive-text ${
-                                isCurrentPath(fullPath)
+                                isRouteHighlighted(fullPath)
                                     ? 'bg-blue-500 text-white'
                                     : 'hover:bg-gray-700'
                             }`}>

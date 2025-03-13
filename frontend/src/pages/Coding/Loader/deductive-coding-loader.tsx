@@ -53,8 +53,8 @@ const DeductiveCoding = () => {
     };
 
     useEffect(() => {
-        registerCallback('codebook-loader', handleWebsocketMessage);
-        return () => unregisterCallback('codebook-loader');
+        registerCallback('deductive-coding-loader', handleWebsocketMessage);
+        return () => unregisterCallback('deductive-coding-loader');
     }, []);
 
     useEffect(() => {

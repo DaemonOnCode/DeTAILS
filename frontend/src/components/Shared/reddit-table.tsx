@@ -6,12 +6,17 @@ import { Link } from 'react-router-dom';
 import { ROUTES } from '../../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 
-const RedditTable: FC<RedditTableProps> = ({
+interface ExtendedRedditTableProps extends RedditTableProps {
+    locked: boolean; // <-- Add this prop
+}
+
+const RedditTable: FC<ExtendedRedditTableProps> = ({
     data,
     selectedPosts,
     togglePostSelection,
     toggleSelectPage,
-    isLoading // Add isLoading prop
+    isLoading,
+    locked // <-- Destructure the new prop
 }) => {
     const [selectedPost, setSelectedPost] = useState<(typeof data)[number] | null>(null);
 
@@ -21,14 +26,16 @@ const RedditTable: FC<RedditTableProps> = ({
     return (
         <div className="overflow-x-auto h-full w-full relative">
             <table className="table-auto w-full border border-gray-300">
-                <thead className="bg-gray-100 sticky top-0 ">
+                <thead className="bg-gray-100 sticky top-0">
                     <tr>
                         <th className="px-4 py-4 border">
+                            {/* Disable the "select all" checkbox if locked */}
                             {!isLoading && (
                                 <input
                                     type="checkbox"
                                     onChange={() => toggleSelectPage(data)}
                                     checked={areAllPagePostsSelected}
+                                    disabled={locked}
                                 />
                             )}
                         </th>
@@ -61,7 +68,6 @@ const RedditTable: FC<RedditTableProps> = ({
                               </tr>
                           ))
                         : // Render actual data rows when not loading
-
                           data.map((post, index) => (
                               <tr key={index} className="hover:bg-gray-50">
                                   <td className="px-4 py-6 border">
@@ -70,6 +76,7 @@ const RedditTable: FC<RedditTableProps> = ({
                                           type="checkbox"
                                           checked={selectedPosts.includes(post[0])}
                                           onChange={() => togglePostSelection(post[0])}
+                                          disabled={locked} // <-- Disable if locked
                                       />
                                   </td>
                                   <td className="px-4 py-6 border">

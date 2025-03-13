@@ -10,7 +10,7 @@ import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../../constant
 import { ROUTES, LOADER_ROUTES } from '../../../constants/Coding/shared';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 import { useLoadingContext } from '../../../context/loading-context';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 const path = window.require('path');
 
 // Data model for pipeline steps
@@ -90,7 +90,7 @@ const TorrentLoader: React.FC = () => {
     const { datasetId, modeInput } = useCollectionContext();
     const { fetchData } = useApi();
     const location = useLocation();
-    const { abortRequestsByRoute } = useLoadingContext();
+    const { abortRequestsByRoute, loadingDispatch } = useLoadingContext();
 
     const logBottomRef = useRef<HTMLDivElement>(null);
     const fileBottomRef = useRef<HTMLDivElement>(null);
@@ -100,6 +100,8 @@ const TorrentLoader: React.FC = () => {
     useEffect(() => {
         totalFilesRef.current = totalFiles;
     }, [totalFiles]);
+
+    const navigate = useNavigate();
 
     const { loadTorrentData } = useRedditData();
     const logger = useLogger();
@@ -126,19 +128,32 @@ const TorrentLoader: React.FC = () => {
                         startDate: state.overall.startMonth || '',
                         endDate: state.overall.endMonth || ''
                     });
+                    setDownloadedFiles(
+                        JSON.parse(state.overall.filesAlreadyDownloaded ?? '[]') || []
+                    );
                 } else {
                     // Otherwise, fallback to a placeholder
                     setTorrentMetadata({ name: 'Unknown', startDate: 'N/A', endDate: 'N/A' });
                 }
 
                 // Parse steps and files
-                const parsedSteps = state.steps.map((step: any) => ({
+                let parsedSteps: any[] = state.steps.map((step: any) => ({
                     ...step,
                     messages:
                         typeof step.messages === 'string'
                             ? JSON.parse(step.messages)
                             : step.messages
                 }));
+
+                parsedSteps = [
+                    ...parsedSteps,
+                    {
+                        label: 'Loading dataset',
+                        status: 'idle',
+                        progress: 0,
+                        messages: []
+                    }
+                ];
 
                 const desiredOrder = [
                     'Metadata',
@@ -216,20 +231,36 @@ const TorrentLoader: React.FC = () => {
 
     // Retry logic
     const handleRetry = async () => {
-        setSteps(initialSteps);
-        setFiles({});
-        setMessages(['Retrying request...']);
-        setTotalFiles(0);
-        setDownloadedFiles([]);
         logger.info('Retrying request...');
         try {
             abortRequestsByRoute(
                 `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`
             );
             abortRequestsByRoute(location.pathname);
+            setSteps(initialSteps);
+            setFiles({});
+            setMessages(['Retrying request...']);
+            setTotalFiles(0);
+            setDownloadedFiles([]);
             await new Promise((resolve) => setTimeout(resolve, 10000));
             const { subreddit, start, end, postsOnly } = parseModeInput(modeInput);
-            await loadTorrentData(true, subreddit, start, end, postsOnly);
+            const { error } = await loadTorrentData(true, subreddit, start, end, postsOnly);
+            if (error) {
+                throw new Error('Failed to retry request');
+            }
+            loadingDispatch({
+                type: 'SET_REST_UNDONE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`
+            });
+            loadingDispatch({
+                type: 'SET_FIRST_RUN_DONE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`
+            });
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
+            });
+            navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`);
         } catch (error) {
             logger.error(`Retry failed: ${error}`);
         }
@@ -534,6 +565,18 @@ const TorrentLoader: React.FC = () => {
                     }
                 }
             }
+            if (msg.includes('No data found')) {
+                const match = msg.match(/No data found for\s+.+?\s+in file\s+(.+?)\./i);
+                if (match) {
+                    const fullPath = match[1].trim() + '.zst';
+                    const base = path.basename(fullPath);
+                    if (updated[base]) {
+                        updated[base].status = 'empty';
+                        updated[base].progress = 100;
+                        updated[base].messages.push(msg);
+                    }
+                }
+            }
             if (msg.toLowerCase().includes('error downloading')) {
                 const match = msg.match(/ERROR downloading\s+(.*?):/i);
                 if (match) {
@@ -630,7 +673,7 @@ const TorrentLoader: React.FC = () => {
                 {/* File Downloads Heading + Already Downloaded Files */}
                 {/* <div className="mt-8 flex flex-col h-full"> */}
                 <h2 className="text-xl font-bold mb-2 mt-8">File Downloads</h2>
-                {!!downloadedFiles.length && (
+                {downloadedFiles.length > 0 && (
                     <div className="text-sm text-gray-600 mb-4">
                         <strong>Already downloaded files:</strong> {downloadedFiles.join(', ')}
                     </div>
@@ -650,7 +693,7 @@ const TorrentLoader: React.FC = () => {
                             const isExtracting = f.status === 'extracting';
 
                             let barColor = 'bg-blue-400';
-                            if (isComplete) barColor = 'bg-green-500';
+                            if (isComplete || isEmpty) barColor = 'bg-green-500';
                             if (isError) barColor = 'bg-red-500';
 
                             return (

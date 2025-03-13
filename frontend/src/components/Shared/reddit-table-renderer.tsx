@@ -3,9 +3,10 @@ import PaginationControls from './pagination-control';
 import RedditTable from './reddit-table';
 import { RedditPosts } from '../../types/Coding/shared';
 import { useCollectionContext } from '../../context/collection-context';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
+import { useLoadingContext } from '../../context/loading-context';
+import { useLocation } from 'react-router-dom';
 
 type RedditTableRendererProps = {
     data: RedditPosts;
@@ -25,24 +26,30 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
+
+    // track if dataset is locked
+    const [locked, setLocked] = useState(false);
+
+    const location = useLocation();
+
     const { fetchData } = useApi();
     const { selectedData, setSelectedData, dataFilters, setDataFilters, datasetId } =
         useCollectionContext();
+    const { checkIfDataExists, openModal, abortRequests, resetDataAfterPage } = useLoadingContext();
 
-    // Pending filter values (from the modal)
-    const [pendingFilterStartTime, setPendingFilterStartTime] = useState(''); // ISO date string
-    const [pendingFilterEndTime, setPendingFilterEndTime] = useState(''); // ISO date string
+    // filter states
+    const [pendingFilterStartTime, setPendingFilterStartTime] = useState('');
+    const [pendingFilterEndTime, setPendingFilterEndTime] = useState('');
     const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState(false);
 
+    // Filtering
     const filteredData = Object.entries(data).filter(
         ([id, { title, selftext, url, created_utc }]) => {
-            // Basic search match.
             const searchMatch =
                 title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 selftext.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 url.toLowerCase().includes(searchTerm.toLowerCase());
 
-            // Time filter using applied filter values.
             let timeMatch = true;
             if (dataFilters['filterStartTime']) {
                 const startDate = new Date(dataFilters['filterStartTime']);
@@ -53,7 +60,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 timeMatch = timeMatch && new Date(created_utc * 1000) <= endDate;
             }
 
-            // Hide removed/deleted: if applied, filter out posts whose ID is in filteredOutIds.
             let hideRemovedMatch = true;
             if (dataFilters['filterHideRemoved']) {
                 hideRemovedMatch = !dataFilters['filteredOutIds'].includes(id);
@@ -69,6 +75,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         currentPage * itemsPerPage
     );
 
+    // Pagination
     const handleNextPage = () => {
         if (currentPage < totalPages) setCurrentPage(currentPage + 1);
     };
@@ -89,7 +96,9 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setCurrentPage(1);
     };
 
+    // Selections
     const togglePostSelection = (id: string) => {
+        if (locked) return;
         let newSelectedPosts = [...selectedData];
         if (newSelectedPosts.includes(id)) {
             newSelectedPosts = newSelectedPosts.filter((postId) => postId !== id);
@@ -100,6 +109,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     };
 
     const toggleSelectAllPosts = () => {
+        if (locked) return;
         if (selectedData.length !== filteredData.length && selectedData.length === 0) {
             setSelectedData(filteredData.map(([id]) => id));
         } else {
@@ -108,6 +118,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     };
 
     const toggleSelectPage = (pageData: [string, RedditPosts[string]][]) => {
+        if (locked) return;
         let newSelectedPosts = [...selectedData];
         const pageIds = pageData.map(([id]) => id);
         const allSelected = pageIds.every((id) => newSelectedPosts.includes(id));
@@ -124,6 +135,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setSelectedData(newSelectedPosts);
     };
 
+    // Filters
     const handleApplyFilters = async () => {
         setFilterLoading(true);
         const currentFilters: Record<string, any> = {};
@@ -136,19 +148,16 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                     body: JSON.stringify({ dataset_id: datasetId })
                 }
             );
-
             if (error) {
                 console.error('Error filtering posts by deleted:', error);
                 currentFilters['filteredOutIds'] = [];
             } else {
-                console.log(data, 'filtered ids');
                 currentFilters['filteredOutIds'] = data ?? [];
             }
         } else {
             currentFilters['filteredOutIds'] = [];
         }
 
-        // Apply the pending filters.
         currentFilters['filterStartTime'] = pendingFilterStartTime;
         currentFilters['filterEndTime'] = pendingFilterEndTime;
         currentFilters['filterHideRemoved'] = pendingFilterHideRemoved;
@@ -159,7 +168,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setCurrentPage(1);
     };
 
-    // Function to reset filters to defaults.
     const handleResetFilters = () => {
         setPendingFilterStartTime('');
         setPendingFilterEndTime('');
@@ -168,11 +176,33 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setCurrentPage(1);
     };
 
+    // Lock
+    const handleLockDataset = () => {
+        if (selectedData.length > 0) {
+            setLocked(true);
+        }
+    };
+
+    const handleUnlockDataset = async () => {
+        const dataExists = checkIfDataExists(location.pathname);
+        if (dataExists) {
+            openModal('unlock-dataset-btn', async (e: any) => {
+                // setShowProceedConfirmModal(false);
+                abortRequests(location.pathname);
+                await resetDataAfterPage(location.pathname);
+                setLocked(false);
+            });
+        } else {
+            abortRequests(location.pathname);
+            setLocked(false);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full">
             {/* Top Bar with Filter and Controls */}
             <div className="mb-4 flex items-center justify-between bg-gray-100 p-4 rounded">
-                {/* Search Input takes available space */}
+                {/* Search Input */}
                 <input
                     id="reddit-table-search"
                     type="text"
@@ -185,7 +215,8 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 {/* Select/Deselect All */}
                 <button
                     onClick={toggleSelectAllPosts}
-                    className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 mr-4">
+                    className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 mr-4"
+                    disabled={locked}>
                     {selectedData.length !== filteredData.length && selectedData.length === 0
                         ? 'Select All'
                         : 'Deselect All'}
@@ -230,6 +261,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                         min={1}
                         max={totalPages}
                         className="p-2 border border-gray-300 rounded w-16"
+                        // disabled={locked}
                     />
                     <span className="ml-2">of {totalPages}</span>
                 </div>
@@ -239,7 +271,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             {isFilterModalOpen && (
                 <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
                     <div className="bg-white p-6 rounded shadow-lg w-11/12 sm:w-1/2 relative">
-                        {/* Close Button (X) */}
                         {!filterLoading && (
                             <button
                                 onClick={() => setIsFilterModalOpen(false)}
@@ -284,7 +315,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                             </label>
                         </div>
 
-                        {/* Loading overlay if filters are being applied */}
                         {filterLoading ? (
                             <div className="flex justify-center items-center py-4">
                                 <p>Applying filters...</p>
@@ -307,7 +337,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 </div>
             )}
 
-            {/* Scrollable Table Section */}
+            {/* Table */}
             <div className="flex-1 overflow-y-auto">
                 <RedditTable
                     data={displayedData}
@@ -315,19 +345,20 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                     selectedPosts={selectedData}
                     togglePostSelection={togglePostSelection}
                     toggleSelectPage={toggleSelectPage}
+                    locked={locked}
                 />
             </div>
 
-            <div className="flex items-center justify-start mt-2">
-                <p>{selectedData.length} posts selected</p>
-            </div>
-
-            {/* Pagination Controls */}
+            {/* Move 'selectedData.length' and the lock button *into* PaginationControls props */}
             <PaginationControls
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onNext={handleNextPage}
                 onPrevious={handlePreviousPage}
+                locked={locked}
+                onLock={handleLockDataset}
+                onUnlock={handleUnlockDataset}
+                selectedCount={selectedData.length}
             />
         </div>
     );

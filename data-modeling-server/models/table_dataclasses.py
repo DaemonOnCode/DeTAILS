@@ -285,6 +285,7 @@ class TorrentDownloadProgress(BaseDataclass):
     subreddit: str = field(metadata={"not_null": True})
     start_month: str = field(metadata={"not_null": True})
     end_month: str = field(metadata={"not_null": True})
+    files_already_downloaded: Optional[str] = field(default="[]")  # JSON-encoded list of file names
     status: str = field(metadata={"not_null": True}, default="idle")  # idle, in-progress, complete, error
     progress: Optional[float] = field(default=0.0)  # Overall percentage
     completed_files: Optional[int] = field(default=0)  # Number of completed files

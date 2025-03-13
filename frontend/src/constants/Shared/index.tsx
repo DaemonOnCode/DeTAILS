@@ -1,5 +1,6 @@
 import { FaCog, FaHome } from 'react-icons/fa';
 import config from '../../config';
+import { LOADER_ROUTES as CODING_LOADER_ROUTES, ROUTES as CODING_ROUTES } from '../Coding/shared';
 
 const reactConfig = config('react');
 
@@ -64,3 +65,11 @@ export enum TooltipMessages {
     DeselectAll = 'Unselect all items',
     RefreshKeywords = 'Let the LLM generate new keywords'
 }
+
+export const LOADER_TO_ROUTE_MAP: Record<string, string> = {
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.THEME_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.BACKGROUND_RESEARCH}/${CODING_ROUTES.KEYWORD_CLOUD}`,
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.TORRENT_DATA_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_VIEWER}`,
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.CODEBOOK_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}`,
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.DEDUCTIVE_CODING_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}`,
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.THEME_GENERATION_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.THEMATIC_ANALYSIS}/${CODING_ROUTES.THEMES}`
+};

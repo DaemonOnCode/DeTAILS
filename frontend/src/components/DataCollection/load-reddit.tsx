@@ -96,11 +96,20 @@ const LoadReddit: FC<{
         );
         console.log('error', error);
         if (error) return;
-        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`);
+        loadingDispatch({
+            type: 'SET_REST_UNDONE',
+            route: location.pathname
+        });
+
+        loadingDispatch({
+            type: 'SET_FIRST_RUN_DONE',
+            route: location.pathname
+        });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
         });
+        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`);
     };
 
     useImperativeHandle(processRef, () => {
