@@ -10,7 +10,7 @@ import PullProgress from '../components/pull-progress';
 import SearchMetadata from '../components/search-metadata';
 
 const AISettings: React.FC = () => {
-    const { settings, updateSettings } = useSettings();
+    const { settings, updateSettings, setDisableBack } = useSettings();
     const { ai } = settings;
     const { fetchData } = useApi();
     const { registerCallback, unregisterCallback } = useWebSocket();
@@ -125,6 +125,7 @@ const AISettings: React.FC = () => {
     };
 
     const handlePullModel = async (tag: string) => {
+        setDisableBack(true);
         setPullLoading(true);
         setPullProgress(0);
         setPullStatus('');
@@ -145,6 +146,7 @@ const AISettings: React.FC = () => {
         }
         setPullLoading(false);
         setPullingModelName('');
+        setDisableBack(false);
     };
 
     // Delete a downloaded model.

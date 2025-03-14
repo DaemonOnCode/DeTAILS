@@ -55,6 +55,8 @@ export interface ISettingsContext {
     showTutorialForPage: (pageId: string) => Promise<void>;
     dirtySections: Record<Sections, boolean>;
     markSectionDirty: (section: Sections, isDirty: boolean) => void;
+    disableBack: boolean;
+    setDisableBack: (disable: boolean) => void;
 }
 
 export const SettingsContext = createContext<ISettingsContext>({
@@ -71,7 +73,9 @@ export const SettingsContext = createContext<ISettingsContext>({
         {},
         ...Object.keys(defaultSettings).map((key) => ({ [key]: false }))
     ),
-    markSectionDirty: () => {}
+    markSectionDirty: () => {},
+    disableBack: false,
+    setDisableBack: () => {}
 });
 
 export const SettingsProvider: FC<ILayout> = ({ children }) => {
@@ -80,6 +84,8 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
     const [dirtySections, setDirtySections] = useState<Record<Sections, boolean>>(
         Object.assign({}, ...Object.keys(defaultSettings).map((key) => ({ [key]: false })))
     );
+
+    const [disableBack, setDisableBack] = useState<boolean>(false);
 
     const fetchSettings = async () => {
         setSettingsLoading(true);
@@ -195,20 +201,11 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
             skipTutorialForPage,
             showTutorialForPage,
             dirtySections,
-            markSectionDirty
+            markSectionDirty,
+            disableBack,
+            setDisableBack
         }),
-        [
-            settings,
-            settingsLoading,
-            updateSettings,
-            resetSettings,
-            resetSection,
-            skipTutorialGlobally,
-            skipTutorialForPage,
-            showTutorialForPage,
-            dirtySections,
-            markSectionDirty
-        ]
+        [settings, settingsLoading, dirtySections, disableBack]
     );
 
     return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

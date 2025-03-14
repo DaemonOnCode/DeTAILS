@@ -112,7 +112,7 @@ const SearchMetadata: React.FC<SearchMetadataProps> = ({
                     <p>
                         <strong>Description:</strong> {metadata.main_model.description}
                     </p>
-                    <h4 className="text-lg font-bold mt-4">Available Tags</h4>
+                    <h4 className="text-lg font-bold mt-4">Available Models</h4>
                     <ul>
                         {metadata.tags.map((tagObj) => {
                             const { text, disabled, className } = getButtonProps(tagObj.tag);
