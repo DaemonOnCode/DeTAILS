@@ -10,29 +10,27 @@ const spawnedProcesses = [];
 
 // Configuration for services
 const servicesConfig = (executablesPath) => {
+    const isWindows = process.platform === 'win32';
     return {
         chroma: {
             name: 'chroma',
             folder: path.join(executablesPath, 'chroma'),
-            command: './cli',
+            // On Windows, use 'cli.exe'; on other platforms, use './cli'
+            command: isWindows ? 'cli.exe' : './cli',
             args: ['run']
         },
         backend: {
             name: 'backend',
             folder: path.join(executablesPath, 'data-modeling-server'),
-            command: './main',
+            // Use 'main.exe' on Windows; './main' otherwise
+            command: isWindows ? 'main.exe' : './main',
             args: []
         },
-        // miscFrontend: {
-        //     name: 'miscFrontend',
-        //     folder: path.join(__dirname, '..', '..', '..', 'log-viewer'),
-        //     command: 'npm',
-        //     args: ['run', 'local']
-        // },
         ollama: {
             name: 'ollama',
             folder: path.join(executablesPath, 'ollama'),
-            command: './ollama-darwin',
+            // Replace 'ollama-win.exe' with the actual Windows executable name for ollama
+            command: isWindows ? 'ollama.exe' : './ollama-darwin',
             args: ['serve']
         }
     };
@@ -185,7 +183,7 @@ const spawnServices = async (globalCtx) => {
 
     const executablesPath =
         process.env.NODE_ENV === 'development'
-            ? binariesPath //path.join(__dirname, '..', '..', '..', 'executables')
+            ? binariesPath // path.join(__dirname, '..', '..', '..', 'executables') //
             : binariesPath;
     const serviceConfig = servicesConfig(executablesPath);
 

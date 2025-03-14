@@ -1,19 +1,21 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 const path = require('path');
+const fs = require('fs');
 
 module.exports = {
     hooks: {
         prePackage: async () => {
-            const { execSync } = require('child_process');
             console.log('Cleaning old builds...');
-            execSync('rm -rf out/ make/', { stdio: 'inherit' });
+            const outDir = path.join(__dirname, 'out');
+            const makeDir = path.join(__dirname, 'make');
+            if (fs.existsSync(outDir)) {
+                fs.rmSync(outDir, { recursive: true, force: true });
+            }
+            if (fs.existsSync(makeDir)) {
+                fs.rmSync(makeDir, { recursive: true, force: true });
+            }
         }
-        // preMake: async () => {
-        //     const { execSync } = require('child_process');
-        //     console.log('Cleaning old builds before making...');
-        //     execSync('rm -rf out/ make/', { stdio: 'inherit' });
-        // }
     },
     packagerConfig: {
         name: 'DeTAILS',

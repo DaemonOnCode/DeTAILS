@@ -101,7 +101,6 @@ export const useApi = (): UseApiResult => {
                     try {
                         const errorResponse = await response.json();
                         return {
-                            data: undefined,
                             error: {
                                 message: {
                                     error_message: errorResponse.error_message,
@@ -114,7 +113,6 @@ export const useApi = (): UseApiResult => {
                     } catch (e) {
                         console.error('Error fetching data:', e);
                         return {
-                            data: undefined,
                             error: {
                                 message: {
                                     error_message: 'Error fetching data',
@@ -136,7 +134,6 @@ export const useApi = (): UseApiResult => {
             } catch (error: any) {
                 console.error('Fetch error:', error);
                 return {
-                    data: undefined,
                     error: {
                         message: error,
                         name: 'FetchError'

@@ -2,6 +2,7 @@
     "name": "details",
     "description": "DeTAILS - Deductive Thematic Analysis with Iterative LLM Support",
     "version": "1.0.0",
+    "author": "Ansh Sharma",
     "devDependencies": {
         "@electron-forge/cli": "^7.6.1",
         "@electron-forge/maker-deb": "^7.6.1",
@@ -63,7 +64,7 @@
         "react-dnd": "^16.0.1",
         "react-dnd-html5-backend": "^16.0.1",
         "react-dom": "^18.2.0",
-        "react-icons": "^5.4.0",
+        "react-icons": "^5.3.0",
         "react-router-dom": "^6.4.4",
         "react-toastify": "^10.0.6",
         "react-use": "^17.4.0",
@@ -94,7 +95,8 @@
         "executable:build": "cd ../executables && ./build.sh",
         "start": "cross-env NODE_ENV=production electron-forge start",
         "package": "cross-env NODE_ENV=production electron-forge package",
-        "make": "npm run executable:build && npm run build && cross-env NODE_ENV=production electron-forge make"
+        "make": "npm run executable:build && npm run build && cross-env NODE_ENV=production electron-forge make",
+        "make-win": "npm run build && cross-env NODE_ENV=production electron-forge make --platform=win32"
     },
     "eslintConfig": {
         "extends": [

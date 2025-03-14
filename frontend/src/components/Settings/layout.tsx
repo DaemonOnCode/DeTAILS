@@ -44,7 +44,7 @@ const SettingsLayout = ({
 
     // Parse query params to get the current tab.
     const queryParams = new URLSearchParams(location.search);
-    const currentTab: Tab = (queryParams.get('tab') as Tab) ?? Object.keys(tabs)[0];
+    const currentTab: Tab = (queryParams.get('tab') as Tab) ?? (Object.keys(tabs)[0] as Tab);
 
     // Helper to change the tab in the URL.
     const handleTabChange = (newTab: Tab) => {

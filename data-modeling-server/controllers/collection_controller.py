@@ -571,22 +571,28 @@ async def process_reddit_data(
     # Create a unique intermediate filename
     directory = os.path.dirname(zst_filename)
     intermediate_filename = f"output_{time.time()}.jsonl"
-    # output_dir = directory.replace(" ", "\\ ")
-    intermediate_file = os.path.join(directory, intermediate_filename)#.replace(" ", "\ ")
+    intermediate_file = os.path.join(directory, intermediate_filename)
     print(f"Intermediate file: {intermediate_file}")
 
     regex = r'(?s)\{.*?"subreddit":\s*"' + subreddit + r'".*?\}'
-
+    
     # Use the PATHS dictionary to get the executable paths
     zstd_executable = PATHS["executables"]["zstd"]
     ripgrep_executable = PATHS["executables"]["ripgrep"]
 
-    # Build the command string using the absolute paths
-    escaped_intermediate_file = intermediate_file.replace(" ", "\\ ")
-    command = (
-        f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" | '
-        f'"{ripgrep_executable}" -P \'{regex}\' > {escaped_intermediate_file}  || true'
-    )
+    # Build the command string using the absolute paths with platform-specific quoting
+    if os.name == 'nt':
+        regex_escaped = regex.replace('"', '\\"')
+        command = (
+            f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" ^| '
+            f'"{ripgrep_executable}" -P "{regex_escaped}" > "{intermediate_file}" || exit /B 0'
+        )
+    else:
+        command = (
+            f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" | '
+            f'"{ripgrep_executable}" -P \'{regex}\' > "{intermediate_file}" || true'
+        )
+        
     print("Running command:")
     print(command)
     
@@ -625,7 +631,7 @@ async def process_reddit_data(
     
     # Remove the intermediate file
     try:
-        os.remove(f"{intermediate_file}")
+        os.remove(intermediate_file)
         print(f"Intermediate file {intermediate_filename} removed.")
     except Exception as e:
         print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")

@@ -31,11 +31,13 @@ CONTEXT_FILES_DIR = os.path.join(get_app_data_path(), APP_NAME, "executables", "
 DATABASE_PATH = os.path.join(get_app_data_path(), APP_NAME, "executables", "data_modeling.db")
 LOG_FILE = os.path.join(get_app_data_path(), APP_NAME, "executables", "logs.jsonl")
 
+exe_ext = ".exe" if os.name == "nt" else ""
+
 PATHS = {
     "settings": os.path.join(get_app_data_path(), APP_NAME, "settings.json"),
     "executables": {
-        "ripgrep": os.path.join(get_app_data_path(), APP_NAME, "executables", "ripgrep", "rg"),
-        "zstd": os.path.join(get_app_data_path(), APP_NAME, "executables", "zstd", "zstd"),
+        "ripgrep": os.path.join(get_app_data_path(), APP_NAME, "executables", "ripgrep", f"rg{exe_ext}"),
+        "zstd": os.path.join(get_app_data_path(), APP_NAME, "executables", "zstd", f"zstd{exe_ext}"),
     },
     "transmission": os.path.join(get_app_data_path(), APP_NAME, "executables", "transmission_downloads"),
 }
