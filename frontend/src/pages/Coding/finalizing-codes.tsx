@@ -51,6 +51,70 @@ const FinalzingCodes = () => {
 
     const stepRoute = location.pathname;
 
+    const [searchQuery, setSearchQuery] = useState('');
+    const [noResults, setNoResults] = useState(false);
+    const codeRefs = useRef(new Map<string, HTMLDivElement>());
+
+    const setCodeRef = useCallback((code: string, node: HTMLDivElement | null) => {
+        if (node) {
+            codeRefs.current.set(code, node);
+        } else {
+            codeRefs.current.delete(code);
+        }
+    }, []);
+
+    const handleSearch = () => {
+        const trimmedQuery = searchQuery.trim().toLowerCase();
+        const allSubCodes = [...groupedCodes.flatMap((group) => group.codes), ...unplacedSubCodes];
+        const matchingCodes = allSubCodes.filter((code) => {
+            const trimmedCode = code.trim().toLowerCase();
+            return trimmedCode.includes(trimmedQuery);
+        });
+
+        // Clear previous highlights
+        codeRefs.current.forEach((el) => {
+            if (el) el.classList.remove('highlight');
+        });
+
+        if (matchingCodes.length > 0) {
+            setNoResults(false);
+            let firstMatchElement: HTMLDivElement | null = null;
+
+            matchingCodes.forEach((code) => {
+                const el = codeRefs.current.get(code);
+                if (el) {
+                    el.classList.add('highlight');
+                    if (!firstMatchElement) {
+                        firstMatchElement = el; // el is HTMLDivElement here
+                    }
+                } else {
+                    console.log('Element not found for code:', code);
+                }
+            });
+
+            // TypeScript should narrow firstMatchElement to HTMLDivElement here
+            if (firstMatchElement) {
+                (firstMatchElement as HTMLDivElement).scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+        } else {
+            setNoResults(true);
+        }
+    };
+
+    useEffect(() => {
+        if (searchQuery) {
+            handleSearch();
+        } else {
+            codeRefs.current.forEach((el) => {
+                if (el) el.classList.remove('highlight');
+            });
+            setNoResults(false);
+        }
+    }, [searchQuery]);
+
     // Handler for dropping a code into a bucket
     const handleDropToBucket = (bucketId: string, code: string) => {
         setGroupedCodes((prevBuckets) =>
@@ -347,6 +411,17 @@ const FinalzingCodes = () => {
                     ) : (
                         // EDIT MODE: Show bucket interface for codes with drag and drop
                         <>
+                            <header id="themes-header" className="py-4">
+                                <div className="flex justify-end items-center">
+                                    <input
+                                        type="text"
+                                        placeholder="Search sub-codes..."
+                                        className="p-2 border rounded"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
+                            </header>
                             <div className="flex flex-col size-full">
                                 <DndProvider backend={HTML5Backend} context={window}>
                                     <div className="flex flex-1 overflow-hidden size-full">
@@ -359,6 +434,7 @@ const FinalzingCodes = () => {
                                                         theme={bucket}
                                                         onDrop={handleDropToBucket}
                                                         onDelete={handleDeleteBucket}
+                                                        setCodeRef={setCodeRef}
                                                     />
                                                 ))}
                                             </div>
@@ -369,6 +445,7 @@ const FinalzingCodes = () => {
                                                 <UnplacedCodesBox
                                                     unplacedCodes={unplacedSubCodes}
                                                     onDrop={handleDropToUnplaced}
+                                                    setCodeRef={setCodeRef}
                                                 />
                                             </div>
                                             <div className="flex justify-center items-center">

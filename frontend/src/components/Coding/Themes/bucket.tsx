@@ -8,9 +8,10 @@ interface BucketProps {
     theme: { id: string; name: string; codes: string[] };
     onDrop: (themeId: string, code: string) => void;
     onDelete: (themeId: string) => void;
+    setCodeRef: (code: string, node: HTMLDivElement | null) => void;
 }
 
-const Bucket: FC<BucketProps> = ({ theme, onDrop, onDelete }) => {
+const Bucket: FC<BucketProps> = ({ theme, onDrop, onDelete, setCodeRef }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [newName, setNewName] = useState(theme.name);
 
@@ -64,7 +65,9 @@ const Bucket: FC<BucketProps> = ({ theme, onDrop, onDelete }) => {
 
             <div className="space-y-2">
                 {theme.codes.length > 0 ? (
-                    theme.codes.map((code) => <CodeItem key={code} code={code} />)
+                    theme.codes.map((code) => (
+                        <CodeItem key={code} code={code} setCodeRef={setCodeRef} />
+                    ))
                 ) : (
                     <p className="text-gray-400 italic">No codes assigned</p>
                 )}

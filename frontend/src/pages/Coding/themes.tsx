@@ -48,6 +48,71 @@ const ThemesPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
 
+    const [searchQuery, setSearchQuery] = useState('');
+    const [noResults, setNoResults] = useState(false);
+    // Ref to store DOM elements of codes
+    const codeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+    const setCodeRef = useCallback((code: string, node: HTMLDivElement | null) => {
+        if (node) {
+            codeRefs.current.set(code, node);
+        } else {
+            codeRefs.current.delete(code);
+        }
+    }, []);
+
+    const handleSearch = () => {
+        const trimmedQuery = searchQuery.trim().toLowerCase();
+        const allCodes = [...themes.flatMap((theme) => theme.codes), ...unplacedCodes];
+        const matchingCodes = allCodes.filter((code) => {
+            const trimmedCode = code.trim().toLowerCase();
+            return trimmedCode.includes(trimmedQuery);
+        });
+
+        // Clear previous highlights
+        codeRefs.current.forEach((el) => {
+            if (el) el.classList.remove('highlight');
+        });
+
+        if (matchingCodes.length > 0) {
+            setNoResults(false);
+            let firstMatchElement: HTMLDivElement | null = null;
+
+            matchingCodes.forEach((code) => {
+                const el = codeRefs.current.get(code);
+                if (el) {
+                    el.classList.add('highlight');
+                    if (!firstMatchElement) {
+                        firstMatchElement = el; // el is HTMLDivElement here
+                    }
+                } else {
+                    console.log('Element not found for code:', code);
+                }
+            });
+
+            // TypeScript should narrow firstMatchElement to HTMLDivElement here
+            if (firstMatchElement) {
+                (firstMatchElement as HTMLDivElement).scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+        } else {
+            setNoResults(true);
+        }
+    };
+
+    useEffect(() => {
+        if (searchQuery) {
+            handleSearch();
+        } else {
+            codeRefs.current.forEach((el) => {
+                if (el) el.classList.remove('highlight');
+            });
+            setNoResults(false);
+        }
+    }, [searchQuery]);
+
     const steps: TutorialStep[] = [
         {
             target: '#themes-header',
@@ -103,28 +168,6 @@ const ThemesPage = () => {
     const { getServerUrl } = useServerUtils();
 
     const stepRoute = location.pathname;
-
-    // useEffect(() => {
-    //     registerStepRef(stepRoute, internalRef);
-    // }, []);
-
-    // // Expose the imperative methods for this step via the forwarded ref.
-    // useImperativeHandle(loadingState[location.pathname].stepRef, () => ({
-    //     validateStep: () => {
-    //         // if (Object.keys(contextFiles).length === 0) {
-    //         //     alert('Please add at least one context file.');
-    //         //     return false;
-    //         // }
-    //         // if (mainTopic.trim() === '') {
-    //         //     alert('Main topic is required.');
-    //         //     return false;
-    //         // }
-    //         return true;
-    //     },
-    //     resetStep: () => {
-    //         setThemes([]);
-    //     }
-    // }));
 
     // Handle drop into a specific theme
     const handleDropToBucket = (themeId: string, code: string) => {
@@ -290,7 +333,16 @@ const ThemesPage = () => {
                 excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}`}>
                 <div className="h-page flex flex-col">
                     <header id="themes-header" className="py-4">
-                        <h1 className="text-2xl font-bold">Themes and Codes Organizer</h1>
+                        <div className="flex justify-between items-center">
+                            <h1 className="text-2xl font-bold">Themes and Codes Organizer</h1>
+                            <input
+                                type="text"
+                                placeholder="Search codes..."
+                                className="p-2 border rounded"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
                     </header>
                     {unplacedCodes.length > 0 && (
                         <p className="text-red-500 pb-4 text-center">
@@ -310,6 +362,7 @@ const ThemesPage = () => {
                                                 theme={theme}
                                                 onDrop={handleDropToBucket}
                                                 onDelete={handleDeleteTheme}
+                                                setCodeRef={setCodeRef}
                                             />
                                         ))}
                                     </div>
@@ -320,6 +373,7 @@ const ThemesPage = () => {
                                         <UnplacedCodesBox
                                             unplacedCodes={unplacedCodes}
                                             onDrop={handleDropToUnplaced}
+                                            setCodeRef={setCodeRef}
                                         />
                                     </div>
                                     <div className="flex justify-center items-center">

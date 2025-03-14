@@ -1,22 +1,19 @@
 import { useDrop } from 'react-dnd';
 import CodeItem from './code-item';
 
-// Unplaced Codes Box Component
 const UnplacedCodesBox = ({
     unplacedCodes,
-    onDrop
+    onDrop,
+    setCodeRef
 }: {
     unplacedCodes: string[];
     onDrop: (code: string) => void;
+    setCodeRef: (code: string, node: HTMLDivElement | null) => void;
 }) => {
     const [{ isOver }, drop] = useDrop(() => ({
         accept: 'CODE',
-        drop: (item: any) => {
-            onDrop(item.code);
-        },
-        collect: (monitor) => ({
-            isOver: !!monitor.isOver()
-        })
+        drop: (item: { code: string }) => onDrop(item.code),
+        collect: (monitor) => ({ isOver: !!monitor.isOver() })
     }));
 
     return (
@@ -29,7 +26,7 @@ const UnplacedCodesBox = ({
             <h2 className="text-xl font-semibold mb-4">Unplaced Codes</h2>
             <div className="flex gap-4 flex-wrap">
                 {unplacedCodes.map((code) => (
-                    <CodeItem key={code} code={code} />
+                    <CodeItem key={code} code={code} setCodeRef={setCodeRef} />
                 ))}
             </div>
         </div>

@@ -51,3 +51,8 @@
         --max-page-content-height: calc(100vh - 7.5rem);
     }
 }
+
+.highlight {
+    outline: 2px solid red;
+    transition: background-color 0.3s ease;
+}
