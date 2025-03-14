@@ -23,8 +23,14 @@ const SettingsLayout = ({
 }) => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { resetSection, updateSettings, settingsLoading, dirtySections, fetchSettings } =
-        useSettings();
+    const {
+        resetSection,
+        updateSettings,
+        settingsLoading,
+        dirtySections,
+        fetchSettings,
+        disableBack
+    } = useSettings();
 
     // Fetch settings on component mount.
     useEffect(() => {
@@ -88,7 +94,10 @@ const SettingsLayout = ({
         <div className="flex flex-col h-screen p-6">
             <div className="flex flex-1 overflow-hidden">
                 <aside className="w-1/4 border-r border-gray-300 p-4">
-                    <button onClick={onBackClick} className="mb-4 text-blue-500 hover:underline">
+                    <button
+                        onClick={onBackClick}
+                        disabled={disableBack}
+                        className={`mb-4 ${!disableBack ? 'text-blue-500' : 'text-gray-500 cursor-not-allowed'} hover:underline`}>
                         &larr; Back to Application
                     </button>
                     <ul className="space-y-2">
