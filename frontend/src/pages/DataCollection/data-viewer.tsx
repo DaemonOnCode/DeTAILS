@@ -25,7 +25,7 @@ import { useSettings } from '../../context/settings-context';
 import { toast } from 'react-toastify';
 
 const DataViewerPage = () => {
-    const { type, datasetId, selectedData, modeInput } = useCollectionContext();
+    const { type, datasetId, selectedData, modeInput, isLocked } = useCollectionContext();
     const [searchParams] = useSearchParams();
     const datasetType = searchParams.get('type') ?? modeInput.split(':')[0];
     const navigate = useNavigate();
@@ -48,7 +48,7 @@ const DataViewerPage = () => {
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
 
     const postIds: string[] = selectedData;
-    const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD;
+    const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD && isLocked;
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
@@ -252,6 +252,7 @@ const DataViewerPage = () => {
                     </main>
                     <footer id="bottom-navigation">
                         <NavigationBottomBar
+                            disabledTooltipText="Please select at least 5 posts to proceed and lock the dataset to proceed."
                             previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`}
                             nextPage={ROUTES.CODEBOOK_CREATION}
                             isReady={isReadyCheck}

@@ -97,10 +97,11 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
     // When user selects "Proceed Without Download"
     const handleProceedWithoutDownload = async (e: React.MouseEvent) => {
         setShowProceedConfirmModal(false);
-        loadingDispatch({
-            type: 'SET_REST_UNDONE',
-            route: location.pathname
-        });
+        // loadingDispatch({
+        //     type: 'SET_REST_UNDONE',
+        //     route: location.pathname
+        // });
+        await resetDataAfterPage(location.pathname, false);
         if (activeModalId && modalCallbacks[activeModalId]) {
             const result = modalCallbacks[activeModalId](e);
             // @ts-ignore

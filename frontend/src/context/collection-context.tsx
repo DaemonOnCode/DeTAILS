@@ -101,6 +101,8 @@ export interface ExtendedICollectionContext {
     modeInput: string;
     selectedData: string[];
     dataFilters: Record<string, any>;
+    isLocked: boolean;
+    setIsLocked: SetState<boolean>;
     setDataFilters: SetState<Record<string, any>>;
     datasetDispatch: React.Dispatch<DataAction>;
     setDatasetId: SetState<string>;
@@ -135,6 +137,8 @@ const defaultContext: ExtendedICollectionContext = {
     modeInput: '',
     selectedData: [],
     dataFilters: {},
+    isLocked: false,
+    setIsLocked: () => {},
     setDataFilters: () => {},
     datasetDispatch: () => {},
     setDatasetId: () => {},
@@ -176,6 +180,8 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
     const [modeInput, setModeInput] = useState<string>('');
     const [selectedData, setSelectedData] = useState<string[]>([]);
     const [dataFilters, setDataFilters] = useState<Record<string, any>>({});
+
+    const [isLocked, setIsLocked] = useState<boolean>(false);
 
     const loadingStateInitialization: Record<
         string,
@@ -226,6 +232,11 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
                         state: dataFilters,
                         func: setDataFilters,
                         name: 'setDataFilters'
+                    },
+                    {
+                        state: isLocked,
+                        func: setIsLocked,
+                        name: 'setIsLocked'
                     }
                 ]
             }
@@ -298,6 +309,10 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         if (updates.dataFilters !== undefined) {
             setDataFilters(updates.dataFilters);
         }
+
+        if (updates.isLocked !== undefined) {
+            setIsLocked(updates.isLocked);
+        }
     };
 
     // resetContext: Reset context to its default values.
@@ -309,6 +324,7 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         setModeInput('');
         setSelectedData([]);
         setDataFilters({});
+        setIsLocked(false);
     };
 
     useEffect(() => {
@@ -324,6 +340,8 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
             modeInput,
             selectedData,
             dataFilters,
+            isLocked,
+            setIsLocked,
             setDataFilters,
             datasetDispatch,
             setDatasetId,
@@ -334,7 +352,7 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
             updateContext,
             resetContext
         }),
-        [type, metadata, dataset, datasetId, modeInput, selectedData, dataFilters]
+        [type, metadata, dataset, datasetId, modeInput, selectedData, dataFilters, isLocked]
     );
 
     return <CollectionContext.Provider value={value}>{children}</CollectionContext.Provider>;

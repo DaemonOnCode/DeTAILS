@@ -25,7 +25,7 @@ settings = Settings()
 async def sample_posts_endpoint(request_body: SamplePostsRequest):
     if request_body.sample_size <= 0 or request_body.dataset_id == "" or len(request_body.post_ids) == 0:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
-    # Fetch posts
+    np.random.seed(request_body.random_seed)
     sampled_post_ids = np.random.choice(request_body.post_ids, int(request_body.sample_size * len(request_body.post_ids)), replace=False)
     return {
         "sampled" :sampled_post_ids.tolist(),

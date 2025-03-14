@@ -62,6 +62,7 @@ def save_state(data):
         selected_data=selected_data,
         models=models,
         data_filters=data_filters,
+        is_locked=collection_context.is_locked,
         main_topic=coding_context.main_topic,
         additional_info=coding_context.additional_info,
         context_files=context_files,

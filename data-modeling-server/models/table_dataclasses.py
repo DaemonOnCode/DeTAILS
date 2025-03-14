@@ -105,6 +105,7 @@ class WorkspaceState(BaseDataclass):
     metadata: Optional[str] = None
     type: Optional[str] = None
     data_filters: Optional[str] = None
+    is_locked: Optional[bool] = None
 
     # Modeling Context
     models: Optional[str] = None  # JSON string for list

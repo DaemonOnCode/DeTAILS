@@ -5,19 +5,16 @@ import { RedditTableProps } from '../../types/Coding/props';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '../../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { useCollectionContext } from '../../context/collection-context';
 
-interface ExtendedRedditTableProps extends RedditTableProps {
-    locked: boolean; // <-- Add this prop
-}
-
-const RedditTable: FC<ExtendedRedditTableProps> = ({
+const RedditTable: FC<RedditTableProps> = ({
     data,
     selectedPosts,
     togglePostSelection,
     toggleSelectPage,
-    isLoading,
-    locked // <-- Destructure the new prop
+    isLoading
 }) => {
+    const { isLocked } = useCollectionContext();
     const [selectedPost, setSelectedPost] = useState<(typeof data)[number] | null>(null);
 
     // Check if all posts on the current page are selected
@@ -35,7 +32,7 @@ const RedditTable: FC<ExtendedRedditTableProps> = ({
                                     type="checkbox"
                                     onChange={() => toggleSelectPage(data)}
                                     checked={areAllPagePostsSelected}
-                                    disabled={locked}
+                                    disabled={isLocked}
                                 />
                             )}
                         </th>
@@ -76,7 +73,7 @@ const RedditTable: FC<ExtendedRedditTableProps> = ({
                                           type="checkbox"
                                           checked={selectedPosts.includes(post[0])}
                                           onChange={() => togglePostSelection(post[0])}
-                                          disabled={locked} // <-- Disable if locked
+                                          disabled={isLocked} // <-- Disable if isLocked
                                       />
                                   </td>
                                   <td className="px-4 py-6 border">

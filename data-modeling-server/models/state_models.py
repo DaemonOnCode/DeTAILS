@@ -22,6 +22,7 @@ class CollectionContext(BaseModel):
     mode_input: str = ""
     selected_data: list = []
     data_filters: dict = {}
+    is_locked: bool = False
     # mode_input: str = ""
     # subreddit: str = ""
     # selected_posts: list = []

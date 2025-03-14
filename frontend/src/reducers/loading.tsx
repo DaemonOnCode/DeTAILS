@@ -59,6 +59,8 @@ export const loadingReducer = (state: ILoadingState, action: LoadingAction): ILo
         case 'SET_REST_UNDONE':
             const resetAfter = action.route;
             let pageIndex = Object.keys(state).indexOf(resetAfter);
+
+            console.log('Resetting after:', resetAfter, 'Index:', pageIndex, Object.keys(state));
             Object.keys(state).forEach((key, idx) => {
                 if (idx > pageIndex) {
                     state[key].isFirstRun = true;

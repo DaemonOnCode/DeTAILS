@@ -222,6 +222,21 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         state: sampledPostResponse,
                         func: dispatchSampledPostResponse,
                         name: 'dispatchSampledPostResponse'
+                    },
+                    {
+                        state: sampledPostResponseCopy,
+                        func: setSampledPostResponseCopy,
+                        name: 'setSampledPostResponseCopy'
+                    },
+                    {
+                        state: sampledPostIds,
+                        func: setSampledPostIds,
+                        name: 'setSampledPostIds'
+                    },
+                    {
+                        state: unseenPostIds,
+                        func: setUnseenPostIds,
+                        name: 'setUnseenPostIds'
                     }
                 ],
                 downloadData: { name: 'codebook', data: sampledPostResponse }

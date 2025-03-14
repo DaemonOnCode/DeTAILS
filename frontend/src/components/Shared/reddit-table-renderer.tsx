@@ -341,11 +341,10 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             <div className="flex-1 overflow-y-auto">
                 <RedditTable
                     data={displayedData}
-                    isLoading={loading ?? false}
+                    isLoading={loading ?? true}
                     selectedPosts={selectedData}
                     togglePostSelection={togglePostSelection}
                     toggleSelectPage={toggleSelectPage}
-                    locked={locked}
                 />
             </div>
 
@@ -355,6 +354,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 totalPages={totalPages}
                 onNext={handleNextPage}
                 onPrevious={handlePreviousPage}
+                loading={loading ?? true}
                 locked={locked}
                 onLock={handleLockDataset}
                 onUnlock={handleUnlockDataset}

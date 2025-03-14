@@ -186,6 +186,16 @@ const AISettings: React.FC = () => {
                 selectedModel={selectedModel}
                 onModelChange={handleModelChange}
             />
+            <DownloadedModels
+                downloadedModels={downloadedModels}
+                downloadedModelsLoading={downloadedModelsLoading}
+                handleDeleteDownloadedModel={handleDeleteDownloadedModel}
+            />
+            <CredentialsInput
+                googleCredentialsPath={googleCredentialsPath}
+                handleCredentialsPathChange={(e) => setGoogleCredentialsPath(e.target.value)}
+                handleUpdateAISettings={handleUpdateAISettings}
+            />
             <SearchMetadata
                 ollamaInput={ollamaInput}
                 setOllamaInput={setOllamaInput}
@@ -201,16 +211,6 @@ const AISettings: React.FC = () => {
                 pullLoading={pullLoading}
                 pullProgress={pullProgress}
                 pullStatus={pullStatus}
-            />
-            <DownloadedModels
-                downloadedModels={downloadedModels}
-                downloadedModelsLoading={downloadedModelsLoading}
-                handleDeleteDownloadedModel={handleDeleteDownloadedModel}
-            />
-            <CredentialsInput
-                googleCredentialsPath={googleCredentialsPath}
-                handleCredentialsPathChange={(e) => setGoogleCredentialsPath(e.target.value)}
-                handleUpdateAISettings={handleUpdateAISettings}
             />
         </div>
     );

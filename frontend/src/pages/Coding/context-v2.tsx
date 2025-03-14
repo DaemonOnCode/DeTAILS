@@ -151,7 +151,8 @@ const ContextPage = () => {
             alert(
                 "You have an unsaved research question. Please click 'Add' to include it or clear the text before proceeding."
             );
-            return;
+            throw new Error('Unsaved research question');
+            // return;
         }
         e.preventDefault();
         loadingDispatch({
@@ -351,7 +352,7 @@ const ContextPage = () => {
                         nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
                         isReady={checkIfReady}
                         onNextClick={handleOnNextClick}
-                        // autoNavigateToNext={false}
+                        autoNavigateToNext={false}
                         disabledTooltipText="Files or main topic is missing"
                     />
                 </div>

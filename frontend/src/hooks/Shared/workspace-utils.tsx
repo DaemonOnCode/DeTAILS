@@ -47,7 +47,8 @@ const useWorkspaceUtils = () => {
                 metadata: collectionContext.metadata || {},
                 mode_input: collectionContext.modeInput || '',
                 selected_data: collectionContext.selectedData || [],
-                data_filters: collectionContext.dataFilters || {}
+                data_filters: collectionContext.dataFilters || {},
+                is_locked: collectionContext.isLocked || false
             },
             modeling_context: {
                 models: modelingContext.models || []
@@ -138,7 +139,8 @@ const useWorkspaceUtils = () => {
             metadata: data.metadata,
             type: data.type ?? '',
             selectedData: data.selected_data ?? [],
-            dataFilters: data.data_filters ?? {}
+            dataFilters: data.data_filters ?? {},
+            isLocked: data.is_locked ?? false
         });
 
         // Update modeling context.
