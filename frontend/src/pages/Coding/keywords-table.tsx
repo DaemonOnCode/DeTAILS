@@ -18,6 +18,7 @@ import CustomTutorialOverlay, {
 } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { useLoadingContext } from '../../context/loading-context';
+import { useUndo } from '../../hooks/Shared/use-undo';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -26,6 +27,7 @@ const KeywordsTablePage: FC = () => {
     const { datasetId } = useCollectionContext();
     const [saving, setSaving] = useState(false);
     const { loadingState } = useLoadingContext();
+    const { performWithUndoForReducer } = useUndo();
 
     const navigate = useNavigate();
     const logger = useLogger();
@@ -146,18 +148,8 @@ const KeywordsTablePage: FC = () => {
     };
 
     const handleDeleteRow = (index: number) => {
-        const rowToRemove = keywordTable[index];
-
-        dispatchKeywordsTable({ type: 'DELETE_ROW', index });
-        console.log(rowToRemove, 'row');
-
-        toast.info(<UndoNotification />, {
-            autoClose: 5000,
-            closeButton: false,
-            data: {
-                onUndo: () => handleUndoDelete(rowToRemove, index)
-            }
-        });
+        const action = { type: 'DELETE_ROW', index };
+        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
     };
 
     const handleUndoDelete = (row: KeywordEntry, index: number) => {

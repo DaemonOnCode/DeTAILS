@@ -270,7 +270,8 @@ export type KeywordsTableAction =
     | { type: 'SET_ALL_INCORRECT' }
     | { type: 'SET_ALL_UNMARKED' }
     | { type: 'UNDO_DELETE_ROW'; entry: KeywordEntry; index: number }
-    | { type: 'RESET' };
+    | { type: 'RESET' }
+    | { type: 'RESTORE_STATE'; payload: KeywordEntry[] };
 
 export type BaseResponseHandlerActions<T> =
     | { type: 'SET_CORRECT'; index: number }
@@ -334,7 +335,8 @@ export type BaseResponseHandlerActions<T> =
           prevCode: string;
           chatHistory: ChatMessage[];
           isMarked?: boolean;
-      };
+      }
+    | { type: 'RESTORE_STATE'; payload: T[] };
 
 export type SampleDataResponseReducerActions = BaseResponseHandlerActions<IQECResponse>;
 // | { type: 'UPDATE_CODE'; newCode: string; quote: string; prevCode: string };

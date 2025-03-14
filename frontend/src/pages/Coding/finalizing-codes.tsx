@@ -23,6 +23,7 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';
 import { getGroupedCodeOfSubCode } from '../../utility/theme-finder';
 import { toast } from 'react-toastify';
+import { useUndo } from '../../hooks/Shared/use-undo';
 
 const FinalzingCodes = () => {
     const location = useLocation();
@@ -39,6 +40,7 @@ const FinalzingCodes = () => {
     } = useCodingContext();
     const { loadingState, openModal, checkIfDataExists, resetDataAfterPage, loadingDispatch } =
         useLoadingContext();
+    const { performWithUndo } = useUndo();
     const { datasetId } = useCollectionContext();
     const { settings } = useSettings();
     const navigate = useNavigate();
@@ -117,53 +119,73 @@ const FinalzingCodes = () => {
 
     // Handler for dropping a code into a bucket
     const handleDropToBucket = (bucketId: string, code: string) => {
-        setGroupedCodes((prevBuckets) =>
-            prevBuckets.map((bucket) => {
-                if (bucket.id === bucketId) {
-                    // Add code if it isn't already in the bucket
-                    if (!bucket.codes.includes(code)) {
-                        return { ...bucket, codes: [...bucket.codes, code] };
-                    }
-                } else {
-                    // Ensure code is removed from all other buckets
-                    return { ...bucket, codes: bucket.codes.filter((c) => c !== code) };
-                }
-                return bucket;
-            })
+        performWithUndo(
+            [groupedCodes, unplacedSubCodes],
+            [setGroupedCodes, setUnplacedSubCodes],
+            () => {
+                setGroupedCodes((prevBuckets) =>
+                    prevBuckets.map((bucket) => {
+                        if (bucket.id === bucketId) {
+                            if (!bucket.codes.includes(code)) {
+                                return { ...bucket, codes: [...bucket.codes, code] };
+                            }
+                        } else {
+                            return { ...bucket, codes: bucket.codes.filter((c) => c !== code) };
+                        }
+                        return bucket;
+                    })
+                );
+                setUnplacedSubCodes((prevCodes) => prevCodes.filter((c) => c !== code));
+            }
         );
-        setUnplacedSubCodes((prevCodes) => prevCodes.filter((c) => c !== code));
     };
 
     // Handler for dropping a code back into the unplaced box
     const handleDropToUnplaced = (code: string) => {
-        setUnplacedSubCodes((prevCodes) =>
-            prevCodes.includes(code) ? prevCodes : [...prevCodes, code]
-        );
-        setGroupedCodes((prevBuckets) =>
-            prevBuckets.map((bucket) => ({
-                ...bucket,
-                codes: bucket.codes.filter((c) => c !== code)
-            }))
+        performWithUndo(
+            [groupedCodes, unplacedSubCodes],
+            [setGroupedCodes, setUnplacedSubCodes],
+            () => {
+                setUnplacedSubCodes((prevCodes) =>
+                    prevCodes.includes(code) ? prevCodes : [...prevCodes, code]
+                );
+                setGroupedCodes((prevBuckets) =>
+                    prevBuckets.map((bucket) => ({
+                        ...bucket,
+                        codes: bucket.codes.filter((c) => c !== code)
+                    }))
+                );
+            }
         );
     };
 
     // Add a new bucket for codes
     const handleAddBucket = () => {
-        const newBucket = {
-            id: (groupedCodes.length + 1).toString(),
-            name: 'New Group',
-            codes: []
-        };
-        setGroupedCodes([...groupedCodes, newBucket]);
+        performWithUndo([groupedCodes], [setGroupedCodes], () => {
+            const newBucket = {
+                id: (groupedCodes.length + 1).toString(),
+                name: 'New Group',
+                codes: []
+            };
+            setGroupedCodes([...groupedCodes, newBucket]);
+        });
     };
 
     // Delete a bucket and move its codes to unplaced
     const handleDeleteBucket = (bucketId: string) => {
-        const bucketToDelete = groupedCodes.find((bucket) => bucket.id === bucketId);
-        if (bucketToDelete) {
-            setUnplacedSubCodes((prevCodes) => [...prevCodes, ...bucketToDelete.codes]);
-        }
-        setGroupedCodes((prevBuckets) => prevBuckets.filter((bucket) => bucket.id !== bucketId));
+        performWithUndo(
+            [groupedCodes, unplacedSubCodes],
+            [setGroupedCodes, setUnplacedSubCodes],
+            () => {
+                const bucketToDelete = groupedCodes.find((bucket) => bucket.id === bucketId);
+                if (bucketToDelete) {
+                    setUnplacedSubCodes((prevCodes) => [...prevCodes, ...bucketToDelete.codes]);
+                }
+                setGroupedCodes((prevBuckets) =>
+                    prevBuckets.filter((bucket) => bucket.id !== bucketId)
+                );
+            }
+        );
     };
 
     // Placeholder for next button click
@@ -300,30 +322,34 @@ const FinalzingCodes = () => {
     }, []);
 
     const handleMoveToMiscellaneous = useCallback(() => {
-        console.log('Moving rest to Miscellaneous');
-
-        setGroupedCodes((prevBuckets) => {
-            if (prevBuckets.find((bucket) => bucket.name === 'Miscellaneous')) {
-                return prevBuckets.map((bucket) => {
-                    if (bucket.name === 'Miscellaneous') {
-                        return {
-                            ...bucket,
-                            codes: [...bucket.codes, ...unplacedSubCodes]
-                        };
+        performWithUndo(
+            [groupedCodes, unplacedSubCodes],
+            [setGroupedCodes, setUnplacedSubCodes],
+            () => {
+                setGroupedCodes((prevBuckets) => {
+                    if (prevBuckets.find((bucket) => bucket.name === 'Miscellaneous')) {
+                        return prevBuckets.map((bucket) => {
+                            if (bucket.name === 'Miscellaneous') {
+                                return {
+                                    ...bucket,
+                                    codes: [...bucket.codes, ...unplacedSubCodes]
+                                };
+                            }
+                            return bucket;
+                        });
                     }
-                    return bucket;
+                    return [
+                        ...prevBuckets,
+                        {
+                            id: (prevBuckets.length + 1).toString(),
+                            name: 'Miscellaneous',
+                            codes: unplacedSubCodes
+                        }
+                    ];
                 });
+                setUnplacedSubCodes([]);
             }
-            return [
-                ...prevBuckets,
-                {
-                    id: (prevBuckets.length + 1).toString(),
-                    name: 'Miscellaneous',
-                    codes: unplacedSubCodes
-                }
-            ];
-        });
-        setUnplacedSubCodes([]);
+        );
     }, [unplacedSubCodes]);
 
     // Optionally add tutorial steps if needed

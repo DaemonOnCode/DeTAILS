@@ -73,6 +73,8 @@ export const keywordTableReducer = (
             return state.filter((_, i) => i !== action.index);
         case 'RESET':
             return [];
+        case 'RESTORE_STATE':
+            return action.payload;
         default:
             return state;
     }
@@ -282,6 +284,8 @@ export function baseResponseHandler<T>(
 
         case 'RESET':
             return [];
+        case 'RESTORE_STATE':
+            return action.payload;
         case 'RERUN_CODING':
         default:
             return state;
@@ -316,6 +320,7 @@ export const sampleDataResponseReducer = (
         case 'UPSERT_MARKER':
         case 'RERUN_CODING':
         case 'SYNC_CHAT_STATE':
+        case 'RESTORE_STATE':
             let baseData = baseResponseHandler(state, action, {});
             console.log('Base Data:', baseData, state);
             return baseData;
@@ -351,6 +356,7 @@ export const sampleDataWithThemeResponseReducer = (
         case 'RESET':
         case 'UPSERT_MARKER':
         case 'SYNC_CHAT_STATE':
+        case 'RESTORE_STATE':
             return baseResponseHandler(state, action, {});
         case 'UPDATE_THEMES':
             console.log('Themes:', action.themes);
@@ -395,6 +401,7 @@ export const unseenDataResponseReducer = (
         case 'RESET':
         case 'UPSERT_MARKER':
         case 'SYNC_CHAT_STATE':
+        case 'RESTORE_STATE':
             return baseResponseHandler(state, action, {});
 
         default:

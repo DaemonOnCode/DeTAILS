@@ -4,6 +4,7 @@ import { KeywordCloudProps } from '../../../types/Coding/props';
 import { FiEdit, FiTrash2 } from 'react-icons/fi';
 import UndoNotification from '../../Shared/undo-toast';
 import { toast } from 'react-toastify';
+import { useUndo } from '../../../hooks/Shared/use-undo';
 
 const MAIN_TOPIC_FONT_SIZE = 20;
 const OTHER_KEYWORD_FONT_SIZE = 14;
@@ -73,6 +74,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
     setKeywords
 }) => {
     console.log(selectedKeywords, 'wordcloud');
+    const { performWithUndo } = useUndo();
     const svgRef = useRef<SVGSVGElement | null>(null);
     // State for keyword placement (includes rotation if needed)
     const [placedKeywords, setPlacedKeywords] = useState<(IKeywordBox & { rotation: number })[]>(
@@ -96,26 +98,38 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
     };
 
     const saveEdit = () => {
-        setKeywords((prev) => prev.map((w) => (w === editingWord ? newWord : w)));
+        performWithUndo(
+            [keywords], // Current state
+            [setKeywords], // State setter
+            () => {
+                setKeywords((prev) => prev.map((w) => (w === editingWord ? newWord : w)));
+            }
+        );
         setEditingWord(null);
         setNewWord('');
     };
 
     const handleDelete = (word: string) => {
-        setKeywords((prev) => prev.filter((w) => w !== word));
-
-        toast.info(<UndoNotification />, {
-            autoClose: 5000,
-            closeButton: false,
-            data: {
-                onUndo: () => {
-                    setKeywords((prev) => [...prev, word]);
-                }
-            },
-            onClose: (closedByUser) => {
-                if (closedByUser) return;
+        performWithUndo(
+            [keywords], // Current state
+            [setKeywords], // State setter
+            () => {
+                setKeywords((prev) => prev.filter((w) => w !== word));
             }
-        });
+        );
+
+        // toast.info(<UndoNotification />, {
+        //     autoClose: 5000,
+        //     closeButton: false,
+        //     data: {
+        //         onUndo: () => {
+        //             setKeywords((prev) => [...prev, word]);
+        //         }
+        //     },
+        //     onClose: (closedByUser) => {
+        //         if (closedByUser) return;
+        //     }
+        // });
     };
 
     // Update a keyword’s position in state.

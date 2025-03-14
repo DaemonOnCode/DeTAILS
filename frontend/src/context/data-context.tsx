@@ -4,6 +4,7 @@ import { ILayout } from '../types/Coding/shared';
 import { CollectionProvider } from './collection-context';
 import { CodingProvider } from './coding-context';
 import { LoadingProvider } from './loading-context';
+import { UndoProvider } from './undo-context';
 
 interface IDataContext {}
 
@@ -14,16 +15,18 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
         return {};
     }, []);
     return (
-        <LoadingProvider>
-            <CollectionProvider>
-                {/* <FilteringProvider> */}
-                {/* <ModelingProvider> */}
-                <CodingProvider>
-                    <DataContext.Provider value={value}>{children}</DataContext.Provider>
-                </CodingProvider>
-                {/* </ModelingProvider>
+        <UndoProvider>
+            <LoadingProvider>
+                <CollectionProvider>
+                    {/* <FilteringProvider> */}
+                    {/* <ModelingProvider> */}
+                    <CodingProvider>
+                        <DataContext.Provider value={value}>{children}</DataContext.Provider>
+                    </CodingProvider>
+                    {/* </ModelingProvider>
             </FilteringProvider> */}
-            </CollectionProvider>
-        </LoadingProvider>
+                </CollectionProvider>
+            </LoadingProvider>
+        </UndoProvider>
     );
 };

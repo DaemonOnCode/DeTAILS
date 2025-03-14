@@ -257,6 +257,7 @@ const CodebookCreation = () => {
                         dispatchFunction={dispatchSampledPostResponse}
                         review={reviewParam}
                         showCoderType={false}
+                        showCodebook={true}
                         showRerunCoding
                         handleRerun={() => {
                             if (checkIfDataExists(location.pathname)) {

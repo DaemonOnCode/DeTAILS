@@ -25,6 +25,7 @@ import { StepHandle } from '../../types/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { getGroupedCodeOfSubCode } from '../../utility/theme-finder';
+import { useUndo } from '../../hooks/Shared/use-undo';
 
 const ThemesPage = () => {
     const {
@@ -38,6 +39,7 @@ const ThemesPage = () => {
         groupedCodes
     } = useCodingContext();
     const location = useLocation();
+    const { performWithUndo } = useUndo();
 
     const { loadingState, openModal, resetDataAfterPage, checkIfDataExists, loadingDispatch } =
         useLoadingContext();
@@ -169,51 +171,56 @@ const ThemesPage = () => {
 
     const stepRoute = location.pathname;
 
-    // Handle drop into a specific theme
     const handleDropToBucket = (themeId: string, code: string) => {
-        setThemes((prevThemes) =>
-            prevThemes.map((theme) => {
-                if (theme.id === themeId) {
-                    if (!theme.codes.includes(code)) {
-                        return { ...theme, codes: [...theme.codes, code] };
+        performWithUndo([themes, unplacedCodes], [setThemes, setUnplacedCodes], () => {
+            setThemes((prevThemes) =>
+                prevThemes.map((theme) => {
+                    if (theme.id === themeId) {
+                        if (!theme.codes.includes(code)) {
+                            return { ...theme, codes: [...theme.codes, code] };
+                        }
+                        return theme;
+                    } else {
+                        return { ...theme, codes: theme.codes.filter((c) => c !== code) };
                     }
-                    return theme;
-                } else {
-                    return { ...theme, codes: theme.codes.filter((c) => c !== code) };
-                }
-            })
-        );
-        setUnplacedCodes((prevCodes) => prevCodes.filter((c) => c !== code));
+                })
+            );
+            setUnplacedCodes((prevCodes) => prevCodes.filter((c) => c !== code));
+        });
     };
 
-    // Handle dropping codes to the unplaced codes section
     const handleDropToUnplaced = (code: string) => {
-        setUnplacedCodes((prevCodes) => {
-            if (!prevCodes.includes(code)) {
-                return [...prevCodes, code];
-            }
-            return prevCodes;
+        performWithUndo([themes, unplacedCodes], [setThemes, setUnplacedCodes], () => {
+            setUnplacedCodes((prevCodes) => {
+                if (!prevCodes.includes(code)) {
+                    return [...prevCodes, code];
+                }
+                return prevCodes;
+            });
+            setThemes((prevThemes) =>
+                prevThemes.map((theme) => ({
+                    ...theme,
+                    codes: theme.codes.filter((c) => c !== code)
+                }))
+            );
         });
-
-        setThemes((prevThemes) =>
-            prevThemes.map((theme) => ({
-                ...theme,
-                codes: theme.codes.filter((c) => c !== code)
-            }))
-        );
     };
 
     const handleAddTheme = () => {
-        const newTheme = { id: (themes.length + 1).toString(), name: 'New Theme', codes: [] };
-        setThemes((prevThemes) => [...prevThemes, newTheme]);
+        performWithUndo([themes], [setThemes], () => {
+            const newTheme = { id: (themes.length + 1).toString(), name: 'New Theme', codes: [] };
+            setThemes((prevThemes) => [...prevThemes, newTheme]);
+        });
     };
 
     const handleDeleteTheme = (themeId: string) => {
-        const themeToDelete = themes.find((theme) => theme.id === themeId);
-        if (themeToDelete) {
-            setUnplacedCodes((prevCodes) => [...prevCodes, ...themeToDelete.codes]);
-        }
-        setThemes((prevThemes) => prevThemes.filter((theme) => theme.id !== themeId));
+        performWithUndo([themes, unplacedCodes], [setThemes, setUnplacedCodes], () => {
+            const themeToDelete = themes.find((theme) => theme.id === themeId);
+            if (themeToDelete) {
+                setUnplacedCodes((prevCodes) => [...prevCodes, ...themeToDelete.codes]);
+            }
+            setThemes((prevThemes) => prevThemes.filter((theme) => theme.id !== themeId));
+        });
     };
 
     useEffect(() => {
@@ -286,28 +293,27 @@ const ThemesPage = () => {
     };
 
     const handleMoveToMiscellaneous = useCallback(() => {
-        setThemes((prevBuckets) => {
-            if (prevBuckets.find((bucket) => bucket.name === 'Miscellaneous')) {
-                return prevBuckets.map((bucket) => {
-                    if (bucket.name === 'Miscellaneous') {
-                        return {
-                            ...bucket,
-                            codes: [...bucket.codes, ...unplacedCodes]
-                        };
-                    }
-                    return bucket;
-                });
-            }
-            return [
-                ...prevBuckets,
-                {
-                    id: (prevBuckets.length + 1).toString(),
-                    name: 'Miscellaneous',
-                    codes: unplacedCodes
+        performWithUndo([themes, unplacedCodes], [setThemes, setUnplacedCodes], () => {
+            setThemes((prevBuckets) => {
+                if (prevBuckets.find((bucket) => bucket.name === 'Miscellaneous')) {
+                    return prevBuckets.map((bucket) => {
+                        if (bucket.name === 'Miscellaneous') {
+                            return { ...bucket, codes: [...bucket.codes, ...unplacedCodes] };
+                        }
+                        return bucket;
+                    });
                 }
-            ];
+                return [
+                    ...prevBuckets,
+                    {
+                        id: (prevBuckets.length + 1).toString(),
+                        name: 'Miscellaneous',
+                        codes: unplacedCodes
+                    }
+                ];
+            });
+            setUnplacedCodes([]);
         });
-        setUnplacedCodes([]);
     }, [unplacedCodes]);
 
     useEffect(() => {
