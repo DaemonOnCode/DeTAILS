@@ -186,7 +186,15 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
         const params = new URLSearchParams();
         if (selectedTypeFilter) {
-            params.append('type', selectedTypeFilter);
+            if (selectedTypeFilter === 'All') {
+                if (sampledPostIds.includes(postId ?? '')) {
+                    params.append('type', 'Codebook');
+                } else {
+                    params.append('type', 'New Data');
+                }
+            } else {
+                params.append('type', selectedTypeFilter);
+            }
         } else if (coderType) {
             params.append('type', coderType);
         }

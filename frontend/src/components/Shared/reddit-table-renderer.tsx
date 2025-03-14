@@ -27,22 +27,24 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
 
-    // track if dataset is locked
-    const [locked, setLocked] = useState(false);
-
     const location = useLocation();
 
     const { fetchData } = useApi();
-    const { selectedData, setSelectedData, dataFilters, setDataFilters, datasetId } =
-        useCollectionContext();
+    const {
+        selectedData,
+        setSelectedData,
+        dataFilters,
+        setDataFilters,
+        datasetId,
+        isLocked,
+        setIsLocked
+    } = useCollectionContext();
     const { checkIfDataExists, openModal, abortRequests, resetDataAfterPage } = useLoadingContext();
 
-    // filter states
     const [pendingFilterStartTime, setPendingFilterStartTime] = useState('');
     const [pendingFilterEndTime, setPendingFilterEndTime] = useState('');
     const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState(false);
 
-    // Filtering
     const filteredData = Object.entries(data).filter(
         ([id, { title, selftext, url, created_utc }]) => {
             const searchMatch =
@@ -98,7 +100,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
     // Selections
     const togglePostSelection = (id: string) => {
-        if (locked) return;
+        if (isLocked) return;
         let newSelectedPosts = [...selectedData];
         if (newSelectedPosts.includes(id)) {
             newSelectedPosts = newSelectedPosts.filter((postId) => postId !== id);
@@ -109,7 +111,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     };
 
     const toggleSelectAllPosts = () => {
-        if (locked) return;
+        if (isLocked) return;
         if (selectedData.length !== filteredData.length && selectedData.length === 0) {
             setSelectedData(filteredData.map(([id]) => id));
         } else {
@@ -118,7 +120,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     };
 
     const toggleSelectPage = (pageData: [string, RedditPosts[string]][]) => {
-        if (locked) return;
+        if (isLocked) return;
         let newSelectedPosts = [...selectedData];
         const pageIds = pageData.map(([id]) => id);
         const allSelected = pageIds.every((id) => newSelectedPosts.includes(id));
@@ -179,7 +181,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     // Lock
     const handleLockDataset = () => {
         if (selectedData.length > 0) {
-            setLocked(true);
+            setIsLocked(true);
         }
     };
 
@@ -190,11 +192,11 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 // setShowProceedConfirmModal(false);
                 abortRequests(location.pathname);
                 await resetDataAfterPage(location.pathname);
-                setLocked(false);
+                setIsLocked(false);
             });
         } else {
             abortRequests(location.pathname);
-            setLocked(false);
+            setIsLocked(false);
         }
     };
 
@@ -216,7 +218,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 <button
                     onClick={toggleSelectAllPosts}
                     className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 mr-4"
-                    disabled={locked}>
+                    disabled={isLocked}>
                     {selectedData.length !== filteredData.length && selectedData.length === 0
                         ? 'Select All'
                         : 'Deselect All'}
@@ -261,7 +263,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                         min={1}
                         max={totalPages}
                         className="p-2 border border-gray-300 rounded w-16"
-                        // disabled={locked}
+                        // disabled={isLocked}
                     />
                     <span className="ml-2">of {totalPages}</span>
                 </div>
@@ -355,7 +357,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 onNext={handleNextPage}
                 onPrevious={handlePreviousPage}
                 loading={loading ?? true}
-                locked={locked}
+                locked={isLocked}
                 onLock={handleLockDataset}
                 onUnlock={handleUnlockDataset}
                 selectedCount={selectedData.length}
