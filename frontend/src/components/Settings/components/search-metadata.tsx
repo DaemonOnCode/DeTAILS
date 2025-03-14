@@ -26,6 +26,8 @@ interface SearchMetadataProps {
     metadataError: string;
     pullLoading: boolean;
     handlePullModel: (tag: string) => void;
+    pullingModelName: string;
+    downloadedModels: any[];
 }
 
 const SearchMetadata: React.FC<SearchMetadataProps> = ({
@@ -37,8 +39,43 @@ const SearchMetadata: React.FC<SearchMetadataProps> = ({
     metadata,
     metadataError,
     pullLoading,
-    handlePullModel
+    handlePullModel,
+    pullingModelName,
+    downloadedModels
 }) => {
+    const getButtonProps = (tag: string) => {
+        const fullModelName = `${metadata!.main_model.name}:${tag}`;
+        const isDownloaded = downloadedModels.some((m) => m.name === fullModelName);
+        const isPulling = pullLoading && pullingModelName === fullModelName;
+        const isOtherPulling = pullLoading && pullingModelName !== fullModelName;
+
+        if (isDownloaded) {
+            return {
+                text: 'Model Pulled',
+                disabled: true,
+                className: 'bg-gray-400 text-white cursor-not-allowed'
+            };
+        } else if (isPulling) {
+            return {
+                text: 'Pulling...',
+                disabled: true,
+                className: 'bg-blue-500 text-white cursor-wait'
+            };
+        } else if (isOtherPulling) {
+            return {
+                text: 'Pull Model',
+                disabled: true,
+                className: 'bg-green-300 text-white cursor-not-allowed'
+            };
+        } else {
+            return {
+                text: 'Pull Model',
+                disabled: false,
+                className: 'bg-green-500 text-white hover:bg-green-600'
+            };
+        }
+    };
+
     return (
         <div className="mb-4">
             <h3 className="text-xl font-bold mb-2">Search Model Metadata from Ollama</h3>
@@ -77,29 +114,32 @@ const SearchMetadata: React.FC<SearchMetadataProps> = ({
                     </p>
                     <h4 className="text-lg font-bold mt-4">Available Tags</h4>
                     <ul>
-                        {metadata.tags.map((tagObj) => (
-                            <li
-                                key={tagObj.tag}
-                                className="flex items-center justify-between border p-2 my-1 rounded">
-                                <div>
-                                    <p>
-                                        <strong>Tag:</strong> {tagObj.tag}
-                                    </p>
-                                    <p>
-                                        <strong>Size:</strong> {tagObj.size}
-                                    </p>
-                                    <p>
-                                        <strong>Updated:</strong> {tagObj.updated}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => handlePullModel(tagObj.tag)}
-                                    className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none"
-                                    disabled={pullLoading}>
-                                    {pullLoading ? 'Pulling...' : 'Pull Model'}
-                                </button>
-                            </li>
-                        ))}
+                        {metadata.tags.map((tagObj) => {
+                            const { text, disabled, className } = getButtonProps(tagObj.tag);
+                            return (
+                                <li
+                                    key={tagObj.tag}
+                                    className="flex items-center justify-between border p-2 my-1 rounded">
+                                    <div>
+                                        <p>
+                                            <strong>Tag:</strong> {tagObj.tag}
+                                        </p>
+                                        <p>
+                                            <strong>Size:</strong> {tagObj.size}
+                                        </p>
+                                        <p>
+                                            <strong>Updated:</strong> {tagObj.updated}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => handlePullModel(tagObj.tag)}
+                                        className={`px-3 py-1 rounded focus:outline-none ${className}`}
+                                        disabled={disabled}>
+                                        {text}
+                                    </button>
+                                </li>
+                            );
+                        })}
                     </ul>
                 </div>
             )}

@@ -258,7 +258,7 @@ const DeductiveCodingPage = () => {
                         dispatchFunction={dispatchUnseenPostResponse}
                         // showThemes
                         showRerunCoding
-                        split
+                        // split
                         review={reviewParam}
                         showCodebook
                         showFilterDropdown

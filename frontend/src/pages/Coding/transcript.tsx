@@ -446,9 +446,114 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, true),
+                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, true),
                 codebook: {
                     responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    },
+                    showThemes: false
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: sampledPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review:', args);
+                        dispatchSampledPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                }
+            }
+        ],
+        [
+            JSON.stringify({
+                state: 'refine',
+                codebook: 'true',
+                type: 'Codebook',
+                split: null
+            }),
+            {
+                name: 'Refine',
+                review: false,
+                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, false),
+                codebook: {
+                    responses: [...sampledPostResponse, ...unseenPostResponse],
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    },
+                    showThemes: false
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: sampledPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review:', args);
+                        dispatchSampledPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                }
+            }
+        ],
+        [
+            JSON.stringify({
+                state: 'review',
+                codebook: 'true',
+                type: 'New Data',
+                split: null
+            }),
+            {
+                name: 'Review',
+                review: true,
+                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, true),
+                codebook: {
+                    responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review with codebook:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    },
+                    showThemes: false
+                },
+                topTranscript: null,
+                bottomTranscript: {
+                    responses: unseenPostResponse,
+                    dispatchFunction: (...args: any) => {
+                        console.log('Dispatching to Review:', args);
+                        dispatchUnseenPostResponse({
+                            type: 'SET_RESPONSES',
+                            responses: args[0]
+                        });
+                    }
+                }
+            }
+        ],
+        [
+            JSON.stringify({
+                state: 'refine',
+                codebook: 'true',
+                type: 'New Data',
+                split: null
+            }),
+            {
+                name: 'Refine',
+                review: false,
+                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, false),
+                codebook: {
+                    responses: [...sampledPostResponse, ...unseenPostResponse],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
@@ -482,12 +587,12 @@ const TranscriptPage = () => {
         })
     );
 
-    // console.log('Current config:', currentConfig, {
-    //     state: state ?? 'review',
-    //     codebook: (codebook ?? 'false') as 'true' | 'false',
-    //     type,
-    //     split
-    // });
+    console.log('Current config:', currentConfig, {
+        state: state ?? 'review',
+        codebook: (codebook ?? 'false') as 'true' | 'false',
+        type,
+        split
+    });
 
     // console.log(
     //     config.keys(),
@@ -622,7 +727,7 @@ const TranscriptPage = () => {
             params.append('codebook', codebook);
         }
 
-        navigate(`/coding/transcript/${id}/refine?${params.toString()}`);
+        navigate(`/coding/transcript/${id}/refine?${params.toString()}`, { state: location.state });
     };
 
     if (loading) {

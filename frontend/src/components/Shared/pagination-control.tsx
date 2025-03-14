@@ -56,7 +56,10 @@ const PaginationControls: FC<PaginationControlsProps> = ({
                         //     if (!locked) {
                         //         return true;
                         //     }
-                        if (!isLocked) setIsLocked(true);
+                        if (!isLocked) {
+                            setIsLocked(true);
+                            return;
+                        }
                         if (checkIfDataExists(location.pathname)) {
                             openModal('reddit-lock-btn', async (e: any) => {
                                 // setShowProceedConfirmModal(false);
@@ -88,7 +91,7 @@ const PaginationControls: FC<PaginationControlsProps> = ({
                             ? 'bg-red-500 text-white hover:bg-red-600'
                             : 'bg-gray-300 cursor-not-allowed'
                     }`}
-                    disabled={selectedCount === 0 || loading}>
+                    disabled={loading}>
                     {isLocked ? 'Unlock Dataset' : 'Lock Dataset'}
                 </button>
             </div>

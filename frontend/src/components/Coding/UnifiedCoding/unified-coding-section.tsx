@@ -183,28 +183,26 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             onPostSelect(postId);
             return;
         }
+
         const params = new URLSearchParams();
+        if (selectedTypeFilter) {
+            params.append('type', selectedTypeFilter);
+        } else if (coderType) {
+            params.append('type', coderType);
+        }
         if (split !== undefined) {
-            if (coderType) {
-                params.append('type', coderType);
-            } else if (selectedTypeFilter) {
-                params.append('type', selectedTypeFilter);
-            } else {
-                params.append('split', split.toString());
-            }
+            params.append('split', split.toString());
         }
         if (showCodebook) params.append('codebook', 'true');
 
         const mode = review ? 'review' : 'refine';
 
-        // Create the state object with current query parameters
         const navigationState = {
             tab: activeTab,
             search: searchQuery,
             selected: selectedItem
         };
 
-        // Navigate with the state
         navigate(`/coding/transcript/${postId}/${mode}?${params.toString()}`, {
             state: navigationState
         });

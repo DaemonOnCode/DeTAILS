@@ -46,9 +46,7 @@ const DeductiveCoding = () => {
             console.log('Match:', match);
             const datasetId = match[1];
             const postId = match[2];
-            if (unseenPostIds.includes(postId)) {
-                setPostsFinished((prev) => prev + 1);
-            }
+            setPostsFinished((prev) => prev + 1);
         }
     };
 

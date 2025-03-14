@@ -374,6 +374,19 @@ const FinalzingCodes = () => {
                 )}
                 <ReviewToggle review={review} setReview={setReview} />
                 {/* <div className="flex-1 overflow-hidden"> */}
+                {!review && (
+                    <header className="py-4">
+                        <div className="flex justify-end items-center">
+                            <input
+                                type="text"
+                                placeholder="Search sub-codes..."
+                                className="p-2 border rounded"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                    </header>
+                )}
                 <div className=" flex flex-col flex-1 overflow-hidden h-full">
                     {review ? (
                         // REVIEW MODE: Display a table with code responses (adjust prop names as needed)
@@ -411,17 +424,6 @@ const FinalzingCodes = () => {
                     ) : (
                         // EDIT MODE: Show bucket interface for codes with drag and drop
                         <>
-                            <header id="themes-header" className="py-4">
-                                <div className="flex justify-end items-center">
-                                    <input
-                                        type="text"
-                                        placeholder="Search sub-codes..."
-                                        className="p-2 border rounded"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                    />
-                                </div>
-                            </header>
                             <div className="flex flex-col size-full">
                                 <DndProvider backend={HTML5Backend} context={window}>
                                     <div className="flex flex-1 overflow-hidden size-full">

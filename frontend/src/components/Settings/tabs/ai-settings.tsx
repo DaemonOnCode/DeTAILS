@@ -69,7 +69,6 @@ const AISettings: React.FC = () => {
         };
     }, [pullingModelName, registerCallback, unregisterCallback]);
 
-    // Fetch downloaded models from the backend on page load.
     useEffect(() => {
         const fetchDownloadedModels = async () => {
             setDownloadedModelsLoading(true);
@@ -78,7 +77,6 @@ const AISettings: React.FC = () => {
                 if (error) {
                     console.error('Error fetching downloaded models:', error);
                 } else {
-                    // Assuming data.models is an array of objects.
                     setDownloadedModels(data.models);
                 }
             } catch (err) {
@@ -126,24 +124,21 @@ const AISettings: React.FC = () => {
         setMetadataError('');
     };
 
-    // Pull model using the selected tag.
     const handlePullModel = async (tag: string) => {
         setPullLoading(true);
         setPullProgress(0);
         setPullStatus('');
         const fullModelName = `${metadata.main_model.name}:${tag}`;
-        setPullingModelName(metadata.main_model.name);
+        setPullingModelName(fullModelName); // Use full model name with tag
         try {
             const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.OLLAMA_PULL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model: fullModelName })
             });
+            if (error) throw new Error(error.message.error_message || 'Unknown error');
             console.log('Pulled model data:', data);
             setSelectedModel(fullModelName);
-            // Append the newly pulled model to downloadedModels.
             setDownloadedModels((prev) => [...prev, { name: fullModelName }]);
         } catch (error) {
             console.error('Error pulling model:', error);
@@ -181,6 +176,7 @@ const AISettings: React.FC = () => {
     return (
         <div className="p-6">
             <h2 className="text-2xl font-bold mb-4">AI Settings</h2>
+            <h2 className="text-2xl font-bold mb-4">AI Settings</h2>
             <ModelSelect
                 combinedModels={combinedModels}
                 selectedModel={selectedModel}
@@ -206,6 +202,8 @@ const AISettings: React.FC = () => {
                 metadataError={metadataError}
                 pullLoading={pullLoading}
                 handlePullModel={handlePullModel}
+                pullingModelName={pullingModelName}
+                downloadedModels={downloadedModels}
             />
             <PullProgress
                 pullLoading={pullLoading}
