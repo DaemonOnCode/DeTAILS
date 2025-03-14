@@ -81,6 +81,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         await resetDataAfterPage(location.pathname, true);
         if (activeModalId && modalCallbacks[activeModalId]) {
             const result = modalCallbacks[activeModalId](e);
+            // @ts-ignore
             if (result !== undefined && typeof result.then === 'function') {
                 await result;
             }
@@ -102,6 +103,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         });
         if (activeModalId && modalCallbacks[activeModalId]) {
             const result = modalCallbacks[activeModalId](e);
+            // @ts-ignore
             if (result !== undefined && typeof result.then === 'function') {
                 await result;
             }

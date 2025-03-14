@@ -27,6 +27,7 @@ const TranscriptPage = () => {
     const type = searchParams.get('type');
 
     const location = useLocation();
+    const { tab, search, selected } = location.state || {};
     // console.log(searchParams, split, codebook, type);
 
     const splitIsTrue = split === 'true';
@@ -67,6 +68,15 @@ const TranscriptPage = () => {
         };
     }, []);
 
+    const createBackFunction = (route: string, review: boolean) => () => {
+        const params = new URLSearchParams();
+        params.set('review', review.toString());
+        if (tab) params.set('tab', tab);
+        if (search) params.set('search', search);
+        if (selected) params.set('selected', selected);
+        navigate(`/${SHARED_ROUTES.CODING}/${route}?${params.toString()}`);
+    };
+
     const config = new Map<
         string,
         {
@@ -100,10 +110,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: () =>
-                    navigate(
-                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}?review=true`
-                    ),
+                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, true),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -137,10 +144,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: () =>
-                    navigate(
-                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}?review=true`
-                    ),
+                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, true),
                 codebook: null,
                 topTranscript: null,
                 bottomTranscript: {
@@ -165,10 +169,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: () =>
-                    navigate(
-                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}?review=true`
-                    ),
+                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, true),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -203,10 +204,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
-                backFunction: () =>
-                    navigate(
-                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}?review=false`
-                    ),
+                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, false),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -240,10 +238,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: true,
-                backFunction: () =>
-                    navigate(
-                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}?review=false`
-                    ),
+                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, false),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -283,10 +278,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
-                backFunction: () =>
-                    navigate(
-                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}?review=false`
-                    ),
+                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, false),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -331,10 +323,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
-                backFunction: () =>
-                    navigate(
-                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}?review=false`
-                    ),
+                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, false),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -379,10 +368,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
-                backFunction: () =>
-                    navigate(
-                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}?review=false`
-                    ),
+                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, false),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -425,10 +411,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: () =>
-                    navigate(
-                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}?review=true`
-                    ),
+                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, true),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -463,10 +446,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: () =>
-                    navigate(
-                        `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}?review=true`
-                    ),
+                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, true),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {

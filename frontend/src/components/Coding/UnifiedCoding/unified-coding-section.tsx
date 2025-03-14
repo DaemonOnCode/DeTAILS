@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import debounce from 'lodash/debounce';
 import { BaseResponseHandlerActions } from '../../../types/Coding/shared';
 import { useFilteredData } from '../../../hooks/Coding/use-filtered-data';
 import { useCodingContext } from '../../../context/coding-context';
@@ -51,6 +52,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     applyFilters = false
 }) => {
     const navigate = useNavigate();
+    const location = useLocation();
     const {
         sampledPostResponse,
         unseenPostResponse,
@@ -60,16 +62,54 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         dispatchUnseenPostResponse
     } = useCodingContext();
 
-    // const { } = useLoadingContext();
-
     const [review, setReview] = useState(reviewParam ?? true);
     const [filter, setFilter] = useState<string | null>(null);
     const [selectedTypeFilter, setSelectedTypeFilter] = useState<
         'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All'
     >(showCoderType ? 'All' : 'New Data');
 
+    // New states for tab, search, and selection
+    const [activeTab, setActiveTab] = useState<'posts' | 'codes'>('posts');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedItem, setSelectedItem] = useState<string | null>(null);
+
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [feedback, setFeedback] = useState('');
+
+    // Restore states from URL on mount
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab') === 'codes' ? 'codes' : 'posts';
+        const search = params.get('search') || '';
+        const selected = params.get('selected') || null;
+        setActiveTab(tab);
+        setSearchQuery(search);
+        setSelectedItem(selected);
+        setFilter(selected); // Sync filter with selectedItem
+    }, [location.search]);
+
+    // Debounced function to update URL
+    const debouncedUpdateUrl = useMemo(
+        () =>
+            debounce((tab: string, search: string, selected: string | null) => {
+                const params = new URLSearchParams();
+                params.set('tab', tab);
+                if (search) params.set('search', search);
+                if (selected) params.set('selected', selected);
+                navigate({ search: params.toString() }, { replace: true });
+            }, 300),
+        [navigate]
+    );
+
+    // Update URL when states change
+    useEffect(() => {
+        debouncedUpdateUrl(activeTab, searchQuery, selectedItem);
+    }, [activeTab, searchQuery, selectedItem, debouncedUpdateUrl]);
+
+    // Cleanup debounce on unmount
+    useEffect(() => {
+        return () => debouncedUpdateUrl.cancel();
+    }, [debouncedUpdateUrl]);
 
     const { filteredData, filteredPostIds, totalData, totalIds } = useFilteredData({
         data,
@@ -84,13 +124,13 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         unseenPostIds
     });
 
-    // Precompute a Set of sampled IDs for fast lookup.
+    // Precompute a Set of sampled IDs for fast lookup
     const sampledIds = useMemo(
         () => new Set(sampledPostResponse.map((r: any) => r.id)),
         [sampledPostResponse]
     );
 
-    // Helper to determine if a response is sampled.
+    // Helper to determine if a response is sampled
     const isSampled = (response: any) => sampledIds.has(response.id);
 
     const routeDispatch = (action: BaseResponseHandlerActions<any>) => {
@@ -133,13 +173,11 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         }
     };
 
-    // Use our routeDispatch if showCoderType is true.
     const effectiveDispatch =
         coderType && !(selectedTypeFilter === 'Human' || selectedTypeFilter === 'LLM')
             ? routeDispatch
             : dispatchFunction;
 
-    // Navigate to transcript view.
     const handleViewTranscript = (postId: string | null) => {
         if (manualCoding) {
             onPostSelect(postId);
@@ -158,7 +196,18 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         if (showCodebook) params.append('codebook', 'true');
 
         const mode = review ? 'review' : 'refine';
-        navigate(`/coding/transcript/${postId}/${mode}?${params.toString()}`);
+
+        // Create the state object with current query parameters
+        const navigationState = {
+            tab: activeTab,
+            search: searchQuery,
+            selected: selectedItem
+        };
+
+        // Navigate with the state
+        navigate(`/coding/transcript/${postId}/${mode}?${params.toString()}`, {
+            state: navigationState
+        });
     };
 
     const handleUpdateResponses = (updatedResponses: any[]) => {
@@ -168,23 +217,18 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         });
     };
 
-    const handleSelectedTypeFilter = (type: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All') => {
+    const handleSelectedTypeFilter = (type: string) => {
         setFilter(null);
-        setSelectedTypeFilter(type);
+        setSelectedTypeFilter(type as 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All');
     };
 
     const handleReRunCoding = () => {
         setShowFeedbackModal(true);
     };
 
-    // const handleReRunCoding = () => {
-    //     handleRerun();
-    // };
-
     const uniqueCodes = Array.from(new Set(totalData.map((item) => item.code)));
 
     return (
-        // Add an id for tutorial targeting at the root container.
         <div
             id="unified-coding-page"
             className="h-full flex flex-col -mx-6 overflow-hidden responsive-text">
@@ -200,13 +244,17 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                         showTypeFilterDropdown={showFilterDropdown}
                         selectedTypeFilter={selectedTypeFilter}
                         handleSelectedTypeFilter={handleSelectedTypeFilter}
-                        setCurrentPost={() => {}}
                         showCoderType={showCoderType}
                         codedPostsCount={new Set(filteredData.map((data) => data.postId)).size}
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        selectedItem={selectedItem}
+                        setSelectedItem={setSelectedItem}
                     />
                 </div>
                 <div className="w-3/4 flex flex-col h-full">
-                    {/* Add an id to the controls container for tutorial targeting */}
                     <div
                         id="coding-controls"
                         className="flex justify-evenly items-center px-6 py-4">
@@ -279,7 +327,6 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                                     onClick={async () => {
                                         console.log('Feedback:', feedback);
                                         setShowFeedbackModal(false);
-
                                         handleRerun();
                                     }}
                                     className="px-4 py-2 bg-green-500 text-white rounded">

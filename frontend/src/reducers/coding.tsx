@@ -138,6 +138,7 @@ export function baseResponseHandler<T>(
                 return [];
             }
             if (action.indexes) {
+                // @ts-ignore
                 return state.filter((_, index) => !action.indexes!.includes(index));
             }
             return state;

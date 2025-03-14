@@ -1,10 +1,9 @@
-import { FC, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import PostTab from './post-tab';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import useServerUtils from '../../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../../context/collection-context';
-import { SetState } from '../../../types/Coding/shared';
 import { useApi } from '../../../hooks/Shared/use-api';
+import { SetState } from '../../../types/Coding/shared';
 
 interface LeftPanelProps {
     totalPosts: number;
@@ -15,10 +14,15 @@ interface LeftPanelProps {
     onFilterSelect: (filter: string | null) => void;
     showTypeFilterDropdown?: boolean;
     selectedTypeFilter: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
-    handleSelectedTypeFilter?: (e: any) => void;
-    setCurrentPost: SetState<string | null>;
+    handleSelectedTypeFilter?: (type: string) => void;
     showCoderType?: boolean;
     codedPostsCount: number;
+    activeTab: 'posts' | 'codes';
+    setActiveTab: (tab: 'posts' | 'codes') => void;
+    searchQuery: string;
+    setSearchQuery: (query: string) => void;
+    selectedItem: string | null;
+    setSelectedItem: SetState<string | null>;
 }
 
 const LeftPanel: FC<LeftPanelProps> = ({
@@ -31,49 +35,30 @@ const LeftPanel: FC<LeftPanelProps> = ({
     showTypeFilterDropdown = false,
     selectedTypeFilter,
     handleSelectedTypeFilter,
-    setCurrentPost,
-    showCoderType
-    // codedPostsCount
+    showCoderType,
+    activeTab,
+    setActiveTab,
+    searchQuery,
+    setSearchQuery,
+    selectedItem,
+    setSelectedItem
 }) => {
-    // const postIds = useMemo(() => _postIds, [_postIds]);
-
-    const [activeTab, setActiveTab] = useState<'posts' | 'codes'>('posts');
-    const [selectedItem, setSelectedItem] = useState<string | null>(null);
-
-    useEffect(() => {
-        setSelectedItem(null);
-    }, [selectedTypeFilter]);
-
     const [postIdTitles, setPostIdTitles] = useState<{ id: string; title: string }[]>([]);
-
     const [loading, setLoading] = useState(false);
-
     const containerRef = useRef<HTMLUListElement>(null);
-
     const { fetchData } = useApi();
     const { datasetId } = useCollectionContext();
 
-    const handleSelect = (filter: string | null) => {
-        setCurrentPost(filter);
-        setSelectedItem((prev) => {
-            console.log(prev, filter);
-            if (
-                (prev === 'coded-data' || prev?.split('|')?.[1] === 'coded-data') &&
-                filter !== null
-            ) {
-                let newFilter = `${filter}|coded-data`;
-                onFilterSelect(newFilter);
-                return newFilter;
-            }
-            onFilterSelect(filter);
-            return filter;
-        });
-    };
+    useEffect(() => {
+        fetchTabData(postIds, datasetId);
+    }, [postIds]);
+
+    useEffect(() => {
+        setSelectedItem(null);
+    }, [selectedTypeFilter, setSelectedItem]);
 
     const fetchTabData = async (postIds: string[], datasetId: string) => {
-        if (!postIds.length || !datasetId) {
-            return [];
-        }
+        if (!postIds.length || !datasetId) return;
         setLoading(true);
         const { data: results, error } = await fetchData<any[]>(
             REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH,
@@ -82,25 +67,51 @@ const LeftPanel: FC<LeftPanelProps> = ({
                 body: JSON.stringify({ post_ids: postIds, dataset_id: datasetId })
             }
         );
-
         if (error) {
             console.error('Failed to fetch data:', error);
             setLoading(false);
-            // throw new Error('Failed to fetch data');
+        } else {
+            setPostIdTitles(
+                results?.map((result: any) => ({ id: result.id, title: result.title })) ?? []
+            );
+            setLoading(false);
         }
-        console.log('Results:', results);
-
-        setPostIdTitles(
-            results?.map((result: any) => ({ id: result.id, title: result.title })) ?? []
-        );
-        setLoading(false);
     };
 
-    useEffect(() => {
-        fetchTabData(postIds, datasetId);
-    }, [postIds]);
+    // Filter posts based on searchQuery
+    const filteredPosts = useMemo(() => {
+        if (!searchQuery) return postIdTitles;
+        const lowerQuery = searchQuery.toLowerCase();
+        return postIdTitles.filter((post) => post.title.toLowerCase().includes(lowerQuery));
+    }, [postIdTitles, searchQuery]);
 
-    const allPostsCount = postIdTitles.length;
+    // Filter codes based on searchQuery
+    const filteredCodes = useMemo(() => {
+        if (!searchQuery) return codes;
+        const lowerQuery = searchQuery.toLowerCase();
+        return codes.filter((code) => code.toLowerCase().includes(lowerQuery));
+    }, [codes, searchQuery]);
+
+    const handleSelect = (selection: string | null) => {
+        setSelectedItem((prev) => {
+            if (
+                (prev === 'coded-data' || prev?.split('|')?.[1] === 'coded-data') &&
+                selection !== null
+            ) {
+                const newFilter = `${selection}|coded-data`;
+                onFilterSelect(newFilter);
+                return newFilter;
+            }
+            onFilterSelect(selection);
+            return selection;
+        });
+
+        // Clear search query when "Show All" is clicked
+        if (selection === null) {
+            setSearchQuery('');
+        }
+    };
+
     return (
         <div className="h-full flex flex-col">
             {showTypeFilterDropdown && (
@@ -154,7 +165,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                     <div className="flex justify-evenly items-center text-center">
                         <span
                             className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
-                                selectedItem === null
+                                selectedItem === null && searchQuery === ''
                                     ? 'bg-blue-200 font-bold'
                                     : 'hover:bg-blue-100'
                             }`}
@@ -175,7 +186,9 @@ const LeftPanel: FC<LeftPanelProps> = ({
                 ) : (
                     <div
                         className={`p-3 border rounded shadow cursor-pointer transition-all text-center ${
-                            selectedItem === null ? 'bg-blue-200 font-bold' : 'hover:bg-blue-100'
+                            selectedItem === null && searchQuery === ''
+                                ? 'bg-blue-200 font-bold'
+                                : 'hover:bg-blue-100'
                         }`}
                         onClick={() => handleSelect(null)}>
                         Show All ({codes.length})
@@ -183,15 +196,24 @@ const LeftPanel: FC<LeftPanelProps> = ({
                 )}
             </div>
 
+            {/* Always show the search input with dynamic placeholder */}
+            <input
+                type="text"
+                placeholder={activeTab === 'posts' ? 'Search posts...' : 'Search codes...'}
+                className="w-full p-2 border rounded my-2"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+            />
+
             <div className="flex-1 overflow-auto min-h-0 my-2 gap-y-2">
                 {activeTab === 'posts' ? (
                     <ul className="space-y-2" ref={containerRef}>
                         {loading ? (
                             <li>Loading...</li>
-                        ) : postIdTitles.length === 0 ? (
+                        ) : filteredPosts.length === 0 ? (
                             <div>No posts found</div>
                         ) : (
-                            postIdTitles.map((postIdTitle) => (
+                            filteredPosts.map((postIdTitle) => (
                                 <PostTab
                                     key={postIdTitle.id}
                                     postIdTitle={postIdTitle}
@@ -204,9 +226,9 @@ const LeftPanel: FC<LeftPanelProps> = ({
                     </ul>
                 ) : (
                     <ul className="space-y-2">
-                        {codes.map((code, index) => (
+                        {filteredCodes.map((code) => (
                             <li
-                                key={index}
+                                key={code}
                                 className={`p-3 border rounded shadow cursor-pointer transition-all ${
                                     selectedItem === code
                                         ? 'bg-blue-200 font-bold'
