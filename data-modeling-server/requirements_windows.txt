@@ -71,8 +71,8 @@ hdbscan==0.8.40
 httpcore==1.0.7
 httplib2==0.22.0
 httptools==0.6.4
-httpx==0.28.1
-httpx-sse==0.4.0
+httpx
+httpx-sse
 huggingface-hub==0.26.2
 humanfriendly==10.0
 humanize==0.5.1
@@ -117,7 +117,7 @@ nltk==3.9.1
 numba==0.60.0
 numpy==1.26.4
 oauthlib==3.2.2
-ollama==0.4.4
+ollama
 onnxruntime==1.20.1
 opentelemetry-api==1.29.0
 opentelemetry-exporter-otlp-proto-common==1.29.0

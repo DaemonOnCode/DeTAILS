@@ -61,3 +61,5 @@ compile_commands.json
 .clangd
 perf.data
 perf.data.old
+
+**/builddir
