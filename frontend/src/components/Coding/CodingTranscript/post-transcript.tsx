@@ -13,6 +13,7 @@ import EditHighlightModal from '../Shared/edit-highlight-modal';
 import DeleteHighlightModal from '../Shared/delete-highlight-modal';
 import SwitchModal from './switch-modal';
 import lodash from 'lodash';
+import { useUndo } from '../../../hooks/Shared/use-undo';
 
 const PostTranscript: FC<PostTranscriptProps> = ({
     post,
@@ -61,6 +62,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         selectedTextMarker
     } = useTranscriptContext();
 
+    const { performWithUndo, performWithUndoForReducer, batch } = useUndo();
+
     const { processedSegments, codeSet, codeColors } = useMemo(
         () => processTranscript(post, extraCodes),
         [post, extraCodes, codeResponses]
@@ -96,6 +99,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         );
     }, [codeSet, codeResponses]);
 
+    console.log('Current References:', currentReferences);
+
     const [references, setReferences] = useState<Record<string, IReference[]>>(currentReferences);
 
     // useEffect(() => {
@@ -122,30 +127,44 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         switch (type) {
             case 'ADD_CODE':
                 console.log('Adding code:', result);
-                setAdditionalCodes([...result]);
+                performWithUndo([additionalCodes], [setAdditionalCodes], () => {
+                    setAdditionalCodes([...result]);
+                });
                 break;
             case 'UPDATE_CODE_NAME': {
-                let newCode = result.find((code) => !codeSet.includes(code));
-                dispatchCodeResponse({
-                    type: 'EDIT_CODE',
-                    currentCode: selectedCode,
-                    newCode
+                // let newCode = result.find((code) => !codeSet.includes(code));
+                // Wrap the dispatch call (assumed to update reducer state) with performWithUndoForReducer
+                batch(() => {
+                    let newCode = result.find((code) => !codeSet.includes(code));
+                    performWithUndoForReducer(additionalCodes, dispatchCodeResponse, {
+                        type: 'EDIT_CODE',
+                        currentCode: selectedCode,
+                        newCode
+                    });
+                    if (newCode) {
+                        performWithUndo([additionalCodes], [setAdditionalCodes], () => {
+                            setAdditionalCodes((prevCodes) =>
+                                prevCodes.map((code) =>
+                                    code === selectedCode ? (newCode ?? '') : code
+                                )
+                            );
+                        });
+                    }
                 });
-                if (newCode) {
-                    setAdditionalCodes((prevCodes) =>
-                        prevCodes.map((code) => (code === selectedCode ? (newCode ?? code) : code))
-                    );
-                }
                 break;
             }
             case 'DELETE_CODE':
-                dispatchCodeResponse({
-                    type: 'DELETE_CODE',
-                    code: selectedCode
+                batch(() => {
+                    performWithUndoForReducer(additionalCodes, dispatchCodeResponse, {
+                        type: 'DELETE_CODE',
+                        code: selectedCode
+                    });
+                    performWithUndo([additionalCodes], [setAdditionalCodes], () => {
+                        setAdditionalCodes((prevCodes) =>
+                            prevCodes.filter((code) => code !== selectedCode)
+                        );
+                    });
                 });
-                setAdditionalCodes((prevCodes) =>
-                    prevCodes.filter((code) => code !== selectedCode)
-                );
                 break;
             default:
                 break;
@@ -216,43 +235,58 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         } | null = null;
         switch (type) {
             case 'ADD_HIGHLIGHT':
-                dispatchCodeResponse({
-                    type: 'ADD_RESPONSE',
-                    response: {
-                        id: Math.random().toString(36),
-                        postId: post.id,
-                        code: selectedCode,
-                        quote: selectedText,
-                        explanation: reasoning,
-                        isMarked: true,
-                        comment: '',
-                        theme: 'Some theme',
-                        rangeMarker: selectedTextMarker
-                    }
+                batch(() => {
+                    performWithUndoForReducer(codeResponses, dispatchCodeResponse, {
+                        type: 'ADD_RESPONSE',
+                        response: {
+                            id: Math.random().toString(36),
+                            postId: post.id,
+                            code: selectedCode,
+                            quote: selectedText,
+                            explanation: reasoning,
+                            isMarked: true,
+                            comment: '',
+                            theme: 'Some theme',
+                            rangeMarker: selectedTextMarker
+                        }
+                    });
+                    // Include state resets in the batch so they’re undone together
+                    performWithUndo(
+                        [selectedCode, reasoning],
+                        [setSelectedCode, setReasoning],
+                        () => {
+                            setSelectedCode('null');
+                            setReasoning('');
+                        }
+                    );
                 });
-                setSelectedCode('null');
-                setReasoning('');
                 break;
             case 'EDIT_HIGHLIGHT':
                 // difference = findSingleKeyDifference(currentReferences, references, 'modified');
-                console.log('Edit Difference:', difference, extra);
-                dispatchCodeResponse({
-                    type: 'EDIT_HIGHLIGHT',
-                    postId: post.id,
-                    sentence: extra?.reference.text,
-                    code: extra?.code,
-                    newSentence: extra?.newText,
-                    rangeMarker: selectedTextMarker
+                batch(() => {
+                    console.log('Edit Difference:', difference, extra);
+                    performWithUndoForReducer(codeResponses, dispatchCodeResponse, {
+                        type: 'EDIT_HIGHLIGHT',
+                        postId: post.id,
+                        sentence: extra?.reference.text,
+                        code: extra?.code,
+                        newSentence: extra?.newText,
+                        rangeMarker: selectedTextMarker
+                    });
                 });
                 break;
             case 'DELETE_HIGHLIGHT':
                 difference = findSingleKeyDifference(currentReferences, references, 'removed');
                 console.log('Delete Difference:', difference, extra);
-                dispatchCodeResponse({
-                    type: 'DELETE_HIGHLIGHT',
-                    postId: post.id,
-                    sentence: extra?.reference.text,
-                    code: extra?.code
+                batch(() => {
+                    // difference = findSingleKeyDifference(currentReferences, references, 'removed');
+                    // console.log('Delete Difference:', difference, extra);
+                    performWithUndoForReducer(codeResponses, dispatchCodeResponse, {
+                        type: 'DELETE_HIGHLIGHT',
+                        postId: post.id,
+                        sentence: extra?.reference.text,
+                        code: extra?.code
+                    });
                 });
                 break;
             default:

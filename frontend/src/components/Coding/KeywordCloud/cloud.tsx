@@ -98,38 +98,17 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
     };
 
     const saveEdit = () => {
-        performWithUndo(
-            [keywords], // Current state
-            [setKeywords], // State setter
-            () => {
-                setKeywords((prev) => prev.map((w) => (w === editingWord ? newWord : w)));
-            }
-        );
+        performWithUndo([keywords], [setKeywords], () => {
+            setKeywords((prev) => prev.map((w) => (w === editingWord ? newWord : w)));
+        });
         setEditingWord(null);
         setNewWord('');
     };
 
     const handleDelete = (word: string) => {
-        performWithUndo(
-            [keywords], // Current state
-            [setKeywords], // State setter
-            () => {
-                setKeywords((prev) => prev.filter((w) => w !== word));
-            }
-        );
-
-        // toast.info(<UndoNotification />, {
-        //     autoClose: 5000,
-        //     closeButton: false,
-        //     data: {
-        //         onUndo: () => {
-        //             setKeywords((prev) => [...prev, word]);
-        //         }
-        //     },
-        //     onClose: (closedByUser) => {
-        //         if (closedByUser) return;
-        //     }
-        // });
+        performWithUndo([keywords], [setKeywords], () => {
+            setKeywords((prev) => prev.filter((w) => w !== word));
+        });
     };
 
     // Update a keyword’s position in state.

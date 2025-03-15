@@ -207,10 +207,8 @@ const ThemesPage = () => {
     };
 
     const handleAddTheme = () => {
-        performWithUndo([themes], [setThemes], () => {
-            const newTheme = { id: (themes.length + 1).toString(), name: 'New Theme', codes: [] };
-            setThemes((prevThemes) => [...prevThemes, newTheme]);
-        });
+        const newTheme = { id: (themes.length + 1).toString(), name: 'New Theme', codes: [] };
+        setThemes((prevThemes) => [...prevThemes, newTheme]);
     };
 
     const handleDeleteTheme = (themeId: string) => {
@@ -293,27 +291,28 @@ const ThemesPage = () => {
     };
 
     const handleMoveToMiscellaneous = useCallback(() => {
-        performWithUndo([themes, unplacedCodes], [setThemes, setUnplacedCodes], () => {
-            setThemes((prevBuckets) => {
-                if (prevBuckets.find((bucket) => bucket.name === 'Miscellaneous')) {
-                    return prevBuckets.map((bucket) => {
-                        if (bucket.name === 'Miscellaneous') {
-                            return { ...bucket, codes: [...bucket.codes, ...unplacedCodes] };
-                        }
-                        return bucket;
-                    });
-                }
-                return [
-                    ...prevBuckets,
-                    {
-                        id: (prevBuckets.length + 1).toString(),
-                        name: 'Miscellaneous',
-                        codes: unplacedCodes
+        setThemes((prevBuckets) => {
+            if (prevBuckets.find((bucket) => bucket.name === 'Miscellaneous')) {
+                return prevBuckets.map((bucket) => {
+                    if (bucket.name === 'Miscellaneous') {
+                        return {
+                            ...bucket,
+                            codes: [...bucket.codes, ...unplacedCodes]
+                        };
                     }
-                ];
-            });
-            setUnplacedCodes([]);
+                    return bucket;
+                });
+            }
+            return [
+                ...prevBuckets,
+                {
+                    id: (prevBuckets.length + 1).toString(),
+                    name: 'Miscellaneous',
+                    codes: unplacedCodes
+                }
+            ];
         });
+        setUnplacedCodes([]);
     }, [unplacedCodes]);
 
     useEffect(() => {

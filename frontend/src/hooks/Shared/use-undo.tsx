@@ -5,43 +5,77 @@ type StateSetter<T> = (value: T) => void;
 
 export function useUndo() {
     const stateRegistry = useRef<Map<string, { state: any; setter: StateSetter<any> }>>(new Map());
-    const undoStack = useRef<Array<() => void>>([]);
-
     const { logOperation } = useUndoContext();
+
+    const isBatching = useRef(false);
+    const batchUndoFunctions = useRef<(() => void)[]>([]);
+
+    const logOperationLocal = useCallback(
+        (undoFn: () => void) => {
+            if (isBatching.current) {
+                batchUndoFunctions.current.push(undoFn);
+            } else {
+                logOperation(undoFn);
+            }
+        },
+        [logOperation]
+    );
+
+    // Start a batch
+    const beginBatch = useCallback(() => {
+        isBatching.current = true;
+        batchUndoFunctions.current = [];
+    }, []);
+
+    const endBatch = useCallback(() => {
+        isBatching.current = false;
+        const batchUndos = [...batchUndoFunctions.current].reverse();
+        const batchUndoFn = () => {
+            batchUndos.forEach((undoFn) => undoFn());
+        };
+        logOperation(batchUndoFn);
+        batchUndoFunctions.current = [];
+    }, [logOperation]);
+
+    const batch = useCallback(
+        (callback: () => void) => {
+            beginBatch();
+            try {
+                callback();
+            } finally {
+                endBatch();
+            }
+        },
+        [beginBatch, endBatch]
+    );
+
     const registerState = useCallback((key: string, state: any, setter: StateSetter<any>) => {
         stateRegistry.current.set(key, { state, setter });
     }, []);
 
-    const batchUpdate = useCallback((operation: () => void, operationType: string = 'batch') => {
-        const beforeStates: { [key: string]: any } = {};
-        stateRegistry.current.forEach((entry, key) => {
-            beforeStates[key] = entry.state;
-        });
-
-        operation();
-
-        const undoFunction = () => {
-            Object.keys(beforeStates).forEach((key) => {
-                const setter = stateRegistry.current.get(key)?.setter;
-                if (setter) {
-                    setter(beforeStates[key]);
-                }
+    const batchUpdate = useCallback(
+        (operation: () => void, operationType: string = 'batch') => {
+            const beforeStates: { [key: string]: any } = {};
+            stateRegistry.current.forEach((entry, key) => {
+                beforeStates[key] = entry.state;
             });
-        };
 
-        undoStack.current.push(undoFunction);
-        console.log(`Logged batch operation: ${operationType}`);
-    }, []);
+            operation();
 
-    const undo = useCallback(() => {
-        const undoFunction = undoStack.current.pop();
-        if (undoFunction) {
-            undoFunction();
-            console.log('Performed undo');
-        } else {
-            console.log('Nothing to undo');
-        }
-    }, []);
+            const undoFunction = () => {
+                Object.keys(beforeStates).forEach((key) => {
+                    const setter = stateRegistry.current.get(key)?.setter;
+                    if (setter) {
+                        setter(beforeStates[key]);
+                    }
+                });
+            };
+
+            logOperationLocal(undoFunction);
+            console.log(`Logged batch operation: ${operationType}`);
+        },
+        [logOperationLocal]
+    );
 
     function performWithUndo(
         states: any[],
@@ -56,7 +90,7 @@ export function useUndo() {
             });
         };
 
-        logOperation(undoFn);
+        logOperationLocal(undoFn);
 
         operation();
     }
@@ -66,15 +100,22 @@ export function useUndo() {
         dispatch: (action: any) => void,
         action: any
     ) {
+        console.log('Performing with undo for reducer:', action, currentState);
         const previousState = currentState;
         const undoFn = () => {
             dispatch({ type: 'RESTORE_STATE', payload: previousState });
         };
 
-        logOperation(undoFn);
+        logOperationLocal(undoFn);
 
         dispatch(action);
     }
 
-    return { registerState, batchUpdate, undo, performWithUndo, performWithUndoForReducer };
+    return {
+        registerState,
+        batchUpdate,
+        performWithUndo,
+        performWithUndoForReducer,
+        batch
+    };
 }

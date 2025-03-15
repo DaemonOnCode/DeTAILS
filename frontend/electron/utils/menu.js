@@ -77,7 +77,15 @@ const menuTemplate = (state) => {
                         state.mainWindow.webContents.send('undo');
                     }
                 },
-                { label: 'Redo', accelerator: 'Shift+CmdOrCtrl+Z', selector: 'redo:' },
+                {
+                    label: 'Redo',
+                    accelerator: 'Shift+CmdOrCtrl+Z',
+                    selector: 'redo:',
+                    click: () => {
+                        electronLogger.log('Redo clicked');
+                        state.mainWindow.webContents.send('redo');
+                    }
+                },
                 { type: 'separator' },
                 { label: 'Cut', accelerator: 'CmdOrCtrl+X', selector: 'cut:' },
                 { label: 'Copy', accelerator: 'CmdOrCtrl+C', selector: 'copy:' },
