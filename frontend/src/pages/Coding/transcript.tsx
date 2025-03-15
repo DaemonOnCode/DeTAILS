@@ -221,8 +221,7 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0]
+                            ...args[0]
                         });
                     }
                 }

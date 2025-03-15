@@ -185,7 +185,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         }
 
         const params = new URLSearchParams();
-        if (selectedTypeFilter) {
+        if (showFilterDropdown && selectedTypeFilter) {
             if (selectedTypeFilter === 'All') {
                 if (sampledPostIds.includes(postId ?? '')) {
                     params.append('type', 'Codebook');
@@ -195,7 +195,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             } else {
                 params.append('type', selectedTypeFilter);
             }
-        } else if (coderType) {
+        } else if (showFilterDropdown && coderType) {
             params.append('type', coderType);
         }
         if (split !== undefined) {
@@ -210,6 +210,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             search: searchQuery,
             selected: selectedItem
         };
+
+        console.log('Current config', `/coding/transcript/${postId}/${mode}?${params.toString()}`);
 
         navigate(`/coding/transcript/${postId}/${mode}?${params.toString()}`, {
             state: navigationState

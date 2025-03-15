@@ -94,13 +94,20 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     }))
             ])
         );
-    }, [codeSet, codeResponses, post.id]);
+    }, [codeSet, codeResponses]);
 
     const [references, setReferences] = useState<Record<string, IReference[]>>(currentReferences);
 
+    // useEffect(() => {
+    //     setReferences(currentReferences);
+    // }, [codeResponses]);
+
     useEffect(() => {
-        setReferences(currentReferences);
-    }, [codeResponses]);
+        console.log('Current config:', currentReferences, references);
+        if (Object.keys(currentReferences).length > Object.keys(references).length) {
+            setReferences(currentReferences);
+        }
+    }, [currentReferences, references]);
 
     const setCodes = (value: any, type: string) => {
         if (!isActive) return;
