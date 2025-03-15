@@ -132,11 +132,9 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 });
                 break;
             case 'UPDATE_CODE_NAME': {
-                // let newCode = result.find((code) => !codeSet.includes(code));
-                // Wrap the dispatch call (assumed to update reducer state) with performWithUndoForReducer
                 batch(() => {
                     let newCode = result.find((code) => !codeSet.includes(code));
-                    performWithUndoForReducer(additionalCodes, dispatchCodeResponse, {
+                    performWithUndoForReducer(codeResponses, dispatchCodeResponse, {
                         type: 'EDIT_CODE',
                         currentCode: selectedCode,
                         newCode
@@ -155,7 +153,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
             }
             case 'DELETE_CODE':
                 batch(() => {
-                    performWithUndoForReducer(additionalCodes, dispatchCodeResponse, {
+                    performWithUndoForReducer(codeResponses, dispatchCodeResponse, {
                         type: 'DELETE_CODE',
                         code: selectedCode
                     });
