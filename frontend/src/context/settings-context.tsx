@@ -20,6 +20,10 @@ export interface ISettingsConfig {
     ai: {
         model: string;
         googleCredentialsPath: string;
+        temperature: number;
+        randomSeed: number;
+        modelList: string[];
+        textEmbedding: string;
     };
     devtools: {
         showConsole: boolean;

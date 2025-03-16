@@ -4,12 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from google.oauth2 import service_account, credentials
 from google.auth.transport.requests import Request
 import google.auth.exceptions
+from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
+from google.auth import load_credentials_from_file
 
-from controllers.miscellaneous_controller import link_creator, normalize_text, search_slice
+import config
+from controllers.miscellaneous_controller import get_credential_path, link_creator, normalize_text, search_slice
 from database import PostsRepository, CommentsRepository
 from database.db_helpers import get_post_and_comments_from_id
 from errors.credential_errors import InvalidCredentialError, MissingCredentialError
-from models.miscellaneous_models import RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest, UserCredentialTestRequest
+from errors.vertex_ai_errors import InvalidGenAIModelError, InvalidTextEmbeddingError
+from models.miscellaneous_models import GoogleGenAITestRequest, RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest, UserCredentialTestRequest
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 
 
@@ -164,3 +168,35 @@ async def test_user_credentials_endpoint(
     else:
         print("Unknown credential type:", cred_type)
         raise InvalidCredentialError("Unknown credential type.")
+
+
+@router.post("/test-google-genai-model")
+async def test_genai_model_endpoint(
+    request_body: GoogleGenAITestRequest
+):
+    settings = config.CustomSettings()
+    creds, _ = load_credentials_from_file(get_credential_path(settings) or os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+    try:
+        ChatVertexAI(
+            model_name=request_body.name, 
+            credentials = creds,
+            project = creds.quota_project_id
+        )
+    except Exception as e:
+        raise InvalidGenAIModelError(f"Failed to initialize LLM: {str(e)}")
+
+@router.post("/test-google-text-embedding")
+async def test_text_embedding_endpoint(
+    request_body: GoogleGenAITestRequest
+):
+    settings = config.CustomSettings()
+    creds, project_id = load_credentials_from_file(get_credential_path(settings) or os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+    print(creds.quota_project_id, project_id)
+    try:
+        VertexAIEmbeddings(
+            model=request_body.name,
+            credentials=creds,
+            project=creds.quota_project_id
+        )
+    except Exception as e:
+        raise InvalidTextEmbeddingError(f"Failed to initialize embeddings: {str(e)}")

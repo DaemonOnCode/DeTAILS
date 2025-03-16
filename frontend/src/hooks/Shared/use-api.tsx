@@ -151,7 +151,8 @@ export const useApi = (): UseApiResult => {
             options: RequestInit & { rawResponse?: boolean } = {},
             customAbortController: AbortController | null = null
         ): Promise<FetchLLMResponse<T>> => {
-            if (!settings.ai.model.startsWith('google')) {
+            console.log('Fetching LLM data:', route, options, settings);
+            if (settings.ai.model.startsWith('google')) {
                 // Check credentials using the current file path.
                 let credentialsResponse = await fetchData(REMOTE_SERVER_ROUTES.CHECK_CREDENTIALS, {
                     method: 'POST',

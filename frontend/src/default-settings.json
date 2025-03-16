@@ -12,8 +12,16 @@
         "layout": "grid"
     },
     "ai": {
-        "model": "gemini-2.0-flash-thinking-exp-01-21",
-        "googleCredentialsPath": ""
+        "model": "google-gemini-2.0-flash-thinking-exp-01-21",
+        "googleCredentialsPath": "",
+        "temperature": 0.0,
+        "randomSeed": 42,
+        "modelList": [
+            "google-gemini-2.0-flash-thinking-exp-01-21",
+            "google-gemini-2.0-flash-001",
+            "google-gemini-2.0-pro-exp-02-05"
+        ],
+        "textEmbedding": "text-embedding-005"
     },
     "devtools": {
         "showConsole": false,

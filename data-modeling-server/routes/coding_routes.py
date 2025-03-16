@@ -143,7 +143,7 @@ async def build_context_from_interests_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing started.")
 
-    llm, embeddings = get_llm_and_embeddings(model, settings=settings)
+    llm, embeddings = get_llm_and_embeddings(model)
 
     # Initialize vector store & process files
     print("Initialize vector store")
@@ -194,7 +194,7 @@ async def regenerate_keywords_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Regenerating keywords with feedback...")
 
-    llm, embeddings = get_llm_and_embeddings(request_body.model, settings=settings)
+    llm, embeddings = get_llm_and_embeddings(request_body.model)
 
     vector_store = initialize_vector_store(dataset_id, request_body.model, embeddings)
     retriever = vector_store.as_retriever(search_kwargs={'k': 50})
@@ -328,7 +328,7 @@ async def refine_codebook_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
-    llm, _ = get_llm_and_embeddings(request_body.model, settings=settings)
+    llm, _ = get_llm_and_embeddings(request_body.model)
     # Convert codebooks to JSON format
     prev_codebook_json = json.dumps(request_body.prevCodebook, indent=2)
     current_codebook_json = json.dumps(request_body.currentCodebook, indent=2)
@@ -455,7 +455,7 @@ async def theme_generation_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation process started.")
 
-    llm, _ = get_llm_and_embeddings(request_body.model, settings=settings)
+    llm, _ = get_llm_and_embeddings(request_body.model)
 
     rows = request_body.sampled_post_responses + request_body.unseen_post_responses
 
@@ -722,7 +722,7 @@ async def group_codes_endpoint(
 
     app_id = request.headers.get("x-app-id")
 
-    llm, _ = get_llm_and_embeddings(request_body.model, settings=settings)
+    llm, _ = get_llm_and_embeddings(request_body.model)
 
     rows = request_body.sampled_post_responses + request_body.unseen_post_responses
 

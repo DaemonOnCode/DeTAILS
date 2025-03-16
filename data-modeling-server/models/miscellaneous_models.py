@@ -24,3 +24,6 @@ class RedditPostIDAndTitleRequest(BaseModel):
 
 class UserCredentialTestRequest(BaseModel):
     credential_path: str
+
+class GoogleGenAITestRequest(BaseModel):
+    name: str

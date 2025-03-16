@@ -56,3 +56,85 @@
     outline: 2px solid red;
     transition: background-color 0.3s ease;
 }
+
+/* Remove default styling for range input */
+input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: transparent;
+}
+
+/* Style the track for WebKit browsers (Chrome, Safari) */
+input[type='range']::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8px;
+    background: linear-gradient(to right, #3b82f6, #ef4444);
+    border-radius: 9999px;
+}
+
+/* Style the thumb for WebKit browsers */
+input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #3b82f6;
+    cursor: pointer;
+}
+
+/* Style the track for Mozilla Firefox */
+input[type='range']::-moz-range-track {
+    width: 100%;
+    height: 8px;
+    background: linear-gradient(to right, #3b82f6, #ef4444);
+    border-radius: 9999px;
+}
+
+/* Style the thumb for Mozilla Firefox */
+input[type='range']::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #3b82f6;
+    cursor: pointer;
+}
+
+/* Style the track */
+input[type='range'].custom-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px; /* Track height */
+    background: linear-gradient(to right, #3b82f6, #60a5fa); /* Your good colors */
+    border-radius: 4px;
+    outline: none;
+}
+
+/* Style the thumb for WebKit browsers (Chrome, Safari) */
+input[type='range'].custom-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px; /* Thumb width */
+    height: 16px; /* Thumb height */
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #3b82f6; /* Matches your blue theme */
+    cursor: pointer;
+    transform: translateY(-4px); /* Shift thumb up to center it */
+}
+
+/* Style the thumb for Mozilla Firefox */
+input[type='range'].custom-range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #3b82f6;
+    cursor: pointer;
+    transform: translateY(-4px); /* Shift thumb up to center it */
+}

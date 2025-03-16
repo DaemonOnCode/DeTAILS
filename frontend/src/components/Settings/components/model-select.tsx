@@ -20,7 +20,7 @@ const ModelSelect: React.FC<ModelSelectProps> = ({
                 className="w-full p-2 border border-gray-300 rounded">
                 {combinedModels.map((model) => (
                     <option key={model} value={model}>
-                        {model}
+                        {model.split('-').slice(1).join('-')}
                     </option>
                 ))}
             </select>

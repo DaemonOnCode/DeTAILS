@@ -11,6 +11,7 @@ from errors.database_errors import (
     QueryExecutionError, RecordNotFoundError, InsertError, UpdateError, DeleteError
 )
 from errors.ollama_errors import InvalidModelError, OllamaError, PullModelError, DeleteModelError
+from errors.vertex_ai_errors import InvalidGenAIModelError, InvalidTextEmbeddingError, VertexAIError
 
 logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -73,6 +74,22 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error":e.__class__.__name__,"error_message": f"Delete operation failed: {str(e)}"})
         
+
+        except InvalidGenAIModelError as e:
+            logging.error(f"InvalidModelError: {str(e)}")
+            traceback.print_exc()
+            return JSONResponse(status_code=404, content={"error":e.__class__.__name__,"error_message": f"Invalid model: {str(e)}"})
+        
+        except InvalidTextEmbeddingError as e:
+            logging.error(f"InvalidTextEmbeddingError: {str(e)}")
+            traceback.print_exc()
+            return JSONResponse(status_code=404, content={"error":e.__class__.__name__,"error_message": f"Text embedding error: {str(e)}"})
+
+        except VertexAIError as e:
+            logging.error(f"VertexAIError: {str(e)}")
+            traceback.print_exc()
+            return JSONResponse(status_code=500, content={"error":e.__class__.__name__,"error_message": f"Vertex AI error: {str(e)}"})
+
         except InvalidCredentialError as e:
             logging.error(f"InvalidCredentialError: {str(e)}")
             traceback.print_exc()

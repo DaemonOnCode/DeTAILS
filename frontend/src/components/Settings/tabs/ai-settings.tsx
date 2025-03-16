@@ -8,6 +8,7 @@ import DownloadedModels from '../components/downloaded-model';
 import ModelSelect from '../components/model-select';
 import PullProgress from '../components/pull-progress';
 import SearchMetadata from '../components/search-metadata';
+import AIParameters from '../components/parameters';
 
 const AISettings: React.FC = () => {
     const { settings, updateSettings, setDisableBack } = useSettings();
@@ -178,7 +179,6 @@ const AISettings: React.FC = () => {
     return (
         <div className="p-6">
             <h2 className="text-2xl font-bold mb-4">AI Settings</h2>
-            <h2 className="text-2xl font-bold mb-4">AI Settings</h2>
             <ModelSelect
                 combinedModels={combinedModels}
                 selectedModel={selectedModel}
@@ -189,6 +189,7 @@ const AISettings: React.FC = () => {
                 downloadedModelsLoading={downloadedModelsLoading}
                 handleDeleteDownloadedModel={handleDeleteDownloadedModel}
             />
+            <AIParameters />
             <CredentialsInput
                 googleCredentialsPath={googleCredentialsPath}
                 handleCredentialsPathChange={(e) => setGoogleCredentialsPath(e.target.value)}

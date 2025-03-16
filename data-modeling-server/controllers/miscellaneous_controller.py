@@ -1,5 +1,12 @@
+import config
+from errors.credential_errors import MissingCredentialError
 from models import Comment
 
+
+def get_credential_path(settings: config.CustomSettings):
+    if not settings.ai.googleCredentialsPath:
+        return MissingCredentialError("Google credentials path not set.")
+    return settings.ai.googleCredentialsPath
 
 def normalize_text(text: str) -> str:
     """Normalize text by lowercasing, trimming, and replacing multiple spaces with a single space."""
