@@ -87,6 +87,7 @@ const ManualCodingPage: React.FC = () => {
                         showCodebook
                         showCoderType
                         showFilterDropdown
+                        applyFilters
                         manualCoding
                         onPostSelect={(id) => {
                             console.log('Post selected', id);

@@ -451,8 +451,7 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0]
+                            ...args[0]
                         });
                     },
                     showThemes: false
@@ -463,8 +462,7 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0]
+                            ...args[0]
                         });
                     }
                 }
@@ -486,8 +484,7 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0]
+                            ...args[0]
                         });
                     },
                     showThemes: false
@@ -498,8 +495,7 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0]
+                            ...args[0]
                         });
                     }
                 }
@@ -521,8 +517,7 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0]
+                            ...args[0]
                         });
                     },
                     showThemes: false
@@ -533,8 +528,7 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0]
+                            ...args[0]
                         });
                     }
                 }
@@ -556,8 +550,7 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0]
+                            ...args[0]
                         });
                     },
                     showThemes: false
@@ -568,8 +561,7 @@ const TranscriptPage = () => {
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
-                            responses: args[0]
+                            ...args[0]
                         });
                     }
                 }

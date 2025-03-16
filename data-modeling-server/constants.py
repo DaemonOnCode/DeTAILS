@@ -12,6 +12,8 @@ ACADEMIC_TORRENT_MAGNET = "magnet:?xt=urn:btih:ba051999301b109eab37d16f027b3f49a
 TRANSMISSION_RPC_URL = "http://localhost:9091/transmission/rpc"
 
 
+RANDOM_SEED = 42
+
 def get_app_data_path() -> str:
     """
     Returns the platform-specific base directory for application data.

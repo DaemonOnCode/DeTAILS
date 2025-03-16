@@ -38,7 +38,7 @@ const SettingsLayout = ({
     }, []);
 
     const tabs = {
-        // general: <GeneralSettingsPage />,
+        general: <GeneralSettingsPage />,
         // workspace: <WorkspaceSettingsPage />,
         ai: <AiSettingsPage />,
         // devtools: <DevtoolsSettingsPage />,

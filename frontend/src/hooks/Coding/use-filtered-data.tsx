@@ -29,10 +29,10 @@ export function useFilteredData({
 
     return useMemo(() => {
         let filteredData = data;
-        let filteredPostIds = postIds; // default: all posts
+        let filteredPostIds = postIds;
         let totalIds = postIds.length;
         let totalData = data;
-        // console.log(filter, showCoderType, applyFilters, selectedTypeFilter, 'filters');
+        console.log(filter, showCoderType, applyFilters, selectedTypeFilter, 'filters');
         const llmFilteredResponses = unseenPostResponse.filter(
             (response) => response.type === 'LLM'
         );

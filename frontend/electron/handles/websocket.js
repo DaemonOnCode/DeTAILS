@@ -5,191 +5,161 @@ const { electronLogger } = require('../utils/electron-logger');
 const config = require('../../src/config')('electron');
 
 let wsInstance = null;
-const maxReconnectAttempts = 5;
-const baseDelay = 1000; // in milliseconds
-let reconnectAttempts = 0;
+let isConnecting = false;
+let connectionPromise = null;
+let debounceTimeout = null;
 
-const sendToMainWindow = (globalCtx, channel, payload, retries = 0) => {
-    const maxRetries = 5;
-    const delay = baseDelay * Math.pow(2, retries);
+const sendToMainWindow = (globalCtx, channel, payload) => {
     try {
         const mainWindow = globalCtx.getState().mainWindow;
-        if (!mainWindow) {
-            throw new Error('Main window not available');
-        }
+        if (!mainWindow) throw new Error('Main window not available');
         mainWindow.webContents.send(channel, payload);
         electronLogger.log(`Sent on channel "${channel}": ${JSON.stringify(payload)}`);
     } catch (e) {
-        electronLogger.error(`Failed to send on channel "${channel}" (attempt ${retries + 1}):`, e);
-        if (retries < maxRetries) {
-            setTimeout(() => {
-                sendToMainWindow(globalCtx, channel, payload, retries + 1);
-            }, delay);
-        } else {
-            electronLogger.error(`Max retry attempts reached for channel "${channel}".`);
-        }
+        electronLogger.error(`Failed to send on channel "${channel}":`, e);
     }
 };
 
-const decodeMessage = (data) => {
-    try {
-        if (Buffer.isBuffer(data)) {
-            return data.toString('utf-8');
-        } else if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
-            const uint8Array = new Uint8Array(data);
-            return new TextDecoder('utf-8').decode(uint8Array);
-        } else {
-            console.warn('Unknown data type received:', data);
-            return null;
-        }
-    } catch (error) {
-        electronLogger.error('Error decoding message:', error);
-        return null;
-    }
-};
-
-// Encapsulated function to connect to the WebSocket server.
 const connectWS = (globalCtx) => {
-    try {
-        electronLogger.log('Connecting to WebSocket...');
-        const url = new URL(config.backendURL[globalCtx.getState().processing]);
-        const settings = globalCtx.getState().settings;
-        // console.log('settings', settings);
-        const appId = (settings && settings.app.id) ?? 'default';
-
-        const wsUrl = `ws://${url.host}${url.pathname}/notifications/ws?app=${appId}`;
-        electronLogger.log('URL:', url, wsUrl);
-        wsInstance = new WebSocket(wsUrl);
-        globalCtx.setState({ websocket: wsInstance });
-        wsInstance.binaryType = 'arraybuffer';
-    } catch (e) {
-        electronLogger.log('Application closed');
-        electronLogger.log(e);
-        wsInstance = null;
-        return;
+    if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        electronLogger.log('WebSocket already connected.');
+        return Promise.resolve('WebSocket already connected.');
     }
 
-    wsInstance.on('open', () => {
-        electronLogger.log('WebSocket connected');
-        // Reset reconnection attempts after a successful connection.
-        reconnectAttempts = 0;
-        sendToMainWindow(globalCtx, 'ws-connected', {});
-    });
+    if (isConnecting) {
+        electronLogger.log('Connection attempt already in progress.');
+        return connectionPromise;
+    }
 
-    wsInstance.on('close', (code, reason) => {
-        if (reconnectAttempts < maxReconnectAttempts) {
-            const delay = baseDelay * Math.pow(2, reconnectAttempts);
-            electronLogger.log(
-                `Attempting to reconnect in ${delay}ms... (Attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`
-            );
-            reconnectAttempts++;
-            setTimeout(() => {
-                connectWS(globalCtx);
-            }, delay);
-        } else {
-            electronLogger.log(
-                'Max reconnection attempts reached. No further reconnection will be attempted.'
-            );
+    isConnecting = true;
+    connectionPromise = new Promise((resolve, reject) => {
+        try {
+            const url = new URL(config.backendURL[globalCtx.getState().processing]);
+            const appId = globalCtx.getState().settings?.app?.id ?? 'default';
+            const wsUrl = `ws://${url.host}${url.pathname}/notifications/ws?app=${appId}`;
+            electronLogger.log(`Creating new WebSocket instance for ${wsUrl}`);
 
-            let message = '';
-            if (reason instanceof ArrayBuffer || ArrayBuffer.isView(reason)) {
-                message = new TextDecoder('utf-8').decode(reason);
-            } else {
-                message = reason ? reason.toString() : 'No reason provided';
-            }
-            electronLogger.log('WebSocket closed:', code, message);
-            wsInstance = null;
-            globalCtx.setState({ websocket: null });
-            sendToMainWindow(globalCtx, 'ws-closed', { code, message });
-        }
-    });
+            wsInstance = new WebSocket(wsUrl);
+            globalCtx.setState({ websocket: wsInstance });
 
-    wsInstance.on('error', (error) => {
-        electronLogger.error('WebSocket error:', error.message);
-        sendToMainWindow(globalCtx, 'ws-error', error.message);
-        // If an error occurs, try to reconnect with exponential backoff.
-        if (reconnectAttempts < maxReconnectAttempts) {
-            const delay = baseDelay * Math.pow(2, reconnectAttempts);
-            electronLogger.log(
-                `Attempting to reconnect in ${delay}ms... (Attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`
-            );
-            reconnectAttempts++;
-            setTimeout(() => {
-                connectWS(globalCtx);
-            }, delay);
-        } else {
-            electronLogger.log(
-                'Max reconnection attempts reached. No further reconnection will be attempted.'
-            );
-        }
-    });
-
-    wsInstance.on('message', (data) => {
-        if (!wsInstance || wsInstance.readyState !== WebSocket.OPEN) {
-            electronLogger.error('WebSocket not connected');
-            if (wsInstance) {
-                wsInstance.close();
-            }
-            wsInstance = null;
-            globalCtx.setState({ websocket: null });
-            sendToMainWindow(globalCtx, 'ws-closed', {
-                code: 1006,
-                message: 'WebSocket not connected'
+            wsInstance.on('open', () => {
+                isConnecting = false;
+                electronLogger.log('WebSocket connected');
+                sendToMainWindow(globalCtx, 'ws-connected', {});
+                resolve('WebSocket connected');
             });
-            return;
+
+            wsInstance.on('close', (code, reason) => {
+                electronLogger.log(`WebSocket closed: code=${code}, reason=${reason}`);
+                isConnecting = false;
+                connectionPromise = null;
+                wsInstance = null;
+                globalCtx.setState({ websocket: null });
+                sendToMainWindow(globalCtx, 'ws-closed', { code, reason });
+                reject(new Error(`WebSocket closed with code ${code}`));
+            });
+
+            wsInstance.on('error', (error) => {
+                electronLogger.error(`WebSocket error: ${error.message}`);
+                isConnecting = false;
+                connectionPromise = null;
+                wsInstance = null;
+                globalCtx.setState({ websocket: null });
+                sendToMainWindow(globalCtx, 'ws-error', error.message);
+                reject(error);
+            });
+
+            wsInstance.on('message', (data) => {
+                const message = data.toString('utf-8');
+                electronLogger.log(`Received message: ${message}`);
+                sendToMainWindow(globalCtx, 'ws-message', message);
+            });
+        } catch (e) {
+            electronLogger.error(`WebSocket connection failed: ${e.message}`);
+            isConnecting = false;
+            connectionPromise = null;
+            wsInstance = null;
+            globalCtx.setState({ websocket: null });
+            reject(e);
         }
-
-        sendToMainWindow(globalCtx, 'ws-connected', {});
-
-        const message = decodeMessage(data);
-        if (message === null) {
-            electronLogger.error('Failed to decode message.');
-            return;
-        }
-
-        electronLogger.log('Decoded message from server:', message);
-
-        // Handle ping-pong.
-        if (message === 'ping') {
-            wsInstance.send('pong');
-        }
-
-        sendToMainWindow(globalCtx, 'ws-message', message);
     });
+
+    return connectionPromise;
+};
+
+const connectWithRetry = async (
+    globalCtx,
+    maxRetries = 5,
+    initialDelay = 1000,
+    maxDelay = 30000
+) => {
+    let delay = initialDelay;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            await connectWS(globalCtx);
+            electronLogger.log(`Connected on attempt ${attempt}`);
+            return 'Connected successfully';
+        } catch (error) {
+            electronLogger.error(`Attempt ${attempt} failed: ${error.message}`);
+            if (attempt < maxRetries) {
+                const nextDelay = Math.min(delay * 2, maxDelay);
+                electronLogger.log(`Retrying in ${nextDelay}ms...`);
+                await new Promise((resolve) => setTimeout(resolve, nextDelay));
+                delay = nextDelay;
+            } else {
+                electronLogger.error('All retry attempts failed');
+                throw new Error('Failed to connect after multiple attempts');
+            }
+        }
+    }
 };
 
 const websocketHandler = (...ctxs) => {
     const globalCtx = findContextByName('global', ctxs);
 
-    ipcMain.handle('connect-ws', (event) => {
-        if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
-            electronLogger.log('WebSocket already connected.');
-            return 'WebSocket already connected.';
+    ipcMain.handle('connect-ws', () => {
+        electronLogger.log('IPC connect-ws called');
+        if (debounceTimeout) {
+            electronLogger.log('Clearing existing debounce timeout');
+            clearTimeout(debounceTimeout);
         }
 
-        if (globalCtx.getState().websocket) {
-            return 'WebSocket already connected.';
-        }
-
-        // Reset reconnect attempts when a new connection is initiated.
-        reconnectAttempts = 0;
-        connectWS(globalCtx);
-        return 'Connecting to WebSocket...';
+        return new Promise((resolve) => {
+            debounceTimeout = setTimeout(async () => {
+                electronLogger.log('Debounce timeout fired, calling connectWithRetry');
+                try {
+                    const result = await connectWithRetry(globalCtx);
+                    electronLogger.log(`connectWithRetry resolved with: ${result}`);
+                    resolve(result);
+                } catch (error) {
+                    electronLogger.error(`connectWithRetry failed: ${error.message}`);
+                    resolve(`Failed to connect: ${error.message}`);
+                }
+            }, 500);
+        });
     });
 
-    ipcMain.handle('disconnect-ws', (event, message) => {
-        electronLogger.log('Disconnecting WebSocket...');
+    ipcMain.handle('disconnect-ws', () => {
+        electronLogger.log('IPC disconnect-ws called');
         try {
             if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
-                wsInstance.send('disconnect');
+                electronLogger.log('Closing WebSocket connection');
                 wsInstance.close();
             }
-        } catch (e) {
-            electronLogger.log('Application closed, disconnect');
-            electronLogger.log(e);
-        } finally {
+            if (debounceTimeout) {
+                electronLogger.log('Clearing debounce timeout');
+                clearTimeout(debounceTimeout);
+                debounceTimeout = null;
+            }
             wsInstance = null;
             globalCtx.setState({ websocket: null });
+            isConnecting = false;
+            connectionPromise = null;
+            electronLogger.log('WebSocket disconnected successfully');
+            return 'WebSocket disconnected';
+        } catch (e) {
+            electronLogger.error(`Error during disconnect: ${e.message}`);
+            return 'Error during disconnect';
         }
     });
 };

@@ -185,7 +185,7 @@ PHASE 2 (Generating Initial Codes) Requirements:
    - Compare newly generated codes with existing ones in the provided keyword table.
    - Highlight similarities or differences in how {main_topic} is handled.
 
-3. DUAL CODING:
+3. MULTIPLE CODING:
    - Semantic: Code the explicit (surface) meaning.
      Example: "I hate Monday mornings" → "Negative time perception"
    - Latent: Code the underlying (implicit) meaning.
@@ -251,6 +251,15 @@ Generate your output strictly in valid JSON format as follows:
   ]
 }}
 ```
+
+NOTE:
+**Ensure Accuracy:**
+   - If a phrase fits multiple codes, list each as a separate entry.
+   - Omit phrases that do not align with any valid codes.
+   - If no codes are applicable across the transcript, return 
+   ``json
+   {{ "codes": [] }}
+   ```.
 
 No additional text outside the JSON.
 """
@@ -325,7 +334,10 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
 3. **Ensure Accuracy:**
    - If a phrase fits multiple codes, list each as a separate entry.
    - Omit phrases that do not align with any valid codes.
-   - If no codes are applicable across the transcript, return {{ "codes": [] }}.
+   - If no codes are applicable across the transcript, return 
+   ``json
+   {{ "codes": [] }}
+   ```.
 
 No additional text outside the JSON.
 """
@@ -494,6 +506,7 @@ You are an advanced AI model specializing in qualitative research and thematic c
 - REMOVE_QUOTE: if the code/quote is deemed inappropriate or not representative.
 - ACCEPT_QUOTE: if the code/quote is deemed appropriate and well-supported.
 - EDIT_QUOTE: if you believe that the code/quote needs revision. In this case, provide a list of alternative code suggestions along with your explanation.
+- REVERT_TO_INITIAL: if you believe that the initial code (before any modifications) is more appropriate than the current one, especially after considering the user's comment and chat history.
 
 ### Input Information
 - Transcript: {transcript}
@@ -511,6 +524,7 @@ You are an advanced AI model specializing in qualitative research and thematic c
    - Use REMOVE_QUOTE if the code/quote is inappropriate.
    - Use ACCEPT_QUOTE if the code/quote is appropriate.
    - Use EDIT_QUOTE if you believe the code/quote should be modified. In this case, include a list of alternative code suggestions.
+   - Use REVERT_TO_INITIAL if you believe that the initial code is more suitable than the current one or the user specifically requests it to be reverted.
    
 ### Output Requirements
 Return your output strictly in valid JSON format:
@@ -518,7 +532,7 @@ Return your output strictly in valid JSON format:
 {{
   "agreement": "AGREE" or "DISAGREE",
   "explanation": "Your explanation text here",
-  "command": "REMOVE_QUOTE" or "ACCEPT_QUOTE" or "EDIT_QUOTE",
+  "command": "REMOVE_QUOTE" or "ACCEPT_QUOTE" or "EDIT_QUOTE" or "REVERT_TO_INITIAL",
   "alternate_codes": [ "alternative code suggestion 1", "alternative code suggestion 2", ... ] // This field should contain a list of revised code suggestions if command is EDIT_QUOTE; otherwise, it can be an empty list.
 }}
 ```

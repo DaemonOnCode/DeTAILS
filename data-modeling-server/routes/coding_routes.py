@@ -1,13 +1,17 @@
 import asyncio
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 import json
 from typing import Annotated, List
 from uuid import uuid4
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 import numpy as np
+import pandas as pd
 
 from config import Settings
+from constants import RANDOM_SEED
 from controllers.coding_controller import filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
+from controllers.collection_controller import get_reddit_post_by_id
 from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
 from routes.websocket_routes import manager
@@ -20,16 +24,101 @@ from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GroupCodes, Initial
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
 settings = Settings()
-
 @router.post("/sample-posts")
 async def sample_posts_endpoint(request_body: SamplePostsRequest):
     if request_body.sample_size <= 0 or request_body.dataset_id == "" or len(request_body.post_ids) == 0:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
-    np.random.seed(request_body.random_seed)
-    sampled_post_ids = np.random.choice(request_body.post_ids, int(request_body.sample_size * len(request_body.post_ids)), replace=False)
+
+    dataset_id = request_body.dataset_id
+    post_ids = request_body.post_ids
+    sample_size = request_body.sample_size 
+
+    # Function to fetch post and compute transcript length
+    def fetch_and_compute_length(post_id: str):
+        try:
+            # Fetch post and comments
+            post = get_reddit_post_by_id(dataset_id, post_id)
+            # Generate transcript
+            transcript = generate_transcript(post)
+            # Compute length
+            length = len(transcript)
+            return post_id, length
+        except HTTPException as e:
+            print(f"Post {post_id} not found: {e.detail}")
+            return post_id, None
+        except Exception as e:
+            print(f"Unexpected error for post {post_id}: {e}")
+            return post_id, None
+
+    # Concurrently fetch posts and compute transcript lengths
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_and_compute_length, post_id) for post_id in post_ids]
+        results = [future.result() for future in futures]
+
+    # Separate valid results from failures
+    valid_results = [res for res in results if res[1] is not None]
+    invalid_post_ids = [res[0] for res in results if res[1] is None]
+
+    # Log warnings if some posts failed
+    if invalid_post_ids:
+        print(f"Some posts were not found: {invalid_post_ids}")
+
+    # Check if there are any valid posts to process
+    if not valid_results:
+        raise HTTPException(status_code=400, detail="No valid posts found.")
+
+    # Create DataFrame from valid results
+    df = pd.DataFrame(valid_results, columns=['post_id', 'length'])
+
+    # Set random seed for reproducibility
+    np.random.seed(RANDOM_SEED)
+
+    # Define strata using quartiles (4 strata)
+    try:
+        df['stratum'] = pd.qcut(df['length'], q=4, labels=False)
+    except ValueError as e:
+        if "Bin edges must be unique" in str(e):
+            S = int(sample_size * len(df))
+            sampled = df.sample(n=S, random_state=RANDOM_SEED)
+            sampled_post_ids = sampled['post_id'].tolist()
+        else:
+            raise HTTPException(status_code=500, detail=f"Error in stratification: {e}")
+    else:
+        # Proceed with stratified sampling
+        N = len(df)  # Number of valid posts
+        S = int(sample_size * N)  # Total number of samples
+
+        # Group by stratum
+        grouped = df.groupby('stratum')
+        stratum_sizes = grouped.size()
+        p_stratum = stratum_sizes / N  # Proportion of each stratum
+
+        # Calculate samples per stratum
+        S_stratum_f = S * p_stratum  # Fractional sample sizes
+        S_stratum = S_stratum_f.astype(int)  # Integer sample sizes
+        sum_S_stratum = S_stratum.sum()
+        remainder = S - sum_S_stratum  # Remaining samples to distribute
+
+        # Distribute remainder to strata with largest fractional parts
+        if remainder > 0:
+            fractional_parts = S_stratum_f - S_stratum
+            top_indices = fractional_parts.nlargest(remainder).index
+            S_stratum.loc[top_indices] += 1
+
+        # Sample from each stratum
+        sampled_post_ids = []
+        for stratum, group in grouped:
+            n_samples = S_stratum[stratum]
+            if n_samples > 0:
+                sampled = group.sample(n=n_samples, random_state=RANDOM_SEED)
+                sampled_post_ids.extend(sampled['post_id'].tolist())
+
+    # Determine unseen post IDs from valid posts
+    unseen_post_ids = list(set(df['post_id']) - set(sampled_post_ids))
+
     return {
-        "sampled" :sampled_post_ids.tolist(),
-        "unseen": list(set(request_body.post_ids) - set(sampled_post_ids))
+        "sampled": sampled_post_ids,
+        "unseen": unseen_post_ids
     }
     
 

@@ -162,8 +162,8 @@ const CodebookAnimation: React.FC = () => {
         <div className="min-h-page w-full flex flex-col items-center justify-center">
             <h1 className="text-3xl font-bold mb-8 text-gray-900">Generating Codebook</h1>
             <p className=" mb-16">
-                {postsFinished}/{sampledPostIds.length} completed. Please wait, this may take a
-                moment...
+                {!!sampledPostIds.length && `${postsFinished}/${sampledPostIds.length} completed. `}
+                Please wait, this may take a moment...
             </p>
 
             {/* Stacking Phase */}

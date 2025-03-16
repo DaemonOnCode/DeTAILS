@@ -53,6 +53,7 @@ export function useLoadingSteps(
                             if (Array.isArray(val)) return [];
                             if (typeof val === 'string') return '';
                             if (typeof val === 'number') return 0;
+                            if (typeof val === 'boolean') return false;
                             return {};
                         };
                         func(initValue !== undefined ? initValue : getDefaultValue(state));
@@ -78,6 +79,7 @@ export function useLoadingSteps(
                     if (typeof state === 'string') return state.trim() !== '';
                     if (typeof state === 'number') return state !== 0;
                     if (state && typeof state === 'object') return Object.keys(state).length > 0;
+                    if (typeof state === 'boolean') return state;
                     return false;
                 });
             },

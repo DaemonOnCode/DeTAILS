@@ -10,11 +10,12 @@ from uuid import uuid4
 from chromadb import HttpClient
 from fastapi import UploadFile
 from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
+from vertexai.generative_models import GenerativeModel
 from google.auth import load_credentials_from_file
 
 import config
 from chromadb.config import Settings as ChromaDBSettings
-from constants import CONTEXT_FILES_DIR, PATHS
+from constants import CONTEXT_FILES_DIR, PATHS, RANDOM_SEED
 from decorators import log_execution_time
 from errors.credential_errors import MissingCredentialError
 from models.table_dataclasses import LlmResponse
@@ -22,7 +23,7 @@ from routes.websocket_routes import ConnectionManager, manager
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_ollama import OllamaEmbeddings
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain.chains.retrieval import create_retrieval_chain 
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -159,7 +160,8 @@ def get_llm_and_embeddings(
     settings: config.Settings = None,
     num_ctx: int = 100_000,
     num_predict: int = 8_000,
-    temperature: float = 0.6
+    temperature: float = 0,
+    random_seed: int = RANDOM_SEED
 ):
     try:
         if model.startswith("gemini") or model.startswith("google"):
@@ -179,6 +181,7 @@ def get_llm_and_embeddings(
                 num_ctx=num_ctx,
                 num_predict=num_predict,
                 temperature=temperature,
+                seed=random_seed,
                 callbacks=[StreamingStdOutCallbackHandler()],
                 credentials = creds,
                 project = creds.quota_project_id
@@ -186,11 +189,12 @@ def get_llm_and_embeddings(
         
         elif model.startswith("ollama"):
             model_name = "-".join(model.split("-")[1:])
-            llm = OllamaLLM(
+            llm = ChatOllama(
                 model=model_name,
                 num_ctx=num_ctx,
                 num_predict=num_predict,
                 temperature=temperature,
+                seed=random_seed,
                 callbacks=[StreamingStdOutCallbackHandler()]
             )
             embeddings = OllamaEmbeddings(model=model_name)
@@ -330,6 +334,7 @@ async def process_llm_task(
 
 
 def filter_codes_by_transcript(codes: list[dict], transcript: str) -> list[dict]:
+    # return codes
     filtered_codes = []
     # For case-insensitive matching, lower both the transcript and the quote.
     transcript_lower = transcript.lower()

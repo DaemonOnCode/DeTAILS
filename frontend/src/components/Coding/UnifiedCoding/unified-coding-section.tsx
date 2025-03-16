@@ -82,6 +82,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         const tab = params.get('tab') === 'codes' ? 'codes' : 'posts';
         const search = params.get('search') || '';
         const selected = params.get('selected') || null;
+        // container && container.scrollTo(0, parseInt(params.get('scrollY') || '0'));
         setActiveTab(tab);
         setSearchQuery(search);
         setSelectedItem(selected);
@@ -208,7 +209,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         const navigationState = {
             tab: activeTab,
             search: searchQuery,
-            selected: selectedItem
+            selected: selectedItem,
+            scrollY: window.scrollY
         };
 
         console.log('Current config', `/coding/transcript/${postId}/${mode}?${params.toString()}`);
