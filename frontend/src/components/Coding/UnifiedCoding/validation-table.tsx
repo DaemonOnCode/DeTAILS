@@ -1,5 +1,7 @@
-import { ChangeEvent, FC, useMemo, useState } from 'react';
+import { ChangeEvent, FC, useEffect, useMemo, useState } from 'react';
 import { IQECResponse, IQECTResponse, IQECTTyResponse } from '../../../types/Coding/shared';
+import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
+import { useLocation } from 'react-router-dom';
 
 interface ValidationTableProps {
     codeResponses: IQECResponse[] | IQECTResponse[] | IQECTTyResponse[];
@@ -37,7 +39,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
     currentPostId,
     showCoderType = true
 }) => {
-    console.log('ValidationTable codeResponses:', codeResponses);
+    const location = useLocation();
 
     const [editIndex, setEditIndex] = useState<string | null>(null);
     const [editableRow, setEditableRow] = useState<any>(null);
@@ -51,6 +53,8 @@ const ValidationTable: FC<ValidationTableProps> = ({
     );
 
     const renderedPostIds = new Set<string>();
+
+    const { scrollRef: tableRef, storageKey } = useScrollRestoration('validation-table');
 
     const handleMark = (index: string, isMarked?: boolean) => {
         const updatedResponses = [...codeResponses];
@@ -109,6 +113,15 @@ const ValidationTable: FC<ValidationTableProps> = ({
         }
     };
 
+    useEffect(() => {
+        if (tableRef.current && codeResponses.length > 0) {
+            const savedPosition = sessionStorage.getItem(storageKey);
+            if (savedPosition) {
+                tableRef.current.scrollTop = parseInt(savedPosition, 10);
+            }
+        }
+    }, [codeResponses, tableRef, storageKey]);
+
     const groupedByPostId = useMemo(() => groupByPostId(codeResponses), [codeResponses]);
     const allPostIds = Object.keys(groupedByPostId);
 
@@ -155,7 +168,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
 
     return (
         <div className="relative flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" ref={tableRef}>
                 <table className="w-full relative border-separate border-spacing-0">
                     <thead className="sticky top-0 z-30 bg-gray-100">
                         <tr>

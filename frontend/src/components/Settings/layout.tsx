@@ -54,6 +54,7 @@ const SettingsLayout = ({
 
     // Helper to change the tab in the URL.
     const handleTabChange = (newTab: Tab) => {
+        if (disableBack) return;
         queryParams.set('tab', newTab);
         navigate(
             { pathname: location.pathname, search: queryParams.toString() },

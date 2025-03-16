@@ -1,4 +1,4 @@
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import PaginationControls from './pagination-control';
 import RedditTable from './reddit-table';
 import { RedditPosts } from '../../types/Coding/shared';
@@ -7,6 +7,7 @@ import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useLoadingContext } from '../../context/loading-context';
 import { useLocation } from 'react-router-dom';
+import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 
 type RedditTableRendererProps = {
     data: RedditPosts;
@@ -45,6 +46,8 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [pendingFilterEndTime, setPendingFilterEndTime] = useState('');
     const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState(false);
 
+    const { scrollRef: tableRef, storageKey } = useScrollRestoration('validation-table');
+
     const filteredData = Object.entries(data).filter(
         ([id, { title, selftext, url, created_utc }]) => {
             const searchMatch =
@@ -70,6 +73,15 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             return searchMatch && timeMatch && hideRemovedMatch;
         }
     );
+
+    useEffect(() => {
+        if (tableRef.current && filteredData.length > 0) {
+            const savedPosition = sessionStorage.getItem(storageKey);
+            if (savedPosition) {
+                tableRef.current.scrollTop = parseInt(savedPosition, 10);
+            }
+        }
+    }, [filteredData, tableRef, storageKey]);
 
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
     const displayedData = filteredData.slice(
@@ -340,7 +352,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             )}
 
             {/* Table */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" ref={tableRef}>
                 <RedditTable
                     data={displayedData}
                     isLoading={loading ?? true}

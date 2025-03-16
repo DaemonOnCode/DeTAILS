@@ -4,6 +4,7 @@ import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { SetState } from '../../../types/Coding/shared';
+import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
 
 interface LeftPanelProps {
     totalPosts: number;
@@ -57,6 +58,8 @@ const LeftPanel: FC<LeftPanelProps> = ({
         setSelectedItem(null);
     }, [selectedTypeFilter, setSelectedItem]);
 
+    const { scrollRef: listRef, storageKey } = useScrollRestoration('left-panel');
+
     const fetchTabData = async (postIds: string[], datasetId: string) => {
         if (!postIds.length || !datasetId) return;
         setLoading(true);
@@ -91,6 +94,15 @@ const LeftPanel: FC<LeftPanelProps> = ({
         const lowerQuery = searchQuery.toLowerCase();
         return codes.filter((code) => code.toLowerCase().includes(lowerQuery));
     }, [codes, searchQuery]);
+
+    useEffect(() => {
+        if (listRef.current && postIdTitles.length > 0) {
+            const savedPosition = sessionStorage.getItem(storageKey);
+            if (savedPosition) {
+                listRef.current.scrollTop = parseInt(savedPosition, 10);
+            }
+        }
+    }, [postIdTitles, listRef, storageKey]);
 
     const handleSelect = (selection: string | null) => {
         setSelectedItem((prev) => {
@@ -205,7 +217,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                 onChange={(e) => setSearchQuery(e.target.value)}
             />
 
-            <div className="flex-1 overflow-auto min-h-0 my-2 gap-y-2">
+            <div className="flex-1 overflow-auto min-h-0 my-2 gap-y-2" ref={listRef}>
                 {activeTab === 'posts' ? (
                     <ul className="space-y-2" ref={containerRef}>
                         {loading ? (

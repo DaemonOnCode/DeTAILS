@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from google.oauth2 import service_account, credentials
 from google.auth.transport.requests import Request
 import google.auth.exceptions
-from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
+from langchain_google_vertexai import ChatVertexAI, VertexAI, VertexAIEmbeddings
 from google.auth import load_credentials_from_file
 
 import config
@@ -177,11 +177,13 @@ async def test_genai_model_endpoint(
     settings = config.CustomSettings()
     creds, _ = load_credentials_from_file(get_credential_path(settings) or os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
     try:
-        ChatVertexAI(
+        llm = ChatVertexAI(
             model_name=request_body.name, 
             credentials = creds,
             project = creds.quota_project_id
         )
+        llm.invoke("Hello!")
+        return {"success": True}
     except Exception as e:
         raise InvalidGenAIModelError(f"Failed to initialize LLM: {str(e)}")
 
@@ -198,5 +200,6 @@ async def test_text_embedding_endpoint(
             credentials=creds,
             project=creds.quota_project_id
         )
+        return {"success": True}
     except Exception as e:
         raise InvalidTextEmbeddingError(f"Failed to initialize embeddings: {str(e)}")

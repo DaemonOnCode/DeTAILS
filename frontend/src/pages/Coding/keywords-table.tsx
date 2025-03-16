@@ -19,6 +19,7 @@ import CustomTutorialOverlay, {
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { useLoadingContext } from '../../context/loading-context';
 import { useUndo } from '../../hooks/Shared/use-undo';
+import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -35,7 +36,7 @@ const KeywordsTablePage: FC = () => {
     const { getServerUrl } = useServerUtils();
 
     const hasSavedRef = useRef(false);
-    const tableContainerRef = useRef<HTMLDivElement>(null);
+    // const tableContainerRef = useRef<HTMLDivElement>(null);
     const location = useLocation();
 
     const steps: TutorialStep[] = [
@@ -122,6 +123,17 @@ const KeywordsTablePage: FC = () => {
     //     registerStepRef(stepRoute, loadingState[location.pathname].stepRef);
     // }, [loadingState[location.pathname].stepRef, stepRoute]);
 
+    const { scrollRef: tableRef, storageKey } = useScrollRestoration('keyword-table');
+
+    useEffect(() => {
+        if (tableRef.current && keywordTable.length > 0) {
+            const savedPosition = sessionStorage.getItem(storageKey);
+            if (savedPosition) {
+                tableRef.current.scrollTop = parseInt(savedPosition, 10);
+            }
+        }
+    }, [keywordTable, tableRef, storageKey]);
+
     const handleToggleAllSelectOrReject = (isSelect: boolean) => {
         const allAlreadySetTo = keywordTable.every((r) => r.isMarked === isSelect);
         const finalDecision = allAlreadySetTo ? undefined : isSelect;
@@ -138,9 +150,9 @@ const KeywordsTablePage: FC = () => {
     const handleAddNewRow = () => {
         dispatchKeywordsTable({ type: 'ADD_ROW' });
         setTimeout(() => {
-            if (tableContainerRef.current) {
-                tableContainerRef.current.scrollTo({
-                    top: tableContainerRef.current.scrollHeight,
+            if (tableRef.current) {
+                tableRef.current.scrollTo({
+                    top: tableRef.current.scrollHeight,
                     behavior: 'smooth'
                 });
             }
@@ -186,7 +198,7 @@ const KeywordsTablePage: FC = () => {
                         <div
                             id="table-section"
                             className="flex-1 overflow-auto relative"
-                            ref={tableContainerRef}>
+                            ref={tableRef}>
                             <table className="w-full border-separate border-spacing-0">
                                 <thead className="sticky top-0">
                                     <tr className="bg-gray-200">

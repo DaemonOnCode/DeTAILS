@@ -171,7 +171,7 @@ const AISettings: React.FC = () => {
     // Combine built-in models and downloaded models for the select dropdown.
     const combinedModels = Array.from(
         new Set([
-            ...Object.values(MODEL_LIST).map((name) => `google-${name}`),
+            ...Object.values(ai.modelList),
             ...downloadedModels.map((modelObj) => `ollama-${modelObj.name}`)
         ])
     );

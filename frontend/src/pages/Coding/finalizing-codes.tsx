@@ -24,6 +24,7 @@ import { createTimer } from '../../utility/timer';
 import { getGroupedCodeOfSubCode } from '../../utility/theme-finder';
 import { toast } from 'react-toastify';
 import { useUndo } from '../../hooks/Shared/use-undo';
+import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 
 const FinalzingCodes = () => {
     const location = useLocation();
@@ -116,6 +117,62 @@ const FinalzingCodes = () => {
             setNoResults(false);
         }
     }, [searchQuery]);
+
+    const codeResponses = [
+        ...sampledPostResponse.map((r) => ({
+            postId: r.postId,
+            id: r.id,
+            code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+            quote: r.quote,
+            explanation: r.explanation,
+            comment: r.comment,
+            subCode: r.code
+        })),
+        ...unseenPostResponse.map((r) => {
+            return {
+                postId: r.postId,
+                id: r.id,
+                code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+                quote: r.quote,
+                explanation: r.explanation,
+                comment: r.comment,
+                subCode: r.code
+            };
+        })
+    ];
+
+    const { scrollRef: codeRef, storageKey: codeStorageKey } = useScrollRestoration(
+        `code-list-${review}`
+    );
+
+    const { scrollRef: unplacedRef, storageKey: unplacedStorageKey } = useScrollRestoration(
+        `unplaced-list-${review}`
+    );
+
+    useEffect(() => {
+        if (!review) {
+            if (codeRef.current) {
+                const savedPosition = sessionStorage.getItem(codeStorageKey);
+                if (savedPosition) {
+                    codeRef.current.scrollTop = parseInt(savedPosition, 10);
+                }
+            }
+            if (unplacedRef.current) {
+                const savedPosition = sessionStorage.getItem(unplacedStorageKey);
+                if (savedPosition) {
+                    unplacedRef.current.scrollTop = parseInt(savedPosition, 10);
+                }
+            }
+        }
+    }, [review, codeRef, unplacedRef, codeStorageKey, unplacedStorageKey]);
+
+    useEffect(() => {
+        if (codeRef.current) {
+            console.log(`Scroll listener attached to code-list`);
+        } else {
+            console.log(`No element found for code-list`);
+        }
+    }, []);
 
     // Handler for dropping a code into a bucket
     const handleDropToBucket = (bucketId: string, code: string) => {
@@ -415,31 +472,9 @@ const FinalzingCodes = () => {
                 )}
                 <div className=" flex flex-col flex-1 overflow-hidden h-full">
                     {review ? (
-                        // REVIEW MODE: Display a table with code responses (adjust prop names as needed)
                         <div className="flex-1 overflow-auto pb-6" id="finalized-code-table">
                             <ValidationTable
-                                codeResponses={[
-                                    ...sampledPostResponse.map((r) => ({
-                                        postId: r.postId,
-                                        id: r.id,
-                                        code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                                        quote: r.quote,
-                                        explanation: r.explanation,
-                                        comment: r.comment,
-                                        subCode: r.code
-                                    })),
-                                    ...unseenPostResponse.map((r) => {
-                                        return {
-                                            postId: r.postId,
-                                            id: r.id,
-                                            code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                                            quote: r.quote,
-                                            explanation: r.explanation,
-                                            comment: r.comment,
-                                            subCode: r.code
-                                        };
-                                    })
-                                ]} // You may need to adjust this based on your data shape
+                                codeResponses={codeResponses}
                                 onViewTranscript={() => {}}
                                 dispatchCodeResponses={() => {}}
                                 onReRunCoding={() => {}}
@@ -448,13 +483,14 @@ const FinalzingCodes = () => {
                             />
                         </div>
                     ) : (
-                        // EDIT MODE: Show bucket interface for codes with drag and drop
                         <>
                             <div className="flex flex-col size-full">
                                 <DndProvider backend={HTML5Backend} context={window}>
                                     <div className="flex flex-1 overflow-hidden size-full">
                                         {/* Left Column: Buckets (70% width) */}
-                                        <div className="w-[70%] flex-1 overflow-auto px-4">
+                                        <div
+                                            className="w-[70%] flex-1 overflow-auto px-4"
+                                            ref={codeRef}>
                                             <div className="grid grid-cols-2 gap-6">
                                                 {groupedCodes.map((bucket) => (
                                                     <Bucket
@@ -469,7 +505,7 @@ const FinalzingCodes = () => {
                                         </div>
                                         {/* Right Column: Unplaced Codes (30% width) */}
                                         <div className="flex flex-col h-full w-[30%] px-4 gap-2">
-                                            <div className="flex-1 overflow-auto">
+                                            <div className="flex-1 overflow-auto" ref={unplacedRef}>
                                                 <UnplacedCodesBox
                                                     unplacedCodes={unplacedSubCodes}
                                                     onDrop={handleDropToUnplaced}

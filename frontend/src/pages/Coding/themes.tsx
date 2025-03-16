@@ -26,6 +26,7 @@ import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { getGroupedCodeOfSubCode } from '../../utility/theme-finder';
 import { useUndo } from '../../hooks/Shared/use-undo';
+import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 
 const ThemesPage = () => {
     const {
@@ -170,6 +171,29 @@ const ThemesPage = () => {
     const { getServerUrl } = useServerUtils();
 
     const stepRoute = location.pathname;
+
+    const { scrollRef: themeRef, storageKey: codeStorageKey } = useScrollRestoration('theme-list');
+
+    useEffect(() => {
+        if (themeRef.current && themes.length > 0) {
+            const savedPosition = sessionStorage.getItem(codeStorageKey);
+            if (savedPosition) {
+                themeRef.current.scrollTop = parseInt(savedPosition, 10);
+            }
+        }
+    }, [themes, themeRef, codeStorageKey]);
+
+    const { scrollRef: unplacedRef, storageKey: unplacedStorageKey } =
+        useScrollRestoration('unplaced-list');
+
+    useEffect(() => {
+        if (unplacedRef.current && unplacedCodes.length > 0) {
+            const savedPosition = sessionStorage.getItem(unplacedStorageKey);
+            if (savedPosition) {
+                unplacedRef.current.scrollTop = parseInt(savedPosition, 10);
+            }
+        }
+    }, [unplacedCodes, unplacedRef, unplacedStorageKey]);
 
     const handleDropToBucket = (themeId: string, code: string) => {
         performWithUndo([themes, unplacedCodes], [setThemes, setUnplacedCodes], () => {
@@ -359,7 +383,7 @@ const ThemesPage = () => {
                         <DndProvider backend={HTML5Backend} context={window}>
                             <div className="flex flex-1 overflow-hidden size-full">
                                 {/* Left Column: Theme Buckets (70% width) */}
-                                <div className="w-[70%] flex-1 overflow-auto px-4">
+                                <div className="w-[70%] flex-1 overflow-auto px-4" ref={themeRef}>
                                     <div id="bucket-section" className="grid grid-cols-2 gap-6">
                                         {themes.map((theme) => (
                                             <Bucket
@@ -374,7 +398,10 @@ const ThemesPage = () => {
                                 </div>
                                 {/* Right Column: Unplaced Codes (30% width) */}
                                 <div className="w-[30%] flex flex-col px-4 gap-2">
-                                    <div className="flex-1 overflow-auto" id="unplaced-codes">
+                                    <div
+                                        className="flex-1 overflow-auto"
+                                        id="unplaced-codes"
+                                        ref={unplacedRef}>
                                         <UnplacedCodesBox
                                             unplacedCodes={unplacedCodes}
                                             onDrop={handleDropToUnplaced}

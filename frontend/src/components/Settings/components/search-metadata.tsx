@@ -78,7 +78,7 @@ const SearchMetadata: React.FC<SearchMetadataProps> = ({
 
     return (
         <div className="mb-4">
-            <h3 className="text-xl font-bold mb-2">Search Model Metadata from Ollama</h3>
+            <h3 className="text-xl font-bold mb-2">Search Model from Ollama</h3>
             <div className="flex mb-2">
                 <input
                     type="text"
