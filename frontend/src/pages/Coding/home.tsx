@@ -69,7 +69,7 @@ const HomePage: FC = () => {
                     <img src={'details-full-logo.png'} alt="DeTAILS Logo" className="h-7" />
                 </h1>
                 <p className="text-center text-gray-600 mb-4">
-                    Deductive Thematic Analysis with Iterative LLM Support
+                    Deep Thematic Analysis with Iterative LLM Support
                 </p>
 
                 {/* Card grid */}

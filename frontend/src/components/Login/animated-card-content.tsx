@@ -26,7 +26,7 @@ function AnimatedCardContent({ wordList, idx, handleAnimationDone }: AnimatedCar
     const [wordSpans, setWordSpans] = useState<WordSpan[]>([
         {
             start: NUM_COLS * 0,
-            word: 'Deductive',
+            word: 'Deep',
             color: palette[Math.floor(Math.random() * palette.length)]
         },
         {
