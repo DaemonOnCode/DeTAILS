@@ -1,36 +1,7 @@
-import React, { ChangeEvent } from 'react';
+import React, { ChangeEvent, FC } from 'react';
+import { SearchMetadataProps } from '../../../types/Settings/props';
 
-interface Tag {
-    tag: string;
-    size: string;
-    updated: string;
-}
-
-interface MainModel {
-    name: string;
-    description: string;
-}
-
-export interface Metadata {
-    main_model: MainModel;
-    tags: Tag[];
-}
-
-interface SearchMetadataProps {
-    ollamaInput: string;
-    setOllamaInput: (value: string) => void;
-    handleSearchMetadata: () => void;
-    handleClearSearch: () => void;
-    searchLoading: boolean;
-    metadata: Metadata | null;
-    metadataError: string;
-    pullLoading: boolean;
-    handlePullModel: (tag: string) => void;
-    pullingModelName: string;
-    downloadedModels: any[];
-}
-
-const SearchMetadata: React.FC<SearchMetadataProps> = ({
+const SearchMetadata: FC<SearchMetadataProps> = ({
     ollamaInput,
     setOllamaInput,
     handleSearchMetadata,

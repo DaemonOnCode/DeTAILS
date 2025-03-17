@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -10,7 +11,36 @@ import {
 } from '.';
 import { ROUTES } from '../../constants/Shared';
 import { useSettings } from '../../context/settings-context';
-import { useEffect } from 'react';
+
+// Modal component (defined below)
+const UnsavedChangesModal = ({ onSave = () => {}, onDiscard = () => {}, onCancel = () => {} }) => {
+    return (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white p-6 rounded shadow-lg">
+                <p className="mb-4">
+                    You have unsaved changes. Do you want to save them before leaving?
+                </p>
+                <div className="flex justify-end space-x-2">
+                    <button
+                        onClick={onSave}
+                        className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                        Save
+                    </button>
+                    <button
+                        onClick={onDiscard}
+                        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                        Discard
+                    </button>
+                    <button
+                        onClick={onCancel}
+                        className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const SettingsLayout = ({
     authenticated,
@@ -23,46 +53,61 @@ const SettingsLayout = ({
 }) => {
     const location = useLocation();
     const navigate = useNavigate();
-    const {
-        resetSection,
-        updateSettings,
-        settingsLoading,
-        dirtySections,
-        fetchSettings,
-        disableBack
-    } = useSettings();
+    const { resetSection, settingsLoading, dirtySections, fetchSettings, disableBack } =
+        useSettings();
 
-    // Fetch settings on component mount.
+    // State for modal and navigation
+    const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+    const [nextAction, setNextAction] = useState<() => void>(() => () => {});
+    const [saveCurrentSettings, setSaveCurrentSettings] = useState<() => void>(() => () => {});
+
     useEffect(() => {
         fetchSettings();
-    }, []);
+    }, [fetchSettings]);
 
     const tabs = {
-        general: <GeneralSettingsPage />,
-        // workspace: <WorkspaceSettingsPage />,
-        ai: <AiSettingsPage />,
-        // devtools: <DevtoolsSettingsPage />,
-        tutorials: <TutorialSettingsPage />,
-        transmission: <TransmissionSettings />
+        general: <GeneralSettingsPage setSaveCurrentSettings={setSaveCurrentSettings} />,
+        ai: <AiSettingsPage setSaveCurrentSettings={setSaveCurrentSettings} />,
+        tutorials: <TutorialSettingsPage setSaveCurrentSettings={setSaveCurrentSettings} />,
+        transmission: <TransmissionSettings setSaveCurrentSettings={setSaveCurrentSettings} />
+        // Add other tabs like devtools, workspace as needed
     };
 
     type Tab = keyof typeof tabs;
 
-    // Parse query params to get the current tab.
     const queryParams = new URLSearchParams(location.search);
     const currentTab: Tab = (queryParams.get('tab') as Tab) ?? (Object.keys(tabs)[0] as Tab);
 
-    // Helper to change the tab in the URL.
     const handleTabChange = (newTab: Tab) => {
         if (disableBack) return;
-        queryParams.set('tab', newTab);
-        navigate(
-            { pathname: location.pathname, search: queryParams.toString() },
-            { state: { ...location.state, previousUrl } }
-        );
+        if (dirtySections[currentTab]) {
+            setNextAction(() => () => {
+                queryParams.set('tab', newTab);
+                navigate(
+                    { pathname: location.pathname, search: queryParams.toString() },
+                    { state: { ...location.state, previousUrl } }
+                );
+            });
+            setShowUnsavedModal(true);
+        } else {
+            queryParams.set('tab', newTab);
+            navigate(
+                { pathname: location.pathname, search: queryParams.toString() },
+                { state: { ...location.state, previousUrl } }
+            );
+        }
     };
 
-    // Reset the current section to its default values.
+    const handleBackClick = () => {
+        if (disableBack) return;
+        if (dirtySections[currentTab]) {
+            setNextAction(() => onBackClick);
+            setShowUnsavedModal(true);
+        } else {
+            onBackClick();
+        }
+    };
+
     const handleResetChanges = async () => {
         try {
             await resetSection(currentTab);
@@ -72,17 +117,10 @@ const SettingsLayout = ({
         }
     };
 
-    // Update the current section with new changes.
-    const handleUpdateChanges = async () => {
-        try {
-            console.log(`Updated ${currentTab} settings successfully.`);
-            // In a real scenario, you would collect updated values from a form and call updateSettings.
-        } catch (error) {
-            console.error(`Error updating ${currentTab} settings:`, error);
-        }
+    const handleUpdateChanges = () => {
+        saveCurrentSettings();
     };
 
-    // Show a loading screen if settings are still loading.
     if (settingsLoading) {
         return (
             <div className="flex items-center justify-center h-screen">
@@ -96,10 +134,10 @@ const SettingsLayout = ({
             <div className="flex flex-1 overflow-hidden">
                 <aside className="w-1/4 border-r border-gray-300 p-4">
                     <button
-                        onClick={onBackClick}
+                        onClick={handleBackClick}
                         disabled={disableBack}
                         className={`mb-4 ${!disableBack ? 'text-blue-500' : 'text-gray-500 cursor-not-allowed'} hover:underline`}>
-                        &larr; Back to Application
+                        ← Back to Application
                     </button>
                     <ul className="space-y-2">
                         {Object.keys(tabs).map((tab) => (
@@ -134,7 +172,6 @@ const SettingsLayout = ({
                         className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
                         Reset To Default
                     </button>
-                    {/* Show Update Changes button only if there are unsaved changes */}
                     {dirtySections[currentTab] && (
                         <button
                             onClick={handleUpdateChanges}
@@ -144,6 +181,21 @@ const SettingsLayout = ({
                     )}
                 </div>
             </footer>
+
+            {showUnsavedModal && (
+                <UnsavedChangesModal
+                    onSave={() => {
+                        saveCurrentSettings();
+                        setShowUnsavedModal(false);
+                        nextAction();
+                    }}
+                    onDiscard={() => {
+                        setShowUnsavedModal(false);
+                        nextAction();
+                    }}
+                    onCancel={() => setShowUnsavedModal(false)}
+                />
+            )}
         </div>
     );
 };

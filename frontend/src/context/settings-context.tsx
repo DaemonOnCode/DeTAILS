@@ -40,7 +40,6 @@ export interface ISettingsConfig {
     };
 }
 
-// Keep defaultSettings private.
 const defaultSettings = _defaultSettings as ISettingsConfig;
 type Sections = keyof Omit<ISettingsConfig, 'app'>;
 
@@ -85,19 +84,23 @@ export const SettingsContext = createContext<ISettingsContext>({
 export const SettingsProvider: FC<ILayout> = ({ children }) => {
     const [settings, setSettings] = useState<ISettingsConfig>(defaultSettings);
     const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
+    const [settingsFetched, setSettingsFetched] = useState<boolean>(false); // New flag
     const [dirtySections, setDirtySections] = useState<Record<Sections, boolean>>(
         Object.assign({}, ...Object.keys(defaultSettings).map((key) => ({ [key]: false })))
     );
-
     const [disableBack, setDisableBack] = useState<boolean>(false);
 
     const fetchSettings = async () => {
+        // Only fetch if settings haven't been fetched yet
+        if (settingsFetched) return;
+
         setSettingsLoading(true);
         try {
             const savedSettings: ISettingsConfig = await ipcRenderer.invoke('get-settings');
             console.log('Settings:', savedSettings);
             if (savedSettings) {
                 setSettings(savedSettings);
+                setSettingsFetched(true); // Mark as fetched
             }
         } catch (err) {
             console.error('Error retrieving settings:', err);
@@ -105,12 +108,12 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
             setSettingsLoading(false);
         }
     };
-    // Load settings on mount.
+
+    // Load settings on mount
     useEffect(() => {
         fetchSettings();
     }, []);
 
-    // Update a specific section of settings.
     const updateSettings = useCallback(
         async (section: Sections, updates: Partial<ISettingsConfig[typeof section]>) => {
             const newSettings = {
@@ -127,10 +130,8 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
                     'set-settings',
                     newSettings
                 );
-
                 console.log('Updated settings:', updatedSettings);
                 setSettings(updatedSettings);
-                // Once updated, clear the dirty flag for that section.
                 setDirtySections((prev) => ({ ...prev, [section]: false }));
             } catch (err) {
                 console.error('Error updating settings:', err);
@@ -139,12 +140,10 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
         [settings]
     );
 
-    // Reset the entire settings to defaults.
     const resetSettings = useCallback(async () => {
         try {
             const resetSettings: ISettingsConfig = await ipcRenderer.invoke('reset-settings');
             setSettings(resetSettings);
-            // Clear all dirty flags.
             setDirtySections(
                 Object.assign({}, ...Object.keys(defaultSettings).map((key) => ({ [key]: false })))
             );
@@ -153,7 +152,6 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
         }
     }, []);
 
-    // Reset an individual section to its default values.
     const resetSection = useCallback(
         async (section: Sections) => {
             try {
@@ -168,7 +166,7 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
 
     const skipTutorialGlobally = useCallback(async () => {
         await updateSettings('tutorials', { showGlobal: false });
-    }, [settings.tutorials.showGlobal]);
+    }, [updateSettings]); // Fixed dependency
 
     const skipTutorialForPage = useCallback(
         async (pageId: string) => {
@@ -188,7 +186,6 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
         [settings.tutorials.skipPages, updateSettings]
     );
 
-    // Helper to mark a section as having unsaved changes.
     const markSectionDirty = useCallback((section: Sections, isDirty: boolean) => {
         setDirtySections((prev) => ({ ...prev, [section]: isDirty }));
     }, []);

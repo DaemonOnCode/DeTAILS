@@ -1,10 +1,5 @@
 import React from 'react';
-
-interface PullProgressProps {
-    pullLoading: boolean;
-    pullProgress: number;
-    pullStatus: string;
-}
+import { PullProgressProps } from '../../../types/Settings/props';
 
 const PullProgress: React.FC<PullProgressProps> = ({ pullLoading, pullProgress, pullStatus }) => {
     if (!pullLoading) return null;

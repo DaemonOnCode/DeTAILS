@@ -1,63 +1,62 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useSettings } from '../../../context/settings-context';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { debounce } from 'lodash';
+import { AIParametersProps } from '../../../types/Settings/props';
 
-const AIParameters: React.FC = () => {
-    const { settings, updateSettings, setDisableBack } = useSettings();
+const AIParameters: FC<AIParametersProps> = ({
+    temperature,
+    randomSeed,
+    modelList,
+    textEmbedding,
+    onTemperatureChange,
+    onRandomSeedChange,
+    onTextEmbeddingChange,
+    onModelListChange
+}) => {
     const { fetchData } = useApi();
-    const ai = settings.ai || {};
-    const temperature = ai.temperature ?? 0.0;
-    const randomSeed = ai.randomSeed ?? 0;
-    const modelList = ai.modelList ?? [];
-    const textEmbedding = ai.textEmbedding ?? '';
-
-    // State for managing inputs and errors
     const [newModelInput, setNewModelInput] = useState('');
     const [embeddingInput, setEmbeddingInput] = useState(textEmbedding);
     const [embeddingError, setEmbeddingError] = useState<string | null>(null);
     const [modelError, setModelError] = useState<string | null>(null);
-
     const [localTemperature, setLocalTemperature] = useState(temperature);
+    const [isCheckingModel, setIsCheckingModel] = useState(false);
+
     useEffect(() => {
         setLocalTemperature(temperature);
-    }, [temperature]);
+        setEmbeddingInput(textEmbedding);
+    }, [temperature, textEmbedding]);
 
-    // Handler for validating and adding text embedding
     const handleCheckAndAddEmbedding = async () => {
         const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.CHECK_GOOGLE_TEXT_EMBEDDING, {
             method: 'POST',
             body: JSON.stringify({ name: embeddingInput })
         });
         if (error) {
-            setEmbeddingError('This is invalid'); // Set error message
+            setEmbeddingError('This is invalid');
         } else {
-            updateSettings('ai', { textEmbedding: embeddingInput });
-            setEmbeddingError(null); // Clear error on success
+            onTextEmbeddingChange(embeddingInput);
+            setEmbeddingError(null);
         }
     };
 
     const debouncedUpdateTemperature = useCallback(
         debounce((newTemperature: number) => {
-            updateSettings('ai', { temperature: newTemperature });
+            onTemperatureChange(newTemperature);
         }, 300),
-        [updateSettings]
+        [onTemperatureChange]
     );
 
-    const handleTemperatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleTemperatureChangeInternal = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newTemperature = parseFloat(e.target.value);
         setLocalTemperature(newTemperature);
         debouncedUpdateTemperature(newTemperature);
     };
 
-    const [isCheckingModel, setIsCheckingModel] = useState(false);
-
     const handleAddModel = async () => {
         setModelError(null);
-        setDisableBack(true);
         const newModel = `google-${newModelInput.trim()}`;
         if (!newModelInput.trim() || modelList.includes(newModel)) return;
 
@@ -68,21 +67,18 @@ const AIParameters: React.FC = () => {
                 body: JSON.stringify({ name: newModelInput })
             });
             if (!error) {
-                updateSettings('ai', { modelList: [...modelList, newModel] });
+                onModelListChange([...modelList, newModel]);
                 setNewModelInput('');
             } else {
-                console.error('Invalid model');
                 setModelError('Invalid model');
             }
         } finally {
             setIsCheckingModel(false);
-            setDisableBack(false);
         }
     };
 
     return (
         <div className="my-4">
-            {/* Temperature Slider */}
             <div className="flex justify-between items-center">
                 <label className="font-medium">Temperature</label>
                 <span>{temperature.toFixed(2)}</span>
@@ -93,10 +89,9 @@ const AIParameters: React.FC = () => {
                 max="1"
                 step="0.01"
                 value={localTemperature}
-                onChange={handleTemperatureChange}
+                onChange={handleTemperatureChangeInternal}
                 className="w-full mt-1 custom-range"
             />
-            {/* Random Seed Input */}
             <div className="mt-4">
                 <label className="block font-medium">Random Seed:</label>
                 <input
@@ -104,14 +99,10 @@ const AIParameters: React.FC = () => {
                     min="0"
                     step="1"
                     value={randomSeed}
-                    onChange={(e) =>
-                        updateSettings('ai', { randomSeed: parseInt(e.target.value) || 0 })
-                    }
+                    onChange={(e) => onRandomSeedChange(parseInt(e.target.value) || 0)}
                     className="mt-1 border rounded p-2 w-24"
                 />
             </div>
-
-            {/* Text Embedding Input with Check and Add Button */}
             <div className="mt-4">
                 <label className="block font-medium">Text Embedding:</label>
                 <div className="flex items-center">
@@ -120,7 +111,7 @@ const AIParameters: React.FC = () => {
                         value={embeddingInput}
                         onChange={(e) => {
                             setEmbeddingInput(e.target.value);
-                            setEmbeddingError(null); // Clear error when typing
+                            setEmbeddingError(null);
                         }}
                         className="mt-1 border rounded p-2 w-fit min-w-64"
                     />
@@ -132,8 +123,6 @@ const AIParameters: React.FC = () => {
                 </div>
                 {embeddingError && <p className="text-red-500 mt-1">Invalid text embedding</p>}
             </div>
-
-            {/* Model List Management */}
             <div className="mt-4">
                 <h4 className="font-semibold">Model List</h4>
                 <ul className="space-y-2 mt-2">
@@ -149,7 +138,7 @@ const AIParameters: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         const newList = modelList.filter((_, i) => i !== index);
-                                        updateSettings('ai', { modelList: newList });
+                                        onModelListChange(newList);
                                     }}
                                     className="ml-2 text-red-500 hover:text-red-700 transition-colors">
                                     <FaTrash />
@@ -165,9 +154,7 @@ const AIParameters: React.FC = () => {
                         value={newModelInput}
                         onChange={(e) => setNewModelInput(e.target.value)}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                handleAddModel();
-                            }
+                            if (e.key === 'Enter') handleAddModel();
                         }}
                         className="border rounded p-2 w-full"
                     />

@@ -1,10 +1,5 @@
 import React, { ChangeEvent } from 'react';
-
-interface ModelSelectProps {
-    combinedModels: string[];
-    selectedModel: string;
-    onModelChange: (e: ChangeEvent<HTMLSelectElement>) => void;
-}
+import { ModelSelectProps } from '../../../types/Settings/props';
 
 const ModelSelect: React.FC<ModelSelectProps> = ({
     combinedModels,

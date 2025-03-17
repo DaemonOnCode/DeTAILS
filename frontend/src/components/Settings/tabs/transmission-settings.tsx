@@ -1,33 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, FC } from 'react';
 import { useSettings } from '../../../context/settings-context';
+import { CommonSettingTabProps } from '../../../types/Settings/props';
 
-const TransmissionSettings = () => {
-    const { settings, updateSettings } = useSettings();
-    // Assume settings contains a transmission object with a "path" property.
+const TransmissionSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
+    const { settings, updateSettings, markSectionDirty } = useSettings();
     const { transmission } = settings;
-    const [transmissionPath, setTransmissionPath] = useState<string>(transmission.path);
-    const [transmissionDownloadPath, setTransmissionDownloadPath] = useState<string>(
-        transmission?.downloadDir || ''
-    );
+    const [localTransmission, setLocalTransmission] = useState({
+        path: transmission?.path || '',
+        downloadDir: transmission?.downloadDir || ''
+    });
 
-    // Update local state if the context settings change.
+    // Sync local state with context settings
     useEffect(() => {
-        setTransmissionPath(transmission?.path || '');
+        setLocalTransmission({
+            path: transmission?.path || '',
+            downloadDir: transmission?.downloadDir || ''
+        });
     }, [transmission]);
 
-    const handlePathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setTransmissionPath(e.target.value);
+    // Provide the save function to the parent
+    useEffect(() => {
+        setSaveCurrentSettings(() => () => updateSettings('transmission', localTransmission));
+    }, [localTransmission, updateSettings, setSaveCurrentSettings]);
+
+    const handlePathChange = (e: any) => {
+        setLocalTransmission((prev) => ({ ...prev, path: e.target.value }));
+        markSectionDirty('transmission', true);
     };
 
-    const handleDownloadDirChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setTransmissionDownloadPath(e.target.value);
-    };
-
-    const handleUpdate = async () => {
-        await updateSettings('transmission', {
-            path: transmissionPath,
-            downloadDir: transmissionDownloadPath
-        });
+    const handleDownloadDirChange = (e: any) => {
+        setLocalTransmission((prev) => ({ ...prev, downloadDir: e.target.value }));
+        markSectionDirty('transmission', true);
     };
 
     return (
@@ -37,32 +40,22 @@ const TransmissionSettings = () => {
                 <label className="block mb-2 font-medium">Transmission Executable Path</label>
                 <input
                     type="text"
-                    value={transmissionPath}
+                    value={localTransmission.path}
                     onChange={handlePathChange}
                     className="w-full p-2 border border-gray-300 rounded"
                     placeholder="Enter Transmission CLI path"
                 />
             </div>
-            <button
-                onClick={handleUpdate}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none">
-                Update Transmission Path
-            </button>
-            <div className="my-4">
+            <div className="mb-4">
                 <label className="block mb-2 font-medium">Transmission Download Path</label>
                 <input
                     type="text"
-                    value={transmissionDownloadPath}
+                    value={localTransmission.downloadDir}
                     onChange={handleDownloadDirChange}
                     className="w-full p-2 border border-gray-300 rounded"
                     placeholder="Enter Transmission download folder path"
                 />
             </div>
-            <button
-                onClick={handleUpdate}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none">
-                Update Transmission Download folder
-            </button>
         </div>
     );
 };

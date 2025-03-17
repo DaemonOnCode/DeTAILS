@@ -1,12 +1,25 @@
-import { ChangeEvent } from 'react';
+import React, { useState, useEffect, FC } from 'react';
 import { useSettings } from '../../../context/settings-context';
+import { CommonSettingTabProps } from '../../../types/Settings/props';
 
-const GeneralSettings = () => {
-    const { settings, updateSettings } = useSettings();
+const GeneralSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
+    const { settings, updateSettings, markSectionDirty } = useSettings();
     const { general } = settings;
+    const [localGeneral, setLocalGeneral] = useState(general);
 
-    const handleThemeChange = (e: ChangeEvent<HTMLSelectElement>) => {
-        updateSettings('general', { ...general, theme: e.target.value as 'light' | 'dark' });
+    // Sync local state with context settings
+    useEffect(() => {
+        setLocalGeneral(general);
+    }, [general]);
+
+    // Provide the save function to the parent
+    useEffect(() => {
+        setSaveCurrentSettings(() => () => updateSettings('general', localGeneral));
+    }, [localGeneral, updateSettings, setSaveCurrentSettings]);
+
+    const handleThemeChange = (e: any) => {
+        setLocalGeneral((prev) => ({ ...prev, theme: e.target.value }));
+        markSectionDirty('general', true);
     };
 
     return (
@@ -16,24 +29,27 @@ const GeneralSettings = () => {
                 <label className="flex items-center space-x-2">
                     <input
                         type="checkbox"
-                        checked={general.manualCoding}
-                        onChange={(e) =>
-                            updateSettings('general', {
-                                ...general,
+                        checked={localGeneral.manualCoding}
+                        onChange={(e) => {
+                            setLocalGeneral((prev) => ({
+                                ...prev,
                                 manualCoding: e.target.checked
-                            })
-                        }
+                            }));
+                            markSectionDirty('general', true);
+                        }}
                         className="form-checkbox"
                     />
                     <span>Show Manual coding</span>
                 </label>
             </div>
+            {/* Uncomment and update if needed */}
             {/* <div className="mb-4">
                 <label className="mr-2">Theme:</label>
                 <select
-                    value={general.theme}
+                    value={localGeneral.theme}
                     onChange={handleThemeChange}
-                    className="border rounded p-1">
+                    className="border rounded p-1"
+                >
                     <option value="light">Light</option>
                     <option value="dark">Dark</option>
                 </select>

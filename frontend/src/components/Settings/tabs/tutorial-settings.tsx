@@ -1,17 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect, FC } from 'react';
 import { useSettings } from '../../../context/settings-context';
+import { CommonSettingTabProps } from '../../../types/Settings/props';
 
-const TutorialSettings = () => {
-    const { settings, updateSettings } = useSettings();
+const TutorialSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
+    const { settings, updateSettings, markSectionDirty } = useSettings();
     const { tutorials } = settings;
+    const [localTutorials, setLocalTutorials] = useState(tutorials);
 
-    const handleShowTutorialsChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        console.log('Show Tutorials Globally:', e.target.checked);
-        await updateSettings('tutorials', { showGlobal: e.target.checked });
+    // Sync local state with context settings when they change
+    useEffect(() => {
+        setLocalTutorials(tutorials);
+    }, [tutorials]);
+
+    // Provide the save function to the parent
+    useEffect(() => {
+        setSaveCurrentSettings(() => () => updateSettings('tutorials', localTutorials));
+    }, [localTutorials, updateSettings, setSaveCurrentSettings]);
+
+    const handleShowTutorialsChange = (e: any) => {
+        setLocalTutorials((prev) => ({ ...prev, showGlobal: e.target.checked }));
+        markSectionDirty('tutorials', true);
     };
 
-    const handleClearSkipPages = async () => {
-        await updateSettings('tutorials', { skipPages: [] });
+    const handleClearSkipPages = () => {
+        setLocalTutorials((prev) => ({ ...prev, skipPages: [] }));
+        markSectionDirty('tutorials', true);
     };
 
     return (
@@ -21,7 +34,7 @@ const TutorialSettings = () => {
                 <label className="flex items-center space-x-2">
                     <input
                         type="checkbox"
-                        checked={tutorials.showGlobal}
+                        checked={localTutorials.showGlobal}
                         onChange={handleShowTutorialsChange}
                         className="form-checkbox"
                     />
@@ -30,9 +43,9 @@ const TutorialSettings = () => {
             </div>
             <div className="mb-4">
                 <p className="font-medium">Skipped Pages:</p>
-                {tutorials.skipPages.length > 0 ? (
+                {localTutorials.skipPages.length > 0 ? (
                     <ul className="list-disc list-inside ml-4">
-                        {tutorials.skipPages.map((page, index) => (
+                        {localTutorials.skipPages.map((page, index) => (
                             <li key={index}>{page}</li>
                         ))}
                     </ul>

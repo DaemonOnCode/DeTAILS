@@ -1,85 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, FC } from 'react';
 import { useSettings } from '../../../context/settings-context';
-import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { useWebSocket } from '../../../context/websocket-context';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import CredentialsInput from '../components/credentials-input';
 import DownloadedModels from '../components/downloaded-model';
 import ModelSelect from '../components/model-select';
-import PullProgress from '../components/pull-progress';
-import SearchMetadata from '../components/search-metadata';
 import AIParameters from '../components/parameters';
+import SearchMetadata from '../components/search-metadata';
+import PullProgress from '../components/pull-progress';
+import { CommonSettingTabProps } from '../../../types/Settings/props';
+import { ModelObj, Metadata } from '../../../types/Settings/shared';
 
-const AISettings: React.FC = () => {
-    const { settings, updateSettings, setDisableBack } = useSettings();
+const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
+    const { settings, updateSettings, markSectionDirty, setDisableBack } = useSettings();
     const { ai } = settings;
     const { fetchData } = useApi();
     const { registerCallback, unregisterCallback } = useWebSocket();
 
-    const [googleCredentialsPath, setGoogleCredentialsPath] = useState<string>(
-        ai?.googleCredentialsPath || ''
-    );
-    const [ollamaInput, setOllamaInput] = useState<string>('');
-    // downloadedModels is an array of objects.
+    const [localAi, setLocalAi] = useState({
+        model: ai?.model || MODEL_LIST.GEMINI_FLASH_THINKING,
+        googleCredentialsPath: ai?.googleCredentialsPath || '',
+        temperature: ai?.temperature ?? 0.0,
+        randomSeed: ai?.randomSeed ?? 0,
+        modelList: ai?.modelList ?? [],
+        textEmbedding: ai?.textEmbedding ?? ''
+    });
+
     const [downloadedModels, setDownloadedModels] = useState<any[]>([]);
-    const [downloadedModelsLoading, setDownloadedModelsLoading] = useState<boolean>(false);
-    const [metadata, setMetadata] = useState<any>(null);
-    const [metadataError, setMetadataError] = useState<string>('');
-    const [searchLoading, setSearchLoading] = useState<boolean>(false);
-    const [pullLoading, setPullLoading] = useState<boolean>(false);
-    const [selectedModel, setSelectedModel] = useState<string>(
-        ai?.model || MODEL_LIST.GEMINI_FLASH_THINKING
-    );
+    const [downloadedModelsLoading, setDownloadedModelsLoading] = useState(false);
 
-    // State for pull progress and model being pulled.
-    const [pullProgress, setPullProgress] = useState<number>(0);
-    const [pullStatus, setPullStatus] = useState<string>('');
-    const [pullingModelName, setPullingModelName] = useState<string>('');
+    const [ollamaInput, setOllamaInput] = useState('');
+    const [metadata, setMetadata] = useState<Metadata | null>(null);
+    const [metadataError, setMetadataError] = useState('');
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [pullLoading, setPullLoading] = useState(false);
+    const [pullProgress, setPullProgress] = useState(0);
+    const [pullStatus, setPullStatus] = useState('');
+    const [pullingModelName, setPullingModelName] = useState('');
 
-    // Update local state if settings change.
     useEffect(() => {
-        setGoogleCredentialsPath(ai?.googleCredentialsPath || '');
-        setSelectedModel(ai?.model || MODEL_LIST.GEMINI_FLASH_THINKING);
+        setLocalAi({
+            model: ai?.model || MODEL_LIST.GEMINI_FLASH_THINKING,
+            googleCredentialsPath: ai?.googleCredentialsPath || '',
+            temperature: ai?.temperature ?? 0.0,
+            randomSeed: ai?.randomSeed ?? 0,
+            modelList: ai?.modelList ?? [],
+            textEmbedding: ai?.textEmbedding ?? ''
+        });
     }, [ai]);
 
     useEffect(() => {
-        console.log('Selected model:', selectedModel);
-    }, [selectedModel]);
-
-    // Subscribe to websocket messages for pull progress.
-    useEffect(() => {
-        const handleWsMessage = (msg: string) => {
-            try {
-                const data = JSON.parse(msg);
-                if (data.total && data.completed !== undefined) {
-                    const progress = (data.completed / data.total) * 100;
-                    setPullProgress(progress);
-                    if (pullingModelName) {
-                        setPullStatus(`Pulling ${pullingModelName}`);
-                    } else {
-                        setPullStatus(data.status || '');
-                    }
-                }
-            } catch (e) {
-                console.error('Error parsing websocket message', e);
-            }
-        };
-        registerCallback('pull-ollama-model', handleWsMessage);
-        return () => {
-            unregisterCallback('pull-ollama-model');
-        };
-    }, [pullingModelName, registerCallback, unregisterCallback]);
+        setSaveCurrentSettings(() => () => updateSettings('ai', localAi));
+    }, [localAi, updateSettings, setSaveCurrentSettings]);
 
     useEffect(() => {
         const fetchDownloadedModels = async () => {
             setDownloadedModelsLoading(true);
             try {
                 const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.OLLAMA_LIST);
-                if (error) {
-                    console.error('Error fetching downloaded models:', error);
-                } else {
-                    setDownloadedModels(data.models);
-                }
+                if (error) console.error('Error fetching downloaded models:', error);
+                else setDownloadedModels(data.models || []);
             } catch (err) {
                 console.error(err);
             }
@@ -88,16 +69,55 @@ const AISettings: React.FC = () => {
         fetchDownloadedModels();
     }, [fetchData]);
 
-    const handleModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-        await updateSettings('ai', { googleCredentialsPath, model: e.target.value });
-        setSelectedModel(e.target.value);
+    useEffect(() => {
+        const handleWsMessage = (msg: string) => {
+            try {
+                const data = JSON.parse(msg);
+                if (data.total && data.completed !== undefined) {
+                    const progress = (data.completed / data.total) * 100;
+                    setPullProgress(progress);
+                    setPullStatus(
+                        pullingModelName ? `Pulling ${pullingModelName}` : data.status || ''
+                    );
+                }
+            } catch (e) {
+                console.error('Error parsing websocket message', e);
+            }
+        };
+        registerCallback('pull-ollama-model', handleWsMessage);
+        return () => unregisterCallback('pull-ollama-model');
+    }, [pullingModelName, registerCallback, unregisterCallback]);
+
+    const handleModelChange = (e: any) => {
+        setLocalAi((prev) => ({ ...prev, model: e.target.value }));
+        markSectionDirty('ai', true);
     };
 
-    const handleUpdateAISettings = async () => {
-        await updateSettings('ai', { googleCredentialsPath, model: selectedModel });
+    const handleCredentialsPathChange = (e: any) => {
+        setLocalAi((prev) => ({ ...prev, googleCredentialsPath: e.target.value }));
+        markSectionDirty('ai', true);
     };
 
-    // Search for metadata from the Ollama API.
+    const handleTemperatureChange = (newTemperature: number) => {
+        setLocalAi((prev) => ({ ...prev, temperature: newTemperature }));
+        markSectionDirty('ai', true);
+    };
+
+    const handleRandomSeedChange = (newSeed: number) => {
+        setLocalAi((prev) => ({ ...prev, randomSeed: newSeed }));
+        markSectionDirty('ai', true);
+    };
+
+    const handleTextEmbeddingChange = (newEmbedding: string) => {
+        setLocalAi((prev) => ({ ...prev, textEmbedding: newEmbedding }));
+        markSectionDirty('ai', true);
+    };
+
+    const handleModelListChange = (newModelList: string[]) => {
+        setLocalAi((prev) => ({ ...prev, modelList: newModelList }));
+        markSectionDirty('ai', true);
+    };
+
     const handleSearchMetadata = async () => {
         setSearchLoading(true);
         setMetadataError('');
@@ -106,15 +126,10 @@ const AISettings: React.FC = () => {
             const { data, error } = await fetchData(
                 `${REMOTE_SERVER_ROUTES.OLLAMA_MODEL_METADATA}/${encodeURIComponent(ollamaInput)}`
             );
-            if (error) {
-                console.log('Error fetching metadata:', error);
-                setMetadataError(error.message.error_message || 'Unknown error');
-            } else {
-                setMetadata(data);
-            }
+            if (error) setMetadataError(error.message.error_message || 'Unknown error');
+            else setMetadata(data);
         } catch (error: any) {
-            console.error('Error fetching metadata:', error);
-            setMetadataError(error.message || 'Unknown error');
+            setMetadataError(error ?? 'Unknown error');
         }
         setSearchLoading(false);
     };
@@ -130,8 +145,8 @@ const AISettings: React.FC = () => {
         setPullLoading(true);
         setPullProgress(0);
         setPullStatus('');
-        const fullModelName = `${metadata.main_model.name}:${tag}`;
-        setPullingModelName(fullModelName); // Use full model name with tag
+        const fullModelName = `${metadata!.main_model.name}:${tag}`;
+        setPullingModelName(fullModelName);
         try {
             const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.OLLAMA_PULL, {
                 method: 'POST',
@@ -139,9 +154,9 @@ const AISettings: React.FC = () => {
                 body: JSON.stringify({ model: fullModelName })
             });
             if (error) throw new Error(error.message.error_message || 'Unknown error');
-            console.log('Pulled model data:', data);
-            setSelectedModel(fullModelName);
+            setLocalAi((prev) => ({ ...prev, model: fullModelName }));
             setDownloadedModels((prev) => [...prev, { name: fullModelName }]);
+            markSectionDirty('ai', true);
         } catch (error) {
             console.error('Error pulling model:', error);
         }
@@ -150,25 +165,20 @@ const AISettings: React.FC = () => {
         setDisableBack(false);
     };
 
-    // Delete a downloaded model.
-    const handleDeleteDownloadedModel = async (modelObj: any) => {
+    const handleDeleteDownloadedModel = async (modelObj: ModelObj) => {
         try {
-            const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.OLLAMA_DELETE, {
+            const { error } = await fetchData(REMOTE_SERVER_ROUTES.OLLAMA_DELETE, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model: modelObj.name })
             });
-            if (error) {
-                console.error('Error deleting model:', error);
-            } else {
-                setDownloadedModels((prev) => prev.filter((m) => m.name !== modelObj.name));
-            }
+            if (error) console.error('Error deleting model:', error);
+            else setDownloadedModels((prev) => prev.filter((m) => m.name !== modelObj.name));
         } catch (e) {
             console.error('Error deleting model:', e);
         }
     };
 
-    // Combine built-in models and downloaded models for the select dropdown.
     const combinedModels = Array.from(
         new Set([
             ...Object.values(ai.modelList),
@@ -181,19 +191,27 @@ const AISettings: React.FC = () => {
             <h2 className="text-2xl font-bold mb-4">AI Settings</h2>
             <ModelSelect
                 combinedModels={combinedModels}
-                selectedModel={selectedModel}
+                selectedModel={localAi.model}
                 onModelChange={handleModelChange}
+            />
+            <AIParameters
+                temperature={localAi.temperature}
+                randomSeed={localAi.randomSeed}
+                modelList={localAi.modelList}
+                textEmbedding={localAi.textEmbedding}
+                onTemperatureChange={handleTemperatureChange}
+                onRandomSeedChange={handleRandomSeedChange}
+                onTextEmbeddingChange={handleTextEmbeddingChange}
+                onModelListChange={handleModelListChange}
+            />
+            <CredentialsInput
+                googleCredentialsPath={localAi.googleCredentialsPath}
+                onCredentialsPathChange={handleCredentialsPathChange}
             />
             <DownloadedModels
                 downloadedModels={downloadedModels}
                 downloadedModelsLoading={downloadedModelsLoading}
                 handleDeleteDownloadedModel={handleDeleteDownloadedModel}
-            />
-            <AIParameters />
-            <CredentialsInput
-                googleCredentialsPath={googleCredentialsPath}
-                handleCredentialsPathChange={(e) => setGoogleCredentialsPath(e.target.value)}
-                handleUpdateAISettings={handleUpdateAISettings}
             />
             <SearchMetadata
                 ollamaInput={ollamaInput}

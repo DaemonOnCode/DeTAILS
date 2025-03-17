@@ -1,15 +1,5 @@
 import React from 'react';
-
-export interface ModelObj {
-    name: string;
-    digest?: string;
-}
-
-interface DownloadedModelsProps {
-    downloadedModels: ModelObj[];
-    downloadedModelsLoading: boolean;
-    handleDeleteDownloadedModel: (modelObj: ModelObj) => void;
-}
+import { DownloadedModelsProps } from '../../../types/Settings/props';
 
 const DownloadedModels: React.FC<DownloadedModelsProps> = ({
     downloadedModels,
@@ -18,7 +8,7 @@ const DownloadedModels: React.FC<DownloadedModelsProps> = ({
 }) => {
     return (
         <div className="mb-4">
-            <h3 className="text-xl font-bold mb-2">Downloaded Models</h3>
+            <h3 className="text-xl font-bold mb-2">Ollama Downloaded Models</h3>
             {downloadedModelsLoading ? (
                 <div>Loading downloaded models...</div>
             ) : downloadedModels.length > 0 ? (
