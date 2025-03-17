@@ -59,7 +59,8 @@ export interface IQECRow {
 export enum ChatCommands {
     ACCEPT_QUOTE = 'ACCEPT_QUOTE',
     REMOVE_QUOTE = 'REMOVE_QUOTE',
-    EDIT_QUOTE = 'EDIT_QUOTE'
+    EDIT_QUOTE = 'EDIT_QUOTE',
+    REVERT_TO_INITIAL = 'REVERT_TO_INITIAL'
 }
 
 export interface ChatMessage {

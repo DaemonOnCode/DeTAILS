@@ -27,16 +27,12 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     existingChatHistory
 }) => {
     const { chatHistories, setChatHistories, review } = useTranscriptContext();
-    // We'll treat `initialExplanationWithCode.code` as our "prevCode" reference
     const prevCode = initialExplanationWithCode.code;
 
-    // Build a unique chatKey for local reference
     const chatKey = `${postId}-${prevCode}-${initialExplanationWithCode.fullText}`;
 
-    // Initial messages either from context or from the prop
     const initialMessages = chatHistories[chatKey] ?? existingChatHistory;
 
-    // Local state
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [editableInputs, setEditableInputs] = useState<{ [key: number]: string }>({});
     const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
@@ -44,18 +40,12 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     const { settings } = useSettings();
     const { fetchData } = useApi();
 
-    /**
-     * A single method to:
-     * 1) Update local messages state
-     * 2) Update TranscriptContext chatHistories
-     * 3) Dispatch "SYNC_CHAT_STATE" so it can update global store with code, chat, isMarked, etc.
-     */
     const syncChatState = (
         updatedMsgs: ChatMessage[],
         overrides?: {
-            newCode?: string; // if user picked a new code
-            isMarked?: boolean; // if snippet is marked or unmarked
-            refresh?: boolean; // if we want the store to treat this as a "refresh" scenario
+            newCode?: string;
+            isMarked?: boolean;
+            refresh?: boolean;
         }
     ) => {
         setMessages(updatedMsgs);
@@ -65,7 +55,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             type: 'SYNC_CHAT_STATE',
             postId,
             quote: initialExplanationWithCode.fullText,
-            prevCode, // old code
+            prevCode,
             currentCode: overrides?.newCode,
             isMarked: overrides?.isMarked,
             chatHistory: updatedMsgs,
@@ -73,7 +63,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         });
     };
 
-    /** Helper: update a single message by ID in array */
     const updateMessageById = (
         msgs: ChatMessage[],
         targetId: number,
@@ -82,20 +71,16 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         return msgs.map((msg) => (msg.id === targetId ? { ...msg, ...update } : msg));
     };
 
-    /** Toggle the chat expansion/collapse */
     const handleToggleChat = () => setChatCollapsed((prev) => !prev);
 
-    /** Check if user can still apply reaction on a given LLM message */
     const isReactionEditable = (msg: ChatMessage, i: number): boolean => {
         if (i === messages.length - 1) return true;
         const nextMsg = messages[i + 1];
         return !!(nextMsg && (nextMsg.isThinking || nextMsg.isEditable));
     };
 
-    /** Convert the entire conversation to an array of strings, "Sender: text" */
     const computeChatHistory = () => messages.map((m) => `${m.sender}: ${m.text}`);
 
-    /** Called when user sends a "Human" comment */
     const handleSendComment = async (e: React.MouseEvent<HTMLButtonElement>, messageId: number) => {
         e.preventDefault();
         e.stopPropagation();
@@ -103,13 +88,11 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         const comment = editableInputs[messageId]?.trim();
         if (!comment) return;
 
-        // 1) Lock the text in
         let newMsgs = messages.map((msg) =>
             msg.id === messageId ? { ...msg, text: comment, isEditable: false } : msg
         );
         setEditableInputs((prev) => ({ ...prev, [messageId]: '' }));
 
-        // 2) If it's a newly typed "Human" comment, add an LLM "Thinking..." placeholder
         const isHumanMsg = messages.find((m) => m.id === messageId)?.sender === 'Human';
         if (isHumanMsg) {
             newMsgs = [
@@ -120,7 +103,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
 
         setMessages(newMsgs);
 
-        // 3) Build payload for your refine-code endpoint
         const payload = {
             dataset_id: datasetId,
             post_id: postId,
@@ -142,7 +124,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             }
             const { explanation, agreement, command, alternate_codes } = data || {};
 
-            // 4) Replace "Thinking..." with the actual LLM response
             const targetId = newMsgs[newMsgs.length - 1].id;
             let finalMsgs = updateMessageById(newMsgs, targetId, {
                 text: explanation || 'No explanation returned.',
@@ -151,7 +132,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 alternate_codes
             });
 
-            // If LLM says "AGREE" or "DISAGREE," set the reaction on the last Human message
             if (agreement) {
                 const lastHumanIndex = [...finalMsgs]
                     .reverse()
@@ -168,7 +148,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             syncChatState(finalMsgs);
         } catch (err) {
             console.error('Error sending comment:', err);
-            // If error, update the LLM placeholder
             const targetId = newMsgs[newMsgs.length - 1].id;
             let errorMsgs = updateMessageById(newMsgs, targetId, {
                 text: 'There was an error. Please try again.',
@@ -178,7 +157,12 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         }
     };
 
-    /** Reaction button logic: AGREE (true), DISAGREE (false), or un-click (undefined) */
+    const isCodeSelectionDisabled = (msg: ChatMessage, i: number): boolean => {
+        return msg.sender === 'Human' && msg.isEditable
+            ? i < messages.length - 2
+            : i < messages.length - 1;
+    };
+
     const handleReaction = (
         e: React.MouseEvent<HTMLButtonElement>,
         messageId: number,
@@ -188,7 +172,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         e.preventDefault();
         e.stopPropagation();
 
-        // If chat is collapsed but there's only 1 message, expand it
         if (chatCollapsed && messages.length === 1) {
             setChatCollapsed(false);
         }
@@ -199,7 +182,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         let newMsgs = [...messages];
         const idx = newMsgs.findIndex((m) => m.id === messageId);
 
-        // Remove any "Human" editable message right after
         if (
             newMsgs[idx + 1] &&
             newMsgs[idx + 1].sender === 'Human' &&
@@ -208,10 +190,8 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             newMsgs.splice(idx + 1, 1);
         }
 
-        // Compare the new reaction to the old one to see if user un-clicked
         const currentReaction = reaction === current.reaction ? undefined : reaction;
 
-        // If it's EDIT_QUOTE but code not chosen, block "agree"
         if (current.command === 'EDIT_QUOTE') {
             const codeChosen = (current.code ?? '').trim();
             if (currentReaction === true && !codeChosen) {
@@ -224,7 +204,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         let newCode: string | undefined;
 
         if (currentReaction === true) {
-            // The user "agrees"
             newMsgs[idx].reaction = true;
 
             if (current.command === 'REMOVE_QUOTE') {
@@ -234,21 +213,27 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 isMarked = true;
                 newCode = prevCode;
             } else if (current.command === 'EDIT_QUOTE' && current.code) {
-                // Accepting a new code
                 isMarked = true;
                 newCode = current.code;
 
-                // Mark only this message as "isCurrentCode"
                 newMsgs = newMsgs.map((m) => ({
                     ...m,
                     isCurrentCode: m.id === messageId
                 }));
+            } else if (current.command === 'REVERT_TO_INITIAL') {
+                const initialMsg = newMsgs[0];
+                if (initialMsg && initialMsg.code) {
+                    newCode = initialMsg.code;
+                    isMarked = true;
+                    newMsgs = newMsgs.map((m) => ({
+                        ...m,
+                        isCurrentCode: m.id === initialMsg.id
+                    }));
+                }
             }
         } else if (currentReaction === false) {
-            // The user "disagrees"
             newMsgs[idx].reaction = false;
 
-            // Possibly add a new Human comment box
             const lastMsg = newMsgs[newMsgs.length - 1];
             if (!(lastMsg.sender === 'Human' && lastMsg.isEditable)) {
                 newMsgs.push({
@@ -259,7 +244,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 });
             }
 
-            // If it's EDIT_QUOTE, revert code to the original
             if (current.command === 'EDIT_QUOTE') {
                 const previousMsg = newMsgs[0];
                 if (previousMsg) {
@@ -271,11 +255,8 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 }
             }
         } else {
-            // currentReaction === undefined => user un-clicked
-            // So let's set reaction = undefined explicitly
             newMsgs[idx].reaction = undefined;
 
-            // If it was an EDIT_QUOTE, revert code to original
             if (current.command === 'EDIT_QUOTE') {
                 const previousMsg = newMsgs[0];
                 if (previousMsg) {
@@ -288,22 +269,12 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             }
         }
 
-        // Finally, sync new state
         syncChatState(newMsgs, {
             newCode,
             isMarked
         });
     };
 
-    /**
-     * LLM "Refresh" logic. We let the user re-invoke the API, then forcibly clear reaction
-     * for ONLY this one LLM message.
-     */
-    /**
-     * If user clicks "Refresh" (FaRedoAlt) on an LLM message,
-     * we re-invoke the API and remove any extra Human editable comment
-     * immediately after that LLM message.
-     */
     const handleRefreshLLM = async (
         e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
         messageId: number
@@ -314,14 +285,12 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         const idx = messages.findIndex((m) => m.id === messageId);
         if (idx === -1) return;
 
-        // 1) Mark the LLM message "Thinking..."
         let newMsgs = updateMessageById(messages, messageId, {
             text: 'Thinking...',
             isThinking: true
         });
         setMessages(newMsgs);
 
-        // 2) Build partial history up to that message
         const partialHistory = messages.slice(0, idx).map((m) => `${m.sender}: ${m.text}`);
         const payload = {
             dataset_id: datasetId,
@@ -343,7 +312,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 console.log('Refine code result:', data);
             }
 
-            // 3) Merge LLM's new explanation
             const { explanation, command, alternate_codes } = data || {};
             newMsgs = updateMessageById(newMsgs, messageId, {
                 text: explanation || 'No explanation returned.',
@@ -354,17 +322,12 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         } catch (err) {
             console.error('Error refreshing LLM message:', err);
 
-            // Show error for that LLM message
             newMsgs = updateMessageById(newMsgs, messageId, {
                 text: 'There was an error. Please try again.',
                 isThinking: false
             });
         }
 
-        // -----------------------
-        // 4) Remove any "Human" isEditable message that appears immediately after
-        // the LLM we just refreshed (index = idx + 1).
-        // -----------------------
         const nextIndex = idx + 1;
         if (
             newMsgs[nextIndex] &&
@@ -374,20 +337,13 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             newMsgs.splice(nextIndex, 1);
         }
 
-        // -----------------------
-        // 5) Reset the reaction for THIS LLM message only (if you like)
-        // -----------------------
         newMsgs = newMsgs.map((msg) =>
             msg.id === messageId && msg.sender === 'LLM' ? { ...msg, reaction: undefined } : msg
         );
 
-        // 6) Sync final
         syncChatState(newMsgs, { refresh: true });
     };
 
-    /**
-     * Reaction buttons: "Agree," "Disagree," "Refresh"
-     */
     const ReactionButtons = ({ msg, index }: { msg: ChatMessage; index: number }) => {
         const canReact = isReactionEditable(msg, index);
 
@@ -443,7 +399,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 </div>
             );
         } else if (msg.isEditable) {
-            // A user comment in progress
             return (
                 <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
                     <button
@@ -467,7 +422,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
             );
         }
 
-        // Otherwise, no reaction or editing possible
         return (
             <div className="flex flex-col self-start ml-2 space-y-2 sticky top-2">
                 <button
@@ -496,14 +450,10 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         );
     };
 
-    /**
-     * Render each message row
-     */
     const renderMessage = (msg: ChatMessage, i: number) => {
         const isInitial = i === 0 && msg.code;
         const latestNewMessage = [...messages].reverse().find((m) => m.isCurrentCode);
 
-        // background color
         const bg = isInitial
             ? latestNewMessage?.code && latestNewMessage.reaction
                 ? generateColor(latestNewMessage.code)
@@ -520,7 +470,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                 <div
                     className={`relative flex-1 p-4 rounded ${chainStyle}`}
                     style={{ backgroundColor: bg }}>
-                    {/* Show code if it's the initial snippet */}
                     {isInitial ? (
                         latestNewMessage?.code !== messages[0].code ? (
                             <pre className="bg-gray-800 text-white p-2 rounded mb-2 whitespace-pre-wrap">
@@ -550,7 +499,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                         <p className="whitespace-pre-wrap">{msg.text}</p>
                     )}
 
-                    {/* If the LLM says "EDIT_QUOTE," allow user to pick alternate codes */}
                     {msg.command === 'EDIT_QUOTE' && msg.text !== 'Thinking...' && (
                         <div>
                             <p className="text-sm font-medium mb-1">Choose a code:</p>
@@ -560,7 +508,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                     onChange={(e) => {
                                         const newCode = e.target.value;
 
-                                        // Clear reaction & isCurrentCode until user "agrees"
                                         const updatedMessages = messages.map((m) =>
                                             m.id === msg.id
                                                 ? {
@@ -571,12 +518,11 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                                                   }
                                                 : m
                                         );
-                                        // By default, keep the original code as "current"
                                         updatedMessages[0].isCurrentCode = true;
 
-                                        // Must click ✓ to finalize
                                         syncChatState(updatedMessages);
                                     }}
+                                    disabled={isCodeSelectionDisabled(msg, i)}
                                     className="p-1 border rounded w-full">
                                     <option value="">Select a code</option>
                                     {msg.alternate_codes?.map((codeOption, idx) => (
