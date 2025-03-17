@@ -25,7 +25,7 @@ export function useFilteredData({
     sampledPostIds,
     unseenPostIds
 }: UseFilteredDataParams) {
-    console.log(postIds, data, filter, 'use filtered data');
+    console.log(postIds, data, filter, showCoderType, selectedTypeFilter, 'use filtered data');
 
     return useMemo(() => {
         let filteredData = data;

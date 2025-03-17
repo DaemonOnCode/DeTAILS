@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import debounce from 'lodash/debounce';
 import { BaseResponseHandlerActions } from '../../../types/Coding/shared';
@@ -78,25 +78,45 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     // Restore states from URL on mount
     useEffect(() => {
+        console.log('Restoring state from URL', location.search);
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab') === 'codes' ? 'codes' : 'posts';
-        const search = params.get('search') || '';
-        const selected = params.get('selected') || null;
-        // container && container.scrollTo(0, parseInt(params.get('scrollY') || '0'));
+        const typeFromUrl = params.get('selectedTypeFilter');
+        const allowedTypes = ['New Data', 'Codebook', 'Human', 'LLM', 'All'];
+        const defaultType = showCoderType ? 'All' : 'New Data';
+        const type = allowedTypes.includes(typeFromUrl ?? '') ? typeFromUrl : defaultType;
+        const search = params.get('search');
+        if (search) {
+            setSearchQuery(search);
+        }
+        const selected = params.get('selected');
+        if (selected) {
+            setSelectedItem(selected);
+        }
+        console.log(
+            'Restored state:',
+            tab,
+            search,
+            selected,
+            type,
+            allowedTypes.includes(type ?? ''),
+            reviewParam,
+            review
+        );
         setActiveTab(tab);
-        setSearchQuery(search);
-        setSelectedItem(selected);
-        setFilter(selected); // Sync filter with selectedItem
+        setFilter(selected);
+        setSelectedTypeFilter(type as 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All');
     }, [location.search]);
 
     // Debounced function to update URL
     const debouncedUpdateUrl = useMemo(
         () =>
-            debounce((tab: string, search: string, selected: string | null) => {
+            debounce((tab: string, search: string, selected: string | null, type: string) => {
                 const params = new URLSearchParams();
                 params.set('tab', tab);
                 if (search) params.set('search', search);
                 if (selected) params.set('selected', selected);
+                params.set('selectedTypeFilter', type);
                 navigate({ search: params.toString() }, { replace: true });
             }, 300),
         [navigate]
@@ -104,8 +124,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     // Update URL when states change
     useEffect(() => {
-        debouncedUpdateUrl(activeTab, searchQuery, selectedItem);
-    }, [activeTab, searchQuery, selectedItem, debouncedUpdateUrl]);
+        debouncedUpdateUrl(activeTab, searchQuery, selectedItem, selectedTypeFilter);
+    }, [activeTab, searchQuery, selectedItem, selectedTypeFilter, debouncedUpdateUrl]);
 
     // Cleanup debounce on unmount
     useEffect(() => {
@@ -124,6 +144,16 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         sampledPostIds,
         unseenPostIds
     });
+
+    console.log(
+        'Filtered data:',
+        filteredData,
+        filteredPostIds,
+        totalData,
+        totalIds,
+        showCoderType,
+        selectedTypeFilter
+    );
 
     // Precompute a Set of sampled IDs for fast lookup
     const sampledIds = useMemo(
@@ -179,46 +209,53 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             ? routeDispatch
             : dispatchFunction;
 
-    const handleViewTranscript = (postId: string | null) => {
-        if (manualCoding) {
-            onPostSelect(postId);
-            return;
-        }
-
-        const params = new URLSearchParams();
-        if (showFilterDropdown && selectedTypeFilter) {
-            if (selectedTypeFilter === 'All') {
-                if (sampledPostIds.includes(postId ?? '')) {
-                    params.append('type', 'Codebook');
-                } else {
-                    params.append('type', 'New Data');
-                }
-            } else {
-                params.append('type', selectedTypeFilter);
+    const handleViewTranscript = useCallback(
+        (postId: string | null) => {
+            if (manualCoding) {
+                onPostSelect(postId);
+                return;
             }
-        } else if (showFilterDropdown && coderType) {
-            params.append('type', coderType);
-        }
-        if (split !== undefined) {
-            params.append('split', split.toString());
-        }
-        if (showCodebook) params.append('codebook', 'true');
 
-        const mode = review ? 'review' : 'refine';
+            const params = new URLSearchParams();
+            if (showFilterDropdown && selectedTypeFilter) {
+                if (selectedTypeFilter === 'All') {
+                    if (sampledPostIds.includes(postId ?? '')) {
+                        params.append('type', 'Codebook');
+                    } else {
+                        params.append('type', 'New Data');
+                    }
+                } else {
+                    params.append('type', selectedTypeFilter);
+                }
+            } else if (showFilterDropdown && coderType) {
+                params.append('type', coderType);
+            }
+            if (split !== undefined) {
+                params.append('split', split.toString());
+            }
+            if (showCodebook) params.append('codebook', 'true');
 
-        const navigationState = {
-            tab: activeTab,
-            search: searchQuery,
-            selected: selectedItem,
-            scrollY: window.scrollY
-        };
+            const mode = review ? 'review' : 'refine';
 
-        console.log('Current config', `/coding/transcript/${postId}/${mode}?${params.toString()}`);
+            const navigationState = {
+                tab: activeTab,
+                search: searchQuery,
+                selected: selectedItem,
+                selectedTypeFilter
+            };
 
-        navigate(`/coding/transcript/${postId}/${mode}?${params.toString()}`, {
-            state: navigationState
-        });
-    };
+            console.log(
+                'Current config',
+                `/coding/transcript/${postId}/${mode}?${params.toString()}`,
+                navigationState
+            );
+
+            navigate(`/coding/transcript/${postId}/${mode}?${params.toString()}`, {
+                state: navigationState
+            });
+        },
+        [activeTab, searchQuery, selectedItem, selectedTypeFilter, review, coderType]
+    );
 
     const handleUpdateResponses = (updatedResponses: any[]) => {
         effectiveDispatch({

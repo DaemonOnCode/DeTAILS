@@ -74,6 +74,7 @@ const TranscriptPage = () => {
         if (tab) params.set('tab', tab);
         if (search) params.set('search', search);
         if (selected) params.set('selected', selected);
+        params.set('selectedTypeFilter', location.state?.selectedTypeFilter ?? 'All');
         navigate(`/${SHARED_ROUTES.CODING}/${route}?${params.toString()}`);
     };
 

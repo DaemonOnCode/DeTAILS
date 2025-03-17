@@ -124,7 +124,7 @@ const websocketHandler = (...ctxs) => {
             clearTimeout(debounceTimeout);
         }
 
-        return new Promise((resolve) => {
+        new Promise((resolve) => {
             debounceTimeout = setTimeout(async () => {
                 electronLogger.log('Debounce timeout fired, calling connectWithRetry');
                 try {
@@ -137,6 +137,8 @@ const websocketHandler = (...ctxs) => {
                 }
             }, 500);
         });
+
+        return;
     });
 
     ipcMain.handle('disconnect-ws', () => {
