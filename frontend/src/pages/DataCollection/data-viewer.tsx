@@ -24,6 +24,7 @@ import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { toast } from 'react-toastify';
 import { useWorkspaceContext } from '../../context/workspace-context';
+import { useManualCodingContext } from '../../context/manual-coding-context';
 
 const DataViewerPage = () => {
     const { type, datasetId, selectedData, modeInput, isLocked } = useCollectionContext();
@@ -51,6 +52,7 @@ const DataViewerPage = () => {
 
     const postIds: string[] = selectedData;
     const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD && isLocked;
+    const { addPostIds } = useManualCodingContext();
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
@@ -132,11 +134,19 @@ const DataViewerPage = () => {
         console.log('Sampling posts:', postIds);
 
         // Sample posts from the backend.
-        const { data: sampleData, error: sampleError } = await fetchData<{
-            message: string;
-            sampled: string[];
-            unseen: string[];
-        }>(REMOTE_SERVER_ROUTES.SAMPLE_POSTS, {
+        const { data: sampleData, error: sampleError } = await fetchData<
+            | {
+                  message: string;
+                  sampled: string[];
+                  unseen: string[];
+              }
+            | {
+                  message: string;
+                  sampled: string[];
+                  unseen: string[];
+                  test: string[];
+              }
+        >(REMOTE_SERVER_ROUTES.SAMPLE_POSTS, {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
@@ -162,6 +172,11 @@ const DataViewerPage = () => {
 
         setSampledPostIds(sampleData['sampled']);
         setUnseenPostIds(sampleData['unseen']);
+
+        if (settings.general.manualCoding) {
+            // @ts-ignore
+            addPostIds(sampleData['test']);
+        }
 
         console.log(
             'Generate initial codes:',

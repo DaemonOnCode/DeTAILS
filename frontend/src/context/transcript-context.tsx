@@ -25,7 +25,6 @@ import { generateColor } from '../utility/color-generator';
 
 interface ITranscriptContext {
     review: boolean;
-    // State values and setters
     selectedText: string | null;
     setSelectedText: SetState<string | null>;
     hoveredCode: string | null;
@@ -51,13 +50,11 @@ interface ITranscriptContext {
         rangeMarker?: { itemId: string; range: [number, number] };
     }[];
     allExplanations: Explanation[];
-    // Selection helpers
     handleTextSelection: (_selectionRef: MutableRefObject<Range | null>) => void;
     restoreSelection: () => void;
     removeSelection: () => void;
     handleSegmentInteraction: (segment: Segment, isPermanent?: boolean) => void;
     handleSegmentLeave: (isPermanent?: boolean) => void;
-    // Transcript processing helpers
     processTranscript: (
         post: any,
         extraCodes?: string[]
@@ -66,7 +63,6 @@ interface ITranscriptContext {
         codeSet: string[];
         codeColors: Record<string, string>;
     };
-    // Refs for DOM access
     selectionRangeRef: MutableRefObject<Range | null>;
     containerRef: RefObject<HTMLDivElement>;
     selectedTextMarker: {

@@ -13,7 +13,17 @@ import ValidationTable from '../UnifiedCoding/validation-table';
 import { TranscriptContextProvider } from '../../../context/transcript-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 
-const TranscriptPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
+const TranscriptPage = ({
+    id,
+    onBack
+}: {
+    id: string;
+    onBack: () => void;
+    postStates: {
+        [postId: string]: boolean;
+    };
+    updatePostState: (postId: string, state: boolean) => void;
+}) => {
     const {
         unseenPostResponse,
         dispatchUnseenPostResponse,

@@ -82,3 +82,9 @@ class GroupCodesRequest(BaseModel):
     model: str
     sampled_post_responses: list
     unseen_post_responses: list
+
+class GenerateCodebookWithoutQuotesRequest(BaseModel):
+    dataset_id: str
+    model: str
+    sampled_post_responses: list
+    unseen_post_responses: list

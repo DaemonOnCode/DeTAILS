@@ -15,14 +15,14 @@ from constants import RANDOM_SEED
 from controllers.coding_controller import filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
 from controllers.collection_controller import get_reddit_post_by_id
 from headers.app_id import get_app_id
-from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
+from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
 from models.table_dataclasses import FunctionProgress
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
 from database.db_helpers import get_post_and_comments_from_id
-from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GroupCodes, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
+from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GenerateCodebookWithoutQuotes, GroupCodes, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
 
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
@@ -906,3 +906,53 @@ async def group_codes_endpoint(
             "unplaced_codes": unplaced_codes
         }
     }
+
+
+@router.post("/generate-codebook-without-quotes")
+async def generate_codebook_without_quotes_endpoint(
+    request: Request,
+    request_body: GenerateCodebookWithoutQuotesRequest,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+):
+    dataset_id = request_body.dataset_id
+    if not dataset_id:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+
+    app_id = request.headers.get("x-app-id")
+
+    llm, _ = get_llm_and_embeddings(request_body.model)
+
+
+    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
+
+    grouped_ec = {}
+    for row in rows:
+        if row["code"] not in grouped_ec:
+            grouped_ec[row["code"]] = []
+        grouped_ec[row["code"]].append(row["explanation"])
+
+    print(grouped_ec, "grouped_ec") 
+
+    parsed_response = await process_llm_task(
+        app_id=app_id,
+        dataset_id=dataset_id,
+        manager=manager,
+        llm_model=request_body.model,
+        regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+        prompt_builder_func=GenerateCodebookWithoutQuotes.generate_codebook_without_quotes_prompt,
+        llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
+        codes=json.dumps(grouped_ec)
+    )
+
+    print(parsed_response)
+
+    codes = parsed_response
+    # for code in codes:
+    #     code["id"] = str(uuid4())
+
+    return {
+        "message": "Codebook generated successfully!",
+        "data": codes
+    }
+    

@@ -1,7 +1,6 @@
 import { Suspense } from 'react';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
-import useServerUtils from '../../../hooks/Shared/get-server-url';
 import { createResource } from '../../../utility/resource-creator';
 import PostCards from '../CodingTranscript/post-cards';
 import { FetchResponse, useApi } from '../../../hooks/Shared/use-api';
@@ -31,9 +30,11 @@ const fetchPostData = async (
 
 const TranscriptGrid = ({
     postIds,
+    postStates,
     onPostSelect
 }: {
     postIds: string[];
+    postStates: { [postId: string]: boolean };
     onPostSelect: (postId: string) => void;
 }) => {
     const { datasetId } = useCollectionContext();
@@ -52,6 +53,7 @@ const TranscriptGrid = ({
             <Suspense fallback={<p>Loading...</p>}>
                 <PostCards
                     resource={resource}
+                    postStates={postStates}
                     onPostClick={(postId) => handleViewTranscript(postId)}
                 />
             </Suspense>

@@ -83,6 +83,7 @@ export const useApi = (): UseApiResult => {
                 headers: mergedHeaders,
                 signal: controller.signal
             };
+            // console.log('Fetching data:', url, mergedOptions);
 
             if (requestArrayRef.current !== null) {
                 console.log('Request array ref is not null for:', location.pathname);

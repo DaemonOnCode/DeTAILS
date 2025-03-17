@@ -771,3 +771,39 @@ Your tasks:
 - Each lower-level code should be included in only one higher-level code, and try to group as many codes as possible.
 - Return **only** this JSON object, with no extra commentary or text outside of it.
 """
+    
+
+class GenerateCodebookWithoutQuotes:
+    @staticmethod
+    def generate_codebook_without_quotes_prompt(codes: str):
+        return f"""
+You are an AI assistant tasked with summarizing multiple explanations for various codes and merging them into a single definition for each code.
+
+The input JSON object will be structured as follows:
+```json
+{{
+  "code1": ["Explanation1", "Explanation2", ...],
+  "code2": ["Explanation1", "Explanation2", ...],
+  ...
+}}
+```
+The input JSON object containing the codes and their explanations is: 
+{codes}
+
+For each code in the JSON object, analyze all the provided explanations. Identify the common themes, key points, and any notable differences or contradictions among the explanations.
+
+Based on your analysis, create a single, coherent definition for each code that captures the essence of all its explanations. The definition should be concise, clear, and representative of the various perspectives presented. If there are contradictions, acknowledge them in the definition or provide a definition that encompasses the different viewpoints. Aim for definitions that are approximately 1-2 sentences long, but ensure they are comprehensive enough to cover the main points.
+
+Do not simply select one explanation as the definition; instead, create a new definition that integrates the key elements from all explanations for each code.
+
+Present your results in a JSON object where each key is a code and each value is the corresponding definition. The format should be:
+```json
+{{
+  "code1": "definition1",
+  "code2": "definition2",
+  ...
+}}
+```
+
+Your response should consist solely of the JSON object containing the definitions for each code. Do not include any additional text, explanations, or commentary.
+"""
