@@ -70,17 +70,35 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
 
     useEffect(() => {
         const segments = location.pathname.split('/').filter(Boolean);
-        segments.push(
-            ...(LOADER_TO_ROUTE_MAP[location.pathname]?.split('/').filter(Boolean) || [])
-        );
+
+        const mappedRoute = LOADER_TO_ROUTE_MAP[`${location.pathname}${location.search}`];
+        let loaderSegments = mappedRoute ? mappedRoute.split('/').filter(Boolean) : [];
+
         const newOpenDropdowns = new Set<string>();
         let currentPath = '';
+
         segments.forEach((segment) => {
             currentPath += `/${segment}`;
             newOpenDropdowns.add(currentPath);
         });
+
+        currentPath = '';
+        loaderSegments.forEach((segment) => {
+            currentPath += `/${segment}`;
+            newOpenDropdowns.add(currentPath);
+        });
+
+        if (forcedActiveRoute) {
+            const forcedSegments = forcedActiveRoute.split('/').filter(Boolean);
+            let forcedPath = '';
+            forcedSegments.forEach((segment) => {
+                forcedPath += `/${segment}`;
+                newOpenDropdowns.add(forcedPath);
+            });
+        }
+
         setOpenDropdowns(newOpenDropdowns);
-    }, [location.pathname]);
+    }, [location.pathname, location.search]);
 
     const toggleDropdown = (path: string) => {
         const normalizedPath = path.startsWith('/') ? path : '/' + path;
