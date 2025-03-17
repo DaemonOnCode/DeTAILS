@@ -17,6 +17,7 @@ from .tfidf_table import TfidfRepository
 from .pipeline_step_table import PipelineStepsRepository
 from .file_status_table import FileStatusRepository
 from .torrent_download_progress import TorrentDownloadProgressRepository
+from .function_progress_repository import FunctionProgressRepository
 from .initialize import initialize_database
 from .db_helpers import execute_query, execute_query_with_retry
 
@@ -40,6 +41,7 @@ __all__ = [
     "PipelineStepsRepository",
     "FileStatusRepository",
     "TorrentDownloadProgressRepository",
+    "FunctionProgressRepository"
     "initialize_database",
     "execute_query",
     "execute_query_with_retry",

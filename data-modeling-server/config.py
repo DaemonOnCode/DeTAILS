@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 import json
 
-from constants import PATHS
+from constants import ACADEMIC_TORRENT_MAGNET, PATHS
 
 class AppSettings:
     def __init__(self, id: str = "", **kwargs):
@@ -46,9 +46,10 @@ class TutorialsSettings:
         self.hasRun = hasRun
 
 class TransmissionSettings:
-    def __init__(self, path: str = "", downloadDir: str = "", **kwargs):
+    def __init__(self, path: str = "", downloadDir: str = "", magnetLink: str = ACADEMIC_TORRENT_MAGNET, **kwargs):
         self.path = path
         self.downloadDir = downloadDir
+        self.magnetLink = magnetLink
 
 # Main Settings class that reads the file
 class CustomSettings:

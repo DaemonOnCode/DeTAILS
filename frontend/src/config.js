@@ -80,6 +80,7 @@ const config = {
             CHECK_CREDENTIALS: 'miscellaneous/test-user-credentials',
             CHECK_GOOGLE_MODEL: 'miscellaneous/test-google-genai-model',
             CHECK_GOOGLE_TEXT_EMBEDDING: 'miscellaneous/test-google-text-embedding',
+            CHECK_FUNCTION_PROGRESS: 'miscellaneous/get-function-progress',
 
             OLLAMA_PULL: 'ollama/pull-model',
             OLLAMA_DELETE: 'ollama/delete-model',

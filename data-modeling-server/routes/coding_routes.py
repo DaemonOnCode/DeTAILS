@@ -7,15 +7,18 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 import numpy as np
 import pandas as pd
+from sympy import fu
 
 from config import Settings
+import config
 from constants import RANDOM_SEED
 from controllers.coding_controller import filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
 from controllers.collection_controller import get_reddit_post_by_id
 from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
+from models.table_dataclasses import FunctionProgress
 from routes.websocket_routes import manager
-
+from database import FunctionProgressRepository
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
 from database.db_helpers import get_post_and_comments_from_id
@@ -24,23 +27,29 @@ from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GroupCodes, Initial
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
 settings = Settings()
+
+function_progress_repo = FunctionProgressRepository()
+
 @router.post("/sample-posts")
 async def sample_posts_endpoint(request_body: SamplePostsRequest):
-    if request_body.sample_size <= 0 or request_body.dataset_id == "" or len(request_body.post_ids) == 0:
+    settings = config.CustomSettings()
+    
+    if (request_body.sample_size <= 0 or 
+        request_body.dataset_id == "" or 
+        len(request_body.post_ids) == 0 or 
+        request_body.divisions < 1):
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
+    
     dataset_id = request_body.dataset_id
     post_ids = request_body.post_ids
-    sample_size = request_body.sample_size 
+    sample_size = request_body.sample_size
+    divisions = request_body.divisions
 
-    # Function to fetch post and compute transcript length
+    # Fetch posts concurrently
     def fetch_and_compute_length(post_id: str):
         try:
-            # Fetch post and comments
             post = get_reddit_post_by_id(dataset_id, post_id)
-            # Generate transcript
             transcript = generate_transcript(post)
-            # Compute length
             length = len(transcript)
             return post_id, length
         except HTTPException as e:
@@ -50,77 +59,117 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
             print(f"Unexpected error for post {post_id}: {e}")
             return post_id, None
 
-    # Concurrently fetch posts and compute transcript lengths
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = [executor.submit(fetch_and_compute_length, post_id) for post_id in post_ids]
         results = [future.result() for future in futures]
 
-    # Separate valid results from failures
     valid_results = [res for res in results if res[1] is not None]
     invalid_post_ids = [res[0] for res in results if res[1] is None]
 
-    # Log warnings if some posts failed
     if invalid_post_ids:
         print(f"Some posts were not found: {invalid_post_ids}")
 
-    # Check if there are any valid posts to process
     if not valid_results:
         raise HTTPException(status_code=400, detail="No valid posts found.")
 
-    # Create DataFrame from valid results
     df = pd.DataFrame(valid_results, columns=['post_id', 'length'])
+    np.random.seed(settings.ai.randomSeed)
 
-    # Set random seed for reproducibility
-    np.random.seed(RANDOM_SEED)
+    if divisions == 1:
+        return {"sample": df['post_id'].tolist()}
 
-    # Define strata using quartiles (4 strata)
-    try:
-        df['stratum'] = pd.qcut(df['length'], q=4, labels=False)
-    except ValueError as e:
-        if "Bin edges must be unique" in str(e):
-            S = int(sample_size * len(df))
-            sampled = df.sample(n=S, random_state=RANDOM_SEED)
-            sampled_post_ids = sampled['post_id'].tolist()
+    if divisions in [2, 3]:
+        N = len(df)
+        base_size = N // divisions
+        remainder = N % divisions
+        group_sizes = [base_size + 1 if i < remainder else base_size for i in range(divisions)]
+
+        try:
+            df['stratum'] = pd.qcut(df['length'], q=4, labels=False)
+        except ValueError as e:
+            if "Bin edges must be unique" in str(e):
+                df = df.sample(frac=1, random_state=settings.ai.randomSeed).reset_index(drop=True)
+                groups = []
+                start = 0
+                for size in group_sizes:
+                    end = start + size
+                    group_posts = df.iloc[start:end]['post_id'].tolist()
+                    groups.append(group_posts)
+                    start = end
+            else:
+                raise HTTPException(status_code=500, detail=f"Error in stratification: {e}")
         else:
-            raise HTTPException(status_code=500, detail=f"Error in stratification: {e}")
+            groups = []
+            remaining_df = df.copy()
+            for size in group_sizes:
+                grouped = remaining_df.groupby('stratum')
+                stratum_sizes = grouped.size()
+                p = size / len(remaining_df) if len(remaining_df) > 0 else 0
+                S_stratum_f = p * stratum_sizes
+                S_stratum = S_stratum_f.astype(int)
+                sum_S_stratum = S_stratum.sum()
+                remainder_samples = size - sum_S_stratum
+                if remainder_samples > 0:
+                    fractional_parts = S_stratum_f - S_stratum
+                    top_indices = fractional_parts.nlargest(remainder_samples).index
+                    S_stratum.loc[top_indices] += 1
+
+                sampled_post_ids = []
+                for stratum, group in grouped:
+                    n_samples = min(S_stratum[stratum], len(group))
+                    if n_samples > 0:
+                        sampled = group.sample(n=n_samples, random_state=settings.ai.randomSeed)
+                        sampled_post_ids.extend(sampled['post_id'].tolist())
+
+                groups.append(sampled_post_ids)
+                remaining_df = remaining_df[~remaining_df['post_id'].isin(sampled_post_ids)]
     else:
-        # Proceed with stratified sampling
-        N = len(df)  # Number of valid posts
-        S = int(sample_size * N)  # Total number of samples
+        remaining_df = df.copy()
+        groups = []
+        for i in range(divisions - 1):
+            try:
+                remaining_df['stratum'] = pd.qcut(remaining_df['length'], q=4, labels=False)
+            except ValueError as e:
+                if "Bin edges must be unique" in str(e):
+                    sampled = remaining_df.sample(frac=sample_size, random_state=settings.ai.randomSeed)
+                else:
+                    raise HTTPException(status_code=500, detail=f"Error in stratification: {e}")
+            else:
+                grouped = remaining_df.groupby('stratum')
+                stratum_sizes = grouped.size()
+                p = sample_size
+                total_to_sample = min(int(p * len(remaining_df)), len(remaining_df))
+                S_stratum_f = p * stratum_sizes
+                S_stratum = S_stratum_f.astype(int)
+                sum_S_stratum = S_stratum.sum()
+                remainder = total_to_sample - sum_S_stratum
+                if remainder > 0:
+                    fractional_parts = S_stratum_f - S_stratum
+                    top_indices = fractional_parts.nlargest(remainder).index
+                    S_stratum.loc[top_indices] += 1
 
-        # Group by stratum
-        grouped = df.groupby('stratum')
-        stratum_sizes = grouped.size()
-        p_stratum = stratum_sizes / N  # Proportion of each stratum
+                sampled_post_ids = []
+                for stratum, group in grouped:
+                    n_samples = min(S_stratum[stratum], len(group))
+                    if n_samples > 0:
+                        sampled = group.sample(n=n_samples, random_state=settings.ai.randomSeed)
+                        sampled_post_ids.extend(sampled['post_id'].tolist())
+                sampled = remaining_df[remaining_df['post_id'].isin(sampled_post_ids)]
 
-        # Calculate samples per stratum
-        S_stratum_f = S * p_stratum  # Fractional sample sizes
-        S_stratum = S_stratum_f.astype(int)  # Integer sample sizes
-        sum_S_stratum = S_stratum.sum()
-        remainder = S - sum_S_stratum  # Remaining samples to distribute
+            groups.append(sampled['post_id'].tolist())
+            remaining_df = remaining_df[~remaining_df['post_id'].isin(sampled['post_id'])]
 
-        # Distribute remainder to strata with largest fractional parts
-        if remainder > 0:
-            fractional_parts = S_stratum_f - S_stratum
-            top_indices = fractional_parts.nlargest(remainder).index
-            S_stratum.loc[top_indices] += 1
+        groups.append(remaining_df['post_id'].tolist())
 
-        # Sample from each stratum
-        sampled_post_ids = []
-        for stratum, group in grouped:
-            n_samples = S_stratum[stratum]
-            if n_samples > 0:
-                sampled = group.sample(n=n_samples, random_state=RANDOM_SEED)
-                sampled_post_ids.extend(sampled['post_id'].tolist())
+    if divisions == 2:
+        group_names = ["sampled", "unseen"]
+    elif divisions == 3:
+        group_names = ["sampled", "unseen", "test"]
+    else:
+        group_names = [f"group_{i+1}" for i in range(divisions)]
 
-    # Determine unseen post IDs from valid posts
-    unseen_post_ids = list(set(df['post_id']) - set(sampled_post_ids))
-
-    return {
-        "sampled": sampled_post_ids,
-        "unseen": unseen_post_ids
-    }
-    
+    result = {group_names[i]: groups[i] for i in range(divisions)}
+    return result
 
 @router.post("/build-context-from-topic")
 async def build_context_from_interests_endpoint(
@@ -246,73 +295,96 @@ async def generate_codes_endpoint(request: Request,
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
 
-    llm, _ = get_llm_and_embeddings(request_body.model)
-    final_results = []
     function_id = str(uuid4())
+    total_posts = len(request_body.sampled_post_ids)
 
-    async def process_post(post_id: str):
-        """Processes a single post asynchronously."""
-        try:
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-            post_data = get_post_and_comments_from_id(post_id, dataset_id)
+    function_progress_repo.insert(FunctionProgress(
+        workspace_id=request_body.workspace_id,
+        dataset_id=dataset_id,
+        name="codebook",
+        function_id=function_id,
+        status="started",
+        current=0,
+        total=total_posts
+    ))
+    try:
+        llm, _ = get_llm_and_embeddings(request_body.model)
+        final_results = []
 
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
-            transcript = generate_transcript(post_data)
+        async def process_post(post_id: str):
+            try:
+                await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+                post_data = get_post_and_comments_from_id(post_id, dataset_id)
 
-            parsed_response = await process_llm_task(
-                app_id=app_id,
-                dataset_id=dataset_id,
-                post_id=post_id,
-                manager=manager,
-                llm_model=request_body.model,
-                regex_pattern=r"\"codes\":\s*(\[.*?\])",
-                prompt_builder_func=InitialCodePrompts.initial_code_prompt,
-                llm_instance=llm,
-                llm_queue_manager=llm_queue_manager,
-                main_topic=request_body.main_topic,
-                additional_info=request_body.additional_info,
-                research_questions=request_body.research_questions,
-                keyword_table=json.dumps(request_body.keyword_table),
-                function_id=function_id,
-                post_transcript=transcript,
-                store_response=True,
-            )
+                await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+                transcript = generate_transcript(post_data)
 
-            if isinstance(parsed_response, list):
-                parsed_response = {"codes": parsed_response}
+                parsed_response = await process_llm_task(
+                    app_id=app_id,
+                    dataset_id=dataset_id,
+                    post_id=post_id,
+                    manager=manager,
+                    llm_model=request_body.model,
+                    regex_pattern=r"\"codes\":\s*(\[.*?\])",
+                    prompt_builder_func=InitialCodePrompts.initial_code_prompt,
+                    llm_instance=llm,
+                    llm_queue_manager=llm_queue_manager,
+                    main_topic=request_body.main_topic,
+                    additional_info=request_body.additional_info,
+                    research_questions=request_body.research_questions,
+                    keyword_table=json.dumps(request_body.keyword_table),
+                    function_id=function_id,
+                    post_transcript=transcript,
+                    store_response=True,
+                )
 
-            codes = parsed_response.get("codes", [])
-            for code in codes:
-                code["postId"] = post_id
-                code["id"] = str(uuid4())
+                if isinstance(parsed_response, list):
+                    parsed_response = {"codes": parsed_response}
 
-            codes = filter_codes_by_transcript(codes, transcript)
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
-            return codes
+                codes = parsed_response.get("codes", [])
+                for code in codes:
+                    code["postId"] = post_id
+                    code["id"] = str(uuid4())
 
-        except Exception as e:
-            await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
-            return []
+                codes = filter_codes_by_transcript(codes, transcript)
+                function_progress_repo.update({
+                    "function_id": function_id,
+                }, {
+                    "current": function_progress_repo.find_one({
+                        "function_id": function_id
+                    }).current + 1
+                })
+                await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
+                return codes
 
-    # Split posts into batches of `batch_size`
-    sampled_posts = request_body.sampled_post_ids
-    batches = [sampled_posts[i:i + batch_size] for i in range(0, len(sampled_posts), batch_size)]
+            except Exception as e:
+                await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
+                return []
 
-    for batch in batches:
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
-        
-        # Process posts in the batch concurrently
-        batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+        # Split posts into batches of `batch_size`
+        sampled_posts = request_body.sampled_post_ids
+        batches = [sampled_posts[i:i + batch_size] for i in range(0, len(sampled_posts), batch_size)]
 
-        for codes in batch_results:
-            final_results.extend(codes)
+        for batch in batches:
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+            
+            # Process posts in the batch concurrently
+            batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+            for codes in batch_results:
+                final_results.extend(codes)
 
-    return {
-        "message": "Initial codes generated successfully!",
-        "data": final_results
-    }
+        await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+        return {
+            "message": "Initial codes generated successfully!",
+            "data": final_results
+        }
+    except Exception as e:
+        print(f"Error in generate_codes_endpoint: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred during code generation.")
+    finally:
+        function_progress_repo.delete({"function_id": function_id})
 
 @router.post("/refine-codebook")
 async def refine_codebook_endpoint(
@@ -378,67 +450,93 @@ async def deductive_coding_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Deductive coding process started.")
 
-    final_results = []
-    posts = request_body.unseen_post_ids
-    llm, _ = get_llm_and_embeddings(request_body.model)
 
-    async def process_post(post_id: str):
-        """Processes a single post asynchronously."""
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-        post_data = get_post_and_comments_from_id(post_id, dataset_id)
+    function_id = str(uuid4())
+    total_posts = len(request_body.unseen_post_ids)
 
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
-        transcript = generate_transcript(post_data)
+    function_progress_repo.insert(FunctionProgress(
+        workspace_id=request_body.workspace_id,
+        dataset_id=dataset_id,
+        name="deductive",
+        function_id=function_id,
+        status="started",
+        current=0,
+        total=total_posts
+    ))
 
-        parsed_response = await process_llm_task(
-            app_id=app_id,
-            dataset_id=dataset_id,
-            post_id=post_id,
-            manager=manager,
-            llm_model=request_body.model,
-            regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-            prompt_builder_func=DeductiveCoding.deductive_coding_prompt,
-            llm_instance=llm,
-            llm_queue_manager=llm_queue_manager,
-            final_codebook=json.dumps(request_body.final_codebook, indent=2),
-            keyword_table=json.dumps(request_body.keyword_table, indent=2),
-            main_topic=request_body.main_topic,
-            additional_info=request_body.additional_info,
-            research_questions=json.dumps(request_body.research_questions),
-            post_transcript=transcript,
-            store_response=True,
-        )
+    try:
+        final_results = []
+        posts = request_body.unseen_post_ids
+        llm, _ = get_llm_and_embeddings(request_body.model)
 
-        # Process extracted codes
-        if isinstance(parsed_response, list):
-            parsed_response = {"codes": parsed_response}
+        async def process_post(post_id: str):
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+            post_data = get_post_and_comments_from_id(post_id, dataset_id)
 
-        codes = parsed_response.get("codes", [])
-        for code in codes:
-            code["postId"] = post_id
-            code["id"] = str(uuid4())
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+            transcript = generate_transcript(post_data)
 
-        codes = filter_codes_by_transcript(codes, transcript)
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
-        return codes
+            parsed_response = await process_llm_task(
+                app_id=app_id,
+                dataset_id=dataset_id,
+                post_id=post_id,
+                manager=manager,
+                llm_model=request_body.model,
+                regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+                prompt_builder_func=DeductiveCoding.deductive_coding_prompt,
+                llm_instance=llm,
+                llm_queue_manager=llm_queue_manager,
+                final_codebook=json.dumps(request_body.final_codebook, indent=2),
+                keyword_table=json.dumps(request_body.keyword_table, indent=2),
+                main_topic=request_body.main_topic,
+                additional_info=request_body.additional_info,
+                research_questions=json.dumps(request_body.research_questions),
+                post_transcript=transcript,
+                store_response=True,
+            )
 
-    batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
+            # Process extracted codes
+            if isinstance(parsed_response, list):
+                parsed_response = {"codes": parsed_response}
 
-    for batch in batches:
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
-        
-        batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
-        
-        for codes in batch_results:
-            final_results.extend(codes)
+            codes = parsed_response.get("codes", [])
+            for code in codes:
+                code["postId"] = post_id
+                code["id"] = str(uuid4())
+
+            codes = filter_codes_by_transcript(codes, transcript)
+            function_progress_repo.update({
+                    "function_id": function_id,
+                }, {
+                    "current": function_progress_repo.find_one({
+                        "function_id": function_id
+                    }).current + 1
+                })
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
+            return codes
+
+        batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
+
+        for batch in batches:
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+            
+            batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+            
+            for codes in batch_results:
+                final_results.extend(codes)
 
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+        await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
-    return {
-        "message": "Deductive coding completed successfully!",
-        "data": final_results
-    }
+        return {
+            "message": "Deductive coding completed successfully!",
+            "data": final_results
+        }
+    except Exception as e:
+        print(f"Error in deductive_coding_endpoint: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred during deductive coding.")
+    finally:
+        function_progress_repo.delete({"function_id": function_id})
 
 
 @router.post("/theme-generation")
@@ -562,75 +660,93 @@ async def generate_codes_endpoint(request: Request,
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
 
-    llm, _ = get_llm_and_embeddings(request_body.model)
-    final_results = []
     function_id = str(uuid4())
+    total_posts = len(request_body.sampled_post_ids)
 
-    async def process_post(post_id: str):
-        """Processes a single post asynchronously."""
-        try:
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-            post_data = get_post_and_comments_from_id(post_id, dataset_id)
+    function_progress_repo.insert(FunctionProgress(
+        workspace_id=request_body.workspace_id,
+        dataset_id=dataset_id,
+        name="codebook",
+        function_id=function_id,
+        status="started",
+        current=0,
+        total=total_posts
+    ))
 
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
-            transcript = generate_transcript(post_data)
+    try:
+        llm, _ = get_llm_and_embeddings(request_body.model)
+        final_results = []
+        function_id = str(uuid4())
 
-            parsed_response = await process_llm_task(
-                app_id=app_id,
-                dataset_id=dataset_id,
-                post_id=post_id,
-                manager=manager,
-                llm_model=request_body.model,
-                regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-                prompt_builder_func=RemakerPrompts.codebook_remake_prompt,
-                llm_instance=llm,
-                llm_queue_manager=llm_queue_manager,
-                main_topic=request_body.main_topic,
-                additional_info=request_body.additional_info,
-                research_questions=request_body.research_questions,
-                keyword_table=json.dumps(request_body.keyword_table),
-                function_id=function_id,
-                post_transcript=transcript,
-                current_codebook=json.dumps(request_body.codebook),
-                feedback = request_body.feedback,
-                store_response=True,
-            )
+        async def process_post(post_id: str):
+            try:
+                await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+                post_data = get_post_and_comments_from_id(post_id, dataset_id)
 
-            if isinstance(parsed_response, list):
-                parsed_response = {"codes": parsed_response}
+                await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+                transcript = generate_transcript(post_data)
 
-            codes = parsed_response.get("codes", [])
-            for code in codes:
-                code["postId"] = post_id
-                code["id"] = str(uuid4())
+                parsed_response = await process_llm_task(
+                    app_id=app_id,
+                    dataset_id=dataset_id,
+                    post_id=post_id,
+                    manager=manager,
+                    llm_model=request_body.model,
+                    regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+                    prompt_builder_func=RemakerPrompts.codebook_remake_prompt,
+                    llm_instance=llm,
+                    llm_queue_manager=llm_queue_manager,
+                    main_topic=request_body.main_topic,
+                    additional_info=request_body.additional_info,
+                    research_questions=request_body.research_questions,
+                    keyword_table=json.dumps(request_body.keyword_table),
+                    function_id=function_id,
+                    post_transcript=transcript,
+                    current_codebook=json.dumps(request_body.codebook),
+                    feedback = request_body.feedback,
+                    store_response=True,
+                )
 
-            codes = filter_codes_by_transcript(codes, transcript)
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
-            return codes
+                if isinstance(parsed_response, list):
+                    parsed_response = {"codes": parsed_response}
 
-        except Exception as e:
-            await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
-            return []
+                codes = parsed_response.get("codes", [])
+                for code in codes:
+                    code["postId"] = post_id
+                    code["id"] = str(uuid4())
 
-    # Split posts into batches of `batch_size`
-    sampled_posts = request_body.sampled_post_ids
-    batches = [sampled_posts[i:i + batch_size] for i in range(0, len(sampled_posts), batch_size)]
+                codes = filter_codes_by_transcript(codes, transcript)
+                await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
+                return codes
 
-    for batch in batches:
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
-        
-        # Process posts in the batch concurrently
-        batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+            except Exception as e:
+                await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
+                return []
 
-        for codes in batch_results:
-            final_results.extend(codes)
+        # Split posts into batches of `batch_size`
+        sampled_posts = request_body.sampled_post_ids
+        batches = [sampled_posts[i:i + batch_size] for i in range(0, len(sampled_posts), batch_size)]
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+        for batch in batches:
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+            
+            # Process posts in the batch concurrently
+            batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
 
-    return {
-        "message": "Initial codes generated successfully!",
-        "data": final_results
-    }
+            for codes in batch_results:
+                final_results.extend(codes)
+
+        await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+        return {
+            "message": "Initial codes generated successfully!",
+            "data": final_results
+        }
+    except Exception as e:
+        print(f"Error in generate_codes_endpoint: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred during code generation.")
+    finally:
+        function_progress_repo.delete({"function_id": function_id})
 
 @router.post("/remake-deductive-codes")
 async def redo_deductive_coding_endpoint(
@@ -646,68 +762,86 @@ async def redo_deductive_coding_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Deductive coding process started.")
 
-    final_results = []
-    posts = request_body.unseen_post_ids
-    llm, _ = get_llm_and_embeddings(request_body.model)
+    function_id = str(uuid4())
+    total_posts = len(request_body.unseen_post_ids)
 
-    async def process_post(post_id: str):
-        """Processes a single post asynchronously."""
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-        post_data = get_post_and_comments_from_id(post_id, dataset_id)
+    function_progress_repo.insert(FunctionProgress(
+        workspace_id=request_body.workspace_id,
+        dataset_id=dataset_id,
+        name="deductive",
+        function_id=function_id,
+        status="started",
+        current=0,
+        total=total_posts
+    ))
 
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
-        transcript = generate_transcript(post_data)
+    try:
+        final_results = []
+        posts = request_body.unseen_post_ids
+        llm, _ = get_llm_and_embeddings(request_body.model)
 
-        parsed_response = await process_llm_task(
-            app_id=app_id,
-            dataset_id=dataset_id,
-            post_id=post_id,
-            manager=manager,
-            llm_model=request_body.model,
-            regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-            prompt_builder_func=RemakerPrompts.deductive_codebook_remake_prompt,
-            llm_instance=llm,
-            llm_queue_manager=llm_queue_manager,
-            final_codebook=json.dumps(request_body.final_codebook, indent=2),
-            keyword_table=json.dumps(request_body.keyword_table, indent=2),
-            main_topic=request_body.main_topic,
-            additional_info=request_body.additional_info,
-            research_questions=json.dumps(request_body.research_questions),
-            post_transcript=transcript,
-            current_codebook=json.dumps(request_body.current_codebook),
-            store_response=True,
-        )
+        async def process_post(post_id: str):
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+            post_data = get_post_and_comments_from_id(post_id, dataset_id)
 
-        # Process extracted codes
-        if isinstance(parsed_response, list):
-            parsed_response = {"codes": parsed_response}
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+            transcript = generate_transcript(post_data)
 
-        codes = parsed_response.get("codes", [])
-        for code in codes:
-            code["postId"] = post_id
-            code["id"] = str(uuid4())
+            parsed_response = await process_llm_task(
+                app_id=app_id,
+                dataset_id=dataset_id,
+                post_id=post_id,
+                manager=manager,
+                llm_model=request_body.model,
+                regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+                prompt_builder_func=RemakerPrompts.deductive_codebook_remake_prompt,
+                llm_instance=llm,
+                llm_queue_manager=llm_queue_manager,
+                final_codebook=json.dumps(request_body.final_codebook, indent=2),
+                keyword_table=json.dumps(request_body.keyword_table, indent=2),
+                main_topic=request_body.main_topic,
+                additional_info=request_body.additional_info,
+                research_questions=json.dumps(request_body.research_questions),
+                post_transcript=transcript,
+                current_codebook=json.dumps(request_body.current_codebook),
+                store_response=True,
+            )
 
-        codes = filter_codes_by_transcript(codes, transcript)
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
-        return codes
+            # Process extracted codes
+            if isinstance(parsed_response, list):
+                parsed_response = {"codes": parsed_response}
 
-    batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
+            codes = parsed_response.get("codes", [])
+            for code in codes:
+                code["postId"] = post_id
+                code["id"] = str(uuid4())
 
-    for batch in batches:
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
-        
-        batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
-        
-        for codes in batch_results:
-            final_results.extend(codes)
+            codes = filter_codes_by_transcript(codes, transcript)
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
+            return codes
+
+        batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
+
+        for batch in batches:
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+            
+            batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+            
+            for codes in batch_results:
+                final_results.extend(codes)
 
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+        await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
-    return {
-        "message": "Deductive coding completed successfully!",
-        "data": final_results
-    }
+        return {
+            "message": "Deductive coding completed successfully!",
+            "data": final_results
+        }
+    except Exception as e:
+        print(f"Error in redo_deductive_coding_endpoint: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred during deductive coding.")
+    finally:
+        function_progress_repo.delete({"function_id": function_id})
 
 
 @router.post("/group-codes")

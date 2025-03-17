@@ -318,3 +318,13 @@ class FileStatus(BaseDataclass):
     total_bytes: Optional[int] = field(default=0)  # Total file size
     messages: Optional[str] = field(default="[]")  # JSON-encoded list of messages
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
+
+@dataclass
+class FunctionProgress(BaseDataclass):
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
+    dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
+    name: Optional[str] = field(metadata={"not_null": True, "primary_key": True})
+    function_id: str = field(metadata={"not_null": True})
+    status: str = field(default="idle")
+    current: Optional[int] = field(default=0)
+    total: Optional[int] = field(default=0)

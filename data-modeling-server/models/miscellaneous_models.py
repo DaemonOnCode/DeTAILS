@@ -27,3 +27,8 @@ class UserCredentialTestRequest(BaseModel):
 
 class GoogleGenAITestRequest(BaseModel):
     name: str
+
+class FunctionProgressRequest(BaseModel):
+    workspace_id: str
+    dataset_id: str
+    name: str

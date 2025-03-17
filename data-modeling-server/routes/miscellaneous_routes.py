@@ -9,11 +9,11 @@ from google.auth import load_credentials_from_file
 
 import config
 from controllers.miscellaneous_controller import get_credential_path, link_creator, normalize_text, search_slice
-from database import PostsRepository, CommentsRepository
+from database import PostsRepository, CommentsRepository, FunctionProgressRepository
 from database.db_helpers import get_post_and_comments_from_id
 from errors.credential_errors import InvalidCredentialError, MissingCredentialError
 from errors.vertex_ai_errors import InvalidGenAIModelError, InvalidTextEmbeddingError
-from models.miscellaneous_models import GoogleGenAITestRequest, RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest, UserCredentialTestRequest
+from models.miscellaneous_models import FunctionProgressRequest, GoogleGenAITestRequest, RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest, UserCredentialTestRequest
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 
 
@@ -21,6 +21,7 @@ router = APIRouter()
 
 posts_repo = PostsRepository()
 comments_repo = CommentsRepository()
+function_progress_repo = FunctionProgressRepository()
 
 @router.post("/get-link-from-post", response_model=dict)
 async def get_reddit_post_link_endpoint(request: RedditPostLinkRequest):
@@ -203,3 +204,25 @@ async def test_text_embedding_endpoint(
         return {"success": True}
     except Exception as e:
         raise InvalidTextEmbeddingError(f"Failed to initialize embeddings: {str(e)}")
+    
+
+@router.post("/get-function-progress")
+async def get_function_progress(
+    request_body: FunctionProgressRequest
+):
+    workspace_id = request_body.workspace_id
+    dataset_id = request_body.dataset_id
+    name = request_body.name
+
+    try:
+        return function_progress_repo.find_one(
+            {
+                "workspace_id": workspace_id,
+                "dataset_id": dataset_id,
+                "name": name
+            }
+        )
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Failed to get function progress.")
+    

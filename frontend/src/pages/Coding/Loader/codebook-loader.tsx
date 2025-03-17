@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { useWebSocket } from '../../../context/websocket-context';
 import { useCodingContext } from '../../../context/coding-context';
+import { useApi } from '../../../hooks/Shared/use-api';
+import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
+import { useCollectionContext } from '../../../context/collection-context';
+import { useWorkspaceContext } from '../../../context/workspace-context';
 
 const CodebookAnimation: React.FC = () => {
     const { registerCallback, unregisterCallback } = useWebSocket();
@@ -20,6 +24,10 @@ const CodebookAnimation: React.FC = () => {
     const [unflippedPages, setUnflippedPages] = useState<number[]>(
         Array.from({ length: numPages }, (_, i) => i)
     );
+
+    const { fetchData } = useApi();
+    const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
 
     const [postsFinished, setPostsFinished] = useState<number>(0);
 
@@ -50,8 +58,28 @@ const CodebookAnimation: React.FC = () => {
         }
     };
 
+    const getFunctionProgress = async () => {
+        const { data, error } = await fetchData<{
+            total: number;
+            current: number;
+        }>(REMOTE_SERVER_ROUTES.CHECK_FUNCTION_PROGRESS, {
+            method: 'POST',
+            body: JSON.stringify({
+                name: 'codebook',
+                dataset_id: datasetId,
+                workspace_id: currentWorkspace!.id
+            })
+        });
+        console.log('Function progress:', data, error);
+        if (!error) {
+            setPostsFinished(data.current);
+        }
+    };
+
     useEffect(() => {
+        getFunctionProgress();
         registerCallback('codebook-loader', handleWebsocketMessage);
+
         return () => unregisterCallback('codebook-loader');
     }, []);
 
@@ -162,7 +190,8 @@ const CodebookAnimation: React.FC = () => {
         <div className="min-h-page w-full flex flex-col items-center justify-center">
             <h1 className="text-3xl font-bold mb-8 text-gray-900">Generating Codebook</h1>
             <p className=" mb-16">
-                {!!sampledPostIds.length && `${postsFinished}/${sampledPostIds.length} completed. `}
+                {!!sampledPostIds?.length &&
+                    `${postsFinished}/${sampledPostIds.length} completed. `}
                 Please wait, this may take a moment...
             </p>
 

@@ -8,6 +8,7 @@ class SamplePostsRequest(BaseModel):
     post_ids: list= []
     sample_size: int = 0.5
     random_seed: int = 42
+    divisions: int  = 2
 
     
 class RegenerateKeywordsRequest(BaseModel):
@@ -29,6 +30,7 @@ class GenerateInitialCodesRequest(BaseModel):
     additional_info: str
     research_questions: list
     sampled_post_ids: list
+    workspace_id: str
 
     
 class CodebookRefinementRequest(BaseModel):
@@ -47,6 +49,7 @@ class DeductiveCodingRequest(BaseModel):
     additional_info: Optional[str] = ""
     research_questions: Optional[list] = []
     unseen_post_ids: list
+    workspace_id: str
 
   
 class ThemeGenerationRequest(BaseModel):

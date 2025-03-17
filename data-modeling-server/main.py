@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from constants import DATASETS_DIR, PATHS, get_default_transmission_cmd
 from database import initialize_database, WorkspacesRepository, WorkspaceStatesRepository, DatasetsRepository, PostsRepository, CommentsRepository, LlmResponsesRepository, FileStatusRepository, PipelineStepsRepository, TorrentDownloadProgressRepository
+from database.function_progress_repository import FunctionProgressRepository
 from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware, AbortOnDisconnectMiddleware
 from routes import coding_routes, collection_routes, ollama_routes, websocket_routes, miscellaneous_routes, workspace_routes, state_routes
 
@@ -78,7 +79,8 @@ if __name__ == "__main__":
 
         TorrentDownloadProgressRepository,
         FileStatusRepository,
-        PipelineStepsRepository
+        PipelineStepsRepository,
+        FunctionProgressRepository
     ])
 
     print("Database initialized!")

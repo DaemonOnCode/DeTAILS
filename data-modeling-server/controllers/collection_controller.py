@@ -11,7 +11,8 @@ from aiofiles import open as async_open
 from fastapi import HTTPException, UploadFile
 from transmission_rpc import Client, Torrent, File as TorrentFile
 
-from constants import ACADEMIC_TORRENT_MAGNET, DATASETS_DIR, PATHS, UPLOAD_DIR, TRANSMISSION_DOWNLOAD_DIR, get_app_data_path
+import config
+from constants import DATASETS_DIR, PATHS, UPLOAD_DIR
 from database import DatasetsRepository, CommentsRepository, PostsRepository, PipelineStepsRepository, FileStatusRepository, TorrentDownloadProgressRepository
 from decorators.execution_time_logger import log_execution_time
 from models import Dataset, Comment, Post, TorrentDownloadProgress
@@ -911,9 +912,11 @@ async def get_reddit_data_from_torrent(
     end_month: str = "2023-12",
     submissions_only: bool = True,
 ):
+    settings = config.CustomSettings()
+    academic_torrent = settings.transmission.magnetLink
     TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = get_current_download_dir()
     print(f"Transmission download dir: {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}")
-    torrent_hash_string = ACADEMIC_TORRENT_MAGNET.split("btih:")[1].split("&")[0]
+    torrent_hash_string = academic_torrent.split("btih:")[1].split("&")[0]
     
     c = Client(host="localhost", port=9091, username="transmission", password="password")
 
@@ -921,19 +924,19 @@ async def get_reddit_data_from_torrent(
     if not any(t.hashString == torrent_hash_string for t in torrents):
         # c.remove_torrent()
         # await asyncio.sleep(10)
-        c.add_torrent(ACADEMIC_TORRENT_MAGNET, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+        c.add_torrent(academic_torrent, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
     current_torrent = c.get_torrent(torrent_hash_string)
 
     print("Current download dir: ", current_torrent.download_dir, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
     if current_torrent.download_dir != TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR:
         c.move_torrent_data(current_torrent.id, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
         await asyncio.sleep(10)
-        current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+        current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, academic_torrent, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
         await asyncio.sleep(10)
         current_torrent = c.get_torrent(torrent_hash_string)
         # c.remove_torrent(current_torrent.id)
         # await asyncio.sleep(10)
-        # current_torrent = c.add_torrent(ACADEMIC_TORRENT_MAGNET, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+        # current_torrent = c.add_torrent(academic_torrent, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
 
     message = f"Torrent added for subreddit '{subreddit}' with ID: {current_torrent.id}"
     await manager.send_message(app_id, message)
@@ -962,7 +965,7 @@ async def get_reddit_data_from_torrent(
         list(map(lambda f: FileStatus(run_id=run_id, file_name=f.name,workspace_id=workspace_id, dataset_id=dataset_id), files_to_process))
     )
 
-    current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, ACADEMIC_TORRENT_MAGNET, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+    current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, academic_torrent, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
 
     output_files = []
     for file in files_to_process:

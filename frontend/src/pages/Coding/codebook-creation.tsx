@@ -19,6 +19,7 @@ import { useLoadingContext } from '../../context/loading-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 const CodebookCreation = () => {
     const [searchParams] = useSearchParams();
@@ -41,6 +42,7 @@ const CodebookCreation = () => {
     const location = useLocation();
 
     const logger = useLogger();
+    const { currentWorkspace } = useWorkspaceContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const navigate = useNavigate();
     const { getServerUrl } = useServerUtils();
@@ -80,6 +82,7 @@ const CodebookCreation = () => {
                 dataset_id: datasetId,
                 keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
                 model: settings.ai.model,
+                workspace_id: currentWorkspace!.id,
                 main_topic: mainTopic,
                 additional_info: additionalInfo,
                 research_questions: researchQuestions,
@@ -139,6 +142,7 @@ const CodebookCreation = () => {
             body: JSON.stringify({
                 dataset_id: datasetId,
                 model: settings.ai.model,
+                workspace_id: currentWorkspace!.id,
                 final_codebook: sampledPostResponse
                     .filter((response) => response.isMarked === true)
                     .map((response) => ({

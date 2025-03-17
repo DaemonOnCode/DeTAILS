@@ -23,6 +23,7 @@ import { StepHandle } from '../../types/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { toast } from 'react-toastify';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 const DataViewerPage = () => {
     const { type, datasetId, selectedData, modeInput, isLocked } = useCollectionContext();
@@ -45,6 +46,7 @@ const DataViewerPage = () => {
     const { fetchData, fetchLLMData } = useApi();
     const hasSavedRef = useRef(false);
     const location = useLocation();
+    const { currentWorkspace } = useWorkspaceContext();
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
 
     const postIds: string[] = selectedData;
@@ -132,11 +134,15 @@ const DataViewerPage = () => {
         // Sample posts from the backend.
         const { data: sampleData, error: sampleError } = await fetchData<{
             message: string;
-            sampled: string[]; // adjust type as needed
-            unseen: string[]; // adjust type as needed
+            sampled: string[];
+            unseen: string[];
         }>(REMOTE_SERVER_ROUTES.SAMPLE_POSTS, {
             method: 'POST',
-            body: JSON.stringify({ dataset_id: datasetId, post_ids: postIds })
+            body: JSON.stringify({
+                dataset_id: datasetId,
+                post_ids: postIds,
+                divisions: settings.general.manualCoding ? 3 : 2
+            })
         });
 
         if (sampleError) {
@@ -164,13 +170,14 @@ const DataViewerPage = () => {
         );
         const { data: codeData, error: codeError } = await fetchLLMData<{
             message: string;
-            data: any[]; // Replace any with a more specific type if available.
+            data: any[];
         }>(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES, {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
                 keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
                 model: settings.ai.model,
+                workspace_id: currentWorkspace!.id,
                 main_topic: mainTopic,
                 additional_info: additionalInfo,
                 research_questions: researchQuestions,

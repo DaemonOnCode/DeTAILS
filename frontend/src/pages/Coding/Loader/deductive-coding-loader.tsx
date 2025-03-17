@@ -6,6 +6,10 @@ import { ROUTES } from '../../../constants/Coding/shared';
 import { useSettings } from '../../../context/settings-context';
 import { useCodingContext } from '../../../context/coding-context';
 import { useWebSocket } from '../../../context/websocket-context';
+import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
+import { useCollectionContext } from '../../../context/collection-context';
+import { useWorkspaceContext } from '../../../context/workspace-context';
+import { useApi } from '../../../hooks/Shared/use-api';
 
 // Highlight colors
 const highlightColors = [
@@ -50,7 +54,30 @@ const DeductiveCoding = () => {
         }
     };
 
+    const { fetchData } = useApi();
+    const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
+
+    const getFunctionProgress = async () => {
+        const { data, error } = await fetchData<{
+            total: number;
+            current: number;
+        }>(REMOTE_SERVER_ROUTES.CHECK_FUNCTION_PROGRESS, {
+            method: 'POST',
+            body: JSON.stringify({
+                name: 'deductive',
+                dataset_id: datasetId,
+                workspace_id: currentWorkspace!.id
+            })
+        });
+        console.log('Function progress:', data, error);
+        if (!error) {
+            setPostsFinished(data.current);
+        }
+    };
+
     useEffect(() => {
+        getFunctionProgress();
         registerCallback('deductive-coding-loader', handleWebsocketMessage);
         return () => unregisterCallback('deductive-coding-loader');
     }, []);

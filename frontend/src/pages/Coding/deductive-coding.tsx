@@ -19,6 +19,7 @@ import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { toast } from 'react-toastify';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 const DeductiveCodingPage = () => {
     const [searchParams] = useSearchParams();
@@ -38,7 +39,7 @@ const DeductiveCodingPage = () => {
     } = useCodingContext();
     const { settings } = useSettings();
     const location = useLocation();
-
+    const { currentWorkspace } = useWorkspaceContext();
     const logger = useLogger();
     const navigate = useNavigate();
     const { getServerUrl } = useServerUtils();
@@ -88,6 +89,7 @@ const DeductiveCodingPage = () => {
             body: JSON.stringify({
                 dataset_id: datasetId,
                 model: settings.ai.model,
+                workspace_id: currentWorkspace!.id,
                 final_codebook: sampledPostResponse
                     .filter((response) => response.isMarked === true)
                     .map((response) => ({
