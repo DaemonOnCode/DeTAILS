@@ -10,7 +10,12 @@ import {
     useReducer,
     Dispatch
 } from 'react';
-import { BaseResponseHandlerActions, ILayout, IQECTTyResponse } from '../types/Coding/shared';
+import {
+    BaseResponseHandlerActions,
+    ILayout,
+    IQECTTyResponse,
+    SetState
+} from '../types/Coding/shared';
 import { useApi } from '../hooks/Shared/use-api';
 import { useCodingContext } from './coding-context';
 import { useCollectionContext } from './collection-context';
@@ -20,6 +25,10 @@ import { getGroupedCodeOfSubCode } from '../utility/theme-finder';
 import { testDataResponseReducer } from '../reducers/coding';
 import { useWorkspaceContext } from './workspace-context';
 import { toast } from 'react-toastify';
+import { useLoadingContext } from './loading-context';
+import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
+import { ROUTES } from '../constants/Coding/shared';
+import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
 
 // Define the type for the codebook (replace 'any' with the actual type if known)
 type CodebookType = {
@@ -65,6 +74,7 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
     postIds: initialPostIds
 }) => {
     const { settings } = useSettings();
+    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
     const { datasetId, selectedData } = useCollectionContext();
     const { sampledPostResponse, unseenPostResponse, groupedCodes, sampledPostIds, unseenPostIds } =
         useCodingContext();
@@ -214,6 +224,7 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
 
     // Effect to trigger codebook creation when the set of postIds changes
     const generateCodebook = useCallback(() => {
+        if (Object.keys(codebook ?? {}).length > 0) return;
         const currentPostIds = Object.keys(postStates);
         if (currentPostIds.length > 0 && !setsEqual(currentPostIds, prevPostIdsRef.current)) {
             createCodebook();
@@ -259,6 +270,38 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
             fetchResponses();
         }
     }, [codebook]);
+
+    const loadingStateInitialization: Record<
+        string,
+        {
+            relatedStates: {
+                state: any;
+                func: SetState<any> | Dispatch<any>;
+                name: string;
+                initValue?: any;
+            }[];
+            downloadData?: { name: string; data: any[]; condition?: boolean };
+        }
+    > = useMemo(
+        () => ({
+            [`/${SHARED_ROUTES.CODING}/${ROUTES.MANUAL_CODING}`]: {
+                relatedStates: [
+                    {
+                        state: codebook,
+                        func: setCodebook,
+                        name: 'setCodebook',
+                        initValue: null
+                    }
+                ]
+            }
+        }),
+        []
+    );
+
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[`/${SHARED_ROUTES.CODING}/${ROUTES.MANUAL_CODING}`]?.stepRef
+    );
 
     // Memoize the context value
     const value = useMemo(

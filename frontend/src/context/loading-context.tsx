@@ -182,6 +182,11 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             isLoading: false,
             isFirstRun: true,
             stepRef: useRef<StepHandle>(initialRefState)
+        },
+        [`/${SHARED_ROUTES.CODING}/${ROUTES.MANUAL_CODING}`]: {
+            isLoading: false,
+            isFirstRun: true,
+            stepRef: useRef<StepHandle>(initialRefState)
         }
     };
 

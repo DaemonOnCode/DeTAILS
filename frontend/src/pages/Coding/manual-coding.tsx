@@ -50,7 +50,11 @@ const ManualCodingPage: React.FC = () => {
 
         document.body.appendChild(portalContainer);
 
-        generateCodebook();
+        console.log('ManualCodingPage mounted', codebook);
+        if (!codebook || Object.keys(codebook).length === 0) {
+            console.log('ManualCodingPage mounted Generating codebook');
+            generateCodebook();
+        }
 
         return () => {
             document.body.removeChild(portalContainer);
