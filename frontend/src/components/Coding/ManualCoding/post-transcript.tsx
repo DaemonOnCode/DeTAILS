@@ -168,6 +168,16 @@ const TranscriptPage = ({
         setActiveTranscript(position);
     };
 
+    // useEffect(() => {
+    //     if (manualCodingResponses.length > 0) {
+    //         console.log('Manual coding responses:', manualCodingResponses);
+    //         setShowCodebook(true);
+    //         setTimeout(() => {
+    //             setShowCodebook(false);
+    //         }, 10);
+    //     }
+    // }, [manualCodingResponses]);
+
     if (loading) {
         return (
             <div className="w-full h-full flex flex-col justify-center items-center">

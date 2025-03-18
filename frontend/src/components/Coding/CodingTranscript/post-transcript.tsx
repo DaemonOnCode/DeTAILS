@@ -66,11 +66,11 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     const { performWithUndo, performWithUndoForReducer, batch } = useUndo();
 
     const { processedSegments, codeSet, codeColors } = useMemo(
-        () => processTranscript(post, extraCodes),
+        () => processTranscript(post, extraCodes, codeResponses),
         [post, extraCodes, codeResponses]
     );
 
-    console.log('Processed Segments:', processedSegments);
+    console.log('Processed Segments:', processedSegments, codeSet, codeResponses);
     useEffect(() => {
         if (!codeSet.every((code, i) => code === additionalCodes[i])) {
             setAdditionalCodes(codeSet);
@@ -100,7 +100,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         );
     }, [codeSet, codeResponses]);
 
-    console.log('Current References:', currentReferences);
+    console.log('Current References:', currentReferences, codeResponses);
 
     const [references, setReferences] = useState<Record<string, IReference[]>>(currentReferences);
 
@@ -110,7 +110,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
     useEffect(() => {
         console.log('Current config:', currentReferences, references);
-        if (Object.keys(currentReferences).length > Object.keys(references).length) {
+        if (JSON.stringify(currentReferences) !== JSON.stringify(references)) {
             setReferences(currentReferences);
         }
     }, [currentReferences, references]);
@@ -245,7 +245,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             explanation: reasoning,
                             isMarked: true,
                             comment: '',
-                            theme: 'Some theme',
+                            theme: '',
                             rangeMarker: selectedTextMarker
                         }
                     });

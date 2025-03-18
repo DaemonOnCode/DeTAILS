@@ -57,7 +57,8 @@ interface ITranscriptContext {
     handleSegmentLeave: (isPermanent?: boolean) => void;
     processTranscript: (
         post: any,
-        extraCodes?: string[]
+        extraCodes?: string[],
+        codeResponses?: any[]
     ) => {
         processedSegments: Segment[];
         codeSet: string[];
@@ -131,9 +132,21 @@ export const TranscriptContextProvider: FC<{
                 fullText: r.quote
             }))
     );
-    const [codes, setCodes] = useState<
-        { text: string; code: string; rangeMarker?: { itemId: string; range: [number, number] } }[]
-    >([]);
+    // const [codes, setCodes] = useState<
+    //     { text: string; code: string; rangeMarker?: { itemId: string; range: [number, number] } }[]
+    // >([]);
+
+    const codes: {
+        text: string;
+        code: string;
+        rangeMarker?: { itemId: string; range: [number, number] };
+    }[] = useMemo(
+        () =>
+            codeResponses
+                .filter((r) => r.postId === postId)
+                .map((r) => ({ text: r.quote, code: r.code })),
+        [codeResponses, postId]
+    );
 
     useEffect(() => {
         console.log(
@@ -157,6 +170,8 @@ export const TranscriptContextProvider: FC<{
                 rangeMarker: r.rangeMarker
             }));
 
+        console.log('New codes rerender:', newCodes);
+
         const newChatHistories: Record<string, ChatMessage[]> = {};
         codeResponses
             .filter((response) => response.postId === postId)
@@ -177,7 +192,7 @@ export const TranscriptContextProvider: FC<{
             });
 
         setAllExplanations(newAllExplanations);
-        setCodes(newCodes);
+        // setCodes([...newCodes]);
         setChatHistories(newChatHistories);
     }, [codeResponses, postId]);
 
@@ -202,6 +217,10 @@ export const TranscriptContextProvider: FC<{
 
     const selectionRangeRef = useRef<Range | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        console.log('Code responses changed – rerendering');
+    }, [codeResponses]);
 
     useEffect(() => {
         if (!selectedSegment) return;
@@ -357,7 +376,7 @@ export const TranscriptContextProvider: FC<{
         return [
             {
                 id: comment.id,
-                text: comment.body,
+                text: displayText(comment.body),
                 type: 'comment',
                 parent_id: parentId
             },
@@ -392,6 +411,7 @@ export const TranscriptContextProvider: FC<{
 
     const processTranscript = useCallback(
         (post: any, extraCodes: string[] = []) => {
+            console.log(codeResponses, 'processTranscript rerendering', codes);
             const codeSet = Array.from(new Set([...codes.map((c) => c.code), ...extraCodes]));
             const codeColors: Record<string, string> = {};
 
@@ -405,8 +425,13 @@ export const TranscriptContextProvider: FC<{
             });
 
             const transcriptFlatMap = [
-                { id: post.id, text: post.title, type: 'title', parent_id: null },
-                { id: post.id, text: post.selftext, type: 'selftext', parent_id: null },
+                { id: post.id, text: displayText(post.title), type: 'title', parent_id: null },
+                {
+                    id: post.id,
+                    text: displayText(post.selftext),
+                    type: 'selftext',
+                    parent_id: null
+                },
                 ...post.comments.flatMap((comment: any) => traverseComments(comment, post.id))
             ];
 
@@ -513,6 +538,10 @@ export const TranscriptContextProvider: FC<{
         [codes]
     );
 
+    const displayText = (text: string) => {
+        return text.replace(/\s+/g, ' ').trim();
+    };
+
     function createSegment(
         segmentText: string,
         data: any,
@@ -525,7 +554,7 @@ export const TranscriptContextProvider: FC<{
         const relevantOriginalQuotes = activeCodes.map((code) => codeToOriginalQuote[code] || '');
 
         return {
-            line: segmentText,
+            line: displayText(segmentText),
             id: data.id,
             type: data.type,
             parent_id: data.parent_id,

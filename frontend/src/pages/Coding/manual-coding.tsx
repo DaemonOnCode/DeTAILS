@@ -10,6 +10,7 @@ import TranscriptPage from '../../components/Coding/ManualCoding/post-transcript
 import TranscriptGrid from '../../components/Coding/ManualCoding/transcript-grid';
 import { useManualCodingContext } from '../../context/manual-coding-context';
 import SplitCheckPage from '../../components/Coding/ManualCoding/split-check';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const ManualCodingPage: React.FC = () => {
     const portalContainerRef = useRef<HTMLDivElement>(document.createElement('div'));
@@ -26,6 +27,9 @@ const ManualCodingPage: React.FC = () => {
         dispatchManualCodingResponses,
         generateCodebook
     } = useManualCodingContext();
+    const hasSavedRef = useRef(false);
+
+    const { saveWorkspaceData } = useWorkspaceUtils();
 
     console.log('ManualCodingPage rendered', postStates);
 
@@ -54,8 +58,13 @@ const ManualCodingPage: React.FC = () => {
     }, []);
 
     // Handler for tab switching
-    const handleTabChange = (newTab: string) => {
+    const handleTabChange = async (newTab: string) => {
         setTab(newTab as typeof tab);
+        if (!hasSavedRef.current) {
+            hasSavedRef.current = true;
+            await saveWorkspaceData();
+            hasSavedRef.current = false;
+        }
         // if (newTab !== 'transcript') {
         //     setCurrentId(null);
         // }
@@ -112,7 +121,7 @@ const ManualCodingPage: React.FC = () => {
             {/* Loading overlay when codebook is being created */}
             {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50">
-                    <p className="text-gray-700">Loading codebook...</p>
+                    <p className="text-gray-700">Generating codebook...</p>
                 </div>
             )}
 

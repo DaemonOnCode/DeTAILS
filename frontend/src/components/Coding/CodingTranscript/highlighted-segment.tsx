@@ -26,7 +26,9 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
     // If there are no background colours, render the text plainly.
     if (segment.backgroundColours.length === 0) {
         return (
-            <span data-segment-id={segment.index} className="relative z-10 mr-0.5">
+            <span
+                data-segment-id={segment.index}
+                className="relative z-10 mr-0.5 whitespace-pre-line">
                 {segment.line}
             </span>
         );
@@ -55,7 +57,10 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
             onMouseLeave={() => {
                 handleSegmentLeave();
             }}>
-            <span data-segment-id={segment.index} className="relative pr-1" style={{ zIndex: 5 }}>
+            <span
+                data-segment-id={segment.index}
+                className="relative pr-1 whitespace-pre-line"
+                style={{ zIndex: 5 }}>
                 {segment.line}
             </span>
             {segment.backgroundColours.map((bgColor, i) => {

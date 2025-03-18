@@ -413,7 +413,7 @@ export const testDataResponseReducer = (
     state: IQECTTyResponse[],
     action: BaseResponseHandlerActions<IQECTTyResponse>
 ): IQECTTyResponse[] => {
-    console.log('Action:', action, 'Unseen Data');
+    console.log('Action:', action, 'Manual Data');
     switch (action.type) {
         case 'SET_CORRECT':
         case 'SET_ALL_CORRECT':

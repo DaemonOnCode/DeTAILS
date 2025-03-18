@@ -156,7 +156,7 @@ const TopToolbar: FC<TopToolbarProps> = ({
             )}
             {showDoneButton && (
                 <button
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                    className={`px-4 py-2  rounded text-white ${!isDone ? 'bg-green-500  hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'}`}
                     onClick={onDoneClick}>
                     {isDone ? 'Mark as Undone' : 'Mark as Done'}
                 </button>
