@@ -255,9 +255,7 @@ const TranscriptPage = ({
                             review={currentConfig.review}
                             codeResponses={currentConfig.bottomTranscript.responses ?? []}
                             isActive={true}
-                            extraCodes={Array.from(
-                                new Set(currentConfig.codebook?.responses.map((r) => r.code))
-                            )}
+                            extraCodes={Object.keys(codebook ?? {})}
                             dispatchCodeResponse={currentConfig.bottomTranscript.dispatchFunction}
                             conflictingCodes={currentConfig.bottomTranscript.conflicts}
                             selectedText={selectedText}

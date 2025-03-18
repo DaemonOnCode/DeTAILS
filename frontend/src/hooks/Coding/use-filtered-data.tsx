@@ -29,89 +29,88 @@ export function useFilteredData({
     unseenPostIds,
     testPostIds
 }: UseFilteredDataParams) {
-    console.log(postIds, data, filter, showCoderType, selectedTypeFilter, 'use filtered data');
-
     return useMemo(() => {
         let filteredData = data;
         let filteredPostIds = postIds;
         let totalIds = postIds.length;
         let totalData = data;
-        console.log(filter, showCoderType, applyFilters, selectedTypeFilter, 'filters');
+
         const llmFilteredResponses = unseenPostResponse.filter(
             (response) => response.type === 'LLM'
         );
         const llmPostIds = llmFilteredResponses.map((r) => r.postId);
+
+        // Non-manual coding case
         if (!showCoderType && applyFilters) {
             if (selectedTypeFilter === 'All') {
                 filteredData = [...sampledPostResponse, ...llmFilteredResponses];
                 filteredPostIds = [...sampledPostIds, ...unseenPostIds];
                 totalIds = filteredPostIds.length;
-                totalData = [...sampledPostResponse, ...llmFilteredResponses];
+                totalData = filteredData;
             } else if (selectedTypeFilter === 'New Data') {
                 filteredData = llmFilteredResponses;
                 filteredPostIds = unseenPostIds;
                 totalIds = filteredPostIds.length;
-                totalData = llmFilteredResponses;
+                totalData = filteredData;
             } else if (selectedTypeFilter === 'Codebook') {
                 filteredData = sampledPostResponse;
                 filteredPostIds = sampledPostIds;
                 totalIds = filteredPostIds.length;
-                totalData = sampledPostResponse;
+                totalData = filteredData;
             }
-        } else if (showCoderType && applyFilters) {
+        }
+        // Manual coding case
+        else if (showCoderType && applyFilters) {
             if (selectedTypeFilter === 'All') {
+                totalData = manualCodingResponses;
                 filteredData = manualCodingResponses;
                 filteredPostIds = testPostIds;
                 totalIds = filteredPostIds.length;
-                totalData = manualCodingResponses;
             } else if (selectedTypeFilter === 'Human') {
-                const humanPostResponses = manualCodingResponses.filter(
+                filteredData = manualCodingResponses.filter(
                     (response) => response.type === 'Human'
                 );
-                filteredData = humanPostResponses;
-                filteredPostIds = humanPostResponses.map((r) => r.postId);
-                // totalIds = filteredPostIds.length;
-                // totalData = humanPostResponses;
+                filteredPostIds = testPostIds;
+                totalIds = filteredPostIds.length;
+                totalData = filteredData;
             } else if (selectedTypeFilter === 'LLM') {
                 filteredData = manualCodingResponses.filter((response) => response.type === 'LLM');
-                filteredPostIds = filteredData.map((r) => r.postId);
-                // totalIds = filteredPostIds.length;
-                // totalData = llmFilteredResponses;
+                filteredPostIds = testPostIds;
+                totalIds = filteredPostIds.length;
+                totalData = filteredData;
             }
         }
 
-        console.log(filteredData, 'filtered data', filter);
-
+        // Apply additional filtering based on filter parameter
         if (filter) {
-            // Case 1: Filter is exactly "coded-data"
             if (filter === 'coded-data') {
-                // filteredData = filteredData;
                 filteredPostIds = filteredPostIds.filter((postId) =>
                     totalData.some((item) => item.postId === postId)
                 );
-            }
-            // Case 2: Filter is of the form "postId|coded-data"
-            else if (filter.split('|')[1] === 'coded-data') {
+            } else if (filter.split('|')[1] === 'coded-data') {
                 const [postId] = filter.split('|');
                 filteredData = filteredData.filter((response) => response.postId === postId);
                 filteredPostIds = filteredPostIds.filter((postId) =>
-                    data.some((item) => item.postId === postId)
+                    totalData.some((item) => item.postId === postId)
                 );
-            }
-            // Case 3: Any other filter (by postId or code)
-            else {
-                filteredData = filteredData.filter(
-                    (response) => response.postId === filter || response.code === filter
-                );
-                // filteredPostIds = filteredPostIds.filter((postId) =>
-                //     data.some((item) => item.postId === postId)
-                // );
-                // When filtering by a specific post or code in "All Posts" mode,
-                // show all posts in the left panel.
-                // filteredPostIds = postIds;
+            } else {
+                // Distinguish between postId and code filters
+                const allPostIds = Array.from(new Set(totalData.map((item) => item.postId)));
+                if (allPostIds.includes(filter)) {
+                    // Filter by postId: show responses for this post, keep all relevant postIds
+                    filteredData = filteredData.filter((response) => response.postId === filter);
+                    // Optionally: filteredPostIds = postIds; to show all posts, but here we keep as is
+                } else {
+                    // Filter by code: show only posts with responses matching the code
+                    filteredData = filteredData.filter((response) => response.code === filter);
+                    const postIdsWithCode = Array.from(new Set(filteredData.map((r) => r.postId)));
+                    filteredPostIds = filteredPostIds.filter((postId) =>
+                        postIdsWithCode.includes(postId)
+                    );
+                }
             }
         }
-        // Otherwise, no filter: return full data and all posts.
+
         return { filteredData, filteredPostIds, totalIds, totalData };
     }, [
         data,
@@ -122,9 +121,9 @@ export function useFilteredData({
         selectedTypeFilter,
         sampledPostResponse,
         unseenPostResponse,
+        manualCodingResponses,
         sampledPostIds,
         unseenPostIds,
-        manualCodingResponses,
         testPostIds
     ]);
 }
