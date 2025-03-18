@@ -9,8 +9,10 @@ interface UseFilteredDataParams {
     selectedTypeFilter: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
     sampledPostResponse: any[];
     unseenPostResponse: any[];
+    manualCodingResponses: any[];
     sampledPostIds: string[];
     unseenPostIds: string[];
+    testPostIds: string[];
 }
 
 export function useFilteredData({
@@ -22,8 +24,10 @@ export function useFilteredData({
     selectedTypeFilter,
     sampledPostResponse,
     unseenPostResponse,
+    manualCodingResponses,
     sampledPostIds,
-    unseenPostIds
+    unseenPostIds,
+    testPostIds
 }: UseFilteredDataParams) {
     console.log(postIds, data, filter, showCoderType, selectedTypeFilter, 'use filtered data');
 
@@ -56,12 +60,12 @@ export function useFilteredData({
             }
         } else if (showCoderType && applyFilters) {
             if (selectedTypeFilter === 'All') {
-                filteredData = unseenPostResponse;
-                filteredPostIds = unseenPostIds;
+                filteredData = manualCodingResponses;
+                filteredPostIds = testPostIds;
                 totalIds = filteredPostIds.length;
-                totalData = unseenPostResponse;
+                totalData = manualCodingResponses;
             } else if (selectedTypeFilter === 'Human') {
-                const humanPostResponses = unseenPostResponse.filter(
+                const humanPostResponses = manualCodingResponses.filter(
                     (response) => response.type === 'Human'
                 );
                 filteredData = humanPostResponses;
@@ -69,8 +73,8 @@ export function useFilteredData({
                 // totalIds = filteredPostIds.length;
                 // totalData = humanPostResponses;
             } else if (selectedTypeFilter === 'LLM') {
-                filteredData = llmFilteredResponses;
-                filteredPostIds = llmPostIds;
+                filteredData = manualCodingResponses.filter((response) => response.type === 'LLM');
+                filteredPostIds = filteredData.map((r) => r.postId);
                 // totalIds = filteredPostIds.length;
                 // totalData = llmFilteredResponses;
             }
@@ -119,6 +123,8 @@ export function useFilteredData({
         sampledPostResponse,
         unseenPostResponse,
         sampledPostIds,
-        unseenPostIds
+        unseenPostIds,
+        manualCodingResponses,
+        testPostIds
     ]);
 }

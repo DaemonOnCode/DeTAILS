@@ -120,9 +120,10 @@ export type TopToolbarProps = {
     setIsEditHighlightCodeModalOpen: SetState<boolean>;
     setIsDeleteHighlightCodeModalOpen: SetState<boolean>;
     activeTranscript?: 'human' | 'llm' | null;
-    showCodebookButton?: boolean; // Optional prop to control the Codebook button
-    showCodebook?: boolean; // Optional prop to control the Codebook visibility
-    onShowCodebook?: (e: any) => void; // Callback function for showing the codebook
+    showCodebookButton?: boolean;
+    showCodebook?: boolean;
+    onShowCodebook?: (e: any) => void;
+    manualCoding?: boolean;
 };
 
 export type FileCardProps = {

@@ -408,3 +408,38 @@ export const unseenDataResponseReducer = (
             return state;
     }
 };
+
+export const testDataResponseReducer = (
+    state: IQECTTyResponse[],
+    action: BaseResponseHandlerActions<IQECTTyResponse>
+): IQECTTyResponse[] => {
+    console.log('Action:', action, 'Unseen Data');
+    switch (action.type) {
+        case 'SET_CORRECT':
+        case 'SET_ALL_CORRECT':
+        case 'SET_INCORRECT':
+        case 'SET_ALL_INCORRECT':
+        case 'SET_ALL_UNMARKED':
+        case 'UPDATE_COMMENT':
+        case 'MARK_RESPONSE':
+        case 'MARK_RESPONSE_BY_CODE_EXPLANATION':
+        case 'ADD_RESPONSE':
+        case 'ADD_RESPONSES':
+        case 'REMOVE_RESPONSES':
+        case 'SET_RESPONSES':
+        case 'DELETE_CODE':
+        case 'EDIT_CODE':
+        case 'DELETE_HIGHLIGHT':
+        case 'EDIT_HIGHLIGHT':
+        case 'SET_CHAT_HISTORY':
+        case 'UPDATE_CODE':
+        case 'RESET':
+        case 'UPSERT_MARKER':
+        case 'SYNC_CHAT_STATE':
+        case 'RESTORE_STATE':
+            return baseResponseHandler(state, action, {});
+
+        default:
+            return state;
+    }
+};

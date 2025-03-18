@@ -11,6 +11,7 @@ import ValidationTable from './validation-table';
 import { DetailsLLMIcon } from '../../Shared/Icons';
 import { toast } from 'react-toastify';
 import { useLoadingContext } from '../../../context/loading-context';
+import { useManualCodingContext } from '../../../context/manual-coding-context';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
@@ -61,6 +62,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         dispatchSampledPostResponse,
         dispatchUnseenPostResponse
     } = useCodingContext();
+    const { postStates, manualCodingResponses, dispatchManualCodingResponses } =
+        useManualCodingContext();
 
     const [review, setReview] = useState(reviewParam ?? true);
     const [filter, setFilter] = useState<string | null>(null);
@@ -141,8 +144,10 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         selectedTypeFilter,
         sampledPostResponse,
         unseenPostResponse,
+        manualCodingResponses,
         sampledPostIds,
-        unseenPostIds
+        unseenPostIds,
+        testPostIds: Object.keys(postStates)
     });
 
     console.log(

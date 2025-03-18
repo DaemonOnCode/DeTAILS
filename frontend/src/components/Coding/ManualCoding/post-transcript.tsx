@@ -12,6 +12,7 @@ import PostTranscript from '../CodingTranscript/post-transcript';
 import ValidationTable from '../UnifiedCoding/validation-table';
 import { TranscriptContextProvider } from '../../../context/transcript-context';
 import { useApi } from '../../../hooks/Shared/use-api';
+import { useManualCodingContext } from '../../../context/manual-coding-context';
 
 const TranscriptPage = ({
     id,
@@ -30,6 +31,8 @@ const TranscriptPage = ({
         sampledPostResponse,
         dispatchSampledPostResponse
     } = useCodingContext();
+    const { manualCodingResponses, dispatchManualCodingResponses, codebook } =
+        useManualCodingContext();
     const { datasetId } = useCollectionContext();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -60,18 +63,18 @@ const TranscriptPage = ({
         name: 'Refine',
         review: false,
         codebook: {
-            responses: sampledPostResponse,
+            responses: manualCodingResponses,
             dispatchFunction: (...args: any) => {
                 console.log('Dispatching to Review with codebook:', args);
-                dispatchSampledPostResponse({
-                    type: 'SET_RESPONSES',
-                    responses: args[0]
-                });
+                // dispatchSampledPostResponse({
+                //     type: 'SET_RESPONSES',
+                //     responses: args[0]
+                // });
             }
         },
         topTranscript: null,
         bottomTranscript: {
-            responses: unseenPostResponse.filter((response) => response.type === 'Human'),
+            responses: manualCodingResponses.filter((response) => response.type === 'Human'),
             dispatchFunction: (...args: any) => {
                 console.log('Dispatching to Refine:', args);
                 let value =
@@ -84,7 +87,7 @@ const TranscriptPage = ({
                               }
                           }
                         : { ...args[0] };
-                dispatchUnseenPostResponse({
+                dispatchManualCodingResponses({
                     ...value
                 });
             },
@@ -195,6 +198,7 @@ const TranscriptPage = ({
                     onShowCodebook={() => {
                         setShowCodebook((prev) => !prev);
                     }}
+                    manualCoding
                 />
 
                 {showCodebook && (
@@ -208,24 +212,30 @@ const TranscriptPage = ({
                                     : 'border border-gray-200 rounded-md'
                             }`}
                             onClick={(e) => handleSetActiveTranscript(e, 'top')}>
-                            <div className="">
-                                <ValidationTable
-                                    dispatchCodeResponses={
-                                        currentConfig?.codebook?.dispatchFunction as any
-                                    }
-                                    codeResponses={currentConfig?.codebook?.responses ?? []}
-                                    onViewTranscript={() => {}}
-                                    review
-                                    onReRunCoding={() => {}}
-                                    onUpdateResponses={
-                                        currentConfig?.codebook?.dispatchFunction as any
-                                    }
-                                />
-                            </div>
+                            <table className="w-full relative border-separate border-spacing-0">
+                                <thead className="sticky top-0 z-30 bg-gray-100">
+                                    <tr>
+                                        <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
+                                            Code
+                                        </th>
+                                        <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
+                                            Definition
+                                        </th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {Object.entries(codebook ?? {}).map(([key, value]) => (
+                                        <tr key={key}>
+                                            <td className="p-2 border border-gray-300">{key}</td>
+                                            <td className="p-2 border border-gray-300">{value}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}
-
                 <div
                     className={`${showCodebook ? '' : 'h-full'} flex-1 overflow-auto min-h-0 p-4 m-4 ${
                         activeTranscript === 'bottom'

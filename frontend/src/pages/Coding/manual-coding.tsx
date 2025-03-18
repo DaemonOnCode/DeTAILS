@@ -15,8 +15,17 @@ const ManualCodingPage: React.FC = () => {
 
     const navigate = useNavigate();
     const { unseenPostResponse, dispatchUnseenPostResponse, unseenPostIds } = useCodingContext();
-    const { postStates, addPostIds, updatePostState, isLoading, codebook } =
-        useManualCodingContext(); // Access ManualCodingContext
+    const {
+        postStates,
+        addPostIds,
+        updatePostState,
+        isLoading,
+        codebook,
+        manualCodingResponses,
+        dispatchManualCodingResponses
+    } = useManualCodingContext(); // Access ManualCodingContext
+
+    console.log('ManualCodingPage rendered', postStates);
 
     const [tab, setTab] = useState<'unified' | 'transcript' | 'transcripts' | 'splitCheck'>(
         'transcripts'
@@ -41,11 +50,11 @@ const ManualCodingPage: React.FC = () => {
     }, []);
 
     // Sync unseenPostIds with ManualCodingContext when they change
-    useEffect(() => {
-        if (unseenPostIds.length > 0) {
-            addPostIds(unseenPostIds); // Add new post IDs to the context
-        }
-    }, [unseenPostIds, addPostIds]);
+    // useEffect(() => {
+    //     if (unseenPostIds.length > 0) {
+    //         addPostIds(unseenPostIds); // Add new post IDs to the context
+    //     }
+    // }, [unseenPostIds, addPostIds]);
 
     // Handler for tab switching
     const handleTabChange = (newTab: 'unified' | 'transcript' | 'transcripts' | 'splitCheck') => {
@@ -117,9 +126,9 @@ const ManualCodingPage: React.FC = () => {
             <div className="flex-1 overflow-hidden">
                 {tab === 'unified' ? (
                     <UnifiedCodingPage
-                        postIds={unseenPostIds}
-                        data={unseenPostResponse}
-                        dispatchFunction={dispatchUnseenPostResponse}
+                        postIds={Object.keys(postStates)}
+                        data={manualCodingResponses}
+                        dispatchFunction={dispatchManualCodingResponses}
                         split
                         showCodebook
                         showCoderType
@@ -149,7 +158,7 @@ const ManualCodingPage: React.FC = () => {
                 ) : tab === 'transcripts' ? (
                     <div className="h-full overflow-auto">
                         <TranscriptGrid
-                            postIds={unseenPostIds}
+                            postIds={Object.keys(postStates)}
                             postStates={postStates} // Pass post states
                             onPostSelect={(id) => {
                                 setCurrentId(id);

@@ -6,18 +6,23 @@ import {
     FC,
     useContext,
     useEffect,
-    useRef
+    useRef,
+    useReducer,
+    Dispatch
 } from 'react';
-import { ILayout } from '../types/Coding/shared';
+import { BaseResponseHandlerActions, ILayout, IQECTTyResponse } from '../types/Coding/shared';
 import { useApi } from '../hooks/Shared/use-api';
 import { useCodingContext } from './coding-context';
 import { useCollectionContext } from './collection-context';
 import { useSettings } from './settings-context';
 import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
 import { getGroupedCodeOfSubCode } from '../utility/theme-finder';
+import { testDataResponseReducer } from '../reducers/coding';
 
 // Define the type for the codebook (replace 'any' with the actual type if known)
-type CodebookType = any[];
+type CodebookType = {
+    [code: string]: string;
+};
 
 // Define the context interface with additional properties
 interface IManualCodingContext {
@@ -26,6 +31,8 @@ interface IManualCodingContext {
     updatePostState: (postId: string, state: boolean) => void; // Function to update post state
     isLoading: boolean; // Indicates if the codebook is being created
     codebook: CodebookType | null; // Stores the codebook data
+    manualCodingResponses: IQECTTyResponse[]; // Stores the manual coding responses
+    dispatchManualCodingResponses: Dispatch<BaseResponseHandlerActions<IQECTTyResponse>>; // Dispatch function for manual coding responses
 }
 
 // Create the context with default values
@@ -34,7 +41,9 @@ export const ManualCodingContext = createContext<IManualCodingContext>({
     addPostIds: () => {},
     updatePostState: () => {},
     isLoading: false,
-    codebook: null
+    codebook: null,
+    manualCodingResponses: [],
+    dispatchManualCodingResponses: () => {}
 });
 
 // Define props for the provider
@@ -48,8 +57,10 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
     postIds: initialPostIds
 }) => {
     const { settings } = useSettings();
-    const { datasetId } = useCollectionContext();
-    const { sampledPostResponse, unseenPostResponse, groupedCodes } = useCodingContext();
+    const { datasetId, selectedData } = useCollectionContext();
+    const { sampledPostResponse, unseenPostResponse, groupedCodes, sampledPostIds, unseenPostIds } =
+        useCodingContext();
+    console.log('Initial postIds', initialPostIds);
     // State for post states, initialized with initial postIds
     const [postStates, setPostStates] = useState<{ [postId: string]: boolean }>(
         initialPostIds.reduce((acc, id) => ({ ...acc, [id]: false }), {})
@@ -61,12 +72,13 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
     // Ref to track previous postIds
     const prevPostIdsRef = useRef<string[]>([]);
 
+    const [manualCodingResponses, dispatchManualCodingResponses] = useReducer(
+        testDataResponseReducer,
+        []
+    );
+
     const { fetchData } = useApi();
 
-    useEffect(() => {
-        console.log('Responses changed', sampledPostResponse, unseenPostResponse);
-    }, [sampledPostResponse, unseenPostResponse]);
-    // Placeholder for backend call (replace with actual implementation)
     const generateCodebookWithoutQuotes = useCallback(async () => {
         console.log(
             'Generating codebook without quotes',
@@ -76,40 +88,40 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
             unseenPostResponse
         );
         if (!settings.app.id || !sampledPostResponse.length || !unseenPostResponse.length)
-            return [];
+            return {};
         // Call the backend API to generate the codebook
-        const { data, error } = await fetchData(
-            REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK_WITHOUT_QUOTES,
-            {
-                method: 'POST',
-                body: JSON.stringify({
-                    dataset_id: datasetId,
-                    unseen_post_responses: unseenPostResponse.map((r) => ({
-                        postId: r.postId,
-                        id: r.id,
-                        code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                        quote: r.quote,
-                        explanation: r.explanation,
-                        comment: r.comment,
-                        subCode: r.code
-                    })),
-                    sampled_post_responses: sampledPostResponse.map((r) => ({
-                        postId: r.postId,
-                        id: r.id,
-                        code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                        quote: r.quote,
-                        explanation: r.explanation,
-                        comment: r.comment,
-                        subCode: r.code
-                    })),
-                    model: settings.ai.model
-                })
-            }
-        );
+        const { data, error } = await fetchData<{
+            message: string;
+            data: CodebookType;
+        }>(REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK_WITHOUT_QUOTES, {
+            method: 'POST',
+            body: JSON.stringify({
+                dataset_id: datasetId,
+                unseen_post_responses: unseenPostResponse.map((r) => ({
+                    postId: r.postId,
+                    id: r.id,
+                    code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+                    quote: r.quote,
+                    explanation: r.explanation,
+                    comment: r.comment,
+                    subCode: r.code
+                })),
+                sampled_post_responses: sampledPostResponse.map((r) => ({
+                    postId: r.postId,
+                    id: r.id,
+                    code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+                    quote: r.quote,
+                    explanation: r.explanation,
+                    comment: r.comment,
+                    subCode: r.code
+                })),
+                model: settings.ai.model
+            })
+        });
         if (error) {
             throw new Error('Failed to generate codebook');
         }
-        return data;
+        return data.data;
     }, [settings, datasetId, sampledPostResponse, unseenPostResponse, groupedCodes]);
 
     // Function to add new postIds, avoiding overwrites of existing ones
@@ -156,6 +168,21 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
         }
     }, [postStates, createCodebook]);
 
+    useEffect(() => {
+        if (postStates && Object.keys(postStates).length > 0) {
+            console.log('Post states:', postStates);
+            return;
+        }
+
+        const testPostIds = selectedData.filter(
+            (p) => !sampledPostIds.includes(p) && !unseenPostIds.includes(p)
+        );
+
+        console.log('Test postIds:', testPostIds);
+
+        setPostStates(testPostIds.reduce((acc, id) => ({ ...acc, [id]: false }), {}));
+    }, [sampledPostIds, unseenPostIds]);
+
     // Memoize the context value
     const value = useMemo(
         () => ({
@@ -163,17 +190,11 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
             addPostIds,
             updatePostState,
             isLoading,
-            codebook
-        }),
-        [
-            postStates,
-            addPostIds,
-            updatePostState,
-            isLoading,
             codebook,
-            sampledPostResponse,
-            unseenPostResponse
-        ]
+            manualCodingResponses,
+            dispatchManualCodingResponses
+        }),
+        [postStates, addPostIds, updatePostState, isLoading, codebook, manualCodingResponses]
     );
 
     return <ManualCodingContext.Provider value={value}>{children}</ManualCodingContext.Provider>;

@@ -13,7 +13,8 @@ const TopToolbar: FC<TopToolbarProps> = ({
     setIsDeleteHighlightCodeModalOpen,
     showCodebookButton = false,
     showCodebook = false,
-    onShowCodebook
+    onShowCodebook,
+    manualCoding
 }) => {
     const [isCodeDropdownOpen, setIsCodeDropdownOpen] = useState(false);
     const [isHighlightDropdownOpen, setIsHighlightDropdownOpen] = useState(false);
@@ -48,42 +49,50 @@ const TopToolbar: FC<TopToolbarProps> = ({
             className="bg-gray-200 p-3 border-b flex items-center space-x-6"
             id="transcript-toolbar">
             {/* Code Actions Dropdown */}
-            <div
-                className="relative"
-                tabIndex={0}
-                ref={codeDropdownRef}
-                onBlur={(e) => handleBlur(e, setIsCodeDropdownOpen)}>
-                <button
-                    className="flex items-center px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    onClick={() => setIsCodeDropdownOpen(!isCodeDropdownOpen)}>
-                    <FaCode className="mr-2" /> Code Actions ▼
-                </button>
-                {isCodeDropdownOpen && (
-                    <ul className="absolute mt-2 w-48 bg-white border rounded shadow-lg z-50">
-                        <li
-                            className={`px-4 py-2 hover:bg-gray-100 ${
-                                selectedPost ? 'cursor-pointer' : 'text-gray-400 cursor-not-allowed'
-                            }`}
-                            onClick={() => selectedPost && setIsAddCodeModalOpen(true)}>
-                            Add Code
-                        </li>
-                        <li
-                            className={`px-4 py-2 hover:bg-gray-100 ${
-                                selectedPost ? 'cursor-pointer' : 'text-gray-400 cursor-not-allowed'
-                            }`}
-                            onClick={() => selectedPost && setIsEditCodeModalOpen(true)}>
-                            Edit Code
-                        </li>
-                        <li
-                            className={`px-4 py-2 hover:bg-red-100 text-red-500 ${
-                                selectedPost ? 'cursor-pointer' : 'text-gray-400 cursor-not-allowed'
-                            }`}
-                            onClick={() => selectedPost && setIsDeleteCodeModalOpen(true)}>
-                            Delete Code
-                        </li>
-                    </ul>
-                )}
-            </div>
+            {!manualCoding && (
+                <div
+                    className="relative"
+                    tabIndex={0}
+                    ref={codeDropdownRef}
+                    onBlur={(e) => handleBlur(e, setIsCodeDropdownOpen)}>
+                    <button
+                        className="flex items-center px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        onClick={() => setIsCodeDropdownOpen(!isCodeDropdownOpen)}>
+                        <FaCode className="mr-2" /> Code Actions ▼
+                    </button>
+                    {isCodeDropdownOpen && (
+                        <ul className="absolute mt-2 w-48 bg-white border rounded shadow-lg z-50">
+                            <li
+                                className={`px-4 py-2 hover:bg-gray-100 ${
+                                    selectedPost
+                                        ? 'cursor-pointer'
+                                        : 'text-gray-400 cursor-not-allowed'
+                                }`}
+                                onClick={() => selectedPost && setIsAddCodeModalOpen(true)}>
+                                Add Code
+                            </li>
+                            <li
+                                className={`px-4 py-2 hover:bg-gray-100 ${
+                                    selectedPost
+                                        ? 'cursor-pointer'
+                                        : 'text-gray-400 cursor-not-allowed'
+                                }`}
+                                onClick={() => selectedPost && setIsEditCodeModalOpen(true)}>
+                                Edit Code
+                            </li>
+                            <li
+                                className={`px-4 py-2 hover:bg-red-100 text-red-500 ${
+                                    selectedPost
+                                        ? 'cursor-pointer'
+                                        : 'text-gray-400 cursor-not-allowed'
+                                }`}
+                                onClick={() => selectedPost && setIsDeleteCodeModalOpen(true)}>
+                                Delete Code
+                            </li>
+                        </ul>
+                    )}
+                </div>
+            )}
 
             {/* Highlight Actions Dropdown */}
             <div
