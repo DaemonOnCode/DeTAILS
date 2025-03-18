@@ -178,14 +178,14 @@ const CodebookCreation = () => {
 
         console.log('Results:', results);
 
-        if (settings.general.manualCoding) {
-            toast.info(
-                'LLM has finished coding data. You can head back to Deductive Coding page to see the results',
-                {
-                    autoClose: false
-                }
-            );
-        }
+        // if (settings.general.manualCoding) {
+        //     toast.info(
+        //         'LLM has finished coding data. You can head back to Deductive Coding page to see the results',
+        //         {
+        //             autoClose: false
+        //         }
+        //     );
+        // }
 
         dispatchUnseenPostResponse({
             type: 'SET_RESPONSES',
@@ -285,7 +285,7 @@ const CodebookCreation = () => {
                     nextPage={`${ROUTES.DEDUCTIVE_CODING}`}
                     isReady={true}
                     onNextClick={handleNextClick}
-                    autoNavigateToNext={!settings.general.manualCoding}
+                    // autoNavigateToNext={!settings.general.manualCoding}
                 />
             </div>
         </TutorialWrapper>

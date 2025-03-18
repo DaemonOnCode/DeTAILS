@@ -12,7 +12,7 @@ from fastapi import HTTPException, UploadFile
 from controllers.workspace_controller import upgrade_workspace_from_temp
 from models import WorkspaceState, Workspace
 from database import WorkspaceStatesRepository, WorkspacesRepository
-from models.state_models import CodingContext, CollectionContext, LoadingContext, ModelingContext
+from models.state_models import CodingContext, CollectionContext, LoadingContext, ManualCodingContext, ModelingContext
 from utils.chroma_export import chroma_export_cli, chroma_import
 
 workspace_state_repo = WorkspaceStatesRepository()
@@ -24,6 +24,7 @@ def save_state(data):
     coding_context = CodingContext(**data.coding_context)
     modeling_context = ModelingContext(**data.modeling_context)
     loading_context = LoadingContext(**data.loading_context)
+    manual_coding_context = ManualCodingContext(**data.manual_coding_context)
 
     # Convert complex objects to JSON strings for storage
     metadata = json.dumps(collection_context.metadata)
@@ -50,6 +51,10 @@ def save_state(data):
 
 
     page_state = json.dumps(loading_context.page_state)
+
+    post_states = json.dumps(manual_coding_context.post_states)
+    manual_coding_responses = json.dumps(manual_coding_context.manual_coding_responses)
+    codebook = json.dumps(manual_coding_context.codebook)
 
     # Create a workspace state object
     workspace_state = WorkspaceState(
@@ -82,6 +87,9 @@ def save_state(data):
         unseen_post_ids=unseen_post_ids,
         conflicting_responses=conflicting_responses,
         page_state=page_state,
+        post_states=post_states,
+        manual_coding_responses=manual_coding_responses,
+        codebook=codebook,
         updated_at=datetime.now(),
     )
 
@@ -155,7 +163,7 @@ def load_state(data):
         "keyword_table", "references_data", "themes", "grouped_codes", "research_questions",
         "sampled_post_responses", "sampled_post_with_themes_responses",
         "unseen_post_response", "unplaced_codes", "unplaced_subcodes", "sampled_post_ids", "unseen_post_ids",
-        "conflicting_responses", "page_state"
+        "conflicting_responses", "page_state", "post_states", "manual_coding_responses", "codebook"
     ]
 
     for field in json_fields:

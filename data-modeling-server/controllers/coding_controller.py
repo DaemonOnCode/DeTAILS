@@ -321,7 +321,7 @@ async def process_llm_task(
             if retries == 0:
                 await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
                 extracted_data = []
-                raise e
+                # raise e
             # print("Error, waiting for 60 seconds", e)
             # await asyncio.sleep(60)
 

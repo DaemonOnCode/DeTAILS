@@ -133,6 +133,11 @@ class WorkspaceState(BaseDataclass):
     # Loading Context
     page_state: Optional[str] = None
 
+    # Manual Coding Context
+    post_states: Optional[str] = None  # JSON string for list
+    manual_coding_responses: Optional[str] = None  # JSON string for list
+    codebook: Optional[str] = None  # JSON string for dict
+
     # Metadata
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
 

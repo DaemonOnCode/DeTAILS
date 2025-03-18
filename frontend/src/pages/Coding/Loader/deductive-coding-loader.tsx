@@ -159,7 +159,7 @@ const DeductiveCoding = () => {
                 </div>
             </div>
 
-            {settings.general.manualCoding && (
+            {/* {settings.general.manualCoding && (
                 <div className="mt-4 self-end">
                     <button
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -167,7 +167,7 @@ const DeductiveCoding = () => {
                         Go to Manual Coding →
                     </button>
                 </div>
-            )}
+            )} */}
         </div>
     );
 };

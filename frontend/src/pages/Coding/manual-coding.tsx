@@ -23,7 +23,8 @@ const ManualCodingPage: React.FC = () => {
         isLoading,
         codebook,
         manualCodingResponses,
-        dispatchManualCodingResponses
+        dispatchManualCodingResponses,
+        generateCodebook
     } = useManualCodingContext();
 
     console.log('ManualCodingPage rendered', postStates);
@@ -44,6 +45,8 @@ const ManualCodingPage: React.FC = () => {
         portalContainer.style.background = '#ffffff';
 
         document.body.appendChild(portalContainer);
+
+        generateCodebook();
 
         return () => {
             document.body.removeChild(portalContainer);

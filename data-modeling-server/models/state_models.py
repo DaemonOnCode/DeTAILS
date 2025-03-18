@@ -10,6 +10,7 @@ class SaveStateRequest(BaseModel):
     collection_context: Dict[str, Any]
     modeling_context: Dict[str, Any]
     loading_context: Dict[str, Any]
+    manual_coding_context: Dict[str, Any]
 
 class LoadStateRequest(BaseModel):
     workspace_id: str
@@ -52,3 +53,8 @@ class CodingContext(BaseModel):
 
 class LoadingContext(BaseModel):
     page_state: dict = {}
+
+class ManualCodingContext(BaseModel):
+    post_states: dict = {}
+    manual_coding_responses: list = []
+    codebook: dict = {}

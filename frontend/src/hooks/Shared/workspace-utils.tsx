@@ -18,6 +18,7 @@ import {
 import { useToast } from '../../context/toast-context';
 import { useApi } from './use-api';
 import { useLoadingContext } from '../../context/loading-context';
+import { IManualCodingContext, useManualCodingContext } from '../../context/manual-coding-context';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
@@ -26,6 +27,7 @@ const useWorkspaceUtils = () => {
     const codingContext = useCodingContext();
     const modelingContext = useModelingContext();
     const loadingContext = useLoadingContext();
+    const manualCodingContext = useManualCodingContext();
     const { serviceStarting } = useWebSocket();
     const { showToast } = useToast();
     const { fetchData } = useApi();
@@ -36,7 +38,8 @@ const useWorkspaceUtils = () => {
         collectionContext: ExtendedICollectionContext,
         codingContext: ICodingContext,
         modelingContext: IModelingContext,
-        loadingContext: ILoadingContext
+        loadingContext: ILoadingContext,
+        manualCodingContext: IManualCodingContext
     ) => {
         return {
             workspace_id: currentWorkspace?.id || '',
@@ -81,6 +84,11 @@ const useWorkspaceUtils = () => {
                             .filter(([_, value]) => value && 'isFirstRun' in value)
                             .map(([key, value]) => [key, value.isFirstRun])
                     ) || {}
+            },
+            manual_coding_context: {
+                post_states: manualCodingContext.postStates || {},
+                codebook: manualCodingContext.codebook || {},
+                manual_coding_responses: manualCodingContext.manualCodingResponses || []
             }
         };
     };
@@ -91,7 +99,8 @@ const useWorkspaceUtils = () => {
         collectionContext,
         codingContext,
         modelingContext,
-        loadingContext
+        loadingContext,
+        manualCodingContext
     });
 
     useEffect(() => {
@@ -101,9 +110,18 @@ const useWorkspaceUtils = () => {
             collectionContext,
             codingContext,
             modelingContext,
-            loadingContext
+            loadingContext,
+            manualCodingContext
         };
-    }, [currentWorkspace, user, collectionContext, codingContext, modelingContext, loadingContext]);
+    }, [
+        currentWorkspace,
+        user,
+        collectionContext,
+        codingContext,
+        modelingContext,
+        loadingContext,
+        manualCodingContext
+    ]);
 
     const getWorkspaceData = () => {
         const { currentWorkspace, user, collectionContext, codingContext, modelingContext } =
@@ -114,7 +132,8 @@ const useWorkspaceUtils = () => {
             collectionContext,
             codingContext,
             modelingContext,
-            loadingContext
+            loadingContext,
+            manualCodingContext
         );
     };
 
@@ -129,6 +148,7 @@ const useWorkspaceUtils = () => {
             codingContext.resetContext();
             modelingContext.resetContext();
             loadingContext.resetContext();
+            manualCodingContext.resetContext();
             return;
         }
 
@@ -173,6 +193,12 @@ const useWorkspaceUtils = () => {
         loadingContext.updateContext({
             pageState: data.page_state ?? {}
         });
+
+        manualCodingContext.updateContext({
+            postStates: data.post_states ?? {},
+            codebook: data.codebook ?? {},
+            manualCodingResponses: data.manual_coding_responses ?? []
+        });
     };
 
     const loadWorkspaceData = async () => {
@@ -186,7 +212,13 @@ const useWorkspaceUtils = () => {
             });
 
             if (fetchResponse.error) {
-                resetContextData(collectionContext, codingContext, modelingContext);
+                resetContextData(
+                    collectionContext,
+                    codingContext,
+                    modelingContext,
+                    loadingContext,
+                    manualCodingContext
+                );
                 showToast({
                     type: 'error',
                     message: 'Error loading workspace data'
@@ -204,7 +236,13 @@ const useWorkspaceUtils = () => {
                 });
                 console.log('Workspace data loaded successfully');
             } else {
-                resetContextData(collectionContext, codingContext, modelingContext);
+                resetContextData(
+                    collectionContext,
+                    codingContext,
+                    modelingContext,
+                    loadingContext,
+                    manualCodingContext
+                );
                 showToast({
                     type: 'error',
                     message: 'Error loading workspace data'
@@ -213,7 +251,13 @@ const useWorkspaceUtils = () => {
             }
             console.log('Loading workspace data:', parsedResults.data);
         } catch (error) {
-            resetContextData(collectionContext, codingContext, modelingContext);
+            resetContextData(
+                collectionContext,
+                codingContext,
+                modelingContext,
+                loadingContext,
+                manualCodingContext
+            );
             console.error('Error in loadWorkspaceData:', error);
         }
     };

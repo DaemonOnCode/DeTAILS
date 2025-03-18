@@ -27,7 +27,7 @@ type CodebookType = {
 };
 
 // Define the context interface with additional properties
-interface IManualCodingContext {
+export interface IManualCodingContext {
     postStates: { [postId: string]: boolean }; // Tracks marked state for each postId
     addPostIds: (newPostIds: string[], initialState?: boolean) => void; // Function to add new postIds
     updatePostState: (postId: string, state: boolean) => void; // Function to update post state
@@ -35,6 +35,9 @@ interface IManualCodingContext {
     codebook: CodebookType | null; // Stores the codebook data
     manualCodingResponses: IQECTTyResponse[]; // Stores the manual coding responses
     dispatchManualCodingResponses: Dispatch<BaseResponseHandlerActions<IQECTTyResponse>>; // Dispatch function for manual coding responses
+    updateContext: (updates: Partial<IManualCodingContext>) => void;
+    resetContext: () => void;
+    generateCodebook: () => void;
 }
 
 // Create the context with default values
@@ -45,7 +48,10 @@ export const ManualCodingContext = createContext<IManualCodingContext>({
     isLoading: false,
     codebook: null,
     manualCodingResponses: [],
-    dispatchManualCodingResponses: () => {}
+    dispatchManualCodingResponses: () => {},
+    updateContext: () => {},
+    resetContext: () => {},
+    generateCodebook: () => {}
 });
 
 // Define props for the provider
@@ -184,10 +190,32 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
         }
     }, [generateCodebookWithoutQuotes]);
 
+    const updateContext = (updates: Partial<IManualCodingContext>) => {
+        console.log('Updates:', updates);
+        if (updates.postStates) {
+            setPostStates(updates.postStates);
+        }
+        if (updates.codebook) {
+            setCodebook(updates.codebook);
+        }
+        if (updates.manualCodingResponses) {
+            dispatchManualCodingResponses({
+                type: 'ADD_RESPONSES',
+                responses: updates.manualCodingResponses
+            });
+        }
+    };
+
+    const resetContext = () => {
+        setPostStates({});
+        setCodebook(null);
+        dispatchManualCodingResponses({ type: 'RESET' });
+    };
+
     // Effect to trigger codebook creation when the set of postIds changes
-    useEffect(() => {
+    const generateCodebook = useCallback(() => {
         const currentPostIds = Object.keys(postStates);
-        if (!setsEqual(currentPostIds, prevPostIdsRef.current)) {
+        if (currentPostIds.length > 0 && !setsEqual(currentPostIds, prevPostIdsRef.current)) {
             createCodebook();
             prevPostIdsRef.current = currentPostIds;
         }
@@ -230,7 +258,7 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
             };
             fetchResponses();
         }
-    }, [codebook, postStates]);
+    }, [codebook]);
 
     // Memoize the context value
     const value = useMemo(
@@ -241,7 +269,10 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
             isLoading,
             codebook,
             manualCodingResponses,
-            dispatchManualCodingResponses
+            dispatchManualCodingResponses,
+            updateContext,
+            resetContext,
+            generateCodebook
         }),
         [postStates, addPostIds, updatePostState, isLoading, codebook, manualCodingResponses]
     );
