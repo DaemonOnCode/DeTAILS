@@ -15,14 +15,14 @@ from constants import RANDOM_SEED
 from controllers.coding_controller import filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
 from controllers.collection_controller import get_reddit_post_by_id
 from headers.app_id import get_app_id
-from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
+from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
 from models.table_dataclasses import FunctionProgress
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
 from database.db_helpers import get_post_and_comments_from_id
-from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GenerateCodebookWithoutQuotes, GroupCodes, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
+from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GenerateCodebookWithoutQuotes, GenerateDeductiveCodesFromCodebook, GroupCodes, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
 
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
@@ -945,14 +945,98 @@ async def generate_codebook_without_quotes_endpoint(
         codes=json.dumps(grouped_ec)
     )
 
-    print(parsed_response)
-
-    codes = parsed_response
-    # for code in codes:
-    #     code["id"] = str(uuid4())
-
     return {
         "message": "Codebook generated successfully!",
-        "data": codes
+        "data": parsed_response
     }
     
+
+@router.post("/generate-deductive-codes")
+async def generate_deductive_codes_endpoint(
+    request: Request,
+    request_body: GenerateDeductiveCodesRequest,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+):
+    dataset_id = request_body.dataset_id
+    batch_size = 1000
+    if not dataset_id:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+
+    app_id = request.headers.get("x-app-id")
+
+    llm, _ = get_llm_and_embeddings(request_body.model)
+
+    function_id = str(uuid4())
+    total_posts = len(request_body.post_ids)
+
+    function_progress_repo.insert(FunctionProgress(
+        workspace_id=request_body.workspace_id,
+        dataset_id=dataset_id,
+        name="deductive",
+        function_id=function_id,
+        status="started",
+        current=0,
+        total=total_posts
+    ))
+
+    try:
+        final_results = []
+        posts = request_body.post_ids
+        llm, _ = get_llm_and_embeddings(request_body.model)
+
+        async def process_post(post_id: str):
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+            post_data = get_post_and_comments_from_id(post_id, dataset_id)
+
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+            transcript = generate_transcript(post_data)
+
+            parsed_response = await process_llm_task(
+                app_id=app_id,
+                dataset_id=dataset_id,
+                post_id=post_id,
+                manager=manager,
+                llm_model=request_body.model,
+                regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+                prompt_builder_func=GenerateDeductiveCodesFromCodebook.generate_deductive_codes_from_codebook_prompt,
+                llm_instance=llm,
+                llm_queue_manager=llm_queue_manager,
+                codebook = request_body.codebook,
+                post_transcript=transcript,
+                store_response=True,
+            )
+
+            if isinstance(parsed_response, list):
+                parsed_response = {"codes": parsed_response}
+
+            codes = parsed_response.get("codes", [])
+            for code in codes:
+                code["postId"] = post_id
+                code["id"] = str(uuid4())
+
+            codes = filter_codes_by_transcript(codes, transcript)
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
+            return codes
+
+        batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
+
+        for batch in batches:
+            await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+            
+            batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+            
+            for codes in batch_results:
+                final_results.extend(codes)
+
+
+        await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+        return {
+            "message": "Deductive coding completed successfully!",
+            "data": final_results
+        }
+    except Exception as e:
+        print(f"Error in manual_deductive_coding_endpoint: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred during deductive coding.")
+    finally:
+        function_progress_repo.delete({"function_id": function_id})

@@ -31,8 +31,13 @@ const TranscriptPage = ({
         sampledPostResponse,
         dispatchSampledPostResponse
     } = useCodingContext();
-    const { manualCodingResponses, dispatchManualCodingResponses, codebook } =
-        useManualCodingContext();
+    const {
+        manualCodingResponses,
+        dispatchManualCodingResponses,
+        codebook,
+        updatePostState,
+        postStates
+    } = useManualCodingContext();
     const { datasetId } = useCollectionContext();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -199,6 +204,11 @@ const TranscriptPage = ({
                         setShowCodebook((prev) => !prev);
                     }}
                     manualCoding
+                    isDone={postStates[id]}
+                    showDoneButton
+                    onDoneClick={() => {
+                        updatePostState(id, !postStates[id]);
+                    }}
                 />
 
                 {showCodebook && (

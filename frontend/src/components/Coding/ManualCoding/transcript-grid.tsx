@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useMemo } from 'react';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
 import { createResource } from '../../../utility/resource-creator';
@@ -45,7 +45,10 @@ const TranscriptGrid = ({
         onPostSelect(postId);
     };
 
-    const resource = createResource(fetchPostData(postIds, datasetId, fetchData));
+    const resource = useMemo(
+        () => createResource(fetchPostData(postIds, datasetId, fetchData)),
+        [postIds, datasetId]
+    );
 
     console.count('Transcripts Page Render');
     return (

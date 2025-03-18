@@ -8,7 +8,8 @@ import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-cod
 import { useCodingContext } from '../../context/coding-context';
 import TranscriptPage from '../../components/Coding/ManualCoding/post-transcript';
 import TranscriptGrid from '../../components/Coding/ManualCoding/transcript-grid';
-import { useManualCodingContext } from '../../context/manual-coding-context'; // Import the context hook
+import { useManualCodingContext } from '../../context/manual-coding-context';
+import SplitCheckPage from '../../components/Coding/ManualCoding/split-check';
 
 const ManualCodingPage: React.FC = () => {
     const portalContainerRef = useRef<HTMLDivElement>(document.createElement('div'));
@@ -23,7 +24,7 @@ const ManualCodingPage: React.FC = () => {
         codebook,
         manualCodingResponses,
         dispatchManualCodingResponses
-    } = useManualCodingContext(); // Access ManualCodingContext
+    } = useManualCodingContext();
 
     console.log('ManualCodingPage rendered', postStates);
 
@@ -49,70 +50,60 @@ const ManualCodingPage: React.FC = () => {
         };
     }, []);
 
-    // Sync unseenPostIds with ManualCodingContext when they change
-    // useEffect(() => {
-    //     if (unseenPostIds.length > 0) {
-    //         addPostIds(unseenPostIds); // Add new post IDs to the context
-    //     }
-    // }, [unseenPostIds, addPostIds]);
-
     // Handler for tab switching
-    const handleTabChange = (newTab: 'unified' | 'transcript' | 'transcripts' | 'splitCheck') => {
-        setTab(newTab);
-        if (newTab !== 'transcript') {
-            setCurrentId(null);
-        }
+    const handleTabChange = (newTab: string) => {
+        setTab(newTab as typeof tab);
+        // if (newTab !== 'transcript') {
+        //     setCurrentId(null);
+        // }
     };
+
+    // Define tab groups
+    const postRelatedTabs = [
+        { key: 'transcripts', label: 'All Posts' },
+        { key: 'transcript', label: 'Manual Deductive Coding', disabled: true }
+    ];
+
+    const analysisRelatedTabs = [
+        { key: 'unified', label: 'Study Analysis' },
+        { key: 'splitCheck', label: 'Transcript Analysis View', disabled: true }
+    ];
 
     return ReactDOM.createPortal(
         <div className="h-screen w-screen p-6 flex flex-col">
             {/* Header with navigation */}
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex space-x-4 border-b border-gray-200 w-full">
+            <div className="flex items-center space-x-4 border-b border-gray-200 w-full">
+                <button
+                    onClick={() => navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`)}
+                    className="text-blue-500">
+                    ← <span className="underline">Back to Application</span>
+                </button>
+                {postRelatedTabs.map((tabItem) => (
                     <button
-                        onClick={() =>
-                            navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`)
-                        }
-                        className="text-blue-500">
-                        ← <span className="underline">Back to Application</span>
-                    </button>
-                    <button
-                        onClick={() => handleTabChange('transcripts')}
+                        key={tabItem.key}
+                        onClick={() => handleTabChange(tabItem.key)}
+                        disabled={tabItem.disabled}
                         className={`px-4 py-2 font-medium text-sm focus:outline-none ${
-                            tab === 'transcripts'
+                            tabItem.key === tab
                                 ? 'border-b-2 border-blue-500 text-blue-500'
                                 : 'text-gray-500 hover:text-blue-500'
-                        }`}>
-                        All Posts
+                        } ${tabItem.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        {tabItem.label}
                     </button>
+                ))}
+                {analysisRelatedTabs.map((tabItem) => (
                     <button
-                        onClick={() => handleTabChange('transcript')}
+                        key={tabItem.key}
+                        onClick={() => handleTabChange(tabItem.key)}
+                        disabled={tabItem.disabled}
                         className={`px-4 py-2 font-medium text-sm focus:outline-none ${
-                            tab === 'transcript'
+                            tabItem.key === tab
                                 ? 'border-b-2 border-blue-500 text-blue-500'
                                 : 'text-gray-500 hover:text-blue-500'
-                        }`}>
-                        Manual Deductive Coding
+                        } ${tabItem.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        {tabItem.label}
                     </button>
-                    <button
-                        onClick={() => handleTabChange('unified')}
-                        className={`px-4 py-2 font-medium text-sm focus:outline-none ${
-                            tab === 'unified'
-                                ? 'border-b-2 border-blue-500 text-blue-500'
-                                : 'text-gray-500 hover:text-blue-500'
-                        }`}>
-                        Study Analysis
-                    </button>
-                    <button
-                        onClick={() => handleTabChange('splitCheck')}
-                        className={`px-4 py-2 font-medium text-sm focus:outline-none ${
-                            tab === 'splitCheck'
-                                ? 'border-b-2 border-blue-500 text-blue-500'
-                                : 'text-gray-500 hover:text-blue-500'
-                        }`}>
-                        Transcript Analysis View
-                    </button>
-                </div>
+                ))}
             </div>
 
             {/* Loading overlay when codebook is being created */}
@@ -136,13 +127,8 @@ const ManualCodingPage: React.FC = () => {
                         applyFilters
                         manualCoding
                         onPostSelect={(id) => {
-                            if (id) {
-                                setCurrentId(id);
-                                setTab('transcript');
-                            } else {
-                                setCurrentId(null);
-                                setTab('transcripts');
-                            }
+                            setCurrentId(id);
+                            setTab('splitCheck');
                         }}
                     />
                 ) : tab === 'transcript' && currentId ? (
@@ -152,22 +138,28 @@ const ManualCodingPage: React.FC = () => {
                             setCurrentId(null);
                             setTab('transcripts');
                         }}
-                        postStates={postStates} // Pass post states
-                        updatePostState={updatePostState} // Pass function to update state
+                        postStates={postStates}
+                        updatePostState={updatePostState}
                     />
                 ) : tab === 'transcripts' ? (
                     <div className="h-full overflow-auto">
                         <TranscriptGrid
                             postIds={Object.keys(postStates)}
-                            postStates={postStates} // Pass post states
+                            postStates={postStates}
                             onPostSelect={(id) => {
                                 setCurrentId(id);
                                 setTab('transcript');
                             }}
                         />
                     </div>
-                ) : tab === 'splitCheck' ? (
-                    <></> // Placeholder for SplitCheckPage
+                ) : tab === 'splitCheck' && currentId ? (
+                    <SplitCheckPage
+                        id={currentId}
+                        onBack={() => {
+                            setCurrentId(null);
+                            setTab('unified');
+                        }}
+                    />
                 ) : (
                     <div>
                         <p>Select a post to continue</p>

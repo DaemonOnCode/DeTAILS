@@ -55,6 +55,7 @@ const config = {
             REFINE_CODE: 'coding/refine-code',
             GROUP_CODES: 'coding/group-codes',
             GENERATE_CODEBOOK_WITHOUT_QUOTES: 'coding/generate-codebook-without-quotes',
+            GENERATE_DEDUCTIVE_CODES: 'coding/generate-deductive-codes',
 
             CREATE_WORKSPACE: 'workspaces/create-workspace',
             GET_WORKSPACES: 'workspaces/get-workspaces',

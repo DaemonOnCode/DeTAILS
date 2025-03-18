@@ -18,6 +18,8 @@ import { useSettings } from './settings-context';
 import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
 import { getGroupedCodeOfSubCode } from '../utility/theme-finder';
 import { testDataResponseReducer } from '../reducers/coding';
+import { useWorkspaceContext } from './workspace-context';
+import { toast } from 'react-toastify';
 
 // Define the type for the codebook (replace 'any' with the actual type if known)
 type CodebookType = {
@@ -60,6 +62,7 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
     const { datasetId, selectedData } = useCollectionContext();
     const { sampledPostResponse, unseenPostResponse, groupedCodes, sampledPostIds, unseenPostIds } =
         useCodingContext();
+    const { currentWorkspace } = useWorkspaceContext();
     console.log('Initial postIds', initialPostIds);
     // State for post states, initialized with initial postIds
     const [postStates, setPostStates] = useState<{ [postId: string]: boolean }>(
@@ -77,8 +80,30 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
         []
     );
 
-    const { fetchData } = useApi();
+    const { fetchData, fetchLLMData } = useApi();
 
+    const fetchLLMResponses = useCallback(
+        async (codebook: CodebookType, postIds: string[]) => {
+            const { data, error } = await fetchLLMData<{
+                message: string;
+                data: IQECTTyResponse[];
+            }>(REMOTE_SERVER_ROUTES.GENERATE_DEDUCTIVE_CODES, {
+                method: 'POST',
+                body: JSON.stringify({
+                    codebook,
+                    post_ids: postIds,
+                    model: settings.ai.model,
+                    workspace_id: currentWorkspace!.id,
+                    dataset_id: datasetId
+                })
+            });
+            if (error) {
+                throw new Error('Failed to fetch LLM responses');
+            }
+            return data.data;
+        },
+        [fetchLLMData, settings]
+    );
     const generateCodebookWithoutQuotes = useCallback(async () => {
         console.log(
             'Generating codebook without quotes',
@@ -182,6 +207,30 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
 
         setPostStates(testPostIds.reduce((acc, id) => ({ ...acc, [id]: false }), {}));
     }, [sampledPostIds, unseenPostIds]);
+
+    useEffect(() => {
+        if (codebook && Object.keys(codebook).length > 0 && Object.keys(postStates).length > 0) {
+            const fetchResponses = async () => {
+                try {
+                    const postIds = Object.keys(postStates);
+                    const responses = await fetchLLMResponses(codebook, postIds);
+                    const llmResponses = responses.map((resp) => ({
+                        ...resp,
+                        type: 'LLM',
+                        isMarked: true
+                    }));
+                    dispatchManualCodingResponses({
+                        type: 'ADD_RESPONSES',
+                        responses: llmResponses
+                    });
+                    toast.success('LLM generated deductive codes successfully');
+                } catch (error) {
+                    console.error('Error fetching LLM responses:', error);
+                }
+            };
+            fetchResponses();
+        }
+    }, [codebook, postStates]);
 
     // Memoize the context value
     const value = useMemo(

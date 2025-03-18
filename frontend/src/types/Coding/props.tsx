@@ -124,6 +124,9 @@ export type TopToolbarProps = {
     showCodebook?: boolean;
     onShowCodebook?: (e: any) => void;
     manualCoding?: boolean;
+    showDoneButton?: boolean;
+    onDoneClick?: () => void;
+    isDone?: boolean;
 };
 
 export type FileCardProps = {
@@ -223,6 +226,7 @@ export type PostTranscriptProps = {
     isDeleteHighlightModalOpen: boolean;
     setDeleteIsHighlightModalOpen: SetState<boolean>;
     clearedToLeaveRef: RefObject<{ check: boolean } | null>;
+    showBackButton?: boolean;
 };
 
 export interface CodeViewProps {

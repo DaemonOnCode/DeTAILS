@@ -1,14 +1,15 @@
-import { FC } from 'react';
+import { FC, memo } from 'react';
+import { FaCheck } from 'react-icons/fa';
 
 interface PostCardsProps {
     resource: {
         read(): any;
     };
-    postStates?: { [postId: string]: boolean }; // Optional prop
+    postStates?: { [postId: string]: boolean };
     onPostClick: (postId: string) => void;
 }
 
-const PostCards: FC<PostCardsProps> = ({ resource, postStates, onPostClick }) => {
+const PostCards: FC<PostCardsProps> = memo(({ resource, postStates, onPostClick }) => {
     const postIdTitles = resource.read();
 
     if (!postIdTitles || postIdTitles.length === 0) {
@@ -22,12 +23,18 @@ const PostCards: FC<PostCardsProps> = ({ resource, postStates, onPostClick }) =>
                 return (
                     <div
                         key={post.id}
-                        className={`relative p-4 border rounded shadow transition-all transform hover:scale-105 hover:shadow-2xl cursor-pointer duration-300 ease-in-out h-48 ${isDone ? 'bg-green-100 hover:bg-green-200' : 'bg-white hover:bg-blue-100'}`}
+                        className={`relative p-4 border ${
+                            isDone ? 'border-green-500' : 'border-gray-300'
+                        } rounded shadow transition-all transform hover:scale-105 hover:shadow-2xl cursor-pointer duration-300 ease-in-out h-48 ${
+                            isDone
+                                ? 'bg-green-100 hover:bg-green-200'
+                                : 'bg-white hover:bg-blue-100'
+                        }`}
                         onClick={() => onPostClick(post.id)}>
-                        {isDone && (
-                            <span className="absolute top-2 right-2 text-green-500">✔️</span>
-                        )}
-                        <h3 className="text-lg font-bold mb-2 truncate">{post.title}</h3>
+                        <div className="flex items-center mb-2">
+                            {isDone && <FaCheck className="text-green-500 text-xl mr-2" />}
+                            <h3 className="text-lg font-bold truncate">{post.title}</h3>
+                        </div>
                         <p className="text-gray-600 line-clamp-5">
                             {post.selftext || (
                                 <span className="text-gray-400 italic">
@@ -40,6 +47,6 @@ const PostCards: FC<PostCardsProps> = ({ resource, postStates, onPostClick }) =>
             })}
         </div>
     );
-};
+});
 
 export default PostCards;

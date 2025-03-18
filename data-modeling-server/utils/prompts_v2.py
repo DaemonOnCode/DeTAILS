@@ -807,3 +807,65 @@ Present your results in a JSON object where each key is a code and each value is
 
 Your response should consist solely of the JSON object containing the definitions for each code. Do not include any additional text, explanations, or commentary.
 """
+    
+class GenerateDeductiveCodesFromCodebook:
+    @staticmethod
+    def generate_deductive_codes_from_codebook_prompt(codebook: str, post_transcript: str):
+        return f"""
+PHASE 3 (Deductive Codebook) Requirements:
+
+### Integrative Analysis:
+- Review the analysis of the post transcript using the given codebook.
+  ```json
+  {codebook}
+  ```
+- Analyze the Post Transcript for segments that are directly relevant:
+  ```json
+  {post_transcript}
+  ```
+
+### Analytical Assumptions and Considerations
+
+- **Quality Spectrum:**  
+  Aim for an analysis that’s compelling, nuanced, and insightful, while knowing interpretations can vary in depth.
+
+- **Deductive Orientation:**  
+  Your updated codebook needs to stick to the deductive framework from the given codebook. Codes have to line up with those pre-set theoretical constructs.
+
+- **Focus of Meaning:**  
+  - **Semantic:** Grab the explicit, surface-level stuff.  
+  - **Latent:** Dig into the underlying, implicit meanings for extra depth.
+
+- **Theoretical Frameworks:**  
+  Think about both:  
+  - **Realist/Essentialist:** For nailing down objective truths in the data.  
+  - **Relativist/Constructionist:** For exploring how meaning’s socially constructed.
+
+### Deductive Codebook Remake:
+1. Update the given codebook with insights from analyzing the post_transcript.
+2. Tweak codes—update, add, or ditch entries as needed.
+3. Keep every code locked into the deductive approach.
+4. Clearly split semantic (surface) from latent (underlying) meanings.
+5. Don’t add in forced or generic codes that don’t fit.
+
+### Output Format:
+Spit out your output in clean, valid JSON like this:
+
+```json
+{{
+  "codes": [
+    {{
+      "quote": "Exact phrase from the transcript or given codebook.",
+      "explanation": "Explanation of the code and why it matters.",
+      "code": "Updated or new keyword/code.",
+      "code_type": "semantic or latent",
+      "comparison_notes": "How it ties to previous codes.",
+      "data_position": "Where it’s at (e.g., line numbers or section IDs)"
+    }}
+    // More code objects if needed...
+  ]
+}}
+```
+
+No additional text outside the JSON.
+"""

@@ -7,6 +7,7 @@ import { AppRouteArray } from '../../types/Shared';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { DetailsIcon } from './Icons';
+import { useSettings } from '../../context/settings-context';
 
 // Format route names for display
 const formatRouteName = (path: string, workspaceName: string = 'Temporary') => {
@@ -34,20 +35,6 @@ const formatRouteName = (path: string, workspaceName: string = 'Temporary') => {
 };
 
 // Define keywords to filter out paths
-const IGNORED_KEYWORDS = [
-    '*',
-    '/',
-    'loader',
-    SHARED_ROUTES.CLEANING,
-    SHARED_ROUTES.DATA_COLLECTION,
-    SHARED_ROUTES.DATA_MODELING,
-    SHARED_ROUTES.SETTINGS,
-    CODING_ROUTES.TRANSCRIPT,
-    CODING_ROUTES.TRANSCRIPTS,
-    // CODING_ROUTES.MANUAL_CODING,
-    CODING_ROUTES.HOME,
-    SHARED_ROUTES.AUTHENTICATED_SETTINGS
-];
 
 interface SidebarProps {
     routes: AppRouteArray;
@@ -62,6 +49,22 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
     const { currentWorkspace } = useWorkspaceContext();
     const [userDropdownVisible, setUserDropdownVisible] = useState<boolean>(false);
 
+    const { settings } = useSettings();
+
+    const IGNORED_KEYWORDS = [
+        '*',
+        '/',
+        'loader',
+        SHARED_ROUTES.CLEANING,
+        SHARED_ROUTES.DATA_COLLECTION,
+        SHARED_ROUTES.DATA_MODELING,
+        SHARED_ROUTES.SETTINGS,
+        CODING_ROUTES.TRANSCRIPT,
+        CODING_ROUTES.TRANSCRIPTS,
+        ...(!settings.general.manualCoding ? [CODING_ROUTES.MANUAL_CODING] : []),
+        CODING_ROUTES.HOME,
+        SHARED_ROUTES.AUTHENTICATED_SETTINGS
+    ];
     const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
 
     const searchParams = new URLSearchParams(location.search);

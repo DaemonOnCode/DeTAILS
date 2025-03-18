@@ -38,7 +38,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     setIsEditHighlightModalOpen,
     isDeleteHighlightModalOpen,
     setDeleteIsHighlightModalOpen,
-    clearedToLeaveRef
+    clearedToLeaveRef,
+    showBackButton = true
 }) => {
     // Get common state and helpers from the Transcript Context.
     const {
@@ -332,18 +333,20 @@ const PostTranscript: FC<PostTranscriptProps> = ({
             <div className="flex flex-1 overflow-hidden m-6">
                 {/* Left Section: Transcript */}
                 <div className="flex-1 flex flex-col overflow-hidden">
-                    <button
-                        id="transcript-back-button"
-                        title={
-                            allChatsResolved
-                                ? 'Go back to previous page'
-                                : 'Please resolve all chats'
-                        }
-                        onClick={handleBackClick}
-                        disabled={!allChatsResolved}
-                        className={`mb-4 ${allChatsResolved ? 'text-blue-500' : 'text-gray-500'} self-start`}>
-                        ← <span className="underline">Back to Posts</span>
-                    </button>
+                    {showBackButton && (
+                        <button
+                            id="transcript-back-button"
+                            title={
+                                allChatsResolved
+                                    ? 'Go back to previous page'
+                                    : 'Please resolve all chats'
+                            }
+                            onClick={handleBackClick}
+                            disabled={!allChatsResolved}
+                            className={`mb-4 ${allChatsResolved ? 'text-blue-500' : 'text-gray-500'} self-start`}>
+                            ← <span className="underline">Back to Posts</span>
+                        </button>
+                    )}
                     <div
                         id="transcript-container"
                         className={`flex-1 overflow-y-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}

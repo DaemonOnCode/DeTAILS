@@ -14,7 +14,10 @@ const TopToolbar: FC<TopToolbarProps> = ({
     showCodebookButton = false,
     showCodebook = false,
     onShowCodebook,
-    manualCoding
+    manualCoding,
+    showDoneButton,
+    onDoneClick = () => {},
+    isDone
 }) => {
     const [isCodeDropdownOpen, setIsCodeDropdownOpen] = useState(false);
     const [isHighlightDropdownOpen, setIsHighlightDropdownOpen] = useState(false);
@@ -149,6 +152,13 @@ const TopToolbar: FC<TopToolbarProps> = ({
                     className="flex items-center px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
                     onClick={onShowCodebook}>
                     <FaBook className="mr-2" /> {!showCodebook ? 'Show Codebook' : 'Hide Codebook'}
+                </button>
+            )}
+            {showDoneButton && (
+                <button
+                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                    onClick={onDoneClick}>
+                    {isDone ? 'Mark as Undone' : 'Mark as Done'}
                 </button>
             )}
         </div>

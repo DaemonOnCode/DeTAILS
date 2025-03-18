@@ -88,3 +88,10 @@ class GenerateCodebookWithoutQuotesRequest(BaseModel):
     model: str
     sampled_post_responses: list
     unseen_post_responses: list
+
+class GenerateDeductiveCodesRequest(BaseModel):
+    dataset_id: str
+    model: str
+    codebook: dict
+    post_ids: list
+    workspace_id: str
