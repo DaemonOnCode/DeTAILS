@@ -1,8 +1,8 @@
 export enum ROUTES {
     HOME = 'home',
     BACKGROUND_RESEARCH = 'background-research',
-    CODEBOOK_CREATION = 'codebook-creation',
-    DEDUCTIVE_CODING = 'deductive-coding',
+    CODEBOOK_CREATION = 'initial-coding',
+    DEDUCTIVE_CODING = 'final-coding',
     // BASIS = 'basis',
     LLM_CONTEXT_V2 = 'l_l_m-context-v2',
     // FLASHCARDS = 'flashcards',

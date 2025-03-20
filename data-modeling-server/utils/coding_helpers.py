@@ -5,7 +5,7 @@ def generate_transcript(post):
     # Helper function to recursively process comments
     def process_comments(comments, depth=0):
         result = ""
-        print('comments', comments, type(comments))
+        # print('comments', comments, type(comments))
 
         if not comments:
             return ""

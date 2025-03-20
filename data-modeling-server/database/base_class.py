@@ -137,6 +137,7 @@ class BaseRepository(Generic[T]):
         try:
             data_dict = asdict(data)
             query, params = self.query_builder_instance.insert(data_dict)
+            # print(query, params)
             return self.execute_query(query, params, result=True)
         except sqlite3.Error as e:
             raise InsertError(f"Failed to insert data into table {self.table_name}. Error: {e}")
@@ -214,21 +215,38 @@ class BaseRepository(Generic[T]):
 
     @handle_db_errors
     @auto_recover
-    def find(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True, order_by: Optional[str] = None) -> List[T] | List[Dict[str, Any]]:
+    def find(
+        self,
+        filters: Optional[Dict[str, Any]] = None,
+        columns: Optional[List[str]] = None,
+        map_to_model: bool = True,
+        order_by: Optional[Dict[str, str]] = None,
+        limit: Optional[int] = None
+    ) -> List[T] | List[Dict[str, Any]]:
         """
         Finds rows in the table based on filters and selects specific columns using the QueryBuilder.
 
-        :param filters: Dictionary of filter conditions (keys are column names as strings).
-        :param columns: List of column names to select (optional). If not provided, selects all columns.
-        :return: List of dataclass instances.
+        :param filters: Dictionary of filter conditions (keys are column names).
+        :param columns: List of column names to select (optional). If None, selects all columns.
+        :param map_to_model: If True, maps results to the model; otherwise, returns dictionaries.
+        :param order_by: Dictionary mapping column names to 'asc' or 'desc' (e.g., {"name": "asc"}).
+        :param limit: Maximum number of records to return (optional).
+        :return: List of dataclass instances or dictionaries.
         """
-        if order_by:
-            self.query_builder_instance.order_by(**order_by)
         if columns:
             self.query_builder_instance.select(*columns)
+        if order_by:
+            for column, direction in order_by.items():
+                descending = direction.lower() == "desc"
+                self.query_builder_instance.order_by(column, descending)
+        if limit is not None:
+            self.query_builder_instance.limit(limit)
         query, params = self.query_builder_instance.find(filters)
-        return self.fetch_all(query, params, map_to_model=map_to_model)
-    
+        print(query, params)
+        result = self.fetch_all(query, params, map_to_model=map_to_model)
+        self.query_builder_instance.reset()
+        return result
+        
     @handle_db_errors
     @auto_recover
     def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True, order_by: Optional[Dict[str, Any]] = None) -> T | Dict[str, Any] | None:

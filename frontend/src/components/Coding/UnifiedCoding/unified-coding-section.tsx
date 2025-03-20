@@ -321,7 +321,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                                     }
                                 }}
                                 className="px-4 py-2 bg-green-500 text-white rounded">
-                                Download Codebook
+                                Download Initial Codes
                             </button>
                         )}
                         <ReviewToggle review={review} setReview={setReview} />
@@ -344,7 +344,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             showCoderType={showCoderType}
                         />
                     </div>
-                    {showRerunCoding && (
+                    {showRerunCoding && review && (
                         <div className="flex justify-end py-4 px-6">
                             <button
                                 id="redo-coding-btn"
@@ -353,7 +353,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                                 <DetailsLLMIcon className="h-6 w-6" />
                                 {coderType !== 'LLM'
                                     ? 'Remake complete codebook'
-                                    : 'Redo Deductive Coding'}
+                                    : 'Redo Final Coding'}
                             </button>
                         </div>
                     )}

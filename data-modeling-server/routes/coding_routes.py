@@ -1,6 +1,7 @@
 import asyncio
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 import json
 from typing import Annotated, List
 from uuid import uuid4
@@ -16,11 +17,12 @@ from controllers.coding_controller import filter_codes_by_transcript, get_llm_an
 from controllers.collection_controller import get_reddit_post_by_id
 from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
-from models.table_dataclasses import FunctionProgress
+from models.table_dataclasses import CodebookType, GenerationType, ResponseCreatorType
 from routes.websocket_routes import manager
-from database import FunctionProgressRepository
+from database import FunctionProgressRepository, QECTRepository
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
+from models import FunctionProgress, QECTResponse
 from database.db_helpers import get_post_and_comments_from_id
 from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GenerateCodebookWithoutQuotes, GenerateDeductiveCodesFromCodebook, GroupCodes, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
 
@@ -29,11 +31,13 @@ router = APIRouter(dependencies=[Depends(get_app_id)])
 settings = Settings()
 
 function_progress_repo = FunctionProgressRepository()
+qect_repo = QECTRepository()
 
 @router.post("/sample-posts")
 async def sample_posts_endpoint(request_body: SamplePostsRequest):
     settings = config.CustomSettings()
     
+    # Validate request parameters
     if (request_body.sample_size <= 0 or 
         request_body.dataset_id == "" or 
         len(request_body.post_ids) == 0 or 
@@ -45,11 +49,14 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
     sample_size = request_body.sample_size
     divisions = request_body.divisions
 
-    # Fetch posts concurrently
-    def fetch_and_compute_length(post_id: str):
+    # Semaphore to limit concurrency to 10 tasks
+    sem = asyncio.Semaphore(10)
+
+    # Asynchronous helper function to fetch post and compute transcript length
+    async def fetch_and_compute_length(post_id: str):
         try:
-            post = get_reddit_post_by_id(dataset_id, post_id)
-            transcript = generate_transcript(post)
+            post = await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id)
+            transcript = await asyncio.to_thread(generate_transcript, post)
             length = len(transcript)
             return post_id, length
         except HTTPException as e:
@@ -59,10 +66,11 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
             print(f"Unexpected error for post {post_id}: {e}")
             return post_id, None
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(fetch_and_compute_length, post_id) for post_id in post_ids]
-        results = [future.result() for future in futures]
+    # Run all tasks concurrently
+    tasks = [fetch_and_compute_length(post_id) for post_id in post_ids]
+    results = await asyncio.gather(*tasks)
 
+    # Process results
     valid_results = [res for res in results if res[1] is not None]
     invalid_post_ids = [res[0] for res in results if res[1] is None]
 
@@ -72,9 +80,11 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
     if not valid_results:
         raise HTTPException(status_code=400, detail="No valid posts found.")
 
+    # Create DataFrame for sampling
     df = pd.DataFrame(valid_results, columns=['post_id', 'length'])
     np.random.seed(settings.ai.randomSeed)
 
+    # Sampling logic (unchanged from original)
     if divisions == 1:
         return {"sample": df['post_id'].tolist()}
 
@@ -161,6 +171,7 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
 
         groups.append(remaining_df['post_id'].tolist())
 
+    # Assign group names and return result
     if divisions == 2:
         group_names = ["sampled", "unseen"]
     elif divisions == 3:
@@ -298,6 +309,13 @@ async def generate_codes_endpoint(request: Request,
     function_id = str(uuid4())
     total_posts = len(request_body.sampled_post_ids)
 
+    try:
+        if function_progress_repo.find_one({"name": "codebook"}):
+            function_progress_repo.delete({"name": "codebook"})
+    except Exception as e:
+        print(f"Error in generate_codes_endpoint: {e}")
+        # raise HTTPException(status_code=400, detail="Codebook generation already in progress.")
+
     function_progress_repo.insert(FunctionProgress(
         workspace_id=request_body.workspace_id,
         dataset_id=dataset_id,
@@ -327,13 +345,13 @@ async def generate_codes_endpoint(request: Request,
                     llm_model=request_body.model,
                     regex_pattern=r"\"codes\":\s*(\[.*?\])",
                     prompt_builder_func=InitialCodePrompts.initial_code_prompt,
+                    function_id=function_id,
                     llm_instance=llm,
                     llm_queue_manager=llm_queue_manager,
                     main_topic=request_body.main_topic,
                     additional_info=request_body.additional_info,
                     research_questions=request_body.research_questions,
                     keyword_table=json.dumps(request_body.keyword_table),
-                    function_id=function_id,
                     post_transcript=transcript,
                     store_response=True,
                 )
@@ -354,6 +372,23 @@ async def generate_codes_endpoint(request: Request,
                         "function_id": function_id
                     }).current + 1
                 })
+                # for code in codes:
+                #     if code.get("code") and code.get("quote") and code.get("explanation"):
+                qect_repo.insert_batch(list(map(lambda code: QECTResponse(
+                    id=code["id"],
+                    generation_type=GenerationType.INITIAL.value,
+                    dataset_id=dataset_id,
+                    workspace_id=request_body.workspace_id,
+                    model=request_body.model,
+                    quote=code["quote"],
+                    code=code["code"],
+                    explanation=code["explanation"],
+                    post_id=code["postId"],
+                    response_type=ResponseCreatorType.LLM.value,
+                    chat_history=None,
+                    codebook_type=CodebookType.INITIAL.value
+                ), codes)))
+
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
 
@@ -375,6 +410,25 @@ async def generate_codes_endpoint(request: Request,
                 final_results.extend(codes)
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+        # qect_responses = []
+        # for code in final_results:
+        #     qect_response = QECTResponse(
+        #         id=code["id"],
+        #         generation_type=GenerationType.INITIAL.value,
+        #         dataset_id=dataset_id,
+        #         workspace_id=request_body.workspace_id,
+        #         model=request_body.model,
+        #         quote=code["quote"],
+        #         code=code["code"],
+        #         explanation=code["explanation"],
+        #         post_id=code["postId"],
+        #         response_type=ResponseCreatorType.LLM.value,
+        #         chat_history=None,
+        #         codebook_type=CodebookType.INITIAL.value
+        #     )
+        #     qect_responses.append(qect_response)
+        # qect_repo.insert_batch(qect_responses)
 
         return {
             "message": "Initial codes generated successfully!",
@@ -454,6 +508,13 @@ async def deductive_coding_endpoint(
     function_id = str(uuid4())
     total_posts = len(request_body.unseen_post_ids)
 
+    try:
+        print(function_progress_repo.find())
+        if function_progress_repo.find_one({"name": "deductive"}):
+            function_progress_repo.delete({"name": "deductive"})
+    except Exception as e:
+        print(f"Error in deductive_coding_endpoint: {e}")
+
     function_progress_repo.insert(FunctionProgress(
         workspace_id=request_body.workspace_id,
         dataset_id=dataset_id,
@@ -485,6 +546,7 @@ async def deductive_coding_endpoint(
                 regex_pattern=r"```json\s*([\s\S]*?)\s*```",
                 prompt_builder_func=DeductiveCoding.deductive_coding_prompt,
                 llm_instance=llm,
+                function_id=function_id,
                 llm_queue_manager=llm_queue_manager,
                 final_codebook=json.dumps(request_body.final_codebook, indent=2),
                 keyword_table=json.dumps(request_body.keyword_table, indent=2),
@@ -512,6 +574,22 @@ async def deductive_coding_endpoint(
                         "function_id": function_id
                     }).current + 1
                 })
+            
+            qect_repo.insert_batch(list(map(lambda code: QECTResponse(
+                id=code["id"],
+                generation_type=GenerationType.INITIAL.value,
+                dataset_id=dataset_id,
+                workspace_id=request_body.workspace_id,
+                model=request_body.model,
+                quote=code["quote"],
+                code=code["code"],
+                explanation=code["explanation"],
+                post_id=code["postId"],
+                response_type=ResponseCreatorType.LLM.value,
+                chat_history=None,
+                codebook_type=CodebookType.DEDUCTIVE.value
+            ), codes)))
+
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
@@ -526,6 +604,24 @@ async def deductive_coding_endpoint(
                 final_results.extend(codes)
 
 
+        # qect_responses = []
+        # for code in final_results:
+        #     qect_response = QECTResponse(
+        #         id=code["id"],
+        #         generation_type=GenerationType.INITIAL.value,
+        #         dataset_id=dataset_id,
+        #         workspace_id=request_body.workspace_id,
+        #         model=request_body.model,
+        #         quote=code["quote"],
+        #         code=code["code"],
+        #         explanation=code["explanation"],
+        #         post_id=code["postId"],
+        #         response_type=ResponseCreatorType.LLM.value,
+        #         chat_history=None,
+        #         codebook_type=CodebookType.DEDUCTIVE.value
+        #     )
+        #     qect_responses.append(qect_response)
+        # qect_repo.insert_batch(qect_responses)
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
         return {
@@ -716,6 +812,22 @@ async def generate_codes_endpoint(request: Request,
                     code["id"] = str(uuid4())
 
                 codes = filter_codes_by_transcript(codes, transcript)
+
+                qect_repo.insert_batch(list(map(lambda code: QECTResponse(
+                    id=code["id"],
+                    generation_type=GenerationType.LATEST.value,
+                    dataset_id=dataset_id,
+                    workspace_id=request_body.workspace_id,
+                    model=request_body.model,
+                    quote=code["quote"],
+                    code=code["code"],
+                    explanation=code["explanation"],
+                    post_id=code["postId"],
+                    response_type=ResponseCreatorType.LLM.value,
+                    chat_history=None,
+                    codebook_type=CodebookType.INITIAL.value
+                ), codes)))
+
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
 
@@ -737,6 +849,25 @@ async def generate_codes_endpoint(request: Request,
                 final_results.extend(codes)
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+        # qect_responses = []
+        # for code in final_results:
+        #     qect_response = QECTResponse(
+        #         id=code["id"],
+        #         generation_type=GenerationType.INITIAL.value,
+        #         dataset_id=dataset_id,
+        #         workspace_id=request_body.workspace_id,
+        #         model=request_body.model,
+        #         quote=code["quote"],
+        #         code=code["code"],
+        #         explanation=code["explanation"],
+        #         post_id=code["postId"],
+        #         response_type=ResponseCreatorType.LLM.value,
+        #         chat_history=None,
+        #         codebook_type=CodebookType.INITIAL.value
+        #     )
+        #     qect_responses.append(qect_response)
+        # qect_repo.insert_batch(qect_responses)
 
         return {
             "message": "Initial codes generated successfully!",
@@ -817,6 +948,21 @@ async def redo_deductive_coding_endpoint(
                 code["id"] = str(uuid4())
 
             codes = filter_codes_by_transcript(codes, transcript)
+
+            qect_repo.insert_batch(list(map(lambda code: QECTResponse(
+                id=code["id"],
+                generation_type=GenerationType.LATEST.value,
+                dataset_id=dataset_id,
+                workspace_id=request_body.workspace_id,
+                model=request_body.model,
+                quote=code["quote"],
+                code=code["code"],
+                explanation=code["explanation"],
+                post_id=code["postId"],
+                response_type=ResponseCreatorType.LLM.value,
+                chat_history=None,
+                codebook_type=CodebookType.DEDUCTIVE.value
+            ), codes)))
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
@@ -832,6 +978,25 @@ async def redo_deductive_coding_endpoint(
 
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+        # qect_responses = []
+        # for code in final_results:
+        #     qect_response = QECTResponse(
+        #         id=code["id"],
+        #         generation_type=GenerationType.INITIAL.value,
+        #         dataset_id=dataset_id,
+        #         workspace_id=request_body.workspace_id,
+        #         model=request_body.model,
+        #         quote=code["quote"],
+        #         code=code["code"],
+        #         explanation=code["explanation"],
+        #         post_id=code["postId"],
+        #         response_type=ResponseCreatorType.LLM.value,
+        #         chat_history=None,
+        #         codebook_type=CodebookType.DEDUCTIVE.value
+        #     )
+        #     qect_responses.append(qect_response)
+        # qect_repo.insert_batch(qect_responses)
 
         return {
             "message": "Deductive coding completed successfully!",
@@ -945,9 +1110,11 @@ async def generate_codebook_without_quotes_endpoint(
         codes=json.dumps(grouped_ec)
     )
 
+    # print(parsed_response)
+
     return {
         "message": "Codebook generated successfully!",
-        "data": parsed_response
+        "data": parsed_response if not (isinstance(parsed_response, list) and len(parsed_response) == 0) else {}
     }
     
 
@@ -997,6 +1164,7 @@ async def generate_deductive_codes_endpoint(
                 post_id=post_id,
                 manager=manager,
                 llm_model=request_body.model,
+                function_id=function_id,
                 regex_pattern=r"```json\s*([\s\S]*?)\s*```",
                 prompt_builder_func=GenerateDeductiveCodesFromCodebook.generate_deductive_codes_from_codebook_prompt,
                 llm_instance=llm,

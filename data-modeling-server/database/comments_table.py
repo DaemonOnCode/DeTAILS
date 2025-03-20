@@ -47,6 +47,6 @@ class CommentsRepository(BaseRepository[Comment]):
         SELECT * FROM comment_tree;
         """
         rows = self.execute_raw_query(query, (post_id, dataset_id, dataset_id), keys=True)
-        print(rows)
+        # print(rows)
         return rows
 

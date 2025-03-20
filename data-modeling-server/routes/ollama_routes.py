@@ -28,7 +28,7 @@ def list_local_models():
     #     raise HTTPException(status_code=500, detail=f"Error listing local models: {str(e)}")
 
 @router.delete("/delete-model")
-def delete_model(payload: dict = Body(..., example={"model": "llama3:13b"})):
+def delete_model(payload: dict = Body(...)):
     """
     Proxy to DELETE /api/delete on the Ollama API.
     Request body must include {"model": "<model_name>"}.
@@ -45,7 +45,7 @@ def delete_model(payload: dict = Body(..., example={"model": "llama3:13b"})):
 
 @router.post("/pull-model")
 async def pull_model(
-    payload: dict = Body(..., example={"model": "llama3.2"}),
+    payload: dict = Body(...),
     app_id: str = Depends(get_app_id)
 ):
     """

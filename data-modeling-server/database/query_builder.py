@@ -30,6 +30,15 @@ class QueryBuilder(Generic[T]):
         expected_type = self.model_fields[column]
         if not isinstance(value, expected_type) and value is not None:
             raise TypeError(f"Invalid type for column '{column}'. Expected {expected_type}, got {type(value)}.")
+        
+    def reset(self) -> "QueryBuilder[T]":
+        """Resets the QueryBuilder state to initial values."""
+        self.filters = []
+        self.order_by_clause = ""
+        self.limit_clause = ""
+        self.group_by_clause = ""
+        self.selected_columns = "*"
+        return self
 
     # SELECT Operations
     def where(self, column: str, value: Any, operator: str = "=") -> "QueryBuilder[T]":
@@ -49,10 +58,13 @@ class QueryBuilder(Generic[T]):
         return self
 
     def order_by(self, column: str, descending: bool = False) -> "QueryBuilder[T]":
-        """ Adds an ORDER BY clause to the query. """
+        """Adds an ORDER BY clause to the query, supporting multiple columns."""
         self._validate_column(column)
         direction = "DESC" if descending else "ASC"
-        self.order_by_clause = f"ORDER BY {column} {direction}"
+        if self.order_by_clause:
+            self.order_by_clause += f", {column} {direction}"
+        else:
+            self.order_by_clause = f"ORDER BY {column} {direction}"
         return self
 
     def limit(self, count: int) -> "QueryBuilder[T]":

@@ -353,8 +353,8 @@ def delete_dataset(dataset_id: str):
 
 def get_reddit_posts_by_batch(dataset_id: str, batch: int, offset: int, all: bool):
     if all:
-        return post_repo.find({"dataset_id": dataset_id}, order_by={"column":"created_utc"})
-    return post_repo.find({"dataset_id": dataset_id}, limit=batch, offset=offset, order_by={"column":"created_utc"})
+        return post_repo.find({"dataset_id": dataset_id}, order_by={"created_utc": "asc"})
+    return post_repo.find({"dataset_id": dataset_id}, limit=batch, offset=offset, order_by={"created_utc": "asc"})
 
 def get_reddit_post_titles(dataset_id: str):
     return post_repo.find({"dataset_id": dataset_id}, columns=["id", "title"])

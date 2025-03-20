@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
+from enum import Enum
+from multiprocessing.pool import INIT
 from typing import Any, Dict, Optional, get_type_hints
 
 
@@ -333,3 +335,47 @@ class FunctionProgress(BaseDataclass):
     status: str = field(default="idle")
     current: Optional[int] = field(default=0)
     total: Optional[int] = field(default=0)
+
+class GenerationType(Enum):
+    INITIAL = "initial"
+    LATEST = "latest"
+
+class ResponseCreatorType(Enum):
+    HUMAN = "Human"
+    LLM = "LLM"
+
+class CodebookType(Enum):
+    INITIAL = "initial"
+    DEDUCTIVE = "deductive"
+
+@dataclass
+class QECTResponse(BaseDataclass):
+    id: str = field(metadata={"primary_key": True})
+    generation_type: str = field(metadata={"not_null": True})
+    dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
+    model: str = field(metadata={"not_null": True})
+    quote: str = field(metadata={"not_null": True})
+    code: str = field(metadata={"not_null": True})
+    explanation: str = field(metadata={"not_null": True})
+    post_id: str = field(metadata={"foreign_key": "posts(id)"})
+    codebook_type: str = field(metadata={"not_null": True})
+    response_type: str = field(metadata={"not_null": True})
+    chat_history: Optional[str] = None
+    created_at: Optional[datetime] = field(default_factory=datetime.now)
+    is_marked: Optional[bool] = field(default=True)
+
+    
+@dataclass
+class LlmPendingTask(BaseDataclass):
+    """Represents a pending task stored in the SQLite database."""
+    task_id: str = field(metadata={"primary_key": True})  # Unique identifier for the task
+    status: str = field(metadata={"not_null": True})      # Status: 'pending', 'in-progress', 'completed', 'failed'
+    function_key: str = field(metadata={"not_null": True})  # Identifier for the function to execute
+    args_json: str = field(metadata={"not_null": True})     # JSON-serialized positional arguments
+    kwargs_json: str = field(metadata={"not_null": True})   # JSON-serialized keyword arguments
+    result_json: Optional[str] = None                       # JSON-serialized result, if completed
+    error: Optional[str] = None                             # Error message, if failed
+    created_at: datetime = field(default_factory=datetime.now)  # Task creation time
+    started_at: Optional[datetime] = None                       # Time when task processing started
+    completed_at: Optional[datetime] = None

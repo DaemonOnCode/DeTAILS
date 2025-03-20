@@ -128,8 +128,17 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
             sampledPostResponse,
             unseenPostResponse
         );
-        if (!settings.app.id || !sampledPostResponse.length || !unseenPostResponse.length)
+        if (!settings.app.id || !sampledPostResponse.length || !unseenPostResponse.length) {
+            console.log(
+                'Returning empty object, settings.app.id:',
+                settings.app.id,
+                'sampledPostResponse.length:',
+                sampledPostResponse.length,
+                'unseenPostResponse.length:',
+                unseenPostResponse.length
+            );
             return {};
+        }
         // Call the backend API to generate the codebook
         const { data, error } = await fetchData<{
             message: string;

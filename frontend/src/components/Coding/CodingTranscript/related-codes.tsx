@@ -2,6 +2,7 @@ import { FC, useState, useMemo } from 'react';
 import { useCodingContext } from '../../../context/coding-context';
 import { useTranscriptContext } from '../../../context/transcript-context';
 import ChatExplanation from './chat-explanation';
+import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
 
 interface RelatedCodesProps {
     postId: string;
@@ -33,6 +34,9 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     const { chatHistories, hoveredCodeText, setHoveredCode, selectedExplanations } =
         useTranscriptContext();
     const [comments, setComments] = useState<Record<string, string>>({});
+
+    const { scrollRef: subcodeRef } = useScrollRestoration('subcodes-section');
+    const { scrollRef: explanationRef } = useScrollRestoration('explanations-section');
 
     function getStoredChatHistory(postId: string, code: string, quote: string) {
         const key = `${postId}-${code}-${quote}`;
@@ -79,7 +83,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
         <div className="flex flex-col h-full gap-4" id="transcript-metadata">
             {/* Sub-codes Section */}
             <h3 className="text-lg font-bold">Sub-codes</h3>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" ref={subcodeRef}>
                 <ul className="space-y-2">
                     {(hoveredCodeText || agreedCodes).map((code, index) => (
                         <li
@@ -96,7 +100,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
 
             {/* Explanations Section */}
             <h3 className="text-lg font-bold">Explanations</h3>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" ref={explanationRef}>
                 {selectedExplanations.map((explanationItem) => {
                     const existingChat = getStoredChatHistory(
                         postId,

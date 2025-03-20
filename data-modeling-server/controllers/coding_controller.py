@@ -4,7 +4,7 @@ import os
 import re
 import shutil
 import time
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from chromadb import HttpClient
@@ -12,6 +12,9 @@ from fastapi import UploadFile
 from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 from vertexai.generative_models import GenerativeModel
 from google.auth import load_credentials_from_file
+from langchain_core.callbacks import AsyncCallbackHandler, BaseCallbackHandler
+from langchain_core.messages import HumanMessage
+from langchain_core.outputs import LLMResult
 
 import config
 from chromadb.config import Settings as ChromaDBSettings
@@ -191,7 +194,7 @@ def get_llm_and_embeddings(
                 num_predict=num_predict,
                 temperature=settings.ai.temperature,
                 seed=settings.ai.randomSeed,
-                callbacks=[StreamingStdOutCallbackHandler()],
+                callbacks=[StreamingStdOutCallbackHandler(), MyCustomSyncHandler(), MyCustomAsyncHandler()],
                 credentials = creds,
                 project = creds.quota_project_id
             )
@@ -208,7 +211,7 @@ def get_llm_and_embeddings(
             num_predict=num_predict,
             temperature=settings.ai.temperature,
             seed=settings.ai.randomSeed,
-            callbacks=[StreamingStdOutCallbackHandler()]
+            callbacks=[StreamingStdOutCallbackHandler(), MyCustomSyncHandler(), MyCustomAsyncHandler()]
         )
         embeddings = OllamaEmbeddings(model=model_name)
     else:
@@ -219,6 +222,61 @@ def get_llm_and_embeddings(
     # except Exception as e:
     #     print(f"Failed to initialize LLM and embeddings: {str(e)}")
     #     raise RuntimeError(f"Failed to initialize LLM and embeddings: {str(e)}")
+
+class VertexAICallbackHandler(BaseCallbackHandler):
+    total_tokens: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    successful_requests: int = 0
+    total_cost: float = 0.0
+    current_prompt_token: int = 0
+    model_name: str = ""
+
+    def __repr__(self) -> str:
+        return (
+            f"Tokens Used: {self.total_tokens}\n"
+            f"\tPrompt Tokens: {self.prompt_tokens}\n"
+            f"\tCompletion Tokens: {self.completion_tokens}\n"
+            f"Successful Requests: {self.successful_requests}\n"
+            f"Total Cost (USD): ${self.total_cost}"
+        )
+
+    @property
+    def always_verbose(self) -> bool:
+        return True
+
+    def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
+        completion_tokens = 0
+        self.successful_requests += 1
+
+        self.total_tokens += completion_tokens + self.current_prompt_token
+        self.prompt_tokens += self.current_prompt_token
+        self.completion_tokens += completion_tokens
+
+class MyCustomSyncHandler(VertexAICallbackHandler):
+    def on_llm_new_token(self, token: str, **kwargs) -> None:
+        print(f"Sync handler being called: token: {token}")
+
+
+class MyCustomAsyncHandler(VertexAICallbackHandler):
+    async def on_llm_start(
+        self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any
+    ) -> None:
+        print()
+        await asyncio.sleep(0.3)
+        class_name = serialized["name"]
+        for s in serialized:
+            print(f"{s}: {serialized[s]}")
+        print()
+
+    async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
+        print(f"New token: {token}", end="")
+
+    async def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
+        print()
+
+        await asyncio.sleep(0.3)
+        print()
 
 @log_execution_time()
 async def process_llm_task(
@@ -243,7 +301,9 @@ async def process_llm_task(
     max_retries = retries
     success = False
     extracted_data = None
-    function_id = function_id or str(uuid4())  
+    if not function_id:
+        function_id = str(uuid4())
+    # function_id = function_id or str(uuid4())  
 
     await manager.send_message(app_id, f"Dataset {dataset_id}: LLM process started...")
 
@@ -269,7 +329,7 @@ async def process_llm_task(
                 question_answer_chain = create_stuff_documents_chain(llm=llm_instance, prompt=prompt_template)
                 rag_chain = create_retrieval_chain(retriever=retriever, combine_docs_chain=question_answer_chain)
 
-                job_id, response_future = await llm_queue_manager.submit_task(rag_chain.invoke,{"input": input_text})  
+                job_id, response_future = await llm_queue_manager.submit_task(rag_chain.invoke, function_id,{"input": input_text})  
             else:
                 if not prompt_builder_func:
                     raise ValueError("Standard LLM invocation requires a 'prompt_builder_func'.")
@@ -284,7 +344,7 @@ async def process_llm_task(
                     async for chunk in llm_instance.stream(prompt_text):
                         await manager.send_message(app_id, f"Dataset {dataset_id}: {chunk}")
                 else:
-                    job_id, response_future = await llm_queue_manager.submit_task(llm_instance.invoke, prompt_text)
+                    job_id, response_future = await llm_queue_manager.submit_task(llm_instance.invoke, function_id, prompt_text)
 
             response = await response_future
 
