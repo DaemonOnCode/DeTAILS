@@ -4,26 +4,28 @@ import os
 import re
 import shutil
 import time
-from typing import Any, Dict, List, Optional
-from uuid import uuid4
+from typing import Any, Dict, List, Optional, Sequence, Type, Union
+from uuid import UUID, uuid4
 
 from chromadb import HttpClient
 from fastapi import UploadFile
+from langchain_core.outputs import ChatGenerationChunk, GenerationChunk, LLMResult
 from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 from vertexai.generative_models import GenerativeModel
 from google.auth import load_credentials_from_file
-from langchain_core.callbacks import AsyncCallbackHandler, BaseCallbackHandler
-from langchain_core.messages import HumanMessage
-from langchain_core.outputs import LLMResult
+from langchain_google_vertexai.callbacks import VertexAICallbackHandler
+from langchain.callbacks.base import BaseCallbackHandler
+from langchain.schema import AgentAction, AgentFinish, Document, LLMResult
 
 import config
 from chromadb.config import Settings as ChromaDBSettings
 from constants import CONTEXT_FILES_DIR, PATHS, RANDOM_SEED
 from controllers.miscellaneous_controller import get_credential_path
+from database.qect_table import QECTRepository
 from decorators import log_execution_time
 from errors.credential_errors import MissingCredentialError
 from errors.vertex_ai_errors import InvalidGenAIModelError, InvalidTextEmbeddingError
-from models.table_dataclasses import LlmResponse
+from models.table_dataclasses import GenerationType, LlmResponse, QECTResponse, ResponseCreatorType
 from routes.websocket_routes import ConnectionManager, manager
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -43,6 +45,7 @@ from database import LlmResponsesRepository
 from database.db_helpers import get_post_and_comments_from_id
 
 llm_responses_repo = LlmResponsesRepository()
+qect_repo = QECTRepository()
 
 
 def get_temperature_and_random_seed():
@@ -157,19 +160,245 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
     await asyncio.sleep(1)
 
 
+class Color():
+  """For easier understanding and faster manipulation of printed colors."""
+  PURPLE = "\033[95m"
+  CYAN = "\033[96m"
+  DARKCYAN = "\033[36m"
+  BLUE = "\033[94m"
+  GREEN = "\033[92m"
+  YELLOW = "\033[93m"
+  RED = "\033[91m"
+  BOLD = "\033[1m"
+  UNDERLINE = "\033[4m"
+  ITALICS = "\x1B[3m"
+  END = "\033[0m\x1B[0m"
+
+
+class OutputFormatter:
+  def heading(text: str) -> None:
+    print(f"{Color.BOLD}{text}{Color.END}")
+
+  def key_info(text: str) -> None:
+    print(f"{Color.BOLD}{Color.DARKCYAN}{text}{Color.END}")
+
+  def key_info_labeled(label: str,
+                       contents: str,
+                       contents_newlined: Optional[bool] = False
+                       ) -> None:
+    print(f"{Color.BOLD}{Color.DARKCYAN}{label}: {Color.END}{Color.DARKCYAN}",
+          end="")
+    if contents_newlined:
+      contents = contents.splitlines()
+    print(f"{contents}")
+    print(f"{Color.END}", end="")
+
+  def debug_info(text: str) -> None:
+    print(f"{Color.BLUE}{text}{Color.END}")
+
+  def debug_info_labeled(label: str,
+                         contents: str,
+                         contents_newlined: Optional[bool] = False
+                         ) -> None:
+    print(f"{Color.BOLD}{Color.BLUE}{label}: {Color.END}{Color.BLUE}",
+          end="")
+    if contents_newlined:
+      contents = contents.splitlines()
+    print(f"{contents}")
+    print(f"{Color.END}", end="")
+
+  def llm_call(text: str) -> None:
+    print(f"{Color.ITALICS}{text}{Color.END}")
+
+  def llm_output(text: str) -> None:
+    print(f"{Color.UNDERLINE}{text}{Color.END}")
+
+  def tool_call(text: str) -> None:
+    print(f"{Color.ITALICS}{Color.PURPLE}{text}{Color.END}")
+
+  def tool_output(text: str) -> None:
+    print(f"{Color.UNDERLINE}{Color.PURPLE}{text}{Color.END}")
+
+  def debug_error(text: str) -> None:
+    print(f"{Color.BOLD}{Color.RED}{text}{Color.END}")
+
+class AllChainDetails(BaseCallbackHandler):
+  def __init__(self,
+               debug_mode: Optional[bool] = False,
+               out: Type[OutputFormatter] = OutputFormatter,
+               ) -> None:
+    self.debug_mode = debug_mode
+    self.out = out
+
+  def on_text(self,
+              text: str,
+              color: Optional[str] = None,
+              end: str = "",
+              **kwargs: Any,) -> None:
+      self.out.heading(f"\n\n> Preparing text.")
+      print(text)
+
+  def on_llm_new_token(self, token: Any, *, chunk: GenerationChunk | ChatGenerationChunk | None = None, run_id: UUID, parent_run_id: UUID | None = None, **kwargs: Any) -> Any:
+    self.out.heading(f"\n\n> New token.")
+    self.out.key_info_labeled(f"Chain ID", f"{run_id}")
+    self.out.key_info_labeled("Parent chain ID", f"{parent_run_id}")
+    self.out.key_info_labeled("Token", f"{token}")
+
+  def on_llm_start(self,
+                   serialized: Dict[str, Any],
+                   prompts: List[str],
+                   **kwargs: Any) -> None:
+    self.out.heading(f"\n\n> Sending text to the LLM.")
+    self.out.key_info_labeled(f"Chain ID", f"{kwargs['run_id']}")
+    self.out.key_info_labeled("Parent chain ID", f"{kwargs['parent_run_id']}")
+
+    if len(prompts) > 1:
+      self.out.debug_error("prompts has multiple items.")
+      self.out.debug_error("Only outputting first item in prompts.")
+
+    self.out.key_info(f"Text sent to LLM:")
+    self.out.llm_call(prompts[0])
+
+  def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
+    self.out.heading(f"\n\n> Received response from LLM.")
+    self.out.key_info_labeled(f"Chain ID", f"{kwargs['run_id']}")
+    self.out.key_info_labeled("Parent chain ID", f"{kwargs['parent_run_id']}")
+
+    if len(response.generations) > 1:
+      self.out.debug_error("response object has multiple generations.")
+      self.out.debug_error("Only outputting first generation in response.")
+
+    self.out.key_info(f"Text received from LLM:")
+    self.out.llm_output(response.generations[0][0].text)
+
+  def on_chain_start(self,
+                     serialized: Dict[str, Any],
+                     inputs: Dict[str, Any],
+                     **kwargs: Any) -> None:
+    self.out.heading(f"\n\n> Starting new chain.")
+
+    if 'id' not in serialized.keys():
+      self.out.debug_error("Missing serialized['id']")
+      class_name = "Unknown -- serialized['id'] is missing"
+        
+    else:
+      class_name = ".".join(serialized['id'])
+
+    self.out.key_info_labeled(f"Chain class", f"{class_name}")
+    self.out.key_info_labeled(f"Chain ID", f"{kwargs['run_id']}")
+    self.out.key_info_labeled("Parent chain ID", f"{kwargs['parent_run_id']}")
+
+    if len(inputs) < 1:
+      self.out.debug_error("Chain inputs is empty.")
+        
+    else:
+      self.out.key_info("Iterating through keys/values of chain inputs:")
+    for key, value in inputs.items():
+      if key not in ["stop", "agent_scratchpad"]:
+        self.out.key_info_labeled(f"   {key}", f"{value}")
+
+  def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
+    self.out.heading(f"\n\n> Ending chain.")
+    self.out.key_info_labeled(f"Chain ID", f"{kwargs['run_id']}")
+    self.out.key_info_labeled("Parent chain ID", f"{kwargs['parent_run_id']}")
+
+    if len(outputs) == 0:
+      self.out.debug_error("No chain outputs.")
+        
+    else:
+      outputs_keys = [*outputs.keys()]
+    for key in outputs_keys:
+      self.out.key_info_labeled(f"Output {key}",
+                                f"{outputs[key]}",
+                                contents_newlined=True)
+
+  def on_llm_error(self,
+                   error: Union[Exception, KeyboardInterrupt],
+                   **kwargs: Any) -> None:
+    self.out.debug_error("LLM Error")
+      
+
+  def on_chain_error(self,
+                     error: Union[Exception, KeyboardInterrupt],
+                     **kwargs: Any) -> None:
+    self.out.debug_error("Chain Error")
+      
+
+  def on_tool_error(self,
+                    error: Union[Exception, KeyboardInterrupt],
+                    **kwargs: Any) -> None:
+    self.out.debug_error("Chain Error")
+      
+
+  def on_retriever_start(self,
+                         serialized: Dict[str, Any],
+                         query: str,
+                         *,
+                         run_id: UUID,
+                         parent_run_id: Optional[UUID] = None,
+                         tags: Optional[List[str]] = None,
+                         metadata: Optional[Dict[str, Any]] = None,
+                         **kwargs: Any) -> Any:
+    self.out.heading(f"\n\n> Querying retriever.")
+    self.out.key_info_labeled(f"Chain ID", f"{run_id}")
+    self.out.key_info_labeled("Parent chain ID", f"{parent_run_id}")
+    self.out.key_info_labeled("Tags", f"{tags}")
+
+    if 'id' not in serialized.keys():
+      self.out.debug_error("Missing serialized['id']")
+      class_name = "Unknown -- serialized['id'] is missing"
+    else:
+      class_name = ".".join(serialized['id'])
+    self.out.key_info_labeled(f"Retriever class", f"{class_name}")
+
+    self.out.key_info(f"Query sent to retriever:")
+    self.out.tool_call(query)
+
+  def on_retriever_end(self,
+                       documents: Sequence[Document],
+                       *,
+                       run_id: UUID,
+                       parent_run_id: Optional[UUID] = None,
+                       **kwargs: Any) -> Any:
+    self.out.heading(f"\n\n> Retriever finished.")
+    self.out.key_info_labeled(f"Chain ID", f"{run_id}")
+    self.out.key_info_labeled("Parent chain ID", f"{parent_run_id}")
+    self.out.key_info(f"Found {len(documents)} documents.")
+
+    if len(documents) == 0:
+      self.out.debug_error("No documents found.")
+    else:
+      for doc_num, doc in enumerate(documents):
+        self.out.key_info("---------------------------------------------------")
+        self.out.key_info(f"Document number {doc_num} of {len(documents)}")
+        self.out.key_info_labeled("Metadata", f"{doc.metadata}")
+        self.out.key_info("Document contents:")
+        self.out.tool_output(doc.page_content)
+
 
 def get_llm_and_embeddings(
     model: str,
-    num_ctx: int = 100_000,
-    num_predict: int = 8_000,
-    temperature: float = 0.6,
-    random_seed: int = RANDOM_SEED
+    num_ctx: int = None,
+    num_predict: int = None,
+    temperature: float = None,
+    random_seed: int = None
 ):
+    settings = config.CustomSettings()
+    if not num_ctx:
+        if model.startswith("gemini"):
+            num_ctx = 1_000_000
+        num_ctx = 128_000
+    if not num_predict:
+        num_predict = 8_000
+    if not temperature:
+        temperature = settings.ai.temperature or 0.6
+    if not random_seed:
+        random_seed = settings.ai.randomSeed or RANDOM_SEED
+
     if temperature < 0.0 or temperature > 1.0:
         raise ValueError("Temperature must be between 0.0 and 1.0")
     if random_seed < 0:
         raise ValueError("Random seed must be a positive integer")
-    settings = config.CustomSettings()
     # try:
     if model.startswith("gemini") or model.startswith("google"):
         model_name = model
@@ -177,7 +406,7 @@ def get_llm_and_embeddings(
             model_name = "-".join(model.split("-")[1:])
         # print(settings.google_application_credentials)
         creds, project_id = load_credentials_from_file(get_credential_path(settings) or os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-        print(creds.quota_project_id, project_id)
+        # print(creds.quota_project_id, project_id)
         try:
 
             embeddings = VertexAIEmbeddings(
@@ -192,9 +421,9 @@ def get_llm_and_embeddings(
                 model_name=model_name, 
                 num_ctx=num_ctx,
                 num_predict=num_predict,
-                temperature=settings.ai.temperature,
-                seed=settings.ai.randomSeed,
-                callbacks=[StreamingStdOutCallbackHandler(), MyCustomSyncHandler(), MyCustomAsyncHandler()],
+                temperature=temperature,
+                seed=random_seed,
+                callbacks=[StreamingStdOutCallbackHandler(), AllChainDetails()],
                 credentials = creds,
                 project = creds.quota_project_id
             )
@@ -209,9 +438,9 @@ def get_llm_and_embeddings(
             model=model_name,
             num_ctx=num_ctx,
             num_predict=num_predict,
-            temperature=settings.ai.temperature,
-            seed=settings.ai.randomSeed,
-            callbacks=[StreamingStdOutCallbackHandler(), MyCustomSyncHandler(), MyCustomAsyncHandler()]
+            temperature=temperature,
+            seed=random_seed,
+            callbacks=[StreamingStdOutCallbackHandler()]
         )
         embeddings = OllamaEmbeddings(model=model_name)
     else:
@@ -222,61 +451,6 @@ def get_llm_and_embeddings(
     # except Exception as e:
     #     print(f"Failed to initialize LLM and embeddings: {str(e)}")
     #     raise RuntimeError(f"Failed to initialize LLM and embeddings: {str(e)}")
-
-class VertexAICallbackHandler(BaseCallbackHandler):
-    total_tokens: int = 0
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    successful_requests: int = 0
-    total_cost: float = 0.0
-    current_prompt_token: int = 0
-    model_name: str = ""
-
-    def __repr__(self) -> str:
-        return (
-            f"Tokens Used: {self.total_tokens}\n"
-            f"\tPrompt Tokens: {self.prompt_tokens}\n"
-            f"\tCompletion Tokens: {self.completion_tokens}\n"
-            f"Successful Requests: {self.successful_requests}\n"
-            f"Total Cost (USD): ${self.total_cost}"
-        )
-
-    @property
-    def always_verbose(self) -> bool:
-        return True
-
-    def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
-        completion_tokens = 0
-        self.successful_requests += 1
-
-        self.total_tokens += completion_tokens + self.current_prompt_token
-        self.prompt_tokens += self.current_prompt_token
-        self.completion_tokens += completion_tokens
-
-class MyCustomSyncHandler(VertexAICallbackHandler):
-    def on_llm_new_token(self, token: str, **kwargs) -> None:
-        print(f"Sync handler being called: token: {token}")
-
-
-class MyCustomAsyncHandler(VertexAICallbackHandler):
-    async def on_llm_start(
-        self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any
-    ) -> None:
-        print()
-        await asyncio.sleep(0.3)
-        class_name = serialized["name"]
-        for s in serialized:
-            print(f"{s}: {serialized[s]}")
-        print()
-
-    async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        print(f"New token: {token}", end="")
-
-    async def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
-        print()
-
-        await asyncio.sleep(0.3)
-        print()
 
 @log_execution_time()
 async def process_llm_task(
@@ -339,7 +513,7 @@ async def process_llm_task(
                 prompt_text = prompt_builder_func(**prompt_params)
 
 
-                print("Prompt Text", prompt_text)
+                # print("Prompt Text", prompt_text)
                 if stream_output:
                     async for chunk in llm_instance.stream(prompt_text):
                         await manager.send_message(app_id, f"Dataset {dataset_id}: {chunk}")
@@ -348,7 +522,7 @@ async def process_llm_task(
 
             response = await response_future
 
-            print("Response", response)
+            # print("Response", response)
             response = response["answer"] if retriever else response.content
             match = re.search(regex_pattern, response, re.DOTALL)
             if not match:
@@ -421,3 +595,64 @@ def filter_codes_by_transcript(codes: list[dict], transcript: str) -> list[dict]
         else:
             print(f"Filtered out code entry, quote not found in transcript: {quote}")
     return filtered_codes
+
+
+
+def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, workspace_id: str, model: str, codebook_type: str):
+#    for response in responses:
+#         if not (response["code"] and response["quote"] and response["explanation"]):
+#             print(f"Skipping invalid response: {response}")
+#             continue
+#         qect_repo.insert(
+#             QECTResponse(
+#                 id=response["id"],
+#                 generation_type=GenerationType.INITIAL.value,
+#                 dataset_id=dataset_id,
+#                 workspace_id=workspace_id,
+#                 model=model,
+#                 quote=response["quote"],
+#                 code=response["code"],
+#                 explanation=response["explanation"],
+#                 post_id=response["postId"],
+#                 response_type=response_type,
+#                 chat_history=chat_history,
+#                 codebook_type=codebook_type
+#             )
+#         )
+    responses = list(filter(lambda response: response.get("code") and response.get("quote") and response.get("explanation"), responses))
+    qect_repo.insert_batch(
+       list(
+            map(
+                lambda code: QECTResponse(
+                    id=code["id"],
+                    generation_type=GenerationType.INITIAL.value,
+                    dataset_id=dataset_id,
+                    workspace_id=workspace_id,
+                    model=model,
+                    quote=code["quote"],
+                    code=code["code"],
+                    explanation=code["explanation"],
+                    post_id=code["postId"],
+                    response_type=ResponseCreatorType.LLM.value,
+                    chat_history=None,
+                    codebook_type=codebook_type
+                ), 
+                responses
+            )
+        )
+    )
+    return responses
+#    qect_repo.insert_batch(list(map(lambda code: QECTResponse(
+#                     id=code["id"],
+#                     generation_type=GenerationType.INITIAL.value,
+#                     dataset_id=dataset_id,
+#                     workspace_id=workspace_id,
+#                     model=model,
+#                     quote=code["quote"],
+#                     code=code["code"],
+#                     explanation=code["explanation"],
+#                     post_id=code["postId"],
+#                     response_type=response_type,
+#                     chat_history=None,
+#                     codebook_type=codebook_type
+#                 ), responses)))

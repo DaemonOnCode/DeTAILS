@@ -243,9 +243,6 @@ Generate your output strictly in valid JSON format as follows:
       "quote": "Exact phrase from the transcript.",
       "explanation": "How it relates to the code and research focus.",
       "code": "Relevant keyword or code derived from the transcript.",
-      "code_type": "semantic or latent",
-      "comparison_notes": "Notes on how this code relates to existing codes in the keyword table.",
-      "data_position": "Line X"
     }}
     // Additional code objects...
   ]
@@ -257,7 +254,7 @@ NOTE:
    - If a phrase fits multiple codes, list each as a separate entry.
    - Omit phrases that do not align with any valid codes.
    - If no codes are applicable across the transcript, return 
-   ``json
+   ```json
    {{ "codes": [] }}
    ```.
 
@@ -323,8 +320,7 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
        {{
          "quote": "Exact phrase from the transcript.",
          "explanation": "Concise rationale explaining the code assignment based on the final codebook and keyword table.",
-         "code": "Assigned code from the final codebook",
-         "code_type": "semantic or latent"
+         "code": "Assigned code from the final codebook"
        }}
        // Additional code objects...
      ]
@@ -335,7 +331,7 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
    - If a phrase fits multiple codes, list each as a separate entry.
    - Omit phrases that do not align with any valid codes.
    - If no codes are applicable across the transcript, return 
-   ``json
+   ```json
    {{ "codes": [] }}
    ```.
 
@@ -596,10 +592,7 @@ Generate your output strictly in valid JSON format as follows:
     {{
       "quote": "Exact phrase from the transcript or current codebook.",
       "explanation": "Explanation of the code and its relevance.",
-      "code": "Updated or new keyword/code.",
-      "code_type": "semantic or latent",
-      "comparison_notes": "Notes on relationships to previous codes and feedback integration.",
-      "data_position": "Reference (e.g., line numbers or section identifiers)"
+      "code": "Updated or new keyword/code."
     }}
     // Additional code objects...
   ]
@@ -664,10 +657,7 @@ Generate your output strictly in valid JSON format as follows:
     {{
       "quote": "Exact phrase from the transcript or current codebook.",
       "explanation": "Explanation of the code and its relevance.",
-      "code": "Updated or new keyword/code.",
-      "code_type": "semantic or latent",
-      "comparison_notes": "Notes on relationships to previous codes and feedback integration.",
-      "data_position": "Reference (e.g., line numbers or section identifiers)"
+      "code": "Updated or new keyword/code."
     }}
     // Additional code objects...
   ]
@@ -858,9 +848,6 @@ Spit out your output in clean, valid JSON like this:
       "quote": "Exact phrase from the transcript or given codebook.",
       "explanation": "Explanation of the code and why it matters.",
       "code": "Updated or new keyword/code.",
-      "code_type": "semantic or latent",
-      "comparison_notes": "How it ties to previous codes.",
-      "data_position": "Where it’s at (e.g., line numbers or section IDs)"
     }}
     // More code objects if needed...
   ]

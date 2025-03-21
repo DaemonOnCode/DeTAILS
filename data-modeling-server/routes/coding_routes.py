@@ -3,6 +3,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import json
+import os
 from typing import Annotated, List
 from uuid import uuid4
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
@@ -13,7 +14,7 @@ from sympy import fu
 from config import Settings
 import config
 from constants import RANDOM_SEED
-from controllers.coding_controller import filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, process_llm_task, save_context_files
+from controllers.coding_controller import filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files
 from controllers.collection_controller import get_reddit_post_by_id
 from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
@@ -49,28 +50,25 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
     sample_size = request_body.sample_size
     divisions = request_body.divisions
 
-    # Semaphore to limit concurrency to 10 tasks
-    sem = asyncio.Semaphore(10)
+    sem = asyncio.Semaphore(os.cpu_count())
 
-    # Asynchronous helper function to fetch post and compute transcript length
     async def fetch_and_compute_length(post_id: str):
-        try:
-            post = await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id)
-            transcript = await asyncio.to_thread(generate_transcript, post)
-            length = len(transcript)
-            return post_id, length
-        except HTTPException as e:
-            print(f"Post {post_id} not found: {e.detail}")
-            return post_id, None
-        except Exception as e:
-            print(f"Unexpected error for post {post_id}: {e}")
-            return post_id, None
+        async with sem:
+            try:
+                post = await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id)
+                transcript = await asyncio.to_thread(generate_transcript, post)
+                length = len(transcript)
+                return post_id, length
+            except HTTPException as e:
+                print(f"Post {post_id} not found: {e.detail}")
+                return post_id, None
+            except Exception as e:
+                print(f"Unexpected error for post {post_id}: {e}")
+                return post_id, None
 
-    # Run all tasks concurrently
     tasks = [fetch_and_compute_length(post_id) for post_id in post_ids]
     results = await asyncio.gather(*tasks)
 
-    # Process results
     valid_results = [res for res in results if res[1] is not None]
     invalid_post_ids = [res[0] for res in results if res[1] is None]
 
@@ -80,11 +78,9 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
     if not valid_results:
         raise HTTPException(status_code=400, detail="No valid posts found.")
 
-    # Create DataFrame for sampling
     df = pd.DataFrame(valid_results, columns=['post_id', 'length'])
     np.random.seed(settings.ai.randomSeed)
 
-    # Sampling logic (unchanged from original)
     if divisions == 1:
         return {"sample": df['post_id'].tolist()}
 
@@ -171,7 +167,6 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
 
         groups.append(remaining_df['post_id'].tolist())
 
-    # Assign group names and return result
     if divisions == 2:
         group_names = ["sampled", "unseen"]
     elif divisions == 3:
@@ -374,20 +369,21 @@ async def generate_codes_endpoint(request: Request,
                 })
                 # for code in codes:
                 #     if code.get("code") and code.get("quote") and code.get("explanation"):
-                qect_repo.insert_batch(list(map(lambda code: QECTResponse(
-                    id=code["id"],
-                    generation_type=GenerationType.INITIAL.value,
-                    dataset_id=dataset_id,
-                    workspace_id=request_body.workspace_id,
-                    model=request_body.model,
-                    quote=code["quote"],
-                    code=code["code"],
-                    explanation=code["explanation"],
-                    post_id=code["postId"],
-                    response_type=ResponseCreatorType.LLM.value,
-                    chat_history=None,
-                    codebook_type=CodebookType.INITIAL.value
-                ), codes)))
+                # qect_repo.insert_batch(list(map(lambda code: QECTResponse(
+                #     id=code["id"],
+                #     generation_type=GenerationType.INITIAL.value,
+                #     dataset_id=dataset_id,
+                #     workspace_id=request_body.workspace_id,
+                #     model=request_body.model,
+                #     quote=code["quote"],
+                #     code=code["code"],
+                #     explanation=code["explanation"],
+                #     post_id=code["postId"],
+                #     response_type=ResponseCreatorType.LLM.value,
+                #     chat_history=None,
+                #     codebook_type=CodebookType.INITIAL.value
+                # ), codes)))
+                codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.INITIAL.value)
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
@@ -575,20 +571,22 @@ async def deductive_coding_endpoint(
                     }).current + 1
                 })
             
-            qect_repo.insert_batch(list(map(lambda code: QECTResponse(
-                id=code["id"],
-                generation_type=GenerationType.INITIAL.value,
-                dataset_id=dataset_id,
-                workspace_id=request_body.workspace_id,
-                model=request_body.model,
-                quote=code["quote"],
-                code=code["code"],
-                explanation=code["explanation"],
-                post_id=code["postId"],
-                response_type=ResponseCreatorType.LLM.value,
-                chat_history=None,
-                codebook_type=CodebookType.DEDUCTIVE.value
-            ), codes)))
+            # qect_repo.insert_batch(list(map(lambda code: QECTResponse(
+            #     id=code["id"],
+            #     generation_type=GenerationType.INITIAL.value,
+            #     dataset_id=dataset_id,
+            #     workspace_id=request_body.workspace_id,
+            #     model=request_body.model,
+            #     quote=code["quote"],
+            #     code=code["code"],
+            #     explanation=code["explanation"],
+            #     post_id=code["postId"],
+            #     response_type=ResponseCreatorType.LLM.value,
+            #     chat_history=None,
+            #     codebook_type=CodebookType.DEDUCTIVE.value
+            # ), codes)))
+
+            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.DEDUCTIVE.value)
 
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
@@ -813,20 +811,22 @@ async def generate_codes_endpoint(request: Request,
 
                 codes = filter_codes_by_transcript(codes, transcript)
 
-                qect_repo.insert_batch(list(map(lambda code: QECTResponse(
-                    id=code["id"],
-                    generation_type=GenerationType.LATEST.value,
-                    dataset_id=dataset_id,
-                    workspace_id=request_body.workspace_id,
-                    model=request_body.model,
-                    quote=code["quote"],
-                    code=code["code"],
-                    explanation=code["explanation"],
-                    post_id=code["postId"],
-                    response_type=ResponseCreatorType.LLM.value,
-                    chat_history=None,
-                    codebook_type=CodebookType.INITIAL.value
-                ), codes)))
+                # qect_repo.insert_batch(list(map(lambda code: QECTResponse(
+                #     id=code["id"],
+                #     generation_type=GenerationType.LATEST.value,
+                #     dataset_id=dataset_id,
+                #     workspace_id=request_body.workspace_id,
+                #     model=request_body.model,
+                #     quote=code["quote"],
+                #     code=code["code"],
+                #     explanation=code["explanation"],
+                #     post_id=code["postId"],
+                #     response_type=ResponseCreatorType.LLM.value,
+                #     chat_history=None,
+                #     codebook_type=CodebookType.INITIAL.value
+                # ), codes)))
+
+                codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.INITIAL.value)
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
@@ -949,20 +949,22 @@ async def redo_deductive_coding_endpoint(
 
             codes = filter_codes_by_transcript(codes, transcript)
 
-            qect_repo.insert_batch(list(map(lambda code: QECTResponse(
-                id=code["id"],
-                generation_type=GenerationType.LATEST.value,
-                dataset_id=dataset_id,
-                workspace_id=request_body.workspace_id,
-                model=request_body.model,
-                quote=code["quote"],
-                code=code["code"],
-                explanation=code["explanation"],
-                post_id=code["postId"],
-                response_type=ResponseCreatorType.LLM.value,
-                chat_history=None,
-                codebook_type=CodebookType.DEDUCTIVE.value
-            ), codes)))
+            # qect_repo.insert_batch(list(map(lambda code: QECTResponse(
+            #     id=code["id"],
+            #     generation_type=GenerationType.LATEST.value,
+            #     dataset_id=dataset_id,
+            #     workspace_id=request_body.workspace_id,
+            #     model=request_body.model,
+            #     quote=code["quote"],
+            #     code=code["code"],
+            #     explanation=code["explanation"],
+            #     post_id=code["postId"],
+            #     response_type=ResponseCreatorType.LLM.value,
+            #     chat_history=None,
+            #     codebook_type=CodebookType.DEDUCTIVE.value
+            # ), codes)))
+
+            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.DEDUCTIVE.value)
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
