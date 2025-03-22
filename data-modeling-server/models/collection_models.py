@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -7,9 +8,15 @@ class ParseDatasetRequest(BaseModel):
 
 class ParseRedditPostsRequest(BaseModel):
     dataset_id: str
-    batch: int = 10
-    offset: int = 0
-    all: bool = True
+    batch: int
+    offset: int
+    all: bool = False
+    search_term: str = ""
+    start_time: Optional[int] = None
+    end_time: Optional[int] = None
+    hide_removed: bool = False
+    page: int = 1
+    items_per_page: int = 10
 
 class ParseRedditPostByIdRequest(BaseModel):
     datasetId: str

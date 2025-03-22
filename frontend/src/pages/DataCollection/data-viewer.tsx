@@ -270,7 +270,7 @@ const DataViewerPage = () => {
                 excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}`}>
                 <div className="h-page flex flex-col">
                     <main id="viewer-main" className="flex-1 overflow-hidden">
-                        {isDataLoaded && <RedditTableRenderer data={data} loading={loading} />}
+                        {isDataLoaded && <RedditTableRenderer />}
                     </main>
                     <footer id="bottom-navigation">
                         <NavigationBottomBar

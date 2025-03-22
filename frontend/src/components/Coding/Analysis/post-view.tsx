@@ -132,10 +132,10 @@ const PostView = ({
                                         <td className="border border-gray-400 p-2 max-w-32">
                                             {item.theme}
                                         </td>
-                                        <td className="border border-gray-400 p-2 max-w-md">
+                                        <td className="border border-gray-400 p-2 w-96  max-w-md overflow-wrap">
                                             {item.quote}
                                         </td>
-                                        <td className="border border-gray-400 p-2 min-w-96">
+                                        <td className="border border-gray-400 p-2 min-w-96 overflow-wrap">
                                             {item.reasoning}
                                         </td>
                                     </tr>

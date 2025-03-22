@@ -100,12 +100,14 @@ export const useApi = (): UseApiResult => {
 
                 if (!response.ok) {
                     try {
-                        const errorResponse = await response.json();
+                        const errorResponse: {
+                            error_message: string;
+                            error: string;
+                        } = await response.json();
                         return {
                             error: {
                                 message: {
-                                    error_message: errorResponse.error_message,
-                                    error: errorResponse.error
+                                    ...errorResponse
                                 },
                                 name: 'FetchError'
                             },

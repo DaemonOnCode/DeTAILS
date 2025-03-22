@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 import time
-from typing import Dict
+from typing import Dict, Optional
 from uuid import uuid4
 from aiofiles import open as async_open
 from fastapi import HTTPException, UploadFile
@@ -351,10 +351,86 @@ def delete_dataset(dataset_id: str):
     dataset_repo.delete({"id": dataset_id})
     return {"message": "Dataset deleted successfully"}
 
-def get_reddit_posts_by_batch(dataset_id: str, batch: int, offset: int, all: bool):
-    if all:
-        return post_repo.find({"dataset_id": dataset_id}, order_by={"created_utc": "asc"})
-    return post_repo.find({"dataset_id": dataset_id}, limit=batch, offset=offset, order_by={"created_utc": "asc"})
+def get_reddit_posts_by_batch(
+    dataset_id: str,
+    batch: int,
+    offset: int,
+    all: bool = False,
+    search_term: str = "",
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
+    hide_removed: bool = False,
+    page: int = 1,
+    items_per_page: int = 10
+):
+    query_builder = post_repo.query_builder()
+
+    filters = {"dataset_id": dataset_id}
+
+    if start_time:
+        query_builder.where("created_utc", start_time, ">=")
+    if end_time:
+        query_builder.where("created_utc", end_time, "<=")
+
+    if hide_removed:
+        query_builder.where("selftext", "[removed]", "!=")
+        query_builder.where("selftext", "[deleted]", "!=")
+
+    if search_term:
+        search_query = (
+            "SELECT * FROM posts WHERE dataset_id = ? AND ("
+            "title LIKE ? OR selftext LIKE ? OR url LIKE ?)"
+        )
+        search_params = (
+            dataset_id,
+            f"%{search_term}%",
+            f"%{search_term}%",
+            f"%{search_term}%"
+        )
+        if start_time:
+            search_query += " AND created_utc >= ?"
+            search_params += (start_time,)
+        if end_time:
+            search_query += " AND created_utc <= ?"
+            search_params += (end_time,)
+        if hide_removed:
+            search_query += " AND selftext != ? AND selftext != ?"
+            search_params += ("[removed]", "[deleted]")
+
+        count_query = search_query.replace("SELECT *", "SELECT COUNT(*)")
+        total_count = post_repo.execute_raw_query(count_query, search_params).fetchone()[0]
+
+        if all:
+            search_query += " ORDER BY created_utc ASC"
+        else:
+            offset = (page - 1) * items_per_page
+            search_query += " ORDER BY created_utc ASC LIMIT ? OFFSET ?"
+            search_params += (items_per_page, offset)
+
+        posts = post_repo.execute_raw_query(search_query, search_params, keys=True)
+    else:
+        for column, value in filters.items():
+            query_builder.where(column, value)
+
+        total_count = post_repo.count(filters)
+
+        if all:
+            query_builder.select("*")
+            query_builder.order_by("created_utc", descending=False)
+            posts = post_repo.find(map_to_model=False)
+        else:
+            query_builder.select("*")
+            query_builder.order_by("created_utc", descending=False)
+            query_builder.limit(items_per_page)
+            query_builder.offset((page - 1) * items_per_page)
+            posts = post_repo.find(map_to_model=False)
+
+    posts_dict = {post["id"]: post for post in posts}
+
+    return {
+        "posts": posts_dict,
+        "total_count": total_count
+    }
 
 def get_reddit_post_titles(dataset_id: str):
     return post_repo.find({"dataset_id": dataset_id}, columns=["id", "title"])
@@ -402,43 +478,10 @@ async def stream_upload_file(file: UploadFile) -> dict:
     file_path = os.path.join(UPLOAD_DIR, filename)
 
     async with async_open(file_path, "wb") as out_file:
-        while chunk := await file.read(1024 * 1024):  # Read in chunks of 1MB
+        while chunk := await file.read(1024 * 1024): 
             await out_file.write(chunk)
 
     return {"message": f"File {file.filename} uploaded successfully.", "path": file_path}
-
-# async def save_uploaded_file(file: UploadFile, dataset_id: str) -> str:
-#     """Save an uploaded file and return the file path."""
-#     if not file.filename.endswith(".json"):
-#         raise ValueError("Only JSON files are allowed.")
-
-#     file_path = f"./datasets/{dataset_id}/{file.filename}"
-#     os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-#     async with async_open(file_path, "wb") as f:
-#         while chunk := await file.read(1024 * 1024):  # 1MB chunks
-#             await f.write(chunk)
-
-#     return file_path
-
-# def create_dataset(description: str, dataset_id: str = None):
-#     """Create or retrieve a dataset ID."""
-#     dataset_id = dataset_id or str(uuid4())
-#     dataset_repo.insert(Dataset(id=dataset_id, name="", description=description))
-#     return dataset_id
-
-# async def upload_dataset_file(file: UploadFile, dataset_id: str):
-#     """Upload a JSON file and return its path."""
-#     return await save_uploaded_file(file, dataset_id)
-
-# def list_datasets():
-#     """List all datasets."""
-#     return dataset_repo.find()
-
-# def delete_dataset(dataset_id: str):
-#     """Delete a dataset."""
-#     dataset_repo.delete({"id": dataset_id})
-#     return {"message": "Dataset deleted successfully!"}
 
 
 def omit_first_if_matches_structure(data: list) -> list:

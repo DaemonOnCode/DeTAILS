@@ -42,12 +42,19 @@ async def parse_reddit_dataset_endpoint(request: ParseDatasetRequest = Body(...)
 
 @router.post("/reddit-posts-by-batch")
 async def get_reddit_posts_endpoint(request: ParseRedditPostsRequest = Body(...)):
-    dataset_id = request.dataset_id
-    batch = request.batch
-    offset = request.offset
-    all = request.all
-    posts = get_reddit_posts_by_batch(dataset_id, batch, offset, all)
-    return {post["id"]: post for post in posts}
+    results = get_reddit_posts_by_batch(
+        request.dataset_id,
+        request.batch,
+        request.offset,
+        request.all,
+        request.search_term,
+        request.start_time,
+        request.end_time,
+        request.hide_removed,
+        request.page,
+        request.items_per_page
+    )
+    return results
 
 @router.post("/reddit-posts-titles")
 async def get_reddit_titles_endpoint(request: ParseRedditPostsRequest = Body(...)):

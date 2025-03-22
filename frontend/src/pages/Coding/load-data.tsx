@@ -121,10 +121,10 @@ const LoadData = () => {
             {/* Main scrollable content */}
             <main className="flex-1 overflow-auto">
                 <RedditTableRenderer
-                    data={data}
+                    // data={data}
                     maxContainerHeight="min-h-maxPageContent"
                     maxTableHeightClass="max-h-[calc(100vh-18rem)]"
-                    loading={loading}
+                    // loading={loading}
                 />
             </main>
             {/* Fixed bottom navigation */}

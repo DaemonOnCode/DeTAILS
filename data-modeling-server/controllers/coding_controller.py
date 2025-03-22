@@ -161,7 +161,6 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
 
 
 class Color():
-  """For easier understanding and faster manipulation of printed colors."""
   PURPLE = "\033[95m"
   CYAN = "\033[96m"
   DARKCYAN = "\033[36m"
@@ -315,19 +314,19 @@ class AllChainDetails(BaseCallbackHandler):
   def on_llm_error(self,
                    error: Union[Exception, KeyboardInterrupt],
                    **kwargs: Any) -> None:
-    self.out.debug_error("LLM Error")
+    self.out.debug_error(f"LLM Error, {error}")
       
 
   def on_chain_error(self,
                      error: Union[Exception, KeyboardInterrupt],
                      **kwargs: Any) -> None:
-    self.out.debug_error("Chain Error")
+    self.out.debug_error(f"Chain Error, {error}")
       
 
   def on_tool_error(self,
                     error: Union[Exception, KeyboardInterrupt],
                     **kwargs: Any) -> None:
-    self.out.debug_error("Chain Error")
+    self.out.debug_error(f"Tool Error, {error}")
       
 
   def on_retriever_start(self,

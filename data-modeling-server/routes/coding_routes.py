@@ -37,8 +37,7 @@ qect_repo = QECTRepository()
 @router.post("/sample-posts")
 async def sample_posts_endpoint(request_body: SamplePostsRequest):
     settings = config.CustomSettings()
-    
-    # Validate request parameters
+
     if (request_body.sample_size <= 0 or 
         request_body.dataset_id == "" or 
         len(request_body.post_ids) == 0 or 
@@ -180,13 +179,11 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
 @router.post("/build-context-from-topic")
 async def build_context_from_interests_endpoint(
     request: Request,
-    # settings: Annotated[config.Settings, Depends(config.get_settings)],
     contextFiles: List[UploadFile],
     model: str = Form(...),
     mainTopic: str = Form(...),
     additionalInfo: str = Form(""),
     researchQuestions: str = Form(...),
-    retry: bool = Form(False),
     datasetId: str = Form(...),
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
 ):
@@ -240,7 +237,6 @@ async def regenerate_keywords_endpoint(
     request: Request,
     request_body: RegenerateKeywordsRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
-    # settings: Annotated[config.Settings, Depends(config.get_settings)],
 ):
     dataset_id = request_body.datasetId
     if not dataset_id:
@@ -441,7 +437,6 @@ async def refine_codebook_endpoint(
     request: Request,
     request_body: CodebookRefinementRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
-    # settings: Annotated[config.Settings, Depends(config.get_settings)],
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -637,8 +632,7 @@ async def deductive_coding_endpoint(
 async def theme_generation_endpoint(
     request: Request,
     request_body: ThemeGenerationRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
-    # settings: Annotated[config.Settings, Depends(config.get_settings)], 
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager) 
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:

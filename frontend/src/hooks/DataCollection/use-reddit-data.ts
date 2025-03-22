@@ -93,23 +93,52 @@ const useRedditData = () => {
         datasetId: string,
         batch: number,
         offset: number,
-        all: boolean = true
+        all: boolean = false,
+        searchTerm: string = '',
+        startTime?: Date,
+        endTime?: Date,
+        hideRemoved: boolean = false,
+        page: number = 1,
+        itemsPerPage: number = 10
     ) => {
-        console.log('Fetching data from remote server', batch, offset, all, datasetId);
+        console.log('Fetching data from remote server', {
+            datasetId,
+            batch,
+            offset,
+            all,
+            searchTerm,
+            startTime,
+            endTime,
+            hideRemoved,
+            page,
+            itemsPerPage
+        });
+
+        // Prepare the request body with all parameters
+        const requestBody = {
+            dataset_id: datasetId,
+            batch,
+            offset,
+            all,
+            search_term: searchTerm,
+            start_time: startTime ? Math.floor(startTime.getTime() / 1000) : undefined,
+            end_time: endTime ? Math.floor(endTime.getTime() / 1000) : undefined,
+            hide_removed: hideRemoved,
+            page,
+            items_per_page: itemsPerPage
+        };
+
         const batchResponse = await fetchData(REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_BY_BATCH, {
             method: 'POST',
-            body: JSON.stringify({
-                dataset_id: datasetId,
-                batch,
-                offset,
-                all
-            })
+            body: JSON.stringify(requestBody)
         });
+
         if (batchResponse.error) {
             console.error('Error fetching batch data:', batchResponse.error);
             setError(batchResponse.error.name);
             return {};
         }
+
         console.log(batchResponse.data, 'getRedditPostDataByBatch');
         return batchResponse.data;
     };
