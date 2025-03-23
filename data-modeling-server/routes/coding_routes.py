@@ -14,7 +14,7 @@ from sympy import fu
 from config import Settings
 import config
 from constants import RANDOM_SEED
-from controllers.coding_controller import filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files
+from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files
 from controllers.collection_controller import get_reddit_post_by_id
 from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
@@ -345,6 +345,15 @@ async def generate_codes_endpoint(request: Request,
                     keyword_table=json.dumps(request_body.keyword_table),
                     post_transcript=transcript,
                     store_response=True,
+                    cacheable_args={
+                        "args":[],
+                        "kwargs": [
+                            "main_topic",
+                            "additional_info",
+                            "research_questions",
+                            "keyword_table",
+                        ]
+                    }
                 )
 
                 if isinstance(parsed_response, list):
@@ -421,6 +430,34 @@ async def generate_codes_endpoint(request: Request,
         #     )
         #     qect_responses.append(qect_response)
         # qect_repo.insert_batch(qect_responses)
+
+
+        unique_codes = list(set(row["code"] for row in final_results))
+
+
+        res = await cluster_words_with_llm(
+            unique_codes,
+            request_body.model,
+            app_id,
+            dataset_id,
+            manager,
+            llm,
+            llm_queue_manager,
+        )
+
+        print("Clustered words with LLM", res)
+
+        reverse_map_one_to_one = {}
+
+        # Iterate through each topic and each of its sub-topics
+        for topic_head, subtopics in res.items():
+            for subtopic in subtopics:
+                # Only set the mapping if this subtopic hasn't been assigned yet
+                if subtopic not in reverse_map_one_to_one:
+                    reverse_map_one_to_one[subtopic] = topic_head
+
+        for row in final_results:
+            row["code"] = reverse_map_one_to_one.get(row["code"], row["code"])
 
         return {
             "message": "Initial codes generated successfully!",
@@ -546,6 +583,16 @@ async def deductive_coding_endpoint(
                 research_questions=json.dumps(request_body.research_questions),
                 post_transcript=transcript,
                 store_response=True,
+                cacheable_args={
+                    "args":[],
+                    "kwargs": [
+                        "main_topic",
+                        "additional_info",
+                        "research_questions",
+                        "keyword_table",
+                        "final_codebook"
+                    ]
+                }
             )
 
             # Process extracted codes
@@ -793,6 +840,17 @@ async def generate_codes_endpoint(request: Request,
                     current_codebook=json.dumps(request_body.codebook),
                     feedback = request_body.feedback,
                     store_response=True,
+                    cacheable_args={
+                        "args":[],
+                        "kwargs": [
+                            "main_topic",
+                            "additional_info",
+                            "research_questions",
+                            "keyword_table",
+                            "current_codebook",
+                            "feedback"
+                        ]
+                    }
                 )
 
                 if isinstance(parsed_response, list):
@@ -930,6 +988,17 @@ async def redo_deductive_coding_endpoint(
                 post_transcript=transcript,
                 current_codebook=json.dumps(request_body.current_codebook),
                 store_response=True,
+                cacheable_args={
+                    "args":[],
+                    "kwargs": [
+                        "main_topic",
+                        "additional_info",
+                        "research_questions",
+                        "keyword_table",
+                        "final_codebook",
+                        "current_codebook"
+                    ]
+                }
             )
 
             # Process extracted codes
@@ -1168,6 +1237,12 @@ async def generate_deductive_codes_endpoint(
                 codebook = request_body.codebook,
                 post_transcript=transcript,
                 store_response=True,
+                cacheable_args={
+                    "args":[],
+                    "kwargs": [
+                        "codebook"
+                    ]
+                }
             )
 
             if isinstance(parsed_response, list):

@@ -14,7 +14,7 @@ from database import (
     LlmResponsesRepository, FileStatusRepository, 
     PipelineStepsRepository, TorrentDownloadProgressRepository, 
     QECTRepository, FunctionProgressRepository,
-    LlmPendingTaskRepository
+    LlmPendingTaskRepository, LlmFunctionArgsRepository
 )
 from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware, AbortOnDisconnectMiddleware
 from routes import (
@@ -94,7 +94,8 @@ if __name__ == "__main__":
         PipelineStepsRepository,
         FunctionProgressRepository,
         QECTRepository,
-        LlmPendingTaskRepository
+        LlmPendingTaskRepository,
+        LlmFunctionArgsRepository
     ])
 
     print("Database initialized!")

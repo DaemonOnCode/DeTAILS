@@ -2,14 +2,15 @@ import asyncio
 from datetime import datetime
 from functools import lru_cache
 import json
+import sys
 import threading
 import time
 from concurrent.futures import Future as ConcurrentFuture
 from typing import Callable, Dict, List, Optional, Tuple, Type
 import uuid
 
-from database import LlmPendingTaskRepository
-from models import LlmPendingTask
+from database import LlmPendingTaskRepository, LlmFunctionArgsRepository
+from models import LlmPendingTask, LlmFunctionArgs
 
 class GlobalQueueManager:
     def __init__(
@@ -28,7 +29,10 @@ class GlobalQueueManager:
             self.running = False
             self.pending_tasks: Dict[str, ConcurrentFuture] = {}
             self._lock = threading.Lock()
+
             self.function_cache: Dict[str, Tuple[Callable, int]] = {}
+            self.cacheable_args: Dict[str, Dict[str, List|Dict]] = {}
+
             self.enable_status_check = enable_status_check
             self.status_task = None
             self.enqueue_task = None
@@ -55,8 +59,9 @@ class GlobalQueueManager:
 
             try:
                 self.pending_task_repo = LlmPendingTaskRepository()
+                # self.function_args_repo = LlmFunctionArgsRepository()
             except Exception as e:
-                print(f"[INIT] Failed to initialize LlmPendingTaskRepository: {e}")
+                print(f"[INIT] Failed to initialize database classes: {e}")
                 raise
 
             try:
@@ -167,6 +172,12 @@ class GlobalQueueManager:
                         break
                 pending_jobs_count = self.pending_task_repo.count(filters={"status": "pending"})
                 print(f"[STATUS] Pending tasks: {pending_count}, Queue size: {queue_size}, DB pending: {pending_jobs_count}, function_cache: {len(self.function_cache)}")
+                # for k in self.function_cache.keys():
+                #     print(f"[STATUS] Function {k} cached", self.cacheable_args.get(k, {"args": [], "kwargs": {}}))
+                    # if self.cacheable_args[k].get("args"):
+                    #     print(f"[STATUS] Cacheable args: {len(self.cacheable_args['args'])} for function {k}")
+                    # if self.cacheable_args[k].get("kwargs"):
+                    #     print(f"[STATUS] Cacheable kwargs: {len(self.cacheable_args['kwargs'])} for function {k}")
             except Exception as e:
                 print(f"[STATUS] Error in status check: {e}")
             except asyncio.CancelledError:
@@ -189,24 +200,51 @@ class GlobalQueueManager:
                         job_id = task.task_id
                         print(f"[ENQUEUE] Processing task {job_id}")
                         cfut = None
-                        for attempt in range(3):
-                            with self._lock:
-                                cfut = self.pending_tasks.get(job_id)
-                            if cfut:
-                                print(f"[ENQUEUE] Found future for task {job_id} on attempt {attempt + 1}")
-                                break
-                            print(f"[ENQUEUE] Future for task {job_id} not found, attempt {attempt + 1}/3")
-                            await asyncio.sleep(0.1)
+                        with self._lock:
+                            cfut = self.pending_tasks.get(job_id)
                         if cfut:
                             function_key = task.function_key
                             try:
-                                args = json.loads(task.args_json)
-                                kwargs = json.loads(task.kwargs_json)
+                                # Retrieve variable args and kwargs from the database
+                                variable_args = json.loads(task.args_json)
+                                variable_kwargs = json.loads(task.kwargs_json)
+
+                                # Retrieve cached args and kwargs
+                                cached_args = self.cacheable_args.get(function_key, {"args": [], "kwargs": {}})["args"]
+                                cached_kwargs = self.cacheable_args.get(function_key, {"args": [], "kwargs": {}})["kwargs"]
+
+                                # Reconstruct full args: combine cached and variable args
+                                full_args = []
+                                var_idx = 0
+                                for i in range(max(len(cached_args), len(variable_args))):
+                                    if i < len(cached_args) and cached_args[i] is not None:
+                                        full_args.append(cached_args[i])
+                                    elif var_idx < len(variable_args):
+                                        full_args.append(variable_args[var_idx])
+                                        var_idx += 1
+
+                                # Reconstruct full kwargs: combine cached and variable kwargs
+                                full_kwargs = {**cached_kwargs, **variable_kwargs}
+
+                                # If prompt_builder_func exists in cached kwargs, apply it
+                                if "prompt_builder_func" in cached_kwargs:
+                                    prompt_builder_func = cached_kwargs["prompt_builder_func"]
+                                    # Ensure prompt_builder_func is callable to avoid runtime errors
+                                    if not callable(prompt_builder_func):
+                                        raise ValueError("prompt_builder_func must be a callable function")
+                                    # Call prompt_builder_func with the reconstructed arguments
+                                    full_kwargs.pop("prompt_builder_func", None)
+                                    prompt_text = prompt_builder_func(*full_args, **full_kwargs)
+                                    # Use prompt_text as the first argument for the main function
+                                    full_args = [prompt_text] + full_args
+                                    # Remove prompt_builder_func from full_kwargs
+
+                                args_tuple = tuple(full_args)
                             except json.JSONDecodeError as e:
                                 print(f"[ENQUEUE] JSON decode error for task {job_id}: {e}")
                                 continue
                             try:
-                                await self.queue.put((job_id, function_key, args, kwargs, cfut))
+                                await self.queue.put((job_id, function_key, args_tuple, full_kwargs, cfut))
                                 self.pending_task_repo.update(
                                     filters={"task_id": job_id},
                                     updates={"status": "enqueued"}
@@ -215,7 +253,7 @@ class GlobalQueueManager:
                             except Exception as e:
                                 print(f"[ENQUEUE] Failed to enqueue task {job_id}: {e}")
                         else:
-                            print(f"[ENQUEUE] No future for task {job_id} after 3 retries, skipping")
+                            print(f"[ENQUEUE] No future for task {job_id}, skipping")
                 else:
                     print("[ENQUEUE] Queue full or no pending tasks, waiting")
                     await asyncio.sleep(1)
@@ -268,7 +306,7 @@ class GlobalQueueManager:
                         )
                         result = await asyncio.wait_for(
                             asyncio.to_thread(func, *args, **kwargs),
-                            timeout=180
+                            timeout=600
                         )
                         cfut.set_result(result)
                         try:
@@ -316,7 +354,12 @@ class GlobalQueueManager:
         except Exception as e:
             print(f"[WORKER {worker_id}] Unexpected error: {e}")
 
-    async def submit_task(self, func: Callable, function_key: str, *args, **kwargs) -> Tuple[str, asyncio.Future]:
+    async def submit_task(self, func: Callable, function_key: str, *args, cacheable_args: Optional[Dict[str, List]] = None, **kwargs) -> Tuple[str, asyncio.Future]:
+        # print(cacheable_args, "cacheable_args")
+        # for k, v in kwargs.items():
+        #     if k in cacheable_args["kwargs"]:
+        #         print(f"Found {k} in cacheable_args", v)
+        # sys.exit()
         try:
             if not self.running:
                 print("[SUBMIT] Manager not running, starting it")
@@ -328,7 +371,7 @@ class GlobalQueueManager:
                 self.pending_tasks[job_id] = cfut
                 print(f"[SUBMIT] Added task {job_id} to pending_tasks")
             print(f"[SUBMIT] Calling submit_task_sync for job_id {job_id}")
-            self.submit_task_sync(job_id, func, function_key, *args, **kwargs)
+            self.submit_task_sync(job_id, func, function_key, cacheable_args, *args, **kwargs)
             print(f"[SUBMIT] submit_task_sync completed for job_id {job_id}")
             asyncio_fut = asyncio.wrap_future(cfut, loop=asyncio.get_running_loop())
             return job_id, asyncio_fut
@@ -336,9 +379,10 @@ class GlobalQueueManager:
             print(f"[SUBMIT] Failed to submit task: {e}")
             raise
 
-    def submit_task_sync(self, job_id: str, func: Callable, function_key: str, *args, **kwargs):
+    def submit_task_sync(self, job_id: str, func: Callable, function_key: str, cacheable_args: Optional[Dict[str, List]] = None, *args, **kwargs):
         try:
             with self._lock:
+                # Manage function cache
                 if function_key in self.function_cache:
                     _, ref_count = self.function_cache[function_key]
                     self.function_cache[function_key] = (func, ref_count + 1)
@@ -346,12 +390,39 @@ class GlobalQueueManager:
                 else:
                     self.function_cache[function_key] = (func, 1)
                     print(f"[SUBMIT_SYNC] Cached {function_key}")
+
+                # Default to no cacheable args if not provided
+                if cacheable_args is None:
+                    cacheable_args = {"args": [], "kwargs": []}
+
+                # Initialize cacheable_args for this function_key if not present
+                if function_key not in self.cacheable_args:
+                    self.cacheable_args[function_key] = {"args": [], "kwargs": {}}
+
+                # Store cacheable positional arguments by index
+                for i in cacheable_args.get("args", []):
+                    if i < len(args):
+                        if len(self.cacheable_args[function_key]["args"]) <= i:
+                            self.cacheable_args[function_key]["args"].extend([None] * (i + 1 - len(self.cacheable_args[function_key]["args"])))
+                        self.cacheable_args[function_key]["args"][i] = args[i]
+                        print(f"[SUBMIT_SYNC] Cached arg at index {i} for {function_key}")
+
+                # Store cacheable keyword arguments
+                for k in cacheable_args.get("kwargs", []):
+                    if k in kwargs:
+                        self.cacheable_args[function_key]["kwargs"][k] = kwargs[k]
+                        print(f"[SUBMIT_SYNC] Cached kwarg {k} for {function_key}")
+
+                # Store variable arguments (non-cacheable)
+                variable_args = [args[i] for i in range(len(args)) if i not in cacheable_args.get("args", [])]
+                variable_kwargs = {k: v for k, v in kwargs.items() if k not in cacheable_args.get("kwargs", [])}
+
                 task = LlmPendingTask(
                     task_id=job_id,
                     status="pending",
                     function_key=function_key,
-                    args_json=json.dumps(args),
-                    kwargs_json=json.dumps(kwargs),
+                    args_json=json.dumps(variable_args),
+                    kwargs_json=json.dumps(variable_kwargs),
                     created_at=datetime.now()
                 )
                 self.pending_task_repo.insert(task)

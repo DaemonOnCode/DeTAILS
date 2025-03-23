@@ -361,70 +361,79 @@ def get_reddit_posts_by_batch(
     end_time: Optional[int] = None,
     hide_removed: bool = False,
     page: int = 1,
-    items_per_page: int = 10
+    items_per_page: int = 10,
+    get_all_ids: bool = False  # Add this new parameter
 ):
-    query_builder = post_repo.query_builder()
-
-    filters = {"dataset_id": dataset_id}
-
-    if start_time:
-        query_builder.where("created_utc", start_time, ">=")
-    if end_time:
-        query_builder.where("created_utc", end_time, "<=")
-
+    params = [dataset_id]
     if hide_removed:
-        query_builder.where("selftext", "[removed]", "!=")
-        query_builder.where("selftext", "[deleted]", "!=")
+        base_query = """
+        SELECT p.id, p.*  
+        FROM posts p
+        LEFT JOIN (
+            SELECT post_id
+            FROM comments
+            WHERE body IS NOT NULL
+            AND TRIM(body) <> ''
+            AND body NOT IN ('[removed]', '[deleted]')
+            GROUP BY post_id
+        ) mc ON p.id = mc.post_id
+        LEFT JOIN (
+            SELECT post_id
+            FROM comments
+            GROUP BY post_id
+        ) ac ON p.id = ac.post_id
+        WHERE p.dataset_id = ?
+        AND (
+            (
+                (p.title IN ('[removed]', '[deleted]') OR p.selftext IN ('[removed]', '[deleted]'))
+                AND mc.post_id IS NOT NULL
+            )
+            OR
+            (
+                (p.title NOT IN ('[removed]', '[deleted]') AND p.selftext NOT IN ('[removed]', '[deleted]'))
+                AND ac.post_id IS NOT NULL
+            )
+        )
+        """
+    else:
+        base_query = """
+        SELECT p.id, p.* 
+        FROM posts p
+        WHERE p.dataset_id = ?
+        """
 
     if search_term:
-        search_query = (
-            "SELECT * FROM posts WHERE dataset_id = ? AND ("
-            "title LIKE ? OR selftext LIKE ? OR url LIKE ?)"
-        )
-        search_params = (
-            dataset_id,
-            f"%{search_term}%",
-            f"%{search_term}%",
-            f"%{search_term}%"
-        )
-        if start_time:
-            search_query += " AND created_utc >= ?"
-            search_params += (start_time,)
-        if end_time:
-            search_query += " AND created_utc <= ?"
-            search_params += (end_time,)
-        if hide_removed:
-            search_query += " AND selftext != ? AND selftext != ?"
-            search_params += ("[removed]", "[deleted]")
+        base_query += " AND (p.title LIKE ? OR p.selftext LIKE ? OR p.url LIKE ?)"
+        search_pattern = f"%{search_term}%"
+        params.extend([search_pattern, search_pattern, search_pattern])
 
-        count_query = search_query.replace("SELECT *", "SELECT COUNT(*)")
-        total_count = post_repo.execute_raw_query(count_query, search_params).fetchone()[0]
+    if start_time:
+        base_query += " AND p.created_utc >= ?"
+        params.append(start_time)
 
-        if all:
-            search_query += " ORDER BY created_utc ASC"
-        else:
-            offset = (page - 1) * items_per_page
-            search_query += " ORDER BY created_utc ASC LIMIT ? OFFSET ?"
-            search_params += (items_per_page, offset)
+    if end_time:
+        base_query += " AND p.created_utc <= ?"
+        params.append(end_time)
 
-        posts = post_repo.execute_raw_query(search_query, search_params, keys=True)
+    # Handle the get_all_ids case
+    if get_all_ids:
+        id_query = base_query.replace("SELECT p.id, p.*", "SELECT p.id")  # Only select IDs
+        ids = post_repo.execute_raw_query(id_query, params, keys=True)
+        post_ids = [post["id"] for post in ids]
+        return {"post_ids": post_ids}
+
+    # Existing logic for non-get_all_ids case
+    count_query = f"SELECT COUNT(*) FROM ({base_query}) as count_subquery"
+    total_count = post_repo.execute_raw_query(count_query, params).fetchone()[0]
+
+    if not all:
+        query_offset = (page - 1) * items_per_page
+        base_query += " ORDER BY p.created_utc ASC LIMIT ? OFFSET ?"
+        params.extend([items_per_page, query_offset])
     else:
-        for column, value in filters.items():
-            query_builder.where(column, value)
+        base_query += " ORDER BY p.created_utc ASC"
 
-        total_count = post_repo.count(filters)
-
-        if all:
-            query_builder.select("*")
-            query_builder.order_by("created_utc", descending=False)
-            posts = post_repo.find(map_to_model=False)
-        else:
-            query_builder.select("*")
-            query_builder.order_by("created_utc", descending=False)
-            query_builder.limit(items_per_page)
-            query_builder.offset((page - 1) * items_per_page)
-            posts = post_repo.find(map_to_model=False)
-
+    posts = post_repo.execute_raw_query(base_query, params, keys=True)
     posts_dict = {post["id"]: post for post in posts}
 
     return {

@@ -1,1 +1,24 @@
-from .table_dataclasses import WorkspaceState, Model, Post, Rule, TokenizedComment, TokenizedPost, Token, Comment, Dataset, LlmResponse, Tfidf, TokenStat, TokenStatDetailed, Workspace, TempTokenStat, TorrentDownloadProgress, PipelineStep, FileStatus, FunctionProgress, QECTResponse, LlmPendingTask
+from .table_dataclasses import (
+    WorkspaceState, 
+    Model, 
+    Post, 
+    Rule, 
+    TokenizedComment, 
+    TokenizedPost, 
+    Token, 
+    Comment, 
+    Dataset, 
+    LlmResponse, 
+    Tfidf, 
+    TokenStat, 
+    TokenStatDetailed, 
+    Workspace, 
+    TempTokenStat, 
+    TorrentDownloadProgress, 
+    PipelineStep, 
+    FileStatus, 
+    FunctionProgress, 
+    QECTResponse, 
+    LlmPendingTask,  
+    LlmFunctionArgs
+)

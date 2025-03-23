@@ -52,7 +52,8 @@ async def get_reddit_posts_endpoint(request: ParseRedditPostsRequest = Body(...)
         request.end_time,
         request.hide_removed,
         request.page,
-        request.items_per_page
+        request.items_per_page,
+        request.get_all_ids
     )
     return results
 

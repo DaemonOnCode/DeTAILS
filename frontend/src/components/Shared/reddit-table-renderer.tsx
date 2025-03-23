@@ -9,26 +9,17 @@ import { useLoadingContext } from '../../context/loading-context';
 import { useLocation } from 'react-router-dom';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 
-// Define props without 'data' and 'loading' since we'll manage them internally
 type RedditTableRendererProps = {
     maxTableHeightClass?: string;
     maxContainerHeight?: string;
 };
 
-// Custom debounce hook
 const useDebounce = (value: string, delay: number): string => {
     const [debouncedValue, setDebouncedValue] = useState(value);
-
     useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
-
-        return () => {
-            clearTimeout(handler);
-        };
+        const handler = setTimeout(() => setDebouncedValue(value), delay);
+        return () => clearTimeout(handler);
     }, [value, delay]);
-
     return debouncedValue;
 };
 
@@ -36,13 +27,11 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     maxContainerHeight = 'min-h-page',
     maxTableHeightClass
 }) => {
-    // States for fetched data and pagination
     const [posts, setPosts] = useState<RedditPosts>({});
     const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
-    // Search and filter states
     const [searchTerm, setSearchTerm] = useState('');
     const [appliedStartTime, setAppliedStartTime] = useState('');
     const [appliedEndTime, setAppliedEndTime] = useState('');
@@ -52,23 +41,17 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [pendingFilterEndTime, setPendingFilterEndTime] = useState('');
     const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState(false);
 
-    // Loading state
     const [isLoading, setIsLoading] = useState(false);
 
-    // Contexts and hooks
     const location = useLocation();
     const { fetchData } = useApi();
     const { selectedData, setSelectedData, datasetId, isLocked, setIsLocked } =
         useCollectionContext();
     const { checkIfDataExists, openModal, abortRequests, resetDataAfterPage } = useLoadingContext();
 
-    // Debounced search term
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
-
-    // Dynamic scroll restoration key
     const { scrollRef: tableRef } = useScrollRestoration(`validation-table-page-${currentPage}`);
 
-    // Fetch posts from backend
     const fetchPosts = async () => {
         setIsLoading(true);
         const startTime = appliedStartTime
@@ -78,7 +61,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             ? Math.floor(new Date(appliedEndTime).getTime() / 1000)
             : undefined;
 
-        // Calculate offset and batch
         const offset = (currentPage - 1) * itemsPerPage;
         const batch = itemsPerPage;
 
@@ -89,10 +71,10 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             start_time: startTime,
             end_time: endTime,
             hide_removed: appliedHideRemoved,
-            offset: offset, // Send calculated offset
-            batch: batch, // Send batch (same as itemsPerPage)
-            page: currentPage, // Optional: keep for backend compatibility
-            items_per_page: itemsPerPage // Optional: keep for backend compatibility
+            offset: offset,
+            batch: batch,
+            page: currentPage,
+            items_per_page: itemsPerPage
         };
 
         const response = await fetchData(REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_BY_BATCH, {
@@ -111,7 +93,53 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setIsLoading(false);
     };
 
-    // Fetch data when dependencies change
+    const fetchAllMatchingPostIds = async (): Promise<string[]> => {
+        setIsLoading(true);
+        const startTime = appliedStartTime
+            ? Math.floor(new Date(appliedStartTime).getTime() / 1000)
+            : undefined;
+        const endTime = appliedEndTime
+            ? Math.floor(new Date(appliedEndTime).getTime() / 1000)
+            : undefined;
+
+        const requestBody = {
+            dataset_id: datasetId,
+            batch: 0,
+            offset: 0,
+            all: true,
+            search_term: debouncedSearchTerm,
+            start_time: startTime,
+            end_time: endTime,
+            hide_removed: appliedHideRemoved,
+            page: 1,
+            items_per_page: 10,
+            get_all_ids: true
+        };
+
+        const response = await fetchData(REMOTE_SERVER_ROUTES.GET_REDDIT_POSTS_BY_BATCH, {
+            method: 'POST',
+            body: JSON.stringify(requestBody)
+        });
+
+        setIsLoading(false);
+        if (response.error) {
+            console.error('Error fetching all post IDs:', response.error);
+            return [];
+        }
+        return response.data.post_ids || [];
+    };
+
+    const toggleSelectAll = async () => {
+        if (isLocked) return;
+
+        if (selectedData.length === totalCount) {
+            setSelectedData([]);
+        } else {
+            const allIds = await fetchAllMatchingPostIds();
+            setSelectedData(allIds);
+        }
+    };
+
     useEffect(() => {
         fetchPosts();
     }, [
@@ -124,7 +152,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         datasetId
     ]);
 
-    // Pagination handlers
     const totalPages = Math.ceil(totalCount / itemsPerPage);
     const handleNextPage = () => {
         if (currentPage < totalPages) setCurrentPage(currentPage + 1);
@@ -141,7 +168,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setCurrentPage(1);
     };
 
-    // Selection handlers
     const togglePostSelection = (id: string) => {
         if (isLocked) return;
         setSelectedData((prev) =>
@@ -149,30 +175,17 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         );
     };
 
-    const toggleSelectAllPosts = () => {
-        if (isLocked) return;
-        const pageIds = Object.keys(posts);
-        const allSelected = pageIds.every((id) => selectedData.includes(id));
-        if (allSelected) {
-            setSelectedData(selectedData.filter((id) => !pageIds.includes(id)));
-        } else {
-            setSelectedData([...new Set([...selectedData, ...pageIds])]);
-        }
-    };
-
     const toggleSelectPage = (pageData: [string, RedditPosts[string]][]) => {
         if (isLocked) return;
         const pageIds = pageData.map(([id]) => id);
         const allSelected = pageIds.every((id) => selectedData.includes(id));
-        setSelectedData((prev) => {
-            if (allSelected) {
-                return prev.filter((id) => !pageIds.includes(id));
-            }
-            return [...new Set([...prev, ...pageIds])];
-        });
+        setSelectedData((prev) =>
+            allSelected
+                ? prev.filter((id) => !pageIds.includes(id))
+                : [...new Set([...prev, ...pageIds])]
+        );
     };
 
-    // Filter handlers
     const handleApplyFilters = () => {
         setAppliedStartTime(pendingFilterStartTime);
         setAppliedEndTime(pendingFilterEndTime);
@@ -191,7 +204,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setCurrentPage(1);
     };
 
-    // Lock handlers
     const handleLockDataset = () => {
         if (selectedData.length > 0) setIsLocked(true);
     };
@@ -210,8 +222,9 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         }
     };
 
-    // Data for display
     const displayedData = Object.entries(posts);
+
+    const selectAllLabel = selectedData.length === totalCount ? 'Deselect All' : 'Select All';
 
     return (
         <div className={`flex flex-col h-full`}>
@@ -226,12 +239,10 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                     className="p-2 border border-gray-300 rounded flex-grow mr-4"
                 />
                 <button
-                    onClick={toggleSelectAllPosts}
+                    onClick={toggleSelectAll}
                     className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 mr-4"
                     disabled={isLocked}>
-                    {selectedData.length === Object.keys(posts).length
-                        ? 'Deselect All on Page'
-                        : 'Select All on Page'}
+                    {selectAllLabel}
                 </button>
                 <button
                     id="reddit-table-filter-button"

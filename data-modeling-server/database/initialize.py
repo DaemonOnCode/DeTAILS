@@ -56,13 +56,15 @@ def generate_create_table_statement(dataclass_obj):
         if "foreign_key" in field.metadata:
             ref_table, ref_column = field.metadata["foreign_key"].split("(")
             ref_column = ref_column.strip(")")
-            foreign_keys.append(f"FOREIGN KEY ({column_name}) REFERENCES {ref_table}({ref_column})")
+            foreign_keys.append(
+                f"FOREIGN KEY ({column_name}) REFERENCES {ref_table}({ref_column}) "
+                f"ON DELETE CASCADE"
+            )
 
         column_definition = f"{column_name} {column_type} {' '.join(constraints)}".strip()
         columns.append(column_definition)
 
     primary_key_clause = f", PRIMARY KEY ({', '.join(primary_keys)})" if primary_keys else ""
-
     foreign_key_clause = ", " + ", ".join(foreign_keys) if foreign_keys else ""
 
     return f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(columns)}{primary_key_clause}{foreign_key_clause});"

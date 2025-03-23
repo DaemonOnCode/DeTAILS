@@ -17,6 +17,7 @@ class ParseRedditPostsRequest(BaseModel):
     hide_removed: bool = False
     page: int = 1
     items_per_page: int = 10
+    get_all_ids: bool = False 
 
 class ParseRedditPostByIdRequest(BaseModel):
     datasetId: str

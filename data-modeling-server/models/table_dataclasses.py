@@ -368,7 +368,6 @@ class QECTResponse(BaseDataclass):
     
 @dataclass
 class LlmPendingTask(BaseDataclass):
-    """Represents a pending task stored in the SQLite database."""
     task_id: str = field(metadata={"primary_key": True})  # Unique identifier for the task
     status: str = field(metadata={"not_null": True})      # Status: 'pending', 'in-progress', 'completed', 'failed'
     function_key: str = field(metadata={"not_null": True})  # Identifier for the function to execute
@@ -379,3 +378,9 @@ class LlmPendingTask(BaseDataclass):
     created_at: datetime = field(default_factory=datetime.now)  # Task creation time
     started_at: Optional[datetime] = None                       # Time when task processing started
     completed_at: Optional[datetime] = None
+
+@dataclass
+class LlmFunctionArgs(BaseDataclass):
+    function_key: str = field(metadata={"primary_key": True, "not_null": True})
+    args_json: Optional[str] = None
+    kwargs_json: Optional[str] = None

@@ -20,6 +20,7 @@ from .torrent_download_progress import TorrentDownloadProgressRepository
 from .function_progress_repository import FunctionProgressRepository
 from .qect_table import QECTRepository
 from .llm_pending_tasks import LlmPendingTaskRepository
+from .llm_function_args_table import LlmFunctionArgsRepository
 from .initialize import initialize_database
 from .db_helpers import execute_query, execute_query_with_retry
 
@@ -46,6 +47,7 @@ __all__ = [
     "FunctionProgressRepository",
     "QECTRepository",
     "LlmPendingTaskRepository",
+    "LlmFunctionArgsRepository",
     "initialize_database",
     "execute_query",
     "execute_query_with_retry",
