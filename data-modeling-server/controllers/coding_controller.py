@@ -45,6 +45,7 @@ from services.llm_service import GlobalQueueManager
 from utils.coding_helpers import generate_transcript
 from database import LlmResponsesRepository
 from database.db_helpers import get_post_and_comments_from_id
+from utils.prompts_v2 import TopicClustering
 
 llm_responses_repo = LlmResponsesRepository()
 qect_repo = QECTRepository()
@@ -805,19 +806,7 @@ async def cluster_words_with_llm(
         return {}
 
     regex_pattern = r"```(?:json)?\s*(.*?)\s*```"
-
-    def beginning_prompt_builder(**params):
-        words_json = json.dumps(chunks[0])
-        return (
-            "Cluster the following distinct words into an appropriate number of topics. "
-            "Each word should be assigned to exactly one topic, and all words must be included in the output without duplication. "
-            "Determine the optimal number of topics based on the words provided. "
-            "Choose descriptive names for the topics that reflect the common theme or category of the words in each cluster. "
-            "Provide only the JSON output in the following format, wrapped in markdown code blocks (```json ... ```): "
-            "{ \"topic1\": [\"word1\", \"word2\", ...], \"topic2\": [\"word3\", \"word4\", ...], ... }. "
-            "Do not include any additional text or explanations. "
-            "Here are the words to cluster in JSON format: " + words_json
-        )
+        
 
     extracted_data = await process_llm_task(
         app_id=app_id,
@@ -825,11 +814,12 @@ async def cluster_words_with_llm(
         manager=manager,
         llm_model=llm_model,
         regex_pattern=regex_pattern,
-        prompt_builder_func=beginning_prompt_builder,
+        prompt_builder_func=TopicClustering.begin_topic_clustering_prompt,
         llm_instance=llm_instance,
         llm_queue_manager=llm_queue_manager,
         store_response=store_response,
         retries=retries,
+        words_json=json.dumps(chunks[0]),
         **kwargs
     )
     if not isinstance(extracted_data, dict):
@@ -839,20 +829,7 @@ async def cluster_words_with_llm(
     print("Beginning Clusters", current_clusters)
 
     for chunk in chunks[1:]:
-        def continuation_prompt_builder(**params):
-            existing_topics = list(current_clusters.keys())
-            words_json = json.dumps(chunk)
-            return (
-                f"Given the existing topic names: {json.dumps(existing_topics)}, "
-                "assign the following distinct new words to the existing topics if they fit, "
-                "or create new topics with descriptive names if necessary. "
-                "Each new word should be assigned to exactly one topic, and all new words must be included in the output without duplication. "
-                "Provide only the JSON output containing only the new words, in the following format, "
-                "wrapped in markdown code blocks (```json ... ```): "
-                "{ \"topic1\": [\"new_word1\", \"new_word2\", ...], \"topic2\": [\"new_word3\", ...], ... }. "
-                "Do not include any additional text or explanations. "
-                "Here are the new words to assign in JSON format: " + words_json
-            )
+        
 
         extracted_data = await process_llm_task(
             app_id=app_id,
@@ -860,11 +837,13 @@ async def cluster_words_with_llm(
             manager=manager,
             llm_model=llm_model,
             regex_pattern=regex_pattern,
-            prompt_builder_func=continuation_prompt_builder,
+            prompt_builder_func=TopicClustering.continuation_prompt_builder,
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
             store_response=store_response,
             retries=retries,
+            current_clusters_keys=json.dumps(list(current_clusters.keys())),
+            words_json=json.dumps(chunk),
             **kwargs
         )
         if not isinstance(extracted_data, dict):

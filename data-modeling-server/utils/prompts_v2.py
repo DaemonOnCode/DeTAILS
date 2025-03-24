@@ -856,3 +856,31 @@ Spit out your output in clean, valid JSON like this:
 
 No additional text outside the JSON.
 """
+
+
+class TopicClustering:
+    @staticmethod
+    def begin_topic_clustering_prompt(words_json: str):
+        return (
+            "Cluster the following distinct words into an appropriate number of topics. "
+            "Each word should be assigned to exactly one topic, and all words must be included in the output without duplication. "
+            "Determine the optimal number of topics based on the words provided. "
+            "Choose descriptive names for the topics that reflect the common theme or category of the words in each cluster. "
+            "Provide only the JSON output in the following format, wrapped in markdown code blocks (```json ... ```): "
+            "{ \"topic1\": [\"word1\", \"word2\", ...], \"topic2\": [\"word3\", \"word4\", ...], ... }. "
+            "Do not include any additional text or explanations. "
+            "Here are the words to cluster in JSON format: " + words_json
+        )
+    
+    def continuation_prompt_builder(current_clusters_keys: str, words_json: str):
+            return (
+                f"Given the existing topic names: {current_clusters_keys}, "
+                "assign the following distinct new words to the existing topics if they fit, "
+                "or create new topics with descriptive names if necessary. "
+                "Each new word should be assigned to exactly one topic, and all new words must be included in the output without duplication. "
+                "Provide only the JSON output containing only the new words, in the following format, "
+                "wrapped in markdown code blocks (```json ... ```): "
+                "{ \"topic1\": [\"new_word1\", \"new_word2\", ...], \"topic2\": [\"new_word3\", ...], ... }. "
+                "Do not include any additional text or explanations. "
+                "Here are the new words to assign in JSON format: " + words_json
+            )
