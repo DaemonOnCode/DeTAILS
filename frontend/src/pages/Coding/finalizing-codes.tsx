@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
+import { LOADER_ROUTES, PAGE_ROUTES } from '../../constants/Coding/shared';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -249,7 +249,7 @@ const FinalzingCodes = () => {
     const handleNextClick = async () => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+            route: PAGE_ROUTES.THEMES
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
@@ -270,8 +270,8 @@ const FinalzingCodes = () => {
                     code: getGroupedCodeOfSubCode(r.code, groupedCodes),
                     quote: r.quote,
                     explanation: r.explanation,
-                    comment: r.comment,
-                    subCode: r.code
+                    comment: r.comment
+                    // subCode: r.code
                 })),
                 sampled_post_responses: sampledPostResponse.map((r) => ({
                     postId: r.postId,
@@ -279,8 +279,8 @@ const FinalzingCodes = () => {
                     code: getGroupedCodeOfSubCode(r.code, groupedCodes),
                     quote: r.quote,
                     explanation: r.explanation,
-                    comment: r.comment,
-                    subCode: r.code
+                    comment: r.comment
+                    // subCode: r.code
                 }))
             })
         });
@@ -289,10 +289,10 @@ const FinalzingCodes = () => {
             console.error('Error in handleNextClick:', error);
             if (error.name !== 'AbortError') {
                 toast.error('Error generating themes. Please try again.');
-                navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`);
+                navigate(PAGE_ROUTES.FINALIZING_CODES);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+                    route: PAGE_ROUTES.THEMES
                 });
                 throw new Error(error.message);
             }
@@ -304,14 +304,14 @@ const FinalzingCodes = () => {
         setUnplacedCodes(results.data.unplaced_codes);
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+            route: PAGE_ROUTES.THEMES
         });
     };
 
     const handleRefreshCodes = async () => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
+            route: PAGE_ROUTES.FINALIZING_CODES
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
 
@@ -336,7 +336,7 @@ const FinalzingCodes = () => {
             if (error.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
+                    route: PAGE_ROUTES.FINALIZING_CODES
                 });
             }
             return;
@@ -348,9 +348,9 @@ const FinalzingCodes = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
+            route: PAGE_ROUTES.FINALIZING_CODES
         });
-        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`);
+        navigate(PAGE_ROUTES.FINALIZING_CODES);
     };
 
     useEffect(() => {
@@ -447,7 +447,7 @@ const FinalzingCodes = () => {
         <TutorialWrapper
             steps={steps}
             pageId={location.pathname}
-            excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`}>
+            excludedTarget={`#route-${PAGE_ROUTES.FINALIZING_CODES}`}>
             <main className="h-page w-full flex flex-col" id="finalized-main">
                 {/* Toggle at the top (Review vs. Edit) */}
                 {unplacedSubCodes.length > 0 && (
@@ -558,8 +558,8 @@ const FinalzingCodes = () => {
 
                 {/* Navigation at the bottom */}
                 <NavigationBottomBar
-                    previousPage={`${ROUTES.DEDUCTIVE_CODING}`}
-                    nextPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`}
+                    previousPage={PAGE_ROUTES.DEDUCTIVE_CODING}
+                    nextPage={PAGE_ROUTES.THEMES}
                     isReady={unplacedSubCodes.length === 0}
                     onNextClick={handleNextClick}
                 />

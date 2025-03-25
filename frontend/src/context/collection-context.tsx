@@ -12,7 +12,10 @@ import { v4 } from 'uuid';
 import { SetState } from '../types/Coding/shared';
 import { ILayout } from '../types/Coding/shared';
 import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
-import { ROUTES as CODING_ROUTES } from '../constants/Coding/shared';
+import {
+    ROUTES as CODING_ROUTES,
+    PAGE_ROUTES as CODING_PAGE_ROUTES
+} from '../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
 import { useLoadingContext } from './loading-context';
 
@@ -196,7 +199,7 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
         }
     > = useMemo(
         () => ({
-            [`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_SOURCE}`]: {
+            [CODING_PAGE_ROUTES.DATA_TYPE]: {
                 relatedStates: [
                     // {
                     //     state: contextFiles,
@@ -211,17 +214,16 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
                     // }
                 ]
             },
-            [`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}`]:
-                {
-                    relatedStates: [
-                        {
-                            state: modeInput,
-                            func: setModeInput,
-                            name: 'setModeInput'
-                        }
-                    ]
-                },
-            [`/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_VIEWER}`]: {
+            [CODING_PAGE_ROUTES.DATA_SOURCE]: {
+                relatedStates: [
+                    {
+                        state: modeInput,
+                        func: setModeInput,
+                        name: 'setModeInput'
+                    }
+                ]
+            },
+            [CODING_PAGE_ROUTES.DATASET_CREATION]: {
                 relatedStates: [
                     {
                         state: selectedData,
@@ -246,23 +248,17 @@ export const CollectionProvider: FC<ILayout> = ({ children }) => {
 
     useLoadingSteps(
         loadingStateInitialization,
-        loadingState[
-            `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_SOURCE}`
-        ]?.stepRef
+        loadingState[CODING_PAGE_ROUTES.DATA_TYPE]?.stepRef
     );
 
     useLoadingSteps(
         loadingStateInitialization,
-        loadingState[
-            `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}`
-        ]?.stepRef
+        loadingState[CODING_PAGE_ROUTES.DATA_SOURCE]?.stepRef
     );
 
     useLoadingSteps(
         loadingStateInitialization,
-        loadingState[
-            `/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_VIEWER}`
-        ]?.stepRef
+        loadingState[CODING_PAGE_ROUTES.DATASET_CREATION]?.stepRef
     );
 
     // When switching type, reset metadata to the proper default.

@@ -1,23 +1,27 @@
 import { FaCog, FaHome } from 'react-icons/fa';
 import config from '../../config';
-import { LOADER_ROUTES as CODING_LOADER_ROUTES, ROUTES as CODING_ROUTES } from '../Coding/shared';
+import {
+    LOADER_ROUTES as CODING_LOADER_ROUTES,
+    CODING_ROUTES,
+    PAGE_ROUTES as CODING_PAGE_ROUTES
+} from '../Coding/shared';
 
 const reactConfig = config('react');
 
-export enum ROUTES {
-    NOT_FOUND = '*',
-    LOGIN = 'login',
-    LOGOUT = 'logout',
-    LANDING = '',
-    UNAUTHORIZED = 'unauthorized',
-    CODING = 'coding',
-    DATA_COLLECTION = 'data-collection',
-    CLEANING = 'cleaning',
-    DATA_MODELING = 'modeling',
-    WORKSPACE = 'workspaces',
-    SETTINGS = 'settings',
-    AUTHENTICATED_SETTINGS = 'authenticated-settings'
-}
+export const ROUTES = Object.freeze({
+    NOT_FOUND: '*',
+    LOGIN: 'login',
+    LOGOUT: 'logout',
+    LANDING: '',
+    UNAUTHORIZED: 'unauthorized',
+    CODING: CODING_ROUTES,
+    DATA_COLLECTION: 'data-collection',
+    CLEANING: 'cleaning',
+    DATA_MODELING: 'modeling',
+    WORKSPACE: 'workspaces',
+    SETTINGS: 'settings',
+    AUTHENTICATED_SETTINGS: 'authenticated-settings'
+});
 
 export enum MODEL_LIST {
     // LLAMA_3_2 = 'ollama-llama3.2:3b',
@@ -67,11 +71,18 @@ export enum TooltipMessages {
 }
 
 export const LOADER_TO_ROUTE_MAP: Record<string, string> = {
-    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.THEME_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.BACKGROUND_RESEARCH}/${CODING_ROUTES.KEYWORD_CLOUD}`,
-    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.TORRENT_DATA_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_VIEWER}`,
-    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.CODEBOOK_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.CODEBOOK_CREATION}`,
-    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.DEDUCTIVE_CODING_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.DEDUCTIVE_CODING}`,
-    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.THEME_GENERATION_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.THEMATIC_ANALYSIS}/${CODING_ROUTES.THEMES}`,
-    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.DATA_LOADING_LOADER}`]: `/${ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATA_VIEWER}`,
-    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.DATA_LOADING_LOADER}?text=Finalizing+codes`]: `/${ROUTES.CODING}/${CODING_ROUTES.FINALIZING_CODES}`
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.THEME_LOADER}`]:
+        CODING_PAGE_ROUTES.KEYWORD_CLOUD,
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.TORRENT_DATA_LOADER}`]:
+        CODING_PAGE_ROUTES.DATASET_CREATION,
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.CODEBOOK_LOADER}`]:
+        CODING_PAGE_ROUTES.CODEBOOK_CREATION,
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.DEDUCTIVE_CODING_LOADER}`]:
+        CODING_PAGE_ROUTES.DEDUCTIVE_CODING,
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.THEME_GENERATION_LOADER}`]:
+        CODING_PAGE_ROUTES.THEMES,
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.DATA_LOADING_LOADER}`]:
+        CODING_PAGE_ROUTES.DATASET_CREATION,
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.DATA_LOADING_LOADER}?text=Finalizing+codes`]:
+        CODING_PAGE_ROUTES.FINALIZING_CODES
 };

@@ -26,7 +26,8 @@ import {
     CodebookCreationPage,
     ManualCodingPage,
     DeductiveCodingPage,
-    FinalizingCodesPage
+    FinalizingCodesPage,
+    InitialCodeBookPage
 } from '../pages/Coding';
 import { ROUTES as COLLECTION_ROUTES } from '../constants/DataCollection/shared';
 import {
@@ -67,24 +68,35 @@ export const CodingRouter: RouteObject[] = [
         // element: <LoadDataPage />
     },
     {
-        path: ROUTES.CODEBOOK_CREATION,
-        element: <CodebookCreationPage />
-        // children: [
-        //     {
-        //         path: ROUTES.CODES_REVIEW,
-        //         element: <CodeReviewPage />,
-        //         index: true
-        //     },
-        //     {
-        //         path: ROUTES.CODEBOOK_REFINEMENT,
-        //         element: <CodebookRefinementPage />
-        //     },
-        //     {
-        //         path: ROUTES.FINAL_CODEBOOK,
-        //         element: <FinalCodebookPage />
-        //     }
-        // ]
+        path: ROUTES.INITIAL_CODING_CODEBOOK,
+        children: [
+            {
+                path: ROUTES.CODEBOOK_CREATION,
+                element: <CodebookCreationPage />,
+                index: true
+                // children: [
+                //     {
+                //         path: ROUTES.CODES_REVIEW,
+                //         element: <CodeReviewPage />,
+                //         index: true
+                //     },
+                //     {
+                //         path: ROUTES.CODEBOOK_REFINEMENT,
+                //         element: <CodebookRefinementPage />
+                //     },
+                //     {
+                //         path: ROUTES.FINAL_CODEBOOK,
+                //         element: <FinalCodebookPage />
+                //     }
+                // ]
+            },
+            {
+                path: ROUTES.INITIAL_CODEBOOK,
+                element: <InitialCodeBookPage />
+            }
+        ]
     },
+
     {
         path: ROUTES.TRANSCRIPT,
         element: <TranscriptPage />

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { ROUTES } from '../../constants/Coding/shared';
+import { PAGE_ROUTES } from '../../constants/Coding/shared';
 import RedditViewModal from '../../components/Coding/Shared/reddit-view-modal';
 import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
@@ -130,7 +130,7 @@ const FinalPage = () => {
                     <h2 className="text-xl font-bold mb-4">Final Page</h2>
                     <p className="mb-6">No data found.</p>
                 </div>
-                <NavigationBottomBar previousPage={ROUTES.ENCODED_DATA} />
+                <NavigationBottomBar previousPage={PAGE_ROUTES.THEMES} />
             </div>
         );
     }
@@ -255,9 +255,7 @@ const FinalPage = () => {
             )}
 
             <footer>
-                <NavigationBottomBar
-                    previousPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`}
-                />
+                <NavigationBottomBar previousPage={PAGE_ROUTES.THEMES} />
             </footer>
         </div>
     );

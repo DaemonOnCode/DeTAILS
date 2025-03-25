@@ -89,9 +89,7 @@ const ManualCodingPage: React.FC = () => {
         <div className="h-screen w-screen p-6 flex flex-col">
             {/* Header with navigation */}
             <div className="flex items-center space-x-4 border-b border-gray-200 w-full">
-                <button
-                    onClick={() => navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`)}
-                    className="text-blue-500">
+                <button onClick={() => window.history.back()} className="text-blue-500">
                     ← <span className="underline">Back to Application</span>
                 </button>
                 {postRelatedTabs.map((tabItem) => (

@@ -8,6 +8,11 @@ export type Mode = 'link' | 'folder';
 
 export type IFile = Record<string, string>;
 
+export type InitialCodebookCode = {
+    code: string;
+    definition: string;
+};
+
 export interface IWordBox {
     text: string;
     x: number;
@@ -403,3 +408,16 @@ export type Explanation = {
     code: string;
     fullText: string;
 };
+
+export type InitialCodebookTableAction =
+    | { type: 'INITIALIZE'; entries: InitialCodebookCode[] }
+    | { type: 'ADD_MANY'; entries: InitialCodebookCode[] }
+    | {
+          type: 'UPDATE_FIELD';
+          index: number;
+          field: keyof InitialCodebookCode;
+          value: string | string[];
+      }
+    | { type: 'ADD_ROW'; entry?: InitialCodebookCode }
+    | { type: 'RESET' }
+    | { type: 'RESTORE_STATE'; payload: InitialCodebookCode[] };

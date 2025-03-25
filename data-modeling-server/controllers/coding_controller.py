@@ -859,3 +859,111 @@ async def cluster_words_with_llm(
 
     return current_clusters
 
+
+def get_num_tokens(text: str, llm_instance: Any) -> int:
+    return llm_instance.get_num_tokens(text)
+
+async def summarize_with_llm(
+    texts: List[str],
+    llm_model: str,
+    app_id: str,
+    dataset_id: str,
+    manager: Any,
+    llm_instance: Any,
+    llm_queue_manager: Any,
+    store_response: bool = False,
+    max_input_tokens: int = 128_000,
+    retries: int = 3,
+    **kwargs
+) -> str:
+    """
+    Summarizes an array of text using batched summarization with a language model.
+    
+    Args:
+        texts: List of text strings to summarize.
+        llm_model: The language model to use.
+        app_id: Application identifier.
+        dataset_id: Dataset identifier.
+        manager: Connection manager instance.
+        llm_instance: Language model instance.
+        llm_queue_manager: Queue manager for LLM tasks.
+        store_response: Whether to store the LLM response (default: False).
+        max_input_tokens: Maximum number of tokens allowed in the input prompt (default: 3000).
+        retries: Number of retries for LLM task processing (default: 3).
+        **kwargs: Additional keyword arguments for process_llm_task.
+    
+    Returns:
+        A single string containing the final summary.
+    """
+    # Helper function to build chunks based on token limit
+    def build_chunk(texts: List[str], max_tokens: int, llm_instance: Any) -> tuple[List[str], List[str]]:
+        fixed_prompt = "Summarize the following text:\n\n"
+        fixed_prompt_tokens = get_num_tokens(fixed_prompt, llm_instance)
+        separator = "\n\n"
+        separator_tokens = get_num_tokens(separator, llm_instance)
+        chunk = []
+        current_tokens = fixed_prompt_tokens
+        
+        for text in texts:
+            text_tokens = get_num_tokens(text, llm_instance)
+            additional_tokens = text_tokens if not chunk else separator_tokens + text_tokens
+            if current_tokens + additional_tokens > max_tokens:
+                break
+            chunk.append(text)
+            current_tokens += additional_tokens
+        
+        return chunk, texts[len(chunk):]
+
+    # Helper function to summarize a single chunk
+    async def summarize_chunk(chunk: List[str]) -> str:
+        def prompt_builder(**params) -> str:
+            texts = params['texts']
+            concatenated_text = "\n\n".join(texts)
+            return "Summarize the following text:\n\n" + concatenated_text
+        
+        summary = await process_llm_task(
+            app_id=app_id,
+            dataset_id=dataset_id,
+            manager=manager,
+            llm_model=llm_model,
+            regex_pattern=None,  # No extraction needed, expecting raw text response
+            prompt_builder_func=prompt_builder,
+            llm_instance=llm_instance,
+            llm_queue_manager=llm_queue_manager,
+            store_response=store_response,
+            retries=retries,
+            texts=chunk,
+            **kwargs
+        )
+        return summary
+
+    # Divide texts into chunks
+    chunks = []
+    remaining_texts = texts
+    while remaining_texts:
+        chunk, remaining_texts = build_chunk(remaining_texts, max_input_tokens, llm_instance)
+        chunks.append(chunk)
+
+    # Summarize each chunk
+    summaries = []
+    for chunk in chunks:
+        summary = await summarize_chunk(chunk)
+        summaries.append(summary)
+
+    # If only one summary, return it; otherwise, recursively summarize the summaries
+    if len(summaries) == 1:
+        return summaries[0]
+    else:
+        return await summarize_with_llm(
+            summaries,
+            llm_model,
+            app_id,
+            dataset_id,
+            manager,
+            llm_instance,
+            llm_queue_manager,
+            store_response,
+            max_input_tokens,
+            retries,
+            **kwargs
+        )

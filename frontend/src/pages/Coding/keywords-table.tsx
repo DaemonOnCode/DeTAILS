@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ToastContainer, toast, ToastContentProps } from 'react-toastify';
 import { FaTrash } from 'react-icons/fa';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { ROUTES } from '../../constants/Coding/shared';
+import { PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
 import { useCollectionContext } from '../../context/collection-context';
@@ -380,8 +380,8 @@ const KeywordsTablePage: FC = () => {
 
                     <footer id="bottom-navigation" className="flex-none">
                         <NavigationBottomBar
-                            previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
-                            nextPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
+                            previousPage={PAGE_ROUTES.KEYWORD_CLOUD}
+                            nextPage={PAGE_ROUTES.DATA_TYPE}
                             isReady={isReadyCheck}
                             disabledTooltipText="Mark at least one entry as correct"
                         />

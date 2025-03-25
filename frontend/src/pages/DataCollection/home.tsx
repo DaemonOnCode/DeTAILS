@@ -5,7 +5,7 @@ import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { ROUTES } from '../../constants/DataCollection/shared';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { useCollectionContext } from '../../context/collection-context';
-import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
+import { ROUTES as CODING_ROUTES, PAGE_ROUTES } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 // Import TutorialWrapper and TutorialStep from your shared components
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
@@ -28,9 +28,7 @@ const HomePage = () => {
             type: 'SET_FIRST_RUN_DONE',
             route: location.pathname
         });
-        navigate(
-            `/coding/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}?type=reddit`
-        );
+        navigate(`${PAGE_ROUTES.DATA_SOURCE}?type=reddit`);
     };
 
     const handleInterviewImport = () => {
@@ -40,9 +38,7 @@ const HomePage = () => {
             type: 'SET_FIRST_RUN_DONE',
             route: location.pathname
         });
-        navigate(
-            `/coding/${CODING_ROUTES.LOAD_DATA}/${CODING_ROUTES.DATASET_CREATION}?type=interview`
-        );
+        navigate(`${PAGE_ROUTES.DATA_SOURCE}?type=interview`);
     };
 
     const handleCsvImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,9 +141,7 @@ const HomePage = () => {
                 </div>
 
                 <footer className="w-full">
-                    <NavigationBottomBar
-                        previousPage={`${CODING_ROUTES.BACKGROUND_RESEARCH}/${CODING_ROUTES.KEYWORD_TABLE}`}
-                    />
+                    <NavigationBottomBar previousPage={PAGE_ROUTES.KEYWORD_TABLE} />
                 </footer>
             </div>
         </TutorialWrapper>

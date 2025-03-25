@@ -70,7 +70,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                             // e.preventDefault();
                             const dataExists = checkIfDataExists(location.pathname);
                             console.log('Data exists:', dataExists);
-                            const nextPageFull = `/${SHARED_ROUTES.CODING}/${nextPage}`;
+                            const nextPageFull = nextPage;
                             try {
                                 if (dataExists) {
                                     openModal('nav-proceed-btn', async (e: any) => {

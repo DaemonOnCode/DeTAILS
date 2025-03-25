@@ -1,5 +1,10 @@
 import { FC, useState, useEffect, useRef, useImperativeHandle } from 'react';
-import { LOADER_ROUTES, ROUTES, WORD_CLOUD_MIN_THRESHOLD } from '../../constants/Coding/shared';
+import {
+    LOADER_ROUTES,
+    PAGE_ROUTES,
+    ROUTES,
+    WORD_CLOUD_MIN_THRESHOLD
+} from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import KeywordCloud from '../../components/Coding/KeywordCloud/cloud';
 import { useLogger } from '../../context/logging-context';
@@ -121,7 +126,7 @@ const KeywordCloudPage: FC = () => {
         await logger.info('Regenerating Keyword Cloud');
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+            route: PAGE_ROUTES.KEYWORD_CLOUD
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
 
@@ -154,10 +159,10 @@ const KeywordCloudPage: FC = () => {
             if (error.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+                    route: PAGE_ROUTES.KEYWORD_CLOUD
                 });
             }
-            navigate(`/coding/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
+            navigate(PAGE_ROUTES.KEYWORD_CLOUD);
             return;
         }
         console.log(results, 'Keyword Cloud Page');
@@ -196,10 +201,10 @@ const KeywordCloudPage: FC = () => {
         });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+            route: PAGE_ROUTES.KEYWORD_CLOUD
         });
 
-        navigate(`/coding/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
+        navigate(PAGE_ROUTES.KEYWORD_CLOUD);
         await logger.info('Keyword Cloud refreshed');
         console.log('Keyword Cloud refreshed');
     };
@@ -324,8 +329,8 @@ const KeywordCloudPage: FC = () => {
                 </div>
 
                 <NavigationBottomBar
-                    previousPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`}
-                    nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`}
+                    previousPage={PAGE_ROUTES.CONTEXT_V2}
+                    nextPage={PAGE_ROUTES.KEYWORD_TABLE}
                     isReady={checkIfReady}
                     onNextClick={(e) => handleNextClick(e)}
                     disabledTooltipText="Select atleast 5 keywords"

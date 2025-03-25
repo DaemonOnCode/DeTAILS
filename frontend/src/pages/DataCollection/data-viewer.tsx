@@ -3,7 +3,12 @@ import { useCollectionContext } from '../../context/collection-context';
 import { useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom';
 import LoadInterview from '../../components/DataCollection/load-interviews';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { LOADER_ROUTES, ROUTES, SELECTED_POSTS_MIN_THRESHOLD } from '../../constants/Coding/shared';
+import {
+    LOADER_ROUTES,
+    PAGE_ROUTES,
+    ROUTES,
+    SELECTED_POSTS_MIN_THRESHOLD
+} from '../../constants/Coding/shared';
 import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
@@ -128,7 +133,7 @@ const DataViewerPage = () => {
         // Navigate to the codebook loader page.
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+            route: PAGE_ROUTES.CODEBOOK_CREATION
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
         console.log('Sampling posts:', postIds);
@@ -160,7 +165,7 @@ const DataViewerPage = () => {
             if (sampleError.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+                    route: PAGE_ROUTES.CODEBOOK_CREATION
                 });
                 // navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`);
                 throw new Error(sampleError.message.error_message);
@@ -207,7 +212,7 @@ const DataViewerPage = () => {
                 navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+                    route: PAGE_ROUTES.CODEBOOK_CREATION
                 });
                 console.error(
                     'Error generating initial codes:',
@@ -228,7 +233,7 @@ const DataViewerPage = () => {
         });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+            route: PAGE_ROUTES.CODEBOOK_CREATION
         });
     };
 
@@ -275,8 +280,8 @@ const DataViewerPage = () => {
                     <footer id="bottom-navigation">
                         <NavigationBottomBar
                             disabledTooltipText="Please select at least 5 posts to proceed and lock the dataset to proceed."
-                            previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`}
-                            nextPage={ROUTES.CODEBOOK_CREATION}
+                            previousPage={PAGE_ROUTES.DATA_SOURCE}
+                            nextPage={PAGE_ROUTES.CODEBOOK_CREATION}
                             isReady={isReadyCheck}
                             onNextClick={handleSamplingPosts}
                         />

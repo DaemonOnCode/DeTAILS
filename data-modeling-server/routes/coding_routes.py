@@ -14,7 +14,7 @@ from sympy import fu
 from config import Settings
 import config
 from constants import RANDOM_SEED
-from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files
+from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_with_llm
 from controllers.collection_controller import get_reddit_post_by_id
 from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
@@ -558,6 +558,26 @@ async def deductive_coding_endpoint(
         posts = request_body.unseen_post_ids
         llm, _ = get_llm_and_embeddings(request_body.model)
 
+
+        # definitions = [item["definition"] for item in request_body.final_codebook]
+        # definition_summary = ""
+        # if definitions:
+        #     definition_summary = await summarize_with_llm(
+        #         texts=definitions,
+        #         llm_model=request_body.model,
+        #         app_id=app_id,
+        #         dataset_id=dataset_id,
+        #         manager=manager,
+        #         llm_instance=llm,
+        #         llm_queue_manager=llm_queue_manager,
+        #         store_response=False,
+        #         max_input_tokens=3000,
+        #         retries=3
+        #     )
+        # else:
+        #     definition_summary = "No definitions provided."
+
+
         async def process_post(post_id: str):
             await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
             post_data = get_post_and_comments_from_id(post_id, dataset_id)
@@ -703,6 +723,8 @@ async def theme_generation_endpoint(
         {"code": code, "instances": instances}
         for code, instances in grouped_qec.items()
     ]
+
+    print(qec_table)
 
     parsed_response = await process_llm_task(
         app_id=app_id,

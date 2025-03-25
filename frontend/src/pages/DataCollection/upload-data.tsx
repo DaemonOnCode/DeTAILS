@@ -5,6 +5,7 @@ import LoadInterview from '../../components/DataCollection/load-interviews';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import {
     LOADER_ROUTES,
+    PAGE_ROUTES,
     ROUTES,
     SELECTED_POSTS_MIN_THRESHOLD,
     WORD_CLOUD_MIN_THRESHOLD
@@ -154,9 +155,7 @@ const UploadDataPage = () => {
                         ) : (
                             <div className="flex flex-col items-center justify-center h-maxPageContent">
                                 <p>Choose what type of data to retrieve from Data selection page</p>
-                                <Link
-                                    to={`/coding/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
-                                    className="text-blue-500">
+                                <Link to={PAGE_ROUTES.DATA_TYPE} className="text-blue-500">
                                     Go back to Data selection
                                 </Link>
                             </div>
@@ -164,8 +163,8 @@ const UploadDataPage = () => {
                     </main>
                     <footer id="bottom-navigation">
                         <NavigationBottomBar
-                            previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
-                            nextPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`}
+                            previousPage={PAGE_ROUTES.DATA_TYPE}
+                            nextPage={`${PAGE_ROUTES.DATASET_CREATION}`}
                             isReady={!!modeInput}
                             onNextClick={handleButtonClick}
                         />

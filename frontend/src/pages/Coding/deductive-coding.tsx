@@ -1,7 +1,7 @@
 import { useEffect, useImperativeHandle, useRef } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-coding-section';
-import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
+import { LOADER_ROUTES, PAGE_ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
@@ -72,7 +72,7 @@ const DeductiveCodingPage = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+            route: PAGE_ROUTES.DEDUCTIVE_CODING
         });
 
         const { data: results, error } = await fetchLLMData<{
@@ -122,7 +122,7 @@ const DeductiveCodingPage = () => {
             if (error.name) {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+                    route: PAGE_ROUTES.DEDUCTIVE_CODING
                 });
             }
             return;
@@ -151,15 +151,15 @@ const DeductiveCodingPage = () => {
         });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+            route: PAGE_ROUTES.DEDUCTIVE_CODING
         });
-        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`);
+        navigate(PAGE_ROUTES.DEDUCTIVE_CODING);
     };
 
     const handleNextClick = async () => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
+            route: PAGE_ROUTES.FINALIZING_CODES
         });
         navigate(
             getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
@@ -187,10 +187,10 @@ const DeductiveCodingPage = () => {
             console.error('Error refreshing themes:', error);
             if (error.name !== 'AbortError') {
                 toast.error('Error finalizing codes');
-                navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`);
+                navigate(PAGE_ROUTES.DEDUCTIVE_CODING);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
+                    route: PAGE_ROUTES.FINALIZING_CODES
                 });
                 throw new Error(error.message);
             }
@@ -203,7 +203,7 @@ const DeductiveCodingPage = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`
+            route: PAGE_ROUTES.FINALIZING_CODES
         });
     };
 
@@ -251,7 +251,7 @@ const DeductiveCodingPage = () => {
         <TutorialWrapper
             steps={steps}
             pageId={location.pathname}
-            excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`}>
+            excludedTarget={`#route-${PAGE_ROUTES.DEDUCTIVE_CODING}`}>
             <div className="h-page flex flex-col">
                 <div className="flex-1 overflow-hidden">
                     <UnifiedCodingPage
@@ -283,8 +283,8 @@ const DeductiveCodingPage = () => {
                     />
                 </div>
                 <NavigationBottomBar
-                    previousPage={`${ROUTES.CODEBOOK_CREATION}`}
-                    nextPage={`${ROUTES.FINALIZING_CODES}`}
+                    previousPage={PAGE_ROUTES.INITIAL_CODEBOOK}
+                    nextPage={PAGE_ROUTES.FINALIZING_CODES}
                     isReady={true}
                     onNextClick={handleNextClick}
                 />

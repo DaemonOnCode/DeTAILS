@@ -7,7 +7,9 @@ import {
     SampleDataResponseReducerActions,
     IQECTResponse,
     SampleDataWithThemeResponseReducerActions,
-    IQECTTyResponse
+    IQECTTyResponse,
+    InitialCodebookCode,
+    InitialCodebookTableAction
 } from '../types/Coding/shared';
 
 export const keywordTableReducer = (
@@ -71,6 +73,46 @@ export const keywordTableReducer = (
             return [...state, action.entry];
         case 'DELETE_ROW':
             return state.filter((_, i) => i !== action.index);
+        case 'RESET':
+            return [];
+        case 'RESTORE_STATE':
+            return action.payload;
+        default:
+            return state;
+    }
+};
+
+export const initialCodebookReducer = (
+    state: InitialCodebookCode[],
+    action: InitialCodebookTableAction
+): InitialCodebookCode[] => {
+    console.log('Action:', action, 'Initial Codebook');
+    switch (action.type) {
+        case 'INITIALIZE':
+            return [...action.entries];
+        case 'ADD_MANY':
+            let newEntries = action.entries.filter(
+                (entry) => state.findIndex((s) => s.code === entry.code) === -1
+            );
+            return [...state, ...newEntries];
+        case 'UPDATE_FIELD':
+            return state.map((entry, i) =>
+                i === action.index
+                    ? {
+                          ...entry,
+                          [action.field]: action.value
+                      }
+                    : entry
+            );
+        case 'ADD_ROW':
+            let newRow: InitialCodebookCode = {
+                code: '',
+                definition: ''
+            };
+            if (action.entry) {
+                newRow = action.entry;
+            }
+            return [...state, newRow];
         case 'RESET':
             return [];
         case 'RESTORE_STATE':

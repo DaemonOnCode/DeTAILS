@@ -16,7 +16,7 @@ import {
     ModalCallbacks
 } from '../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
-import { ROUTES } from '../constants/Coding/shared';
+import { PAGE_ROUTES as CODING_PAGE_ROUTES, ROUTES } from '../constants/Coding/shared';
 import { loadingReducer } from '../reducers/loading';
 import { useLocation } from 'react-router-dom';
 
@@ -123,67 +123,73 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
     };
 
     const initialPageState: ILoadingState = {
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`]: {
+        [CODING_PAGE_ROUTES.CONTEXT_V2]: {
             isLoading: false,
             isFirstRun: false,
             stepRef: useRef<StepHandle>(initialRefState)
         },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`]: {
+        [CODING_PAGE_ROUTES.KEYWORD_CLOUD]: {
             isLoading: false,
             isFirstRun: true,
             stepRef: useRef<StepHandle>(initialRefState)
         },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`]: {
-            isLoading: false,
-            isFirstRun: true,
-            downloadData: true,
-            stepRef: useRef<StepHandle>(initialRefState)
-        },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`]: {
-            isLoading: false,
-            isFirstRun: true,
-            stepRef: useRef<StepHandle>(initialRefState)
-        },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`]: {
-            isLoading: false,
-            isFirstRun: true,
-            stepRef: useRef<StepHandle>(initialRefState)
-        },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`]: {
-            isLoading: false,
-            isFirstRun: true,
-            stepRef: useRef<StepHandle>(initialRefState)
-        },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`]: {
+        [CODING_PAGE_ROUTES.KEYWORD_TABLE]: {
             isLoading: false,
             isFirstRun: true,
             downloadData: true,
             stepRef: useRef<StepHandle>(initialRefState)
         },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`]: {
+        [CODING_PAGE_ROUTES.DATA_TYPE]: {
+            isLoading: false,
+            isFirstRun: true,
+            stepRef: useRef<StepHandle>(initialRefState)
+        },
+        [CODING_PAGE_ROUTES.DATA_SOURCE]: {
+            isLoading: false,
+            isFirstRun: true,
+            stepRef: useRef<StepHandle>(initialRefState)
+        },
+        [CODING_PAGE_ROUTES.DATASET_CREATION]: {
+            isLoading: false,
+            isFirstRun: true,
+            stepRef: useRef<StepHandle>(initialRefState)
+        },
+        [CODING_PAGE_ROUTES.CODEBOOK_CREATION]: {
             isLoading: false,
             isFirstRun: true,
             downloadData: true,
             stepRef: useRef<StepHandle>(initialRefState)
         },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`]: {
+        [CODING_PAGE_ROUTES.INITIAL_CODEBOOK]: {
             isLoading: false,
             isFirstRun: true,
             downloadData: true,
             stepRef: useRef<StepHandle>(initialRefState)
         },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`]: {
+        [CODING_PAGE_ROUTES.DEDUCTIVE_CODING]: {
             isLoading: false,
             isFirstRun: true,
             downloadData: true,
             stepRef: useRef<StepHandle>(initialRefState)
         },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.ANALYSIS}`]: {
+        [CODING_PAGE_ROUTES.FINALIZING_CODES]: {
+            isLoading: false,
+            isFirstRun: true,
+            downloadData: true,
+            stepRef: useRef<StepHandle>(initialRefState)
+        },
+        [CODING_PAGE_ROUTES.THEMES]: {
+            isLoading: false,
+            isFirstRun: true,
+            downloadData: true,
+            stepRef: useRef<StepHandle>(initialRefState)
+        },
+        [CODING_PAGE_ROUTES.ANALYSIS]: {
             isLoading: false,
             isFirstRun: true,
             stepRef: useRef<StepHandle>(initialRefState)
         },
-        [`/${SHARED_ROUTES.CODING}/${ROUTES.MANUAL_CODING}`]: {
+        [CODING_PAGE_ROUTES.MANUAL_CODING]: {
             isLoading: false,
             isFirstRun: true,
             stepRef: useRef<StepHandle>(initialRefState)

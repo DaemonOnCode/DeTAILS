@@ -1,11 +1,10 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import FileCard from '../../components/Coding/Shared/file-card';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
-import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging-context';
-import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { MODEL_LIST, REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding-context';
 import { useCollectionContext } from '../../context/collection-context';
@@ -157,7 +156,7 @@ const ContextPage = () => {
         e.preventDefault();
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+            route: PAGE_ROUTES.KEYWORD_CLOUD
         });
         await logger.info('Starting Theme Cloud Generation');
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
@@ -192,12 +191,10 @@ const ContextPage = () => {
             console.error('Error building context:', error);
             if (error.name !== 'AbortError') {
                 toast.error('Error building context. Please try again.');
-                navigate(
-                    `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`
-                );
+                navigate(PAGE_ROUTES.CONTEXT_V2);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+                    route: PAGE_ROUTES.KEYWORD_CLOUD
                 });
                 throw new Error(error.message);
             }
@@ -215,9 +212,9 @@ const ContextPage = () => {
         await logger.info('Theme Cloud generated');
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
+            route: PAGE_ROUTES.KEYWORD_CLOUD
         });
-        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`);
+        navigate(PAGE_ROUTES.KEYWORD_CLOUD);
     };
 
     // useEffect(() => {
@@ -348,8 +345,8 @@ const ContextPage = () => {
                         </div>
                     </div>
                     <NavigationBottomBar
-                        previousPage={ROUTES.HOME}
-                        nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`}
+                        previousPage={PAGE_ROUTES.HOME}
+                        nextPage={PAGE_ROUTES.KEYWORD_CLOUD}
                         isReady={checkIfReady}
                         onNextClick={handleOnNextClick}
                         autoNavigateToNext={false}

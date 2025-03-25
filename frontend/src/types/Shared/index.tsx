@@ -6,6 +6,8 @@ import {
     IQECTResponse,
     IQECTTyResponse,
     IReference,
+    InitialCodebookCode,
+    InitialCodebookTableAction,
     KeywordEntry,
     KeywordsTableAction,
     Mode,
@@ -130,6 +132,8 @@ export interface ICodingContext {
     setUnseenPostIds: SetState<string[]>;
     conflictingResponses: IQECResponse[];
     setConflictingResponses: SetState<IQECResponse[]>;
+    initialCodebookTable: InitialCodebookCode[];
+    dispatchInitialCodebookTable: Dispatch<InitialCodebookTableAction>;
 }
 
 export interface Workspace {

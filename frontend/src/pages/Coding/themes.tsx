@@ -4,7 +4,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import Bucket from '../../components/Coding/Themes/bucket';
 import UnplacedCodesBox from '../../components/Coding/Themes/unplaced-box';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
+import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { MODEL_LIST, REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
@@ -255,7 +255,7 @@ const ThemesPage = () => {
     const handleRefreshThemes = async () => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+            route: PAGE_ROUTES.THEMES
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
@@ -276,8 +276,8 @@ const ThemesPage = () => {
                     code: getGroupedCodeOfSubCode(r.code, groupedCodes),
                     quote: r.quote,
                     explanation: r.explanation,
-                    comment: r.comment,
-                    subCode: r.code
+                    comment: r.comment
+                    // subCode: r.code
                 })),
                 sampled_post_responses: sampledPostResponse.map((r) => ({
                     postId: r.postId,
@@ -285,8 +285,8 @@ const ThemesPage = () => {
                     code: getGroupedCodeOfSubCode(r.code, groupedCodes),
                     quote: r.quote,
                     explanation: r.explanation,
-                    comment: r.comment,
-                    subCode: r.code
+                    comment: r.comment
+                    // subCode: r.code
                 }))
             })
         });
@@ -296,7 +296,7 @@ const ThemesPage = () => {
             if (error.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+                    route: PAGE_ROUTES.THEMES
                 });
             }
             return;
@@ -309,9 +309,9 @@ const ThemesPage = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`
+            route: PAGE_ROUTES.THEMES
         });
-        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`);
+        navigate(PAGE_ROUTES.THEMES);
     };
 
     const handleMoveToMiscellaneous = useCallback(() => {
@@ -450,8 +450,8 @@ const ThemesPage = () => {
                     </div>
                     <footer id="bottom-navigation">
                         <NavigationBottomBar
-                            previousPage={`${ROUTES.DEDUCTIVE_CODING}`}
-                            nextPage={`${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.ANALYSIS}`}
+                            previousPage={PAGE_ROUTES.DEDUCTIVE_CODING}
+                            nextPage={PAGE_ROUTES.ANALYSIS}
                             isReady={unplacedCodes.length === 0}
                         />
                     </footer>

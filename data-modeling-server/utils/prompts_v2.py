@@ -278,7 +278,7 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
 - **Research Questions:** {research_questions}
 
 - **Final Codebook:**  
-  (Structured thematic codes in JSON format)  
+  (Structured thematic codes)  
   {final_codebook}
 
 - **Keyword Table:**  
@@ -873,14 +873,14 @@ class TopicClustering:
         )
     
     def continuation_prompt_builder(current_clusters_keys: str, words_json: str):
-            return (
-                f"Given the existing topic names: {current_clusters_keys}, "
-                "assign the following distinct new words to the existing topics if they fit, "
-                "or create new topics with descriptive names if necessary. "
-                "Each new word should be assigned to exactly one topic, and all new words must be included in the output without duplication. "
-                "Provide only the JSON output containing only the new words, in the following format, "
-                "wrapped in markdown code blocks (```json ... ```): "
-                "{ \"topic1\": [\"new_word1\", \"new_word2\", ...], \"topic2\": [\"new_word3\", ...], ... }. "
-                "Do not include any additional text or explanations. "
-                "Here are the new words to assign in JSON format: " + words_json
-            )
+        return (
+            f"Given the existing topic names: {current_clusters_keys}, "
+            "assign the following distinct new words to the existing topics if they fit, "
+            "or create new topics with descriptive names if necessary. "
+            "Each new word should be assigned to exactly one topic, and all new words must be included in the output without duplication. "
+            "Provide only the JSON output containing only the new words, in the following format, "
+            "wrapped in markdown code blocks (```json ... ```): "
+            "{ \"topic1\": [\"new_word1\", \"new_word2\", ...], \"topic2\": [\"new_word3\", ...], ... }. "
+            "Do not include any additional text or explanations. "
+            "Here are the new words to assign in JSON format: " + words_json
+        )

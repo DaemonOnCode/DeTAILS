@@ -21,19 +21,18 @@ import {
     GroupedCodeBucket
 } from '../types/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
-import { ROUTES } from '../constants/Coding/shared';
-import { ICodingContext, StepHandle } from '../types/Shared';
+import { PAGE_ROUTES, ROUTES } from '../constants/Coding/shared';
+import { ICodingContext } from '../types/Shared';
 import { useLocation } from 'react-router-dom';
 import { useLoadingContext } from './loading-context';
 import {
     sampleDataResponseReducer,
     sampleDataWithThemeResponseReducer,
     unseenDataResponseReducer,
-    keywordTableReducer
+    keywordTableReducer,
+    initialCodebookReducer
 } from '../reducers/coding';
 import { getGroupedCodeOfSubCode, getThemeByCode } from '../utility/theme-finder';
-import { type } from 'os';
-import { downloadCodebook } from '../utility/codebook-downloader';
 import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
 
 const { ipcRenderer } = window.require('electron');
@@ -83,7 +82,9 @@ export const CodingContext = createContext<ICodingContext>({
     unseenPostIds: [],
     setUnseenPostIds: () => {},
     conflictingResponses: [],
-    setConflictingResponses: () => {}
+    setConflictingResponses: () => {},
+    initialCodebookTable: [],
+    dispatchInitialCodebookTable: () => {}
 });
 
 // Create a provider component
@@ -137,8 +138,12 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
 
     const [groupedCodes, setGroupedCodes] = useState<GroupedCodeBucket[]>([]);
 
-    // State for codes that have not been placed into any bucket
     const [unplacedSubCodes, setUnplacedSubCodes] = useState<string[]>([]);
+
+    const [initialCodebookTable, dispatchInitialCodebookTable] = useReducer(
+        initialCodebookReducer,
+        []
+    );
 
     // const toggleMode = useCallback(() => {
     //     setCurrentMode((prevMode: Mode) => {
@@ -175,7 +180,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         }
     > = useMemo(
         () => ({
-            [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`]: {
+            [PAGE_ROUTES.CONTEXT_V2]: {
                 relatedStates: [
                     {
                         state: contextFiles,
@@ -191,7 +196,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     }
                 ]
             },
-            [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`]: {
+            [PAGE_ROUTES.KEYWORD_CLOUD]: {
                 relatedStates: [
                     {
                         state: keywords,
@@ -207,7 +212,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     }
                 ]
             },
-            [`/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`]: {
+            [PAGE_ROUTES.KEYWORD_TABLE]: {
                 relatedStates: [
                     // {
                     //     state: keywordTable,
@@ -216,7 +221,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     // }
                 ]
             },
-            [`/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`]: {
+            [PAGE_ROUTES.CODEBOOK_CREATION]: {
                 relatedStates: [
                     {
                         state: sampledPostResponse,
@@ -241,7 +246,16 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                 ],
                 downloadData: { name: 'codebook', data: sampledPostResponse }
             },
-            [`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`]: {
+            [PAGE_ROUTES.INITIAL_CODEBOOK]: {
+                relatedStates: [
+                    {
+                        state: initialCodebookTable,
+                        func: dispatchInitialCodebookTable,
+                        name: 'dispatchInitialCodebookTable'
+                    }
+                ]
+            },
+            [PAGE_ROUTES.DEDUCTIVE_CODING]: {
                 relatedStates: [
                     {
                         state: unseenPostResponse,
@@ -251,7 +265,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                 ],
                 downloadData: { name: 'deductive_codebook', data: unseenPostResponse }
             },
-            [`/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`]: {
+            [PAGE_ROUTES.FINALIZING_CODES]: {
                 relatedStates: [
                     { state: groupedCodes, func: setGroupedCodes, name: 'setGroupedCodes' },
                     {
@@ -285,7 +299,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     ]
                 }
             },
-            [`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`]: {
+            [PAGE_ROUTES.THEMES]: {
                 relatedStates: [
                     { state: themes, func: setThemes, name: 'setThemes' },
                     { state: unplacedCodes, func: setUnplacedCodes, name: 'setUnplacedCodes' }
@@ -328,41 +342,26 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         ]
     );
 
+    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.CONTEXT_V2]?.stepRef);
+    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.KEYWORD_CLOUD]?.stepRef);
+    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.KEYWORD_TABLE]?.stepRef);
     useLoadingSteps(
         loadingStateInitialization,
-        loadingState[
-            `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`
-        ]?.stepRef
+        loadingState[PAGE_ROUTES.CODEBOOK_CREATION]?.stepRef
     );
     useLoadingSteps(
         loadingStateInitialization,
-        loadingState[
-            `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_CLOUD}`
-        ]?.stepRef
+        loadingState[PAGE_ROUTES.INITIAL_CODEBOOK]?.stepRef
     );
     useLoadingSteps(
         loadingStateInitialization,
-        loadingState[
-            `/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.KEYWORD_TABLE}`
-        ]?.stepRef
+        loadingState[PAGE_ROUTES.DEDUCTIVE_CODING]?.stepRef
     );
     useLoadingSteps(
         loadingStateInitialization,
-        loadingState[`/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`]?.stepRef
+        loadingState[PAGE_ROUTES.FINALIZING_CODES]?.stepRef
     );
-    useLoadingSteps(
-        loadingStateInitialization,
-        loadingState[`/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`]?.stepRef
-    );
-    useLoadingSteps(
-        loadingStateInitialization,
-        loadingState[`/${SHARED_ROUTES.CODING}/${ROUTES.FINALIZING_CODES}`]?.stepRef
-    );
-    useLoadingSteps(
-        loadingStateInitialization,
-        loadingState[`/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`]
-            ?.stepRef
-    );
+    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.THEMES]?.stepRef);
 
     const updateContext = (updates: Partial<ICodingContext>) => {
         console.log('Updates:', updates);
@@ -498,7 +497,9 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             unseenPostIds,
             setUnseenPostIds,
             conflictingResponses,
-            setConflictingResponses
+            setConflictingResponses,
+            initialCodebookTable,
+            dispatchInitialCodebookTable
         }),
         [
             // currentMode,
@@ -525,7 +526,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             researchQuestions,
             sampledPostIds,
             unseenPostIds,
-            conflictingResponses
+            conflictingResponses,
+            initialCodebookTable
         ]
     );
 

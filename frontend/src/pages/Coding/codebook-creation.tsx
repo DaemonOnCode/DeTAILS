@@ -1,7 +1,7 @@
 import { useRef, useEffect, useImperativeHandle } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-coding-section';
-import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
+import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
@@ -31,13 +31,12 @@ const CodebookCreation = () => {
         sampledPostResponse,
         dispatchSampledPostResponse,
         sampledPostIds,
-        setSampledPostResponseCopy,
         unseenPostIds,
-        dispatchUnseenPostResponse,
         mainTopic,
         additionalInfo,
         researchQuestions,
-        keywordTable
+        keywordTable,
+        dispatchInitialCodebookTable
     } = useCodingContext();
     const location = useLocation();
 
@@ -72,7 +71,7 @@ const CodebookCreation = () => {
     const handleRedoCoding = async () => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+            route: PAGE_ROUTES.CODEBOOK_CREATION
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
 
@@ -102,7 +101,7 @@ const CodebookCreation = () => {
             console.error('Error in handleRedoCoding:', error);
             loadingDispatch({
                 type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+                route: PAGE_ROUTES.CODEBOOK_CREATION
             });
             return;
         }
@@ -115,50 +114,35 @@ const CodebookCreation = () => {
         });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`
+            route: PAGE_ROUTES.CODEBOOK_CREATION
         });
-        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`);
+        navigate(PAGE_ROUTES.CODEBOOK_CREATION);
     };
 
     const handleNextClick = async () => {
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER));
+        navigate(
+            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                text: 'Generating Initial Codebook'
+            })
+        );
 
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+            route: PAGE_ROUTES.INITIAL_CODEBOOK
         });
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
             data: {
-                id: string;
-                postId: string;
-                quote: string;
-                explanation: string;
-                code: string;
-            }[];
-        }>(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING, {
+                [code: string]: string;
+            };
+        }>(REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK_WITHOUT_QUOTES, {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
                 model: settings.ai.model,
-                workspace_id: currentWorkspace!.id,
-                final_codebook: sampledPostResponse
-                    .filter((response) => response.isMarked === true)
-                    .map((response) => ({
-                        post_id: response.postId,
-                        quote: response.quote,
-                        explanation: response.explanation,
-                        code: response.code,
-                        id: response.id
-                    })),
-                main_topic: mainTopic,
-                additional_info: additionalInfo,
-                research_questions: researchQuestions,
-                keyword_table: keywordTable.filter(
-                    (keywordRow) => keywordRow.isMarked !== undefined
-                ),
-                unseen_post_ids: unseenPostIds
+                sampled_post_responses: sampledPostResponse,
+                unseen_post_responses: []
             })
         });
 
@@ -166,10 +150,10 @@ const CodebookCreation = () => {
             console.error('Error in handleNextClick:', error);
             if (error.name !== 'AbortError') {
                 toast.error('Error generating codebook. Please try again.');
-                navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`);
+                navigate(PAGE_ROUTES.CODEBOOK_CREATION);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+                    route: PAGE_ROUTES.INITIAL_CODEBOOK
                 });
                 throw new Error(error.message);
             }
@@ -178,29 +162,17 @@ const CodebookCreation = () => {
 
         console.log('Results:', results);
 
-        // if (settings.general.manualCoding) {
-        //     toast.info(
-        //         'LLM has finished coding data. You can head back to Deductive Coding page to see the results',
-        //         {
-        //             autoClose: false
-        //         }
-        //     );
-        // }
-
-        dispatchUnseenPostResponse({
-            type: 'SET_RESPONSES',
-            responses: results['data'].map((response) => ({
-                ...response,
-                isMarked: true,
-                type: 'LLM',
-                comment: '',
-                theme: ''
+        dispatchInitialCodebookTable({
+            type: 'INITIALIZE',
+            entries: Object.entries(results.data).map(([code, definition]) => ({
+                code,
+                definition
             }))
         });
-        setSampledPostResponseCopy([...sampledPostResponse]);
+
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.DEDUCTIVE_CODING}`
+            route: PAGE_ROUTES.INITIAL_CODEBOOK
         });
     };
 
@@ -250,7 +222,7 @@ const CodebookCreation = () => {
         <TutorialWrapper
             steps={steps}
             pageId={location.pathname}
-            excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.CODEBOOK_CREATION}`}>
+            excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.INITIAL_CODING_CODEBOOK}`}>
             <div className="h-page flex flex-col">
                 <div className="flex-1 overflow-hidden">
                     {/* Add an id to the container for tutorial targeting */}
@@ -281,8 +253,8 @@ const CodebookCreation = () => {
                     {/* </div> */}
                 </div>
                 <NavigationBottomBar
-                    previousPage={`${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`}
-                    nextPage={`${ROUTES.DEDUCTIVE_CODING}`}
+                    previousPage={PAGE_ROUTES.DATASET_CREATION}
+                    nextPage={PAGE_ROUTES.INITIAL_CODEBOOK}
                     isReady={true}
                     onNextClick={handleNextClick}
                     // autoNavigateToNext={!settings.general.manualCoding}
