@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
-import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
 import { useCollectionContext } from '../../context/collection-context';
 import { useLoadingContext } from '../../context/loading-context';
@@ -15,6 +15,8 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { createTimer } from '../../utility/timer';
 import { useSettings } from '../../context/settings-context';
+import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
+import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 
 const InitialCodeBook = () => {
     const {
@@ -145,56 +147,102 @@ const InitialCodeBook = () => {
         });
     };
 
+    const steps: TutorialStep[] = [
+        {
+            target: '#initial-codebook-table',
+            content:
+                'This is your Initial Codebook table. You can edit the definitions as you wish.',
+            placement: 'bottom'
+        },
+        {
+            target: '#initial-code-0',
+            content: 'These are your codes. These are the codes from Initial Coding.',
+            placement: 'right'
+        },
+        {
+            target: '#initial-definition-0',
+            content:
+                'These are your definitions. These are the definitions based on the codes generated and their respective explanations. This field is editable.',
+            placement: 'left'
+        },
+        {
+            target: '#proceed-next-step',
+            content: 'Proceed to next step',
+            placement: 'top'
+        }
+    ];
+
     return (
-        <div className="h-page flex flex-col">
-            {/* Header */}
-            <header className="flex-none py-4">
-                <h1>Initial Codebook</h1>
-            </header>
+        <TutorialWrapper
+            steps={steps}
+            pageId={location.pathname}
+            excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.INITIAL_CODING_CODEBOOK}`}>
+            <div className="h-page flex flex-col">
+                {/* Header */}
+                <header className="flex-none py-4">
+                    <h1>Initial Codebook</h1>
+                </header>
 
-            {/* Main content with scrollable table */}
-            <main className="flex-1 overflow-hidden flex flex-col">
-                <div className="flex-1 overflow-auto">
-                    <table className="w-full border-separate border-spacing-0">
-                        {/* Table Header */}
-                        <thead className="sticky top-0">
-                            <tr className="bg-gray-200">
-                                <th className="border border-gray-400 p-2">Code</th>
-                                <th className="border border-gray-400 p-2">Definition</th>
-                            </tr>
-                        </thead>
-                        {/* Table Body */}
-                        <tbody>
-                            {initialCodebookTable.map((entry, index) => (
-                                <tr key={index} className="text-center">
-                                    {/* Non-editable Code column */}
-                                    <td className="border border-gray-400 p-2">{entry.code}</td>
-                                    {/* Editable Definition column */}
-                                    <td className="border border-gray-400 p-2">
-                                        <textarea
-                                            className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                            value={entry.definition}
-                                            onChange={(e) =>
-                                                handleDefinitionChange(index, e.target.value)
-                                            }
-                                        />
-                                    </td>
+                {/* Main content with scrollable table */}
+                <main className="flex-1 overflow-hidden flex flex-col">
+                    <div className="flex-1 overflow-auto">
+                        <table
+                            className="w-full border-separate border-spacing-0"
+                            id="initial-codebook-table">
+                            {/* Table Header */}
+                            <thead className="sticky top-0">
+                                <tr className="bg-gray-200">
+                                    <th
+                                        className="border border-gray-400 p-2 max-w-32"
+                                        id="intial-code-heading">
+                                        Code
+                                    </th>
+                                    <th
+                                        className="border border-gray-400 p-2"
+                                        id="intial-definition-heading">
+                                        Definition
+                                    </th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </main>
+                            </thead>
+                            {/* Table Body */}
+                            <tbody>
+                                {initialCodebookTable.map((entry, index) => (
+                                    <tr key={index} className="text-center">
+                                        {/* Non-editable Code column */}
+                                        <td
+                                            className="border border-gray-400 p-2 max-w-32 overflow-wrap"
+                                            id={`initial-code-${index}`}>
+                                            {entry.code}
+                                        </td>
+                                        {/* Editable Definition column */}
+                                        <td
+                                            className="border border-gray-400 p-2 overflow-wrap"
+                                            id={`initial-definition-${index}`}>
+                                            <textarea
+                                                className="w-full p-2 border border-gray-300 rounded resize-none h-24"
+                                                value={entry.definition}
+                                                onChange={(e) =>
+                                                    handleDefinitionChange(index, e.target.value)
+                                                }
+                                            />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </main>
 
-            <footer id="bottom-navigation" className="flex-none">
-                <NavigationBottomBar
-                    previousPage={PAGE_ROUTES.CODEBOOK_CREATION}
-                    nextPage={PAGE_ROUTES.DEDUCTIVE_CODING}
-                    isReady={true}
-                    onNextClick={handleNextClick}
-                />
-            </footer>
-        </div>
+                <footer id="bottom-navigation" className="flex-none">
+                    <NavigationBottomBar
+                        previousPage={PAGE_ROUTES.CODEBOOK_CREATION}
+                        nextPage={PAGE_ROUTES.DEDUCTIVE_CODING}
+                        isReady={true}
+                        onNextClick={handleNextClick}
+                    />
+                </footer>
+            </div>
+        </TutorialWrapper>
     );
 };
 

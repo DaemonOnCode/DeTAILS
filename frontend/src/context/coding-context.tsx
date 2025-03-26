@@ -402,6 +402,12 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         if (updates.sampledPostIds) setSampledPostIds(updates.sampledPostIds);
         if (updates.unseenPostIds) setUnseenPostIds(updates.unseenPostIds);
         if (updates.conflictingResponses) setConflictingResponses(updates.conflictingResponses);
+        if (updates.initialCodebookTable) {
+            dispatchInitialCodebookTable({
+                type: 'INITIALIZE',
+                entries: updates.initialCodebookTable
+            });
+        }
     };
 
     const resetContext = () => {
@@ -431,6 +437,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         setSampledPostIds([]);
         setUnseenPostIds([]);
         setConflictingResponses([]);
+        dispatchInitialCodebookTable({ type: 'INITIALIZE', entries: [] });
     };
 
     useEffect(() => {

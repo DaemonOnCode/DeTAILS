@@ -188,7 +188,7 @@ const CodebookAnimation: React.FC = () => {
 
     return (
         <div className="min-h-page w-full flex flex-col items-center justify-center">
-            <h1 className="text-3xl font-bold mb-8 text-gray-900">Generating Codebook</h1>
+            <h1 className="text-3xl font-bold mb-8 text-gray-900">Generating Codes</h1>
             <p className=" mb-16">
                 {!!sampledPostIds?.length &&
                     `${postsFinished}/${sampledPostIds.length} completed. `}

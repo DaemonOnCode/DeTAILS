@@ -13,8 +13,11 @@ from database import (
     PostsRepository, CommentsRepository, 
     LlmResponsesRepository, FileStatusRepository, 
     PipelineStepsRepository, TorrentDownloadProgressRepository, 
-    QECTRepository, FunctionProgressRepository,
-    LlmPendingTaskRepository, LlmFunctionArgsRepository
+    QectRepository, FunctionProgressRepository,
+    LlmPendingTaskRepository, LlmFunctionArgsRepository,
+    SubcodesRepository, SelectedPostIdsRepository,
+    GroupedCodesRepository, GroupedCodeSubcodesRepository,
+    ThemeCodesRepository, ThemesRepository
 )
 from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware, AbortOnDisconnectMiddleware
 from routes import (
@@ -93,9 +96,15 @@ if __name__ == "__main__":
         FileStatusRepository,
         PipelineStepsRepository,
         FunctionProgressRepository,
-        QECTRepository,
+        QectRepository,
         LlmPendingTaskRepository,
-        LlmFunctionArgsRepository
+        LlmFunctionArgsRepository,
+        SubcodesRepository,
+        SelectedPostIdsRepository,
+        GroupedCodesRepository,
+        GroupedCodeSubcodesRepository,
+        ThemeCodesRepository,
+        ThemesRepository
     ])
 
     print("Database initialized!")

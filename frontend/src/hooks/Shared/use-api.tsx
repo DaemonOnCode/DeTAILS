@@ -85,7 +85,7 @@ export const useApi = (): UseApiResult => {
             };
             // console.log('Fetching data:', url, mergedOptions);
 
-            if (requestArrayRef.current !== null) {
+            if (requestArrayRef.current !== null && route !== REMOTE_SERVER_ROUTES.SAVE_STATE) {
                 console.log('Request array ref is not null for:', location.pathname);
                 requestArrayRef.current[location.pathname] = [
                     ...(requestArrayRef.current[location.pathname] || []),

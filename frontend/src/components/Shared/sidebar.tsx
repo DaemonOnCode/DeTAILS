@@ -75,6 +75,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
         const segments = location.pathname.split('/').filter(Boolean);
 
         const mappedRoute = LOADER_TO_ROUTE_MAP[`${location.pathname}${location.search}`];
+        console.log('Mapped Route:', mappedRoute);
         let loaderSegments = mappedRoute ? mappedRoute.split('/').filter(Boolean) : [];
 
         const newOpenDropdowns = new Set<string>();
@@ -99,6 +100,8 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                 newOpenDropdowns.add(forcedPath);
             });
         }
+
+        console.log('Open Dropdowns:', newOpenDropdowns);
 
         setOpenDropdowns(newOpenDropdowns);
     }, [location.pathname, location.search]);
@@ -153,30 +156,30 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
             return true;
         }
 
-        if (LOADER_TO_ROUTE_MAP[location.pathname] === fullPath) {
+        if (LOADER_TO_ROUTE_MAP[`${location.pathname}${location.search}`] === fullPath) {
             return true;
         }
 
         return location.pathname === fullPath;
     }
 
-    useEffect(() => {
-        if (forcedActiveRoute) {
-            const forcedFullPath = findRouteFullPath(routes, forcedActiveRoute);
-            if (forcedFullPath) {
-                const segments = forcedFullPath.split('/').filter(Boolean);
-                let currentPath = '';
-                const newOpenDropdowns = new Set<string>();
-                segments.forEach((segment) => {
-                    currentPath += `/${segment}`;
-                    newOpenDropdowns.add(currentPath);
-                });
-                setOpenDropdowns(newOpenDropdowns);
-            }
-        }
-        // We intentionally do not reinitialize openDropdowns on every location change
-        // so that manual toggles persist.
-    }, [forcedActiveRoute, routes]);
+    // useEffect(() => {
+    //     if (forcedActiveRoute) {
+    //         const forcedFullPath = findRouteFullPath(routes, forcedActiveRoute);
+    //         if (forcedFullPath) {
+    //             const segments = forcedFullPath.split('/').filter(Boolean);
+    //             let currentPath = '';
+    //             const newOpenDropdowns = new Set<string>();
+    //             segments.forEach((segment) => {
+    //                 currentPath += `/${segment}`;
+    //                 newOpenDropdowns.add(currentPath);
+    //             });
+    //             setOpenDropdowns(newOpenDropdowns);
+    //         }
+    //     }
+    //     // We intentionally do not reinitialize openDropdowns on every location change
+    //     // so that manual toggles persist.
+    // }, [forcedActiveRoute, routes]);
 
     // Render the routes recursively
     const renderRoutes = (routes: AppRouteArray, parentPath = ''): JSX.Element[] => {

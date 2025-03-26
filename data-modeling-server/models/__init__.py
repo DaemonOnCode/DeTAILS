@@ -18,7 +18,13 @@ from .table_dataclasses import (
     PipelineStep, 
     FileStatus, 
     FunctionProgress, 
-    QECTResponse, 
+    QectResponse, 
     LlmPendingTask,  
-    LlmFunctionArgs
+    LlmFunctionArgs,
+    GroupedCode,
+    GroupedCodeSubcode,
+    Theme,
+    ThemeCode,
+    SelectedPostId,
+    Subcode
 )

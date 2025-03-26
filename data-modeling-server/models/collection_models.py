@@ -7,6 +7,7 @@ class ParseDatasetRequest(BaseModel):
 
 
 class ParseRedditPostsRequest(BaseModel):
+    workspace_id: str
     dataset_id: str
     batch: int
     offset: int

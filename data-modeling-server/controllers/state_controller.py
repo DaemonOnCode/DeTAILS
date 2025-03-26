@@ -48,6 +48,7 @@ def save_state(data):
     sampled_post_ids = json.dumps(coding_context.sampled_post_ids)
     unseen_post_ids = json.dumps(coding_context.unseen_post_ids)
     conflicting_responses = json.dumps(coding_context.conflicting_responses)
+    initial_codebook = json.dumps(coding_context.initial_codebook)
 
 
     page_state = json.dumps(loading_context.page_state)
@@ -64,7 +65,7 @@ def save_state(data):
         mode_input=collection_context.mode_input,
         type=collection_context.type,
         metadata=metadata,
-        selected_data=selected_data,
+        # selected_data=selected_data,
         models=models,
         data_filters=data_filters,
         is_locked=collection_context.is_locked,
@@ -86,6 +87,7 @@ def save_state(data):
         sampled_post_ids=sampled_post_ids,
         unseen_post_ids=unseen_post_ids,
         conflicting_responses=conflicting_responses,
+        initial_codebook=initial_codebook,
         page_state=page_state,
         post_states=post_states,
         manual_coding_responses=manual_coding_responses,
@@ -161,7 +163,7 @@ def load_state(data):
     json_fields = [
         "selected_data", "metadata", "models", "data_filters", "context_files", "keywords", "selected_keywords",
         "keyword_table", "references_data", "themes", "grouped_codes", "research_questions",
-        "sampled_post_responses", "sampled_post_with_themes_responses",
+        "sampled_post_responses", "sampled_post_with_themes_responses", "initial_codebook",
         "unseen_post_response", "unplaced_codes", "unplaced_subcodes", "sampled_post_ids", "unseen_post_ids",
         "conflicting_responses", "page_state", "post_states", "manual_coding_responses", "codebook"
     ]

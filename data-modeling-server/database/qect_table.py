@@ -1,10 +1,10 @@
 from typing import List
 from .base_class import BaseRepository
-from models import QECTResponse
+from models import QectResponse
 
-class QECTRepository(BaseRepository[QECTResponse]):
-    model = QECTResponse
+class QectRepository(BaseRepository[QectResponse]):
+    model = QectResponse
     def __init__(self):
-        super().__init__("q_e_c_t", QECTResponse)
+        super().__init__("qect", QectResponse)
     
 

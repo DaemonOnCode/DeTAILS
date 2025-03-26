@@ -4,12 +4,15 @@ from pydantic import BaseModel
 
 
 class SamplePostsRequest(BaseModel):
+    workspace_id: str
     dataset_id: str
     post_ids: list= []
     sample_size: int = 0.5
     random_seed: int = 42
     divisions: int  = 2
 
+class SelectedPostIdsRequest(BaseModel):
+    dataset_id: str
     
 class RegenerateKeywordsRequest(BaseModel):
     model: str

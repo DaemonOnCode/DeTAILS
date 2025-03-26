@@ -90,6 +90,7 @@ const useRedditData = () => {
     };
 
     const getRedditPostDataByBatch = async (
+        workspaceId: string,
         datasetId: string,
         batch: number,
         offset: number,
@@ -116,6 +117,7 @@ const useRedditData = () => {
 
         // Prepare the request body with all parameters
         const requestBody = {
+            workspace_id: workspaceId,
             dataset_id: datasetId,
             batch,
             offset,
@@ -171,7 +173,12 @@ const useRedditData = () => {
                 currentDatasetId = await sendFolderToBackendServer(folderPath);
             }
             console.log('Data sent to server, dataset_id: ', currentDatasetId);
-            const parsedData = await getRedditPostDataByBatch(currentDatasetId, 10, 0);
+            const parsedData = await getRedditPostDataByBatch(
+                currentWorkspace!.id,
+                currentDatasetId,
+                10,
+                0
+            );
             setData(parsedData);
             setError(null);
         } catch (err) {
@@ -224,7 +231,12 @@ const useRedditData = () => {
                 }
             }
 
-            const parsedData = await getRedditPostDataByBatch(datasetId, 10, 0);
+            const parsedData = await getRedditPostDataByBatch(
+                currentWorkspace!.id,
+                datasetId,
+                10,
+                0
+            );
             setData(parsedData);
             setError(null);
             return {

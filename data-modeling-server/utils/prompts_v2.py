@@ -575,7 +575,7 @@ PHASE 3 (Complete Codebook Remake) Requirements:
   3. **Realist/Essentialist vs. Relativist/Constructionist:** Balancing objective truths with socially constructed interpretations.
 
 ### Codebook Remake Instructions:
-1. Evaluate the **CURRENT CODEBOOK:** {current_codebook} and incorporate the **OPTIONAL FEEDBACK:** {feedback}.
+1. Evaluate the **CURRENT CODEBOOK SUMMARY:** {current_codebook} and incorporate the following feedback as advice **OPTIONAL FEEDBACK:** {feedback}.
 2. Update existing codes, add new ones, or remove redundant entries based on an integrated review of the initial coding data, transcript, and feedback.
 3. Maintain both in-vivo (participant language) and conceptual (researcher-generated) elements.
 4. Apply dual coding:
@@ -619,7 +619,7 @@ PHASE 3 (Deductive Codebook Remake) Requirements:
 - Consider the **Main Topic:** {main_topic} and **Additional Information:** {additional_info}.
 - Address the **Research Questions:** {research_questions}.
 - Utilize the **Final Codebook** (structured thematic codes in JSON format): {final_codebook}
-- Evaluate the **CURRENT CODEBOOK:** {current_codebook} used in the deductive coding phase.
+- Evaluate the **CURRENT CODEBOOK SUMMARY:** {current_codebook} used in the deductive coding phase.
 - Refer to the **Keyword Table** (JSON with inclusion/exclusion criteria): {keyword_table}
 - Analyze the Post Transcript for segments that are directly relevant:
   {post_transcript}
@@ -642,7 +642,7 @@ PHASE 3 (Deductive Codebook Remake) Requirements:
   - **Relativist/Constructionist:** For exploring the socially constructed nature of meaning.
 
 ### Deductive Codebook Remake & Feedback Integration:
-1. Update existing deductive codes by integrating insights from the final coding phase, CURRENT CODEBOOK, and the **OPTIONAL FEEDBACK:** {feedback}.
+1. Update existing deductive codes by integrating insights from the final coding phase, CURRENT CODEBOOK, and the following feedback as advice, **OPTIONAL FEEDBACK:** {feedback}.
 2. Adjust codes by updating, adding, or removing entries as needed.
 3. Ensure each code strictly adheres to the inclusion/exclusion criteria and aligns with the deductive approach.
 4. Clearly differentiate between semantic (surface) and latent (underlying) meanings.
@@ -797,19 +797,19 @@ Present your results in a JSON object where each key is a code and each value is
 
 Your response should consist solely of the JSON object containing the definitions for each code. Do not include any additional text, explanations, or commentary.
 """
-    
+
 class GenerateDeductiveCodesFromCodebook:
     @staticmethod
     def generate_deductive_codes_from_codebook_prompt(codebook: str, post_transcript: str):
         return f"""
-PHASE 3 (Deductive Codebook) Requirements:
+**PHASE 3 (Deductive Codebook) Requirements:**
 
 ### Integrative Analysis:
 - Review the analysis of the post transcript using the given codebook.
   ```json
   {codebook}
   ```
-- Analyze the Post Transcript for segments that are directly relevant:
+- Analyze the Post Transcript for segments that directly correspond to the codes in the codebook:
   ```json
   {post_transcript}
   ```
@@ -817,55 +817,63 @@ PHASE 3 (Deductive Codebook) Requirements:
 ### Analytical Assumptions and Considerations
 
 - **Quality Spectrum:**  
-  Aim for an analysis that’s compelling, nuanced, and insightful, while knowing interpretations can vary in depth.
+  Aim for an analysis that’s compelling, nuanced, and insightful, while acknowledging that interpretations can vary in depth.
 
 - **Deductive Orientation:**  
-  Your updated codebook needs to stick to the deductive framework from the given codebook. Codes have to line up with those pre-set theoretical constructs.
+  Your analysis must apply the codes from the given codebook to the transcript without introducing new codes. Each code used must be one that is already defined in the codebook.
 
 - **Focus of Meaning:**  
-  - **Semantic:** Grab the explicit, surface-level stuff.  
-  - **Latent:** Dig into the underlying, implicit meanings for extra depth.
+  - **Semantic:** Capture the explicit, surface-level meanings.  
+  - **Latent:** Explore the underlying, implicit meanings for additional depth.
 
 - **Theoretical Frameworks:**  
-  Think about both:  
-  - **Realist/Essentialist:** For nailing down objective truths in the data.  
-  - **Relativist/Constructionist:** For exploring how meaning’s socially constructed.
+  Consider both:  
+  - **Realist/Essentialist:** For identifying objective truths in the data.  
+  - **Relativist/Constructionist:** For exploring how meaning is socially constructed.
 
-### Deductive Codebook Remake:
-1. Update the given codebook with insights from analyzing the post_transcript.
-2. Tweak codes—update, add, or ditch entries as needed.
-3. Keep every code locked into the deductive approach.
-4. Clearly split semantic (surface) from latent (underlying) meanings.
-5. Don’t add in forced or generic codes that don’t fit.
+### Analysis Instructions:
+1. Review the post transcript and identify segments that directly relate to the codes in the given codebook.
+2. For each identified segment, associate it with the most appropriate code from the codebook.
+3. Provide a quote from the transcript, an explanation of how it relates to the code, and the exact code from the codebook.
+4. If no segments in the transcript correspond to any codes in the codebook, return an empty 'codes' array.
+5. Do not create new codes or modify existing ones; only use the codes as they are defined in the given codebook.
 
 ### Output Format:
-Spit out your output in clean, valid JSON like this:
+Provide your output in the following JSON format:
 
 ```json
 {{
   "codes": [
     {{
-      "quote": "Exact phrase from the transcript or given codebook.",
-      "explanation": "Explanation of the code and why it matters.",
-      "code": "Updated or new keyword/code.",
+      "quote": "Exact phrase from the transcript that corresponds to the code.",
+      "explanation": "Explanation of how the quote relates to the code.",
+      "code": "The exact code from the given codebook."
     }}
-    // More code objects if needed...
+    // Additional code objects if multiple segments are found...
   ]
 }}
 ```
 
-No additional text outside the JSON.
-"""
+If no relevant segments are found, return:
 
+```json
+{{
+  "codes": []
+}}
+```
+
+Ensure that every code used is present in the given codebook and that no new codes are introduced. No additional text outside the JSON.
+"""
 
 class TopicClustering:
     @staticmethod
     def begin_topic_clustering_prompt(words_json: str):
         return (
-            "Cluster the following distinct words into an appropriate number of topics. "
-            "Each word should be assigned to exactly one topic, and all words must be included in the output without duplication. "
-            "Determine the optimal number of topics based on the words provided. "
-            "Choose descriptive names for the topics that reflect the common theme or category of the words in each cluster. "
+            "Cluster the following distinct words into topics where each topic contains words that are very closely related in meaning, "
+            "such as synonyms or words representing the same specific concept. "
+            "Prefer creating more topics over grouping words that are not highly similar. "
+            "Determine the optimal number of topics based on this criterion. "
+            "Choose highly descriptive and specific names for the topics that precisely reflect the common category of the words in each cluster. "
             "Provide only the JSON output in the following format, wrapped in markdown code blocks (```json ... ```): "
             "{ \"topic1\": [\"word1\", \"word2\", ...], \"topic2\": [\"word3\", \"word4\", ...], ... }. "
             "Do not include any additional text or explanations. "
@@ -873,10 +881,11 @@ class TopicClustering:
         )
     
     def continuation_prompt_builder(current_clusters_keys: str, words_json: str):
-        return (
+        return(
             f"Given the existing topic names: {current_clusters_keys}, "
-            "assign the following distinct new words to the existing topics if they fit, "
-            "or create new topics with descriptive names if necessary. "
+            "assign the following distinct new words to the existing topics only if they clearly and precisely fit the specific category described by the topic name. "
+            "If a new word does not fit perfectly into any existing topic, create a new topic with a highly descriptive and specific name for it. "
+            "When in doubt, prefer creating a new topic rather than assigning a word to an existing topic where it doesn’t fit perfectly. "
             "Each new word should be assigned to exactly one topic, and all new words must be included in the output without duplication. "
             "Provide only the JSON output containing only the new words, in the following format, "
             "wrapped in markdown code blocks (```json ... ```): "

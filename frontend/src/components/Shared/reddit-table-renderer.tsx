@@ -1,17 +1,20 @@
 import { FC, useEffect, useState } from 'react';
 import PaginationControls from './pagination-control';
 import RedditTable from './reddit-table';
-import { RedditPosts } from '../../types/Coding/shared';
+import { RedditPosts, SetState } from '../../types/Coding/shared';
 import { useCollectionContext } from '../../context/collection-context';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useLoadingContext } from '../../context/loading-context';
 import { useLocation } from 'react-router-dom';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 type RedditTableRendererProps = {
     maxTableHeightClass?: string;
     maxContainerHeight?: string;
+    selectedData?: string[];
+    setSelectedData?: SetState<string[]>;
 };
 
 const useDebounce = (value: string, delay: number): string => {
@@ -25,7 +28,9 @@ const useDebounce = (value: string, delay: number): string => {
 
 const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     maxContainerHeight = 'min-h-page',
-    maxTableHeightClass
+    maxTableHeightClass,
+    selectedData = [],
+    setSelectedData = () => {}
 }) => {
     const [posts, setPosts] = useState<RedditPosts>({});
     const [totalCount, setTotalCount] = useState(0);
@@ -45,9 +50,9 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
     const location = useLocation();
     const { fetchData } = useApi();
-    const { selectedData, setSelectedData, datasetId, isLocked, setIsLocked } =
-        useCollectionContext();
+    const { datasetId, isLocked, setIsLocked } = useCollectionContext();
     const { checkIfDataExists, openModal, abortRequests, resetDataAfterPage } = useLoadingContext();
+    const { currentWorkspace } = useWorkspaceContext();
 
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const { scrollRef: tableRef } = useScrollRestoration(`validation-table-page-${currentPage}`);
@@ -65,6 +70,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         const batch = itemsPerPage;
 
         const requestBody = {
+            workspace_id: currentWorkspace!.id,
             dataset_id: datasetId,
             all: false,
             search_term: debouncedSearchTerm,
@@ -85,9 +91,11 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         if (response.error) {
             console.error('Error fetching posts:', response.error);
             setPosts({});
+            // setSelectedData([]);
             setTotalCount(0);
         } else {
             setPosts(response.data.posts || {});
+            // setSelectedData(response.data.selected_post_ids || []);
             setTotalCount(response.data.total_count || 0);
         }
         setIsLoading(false);
@@ -103,6 +111,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             : undefined;
 
         const requestBody = {
+            workspace_id: currentWorkspace!.id,
             dataset_id: datasetId,
             batch: 0,
             offset: 0,

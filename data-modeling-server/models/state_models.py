@@ -50,6 +50,7 @@ class CodingContext(BaseModel):
     sampled_post_ids: list = []
     unseen_post_ids: list = []
     conflicting_responses: list = []
+    initial_codebook: list = []
 
 class LoadingContext(BaseModel):
     page_state: dict = {}

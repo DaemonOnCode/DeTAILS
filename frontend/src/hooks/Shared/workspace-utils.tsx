@@ -75,7 +75,8 @@ const useWorkspaceUtils = () => {
                 unseen_post_response: codingContext.unseenPostResponse || [],
                 sampled_post_ids: codingContext.sampledPostIds || [],
                 unseen_post_ids: codingContext.unseenPostIds || [],
-                conflicting_responses: codingContext.conflictingResponses || []
+                conflicting_responses: codingContext.conflictingResponses || [],
+                initial_codebook: codingContext.initialCodebookTable || {}
             },
             loading_context: {
                 page_state:
@@ -187,7 +188,8 @@ const useWorkspaceUtils = () => {
             unplacedSubCodes: data.unplaced_subcodes ?? [],
             sampledPostIds: data.sampled_post_ids ?? [],
             unseenPostIds: data.unseen_post_ids ?? [],
-            conflictingResponses: data.conflicting_responses ?? []
+            conflictingResponses: data.conflicting_responses ?? [],
+            initialCodebookTable: data.initial_codebook ?? []
         });
 
         loadingContext.updateContext({

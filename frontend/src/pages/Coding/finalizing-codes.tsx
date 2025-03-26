@@ -270,8 +270,8 @@ const FinalzingCodes = () => {
                     code: getGroupedCodeOfSubCode(r.code, groupedCodes),
                     quote: r.quote,
                     explanation: r.explanation,
-                    comment: r.comment
-                    // subCode: r.code
+                    comment: r.comment,
+                    subCode: r.code
                 })),
                 sampled_post_responses: sampledPostResponse.map((r) => ({
                     postId: r.postId,
@@ -279,8 +279,8 @@ const FinalzingCodes = () => {
                     code: getGroupedCodeOfSubCode(r.code, groupedCodes),
                     quote: r.quote,
                     explanation: r.explanation,
-                    comment: r.comment
-                    // subCode: r.code
+                    comment: r.comment,
+                    subCode: r.code
                 }))
             })
         });
@@ -313,7 +313,11 @@ const FinalzingCodes = () => {
             type: 'SET_LOADING_ROUTE',
             route: PAGE_ROUTES.FINALIZING_CODES
         });
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
+        navigate(
+            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                text: 'Finalizing codes'
+            })
+        );
 
         const { data: results, error } = await fetchLLMData<{
             message: string;

@@ -30,7 +30,10 @@ const RedditTable: FC<RedditTableProps> = ({
                             {!isLoading && (
                                 <input
                                     type="checkbox"
-                                    onChange={() => toggleSelectPage(data)}
+                                    onChange={(e) => {
+                                        e.stopPropagation();
+                                        toggleSelectPage(data);
+                                    }}
                                     checked={areAllPagePostsSelected}
                                     disabled={isLocked}
                                 />

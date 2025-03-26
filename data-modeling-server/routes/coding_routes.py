@@ -9,21 +9,18 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 import numpy as np
 import pandas as pd
-from sympy import fu
 
-from config import Settings
-import config
-from constants import RANDOM_SEED
-from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_with_llm
+from config import Settings, CustomSettings
+from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
 from controllers.collection_controller import get_reddit_post_by_id
 from headers.app_id import get_app_id
-from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, ThemeGenerationRequest
-from models.table_dataclasses import CodebookType, GenerationType, ResponseCreatorType
+from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
+from models.table_dataclasses import CodebookType, GenerationType, ResponseCreatorType, SelectedPostId
 from routes.websocket_routes import manager
-from database import FunctionProgressRepository, QECTRepository
+from database import FunctionProgressRepository, QectRepository, SelectedPostIdsRepository
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
-from models import FunctionProgress, QECTResponse
+from models import FunctionProgress, QectResponse
 from database.db_helpers import get_post_and_comments_from_id
 from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GenerateCodebookWithoutQuotes, GenerateDeductiveCodesFromCodebook, GroupCodes, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
 
@@ -32,11 +29,18 @@ router = APIRouter(dependencies=[Depends(get_app_id)])
 settings = Settings()
 
 function_progress_repo = FunctionProgressRepository()
-qect_repo = QECTRepository()
+qect_repo = QectRepository()
+selected_post_ids_repo = SelectedPostIdsRepository()
+
+@router.post("/get-selected-post-ids")
+async def get_selected_post_ids_endpoint(
+    request_body: SelectedPostIdsRequest
+):
+    return selected_post_ids_repo.find({"dataset_id": request_body.dataset_id})
 
 @router.post("/sample-posts")
 async def sample_posts_endpoint(request_body: SamplePostsRequest):
-    settings = config.CustomSettings()
+    settings = CustomSettings()
 
     if (request_body.sample_size <= 0 or 
         request_body.dataset_id == "" or 
@@ -48,6 +52,11 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
     post_ids = request_body.post_ids
     sample_size = request_body.sample_size
     divisions = request_body.divisions
+    workspace_id = request_body.workspace_id
+
+    if len(selected_post_ids_repo.find({"dataset_id": dataset_id}))!=0:
+        selected_post_ids_repo.delete({"dataset_id": dataset_id})
+
 
     sem = asyncio.Semaphore(os.cpu_count())
 
@@ -174,6 +183,40 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
         group_names = [f"group_{i+1}" for i in range(divisions)]
 
     result = {group_names[i]: groups[i] for i in range(divisions)}
+
+    if result.get("sampled"):
+        selected_post_ids_repo.insert_batch(
+            list(map(
+                lambda post_id: SelectedPostId(
+                    dataset_id=dataset_id,
+                    post_id=post_id,
+                    type="sampled"
+                ),
+                result["sampled"]
+            ))
+        )
+    if result.get("unseen"):
+        selected_post_ids_repo.insert_batch(
+            list(map(
+                lambda post_id: SelectedPostId(
+                    dataset_id=dataset_id,
+                    post_id=post_id,
+                    type="unseen"
+                ),
+                result["unseen"]
+            ))
+        )
+    if result.get("test"):
+        selected_post_ids_repo.insert_batch(
+            list(map(
+                lambda post_id: SelectedPostId(
+                    dataset_id=dataset_id,
+                    post_id=post_id,
+                    type="test"
+                ),
+                result["test"]
+            ))
+        )
     return result
 
 @router.post("/build-context-from-topic")
@@ -699,7 +742,7 @@ async def deductive_coding_endpoint(
 async def theme_generation_endpoint(
     request: Request,
     request_body: ThemeGenerationRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager) 
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -710,8 +753,10 @@ async def theme_generation_endpoint(
 
     llm, _ = get_llm_and_embeddings(request_body.model)
 
+    # Combine sampled and unseen responses
     rows = request_body.sampled_post_responses + request_body.unseen_post_responses
 
+    # Group responses by code
     grouped_qec = defaultdict(list)
     for row in rows:
         grouped_qec[row["code"]].append({
@@ -719,13 +764,27 @@ async def theme_generation_endpoint(
             "explanation": row["explanation"]
         })
 
+    # Summarize explanations for each code
+    summaries = await summarize_codebook_explanations(
+        responses=rows,  # Pass the raw responses
+        llm_model=request_body.model,
+        app_id=app_id,
+        dataset_id=dataset_id,
+        manager=manager,
+        llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
+        max_input_tokens=128000  # Adjust based on your model's token limit
+    )
+
+    # Create a table with codes and their summarized explanations
     qec_table = [
-        {"code": code, "instances": instances}
-        for code, instances in grouped_qec.items()
+        {"code": code, "summary": summaries[code]}
+        for code in summaries
     ]
 
     print(qec_table)
 
+    # Generate themes using the summarized explanations
     parsed_response = await process_llm_task(
         app_id=app_id,
         dataset_id=dataset_id,
@@ -735,12 +794,13 @@ async def theme_generation_endpoint(
         prompt_builder_func=ThemeGeneration.theme_generation_prompt,
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
-        qec_table=json.dumps({"codes": qec_table}), 
-        unique_codes = json.dumps(list(grouped_qec.keys()))
+        qec_table=json.dumps({"codes": qec_table}),  # Pass summarized data
+        unique_codes=json.dumps(list(summaries.keys()))
     )
 
     print(parsed_response)
 
+    # Process the response
     if isinstance(parsed_response, list):
         parsed_response = {"themes": parsed_response}
 
@@ -748,8 +808,9 @@ async def theme_generation_endpoint(
     for theme in themes:
         theme["id"] = str(uuid4())
 
+    # Identify placed and unplaced codes
     placed_codes = {code for theme in themes for code in theme["codes"]}
-    unplaced_codes = list(set(row["code"] for row in qec_table) - placed_codes)
+    unplaced_codes = list(set(summaries.keys()) - placed_codes)
 
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation completed.")
 
@@ -835,6 +896,20 @@ async def generate_codes_endpoint(request: Request,
         final_results = []
         function_id = str(uuid4())
 
+        summarized_codebook_dict = await summarize_codebook_explanations(
+            responses=request_body.codebook,
+            llm_model=request_body.model,
+            app_id=app_id,
+            dataset_id=dataset_id,
+            manager=manager,
+            llm_instance=llm,
+            llm_queue_manager=llm_queue_manager,
+            max_input_tokens=128000  # Adjust based on your LLM's token limit
+        )
+        # Convert dictionary back to list of dictionaries
+        summarized_codebook = [{"code": code, "explanation": summary} 
+                              for code, summary in summarized_codebook_dict.items()]
+
         async def process_post(post_id: str):
             try:
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
@@ -859,7 +934,7 @@ async def generate_codes_endpoint(request: Request,
                     keyword_table=json.dumps(request_body.keyword_table),
                     function_id=function_id,
                     post_transcript=transcript,
-                    current_codebook=json.dumps(request_body.codebook),
+                    current_codebook=json.dumps(summarized_codebook),
                     feedback = request_body.feedback,
                     store_response=True,
                     cacheable_args={
@@ -985,6 +1060,19 @@ async def redo_deductive_coding_endpoint(
         posts = request_body.unseen_post_ids
         llm, _ = get_llm_and_embeddings(request_body.model)
 
+        summarized_current_codebook_dict = await summarize_codebook_explanations(
+            responses=request_body.current_codebook,
+            llm_model=request_body.model,
+            app_id=app_id,
+            dataset_id=dataset_id,
+            manager=manager,
+            llm_instance=llm,
+            llm_queue_manager=llm_queue_manager,
+            max_input_tokens=128000
+        )
+        summarized_current_codebook = [{"code": code, "explanation": summary} 
+                                      for code, summary in summarized_current_codebook_dict.items()]
+
         async def process_post(post_id: str):
             await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
             post_data = get_post_and_comments_from_id(post_id, dataset_id)
@@ -1008,7 +1096,7 @@ async def redo_deductive_coding_endpoint(
                 additional_info=request_body.additional_info,
                 research_questions=json.dumps(request_body.research_questions),
                 post_transcript=transcript,
-                current_codebook=json.dumps(request_body.current_codebook),
+                current_codebook=json.dumps(summarized_current_codebook),
                 store_response=True,
                 cacheable_args={
                     "args":[],
@@ -1276,6 +1364,7 @@ async def generate_deductive_codes_endpoint(
                 code["id"] = str(uuid4())
 
             codes = filter_codes_by_transcript(codes, transcript)
+            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.MANUAL.value)
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 

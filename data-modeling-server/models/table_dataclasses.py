@@ -101,7 +101,7 @@ class WorkspaceState(BaseDataclass):
     workspace_id: str = field(metadata={"primary_key": True})
     
     # Collection Context
-    dataset_id: Optional[str] = None
+    dataset_id: Optional[str] = field(metadata={"foreign_key": "datasets(id)"})
     mode_input: Optional[str] = None
     selected_data : Optional[str] = None
     metadata: Optional[str] = None
@@ -116,21 +116,22 @@ class WorkspaceState(BaseDataclass):
     main_topic: Optional[str] = None
     additional_info: Optional[str] = None
     context_files: Optional[str] = None  # JSON string for dict
+    research_questions: Optional[str] = None  # JSON string for list
     keywords: Optional[str] = None  # JSON string for list
     selected_keywords: Optional[str] = None  # JSON string for list
     keyword_table: Optional[str] = None  # JSON string for list
     references_data: Optional[str] = None  # JSON string for dict
-    themes: Optional[str] = None  # JSON string for list
-    grouped_codes: Optional[str] = None  # JSON string for list
-    research_questions: Optional[str] = None  # JSON string for list
-    sampled_post_responses: Optional[str] = None  # JSON string for list
-    sampled_post_with_themes_responses: Optional[str] = None  # JSON string for list
-    unseen_post_response: Optional[str] = None  # JSON string for list
-    unplaced_codes: Optional[str] = None  # JSON string for list
-    unplaced_subcodes: Optional[str] = None  # JSON string for list
     sampled_post_ids: Optional[str] = None  # JSON string for list
     unseen_post_ids: Optional[str] = None  # JSON string for list
+    sampled_post_responses: Optional[str] = None  # JSON string for list
+    unseen_post_response: Optional[str] = None  # JSON string for list
+    grouped_codes: Optional[str] = None  # JSON string for list
+    unplaced_subcodes: Optional[str] = None  # JSON string for list
+    themes: Optional[str] = None  # JSON string for list
+    unplaced_codes: Optional[str] = None  # JSON string for list
+    sampled_post_with_themes_responses: Optional[str] = None  # JSON string for list
     conflicting_responses: Optional[str] = None  # JSON string for list
+    initial_codebook: Optional[str] = None  # JSON string for dict
 
     # Loading Context
     page_state: Optional[str] = None
@@ -142,6 +143,44 @@ class WorkspaceState(BaseDataclass):
 
     # Metadata
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
+
+
+@dataclass
+class SelectedPostId(BaseDataclass):
+    dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
+    post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
+    type: str = field(metadata={"not_null": True})  # "sampled" or "unseen" or "test"
+
+@dataclass
+class Theme(BaseDataclass):
+    id: str = field(metadata={"primary_key": True})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
+    name: str = field(metadata={"not_null": True})
+    description: Optional[str] = None
+
+@dataclass
+class ThemeCode(BaseDataclass):
+    theme_id: str = field(metadata={"primary_key": True, "foreign_key": "themes(id)"})
+    code_id: str = field(metadata={"primary_key": True, "foreign_key": "grouped_codes(id)"})
+
+@dataclass
+class GroupedCode(BaseDataclass):
+    id: str = field(metadata={"primary_key": True})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
+    name: str = field(metadata={"not_null": True})
+    description: Optional[str] = None
+
+@dataclass
+class GroupedCodeSubcode(BaseDataclass):
+    grouped_code_id: str = field(metadata={"primary_key": True, "foreign_key": "grouped_codes(id)"})
+    subcode_id: str = field(metadata={"foreign_key": "subcodes(id)", "primary_key": True})
+
+@dataclass
+class Subcode(BaseDataclass):
+    id: str = field(metadata={"primary_key": True})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
+    name: str = field(metadata={"not_null": True})
+    description: Optional[str] = None
 
 @dataclass
 class Rule(BaseDataclass):
@@ -347,21 +386,24 @@ class ResponseCreatorType(Enum):
 class CodebookType(Enum):
     INITIAL = "initial"
     DEDUCTIVE = "deductive"
+    MANUAL = "manual"
 
 @dataclass
-class QECTResponse(BaseDataclass):
+class QectResponse(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
     generation_type: str = field(metadata={"not_null": True})
     dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
     model: str = field(metadata={"not_null": True})
     quote: str = field(metadata={"not_null": True})
-    code: str = field(metadata={"not_null": True})
+    code: str = field(metadata={"foreign_key": "subcodes(id)", "not_null": True})
     explanation: str = field(metadata={"not_null": True})
     post_id: str = field(metadata={"foreign_key": "posts(id)"})
     codebook_type: str = field(metadata={"not_null": True})
     response_type: str = field(metadata={"not_null": True})
-    chat_history: Optional[str] = None
+    theme_id: Optional[str] = field(metadata={"foreign_key": "themes(id)"}, default=None)
+    grouped_code_id: Optional[str] = field(metadata={"foreign_key": "grouped_codes(id)"}, default=None)
+    chat_history: Optional[str] = field(default="[]")
     created_at: Optional[datetime] = field(default_factory=datetime.now)
     is_marked: Optional[bool] = field(default=True)
 

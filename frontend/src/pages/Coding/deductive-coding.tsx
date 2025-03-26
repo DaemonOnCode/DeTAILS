@@ -211,19 +211,19 @@ const DeductiveCodingPage = () => {
         {
             target: '#unified-coding-page',
             content:
-                'This area shows your unified coding interface with all your posts and coding responses for Deductive coding.',
+                'This area shows your unified coding interface with all your posts and coding responses for Final coding.',
             placement: 'bottom'
         },
         {
             target: '#coding-controls',
             content:
-                'Use these controls to download the generated deductive codes or toggle review mode for coding responses.',
+                'Use these controls to download the generated final codes or toggle review mode for coding responses.',
             placement: 'bottom'
         },
         {
             target: '#redo-coding-btn',
             content:
-                'Use this button to redo deductive coding based on the previously generated codes and some optional feedback.',
+                'Use this button to redo final coding based on the previously generated codes and some optional feedback.',
             placement: 'top'
         },
         {

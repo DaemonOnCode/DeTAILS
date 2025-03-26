@@ -223,21 +223,15 @@ class GlobalQueueManager:
                                         full_args.append(variable_args[var_idx])
                                         var_idx += 1
 
-                                # Reconstruct full kwargs: combine cached and variable kwargs
                                 full_kwargs = {**cached_kwargs, **variable_kwargs}
 
-                                # If prompt_builder_func exists in cached kwargs, apply it
                                 if "prompt_builder_func" in cached_kwargs:
                                     prompt_builder_func = cached_kwargs["prompt_builder_func"]
-                                    # Ensure prompt_builder_func is callable to avoid runtime errors
                                     if not callable(prompt_builder_func):
                                         raise ValueError("prompt_builder_func must be a callable function")
-                                    # Call prompt_builder_func with the reconstructed arguments
                                     full_kwargs.pop("prompt_builder_func", None)
                                     prompt_text = prompt_builder_func(*full_args, **full_kwargs)
-                                    # Use prompt_text as the first argument for the main function
                                     full_args = [prompt_text] + full_args
-                                    # Remove prompt_builder_func from full_kwargs
 
                                 args_tuple = tuple(full_args)
                             except json.JSONDecodeError as e:

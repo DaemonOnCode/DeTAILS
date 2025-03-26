@@ -13,7 +13,7 @@ from transmission_rpc import Client, Torrent, File as TorrentFile
 
 import config
 from constants import DATASETS_DIR, PATHS, UPLOAD_DIR
-from database import DatasetsRepository, CommentsRepository, PostsRepository, PipelineStepsRepository, FileStatusRepository, TorrentDownloadProgressRepository
+from database import DatasetsRepository, CommentsRepository, PostsRepository, PipelineStepsRepository, FileStatusRepository, TorrentDownloadProgressRepository, SelectedPostIdsRepository
 from decorators.execution_time_logger import log_execution_time
 from models import Dataset, Comment, Post, TorrentDownloadProgress
 from models.table_dataclasses import FileStatus
@@ -31,6 +31,7 @@ dataset_repo = DatasetsRepository()
 pipeline_repo = PipelineStepsRepository()
 file_repo = FileStatusRepository()
 progress_repo = TorrentDownloadProgressRepository()
+selected_post_ids_repo = SelectedPostIdsRepository()
 
 def get_current_download_dir():
     with open(PATHS["settings"], "r") as f:
@@ -362,7 +363,7 @@ def get_reddit_posts_by_batch(
     hide_removed: bool = False,
     page: int = 1,
     items_per_page: int = 10,
-    get_all_ids: bool = False  # Add this new parameter
+    get_all_ids: bool = False
 ):
     params = [dataset_id]
     if hide_removed:
@@ -415,14 +416,12 @@ def get_reddit_posts_by_batch(
         base_query += " AND p.created_utc <= ?"
         params.append(end_time)
 
-    # Handle the get_all_ids case
     if get_all_ids:
         id_query = base_query.replace("SELECT p.id, p.*", "SELECT p.id")  # Only select IDs
         ids = post_repo.execute_raw_query(id_query, params, keys=True)
         post_ids = [post["id"] for post in ids]
         return {"post_ids": post_ids}
 
-    # Existing logic for non-get_all_ids case
     count_query = f"SELECT COUNT(*) FROM ({base_query}) as count_subquery"
     total_count = post_repo.execute_raw_query(count_query, params).fetchone()[0]
 
@@ -435,10 +434,13 @@ def get_reddit_posts_by_batch(
 
     posts = post_repo.execute_raw_query(base_query, params, keys=True)
     posts_dict = {post["id"]: post for post in posts}
-
+    selected_post_ids = selected_post_ids_repo.find({"dataset_id": dataset_id}, columns=["post_id"], map_to_model=False)
+    # total_selected_post_ids = selected_post_ids_repo.count({"dataset_id": dataset_id})
     return {
         "posts": posts_dict,
-        "total_count": total_count
+        "total_count": total_count,
+        "selected_post_ids": [post["post_id"] for post in selected_post_ids],
+        # "total_selected_post_ids": total_selected_post_ids
     }
 
 def get_reddit_post_titles(dataset_id: str):

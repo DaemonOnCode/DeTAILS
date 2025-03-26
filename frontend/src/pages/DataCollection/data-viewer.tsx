@@ -32,7 +32,8 @@ import { useWorkspaceContext } from '../../context/workspace-context';
 import { useManualCodingContext } from '../../context/manual-coding-context';
 
 const DataViewerPage = () => {
-    const { type, datasetId, selectedData, modeInput, isLocked } = useCollectionContext();
+    const { type, datasetId, selectedData, setSelectedData, modeInput, isLocked } =
+        useCollectionContext();
     const [searchParams] = useSearchParams();
     const datasetType = searchParams.get('type') ?? modeInput.split(':')[0];
     const navigate = useNavigate();
@@ -54,6 +55,7 @@ const DataViewerPage = () => {
     const location = useLocation();
     const { currentWorkspace } = useWorkspaceContext();
     const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
+    // const [selectedData, setSelectedData] = useState<string[]>([]);
 
     const postIds: string[] = selectedData;
     const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD && isLocked;
@@ -65,12 +67,20 @@ const DataViewerPage = () => {
             if (inputSplits.length && inputSplits[0] === 'reddit') {
                 if (inputSplits[1] === 'torrent') {
                     if (inputSplits[3] === 'files') {
-                        navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
+                        navigate(
+                            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                                text: 'Loading data'
+                            })
+                        );
                     } else {
                         navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
                     }
                 } else {
-                    navigate(getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER));
+                    navigate(
+                        getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                            text: 'Loading data'
+                        })
+                    );
                 }
             }
         } else {
@@ -154,6 +164,7 @@ const DataViewerPage = () => {
         >(REMOTE_SERVER_ROUTES.SAMPLE_POSTS, {
             method: 'POST',
             body: JSON.stringify({
+                workspace_id: currentWorkspace!.id,
                 dataset_id: datasetId,
                 post_ids: postIds,
                 divisions: settings.general.manualCoding ? 3 : 2
@@ -275,7 +286,12 @@ const DataViewerPage = () => {
                 excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}`}>
                 <div className="h-page flex flex-col">
                     <main id="viewer-main" className="flex-1 overflow-hidden">
-                        {isDataLoaded && <RedditTableRenderer />}
+                        {isDataLoaded && (
+                            <RedditTableRenderer
+                                selectedData={selectedData}
+                                setSelectedData={setSelectedData}
+                            />
+                        )}
                     </main>
                     <footer id="bottom-navigation">
                         <NavigationBottomBar

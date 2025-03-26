@@ -127,7 +127,7 @@ const DeductiveCoding = () => {
         <div className="flex flex-col h-page px-4">
             <div className="flex-grow flex justify-center items-center">
                 <div className="bg-white shadow-lg p-6 rounded-lg w-full max-w-3xl text-left border">
-                    <h2 className="text-2xl font-semibold mb-2">🔍 Deductive Coding in Progress</h2>
+                    <h2 className="text-2xl font-semibold mb-2">🔍 Final Coding in Progress</h2>
                     <p className="mb-4">
                         {postsFinished}/{unseenPostIds.length} completed. Please wait, this may take
                         a moment...

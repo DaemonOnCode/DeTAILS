@@ -1,11 +1,12 @@
 import asyncio
+from collections import defaultdict
 from datetime import datetime
 import json
 import os
 import re
 import shutil
 import time
-from typing import Any, Dict, List, Optional, Sequence, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Type, Union
 from uuid import UUID, uuid4
 
 from chromadb import HttpClient
@@ -22,11 +23,11 @@ import config
 from chromadb.config import Settings as ChromaDBSettings
 from constants import CONTEXT_FILES_DIR, PATHS, RANDOM_SEED
 from controllers.miscellaneous_controller import get_credential_path
-from database.qect_table import QECTRepository
+from database.qect_table import QectRepository
 from decorators import log_execution_time
 from errors.credential_errors import MissingCredentialError
 from errors.vertex_ai_errors import InvalidGenAIModelError, InvalidTextEmbeddingError
-from models.table_dataclasses import GenerationType, LlmResponse, QECTResponse, ResponseCreatorType
+from models.table_dataclasses import GenerationType, LlmResponse, QectResponse, ResponseCreatorType
 from routes.websocket_routes import ConnectionManager, manager
 
 from langchain.prompts import PromptTemplate
@@ -48,7 +49,7 @@ from database.db_helpers import get_post_and_comments_from_id
 from utils.prompts_v2 import TopicClustering
 
 llm_responses_repo = LlmResponsesRepository()
-qect_repo = QECTRepository()
+qect_repo = QectRepository()
 
 
 def get_temperature_and_random_seed():
@@ -626,7 +627,7 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
     qect_repo.insert_batch(
        list(
             map(
-                lambda code: QECTResponse(
+                lambda code: QectResponse(
                     id=code["id"],
                     generation_type=GenerationType.INITIAL.value,
                     dataset_id=dataset_id,
@@ -863,6 +864,7 @@ async def cluster_words_with_llm(
 def get_num_tokens(text: str, llm_instance: Any) -> int:
     return llm_instance.get_num_tokens(text)
 
+
 async def summarize_with_llm(
     texts: List[str],
     llm_model: str,
@@ -871,63 +873,63 @@ async def summarize_with_llm(
     manager: Any,
     llm_instance: Any,
     llm_queue_manager: Any,
+    prompt_builder_func: Callable[[Dict[str, Any]], str],
     store_response: bool = False,
-    max_input_tokens: int = 128_000,
+    max_input_tokens: int = 128000,
     retries: int = 3,
     **kwargs
 ) -> str:
     """
-    Summarizes an array of text using batched summarization with a language model.
-    
+    Summarize a list of texts, handling batching and recursion if token limit is exceeded.
+
     Args:
         texts: List of text strings to summarize.
-        llm_model: The language model to use.
-        app_id: Application identifier.
-        dataset_id: Dataset identifier.
-        manager: Connection manager instance.
-        llm_instance: Language model instance.
-        llm_queue_manager: Queue manager for LLM tasks.
-        store_response: Whether to store the LLM response (default: False).
-        max_input_tokens: Maximum number of tokens allowed in the input prompt (default: 3000).
-        retries: Number of retries for LLM task processing (default: 3).
-        **kwargs: Additional keyword arguments for process_llm_task.
-    
+        llm_model: Identifier for the language model.
+        app_id, dataset_id: Identifiers for application and dataset.
+        manager, llm_instance, llm_queue_manager: LLM-related objects.
+        prompt_builder_func: Function to build the prompt, taking **params.
+        store_response: Whether to store intermediate responses.
+        max_input_tokens: Maximum input tokens allowed for the LLM.
+        retries: Number of retries for LLM tasks.
+        **kwargs: Additional arguments passed to prompt_builder_func and process_llm_task.
+
     Returns:
-        A single string containing the final summary.
+        A single concise summary string.
     """
-    # Helper function to build chunks based on token limit
+    if not texts:
+        return ""
+
+    # Build chunks based on token limit
     def build_chunk(texts: List[str], max_tokens: int, llm_instance: Any) -> tuple[List[str], List[str]]:
-        fixed_prompt = "Summarize the following text:\n\n"
-        fixed_prompt_tokens = get_num_tokens(fixed_prompt, llm_instance)
-        separator = "\n\n"
-        separator_tokens = get_num_tokens(separator, llm_instance)
         chunk = []
-        current_tokens = fixed_prompt_tokens
-        
+        current_tokens = 0
+        # Estimate fixed prompt tokens with empty texts
+        dummy_params = {**kwargs, 'texts': []}
+        fixed_prompt = prompt_builder_func(**dummy_params)
+        fixed_prompt_tokens = llm_instance.get_num_tokens(fixed_prompt)
+        separator = "\n\n"
+        separator_tokens = llm_instance.get_num_tokens(separator)
+
         for text in texts:
-            text_tokens = get_num_tokens(text, llm_instance)
-            additional_tokens = text_tokens if not chunk else separator_tokens + text_tokens
-            if current_tokens + additional_tokens > max_tokens:
+            text_tokens = llm_instance.get_num_tokens(text)
+            additional_tokens = separator_tokens + text_tokens if chunk else text_tokens
+            if fixed_prompt_tokens + current_tokens + additional_tokens > max_tokens:
                 break
             chunk.append(text)
             current_tokens += additional_tokens
-        
-        return chunk, texts[len(chunk):]
 
-    # Helper function to summarize a single chunk
+        remaining = texts[len(chunk):]
+        return chunk, remaining
+
+    # Summarize a single chunk
     async def summarize_chunk(chunk: List[str]) -> str:
-        def prompt_builder(**params) -> str:
-            texts = params['texts']
-            concatenated_text = "\n\n".join(texts)
-            return "Summarize the following text:\n\n" + concatenated_text
-        
         summary = await process_llm_task(
             app_id=app_id,
             dataset_id=dataset_id,
             manager=manager,
             llm_model=llm_model,
-            regex_pattern=None,  # No extraction needed, expecting raw text response
-            prompt_builder_func=prompt_builder,
+            regex_pattern=None,
+            prompt_builder_func=prompt_builder_func,
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
             store_response=store_response,
@@ -937,33 +939,99 @@ async def summarize_with_llm(
         )
         return summary
 
-    # Divide texts into chunks
-    chunks = []
+    # Process texts in batches
     remaining_texts = texts
+    summaries = []
     while remaining_texts:
         chunk, remaining_texts = build_chunk(remaining_texts, max_input_tokens, llm_instance)
-        chunks.append(chunk)
-
-    # Summarize each chunk
-    summaries = []
-    for chunk in chunks:
+        if not chunk:
+            break  # Prevent infinite loop if a text exceeds limit
         summary = await summarize_chunk(chunk)
         summaries.append(summary)
 
-    # If only one summary, return it; otherwise, recursively summarize the summaries
+    # Return single summary or recurse
     if len(summaries) == 1:
         return summaries[0]
-    else:
-        return await summarize_with_llm(
-            summaries,
-            llm_model,
-            app_id,
-            dataset_id,
-            manager,
-            llm_instance,
-            llm_queue_manager,
-            store_response,
-            max_input_tokens,
-            retries,
+    return await summarize_with_llm(
+        summaries,
+        llm_model,
+        app_id,
+        dataset_id,
+        manager,
+        llm_instance,
+        llm_queue_manager,
+        prompt_builder_func=prompt_builder_func,
+        store_response=store_response,
+        max_input_tokens=max_input_tokens,
+        retries=retries,
+        **kwargs
+    )
+
+async def summarize_codebook_explanations(
+    responses: List[Dict[str, Any]],
+    llm_model: str,
+    app_id: str,
+    dataset_id: str,
+    manager: Any,
+    llm_instance: Any,
+    llm_queue_manager: Any,
+    max_input_tokens: int = 128000,
+    **kwargs
+) -> Dict[str, str]:
+    """
+    Summarize explanations for each code in a codebook, handling large inputs with batching.
+
+    Args:
+        responses: List of dictionaries with 'code' and 'explanation' keys.
+        llm_model: Identifier for the language model.
+        app_id, dataset_id: Identifiers for application and dataset.
+        manager, llm_instance, llm_queue_manager: LLM-related objects.
+        max_input_tokens: Maximum input tokens allowed for the LLM.
+        **kwargs: Additional arguments passed to summarize_with_llm.
+
+    Returns:
+        Dictionary mapping each code to its summarized explanation.
+    """
+
+    # Group explanations by code
+    grouped_explanations = defaultdict(list)
+    for response in responses:
+        code = response['code']
+        explanation = response['explanation']
+        grouped_explanations[code].append(explanation)
+
+    # Define prompt builder including the code
+    def prompt_builder(**params) -> str:
+        texts = params['texts']
+        code = params['code']
+        concatenated_text = "\n\n".join(texts)
+        return f"Provide a concise summary of the following explanations for the code '{code}':\n\n{concatenated_text}"
+
+    # Get the list of unique codes
+    codes = list(grouped_explanations.keys())
+
+    # Create tasks for all codes to run concurrently
+    tasks = [
+        asyncio.create_task(summarize_with_llm(
+            texts=grouped_explanations[code],
+            llm_model=llm_model,
+            app_id=app_id,
+            dataset_id=dataset_id,
+            manager=manager,
+            llm_instance=llm_instance,
+            llm_queue_manager=llm_queue_manager,
+            prompt_builder_func=prompt_builder,
+            code=code,
+            max_input_tokens=max_input_tokens,
             **kwargs
-        )
+        ))
+        for code in codes
+    ]
+
+    # Queue all tasks and wait for them to complete
+    summaries_list = await asyncio.gather(*tasks)
+
+    # Map summaries to their respective codes
+    summaries = dict(zip(codes, summaries_list))
+
+    return summaries
