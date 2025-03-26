@@ -1280,20 +1280,27 @@ async def generate_codebook_without_quotes_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
-
     llm, _ = get_llm_and_embeddings(request_body.model)
 
-
+    # Combine sampled and unseen responses
     rows = request_body.sampled_post_responses + request_body.unseen_post_responses
 
-    grouped_ec = {}
-    for row in rows:
-        if row["code"] not in grouped_ec:
-            grouped_ec[row["code"]] = []
-        grouped_ec[row["code"]].append(row["explanation"])
+    # Summarize the explanations for each code
+    summarized_dict = await summarize_codebook_explanations(
+        responses=rows,
+        llm_model=request_body.model,
+        app_id=app_id,
+        dataset_id=dataset_id,
+        manager=manager,
+        llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
+        max_input_tokens=128000  # Adjust based on model's token limit
+    )
 
-    print(grouped_ec, "grouped_ec") 
+    # Convert summaries to the expected format: {code: [summary]}
+    summarized_grouped_ec = {code: [summary] for code, summary in summarized_dict.items()}
 
+    # Generate the codebook using the summarized explanations
     parsed_response = await process_llm_task(
         app_id=app_id,
         dataset_id=dataset_id,
@@ -1303,10 +1310,8 @@ async def generate_codebook_without_quotes_endpoint(
         prompt_builder_func=GenerateCodebookWithoutQuotes.generate_codebook_without_quotes_prompt,
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
-        codes=json.dumps(grouped_ec)
+        codes=json.dumps(summarized_grouped_ec)  # Pass summarized data
     )
-
-    # print(parsed_response)
 
     return {
         "message": "Codebook generated successfully!",

@@ -866,23 +866,25 @@ class TopicClustering:
     @staticmethod
     def begin_topic_clustering_prompt(words_json: str):
         return (
-            "Cluster the following distinct words into topics where each topic contains words that are very closely related in meaning, "
-            "such as synonyms or words representing the same specific concept. "
-            "Prefer creating more topics over grouping words that are not highly similar. "
-            "Determine the optimal number of topics based on this criterion. "
+            "Cluster the following distinct words into topics where each topic contains words that are closely related in meaning, "
+            "such as synonyms or words representing the same concept. "
+            "Aim to create a moderate number of topics, balancing between having too many fine-grained topics and too few overly broad ones. "
+            "Group words that share a common theme or meaning, even if not perfectly synonymous, to achieve fewer topics overall. "
             "Choose highly descriptive and specific names for the topics that precisely reflect the common category of the words in each cluster. "
             "Provide only the JSON output in the following format, wrapped in markdown code blocks (```json ... ```): "
             "{ \"topic1\": [\"word1\", \"word2\", ...], \"topic2\": [\"word3\", \"word4\", ...], ... }. "
             "Do not include any additional text or explanations. "
             "Here are the words to cluster in JSON format: " + words_json
         )
-    
+
+    @staticmethod
     def continuation_prompt_builder(current_clusters_keys: str, words_json: str):
-        return(
+        return (
             f"Given the existing topic names: {current_clusters_keys}, "
-            "assign the following distinct new words to the existing topics only if they clearly and precisely fit the specific category described by the topic name. "
-            "If a new word does not fit perfectly into any existing topic, create a new topic with a highly descriptive and specific name for it. "
-            "When in doubt, prefer creating a new topic rather than assigning a word to an existing topic where it doesn’t fit perfectly. "
+            "assign the following distinct new words to the existing topics if they are likely to belong based on the topic name, "
+            "grouping words that share a common theme or meaning with the topic. "
+            "Only create a new topic if a word does not relate to any existing topic names. "
+            "When in doubt, prefer assigning to an existing topic rather than creating a new one. "
             "Each new word should be assigned to exactly one topic, and all new words must be included in the output without duplication. "
             "Provide only the JSON output containing only the new words, in the following format, "
             "wrapped in markdown code blocks (```json ... ```): "

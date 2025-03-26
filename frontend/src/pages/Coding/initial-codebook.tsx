@@ -17,6 +17,8 @@ import { createTimer } from '../../utility/timer';
 import { useSettings } from '../../context/settings-context';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
+import { useUndo } from '../../hooks/Shared/use-undo';
+import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 
 const InitialCodeBook = () => {
     const {
@@ -32,6 +34,7 @@ const InitialCodeBook = () => {
     } = useCodingContext();
 
     const location = useLocation();
+    const { performWithUndoForReducer } = useUndo();
 
     const logger = useLogger();
     const { currentWorkspace } = useWorkspaceContext();
@@ -62,13 +65,16 @@ const InitialCodeBook = () => {
 
     const stepRoute = location.pathname;
 
+    const { scrollRef: tableRef, storageKey } = useScrollRestoration('initial-codebook-table');
+
     const handleDefinitionChange = (index: number, newDefinition: string) => {
-        dispatchInitialCodebookTable({
+        const action = {
             type: 'UPDATE_FIELD',
             index,
             field: 'definition',
             value: newDefinition
-        });
+        };
+        performWithUndoForReducer(initialCodebookTable, dispatchInitialCodebookTable, action);
     };
 
     const handleNextClick = async () => {
@@ -172,6 +178,24 @@ const InitialCodeBook = () => {
         }
     ];
 
+    useEffect(() => {
+        if (loadingState[stepRoute]?.isLoading) {
+            navigate(
+                getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                    text: 'Generating Initial Codebook'
+                })
+            );
+        }
+    }, []);
+
+    if (loadingState[stepRoute]?.isFirstRun) {
+        return (
+            <p className="h-page w-full flex justify-center items-center">
+                Please complete the previous page and click on proceed to continue with this page.
+            </p>
+        );
+    }
+
     return (
         <TutorialWrapper
             steps={steps}
@@ -185,7 +209,7 @@ const InitialCodeBook = () => {
 
                 {/* Main content with scrollable table */}
                 <main className="flex-1 overflow-hidden flex flex-col">
-                    <div className="flex-1 overflow-auto">
+                    <div className="flex-1 overflow-auto" ref={tableRef}>
                         <table
                             className="w-full border-separate border-spacing-0"
                             id="initial-codebook-table">

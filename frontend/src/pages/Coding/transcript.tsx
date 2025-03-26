@@ -11,7 +11,10 @@ import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../context/collection-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
+import {
+    ROUTES as CODING_ROUTES,
+    PAGE_ROUTES as CODING_PAGE_ROUTES
+} from '../../constants/Coding/shared';
 import { TranscriptContextProvider } from '../../context/transcript-context';
 import { useApi } from '../../hooks/Shared/use-api';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
@@ -75,7 +78,7 @@ const TranscriptPage = () => {
         if (search) params.set('search', search);
         if (selected) params.set('selected', selected);
         params.set('selectedTypeFilter', location.state?.selectedTypeFilter ?? 'All');
-        navigate(`/${SHARED_ROUTES.CODING}/${route}?${params.toString()}`);
+        navigate(`${route}?${params.toString()}`);
     };
 
     const config = new Map<
@@ -111,7 +114,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, true),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.CODEBOOK_CREATION, true),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -145,7 +148,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, true),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.CODEBOOK_CREATION, true),
                 codebook: null,
                 topTranscript: null,
                 bottomTranscript: {
@@ -170,7 +173,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, true),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.CODEBOOK_CREATION, true),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -205,7 +208,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
-                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, false),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.CODEBOOK_CREATION, false),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -238,7 +241,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: true,
-                backFunction: createBackFunction(CODING_ROUTES.CODEBOOK_CREATION, false),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.CODEBOOK_CREATION, false),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -278,7 +281,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
-                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, false),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.DEDUCTIVE_CODING, false),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -323,7 +326,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
-                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, false),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.DEDUCTIVE_CODING, false),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -368,7 +371,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
-                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, false),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.DEDUCTIVE_CODING, false),
                 codebook: {
                     responses: sampledPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -411,7 +414,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, true),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.DEDUCTIVE_CODING, true),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -446,7 +449,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, true),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.DEDUCTIVE_CODING, true),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -479,7 +482,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
-                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, false),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.DEDUCTIVE_CODING, false),
                 codebook: {
                     responses: [...sampledPostResponse, ...unseenPostResponse],
                     dispatchFunction: (...args: any) => {
@@ -512,7 +515,7 @@ const TranscriptPage = () => {
             {
                 name: 'Review',
                 review: true,
-                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, true),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.DEDUCTIVE_CODING, true),
                 codebook: {
                     responses: unseenPostResponse,
                     dispatchFunction: (...args: any) => {
@@ -545,7 +548,7 @@ const TranscriptPage = () => {
             {
                 name: 'Refine',
                 review: false,
-                backFunction: createBackFunction(CODING_ROUTES.DEDUCTIVE_CODING, false),
+                backFunction: createBackFunction(CODING_PAGE_ROUTES.DEDUCTIVE_CODING, false),
                 codebook: {
                     responses: [...sampledPostResponse, ...unseenPostResponse],
                     dispatchFunction: (...args: any) => {

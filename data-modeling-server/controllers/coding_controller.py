@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 import time
-from typing import Any, Callable, Dict, List, Optional, Sequence, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 from uuid import UUID, uuid4
 
 from chromadb import HttpClient
@@ -950,6 +950,8 @@ async def summarize_with_llm(
         **kwargs
     )
 
+
+
 async def summarize_codebook_explanations(
     responses: List[Dict[str, Any]],
     llm_model: str,
@@ -961,6 +963,24 @@ async def summarize_codebook_explanations(
     max_input_tokens: int = 128000,
     **kwargs
 ) -> Dict[str, str]:
+    """
+    Summarize explanations for codes, batching single-instance codes into a single prompt
+    and processing multi-instance codes concurrently.
+    
+    Args:
+        responses: List of dictionaries containing 'code' and 'explanation'.
+        llm_model: Language model identifier.
+        app_id: Application identifier.
+        dataset_id: Dataset identifier.
+        manager: Manager instance for processing.
+        llm_instance: Language model instance.
+        llm_queue_manager: Queue manager for LLM tasks.
+        max_input_tokens: Maximum input tokens for LLM (default: 128000).
+        **kwargs: Additional arguments.
+    
+    Returns:
+        Dict mapping each code to its summary.
+    """
     # Group explanations by code
     grouped_explanations = defaultdict(list)
     for response in responses:
@@ -968,19 +988,61 @@ async def summarize_codebook_explanations(
         explanation = response['explanation']
         grouped_explanations[code].append(explanation)
 
-    # Define prompt builder including the code
+    # Separate into single-instance and multi-instance codes
+    single_instance_codes = [(code, explanations[0]) for code, explanations in grouped_explanations.items() if len(explanations) == 1]
+    multi_instance_codes = [code for code, explanations in grouped_explanations.items() if len(explanations) > 1]
+
+    # Define prompt builder for multi-instance codes
     def prompt_builder(**params) -> str:
         texts = params['texts']
         code = params['code']
         concatenated_text = "\n\n".join(texts)
         return f"Provide a concise summary of 1-2 lines for the following explanations for the code '{code}':\n\n{concatenated_text}"
 
-    # Get the list of unique codes
-    codes = list(grouped_explanations.keys())
+    async def batch_single_instance_task() -> List[Tuple[str, str]]:
+        if not single_instance_codes:
+            return []
+        
+        # Construct batched prompt
+        prompt = "Provide a concise summary of 1-2 lines for each of the following codes and their explanations:\n\n"
+        for code, explanation in single_instance_codes:
+            prompt += f"Code: {code}\nExplanation: {explanation}\n---\n"
+        prompt += "Return the summaries in JSON format: { \"code1\": \"summary1\", \"code2\": \"summary2\", ... }"
 
-    # Create tasks for all codes to run concurrently
-    tasks = [
-        asyncio.create_task(summarize_with_llm(
+        # Process batched prompt with LLM
+        extracted_data = await process_llm_task(
+            app_id=app_id,
+            dataset_id=dataset_id,
+            manager=manager,
+            llm_model=llm_model,
+            regex_pattern=r"```(?:json)?\s*(.*?)\s*```",
+            prompt_builder_func=lambda **_: prompt,
+            llm_instance=llm_instance,
+            llm_queue_manager=llm_queue_manager,
+            store_response=kwargs.get('store_response', False),
+            retries=kwargs.get('retries', 3),
+            **kwargs
+        )
+        
+        # Handle the response based on its type
+        if isinstance(extracted_data, dict):
+            # If it's already a dictionary, use it directly
+            return [(code, summary) for code, summary in extracted_data.items()]
+        elif isinstance(extracted_data, str):
+            # If it's a string, parse it as JSON
+            try:
+                extracted_dict = json.loads(extracted_data)
+                if not isinstance(extracted_dict, dict):
+                    raise ValueError("Invalid JSON format in batch response.")
+                return [(code, summary) for code, summary in extracted_dict.items()]
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Failed to parse batch summaries: {str(e)}")
+        else:
+            raise ValueError("Unexpected response type from process_llm_task.")
+
+    # Define task for summarizing multi-instance codes
+    async def summarize_multi_code(code: str) -> List[Tuple[str, str]]:
+        summary = await summarize_with_llm(
             texts=grouped_explanations[code],
             llm_model=llm_model,
             app_id=app_id,
@@ -992,14 +1054,22 @@ async def summarize_codebook_explanations(
             code=code,
             max_input_tokens=max_input_tokens,
             **kwargs
-        ))
-        for code in codes
-    ]
+        )
+        return [(code, summary)]
 
-    # Queue all tasks and wait for them to complete
-    summaries_list = await asyncio.gather(*tasks)
+    # Create list of tasks
+    tasks = []
+    if single_instance_codes:
+        tasks.append(batch_single_instance_task())
+    tasks.extend(summarize_multi_code(code) for code in multi_instance_codes)
 
-    # Map summaries to their respective codes
-    summaries = dict(zip(codes, summaries_list))
+    # Run all tasks concurrently
+    results = await asyncio.gather(*tasks)
 
-    return summaries
+    # Flatten results into a single list of (code, summary) tuples
+    all_summaries = [item for sublist in results for item in sublist]
+
+    # Convert to dictionary
+    summaries_dict = dict(all_summaries)
+
+    return summaries_dict

@@ -95,6 +95,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             setTotalCount(0);
         } else {
             setPosts(response.data.posts || {});
+            if (selectedData.length === 0) setSelectedData(response.data.selected_post_ids || []);
             // setSelectedData(response.data.selected_post_ids || []);
             setTotalCount(response.data.total_count || 0);
         }
