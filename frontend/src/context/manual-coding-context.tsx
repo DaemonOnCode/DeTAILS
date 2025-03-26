@@ -248,14 +248,15 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
     // Effect to trigger codebook creation when the set of postIds changes
     const generateCodebook = useCallback(
         (sampledPostResponse: any[], unseenPostResponse: any[]) => {
-            if (Object.keys(codebook ?? {}).length > 0) return;
+            console.log('Manual context mounted', Object.keys(codebook ?? {}).length === 0);
+            if (Object.keys(codebook ?? {}).length !== 0) return;
             const currentPostIds = Object.keys(postStates);
             if (currentPostIds.length > 0 && !setsEqual(currentPostIds, prevPostIdsRef.current)) {
                 createCodebook(sampledPostResponse, unseenPostResponse);
                 prevPostIdsRef.current = currentPostIds;
             }
         },
-        [postStates, createCodebook]
+        [codebook, postStates, createCodebook]
     );
 
     useEffect(() => {

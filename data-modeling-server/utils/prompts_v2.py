@@ -682,27 +682,24 @@ You are an advanced AI model specialized in Braun & Clarke’s Reflexive Themati
 - Ensure the groupings form a coherent overall story about the data.
 
 Your tasks:
-1. **Review the QEC Data**:  
-   - The QEC table (quote-explanation-code data) contains the detailed segments (quotes), the rationale (explanation), and the assigned code.
+1. **Review the Code and summary Data**:  
+   - The Code and summary table contains the rationale summary (summary), and the assigned code.
    - Example structure in JSON:
      ```json
-     {{
-        "code": "CodeName",
-        "instances": [
-          {{
-            "quote": "The quote here.",
-            "explanation": "Explanation for why this code was chosen."
-          }}
-          // Additional instances...
-        ]
-      }}
+     [
+        {{
+          "code": "CodeName",
+          "summary": "Summary of multiple explanations signifying the meaning of the code."
+        }}
+        // Additional instances...
+      ]
      ```
-    QEC Data: 
+    Code and summary Data: 
     ```json
     {qec_table}
     ```
 2. **Examine the List of Unique Codes**:  
-   - This is a simple array of code names extracted from the QEC table, e.g.:
+   - This is a simple array of code names extracted from the Code and summary table, e.g.:
      ```json
      ["Code1", "Code2", "Code3", ...]
      ```
@@ -719,7 +716,7 @@ Your tasks:
    - Ensure that each higher-level code strictly captures not more than 5-7 lower-level codes.
 
 4. **Check for Fit and Coherence**:  
-   - For each higher-level code, confirm it is consistent with the original quotes and explanations.
+   - For each higher-level code, confirm it is consistent with the original summary.
    - If any code doesn’t fit or contradicts the grouping, consider re-grouping or discarding it.
    - Be prepared to revise (split, merge, rename) during this review.
 

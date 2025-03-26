@@ -879,23 +879,6 @@ async def summarize_with_llm(
     retries: int = 3,
     **kwargs
 ) -> str:
-    """
-    Summarize a list of texts, handling batching and recursion if token limit is exceeded.
-
-    Args:
-        texts: List of text strings to summarize.
-        llm_model: Identifier for the language model.
-        app_id, dataset_id: Identifiers for application and dataset.
-        manager, llm_instance, llm_queue_manager: LLM-related objects.
-        prompt_builder_func: Function to build the prompt, taking **params.
-        store_response: Whether to store intermediate responses.
-        max_input_tokens: Maximum input tokens allowed for the LLM.
-        retries: Number of retries for LLM tasks.
-        **kwargs: Additional arguments passed to prompt_builder_func and process_llm_task.
-
-    Returns:
-        A single concise summary string.
-    """
     if not texts:
         return ""
 
@@ -978,21 +961,6 @@ async def summarize_codebook_explanations(
     max_input_tokens: int = 128000,
     **kwargs
 ) -> Dict[str, str]:
-    """
-    Summarize explanations for each code in a codebook, handling large inputs with batching.
-
-    Args:
-        responses: List of dictionaries with 'code' and 'explanation' keys.
-        llm_model: Identifier for the language model.
-        app_id, dataset_id: Identifiers for application and dataset.
-        manager, llm_instance, llm_queue_manager: LLM-related objects.
-        max_input_tokens: Maximum input tokens allowed for the LLM.
-        **kwargs: Additional arguments passed to summarize_with_llm.
-
-    Returns:
-        Dictionary mapping each code to its summarized explanation.
-    """
-
     # Group explanations by code
     grouped_explanations = defaultdict(list)
     for response in responses:
@@ -1005,7 +973,7 @@ async def summarize_codebook_explanations(
         texts = params['texts']
         code = params['code']
         concatenated_text = "\n\n".join(texts)
-        return f"Provide a concise summary of the following explanations for the code '{code}':\n\n{concatenated_text}"
+        return f"Provide a concise summary of 1-2 lines for the following explanations for the code '{code}':\n\n{concatenated_text}"
 
     # Get the list of unique codes
     codes = list(grouped_explanations.keys())

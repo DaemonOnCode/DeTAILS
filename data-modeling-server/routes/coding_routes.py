@@ -1,4 +1,5 @@
 import asyncio
+from calendar import c
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -1212,6 +1213,26 @@ async def group_codes_endpoint(
         for code, instances in grouped_qec.items()
     ]
 
+    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
+
+    # Summarize explanations for each code
+    summarized_explanations = await summarize_codebook_explanations(
+        responses=rows,
+        llm_model=request_body.model,
+        app_id=app_id,
+        dataset_id=dataset_id,
+        manager=manager,
+        llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
+        max_input_tokens=128000  # Adjust based on your LLM's token limit
+    )
+
+    # Create a table with codes and their summarized explanations
+    code_summary_table = [
+        {"code": code, "summary": summary}
+        for code, summary in summarized_explanations.items()
+    ]
+
     print(qec_table, grouped_qec)
 
     parsed_response = await process_llm_task(
@@ -1223,8 +1244,8 @@ async def group_codes_endpoint(
         prompt_builder_func=GroupCodes.group_codes_prompt,
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
-        codes=json.dumps(list(grouped_qec.keys())),
-        qec_table=json.dumps(qec_table)
+        codes=json.dumps([summary["code"] for summary in code_summary_table]),
+        qec_table=json.dumps(code_summary_table)
     )
 
     print(parsed_response)

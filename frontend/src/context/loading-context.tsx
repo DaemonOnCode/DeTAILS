@@ -76,45 +76,55 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
 
     // When user selects "Download and Proceed"
     const handleDownloadAndProceed = async (e: React.MouseEvent) => {
-        setShowProceedConfirmModal(false);
-        // Call resetDataAfterPage to download data and then reset state
-        await resetDataAfterPage(location.pathname, true);
-        if (activeModalId && modalCallbacks[activeModalId]) {
-            const result = modalCallbacks[activeModalId](e);
-            // @ts-ignore
-            if (result !== undefined && typeof result.then === 'function') {
-                await result;
+        try {
+            setShowProceedConfirmModal(false);
+            // Call resetDataAfterPage to download data and then reset state
+            await resetDataAfterPage(location.pathname, true);
+            if (activeModalId && modalCallbacks[activeModalId]) {
+                const result = modalCallbacks[activeModalId](e);
+
+                if (result !== undefined && typeof result.then === 'function') {
+                    await result;
+                }
             }
+            // Remove the callback for the active modal ID.
+            setModalCallbacks((prev) => {
+                const { [activeModalId as string]: _, ...rest } = prev;
+                return rest;
+            });
+            setActiveModalId(null);
+        } catch (error) {
+            console.error('Error in handleDownloadAndProceed:', error);
+            // Errors are caught and logged, effectively ignored by the application
         }
-        // Remove the callback for the active modal ID.
-        setModalCallbacks((prev) => {
-            const { [activeModalId as string]: _, ...rest } = prev;
-            return rest;
-        });
-        setActiveModalId(null);
     };
 
     // When user selects "Proceed Without Download"
     const handleProceedWithoutDownload = async (e: React.MouseEvent) => {
-        setShowProceedConfirmModal(false);
-        // loadingDispatch({
-        //     type: 'SET_REST_UNDONE',
-        //     route: location.pathname
-        // });
-        await resetDataAfterPage(location.pathname, false);
-        if (activeModalId && modalCallbacks[activeModalId]) {
-            const result = modalCallbacks[activeModalId](e);
-            // @ts-ignore
-            if (result !== undefined && typeof result.then === 'function') {
-                await result;
+        try {
+            setShowProceedConfirmModal(false);
+            // loadingDispatch({
+            //     type: 'SET_REST_UNDONE',
+            //     route: location.pathname
+            // });
+            await resetDataAfterPage(location.pathname, false);
+            if (activeModalId && modalCallbacks[activeModalId]) {
+                const result = modalCallbacks[activeModalId](e);
+
+                if (result !== undefined && typeof result.then === 'function') {
+                    await result;
+                }
             }
+            // Remove the callback for the active modal ID.
+            setModalCallbacks((prev) => {
+                const { [activeModalId as string]: _, ...rest } = prev;
+                return rest;
+            });
+            setActiveModalId(null);
+        } catch (error) {
+            console.error('Error in handleProceedWithoutDownload:', error);
+            // Errors are caught and logged, effectively ignored by the application
         }
-        // Remove the callback for the active modal ID.
-        setModalCallbacks((prev) => {
-            const { [activeModalId as string]: _, ...rest } = prev;
-            return rest;
-        });
-        setActiveModalId(null);
     };
 
     // Cancel just closes the modal.

@@ -1,10 +1,12 @@
 import asyncio
+from collections import defaultdict
 from datetime import datetime
 from functools import lru_cache
 import json
 import sys
 import threading
 import time
+import concurrent
 from concurrent.futures import Future as ConcurrentFuture
 from typing import Callable, Dict, List, Optional, Tuple, Type
 import uuid
@@ -20,7 +22,8 @@ class GlobalQueueManager:
         auto_start: bool = True,
         rate_limit_per_minute: Optional[int] = None,
         status_check_interval: float = 5.0,
-        enable_status_check: bool = True
+        enable_status_check: bool = True,
+        cancel_threshold: int = 1
     ):
         try:
             self._max_queue_size = max_queue_size
@@ -37,6 +40,10 @@ class GlobalQueueManager:
             self.status_task = None
             self.enqueue_task = None
 
+            self.cancel_threshold = cancel_threshold
+            self.function_jobs: Dict[str, List[str]] = defaultdict(list)
+            self.cancelled_jobs_count: Dict[str, int] = defaultdict(int)
+            
             self.rate_limit_per_minute = rate_limit_per_minute
             self.rate_limit_per_sec = rate_limit_per_minute / 60.0 if rate_limit_per_minute else None
             self.last_start_time = 0.0
@@ -320,17 +327,43 @@ class GlobalQueueManager:
                             updates={"status": "failed", "error": "Timeout after 600s", "completed_at": datetime.now()}
                         )
                     except Exception as e:
-                        print(f"[WORKER {worker_id}] Job {job_id} failed: {e}")
-                        cfut.set_exception(e)
-                        self.pending_task_repo.update(
-                            filters={"task_id": job_id},
-                            updates={"status": "failed", "error": str(e), "completed_at": datetime.now()}
-                        )
+                        if isinstance(e, concurrent.futures.CancelledError):
+                            print(f"[WORKER {worker_id}] Job {job_id} was cancelled")
+                            self.pending_task_repo.update(
+                                filters={"task_id": job_id},
+                                updates={"status": "cancelled", "completed_at": datetime.now()}
+                            )
+                            with self._lock:
+                                self.cancelled_jobs_count[function_key] += 1
+                                if self.cancelled_jobs_count[function_key] >= self.cancel_threshold:
+                                    print(f"[WORKER {worker_id}] Cancelling all jobs for function {function_key}")
+                                    for jid in self.function_jobs.get(function_key, []):
+                                        if jid in self.pending_tasks and jid != job_id:  # Skip the current job
+                                            self.pending_tasks[jid].cancel()
+                                            self.pending_task_repo.update(
+                                                filters={"task_id": jid},
+                                                updates={"status": "cancelled", "completed_at": datetime.now()}
+                                            )
+                                            print(f"[WORKER {worker_id}] Cancelled job {jid}")
+                                    self.cancelled_jobs_count[function_key] = 0  # Reset counter
+                        else:
+                            print(f"[WORKER {worker_id}] Job {job_id} failed: {e}")
+                            cfut.set_exception(e)
+                            self.pending_task_repo.update(
+                                filters={"task_id": job_id},
+                                updates={"status": "failed", "error": str(e), "completed_at": datetime.now()}
+                            )
                     finally:
                         with self._lock:
                             if job_id in self.pending_tasks:
                                 del self.pending_tasks[job_id]
                                 print(f"[WORKER {worker_id}] Removed task {job_id} from pending_tasks")
+                            if function_key in self.function_jobs:
+                                if job_id in self.function_jobs[function_key]:
+                                    self.function_jobs[function_key].remove(job_id)
+                                    if not self.function_jobs[function_key]:
+                                        del self.function_jobs[function_key]
+                                    print(f"[WORKER {worker_id}] Removed job {job_id} from function_jobs")
                             if function_key in self.function_cache:
                                 func, ref_count = self.function_cache[function_key]
                                 ref_count -= 1
@@ -376,7 +409,6 @@ class GlobalQueueManager:
     def submit_task_sync(self, job_id: str, func: Callable, function_key: str, cacheable_args: Optional[Dict[str, List]] = None, *args, **kwargs):
         try:
             with self._lock:
-                # Manage function cache
                 if function_key in self.function_cache:
                     _, ref_count = self.function_cache[function_key]
                     self.function_cache[function_key] = (func, ref_count + 1)
@@ -385,15 +417,12 @@ class GlobalQueueManager:
                     self.function_cache[function_key] = (func, 1)
                     print(f"[SUBMIT_SYNC] Cached {function_key}")
 
-                # Default to no cacheable args if not provided
                 if cacheable_args is None:
                     cacheable_args = {"args": [], "kwargs": []}
 
-                # Initialize cacheable_args for this function_key if not present
                 if function_key not in self.cacheable_args:
                     self.cacheable_args[function_key] = {"args": [], "kwargs": {}}
 
-                # Store cacheable positional arguments by index
                 for i in cacheable_args.get("args", []):
                     if i < len(args):
                         if len(self.cacheable_args[function_key]["args"]) <= i:
@@ -401,13 +430,11 @@ class GlobalQueueManager:
                         self.cacheable_args[function_key]["args"][i] = args[i]
                         print(f"[SUBMIT_SYNC] Cached arg at index {i} for {function_key}")
 
-                # Store cacheable keyword arguments
                 for k in cacheable_args.get("kwargs", []):
                     if k in kwargs:
                         self.cacheable_args[function_key]["kwargs"][k] = kwargs[k]
                         print(f"[SUBMIT_SYNC] Cached kwarg {k} for {function_key}")
 
-                # Store variable arguments (non-cacheable)
                 variable_args = [args[i] for i in range(len(args)) if i not in cacheable_args.get("args", [])]
                 variable_kwargs = {k: v for k, v in kwargs.items() if k not in cacheable_args.get("kwargs", [])}
 
@@ -420,7 +447,8 @@ class GlobalQueueManager:
                     created_at=datetime.now()
                 )
                 self.pending_task_repo.insert(task)
-                print(f"[SUBMIT_SYNC] Inserted task {job_id}")
+                self.function_jobs[function_key].append(job_id)  # Track the job
+                print(f"[SUBMIT_SYNC] Inserted task {job_id} and added to function_jobs")
         except Exception as e:
             print(f"[SUBMIT_SYNC] Failed to insert task {job_id}: {e}")
             raise e
@@ -433,7 +461,8 @@ def get_llm_manager():
             num_workers=5,
             rate_limit_per_minute=10,
             status_check_interval=15.0,
-            enable_status_check=True
+            enable_status_check=True,
+            cancel_threshold=1
         )
     except Exception as e:
         print(f"Failed to create GlobalQueueManager: {e}")
