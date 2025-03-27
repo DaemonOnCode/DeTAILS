@@ -864,7 +864,6 @@ async def cluster_words_with_llm(
 def get_num_tokens(text: str, llm_instance: Any) -> int:
     return llm_instance.get_num_tokens(text)
 
-
 async def summarize_with_llm(
     texts: List[str],
     llm_model: str,
@@ -882,13 +881,20 @@ async def summarize_with_llm(
     if not texts:
         return ""
 
-    # Build chunks based on token limit
-    def build_chunk(texts: List[str], max_tokens: int, llm_instance: Any) -> tuple[List[str], List[str]]:
+    def generic_prompt_builder(**params) -> str:
+        texts = params['texts']
+        concatenated_text = "\n\n".join(texts)
+        return (
+            f"Provide a concise summary of the following texts. "
+            f"Return the summary in JSON format as ```json{{ \"summary\": \"your summary here\" }}```.\n\n"
+            f"Texts:\n{concatenated_text}"
+        )
+
+    def build_chunk(texts: List[str], max_tokens: int) -> tuple[List[str], List[str]]:
         chunk = []
         current_tokens = 0
-        # Estimate fixed prompt tokens with empty texts
-        dummy_params = {**kwargs, 'texts': []}
-        fixed_prompt = prompt_builder_func(**dummy_params)
+        prompt_func = prompt_builder_func if 'code' in kwargs else generic_prompt_builder
+        fixed_prompt = prompt_func(**{**kwargs, 'texts': []})
         fixed_prompt_tokens = llm_instance.get_num_tokens(fixed_prompt)
         separator = "\n\n"
         separator_tokens = llm_instance.get_num_tokens(separator)
@@ -904,14 +910,13 @@ async def summarize_with_llm(
         remaining = texts[len(chunk):]
         return chunk, remaining
 
-    # Summarize a single chunk
     async def summarize_chunk(chunk: List[str]) -> str:
-        summary = await process_llm_task(
+        extracted_dict = await process_llm_task(
             app_id=app_id,
             dataset_id=dataset_id,
             manager=manager,
             llm_model=llm_model,
-            regex_pattern=None,
+            regex_pattern=r"```json\s*(.*?)\s*```",
             prompt_builder_func=prompt_builder_func,
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
@@ -920,19 +925,25 @@ async def summarize_with_llm(
             texts=chunk,
             **kwargs
         )
+
+        if not isinstance(extracted_dict, dict):
+            raise ValueError(f"Expected dict, got {type(extracted_dict)}: {extracted_dict}")
+        if "summary" not in extracted_dict:
+            raise ValueError(f"Missing 'summary' key. Got: {extracted_dict}")
+        summary = extracted_dict["summary"]
+        if not isinstance(summary, str):
+            raise ValueError(f"Summary must be a string, got {type(summary)}: {summary}")
         return summary
 
-    # Process texts in batches
     remaining_texts = texts
     summaries = []
     while remaining_texts:
-        chunk, remaining_texts = build_chunk(remaining_texts, max_input_tokens, llm_instance)
+        chunk, remaining_texts = build_chunk(remaining_texts, max_input_tokens)
         if not chunk:
-            break  # Prevent infinite loop if a text exceeds limit
+            break
         summary = await summarize_chunk(chunk)
         summaries.append(summary)
 
-    # Return single summary or recurse
     if len(summaries) == 1:
         return summaries[0]
     return await summarize_with_llm(
@@ -943,14 +954,54 @@ async def summarize_with_llm(
         manager,
         llm_instance,
         llm_queue_manager,
-        prompt_builder_func=prompt_builder_func,
+        prompt_builder_func=generic_prompt_builder,
         store_response=store_response,
         max_input_tokens=max_input_tokens,
         retries=retries,
-        **kwargs
+        **{k: v for k, v in kwargs.items() if k != 'code'}
     )
 
+def split_into_batches(
+    codes_dict: Dict[str, List[str]],
+    max_tokens: int,
+    llm_instance: Any
+) -> List[List[str]]:
+    batches = []
+    current_batch = []
+    fixed_prompt = (
+        "Provide a concise summary of 1-2 lines for each of the following codes based on their explanations. "
+        "Return all summaries in a single JSON object where each key is the code and each value is its summary, "
+        "like {\"code1\": \"summary1\", \"code2\": \"summary2\", ...}. "
+        "Ensure the entire JSON object is wrapped in triple backticks with json specifier (```json ... ```). "
+        "Do not return multiple separate JSON objects.\n\n"
+    )
+    fixed_tokens = llm_instance.get_num_tokens(fixed_prompt)
+    separator = "---\n"
+    current_tokens = fixed_tokens
 
+    for code, explanations in codes_dict.items():
+        code_section = f"Code: {code}\nExplanations:\n" + "\n".join(f"- {exp}" for exp in explanations) + "\n" + separator
+        code_section_tokens = llm_instance.get_num_tokens(code_section)
+
+        if current_tokens + code_section_tokens > max_tokens:
+            if current_batch:
+                batches.append(current_batch)
+                current_batch = []
+                current_tokens = fixed_tokens
+            if fixed_tokens + code_section_tokens > max_tokens:
+                print(f"Single code '{code}' exceeds token limit: {fixed_tokens + code_section_tokens} > {max_tokens}")
+                batches.append([code])
+            else:
+                current_batch.append(code)
+                current_tokens = fixed_tokens + code_section_tokens
+        else:
+            current_batch.append(code)
+            current_tokens += code_section_tokens
+
+    if current_batch:
+        batches.append(current_batch)
+
+    return batches
 
 async def summarize_codebook_explanations(
     responses: List[Dict[str, Any]],
@@ -963,59 +1014,46 @@ async def summarize_codebook_explanations(
     max_input_tokens: int = 128000,
     **kwargs
 ) -> Dict[str, str]:
-    """
-    Summarize explanations for codes, batching single-instance codes into a single prompt
-    and processing multi-instance codes concurrently.
-    
-    Args:
-        responses: List of dictionaries containing 'code' and 'explanation'.
-        llm_model: Language model identifier.
-        app_id: Application identifier.
-        dataset_id: Dataset identifier.
-        manager: Manager instance for processing.
-        llm_instance: Language model instance.
-        llm_queue_manager: Queue manager for LLM tasks.
-        max_input_tokens: Maximum input tokens for LLM (default: 128000).
-        **kwargs: Additional arguments.
-    
-    Returns:
-        Dict mapping each code to its summary.
-    """
-    # Group explanations by code
     grouped_explanations = defaultdict(list)
     for response in responses:
         code = response['code']
         explanation = response['explanation']
         grouped_explanations[code].append(explanation)
 
-    # Separate into single-instance and multi-instance codes
-    single_instance_codes = [(code, explanations[0]) for code, explanations in grouped_explanations.items() if len(explanations) == 1]
-    multi_instance_codes = [code for code, explanations in grouped_explanations.items() if len(explanations) > 1]
+    batchable_codes = {code: exps for code, exps in grouped_explanations.items() if len(exps) < 4}
+    individual_codes = [code for code, exps in grouped_explanations.items() if len(exps) >= 4]
 
-    # Define prompt builder for multi-instance codes
     def prompt_builder(**params) -> str:
         texts = params['texts']
         code = params['code']
         concatenated_text = "\n\n".join(texts)
-        return f"Provide a concise summary of 1-2 lines for the following explanations for the code '{code}':\n\n{concatenated_text}"
+        return (
+            f"Provide a concise summary of 1-2 lines for the explanations of code '{code}'. "
+            f"Return the summary in JSON format as ```json{{ \"summary\": \"your summary here\" }}```.\n\n"
+            f"Explanations:\n{concatenated_text}"
+        )
 
-    async def batch_single_instance_task() -> List[Tuple[str, str]]:
-        if not single_instance_codes:
+    async def batch_multiple_codes_task(batch: List[str]) -> List[Tuple[str, str]]:
+        if not batch:
             return []
-        
-        # Construct batched prompt
-        prompt = "Provide a concise summary of 1-2 lines for each of the following codes and their explanations:\n\n"
-        for code, explanation in single_instance_codes:
-            prompt += f"Code: {code}\nExplanation: {explanation}\n---\n"
-        prompt += "Return the summaries in JSON format: { \"code1\": \"summary1\", \"code2\": \"summary2\", ... }"
 
-        # Process batched prompt with LLM
-        extracted_data = await process_llm_task(
+        prompt = (
+            "Provide a concise summary of 1-2 lines for each of the following codes based on their explanations. "
+            "Return all summaries in a single JSON object where each key is the code and each value is its summary. "
+            "The JSON object must be wrapped in ```json ... ```. Example:\n"
+            "```json\n{\"codeA\": \"Summary A\", \"codeB\": \"Summary B\"}\n```\n\n"
+            "Codes and explanations:\n"
+        )
+        for code in batch:
+            explanations = batchable_codes[code]
+            prompt += f"Code: {code}\nExplanations:\n" + "\n".join(f"- {exp}" for exp in explanations) + "\n---\n"
+
+        extracted_dict = await process_llm_task(
             app_id=app_id,
             dataset_id=dataset_id,
             manager=manager,
             llm_model=llm_model,
-            regex_pattern=r"```(?:json)?\s*(.*?)\s*```",
+            regex_pattern=r"```json\s*(.*?)\s*```",
             prompt_builder_func=lambda **_: prompt,
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
@@ -1023,25 +1061,20 @@ async def summarize_codebook_explanations(
             retries=kwargs.get('retries', 3),
             **kwargs
         )
-        
-        # Handle the response based on its type
-        if isinstance(extracted_data, dict):
-            # If it's already a dictionary, use it directly
-            return [(code, summary) for code, summary in extracted_data.items()]
-        elif isinstance(extracted_data, str):
-            # If it's a string, parse it as JSON
-            try:
-                extracted_dict = json.loads(extracted_data)
-                if not isinstance(extracted_dict, dict):
-                    raise ValueError("Invalid JSON format in batch response.")
-                return [(code, summary) for code, summary in extracted_dict.items()]
-            except json.JSONDecodeError as e:
-                raise ValueError(f"Failed to parse batch summaries: {str(e)}")
-        else:
-            raise ValueError("Unexpected response type from process_llm_task.")
 
-    # Define task for summarizing multi-instance codes
-    async def summarize_multi_code(code: str) -> List[Tuple[str, str]]:
+        if not isinstance(extracted_dict, dict):
+            raise ValueError(f"Expected dict, got {type(extracted_dict)}: {extracted_dict}")
+        summaries = {}
+        for code in batch:
+            if code not in extracted_dict:
+                raise ValueError(f"Missing summary for '{code}'. Got: {extracted_dict}")
+            summary = extracted_dict[code]
+            if not isinstance(summary, str):
+                raise ValueError(f"Summary for '{code}' must be string, got {type(summary)}: {summary}")
+            summaries[code] = summary
+        return [(code, summaries[code]) for code in batch]
+
+    async def summarize_individual_code(code: str) -> List[Tuple[str, str]]:
         summary = await summarize_with_llm(
             texts=grouped_explanations[code],
             llm_model=llm_model,
@@ -1057,19 +1090,11 @@ async def summarize_codebook_explanations(
         )
         return [(code, summary)]
 
-    # Create list of tasks
-    tasks = []
-    if single_instance_codes:
-        tasks.append(batch_single_instance_task())
-    tasks.extend(summarize_multi_code(code) for code in multi_instance_codes)
+    batches = split_into_batches(batchable_codes, max_input_tokens, llm_instance) if batchable_codes else []
 
-    # Run all tasks concurrently
+    tasks = [batch_multiple_codes_task(batch) for batch in batches]
+    tasks.extend(summarize_individual_code(code) for code in individual_codes)
     results = await asyncio.gather(*tasks)
 
-    # Flatten results into a single list of (code, summary) tuples
     all_summaries = [item for sublist in results for item in sublist]
-
-    # Convert to dictionary
-    summaries_dict = dict(all_summaries)
-
-    return summaries_dict
+    return dict(all_summaries)
