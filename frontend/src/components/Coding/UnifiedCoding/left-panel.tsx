@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import PostTab from './post-tab';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
@@ -44,49 +44,109 @@ const LeftPanel: FC<LeftPanelProps> = ({
     selectedItem,
     setSelectedItem
 }) => {
-    const [postIdTitles, setPostIdTitles] = useState<{ id: string; title: string }[]>([]);
+    // States for infinite scrolling
+    const [fetchedPostTitles, setFetchedPostTitles] = useState<{ id: string; title: string }[]>([]);
+    const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(false);
+    const batchSize = 20; // Number of posts to fetch per batch
+    const sentinelRef = useRef<HTMLDivElement>(null); // Ref for the sentinel element
     const containerRef = useRef<HTMLUListElement>(null);
     const { fetchData } = useApi();
     const { datasetId } = useCollectionContext();
-
-    useEffect(() => {
-        fetchTabData(postIds, datasetId);
-    }, [postIds]);
-
-    useEffect(() => {
-        setSelectedItem(null);
-    }, [selectedTypeFilter, setSelectedItem]);
-
     const { scrollRef: listRef, storageKey } = useScrollRestoration('left-panel');
 
-    const fetchTabData = async (postIds: string[], datasetId: string) => {
-        if (!postIds.length || !datasetId) return;
+    // Fetch initial batch of post titles
+    useEffect(() => {
+        const fetchInitialBatch = async () => {
+            if (!postIds.length || !datasetId) {
+                setFetchedPostTitles([]);
+                setHasMore(false);
+                return;
+            }
+            setLoading(true);
+            const initialBatch = postIds.slice(0, batchSize);
+            const { data: results, error } = await fetchData<any[]>(
+                REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ post_ids: initialBatch, dataset_id: datasetId })
+                }
+            );
+            if (error) {
+                console.error('Failed to fetch initial batch:', error);
+            } else {
+                setFetchedPostTitles(
+                    results?.map((result: any) => ({ id: result.id, title: result.title })) ?? []
+                );
+                setHasMore(postIds.length > batchSize);
+            }
+            setLoading(false);
+        };
+        fetchInitialBatch();
+    }, [postIds, datasetId, fetchData]);
+
+    // Load more posts when reaching the end
+    const loadMore = useCallback(async () => {
+        if (!hasMore || loading) return;
+        const nextBatch = postIds.slice(
+            fetchedPostTitles.length,
+            fetchedPostTitles.length + batchSize
+        );
+        if (nextBatch.length === 0) {
+            setHasMore(false);
+            return;
+        }
         setLoading(true);
         const { data: results, error } = await fetchData<any[]>(
             REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH,
             {
                 method: 'POST',
-                body: JSON.stringify({ post_ids: postIds, dataset_id: datasetId })
+                body: JSON.stringify({ post_ids: nextBatch, dataset_id: datasetId })
             }
         );
         if (error) {
-            console.error('Failed to fetch data:', error);
-            setLoading(false);
+            console.error('Failed to fetch more posts:', error);
         } else {
-            setPostIdTitles(
-                results?.map((result: any) => ({ id: result.id, title: result.title })) ?? []
-            );
-            setLoading(false);
+            setFetchedPostTitles((prev) => [
+                ...prev,
+                ...results.map((result: any) => ({ id: result.id, title: result.title }))
+            ]);
+            setHasMore(fetchedPostTitles.length + nextBatch.length < postIds.length);
         }
-    };
+        setLoading(false);
+    }, [postIds, datasetId, fetchedPostTitles, hasMore, loading, fetchData]);
+
+    // Set up IntersectionObserver to trigger loadMore
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasMore && !loading) {
+                    loadMore();
+                }
+            },
+            { root: listRef.current, threshold: 1.0 }
+        );
+        if (sentinelRef.current) {
+            observer.observe(sentinelRef.current);
+        }
+        return () => {
+            if (sentinelRef.current) {
+                observer.unobserve(sentinelRef.current);
+            }
+        };
+    }, [hasMore, loading, loadMore, listRef]);
+
+    // Reset selection when filter changes
+    useEffect(() => {
+        setSelectedItem(null);
+    }, [selectedTypeFilter, setSelectedItem]);
 
     // Filter posts based on searchQuery
     const filteredPosts = useMemo(() => {
-        if (!searchQuery) return postIdTitles;
+        if (!searchQuery) return fetchedPostTitles;
         const lowerQuery = searchQuery.toLowerCase();
-        return postIdTitles.filter((post) => post.title.toLowerCase().includes(lowerQuery));
-    }, [postIdTitles, searchQuery]);
+        return fetchedPostTitles.filter((post) => post.title.toLowerCase().includes(lowerQuery));
+    }, [fetchedPostTitles, searchQuery]);
 
     // Filter codes based on searchQuery
     const filteredCodes = useMemo(() => {
@@ -95,14 +155,15 @@ const LeftPanel: FC<LeftPanelProps> = ({
         return codes.filter((code) => code.toLowerCase().includes(lowerQuery));
     }, [codes, searchQuery]);
 
+    // Restore scroll position
     useEffect(() => {
-        if (listRef.current && postIdTitles.length > 0) {
+        if (listRef.current && fetchedPostTitles.length > 0) {
             const savedPosition = sessionStorage.getItem(storageKey);
             if (savedPosition) {
                 listRef.current.scrollTop = parseInt(savedPosition, 10);
             }
         }
-    }, [postIdTitles, listRef, storageKey]);
+    }, [fetchedPostTitles, listRef, storageKey]);
 
     const handleSelect = (selection: string | null) => {
         setSelectedItem((prev) => {
@@ -117,8 +178,6 @@ const LeftPanel: FC<LeftPanelProps> = ({
             onFilterSelect(selection);
             return selection;
         });
-
-        // Clear search query when "Show All" is clicked
         if (selection === null) {
             setSearchQuery('');
         }
@@ -208,7 +267,6 @@ const LeftPanel: FC<LeftPanelProps> = ({
                 )}
             </div>
 
-            {/* Always show the search input with dynamic placeholder */}
             <input
                 type="text"
                 placeholder={activeTab === 'posts' ? 'Search posts...' : 'Search codes...'}
@@ -220,10 +278,10 @@ const LeftPanel: FC<LeftPanelProps> = ({
             <div className="flex-1 overflow-auto min-h-0 my-2 gap-y-2" ref={listRef}>
                 {activeTab === 'posts' ? (
                     <ul className="space-y-2" ref={containerRef}>
-                        {loading ? (
+                        {loading && fetchedPostTitles.length === 0 ? (
                             <li>Loading...</li>
                         ) : filteredPosts.length === 0 ? (
-                            <div>No posts found</div>
+                            <li>No posts found</li>
                         ) : (
                             filteredPosts.map((postIdTitle) => (
                                 <PostTab
@@ -235,6 +293,12 @@ const LeftPanel: FC<LeftPanelProps> = ({
                                 />
                             ))
                         )}
+                        {hasMore && !loading && filteredPosts.length > 0 && (
+                            <li>
+                                <div ref={sentinelRef} className="h-1" />
+                            </li>
+                        )}
+                        {loading && filteredPosts.length > 0 && <li>Loading more...</li>}
                     </ul>
                 ) : (
                     <ul className="space-y-2">
