@@ -120,11 +120,6 @@ const UploadDataPage = () => {
         );
     }
 
-    // useEffect(() => {
-
-    // }, []);
-
-    // If no type is selected, prompt user to go back to home.
     if (!type) {
         return (
             <div className="flex flex-col items-center justify-center h-screen">
@@ -165,7 +160,14 @@ const UploadDataPage = () => {
                         <NavigationBottomBar
                             previousPage={PAGE_ROUTES.DATA_TYPE}
                             nextPage={`${PAGE_ROUTES.DATASET_CREATION}`}
-                            isReady={!!modeInput}
+                            isReady={
+                                !!modeInput &&
+                                (!modeInput.includes('torrent') ||
+                                    (modeInput.includes('files') &&
+                                        (modeInput.split(':files:')[1] ?? '')
+                                            .split(',')
+                                            .filter((file) => file.trim() !== '').length > 1))
+                            }
                             onNextClick={handleButtonClick}
                         />
                     </footer>

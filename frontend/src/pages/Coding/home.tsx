@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { ROUTES } from '../../constants/Coding/shared';
+import { PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useNavigate } from 'react-router-dom';
 import { DetailsIcon } from '../../components/Shared/Icons';
@@ -112,10 +112,7 @@ const HomePage: FC = () => {
             </div>
 
             {/* Bottom navigation bar as per your example */}
-            <NavigationBottomBar
-                nextPage={`${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`}
-                isReady={true}
-            />
+            <NavigationBottomBar nextPage={PAGE_ROUTES.CONTEXT_V2} isReady={true} />
         </div>
     );
 };

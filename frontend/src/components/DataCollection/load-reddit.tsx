@@ -26,23 +26,42 @@ const LoadReddit: FC<{
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
     const navigate = useNavigate();
-    const { loadingDispatch, resetDataAfterPage, openModal, checkIfDataExists } =
+    const { loadingDispatch, resetDataAfterPage, openModal, checkIfDataExists, abortRequests } =
         useLoadingContext();
-    // Get query parameters for active tab.
     const [searchParams, setSearchParams] = useSearchParams();
     const queryActiveTab = searchParams.get('activeTab') as 'folder' | 'torrent' | null;
     console.log('queryActiveTab', queryActiveTab);
 
     const [activeTab, setActiveTab] = useState<'folder' | 'torrent'>(queryActiveTab ?? 'torrent');
 
-    const modeSplits = modeInput.split(':')[1] === 'files' && modeInput.split(':');
-    const [torrentSubreddit, setTorrentSubreddit] = useState(modeSplits ? modeSplits[2] : '');
-    const [torrentStart, setTorrentStart] = useState(
-        modeSplits ? modeSplits[3] : TORRENT_START_DATE
-    );
-    const [torrentEnd, setTorrentEnd] = useState(modeSplits ? modeSplits[4] : TORRENT_END_DATE);
+    const defaultSubreddit = '';
+    const defaultStart = TORRENT_START_DATE;
+    const defaultEnd = TORRENT_END_DATE;
+    const defaultMode = 'postsAndComments';
+
+    let torrentSubredditInitial = defaultSubreddit;
+    let torrentStartInitial = defaultStart;
+    let torrentEndInitial = defaultEnd;
+    let torrentModeInitial = defaultMode;
+
+    if (modeInput && typeof modeInput === 'string') {
+        const modeSplits = modeInput.split(':');
+        if (modeSplits.length >= 3 && modeSplits[0] === 'reddit' && modeSplits[1] === 'torrent') {
+            const torrentParams = modeSplits[2].split('|');
+            if (torrentParams.length >= 4) {
+                torrentSubredditInitial = torrentParams[0] || defaultSubreddit;
+                torrentStartInitial = torrentParams[1] || defaultStart;
+                torrentEndInitial = torrentParams[2] || defaultEnd;
+                torrentModeInitial = torrentParams[3] === 'false' ? 'posts' : 'postsAndComments';
+            }
+        }
+    }
+
+    const [torrentSubreddit, setTorrentSubreddit] = useState(torrentSubredditInitial);
+    const [torrentStart, setTorrentStart] = useState(torrentStartInitial);
+    const [torrentEnd, setTorrentEnd] = useState(torrentEndInitial);
     const [torrentMode, setTorrentMode] = useState<'posts' | 'postsAndComments'>(
-        modeSplits ? (modeSplits[5] === 'false' ? 'posts' : 'postsAndComments') : 'postsAndComments'
+        torrentModeInitial as 'posts' | 'postsAndComments'
     );
 
     const selectedFilesRef = useRef<{ getFiles: () => [string, string[]] } | null>(null);
@@ -51,7 +70,6 @@ const LoadReddit: FC<{
         shell.openExternal('https://git.uwaterloo.ca/jrwallace/PASS');
     };
     useEffect(() => {
-        // On mount, ensure the activeTab query parameter is set.
         if (!queryActiveTab) {
             searchParams.set('activeTab', modeInput.split(':')[1]);
             console.log('setting active tab', activeTab, searchParams.toString());
@@ -70,7 +88,7 @@ const LoadReddit: FC<{
         if (modeInput) {
             const splits = modeInput.split(':');
             if (splits.length >= 2) {
-                const subMode = splits[1]; // e.g. "torrent" or "upload"
+                const subMode = splits[1];
                 if (subMode === 'torrent') {
                     updateActiveTab('torrent');
                 } else if (subMode === 'upload') {
@@ -85,7 +103,9 @@ const LoadReddit: FC<{
             type: 'SET_LOADING_ROUTE',
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
         });
+        abortRequests(location.pathname);
         navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
+        await new Promise((resolve) => setTimeout(resolve, 5000));
         const postsOnly = torrentMode === 'posts';
         const { error } = await loadTorrentData(
             true,

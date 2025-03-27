@@ -250,11 +250,11 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
         (sampledPostResponse: any[], unseenPostResponse: any[]) => {
             console.log('Manual context mounted', Object.keys(codebook ?? {}).length === 0);
             if (Object.keys(codebook ?? {}).length !== 0) return;
-            const currentPostIds = Object.keys(postStates);
-            if (currentPostIds.length > 0 && !setsEqual(currentPostIds, prevPostIdsRef.current)) {
-                createCodebook(sampledPostResponse, unseenPostResponse);
-                prevPostIdsRef.current = currentPostIds;
-            }
+            // const currentPostIds = Object.keys(postStates);
+            // if (currentPostIds.length > 0 && !setsEqual(currentPostIds, prevPostIdsRef.current)) {
+            createCodebook(sampledPostResponse, unseenPostResponse);
+            //     prevPostIdsRef.current = currentPostIds;
+            // }
         },
         [codebook, postStates, createCodebook]
     );

@@ -256,10 +256,8 @@ async def get_torrent_data_endpoint():
         for f in all_files:
             file_path = os.path.join(folder_path, f)
             if os.path.islink(file_path):
-
                 target_path = os.readlink(file_path)
                 target_abs = os.path.join(folder_path, target_path)
-
                 if not os.path.exists(target_abs):
                     print(f"Broken symlink detected: {file_path} -> {target_abs}")
                     os.remove(file_path)
@@ -274,7 +272,7 @@ async def get_torrent_data_endpoint():
             year = name[3:7]
             month = name[8:10]
             doc_type = "posts" if name.startswith("RS") else "comments"
-            
+
             try:
                 dataset_intervals[dataset_name][doc_type][year].append(month)
             except KeyError:
@@ -289,7 +287,13 @@ async def get_torrent_data_endpoint():
     for dataset in datasets_to_remove:
         del dataset_intervals[dataset]
 
+    for dataset, types in dataset_intervals.items():
+        for doc_type in types:
+            for year, months in types[doc_type].items():
+                months.sort(key=int)
+
     return dataset_intervals
+
 
 
 @router.post("/prepare-torrent-data-from-files")

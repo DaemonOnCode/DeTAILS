@@ -1,7 +1,6 @@
-import { FC, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ToastContainer, toast, ToastContentProps } from 'react-toastify';
-import { FaTrash } from 'react-icons/fa';
+import { ToastContainer, toast } from 'react-toastify';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
@@ -12,14 +11,11 @@ import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { saveCSV, saveExcel } from '../../utility/convert-js-object';
 import { KeywordEntry } from '../../types/Coding/shared';
-import UndoNotification from '../../components/Shared/undo-toast';
-import CustomTutorialOverlay, {
-    TutorialStep
-} from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { useLoadingContext } from '../../context/loading-context';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
+import KeywordTableRow from '../../components/Coding/KeywordTable/keyword-table-row';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -28,7 +24,7 @@ const KeywordsTablePage: FC = () => {
     const { datasetId } = useCollectionContext();
     const [saving, setSaving] = useState(false);
     const { loadingState } = useLoadingContext();
-    const { performWithUndoForReducer } = useUndo();
+    const { performWithUndoForReducer } = useUndo(); // Hook providing performWithUndoForReducer
 
     const navigate = useNavigate();
     const logger = useLogger();
@@ -36,10 +32,9 @@ const KeywordsTablePage: FC = () => {
     const { getServerUrl } = useServerUtils();
 
     const hasSavedRef = useRef(false);
-    // const tableContainerRef = useRef<HTMLDivElement>(null);
     const location = useLocation();
 
-    const steps: TutorialStep[] = [
+    const steps = [
         {
             target: '#keywords-header',
             content:
@@ -99,30 +94,6 @@ const KeywordsTablePage: FC = () => {
         };
     }, [saveWorkspaceData]);
 
-    // useImperativeHandle(
-    //     loadingState[location.pathname].stepRef,
-    //     () => ({
-    //         validateStep: () => {
-    //             // if (selectedKeywords.length < WORD_CLOUD_MIN_THRESHOLD) {
-    //             //     alert(`Please select at least ${WORD_CLOUD_MIN_THRESHOLD} keywords.`);
-    //             //     return false;
-    //             // }
-    //             return true;
-    //         },
-    //         resetStep: () => {
-    //             // dispatchKeywordsTable({
-    //             //     type:"INITIALIZE",
-    //             // })
-    //         }
-    //     }),
-    //     [keywordTable]
-    // );
-
-    // // Register this step's ref in your loading state.
-    // useEffect(() => {
-    //     registerStepRef(stepRoute, loadingState[location.pathname].stepRef);
-    // }, [loadingState[location.pathname].stepRef, stepRoute]);
-
     const { scrollRef: tableRef, storageKey } = useScrollRestoration('keyword-table');
 
     useEffect(() => {
@@ -134,21 +105,42 @@ const KeywordsTablePage: FC = () => {
         }
     }, [keywordTable, tableRef, storageKey]);
 
+    // Handler for text field changes with undo support
+    const onFieldChange = (index: number, field: string, value: any) => {
+        const action = { type: 'UPDATE_FIELD', index, field, value };
+        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
+    };
+
+    // Handler for toggling mark with undo support
+    const onToggleMark = (index: number, isMarked: boolean | undefined) => {
+        const action = { type: 'TOGGLE_MARK', index, isMarked };
+        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
+    };
+
+    // Handler for deleting a row with undo support
+    const onDeleteRow = (index: number) => {
+        const action = { type: 'DELETE_ROW', index };
+        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
+    };
+
+    // Handler for toggling all rows with undo support
     const handleToggleAllSelectOrReject = (isSelect: boolean) => {
         const allAlreadySetTo = keywordTable.every((r) => r.isMarked === isSelect);
         const finalDecision = allAlreadySetTo ? undefined : isSelect;
 
+        let action;
         if (finalDecision === undefined) {
-            dispatchKeywordsTable({ type: 'SET_ALL_UNMARKED' });
+            action = { type: 'SET_ALL_UNMARKED' };
         } else {
-            dispatchKeywordsTable({
-                type: finalDecision ? 'SET_ALL_CORRECT' : 'SET_ALL_INCORRECT'
-            });
+            action = { type: finalDecision ? 'SET_ALL_CORRECT' : 'SET_ALL_INCORRECT' };
         }
+        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
     };
 
+    // Handler for adding a new row with undo support
     const handleAddNewRow = () => {
-        dispatchKeywordsTable({ type: 'ADD_ROW' });
+        const action = { type: 'ADD_ROW' };
+        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
         setTimeout(() => {
             if (tableRef.current) {
                 tableRef.current.scrollTo({
@@ -157,19 +149,6 @@ const KeywordsTablePage: FC = () => {
                 });
             }
         }, 500);
-    };
-
-    const handleDeleteRow = (index: number) => {
-        const action = { type: 'DELETE_ROW', index };
-        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
-    };
-
-    const handleUndoDelete = (row: KeywordEntry, index: number) => {
-        dispatchKeywordsTable({
-            type: 'UNDO_DELETE_ROW',
-            entry: row,
-            index
-        });
     };
 
     if (loadingState[location.pathname]?.isFirstRun) {
@@ -194,7 +173,6 @@ const KeywordsTablePage: FC = () => {
                     </header>
 
                     <main className="flex-1 overflow-hidden flex flex-col">
-                        {/* Table container */}
                         <div
                             id="table-section"
                             className="flex-1 overflow-auto relative"
@@ -205,7 +183,7 @@ const KeywordsTablePage: FC = () => {
                                         <th className="border border-gray-400 p-2">Word</th>
                                         <th className="border border-gray-400 p-2">Description</th>
                                         <th className="border border-gray-400 p-2">
-                                            Inclusion Criteria
+                                            inclusion Criteria
                                         </th>
                                         <th className="border border-gray-400 p-2">
                                             Exclusion Criteria
@@ -235,125 +213,20 @@ const KeywordsTablePage: FC = () => {
                                 </thead>
                                 <tbody>
                                     {keywordTable.map((entry, index) => (
-                                        <tr key={index} className="text-center">
-                                            <td className="border border-gray-400 p-2">
-                                                <textarea
-                                                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                                    value={entry.word}
-                                                    onChange={(e) =>
-                                                        dispatchKeywordsTable({
-                                                            type: 'UPDATE_FIELD',
-                                                            index,
-                                                            field: 'word',
-                                                            value: e.target.value
-                                                        })
-                                                    }
-                                                />
-                                            </td>
-                                            <td className="border border-gray-400 p-2">
-                                                <textarea
-                                                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                                    value={entry.description}
-                                                    onChange={(e) =>
-                                                        dispatchKeywordsTable({
-                                                            type: 'UPDATE_FIELD',
-                                                            index,
-                                                            field: 'description',
-                                                            value: e.target.value
-                                                        })
-                                                    }
-                                                />
-                                            </td>
-                                            <td className="border border-gray-400 p-2">
-                                                <textarea
-                                                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                                    value={entry.inclusion_criteria.join(', ')}
-                                                    onChange={(e) =>
-                                                        dispatchKeywordsTable({
-                                                            type: 'UPDATE_FIELD',
-                                                            index,
-                                                            field: 'inclusion_criteria',
-                                                            value: e.target.value
-                                                                .split(',')
-                                                                .map((v) => v.trim())
-                                                        })
-                                                    }
-                                                />
-                                            </td>
-                                            <td className="border border-gray-400 p-2">
-                                                <textarea
-                                                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                                    value={entry.exclusion_criteria.join(', ')}
-                                                    onChange={(e) =>
-                                                        dispatchKeywordsTable({
-                                                            type: 'UPDATE_FIELD',
-                                                            index,
-                                                            field: 'exclusion_criteria',
-                                                            value: e.target.value
-                                                                .split(',')
-                                                                .map((v) => v.trim())
-                                                        })
-                                                    }
-                                                />
-                                            </td>
-                                            <td
-                                                className="border border-gray-400 p-2"
-                                                id={`action-row-${index}`}>
-                                                <div className="flex items-center justify-center space-x-2">
-                                                    <button
-                                                        id={`accept-btn-${index}`}
-                                                        className={`w-8 h-8 flex items-center justify-center rounded ${
-                                                            entry.isMarked === true
-                                                                ? 'bg-green-500 text-white'
-                                                                : 'bg-gray-300 text-gray-500'
-                                                        }`}
-                                                        onClick={() =>
-                                                            dispatchKeywordsTable({
-                                                                type: 'TOGGLE_MARK',
-                                                                index,
-                                                                isMarked:
-                                                                    entry.isMarked !== true
-                                                                        ? true
-                                                                        : undefined
-                                                            })
-                                                        }>
-                                                        ✓
-                                                    </button>
-                                                    <button
-                                                        id={`deselect-btn-${index}`}
-                                                        className={`w-8 h-8 flex items-center justify-center rounded ${
-                                                            entry.isMarked === false
-                                                                ? 'bg-red-500 text-white'
-                                                                : 'bg-gray-300 text-gray-500'
-                                                        }`}
-                                                        onClick={() =>
-                                                            dispatchKeywordsTable({
-                                                                type: 'TOGGLE_MARK',
-                                                                index,
-                                                                isMarked:
-                                                                    entry.isMarked !== false
-                                                                        ? false
-                                                                        : undefined
-                                                            })
-                                                        }>
-                                                        ✕
-                                                    </button>
-                                                    <button
-                                                        id={`delete-btn-${index}`}
-                                                        className="w-8 h-8 flex items-center justify-center bg-red-600 text-white rounded hover:bg-red-700"
-                                                        onClick={() => handleDeleteRow(index)}>
-                                                        <FaTrash />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        <KeywordTableRow
+                                            key={index}
+                                            entry={entry}
+                                            index={index}
+                                            onFieldChange={onFieldChange}
+                                            onToggleMark={onToggleMark}
+                                            onDeleteRow={onDeleteRow}
+                                        />
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     </main>
 
-                    {/* Control buttons */}
                     <div id="control-buttons" className="mt-3 lg:mt-6 flex justify-evenly">
                         <div className="flex gap-x-4">
                             <button

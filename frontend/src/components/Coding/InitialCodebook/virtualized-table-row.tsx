@@ -1,4 +1,4 @@
-import { FC, useRef } from 'react';
+import { FC, useRef, useState, useEffect } from 'react';
 import { useIntersectionObserver } from '../../../hooks/Shared/use-intersection-observer';
 
 interface VirtualizedTableRowProps {
@@ -20,6 +20,21 @@ const VirtualizedTableRow: FC<VirtualizedTableRowProps> = ({
         rootMargin: '100px'
     });
 
+    const [localDefinition, setLocalDefinition] = useState(entry.definition);
+
+    useEffect(() => {
+        setLocalDefinition(entry.definition);
+    }, [entry.definition]);
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            if (localDefinition !== entry.definition) {
+                onDefinitionChange(index, localDefinition);
+            }
+        }, 500);
+        return () => clearTimeout(timeoutId);
+    }, [localDefinition, index, onDefinitionChange, entry.definition]);
+
     return (
         <tr ref={rowRef}>
             <td className="border border-gray-400 p-2 w-64 max-w-64 break-words">{entry.code}</td>
@@ -27,8 +42,8 @@ const VirtualizedTableRow: FC<VirtualizedTableRowProps> = ({
                 {isVisible ? (
                     <textarea
                         className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                        value={entry.definition}
-                        onChange={(e) => onDefinitionChange(index, e.target.value)}
+                        value={localDefinition}
+                        onChange={(e) => setLocalDefinition(e.target.value)}
                     />
                 ) : (
                     <div className="w-full p-2 h-24 overflow-hidden">{entry.definition}</div>

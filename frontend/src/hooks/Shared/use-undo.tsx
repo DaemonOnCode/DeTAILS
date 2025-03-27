@@ -1,11 +1,41 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useUndoContext } from '../../context/undo-context';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 type StateSetter<T> = (value: T) => void;
 
+// Custom toast component with an undo button
+interface UndoToastProps {
+    undo: () => void;
+    closeToast: () => void;
+}
+
+const UndoToast: React.FC<UndoToastProps> = ({ undo, closeToast }) => {
+    return (
+        <div className="max-w-sm w-full pointer-events-auto">
+            <div className="flex items-center">
+                <div className="flex-1">
+                    <p className="font-medium text-gray-900">Action performed.</p>
+                </div>
+                <div>
+                    <button
+                        onClick={() => {
+                            undo();
+                            closeToast();
+                        }}
+                        className="ml-4 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Undo
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export function useUndo() {
     const stateRegistry = useRef<Map<string, { state: any; setter: StateSetter<any> }>>(new Map());
-    const { logOperation } = useUndoContext();
+    const { logOperation, undo } = useUndoContext();
 
     const isBatching = useRef(false);
     const batchUndoFunctions = useRef<(() => void)[]>([]);
@@ -16,9 +46,15 @@ export function useUndo() {
                 batchUndoFunctions.current.push(undoFn);
             } else {
                 logOperation(undoFn);
+                // Show toast notification with undo button
+                toast.info(<UndoToast undo={undo} closeToast={() => toast.dismiss()} />, {
+                    autoClose: 5000, // Toast disappears after 5 seconds
+                    closeOnClick: false, // Prevent closing on click outside the button
+                    draggable: false // Prevent dragging
+                });
             }
         },
-        [logOperation]
+        [logOperation, undo]
     );
 
     // Start a batch
@@ -34,8 +70,14 @@ export function useUndo() {
             batchUndos.forEach((undoFn) => undoFn());
         };
         logOperation(batchUndoFn);
+        // Show toast for batch operation
+        toast.info(<UndoToast undo={undo} closeToast={() => toast.dismiss()} />, {
+            autoClose: 5000,
+            closeOnClick: false,
+            draggable: false
+        });
         batchUndoFunctions.current = [];
-    }, [logOperation]);
+    }, [logOperation, undo]);
 
     const batch = useCallback(
         (callback: () => void) => {
@@ -110,6 +152,20 @@ export function useUndo() {
 
         dispatch(action);
     }
+
+    // Handle Ctrl + Z for undo
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.ctrlKey && event.key === 'z') {
+                undo();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [undo]);
 
     return {
         registerState,

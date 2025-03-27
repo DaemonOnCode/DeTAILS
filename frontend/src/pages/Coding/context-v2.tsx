@@ -285,6 +285,8 @@ const ContextPage = () => {
                                     <p>Main topic of interest:</p>
                                     <input
                                         type="text"
+                                        maxLength={32}
+                                        placeholder="Max 32 characters"
                                         className="p-2 border border-gray-300 rounded w-96"
                                         value={mainTopic}
                                         onChange={(e) => setMainTopic(e.target.value)}

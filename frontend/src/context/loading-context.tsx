@@ -245,6 +245,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
 
     const abortRequests = (route: string) => {
         const routeIdx = Object.keys(initialPageState).indexOf(route);
+        console.log('Aborting requests for route:', route, routeIdx);
         Object.keys(initialPageState).forEach((route, idx) => {
             if (routeIdx <= idx && requestArrayRef.current) {
                 console.log('Aborting request:', route, requestArrayRef.current[route]);

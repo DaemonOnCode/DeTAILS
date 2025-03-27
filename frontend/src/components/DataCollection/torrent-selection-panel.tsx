@@ -19,7 +19,7 @@ const TorrentSelectionPanel: React.FC<{
 }> = ({ dataResource, selectedFilesRef }) => {
     const dataResponse = dataResource.read();
 
-    const { setModeInput } = useCollectionContext();
+    const { modeInput, setModeInput } = useCollectionContext();
 
     const [activeSubreddit, setActiveSubreddit] = useState<string | null>(null);
 
@@ -42,6 +42,27 @@ const TorrentSelectionPanel: React.FC<{
     const [expandedTypes, setExpandedTypes] = useState<{ [key: string]: boolean }>({});
     const [expandedYears, setExpandedYears] = useState<{ [key: string]: boolean }>({});
 
+    const getFilesForSubreddit = (subreddit: string): string[] => {
+        const fileList: string[] = [];
+        const subredditSelection = selected[subreddit];
+        if (!subredditSelection) return fileList;
+        (['posts', 'comments'] as const).forEach((type) => {
+            Object.keys(subredditSelection[type]).forEach((year) => {
+                const selectedArray = subredditSelection[type][year];
+                const filesArray = dataResponse[subreddit][type][year];
+                selectedArray.forEach((isSelected, index) => {
+                    if (isSelected) {
+                        const prefix = type === 'posts' ? 'RS' : 'RC';
+                        // Assume that the file value (e.g. "03") represents the month.
+                        const month = filesArray[index];
+                        fileList.push(`${prefix}_${year}-${month}`);
+                    }
+                });
+            });
+        });
+        return fileList;
+    };
+
     useEffect(() => {
         const isAnyFileSelected = Object.values(selected).some((subredditSelection) => {
             const postsSelected = Object.values(subredditSelection.posts).some((arr) =>
@@ -54,12 +75,51 @@ const TorrentSelectionPanel: React.FC<{
         });
 
         if (isAnyFileSelected && activeSubreddit) {
-            setModeInput(`reddit:torrent:${activeSubreddit}:files`);
+            const files = getFilesForSubreddit(activeSubreddit);
+            setModeInput((prevModeInput) => {
+                let baseInput = `reddit:torrent:${activeSubreddit}`;
+                if (prevModeInput && prevModeInput.includes(':files:')) {
+                    baseInput = prevModeInput.split(':files:')[0];
+                }
+                return `${baseInput}:files:${files.join(',')}`;
+            });
+        } else {
+            // setModeInput('');
         }
-        // else {
-        //     setModeInput((prev) => prev!=='' ? prev : '');
-        // }
-    }, [selected, activeSubreddit, setModeInput]);
+    }, [selected, activeSubreddit, setModeInput, dataResponse]);
+
+    useEffect(() => {
+        if (modeInput && modeInput.includes(':files:')) {
+            const [base, filesStr] = modeInput.split(':files:');
+            const parts = base.split(':');
+            if (parts.length >= 3) {
+                const subredditFromMode = parts[2];
+                setActiveSubreddit(subredditFromMode);
+                const filesList = filesStr.split(',').filter(Boolean);
+                const updatedSelected = { ...selected };
+                filesList.forEach((fileEntry) => {
+                    const [prefix, yearMonth] = fileEntry.split('_');
+                    const [year, month] = yearMonth.split('-');
+                    const type = prefix === 'RS' ? 'posts' : prefix === 'RC' ? 'comments' : null;
+                    if (
+                        type &&
+                        dataResponse[subredditFromMode] &&
+                        dataResponse[subredditFromMode][type][year]
+                    ) {
+                        const monthArray = dataResponse[subredditFromMode][type][year];
+                        const monthIndex = monthArray.findIndex((m) => m === month);
+                        if (monthIndex !== -1) {
+                            updatedSelected[subredditFromMode][type][year] = [
+                                ...updatedSelected[subredditFromMode][type][year]
+                            ];
+                            updatedSelected[subredditFromMode][type][year][monthIndex] = true;
+                        }
+                    }
+                });
+                setSelected(updatedSelected);
+            }
+        }
+    }, []);
 
     useImperativeHandle(
         selectedFilesRef,
