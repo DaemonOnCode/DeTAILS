@@ -307,7 +307,7 @@ class GlobalQueueManager:
                         )
                         result = await asyncio.wait_for(
                             asyncio.to_thread(func, *args, **kwargs),
-                            timeout=600
+                            timeout=120
                         )
                         cfut.set_result(result)
                         try:

@@ -38,15 +38,14 @@ const ObservableTBody: FC<ObservableTBodyProps> = ({
 }) => {
     const tableRef = useRef<HTMLTableSectionElement>(null);
     const isVisible = useIntersectionObserver(tableRef, {
-        visibleThreshold: 0.01, // Trigger when 1% is in the expanded viewport
-        invisibleThreshold: 0.001, // Hide when less than 0.1% is visible
-        rootMargin: '300px 0px 300px 0px', // Expand viewport by 300px top and bottom
+        visibleThreshold: 0.01,
+        invisibleThreshold: 0.001,
+        rootMargin: '300px 0px 300px 0px',
         threshold: [0.001, 0.01]
     });
 
-    // Adjust these based on actual measured heights (e.g., via browser inspection)
-    const rowHeight = 60; // Slightly overestimate to prevent jumps
-    const headerHeight = 50; // Match typical header height
+    const rowHeight = 60;
+    const headerHeight = 50;
     const totalHeight = headerHeight + rowItems.length * rowHeight;
 
     return (

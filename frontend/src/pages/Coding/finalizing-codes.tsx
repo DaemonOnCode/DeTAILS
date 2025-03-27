@@ -498,6 +498,7 @@ const FinalzingCodes = () => {
                                             <div className="grid grid-cols-2 gap-6">
                                                 {groupedCodes.map((bucket) => (
                                                     <Bucket
+                                                        scrollRef={codeRef}
                                                         key={bucket.id}
                                                         theme={bucket}
                                                         onDrop={handleDropToBucket}
@@ -511,6 +512,7 @@ const FinalzingCodes = () => {
                                         <div className="flex flex-col h-full w-[30%] px-4 gap-2">
                                             <div className="flex-1 overflow-auto" ref={unplacedRef}>
                                                 <UnplacedCodesBox
+                                                    scrollRef={unplacedRef}
                                                     unplacedCodes={unplacedSubCodes}
                                                     onDrop={handleDropToUnplaced}
                                                     setCodeRef={setCodeRef}

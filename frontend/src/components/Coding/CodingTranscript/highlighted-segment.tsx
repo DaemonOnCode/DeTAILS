@@ -1,15 +1,16 @@
-import { FC, memo, useState } from 'react';
+import { FC, memo, useRef } from 'react';
 import { useTranscriptContext } from '../../../context/transcript-context';
 import { generateColor } from '../../../utility/color-generator';
 import type { Segment } from '../../../types/Coding/shared';
+import { useIntersectionObserver } from '../../../hooks/Shared/use-intersection-observer';
 
 interface HighlightedSegmentProps {
     segment: Segment;
 }
 
 const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
-    // const [isHovered, setIsHovered] = useState(false);
     const {
+        containerRef,
         selectedText,
         activeSegment,
         handleSegmentInteraction,
@@ -19,14 +20,32 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
         selectedSegment,
         setSelectedSegment
     } = useTranscriptContext();
+    const segmentRef = useRef<HTMLSpanElement>(null);
+
+    const isVisible = useIntersectionObserver(segmentRef, {
+        root: containerRef.current,
+        rootMargin: '100px'
+    });
+
+    if (!isVisible) {
+        return (
+            <span
+                ref={segmentRef}
+                style={{
+                    display: 'inline-block',
+                    height: '1.5em',
+                    width: '100%'
+                }}
+            />
+        );
+    }
 
     const isActive = activeSegment?.index === segment.index;
 
-    // isActive && console.log('isActive', isActive, segment);
-    // If there are no background colours, render the text plainly.
     if (segment.backgroundColours.length === 0) {
         return (
             <span
+                ref={segmentRef}
                 data-segment-id={segment.index}
                 className="relative z-10 mr-0.5 whitespace-pre-line">
                 {segment.line}
@@ -36,6 +55,7 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
 
     return (
         <span
+            ref={segmentRef}
             style={{
                 position: 'relative',
                 display: 'inline-block',

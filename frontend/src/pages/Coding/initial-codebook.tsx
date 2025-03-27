@@ -19,6 +19,7 @@ import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
+import VirtualizedTableRow from '../../components/Coding/InitialCodebook/virtualized-table-row';
 
 const InitialCodeBook = () => {
     const {
@@ -231,26 +232,13 @@ const InitialCodeBook = () => {
                             {/* Table Body */}
                             <tbody>
                                 {initialCodebookTable.map((entry, index) => (
-                                    <tr key={index} className="text-center">
-                                        {/* Non-editable Code column */}
-                                        <td
-                                            className="border border-gray-400 p-2 max-w-32 overflow-wrap"
-                                            id={`initial-code-${index}`}>
-                                            {entry.code}
-                                        </td>
-                                        {/* Editable Definition column */}
-                                        <td
-                                            className="border border-gray-400 p-2 overflow-wrap"
-                                            id={`initial-definition-${index}`}>
-                                            <textarea
-                                                className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                                                value={entry.definition}
-                                                onChange={(e) =>
-                                                    handleDefinitionChange(index, e.target.value)
-                                                }
-                                            />
-                                        </td>
-                                    </tr>
+                                    <VirtualizedTableRow
+                                        key={index}
+                                        entry={entry}
+                                        index={index}
+                                        onDefinitionChange={handleDefinitionChange}
+                                        root={tableRef.current}
+                                    />
                                 ))}
                             </tbody>
                         </table>

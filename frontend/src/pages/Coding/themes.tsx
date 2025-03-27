@@ -387,6 +387,7 @@ const ThemesPage = () => {
                                     <div id="bucket-section" className="grid grid-cols-2 gap-6">
                                         {themes.map((theme) => (
                                             <Bucket
+                                                scrollRef={themeRef}
                                                 key={theme.id}
                                                 theme={theme}
                                                 onDrop={handleDropToBucket}
@@ -403,6 +404,7 @@ const ThemesPage = () => {
                                         id="unplaced-codes"
                                         ref={unplacedRef}>
                                         <UnplacedCodesBox
+                                            scrollRef={unplacedRef}
                                             unplacedCodes={unplacedCodes}
                                             onDrop={handleDropToUnplaced}
                                             setCodeRef={setCodeRef}
