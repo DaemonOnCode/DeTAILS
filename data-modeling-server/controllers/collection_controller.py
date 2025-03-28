@@ -776,13 +776,14 @@ async def wait_for_metadata(
     return torrent
 
 
-
 async def verify_torrent_with_retry(
     manager: ConnectionManager,
     app_id: str,
     run_id: str,
-        c: Client, torrent: Torrent, 
-        torrent_url: str, download_dir: str,
+    c: Client, 
+    torrent: Torrent, 
+    torrent_url: str, 
+    download_dir: str,
 ) -> Torrent:
     c.verify_torrent(torrent.id)
     while True:
@@ -792,13 +793,17 @@ async def verify_torrent_with_retry(
         if hasattr(torrent, "error") and torrent.error != 0:
             message = f"Verification error: {torrent.error_string}. Re-adding torrent..."
             print(message)
-            # await manager.send_message(app_id, message)
-            # update_run_progress(run_id, message)
-
             c.remove_torrent(torrent.id)
+            print("Removed torrent. Re-adding...")
             await asyncio.sleep(10)
             torrent = c.add_torrent(torrent_url, download_dir=download_dir)
+            print("Torrent re-added.")
+            # Wait for metadata to be fully loaded before verifying
+            torrent = await wait_for_metadata(manager, app_id, run_id, c, torrent)
+            # Now verify the torrent
             c.verify_torrent(torrent.id)
+            print("Re-verifying torrent.")
+            await asyncio.sleep(10)
             continue
         if status not in ["check pending", "checking"]:
             print("Torrent status is not 'check pending' or 'checking' - breaking.", status)
@@ -815,7 +820,7 @@ async def verify_torrent_with_retry(
     return torrent
 
 
-def get_files_to_process(torrent_files: list[TorrentFile], wanted_range: list, submissions_only: bool) -> list[TorrentFile]:
+def get_files_to_process(torrent_files: list[TorrentFile], wanted_range: list, submissions_only: bool) -> list[str]:
     files_to_process = []
     for file in torrent_files:
         print(file.name, file.name.split("_")[1], file.name.split("_")[1] in wanted_range)
@@ -825,7 +830,7 @@ def get_files_to_process(torrent_files: list[TorrentFile], wanted_range: list, s
             continue
         if filename.split("_")[1] in wanted_range:
             print(f"Adding file {file.name} to the list.")
-            files_to_process.append(file)
+            files_to_process.append(file.name)
     return files_to_process
 
 async def process_single_file(
@@ -834,19 +839,24 @@ async def process_single_file(
     run_id: str,
     c: Client, 
     torrent: Torrent, 
-    file: TorrentFile, 
+    file_name: str, 
     download_dir: str, 
     subreddit: str,
 ):
-    file_id = file.id
-    file_name = file.name
-    print(f"\n--- Processing file: {file_name} (ID: {file_id}) ---")
+    print(f"\n--- Processing file: {file_name} ---")
 
     message = f"Processing file: {file_name} ..."
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
 
     torrent_files = c.get_torrent(torrent.id).get_files()
+
+    print(f"Torrent files: {torrent_files}")
+
+    wanted_file = list(filter(lambda f: f.name == file_name, torrent_files))[0]
+
+    file_id = wanted_file.id
+    # print(f"Setting file {file_name} (ID: {file_id}) as wanted, others as unwanted")
 
     print(f"Setting file {file_name} as wanted, others as unwanted {file_id}")
     all_file_ids = [f.id for f in torrent_files]
@@ -922,6 +932,7 @@ async def process_single_file(
 
         # source_file = os.path.join(academic_folder, output_file)
         datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
+        os.makedirs(datasets_academic_folder, exist_ok=True)
         symlink_path = os.path.join(datasets_academic_folder, os.path.splitext(os.path.basename(file_name))[0] + ".json")
         if os.path.lexists(symlink_path):
             os.remove(symlink_path)
@@ -1004,19 +1015,19 @@ async def get_reddit_data_from_torrent(
     files_to_process = get_files_to_process(torrent_files, wanted_range, submissions_only)
     already_existing_files = get_torrent_files_by_subreddit(subreddit)
     print(f"Already existing files: {already_existing_files}")
-    files_already_downloaded = list(filter(lambda f: os.path.splitext(os.path.basename(f.name))[0] in already_existing_files, files_to_process))
-    message = f'Files already downloaded: {(", ").join([os.path.splitext(os.path.basename(f.name))[0] for f in files_already_downloaded])}'
+    files_already_downloaded = list(filter(lambda f: os.path.splitext(os.path.basename(f))[0] in already_existing_files, files_to_process))
+    message = f'Files already downloaded: {(", ").join([os.path.splitext(os.path.basename(f))[0] for f in files_already_downloaded])}'
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
     if len(already_existing_files) != 0:
-        files_to_process = list(filter(lambda f: os.path.splitext(os.path.basename(f.name))[0] not in already_existing_files, files_to_process))
+        files_to_process = list(filter(lambda f: os.path.splitext(os.path.basename(f))[0] not in already_existing_files, files_to_process))
     print(f"Files to process: {files_to_process}")
     message = f"Files to process: {len(files_to_process)}"
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
 
     file_repo.insert_batch(
-        list(map(lambda f: FileStatus(run_id=run_id, file_name=f.name,workspace_id=workspace_id, dataset_id=dataset_id), files_to_process))
+        list(map(lambda f: FileStatus(run_id=run_id, file_name=f, workspace_id=workspace_id, dataset_id=dataset_id), files_to_process))
     )
 
     current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, academic_torrent, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)

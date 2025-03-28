@@ -52,7 +52,7 @@ const LoadReddit: FC<{
                 torrentSubredditInitial = torrentParams[0] || defaultSubreddit;
                 torrentStartInitial = torrentParams[1] || defaultStart;
                 torrentEndInitial = torrentParams[2] || defaultEnd;
-                torrentModeInitial = torrentParams[3] === 'false' ? 'posts' : 'postsAndComments';
+                torrentModeInitial = torrentParams[3] !== 'false' ? 'posts' : 'postsAndComments';
             }
         }
     }

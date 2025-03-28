@@ -64,7 +64,7 @@ const ManualCodingPage: React.FC = () => {
         return () => {
             document.body.removeChild(portalContainer);
         };
-    }, [generateCodebook]);
+    }, []);
 
     // Handler for tab switching
     const handleTabChange = async (newTab: string) => {

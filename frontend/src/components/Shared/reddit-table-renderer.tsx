@@ -269,7 +269,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                         value={itemsPerPage}
                         onChange={handleItemsPerPageChange}
                         className="p-2 border border-gray-300 rounded">
-                        {[10, 20, 50, 100].map((limit) => (
+                        {[10, 20, 50, 100, 1000, 10000].map((limit) => (
                             <option key={limit} value={limit}>
                                 {limit}
                             </option>
