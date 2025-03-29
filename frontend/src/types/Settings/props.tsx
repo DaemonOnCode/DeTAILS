@@ -25,12 +25,8 @@ export interface ModelSelectProps {
 export interface AIParametersProps {
     temperature: number;
     randomSeed: number;
-    modelList: string[];
-    textEmbedding: string;
     onTemperatureChange: (newTemperature: number) => void;
-    onRandomSeedChange: (newSeed: number) => void;
-    onTextEmbeddingChange: (newEmbedding: string) => void;
-    onModelListChange: (newModelList: string[]) => void;
+    onRandomSeedChange: (newRandomSeed: number) => void;
 }
 
 export interface PullProgressProps {

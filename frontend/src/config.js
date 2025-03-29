@@ -80,8 +80,8 @@ const config = {
             GET_POST_LINK_FROM_ID: 'miscellaneous/get-link-from-post',
             CHECK_TRANSMISSION: 'miscellaneous/check-transmission',
             CHECK_CREDENTIALS: 'miscellaneous/test-user-credentials',
-            CHECK_GOOGLE_MODEL: 'miscellaneous/test-google-genai-model',
-            CHECK_GOOGLE_TEXT_EMBEDDING: 'miscellaneous/test-google-text-embedding',
+            CHECK_MODEL: 'miscellaneous/test-model',
+            CHECK_EMBEDDING: 'miscellaneous/test-embedding',
             CHECK_FUNCTION_PROGRESS: 'miscellaneous/get-function-progress',
 
             OLLAMA_PULL: 'ollama/pull-model',

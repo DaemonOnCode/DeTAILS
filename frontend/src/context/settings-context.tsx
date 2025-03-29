@@ -1,6 +1,8 @@
 import { createContext, useState, FC, useCallback, useMemo, useContext, useEffect } from 'react';
 import { ILayout } from '../types/Coding/shared';
 import _defaultSettings from '../default-settings.json';
+import { toast } from 'react-toastify';
+import { ProviderSettings } from '../types/Settings/shared';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -19,11 +21,9 @@ export interface ISettingsConfig {
     };
     ai: {
         model: string;
-        googleCredentialsPath: string;
         temperature: number;
         randomSeed: number;
-        modelList: string[];
-        textEmbedding: string;
+        providers: Record<string, ProviderSettings>;
     };
     devtools: {
         showConsole: boolean;
@@ -41,7 +41,7 @@ export interface ISettingsConfig {
     };
 }
 
-const defaultSettings = _defaultSettings as ISettingsConfig;
+const defaultSettings = _defaultSettings as unknown as ISettingsConfig;
 type Sections = keyof Omit<ISettingsConfig, 'app'>;
 
 export interface ISettingsContext {
@@ -61,6 +61,7 @@ export interface ISettingsContext {
     markSectionDirty: (section: Sections, isDirty: boolean) => void;
     disableBack: boolean;
     setDisableBack: (disable: boolean) => void;
+    clearDirtySections: () => void;
 }
 
 export const SettingsContext = createContext<ISettingsContext>({
@@ -79,7 +80,8 @@ export const SettingsContext = createContext<ISettingsContext>({
     ),
     markSectionDirty: () => {},
     disableBack: false,
-    setDisableBack: () => {}
+    setDisableBack: () => {},
+    clearDirtySections: () => {}
 });
 
 export const SettingsProvider: FC<ILayout> = ({ children }) => {
@@ -92,7 +94,6 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
     const [disableBack, setDisableBack] = useState<boolean>(false);
 
     const fetchSettings = async () => {
-        // Only fetch if settings haven't been fetched yet
         if (settingsFetched) return;
 
         setSettingsLoading(true);
@@ -101,7 +102,7 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
             console.log('Settings:', savedSettings);
             if (savedSettings) {
                 setSettings(savedSettings);
-                setSettingsFetched(true); // Mark as fetched
+                setSettingsFetched(true);
             }
         } catch (err) {
             console.error('Error retrieving settings:', err);
@@ -110,32 +111,64 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
         }
     };
 
-    // Load settings on mount
     useEffect(() => {
         fetchSettings();
     }, []);
 
+    type ProviderSettings = ISettingsConfig['ai']['providers'][string];
+
+    const updateAiSection = (
+        currentAi: ISettingsConfig['ai'],
+        updates: Partial<ISettingsConfig['ai']>
+    ): ISettingsConfig['ai'] => {
+        let newProviders = { ...currentAi.providers };
+        if (updates.providers) {
+            Object.entries(updates.providers).forEach(([provider, providerUpdates]) => {
+                const existing = currentAi.providers[provider] || {};
+                newProviders[provider] = {
+                    ...existing,
+                    ...providerUpdates
+                } as ProviderSettings;
+            });
+        }
+        return {
+            ...currentAi,
+            ...updates,
+            providers: newProviders
+        };
+    };
+
     const updateSettings = useCallback(
         async (section: Sections, updates: Partial<ISettingsConfig[typeof section]>) => {
-            const newSettings = {
-                ...settings,
-                [section]: {
+            let newSectionSettings;
+
+            if (section === 'ai') {
+                newSectionSettings = updateAiSection(
+                    settings.ai,
+                    updates as Partial<ISettingsConfig['ai']>
+                );
+            } else {
+                newSectionSettings = {
                     ...settings[section],
                     ...updates
-                }
+                };
+            }
+
+            const newSettings = {
+                ...settings,
+                [section]: newSectionSettings
             };
-            console.log('Updating settings:', newSettings);
 
             try {
                 const updatedSettings: ISettingsConfig = await ipcRenderer.invoke(
                     'set-settings',
                     newSettings
                 );
-                console.log('Updated settings:', updatedSettings);
                 setSettings(updatedSettings);
                 setDirtySections((prev) => ({ ...prev, [section]: false }));
             } catch (err) {
                 console.error('Error updating settings:', err);
+                toast.error('Error updating settings');
             }
         },
         [settings]
@@ -191,6 +224,12 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
         setDirtySections((prev) => ({ ...prev, [section]: isDirty }));
     }, []);
 
+    const clearDirtySections = useCallback(() => {
+        setDirtySections(
+            Object.assign({}, ...Object.keys(defaultSettings).map((key) => ({ [key]: false })))
+        );
+    }, []);
+
     const value = useMemo(
         () => ({
             settings,
@@ -205,7 +244,8 @@ export const SettingsProvider: FC<ILayout> = ({ children }) => {
             dirtySections,
             markSectionDirty,
             disableBack,
-            setDisableBack
+            setDisableBack,
+            clearDirtySections
         }),
         [settings, settingsLoading, dirtySections, disableBack]
     );

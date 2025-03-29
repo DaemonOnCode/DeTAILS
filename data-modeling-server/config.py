@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import List, TypedDict, Union, Dict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from pathlib import Path
@@ -22,16 +23,63 @@ class WorkspaceSettings:
     def __init__(self, layout: str = "grid", **kwargs):
         self.layout = layout
 
+class GoogleProviderSettings:
+    def __init__(self, name: str = "Google", apiKey: str = "", modelList: list[str] = None, textEmbedding: str = "text-embedding-005", **kwargs):
+        self.name = name
+        self.apiKey = apiKey
+        self.modelList = modelList if modelList is not None else []
+        self.textEmbedding = textEmbedding
+
+class OpenAIProviderSettings:
+    def __init__(self, name: str = "OpenAI", apiKey: str = "", modelList: list[str] = None, textEmbedding: str = "", **kwargs):
+        self.name = name
+        self.apiKey = apiKey
+        self.modelList = modelList if modelList is not None else []
+        self.textEmbedding = textEmbedding
+
+class VertexAIProviderSettings:
+    def __init__(self, name: str = "Google Vertex AI", credentialsPath: str = "", modelList: list[str] = None, textEmbedding: str = "text-embedding-005", **kwargs):
+        self.name = name
+        self.credentialsPath = credentialsPath
+        self.modelList = modelList if modelList is not None else []
+        self.textEmbedding = textEmbedding
+
+class OllamaProviderSettings:
+    def __init__(self, name: str = "Ollama", modelList: list[str] = None, **kwargs):
+        self.name = name
+        self.modelList = modelList if modelList is not None else []
+
+class APIKeyProviderDict(TypedDict):
+    apiKey: str
+    modelList: List[str]
+    textEmbedding: str
+
+class CredentialsProviderDict(TypedDict):
+    credentialsPath: str
+    modelList: List[str]
+    textEmbedding: str
+
+class OllamaProviderDict(TypedDict, total=False):
+    modelList: List[str]
+
+ProviderValue = Union[APIKeyProviderDict, CredentialsProviderDict, OllamaProviderDict]
+
 class AISettings:
-    def __init__(self, model: str = "gemini-2.0-flash-thinking-exp-01-21", 
-                 googleCredentialsPath: str = "", temperature: float = 0.0, 
-                 randomSeed: int = 42, modelList: list[str] = [], textEmbedding: str = "text-embedding-005", **kwargs):
+    def __init__(self, model: str = "", providers: Dict[str, ProviderValue] = None, temperature: float = 0.0, randomSeed: int = 42, **kwargs):
         self.model = model
-        self.googleCredentialsPath = googleCredentialsPath
+        # Initialize providers sub-settings if provided.
+        self.providers = {}
+        if providers is not None:
+            if "google" in providers:
+                self.providers["google"] = GoogleProviderSettings(**providers["google"])
+            if "openai" in providers:
+                self.providers["openai"] = OpenAIProviderSettings(**providers["openai"])
+            if "vertexai" in providers:
+                self.providers["vertexai"] = VertexAIProviderSettings(**providers["vertexai"])
+            if "ollama" in providers:
+                self.providers["ollama"] = OllamaProviderSettings(**providers["ollama"])
         self.temperature = temperature
         self.randomSeed = randomSeed
-        self.modelList = modelList
-        self.textEmbedding = textEmbedding
 
 class DevtoolsSettings:
     def __init__(self, showConsole: bool = False, enableRemoteDebugging: bool = False, **kwargs):
@@ -46,12 +94,13 @@ class TutorialsSettings:
         self.hasRun = hasRun
 
 class TransmissionSettings:
-    def __init__(self, path: str = "", downloadDir: str = "", magnetLink: str = ACADEMIC_TORRENT_MAGNET, **kwargs):
+    def __init__(self, path: str = "", downloadDir: str = "", magnetLink: str = "", fallbackMagnetLink: str = "", **kwargs):
         self.path = path
         self.downloadDir = downloadDir
         self.magnetLink = magnetLink
+        self.fallbackMagnetLink = fallbackMagnetLink
 
-# Main Settings class that reads the file
+
 class CustomSettings:
     def __init__(self):
         json_path = Path(PATHS["settings"])

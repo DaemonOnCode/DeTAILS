@@ -13,15 +13,40 @@
     },
     "ai": {
         "model": "google-gemini-2.0-flash-thinking-exp-01-21",
-        "googleCredentialsPath": "",
+        "providers": {
+            "google": {
+                "name": "Google",
+                "apiKey": "",
+                "modelList": [
+                    "gemini-2.0-flash-thinking-exp-01-21",
+                    "gemini-2.0-flash-001",
+                    "gemini-2.0-pro-exp-02-05"
+                ],
+                "textEmbedding": "text-embedding-005"
+            },
+            "openai": {
+                "name": "OpenAI",
+                "apiKey": "",
+                "modelList": [],
+                "textEmbedding": ""
+            },
+            "vertexai": {
+                "name": "Google Vertex AI",
+                "credentialsPath": "",
+                "modelList": [
+                    "gemini-2.0-flash-thinking-exp-01-21",
+                    "gemini-2.0-flash-001",
+                    "gemini-2.0-pro-exp-02-05"
+                ],
+                "textEmbedding": "text-embedding-005"
+            },
+            "ollama": {
+                "name": "Ollama",
+                "modelList": []
+            }
+        },
         "temperature": 0.0,
-        "randomSeed": 42,
-        "modelList": [
-            "google-gemini-2.0-flash-thinking-exp-01-21",
-            "google-gemini-2.0-flash-001",
-            "google-gemini-2.0-pro-exp-02-05"
-        ],
-        "textEmbedding": "text-embedding-005"
+        "randomSeed": 42
     },
     "devtools": {
         "showConsole": false,
@@ -35,6 +60,7 @@
     "transmission": {
         "path": "",
         "downloadDir": "",
-        "magnetLink": "magnet:?xt=urn:btih:ba051999301b109eab37d16f027b3f49ade2de13&tr=https%3A%2F%2Facademictorrents.com%2Fannounce.php&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce"
+        "magnetLink": "magnet:?xt=urn:btih:1614740ac8c94505e4ecb9d88be8bed7b6afddd4&tr=https%3A%2F%2Facademictorrents.com%2Fannounce.php&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce",
+        "fallbackMagnetLink": "magnet:?xt=urn:btih:ba051999301b109eab37d16f027b3f49ade2de13&tr=https%3A%2F%2Facademictorrents.com%2Fannounce.php&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce"
     }
 }

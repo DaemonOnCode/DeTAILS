@@ -13,11 +13,14 @@ const ModelSelect: React.FC<ModelSelectProps> = ({
                 value={selectedModel}
                 onChange={onModelChange}
                 className="w-full p-2 border border-gray-300 rounded">
-                {combinedModels.map((model) => (
-                    <option key={model} value={model}>
-                        {model.split('-').slice(1).join('-')}
-                    </option>
-                ))}
+                {combinedModels.map((model) => {
+                    const [provider, ...name] = model.split('-');
+                    return (
+                        <option key={model} value={model}>
+                            {provider[0].toUpperCase() + provider.slice(1)} - {name.join('-')}
+                        </option>
+                    );
+                })}
             </select>
         </div>
     );

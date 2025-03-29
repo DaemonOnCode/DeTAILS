@@ -6,14 +6,18 @@ from google.auth.transport.requests import Request
 import google.auth.exceptions
 from langchain_google_vertexai import ChatVertexAI, VertexAI, VertexAIEmbeddings
 from google.auth import load_credentials_from_file
+import openai
+import requests
 
 import config
 from controllers.miscellaneous_controller import get_credential_path, link_creator, normalize_text, search_slice
 from database import PostsRepository, CommentsRepository, FunctionProgressRepository
 from database.db_helpers import get_post_and_comments_from_id
 from errors.credential_errors import InvalidCredentialError, MissingCredentialError
+from errors.llm_errors import UnsupportedEmbeddingModelError
 from errors.vertex_ai_errors import InvalidGenAIModelError, InvalidTextEmbeddingError
-from models.miscellaneous_models import FunctionProgressRequest, GoogleGenAITestRequest, RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest, UserCredentialTestRequest
+from models.miscellaneous_models import EmbeddingTestRequest, FunctionProgressRequest, ModelTestRequest, RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest, UserCredentialTestRequest
+from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 
 
@@ -109,102 +113,117 @@ async def check_transmission_endpoint(
 
 @router.post("/test-user-credentials")
 async def test_user_credentials_endpoint(
-    request_body: UserCredentialTestRequest
+    request_body: UserCredentialTestRequest,
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    print("Testing user credentials...", request_body.credential_path)
-    if not os.path.exists(request_body.credential_path):
-        print(f"Error: The file '{request_body.credential_path}' does not exist.")
-        raise MissingCredentialError(f"The file '{request_body.credential_path}' does not exist.")
+    provider = request_body.provider.lower().strip()
+    credential = request_body.credential.strip()
 
-    # Try to load the file as JSON
-    try:
-        if not request_body.credential_path.endswith('.json'):
-            print("Error: The file is not a JSON file.")
+    if provider in ("vertexai"):
+        if not os.path.exists(credential):
+            raise MissingCredentialError(f"The file '{credential}' does not exist.")
+
+        if not credential.endswith('.json'):
             raise MissingCredentialError("The file is not a JSON file.")
-        with open(request_body.credential_path, 'r') as f:
-            data = json.load(f)
-    except json.JSONDecodeError:
-        print("Error: The file is not a valid JSON.")
-        raise MissingCredentialError("The file is not a valid JSON")
-    
-    with open(request_body.credential_path, 'r') as f:
-            data = json.load(f)
-    
-    try:
+
+        try:
+            with open(credential, 'r') as f:
+                data = json.load(f)
+        except json.JSONDecodeError:
+            raise MissingCredentialError("The file is not a valid JSON.")
+
         cred_type = data.get('type')
-    except Exception as e:
-        print("Error: Credential type not found in JSON.")
-        raise InvalidCredentialError("Credential type not found in JSON.")
+        if not cred_type:
+            raise InvalidCredentialError("Credential type not found in JSON.")
+
+        if cred_type == 'service_account':
+            try:
+                creds = service_account.Credentials.from_service_account_file(
+                    credential,
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                )
+                creds.refresh(Request())
+            except Exception as e:
+                raise InvalidCredentialError("Service Account credentials are invalid or revoked.")
+        elif cred_type == 'authorized_user':
+            try:
+                creds = credentials.Credentials(
+                    token=None,
+                    refresh_token=data.get("refresh_token"),
+                    token_uri="https://oauth2.googleapis.com/token",
+                    client_id=data.get("client_id"),
+                    client_secret=data.get("client_secret"),
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                )
+                creds.refresh(Request())
+            except Exception as e:
+                raise InvalidCredentialError("User credentials are invalid or expired.")
+        else:
+            raise InvalidCredentialError("Unknown credential type.")
+        print(f"Validated credentials for provider '{provider}' via JSON file.")
+        return {"valid": True}
+
+    elif provider in ("openai", "google"):
+        if not credential:
+            raise MissingCredentialError("API key is missing.")
+
+        if provider == "openai":
+            try:
+                client = openai.OpenAI(
+                    api_key=credential,
+                )
+                client.models.list()
+            except Exception as e:
+                raise InvalidCredentialError("OpenAI API key is invalid or expired.")
+        elif provider == "google":
+            try:
+                response = requests.get(
+                    "https://aistudio.googleapis.com/v1/projects",
+                    params={"key": credential},
+                    timeout=5
+                )
+                if response.status_code != 200:
+                    raise Exception("Non-200 status code")
+            except Exception as e:
+                raise InvalidCredentialError("Google AI Studio API key is invalid or expired.")
+        print(f"Validated API key for provider '{provider}'.")
+        return {"valid": True}
     
-    if cred_type == 'service_account':
-        print("Detected Service Account credentials.")
-        try:
-            creds = service_account.Credentials.from_service_account_file(
-                request_body.credential_path,
-                scopes=["https://www.googleapis.com/auth/cloud-platform"]  # Adjust as needed
-            )
-            creds.refresh(Request())
-            print("Service Account credentials are valid!")
-            return {"valid": True}
-        except google.auth.exceptions.RefreshError as e:
-            print("Service Account credentials are invalid or revoked:", e)
-            raise InvalidCredentialError("Service Account credentials are invalid or revoked.")
-    elif cred_type == 'authorized_user':
-        print("Detected Authorized User credentials.")
-        try:
-            creds = credentials.Credentials(
-                token=None,
-                refresh_token=data.get("refresh_token"),
-                token_uri="https://oauth2.googleapis.com/token",
-                client_id=data.get("client_id"),
-                client_secret=data.get("client_secret"),
-                scopes=["https://www.googleapis.com/auth/cloud-platform"]
-            )
-            creds.refresh(Request())
-            print("User credentials are valid!")
-            return {"valid": True}
-        except google.auth.exceptions.RefreshError as e:
-            print("User credentials are invalid or expired:", e)
-            raise InvalidCredentialError("User credentials are invalid or expired.")
     else:
-        print("Unknown credential type:", cred_type)
-        raise InvalidCredentialError("Unknown credential type.")
+        raise InvalidCredentialError("Unsupported provider.")
 
 
-@router.post("/test-google-genai-model")
-async def test_genai_model_endpoint(
-    request_body: GoogleGenAITestRequest
+@router.post("/test-model")
+async def test_model_endpoint(
+    request_body: ModelTestRequest,
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    settings = config.CustomSettings()
-    creds, _ = load_credentials_from_file(get_credential_path(settings) or os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+    full_model = f"{request_body.provider}-{request_body.name}"
     try:
-        llm = ChatVertexAI(
-            model_name=request_body.name, 
-            credentials = creds,
-            project = creds.quota_project_id
-        )
-        llm.invoke("Hello!")
+        llm, _ = llm_service.get_llm_and_embeddings(full_model)
+        llm.invoke("Hello!") 
         return {"success": True}
     except Exception as e:
-        raise InvalidGenAIModelError(f"Failed to initialize LLM: {str(e)}")
+        raise InvalidGenAIModelError(f"Failed to initialize or invoke LLM: {str(e)}")
 
-@router.post("/test-google-text-embedding")
-async def test_text_embedding_endpoint(
-    request_body: GoogleGenAITestRequest
+@router.post("/test-embedding")
+async def test_embedding_endpoint(
+    request_body: EmbeddingTestRequest,
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    settings = config.CustomSettings()
-    creds, project_id = load_credentials_from_file(get_credential_path(settings) or os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-    print(creds.quota_project_id, project_id)
+
+    full_embedding = request_body.name
     try:
-        VertexAIEmbeddings(
-            model=request_body.name,
-            credentials=creds,
-            project=creds.quota_project_id
-        )
+        if not llm_service.is_embedding_model_supported(full_embedding):
+            raise UnsupportedEmbeddingModelError(f"Embedding model '{full_embedding}' is not supported")
+        
+        # provider_name, embedding_name = llm_service._extract_provider_and_model(full_embedding)
+        provider_instance = llm_service.provider_factory.get_provider(request_body.provider)
+        embeddings = provider_instance.get_embeddings(request_body.name)
+        embeddings.embed_query("test")
         return {"success": True}
     except Exception as e:
-        raise InvalidTextEmbeddingError(f"Failed to initialize embeddings: {str(e)}")
-    
+        raise InvalidTextEmbeddingError(f"Failed to initialize or use embeddings: {str(e)}")
 
 @router.post("/get-function-progress")
 async def get_function_progress(

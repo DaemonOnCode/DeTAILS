@@ -23,9 +23,15 @@ class RedditPostIDAndTitleRequest(BaseModel):
     dataset_id: str
 
 class UserCredentialTestRequest(BaseModel):
-    credential_path: str
+    provider: str
+    credential: str
 
-class GoogleGenAITestRequest(BaseModel):
+class ModelTestRequest(BaseModel):
+    provider: str
+    name: str
+
+class EmbeddingTestRequest(BaseModel):
+    provider: str
     name: str
 
 class FunctionProgressRequest(BaseModel):

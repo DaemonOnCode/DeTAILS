@@ -233,12 +233,15 @@ class GlobalQueueManager:
                                 full_kwargs = {**cached_kwargs, **variable_kwargs}
 
                                 if "prompt_builder_func" in cached_kwargs:
+                                    print(f"[ENQUEUE] Found prompt_builder_func for task {job_id}")
                                     prompt_builder_func = cached_kwargs["prompt_builder_func"]
+                                    print(f"[ENQUEUE] Prompt builder function: {prompt_builder_func.__name__}")
                                     if not callable(prompt_builder_func):
                                         raise ValueError("prompt_builder_func must be a callable function")
                                     full_kwargs.pop("prompt_builder_func", None)
                                     prompt_text = prompt_builder_func(*full_args, **full_kwargs)
-                                    full_args = [prompt_text] + full_args
+                                    full_args = [prompt_text]
+                                    full_kwargs = {}
 
                                 args_tuple = tuple(full_args)
                             except json.JSONDecodeError as e:
@@ -305,6 +308,7 @@ class GlobalQueueManager:
                             filters={"task_id": job_id},
                             updates={"status": "in-progress", "started_at": datetime.now()}
                         )
+                        print(f"[WORKER {worker_id}] Executing job {job_id}", args, kwargs, func.__name__)
                         result = await asyncio.wait_for(
                             asyncio.to_thread(func, *args, **kwargs),
                             timeout=120

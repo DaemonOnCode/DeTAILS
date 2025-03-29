@@ -12,13 +12,14 @@ import numpy as np
 import pandas as pd
 
 from config import Settings, CustomSettings
-from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, get_llm_and_embeddings, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
+from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
 from controllers.collection_controller import get_reddit_post_by_id
 from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RefineCodeRequest, RegenerateKeywordsRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
 from models.table_dataclasses import CodebookType, GenerationType, ResponseCreatorType, SelectedPostId
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository, QectRepository, SelectedPostIdsRepository
+from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
 from models import FunctionProgress, QectResponse
@@ -229,7 +230,8 @@ async def build_context_from_interests_endpoint(
     additionalInfo: str = Form(""),
     researchQuestions: str = Form(...),
     datasetId: str = Form(...),
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     if not datasetId:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
@@ -239,7 +241,7 @@ async def build_context_from_interests_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing started.")
 
-    llm, embeddings = get_llm_and_embeddings(model)
+    llm, embeddings = llm_service.get_llm_and_embeddings(model)
 
     # Initialize vector store & process files
     print("Initialize vector store")
@@ -280,7 +282,8 @@ async def build_context_from_interests_endpoint(
 async def regenerate_keywords_endpoint(
     request: Request,
     request_body: RegenerateKeywordsRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.datasetId
     if not dataset_id:
@@ -289,7 +292,7 @@ async def regenerate_keywords_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Regenerating keywords with feedback...")
 
-    llm, embeddings = get_llm_and_embeddings(request_body.model)
+    llm, embeddings = llm_service.get_llm_and_embeddings(request_body.model)
 
     vector_store = initialize_vector_store(dataset_id, request_body.model, embeddings)
     retriever = vector_store.as_retriever(search_kwargs={'k': 50})
@@ -331,7 +334,8 @@ async def regenerate_keywords_endpoint(
 async def generate_codes_endpoint(request: Request,
     request_body: GenerateInitialCodesRequest,
     batch_size: int = 100,  
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id or len(request_body.sampled_post_ids) == 0:
@@ -361,7 +365,7 @@ async def generate_codes_endpoint(request: Request,
         total=total_posts
     ))
     try:
-        llm, _ = get_llm_and_embeddings(request_body.model)
+        llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
         final_results = []
 
         async def process_post(post_id: str):
@@ -517,7 +521,8 @@ async def generate_codes_endpoint(request: Request,
 async def refine_codebook_endpoint(
     request: Request,
     request_body: CodebookRefinementRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -526,7 +531,7 @@ async def refine_codebook_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
-    llm, _ = get_llm_and_embeddings(request_body.model)
+    llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
     # Convert codebooks to JSON format
     prev_codebook_json = json.dumps(request_body.prevCodebook, indent=2)
     current_codebook_json = json.dumps(request_body.currentCodebook, indent=2)
@@ -567,7 +572,8 @@ async def deductive_coding_endpoint(
     request: Request,
     request_body: DeductiveCodingRequest,
     batch_size: int = 100,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -600,7 +606,7 @@ async def deductive_coding_endpoint(
     try:
         final_results = []
         posts = request_body.unseen_post_ids
-        llm, _ = get_llm_and_embeddings(request_body.model)
+        llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
 
         # definitions = [item["definition"] for item in request_body.final_codebook]
@@ -743,7 +749,8 @@ async def deductive_coding_endpoint(
 async def theme_generation_endpoint(
     request: Request,
     request_body: ThemeGenerationRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -752,7 +759,7 @@ async def theme_generation_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation process started.")
 
-    llm, _ = get_llm_and_embeddings(request_body.model)
+    llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
     # Combine sampled and unseen responses
     rows = request_body.sampled_post_responses + request_body.unseen_post_responses
@@ -830,13 +837,14 @@ async def theme_generation_endpoint(
 async def refine_single_code_endpoint(
     request: Request,
     request_body: RefineCodeRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
-    llm, _ = get_llm_and_embeddings(request_body.model)
+    llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
     post_data = get_post_and_comments_from_id(request_body.post_id, dataset_id)
     transcript = generate_transcript(post_data)
 
@@ -868,8 +876,9 @@ async def refine_single_code_endpoint(
 @router.post("/remake-codebook")
 async def generate_codes_endpoint(request: Request,
     request_body: RemakeCodebookRequest,
-    batch_size: int = 1000,  # Default batch size (can be overridden in request)
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    batch_size: int = 100,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id or len(request_body.sampled_post_ids) == 0:
@@ -893,7 +902,7 @@ async def generate_codes_endpoint(request: Request,
     ))
 
     try:
-        llm, _ = get_llm_and_embeddings(request_body.model)
+        llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
         final_results = []
         function_id = str(uuid4())
 
@@ -1033,8 +1042,9 @@ async def generate_codes_endpoint(request: Request,
 async def redo_deductive_coding_endpoint(
     request: Request,
     request_body: RemakeDeductiveCodesRequest,
-    batch_size: int = 1000,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)  
+    batch_size: int = 100,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -1059,7 +1069,7 @@ async def redo_deductive_coding_endpoint(
     try:
         final_results = []
         posts = request_body.unseen_post_ids
-        llm, _ = get_llm_and_embeddings(request_body.model)
+        llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
         summarized_current_codebook_dict = await summarize_codebook_explanations(
             responses=request_body.current_codebook,
@@ -1189,7 +1199,8 @@ async def redo_deductive_coding_endpoint(
 async def group_codes_endpoint(
     request: Request,
     request_body: GroupCodesRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
@@ -1197,7 +1208,7 @@ async def group_codes_endpoint(
 
     app_id = request.headers.get("x-app-id")
 
-    llm, _ = get_llm_and_embeddings(request_body.model)
+    llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
     rows = request_body.sampled_post_responses + request_body.unseen_post_responses
 
@@ -1273,14 +1284,15 @@ async def group_codes_endpoint(
 async def generate_codebook_without_quotes_endpoint(
     request: Request,
     request_body: GenerateCodebookWithoutQuotesRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
-    llm, _ = get_llm_and_embeddings(request_body.model)
+    llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
     # Combine sampled and unseen responses
     rows = request_body.sampled_post_responses + request_body.unseen_post_responses
@@ -1323,7 +1335,8 @@ async def generate_codebook_without_quotes_endpoint(
 async def generate_deductive_codes_endpoint(
     request: Request,
     request_body: GenerateDeductiveCodesRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager)
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
     batch_size = 1000
@@ -1332,7 +1345,7 @@ async def generate_deductive_codes_endpoint(
 
     app_id = request.headers.get("x-app-id")
 
-    llm, _ = get_llm_and_embeddings(request_body.model)
+    llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
     function_id = str(uuid4())
     total_posts = len(request_body.post_ids)
@@ -1350,7 +1363,7 @@ async def generate_deductive_codes_endpoint(
     try:
         final_results = []
         posts = request_body.post_ids
-        llm, _ = get_llm_and_embeddings(request_body.model)
+        llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
         async def process_post(post_id: str):
             await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")

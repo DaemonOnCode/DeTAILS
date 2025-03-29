@@ -148,6 +148,22 @@ export const useApi = (): UseApiResult => {
         [getServerUrl, settings.app.id, location.pathname, requestArrayRef]
     );
 
+    function hasCredentialsPath(
+        settings:
+            | { apiKey: string; modelList: string[]; textEmbedding: string }
+            | { modelList: string[]; textEmbedding: string; credentialsPath: string }
+    ): settings is { modelList: string[]; textEmbedding: string; credentialsPath: string } {
+        return 'credentialsPath' in settings;
+    }
+
+    function hasApiKey(
+        settings:
+            | { apiKey: string; modelList: string[]; textEmbedding: string }
+            | { modelList: string[]; textEmbedding: string; credentialsPath: string }
+    ): settings is { apiKey: string; modelList: string[]; textEmbedding: string } {
+        return 'apiKey' in settings;
+    }
+
     const fetchLLMData = useCallback(
         async <T = any,>(
             route: string,
@@ -155,24 +171,27 @@ export const useApi = (): UseApiResult => {
             customAbortController: AbortController | null = null
         ): Promise<FetchLLMResponse<T>> => {
             console.log('Fetching LLM data:', route, options, settings);
-            if (settings.ai.model.startsWith('google')) {
-                // Check credentials using the current file path.
+
+            const [provider, ...modelParts] = settings.ai.model.split('-');
+            const model = modelParts.join('-');
+            const providerSettings = settings.ai.providers[provider];
+
+            if (provider === 'vertexai' && hasCredentialsPath(providerSettings)) {
                 let credentialsResponse = await fetchData(REMOTE_SERVER_ROUTES.CHECK_CREDENTIALS, {
                     method: 'POST',
                     body: JSON.stringify({
-                        credential_path: settings.ai.googleCredentialsPath
+                        provider: 'vertexai',
+                        credential: providerSettings.credentialsPath
                     })
                 });
 
-                // If credentials are invalid, show the credential modal until valid credentials are provided or the user cancels.
                 while (credentialsResponse.error) {
                     const errorMessage =
                         credentialsResponse.error?.message.error_message ?? 'Invalid credentials';
-                    // The promise now resolves to a string or null.
                     const newCredentialPath: string | null = await new Promise((resolve) => {
                         openCredentialModalForCredentialError(errorMessage, resolve);
                     });
-                    // If the user cancels (null), exit and return the credentials error.
+
                     if (newCredentialPath === null) {
                         return {
                             error: {
@@ -182,10 +201,16 @@ export const useApi = (): UseApiResult => {
                             abort: () => {}
                         };
                     }
-                    // Update the settings with the new credential file path.
-                    await updateSettings('ai', { googleCredentialsPath: newCredentialPath });
 
-                    // Re-run the credentials check with the updated file path.
+                    await updateSettings('ai', {
+                        providers: {
+                            vertexai: {
+                                ...providerSettings,
+                                credentialsPath: newCredentialPath
+                            }
+                        }
+                    });
+
                     credentialsResponse = await fetchData(REMOTE_SERVER_ROUTES.CHECK_CREDENTIALS, {
                         method: 'POST',
                         body: JSON.stringify({
@@ -193,8 +218,18 @@ export const useApi = (): UseApiResult => {
                         })
                     });
                 }
+            } else if (hasApiKey(providerSettings)) {
+                if (!providerSettings.apiKey) {
+                    return {
+                        error: {
+                            message: 'API key is missing',
+                            name: 'CredentialError'
+                        },
+                        abort: () => {}
+                    };
+                }
             }
-            // Once credentials are valid, perform the LLM call.
+
             const result = await fetchData(route, options, customAbortController);
             if (result.error) {
                 return {

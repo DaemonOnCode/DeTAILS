@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useCallback, FC } from 'react';
-import { useSettings } from '../../../context/settings-context';
+import React, { useState, useEffect, useMemo, FC } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaPlus, FaTrash } from 'react-icons/fa';
+import { ISettingsConfig, useSettings } from '../../../context/settings-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { useWebSocket } from '../../../context/websocket-context';
-import { MODEL_LIST, REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import CredentialsInput from '../components/credentials-input';
-import DownloadedModels from '../components/downloaded-model';
+import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import ModelSelect from '../components/model-select';
 import AIParameters from '../components/parameters';
 import SearchMetadata from '../components/search-metadata';
+import DownloadedModels from '../components/downloaded-model';
 import PullProgress from '../components/pull-progress';
 import { CommonSettingTabProps } from '../../../types/Settings/props';
-import { ModelObj, Metadata } from '../../../types/Settings/shared';
+import { ModelObj, Metadata, ProviderSettings } from '../../../types/Settings/shared';
 
 const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     const { settings, updateSettings, markSectionDirty, setDisableBack } = useSettings();
@@ -18,18 +19,13 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     const { fetchData } = useApi();
     const { registerCallback, unregisterCallback } = useWebSocket();
 
-    const [localAi, setLocalAi] = useState({
-        model: ai?.model || MODEL_LIST.GEMINI_FLASH_THINKING,
-        googleCredentialsPath: ai?.googleCredentialsPath || '',
-        temperature: ai?.temperature ?? 0.0,
-        randomSeed: ai?.randomSeed ?? 0,
-        modelList: ai?.modelList ?? [],
-        textEmbedding: ai?.textEmbedding ?? ''
-    });
+    // Local state for all AI settings
+    const [localAi, setLocalAi] = useState(ai);
 
+    // Other existing state
+    const [selectedProvider, setSelectedProvider] = useState('google');
     const [downloadedModels, setDownloadedModels] = useState<any[]>([]);
     const [downloadedModelsLoading, setDownloadedModelsLoading] = useState(false);
-
     const [ollamaInput, setOllamaInput] = useState('');
     const [metadata, setMetadata] = useState<Metadata | null>(null);
     const [metadataError, setMetadataError] = useState('');
@@ -38,22 +34,33 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     const [pullProgress, setPullProgress] = useState(0);
     const [pullStatus, setPullStatus] = useState('');
     const [pullingModelName, setPullingModelName] = useState('');
+    const [localEmbedding, setLocalEmbedding] = useState('');
+    const [embeddingError, setEmbeddingError] = useState<string | null>(null);
+    const [isCheckingEmbedding, setIsCheckingEmbedding] = useState(false);
+    const [newModelInput, setNewModelInput] = useState('');
+    const [modelError, setModelError] = useState<string | null>(null);
+    const [isCheckingModel, setIsCheckingModel] = useState(false);
 
+    // Sync localAi with global ai when it changes
     useEffect(() => {
-        setLocalAi({
-            model: ai?.model || MODEL_LIST.GEMINI_FLASH_THINKING,
-            googleCredentialsPath: ai?.googleCredentialsPath || '',
-            temperature: ai?.temperature ?? 0.0,
-            randomSeed: ai?.randomSeed ?? 0,
-            modelList: ai?.modelList ?? [],
-            textEmbedding: ai?.textEmbedding ?? ''
-        });
+        setLocalAi(ai);
     }, [ai]);
 
+    // Set the save callback to apply localAi to global settings
     useEffect(() => {
         setSaveCurrentSettings(() => () => updateSettings('ai', localAi));
     }, [localAi, updateSettings, setSaveCurrentSettings]);
 
+    // Reset provider-specific local state when provider changes
+    useEffect(() => {
+        const providerSettings = localAi.providers[selectedProvider];
+        setLocalEmbedding(providerSettings?.textEmbedding || '');
+        setEmbeddingError(null);
+        setNewModelInput('');
+        setModelError(null);
+    }, [selectedProvider, localAi.providers]);
+
+    // Fetch downloaded Ollama models
     useEffect(() => {
         const fetchDownloadedModels = async () => {
             setDownloadedModelsLoading(true);
@@ -69,6 +76,7 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         fetchDownloadedModels();
     }, [fetchData]);
 
+    // WebSocket for Ollama pull progress
     useEffect(() => {
         const handleWsMessage = (msg: string) => {
             try {
@@ -88,13 +96,21 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         return () => unregisterCallback('pull-ollama-model');
     }, [pullingModelName, registerCallback, unregisterCallback]);
 
+    // Combine models from all providers using localAi
+    const combinedModels = useMemo(() => {
+        const models: string[] = [];
+        for (const provider in localAi.providers) {
+            const providerModels = localAi.providers[provider].modelList.map(
+                (model) => `${provider}-${model}`
+            );
+            models.push(...providerModels);
+        }
+        return Array.from(new Set(models));
+    }, [localAi.providers]);
+
+    // Handlers updating local state
     const handleModelChange = (e: any) => {
         setLocalAi((prev) => ({ ...prev, model: e.target.value }));
-        markSectionDirty('ai', true);
-    };
-
-    const handleCredentialsPathChange = (e: any) => {
-        setLocalAi((prev) => ({ ...prev, googleCredentialsPath: e.target.value }));
         markSectionDirty('ai', true);
     };
 
@@ -108,14 +124,8 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         markSectionDirty('ai', true);
     };
 
-    const handleTextEmbeddingChange = (newEmbedding: string) => {
-        setLocalAi((prev) => ({ ...prev, textEmbedding: newEmbedding }));
-        markSectionDirty('ai', true);
-    };
-
-    const handleModelListChange = (newModelList: string[]) => {
-        setLocalAi((prev) => ({ ...prev, modelList: newModelList }));
-        markSectionDirty('ai', true);
+    const handleProviderChange = (e: any) => {
+        setSelectedProvider(e.target.value);
     };
 
     const handleSearchMetadata = async () => {
@@ -129,7 +139,7 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
             if (error) setMetadataError(error.message.error_message || 'Unknown error');
             else setMetadata(data);
         } catch (error: any) {
-            setMetadataError(error ?? 'Unknown error');
+            setMetadataError(error?.message || 'Unknown error');
         }
         setSearchLoading(false);
     };
@@ -138,6 +148,160 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         setOllamaInput('');
         setMetadata(null);
         setMetadataError('');
+    };
+
+    const handleApiKeyChange = (e: any) => {
+        if (selectedProvider === 'google' || selectedProvider === 'openai') {
+            setLocalAi((prev) => ({
+                ...prev,
+                providers: {
+                    ...prev.providers,
+                    [selectedProvider]: {
+                        ...prev.providers[selectedProvider],
+                        apiKey: e.target.value
+                    }
+                }
+            }));
+            markSectionDirty('ai', true);
+        }
+    };
+
+    const handleCredentialsPathChange = (e: any) => {
+        if (selectedProvider === 'vertexai') {
+            setLocalAi((prev) => ({
+                ...prev,
+                providers: {
+                    ...prev.providers,
+                    [selectedProvider]: {
+                        ...prev.providers[selectedProvider],
+                        credentialsPath: e.target.value
+                    }
+                }
+            }));
+            markSectionDirty('ai', true);
+        }
+    };
+
+    const handleUpdateTextEmbedding = async () => {
+        setIsCheckingEmbedding(true);
+        setEmbeddingError(null);
+        try {
+            let endpoint = REMOTE_SERVER_ROUTES.CHECK_EMBEDDING;
+
+            if (endpoint) {
+                const { data, error } = await fetchData(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: localEmbedding,
+                        provider: selectedProvider
+                    })
+                });
+                if (error) {
+                    setEmbeddingError('Invalid text embedding');
+                } else {
+                    setLocalAi((prev) => ({
+                        ...prev,
+                        providers: {
+                            ...prev.providers,
+                            [selectedProvider]: {
+                                ...prev.providers[selectedProvider],
+                                textEmbedding: localEmbedding
+                            }
+                        }
+                    }));
+                    markSectionDirty('ai', true);
+                }
+            } else {
+                setLocalAi((prev) => ({
+                    ...prev,
+                    providers: {
+                        ...prev.providers,
+                        [selectedProvider]: {
+                            ...prev.providers[selectedProvider],
+                            textEmbedding: localEmbedding
+                        }
+                    }
+                }));
+                markSectionDirty('ai', true);
+            }
+        } catch (err) {
+            setEmbeddingError('Error checking text embedding');
+        } finally {
+            setIsCheckingEmbedding(false);
+        }
+    };
+
+    const handleAddModelWithValidation = async () => {
+        setModelError(null);
+        const newModel = newModelInput.trim();
+        const providerSettings = localAi.providers[selectedProvider];
+        if (!newModel || providerSettings.modelList.includes(newModel)) return;
+
+        setIsCheckingModel(true);
+        try {
+            let endpoint = REMOTE_SERVER_ROUTES.CHECK_MODEL;
+
+            if (endpoint) {
+                const { data, error } = await fetchData(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: newModel,
+                        provider: selectedProvider
+                    })
+                });
+                if (!error) {
+                    const newModelList = [...providerSettings.modelList, newModel];
+                    setLocalAi((prev) => ({
+                        ...prev,
+                        providers: {
+                            ...prev.providers,
+                            [selectedProvider]: {
+                                ...prev.providers[selectedProvider],
+                                modelList: newModelList
+                            }
+                        }
+                    }));
+                    markSectionDirty('ai', true);
+                    setNewModelInput('');
+                } else {
+                    setModelError('Invalid model');
+                }
+            } else {
+                const newModelList = [...providerSettings.modelList, newModel];
+                setLocalAi((prev) => ({
+                    ...prev,
+                    providers: {
+                        ...prev.providers,
+                        [selectedProvider]: {
+                            ...prev.providers[selectedProvider],
+                            modelList: newModelList
+                        }
+                    }
+                }));
+                markSectionDirty('ai', true);
+                setNewModelInput('');
+            }
+        } catch (err) {
+            setModelError('Error checking model');
+        } finally {
+            setIsCheckingModel(false);
+        }
+    };
+
+    const handleRemoveModel = (modelToRemove: string) => {
+        const providerSettings = localAi.providers[selectedProvider];
+        const newModelList = providerSettings.modelList.filter((m) => m !== modelToRemove);
+        setLocalAi((prev) => ({
+            ...prev,
+            providers: {
+                ...prev.providers,
+                [selectedProvider]: {
+                    ...prev.providers[selectedProvider],
+                    modelList: newModelList
+                }
+            }
+        }));
+        markSectionDirty('ai', true);
     };
 
     const handlePullModel = async (tag: string) => {
@@ -154,8 +318,18 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
                 body: JSON.stringify({ model: fullModelName })
             });
             if (error) throw new Error(error.message.error_message || 'Unknown error');
-            setLocalAi((prev) => ({ ...prev, model: fullModelName }));
             setDownloadedModels((prev) => [...prev, { name: fullModelName }]);
+            const newModelList = [...(localAi.providers.ollama?.modelList || []), fullModelName];
+            setLocalAi((prev) => ({
+                ...prev,
+                providers: {
+                    ...prev.providers,
+                    ollama: {
+                        ...prev.providers.ollama,
+                        modelList: newModelList
+                    }
+                }
+            }));
             markSectionDirty('ai', true);
         } catch (error) {
             console.error('Error pulling model:', error);
@@ -173,18 +347,251 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
                 body: JSON.stringify({ model: modelObj.name })
             });
             if (error) console.error('Error deleting model:', error);
-            else setDownloadedModels((prev) => prev.filter((m) => m.name !== modelObj.name));
+            else {
+                setDownloadedModels((prev) => prev.filter((m) => m.name !== modelObj.name));
+                const newModelList =
+                    localAi.providers.ollama?.modelList.filter((m) => m !== modelObj.name) || [];
+                setLocalAi((prev) => ({
+                    ...prev,
+                    providers: {
+                        ...prev.providers,
+                        ollama: {
+                            ...prev.providers.ollama,
+                            modelList: newModelList
+                        }
+                    }
+                }));
+                markSectionDirty('ai', true);
+            }
         } catch (e) {
             console.error('Error deleting model:', e);
         }
     };
 
-    const combinedModels = Array.from(
-        new Set([
-            ...Object.values(ai.modelList),
-            ...downloadedModels.map((modelObj) => `ollama-${modelObj.name}`)
-        ])
-    );
+    const renderProviderSettings = () => {
+        const providerSettings = localAi.providers[selectedProvider];
+        if (!providerSettings) return <p>Provider not found</p>;
+
+        if (selectedProvider === 'google' || selectedProvider === 'openai') {
+            if ('apiKey' in providerSettings) {
+                return (
+                    <div>
+                        <div>
+                            <label className="block font-medium">API Key</label>
+                            <input
+                                type="text"
+                                value={providerSettings.apiKey}
+                                onChange={handleApiKeyChange}
+                                className="w-full p-2 border border-gray-300 rounded mt-1"
+                            />
+                        </div>
+                        <div className="mt-4">
+                            <label className="block font-medium">Text Embedding</label>
+                            <div className="flex items-center">
+                                <input
+                                    type="text"
+                                    value={localEmbedding}
+                                    onChange={(e) => {
+                                        setLocalEmbedding(e.target.value);
+                                        setEmbeddingError(null);
+                                    }}
+                                    className="mt-1 border rounded p-2 w-fit min-w-64"
+                                />
+                                <button
+                                    onClick={handleUpdateTextEmbedding}
+                                    disabled={isCheckingEmbedding}
+                                    className={`ml-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors ${
+                                        isCheckingEmbedding ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}>
+                                    {isCheckingEmbedding ? 'Checking...' : 'Check and Update'}
+                                </button>
+                            </div>
+                            {embeddingError && (
+                                <p className="text-red-500 mt-1">{embeddingError}</p>
+                            )}
+                        </div>
+                        <div className="mt-4">
+                            <h3 className="font-medium">Model List</h3>
+                            <ul className="space-y-2 mt-2">
+                                <AnimatePresence>
+                                    {providerSettings.modelList.map((model) => (
+                                        <motion.li
+                                            key={model}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 20 }}
+                                            className="flex justify-between items-center p-2 rounded shadow">
+                                            <span>{model}</span>
+                                            <button
+                                                onClick={() => handleRemoveModel(model)}
+                                                className="ml-2 text-red-500 hover:text-red-700 transition-colors">
+                                                <FaTrash />
+                                            </button>
+                                        </motion.li>
+                                    ))}
+                                </AnimatePresence>
+                            </ul>
+                            <div className="mt-4 flex items-center">
+                                <input
+                                    type="text"
+                                    placeholder="Add new model"
+                                    value={newModelInput}
+                                    onChange={(e) => setNewModelInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleAddModelWithValidation();
+                                    }}
+                                    className="border rounded p-2 w-full"
+                                />
+                                <button
+                                    onClick={handleAddModelWithValidation}
+                                    disabled={isCheckingModel}
+                                    className={`ml-2 p-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors ${
+                                        isCheckingModel ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}>
+                                    {isCheckingModel ? (
+                                        <span className="flex items-center">
+                                            <span className="animate-spin mr-1">⏳</span>{' '}
+                                            Checking...
+                                        </span>
+                                    ) : (
+                                        <FaPlus />
+                                    )}
+                                </button>
+                            </div>
+                            {modelError && <p className="text-red-500 mt-1">{modelError}</p>}
+                        </div>
+                    </div>
+                );
+            }
+            return <p>Invalid provider settings for {selectedProvider}</p>;
+        }
+
+        if (selectedProvider === 'vertexai') {
+            if ('credentialsPath' in providerSettings) {
+                return (
+                    <div>
+                        <div>
+                            <label className="block font-medium">Credentials Path</label>
+                            <input
+                                type="text"
+                                value={providerSettings.credentialsPath}
+                                onChange={handleCredentialsPathChange}
+                                className="w-full p-2 border border-gray-300 rounded mt-1"
+                            />
+                        </div>
+                        <div className="mt-4">
+                            <label className="block font-medium">Text Embedding</label>
+                            <div className="flex items-center">
+                                <input
+                                    type="text"
+                                    value={localEmbedding}
+                                    onChange={(e) => {
+                                        setLocalEmbedding(e.target.value);
+                                        setEmbeddingError(null);
+                                    }}
+                                    className="mt-1 border rounded p-2 w-fit min-w-64"
+                                />
+                                <button
+                                    onClick={handleUpdateTextEmbedding}
+                                    disabled={isCheckingEmbedding}
+                                    className={`ml-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors ${
+                                        isCheckingEmbedding ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}>
+                                    {isCheckingEmbedding ? 'Checking...' : 'Check and Update'}
+                                </button>
+                            </div>
+                            {embeddingError && (
+                                <p className="text-red-500 mt-1">{embeddingError}</p>
+                            )}
+                        </div>
+                        <div className="mt-4">
+                            <h3 className="font-medium">Model List</h3>
+                            <ul className="space-y-2 mt-2">
+                                <AnimatePresence>
+                                    {providerSettings.modelList.map((model) => (
+                                        <motion.li
+                                            key={model}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 20 }}
+                                            className="flex justify-between items-center p-2 rounded shadow">
+                                            <span>{model}</span>
+                                            <button
+                                                onClick={() => handleRemoveModel(model)}
+                                                className="ml-2 text-red-500 hover:text-red-700 transition-colors">
+                                                <FaTrash />
+                                            </button>
+                                        </motion.li>
+                                    ))}
+                                </AnimatePresence>
+                            </ul>
+                            <div className="mt-4 flex items-center">
+                                <input
+                                    type="text"
+                                    placeholder="Add new model"
+                                    value={newModelInput}
+                                    onChange={(e) => setNewModelInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleAddModelWithValidation();
+                                    }}
+                                    className="border rounded p-2 w-full"
+                                />
+                                <button
+                                    onClick={handleAddModelWithValidation}
+                                    disabled={isCheckingModel}
+                                    className={`ml-2 p-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors ${
+                                        isCheckingModel ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}>
+                                    {isCheckingModel ? (
+                                        <span className="flex items-center">
+                                            <span className="animate-spin mr-1">⏳</span>{' '}
+                                            Checking...
+                                        </span>
+                                    ) : (
+                                        <FaPlus />
+                                    )}
+                                </button>
+                            </div>
+                            {modelError && <p className="text-red-500 mt-1">{modelError}</p>}
+                        </div>
+                    </div>
+                );
+            }
+            return <p>Invalid provider settings for {selectedProvider}</p>;
+        }
+
+        if (selectedProvider === 'ollama') {
+            return (
+                <div>
+                    <DownloadedModels
+                        downloadedModels={downloadedModels}
+                        downloadedModelsLoading={downloadedModelsLoading}
+                        handleDeleteDownloadedModel={handleDeleteDownloadedModel}
+                    />
+                    <SearchMetadata
+                        ollamaInput={ollamaInput}
+                        setOllamaInput={setOllamaInput}
+                        handleSearchMetadata={handleSearchMetadata}
+                        handleClearSearch={handleClearSearch}
+                        searchLoading={searchLoading}
+                        metadata={metadata}
+                        metadataError={metadataError}
+                        pullLoading={pullLoading}
+                        handlePullModel={handlePullModel}
+                        pullingModelName={pullingModelName}
+                        downloadedModels={downloadedModels}
+                    />
+                    <PullProgress
+                        pullLoading={pullLoading}
+                        pullProgress={pullProgress}
+                        pullStatus={pullStatus}
+                    />
+                </div>
+            );
+        }
+
+        return <p>Unknown provider</p>;
+    };
 
     return (
         <div className="p-6">
@@ -197,40 +604,23 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
             <AIParameters
                 temperature={localAi.temperature}
                 randomSeed={localAi.randomSeed}
-                modelList={localAi.modelList}
-                textEmbedding={localAi.textEmbedding}
                 onTemperatureChange={handleTemperatureChange}
                 onRandomSeedChange={handleRandomSeedChange}
-                onTextEmbeddingChange={handleTextEmbeddingChange}
-                onModelListChange={handleModelListChange}
             />
-            <CredentialsInput
-                googleCredentialsPath={localAi.googleCredentialsPath}
-                onCredentialsPathChange={handleCredentialsPathChange}
-            />
-            <DownloadedModels
-                downloadedModels={downloadedModels}
-                downloadedModelsLoading={downloadedModelsLoading}
-                handleDeleteDownloadedModel={handleDeleteDownloadedModel}
-            />
-            <SearchMetadata
-                ollamaInput={ollamaInput}
-                setOllamaInput={setOllamaInput}
-                handleSearchMetadata={handleSearchMetadata}
-                handleClearSearch={handleClearSearch}
-                searchLoading={searchLoading}
-                metadata={metadata}
-                metadataError={metadataError}
-                pullLoading={pullLoading}
-                handlePullModel={handlePullModel}
-                pullingModelName={pullingModelName}
-                downloadedModels={downloadedModels}
-            />
-            <PullProgress
-                pullLoading={pullLoading}
-                pullProgress={pullProgress}
-                pullStatus={pullStatus}
-            />
+            <div className="my-4">
+                <label className="block font-medium">Select Provider</label>
+                <select
+                    value={selectedProvider}
+                    onChange={handleProviderChange}
+                    className="w-full p-2 border border-gray-300 rounded mt-1">
+                    {Object.entries(localAi.providers).map(([k, v]) => (
+                        <option key={k} value={k}>
+                            {v.name}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            {renderProviderSettings()}
         </div>
     );
 };
