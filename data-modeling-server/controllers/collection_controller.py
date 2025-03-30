@@ -10,6 +10,7 @@ from uuid import uuid4
 from aiofiles import open as async_open
 from fastapi import HTTPException, UploadFile
 from transmission_rpc import Client, Torrent, File as TorrentFile
+from dateutil.relativedelta import relativedelta
 
 import config
 from constants import DATASETS_DIR, PATHS, UPLOAD_DIR
@@ -65,6 +66,7 @@ def update_run_progress(run_id: str, new_message: str):
     Updates the run's progress based on the received message.
     Mirrors the logic of your TypeScript function, using full file keys for file-related updates.
     """
+    DOWNLOAD_DIR = get_current_download_dir()
     # === Update Workspace Progress ===
     try:
         progress = progress_repo.get_progress(run_id)
@@ -266,7 +268,7 @@ def update_run_progress(run_id: str, new_message: str):
         m = re.search(r"JSON extracted:\s+(.*)/(R[S|C]_[\d-]+)\.json", new_message, re.IGNORECASE)
         if m:
             dir_part = m.group(1).strip() 
-            rel_dir = os.path.relpath(dir_part, PATHS["transmission"])
+            rel_dir = os.path.relpath(dir_part, DOWNLOAD_DIR)
             key = os.path.join(rel_dir, m.group(2) + ".zst")
             file_data = file_repo.get_file_progress(run_id, key)
             file_messages = json.loads(file_data.messages) if file_data.messages else []
@@ -280,7 +282,7 @@ def update_run_progress(run_id: str, new_message: str):
         if m:
 
             file_key = m.group(1).strip() 
-            rel_dir = os.path.relpath(file_key, PATHS["transmission"])
+            rel_dir = os.path.relpath(file_key, DOWNLOAD_DIR)
             key = os.path.join(rel_dir, file_key)
             file_data = file_repo.get_file_progress(run_id, rel_dir)
             file_messages = json.loads(file_data.messages) if file_data.messages else []
@@ -523,14 +525,41 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
     for f in os.listdir(dataset_path):
         if f.endswith(".json"):
             full_path = os.path.join(dataset_path, f)
-            if f.endswith("_submissions.json"):
+            if f.startswith("RS_") or f.startswith("RC_"):
+                parts = f.split('_')
+                if len(parts) >= 2:
+                    date_str = parts[1].split('.')[0] 
+                    try:
+                        file_date = datetime.strptime(date_str, "%Y-%m")
+                        month_start = file_date.replace(day=1)
+                        month_end = (month_start + relativedelta(months=1)) - relativedelta(days=1)
+                        month_start_ts = month_start.timestamp()
+                        month_end_ts = month_end.timestamp()
+
+                        if date_filter:
+                            start_ts = date_filter.get("start_date").timestamp() if date_filter.get("start_date") else None
+                            end_ts = date_filter.get("end_date").timestamp() if date_filter.get("end_date") else None
+                            if (start_ts and month_end_ts < start_ts) or (end_ts and month_start_ts > end_ts):
+                                continue
+                        file_type = "submissions" if f.startswith("RS_") else "comments"
+                        all_files.append({"type": file_type, "path": full_path})
+                    except ValueError:
+                        print(f"Invalid date in filename: {f}")
+                        continue
+            elif f.endswith("_submissions.json"):
                 all_files.append({"type": "submissions", "path": full_path})
             elif f.endswith("_comments.json"):
                 all_files.append({"type": "comments", "path": full_path})
-            elif f.startswith("RS"):
-                all_files.append({"type": "submissions", "path": full_path})
-            elif f.startswith("RC"):
-                all_files.append({"type": "comments", "path": full_path})
+        # if f.endswith(".json"):
+        #     full_path = os.path.join(dataset_path, f)
+        #     if f.endswith("_submissions.json"):
+        #         all_files.append({"type": "submissions", "path": full_path})
+        #     elif f.endswith("_comments.json"):
+        #         all_files.append({"type": "comments", "path": full_path})
+        #     elif f.startswith("RS"):
+        #         all_files.append({"type": "submissions", "path": full_path})
+        #     elif f.startswith("RC"):
+        #         all_files.append({"type": "comments", "path": full_path})
 
     start_ts = end_ts = None
     if date_filter:
@@ -543,8 +572,13 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
 
     subreddit = ""
     for file in all_files:
-        with open(file["path"], "r") as f:
-            raw_data = json.load(f)
+        try:
+            with open(file["path"], "r", encoding="utf-8") as f:
+                raw_data_str = f.read()
+            raw_data = json.loads(raw_data_str, strict=False)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON in file {file['path']}: {e}")
+            continue
 
         filtered_data = omit_first_if_matches_structure(raw_data)
 
@@ -749,9 +783,14 @@ async def process_reddit_data(
                     first = False
                 json_file.write("\n]")
             json_files.append(json_filename)
+        
+
 
         try:
             os.remove(intermediate_file)
+            for key in monthly_files:
+                print(f"Intermediate file R{data_type}_{key}.jsonl removed.")
+                os.remove(os.path.join(directory, f"R{data_type}_{key}.jsonl"))
             print(f"Intermediate file {intermediate_filename} removed.")
         except Exception as e:
             print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
@@ -1088,32 +1127,75 @@ async def get_reddit_data_from_torrent(
     if not os.path.exists(academic_folder):
         os.makedirs(academic_folder, exist_ok=True)
 
-    if not use_fallback:
-        primary_hash = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
-        torrents = c.get_torrents()
-        torrent_to_use = next((t for t in torrents if t.hashString == primary_hash), None)
-        if not torrent_to_use:
-            torrent_to_use = c.add_torrent(PRIMARY_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+    # if not use_fallback:
+    #     primary_hash = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
+    #     torrents = c.get_torrents()
+    #     torrent_to_use = next((t for t in torrents if t.hashString == primary_hash), None)
+    #     if not torrent_to_use:
+    #         torrent_to_use = c.add_torrent(PRIMARY_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
         
-        torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, torrent_to_use)
-        files_to_process = get_files_to_process_primary(torrent_to_use.get_files(), subreddit, submissions_only)
+    #     torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, torrent_to_use)
+    #     files_to_process = get_files_to_process_primary(torrent_to_use.get_files(), subreddit, submissions_only)
+    #     magnet_link = PRIMARY_MAGNET_LINK
+    #     message = f"Using primary torrent for subreddit '{subreddit}'."
+    # else:
+    #     fallback_hash = FALLBACK_MAGNET_LINK.split("btih:")[1].split("&")[0]
+    #     torrents = c.get_torrents()
+    #     torrent_to_use = next((t for t in torrents if t.hashString == fallback_hash), None)
+    #     if not torrent_to_use:
+    #         torrent_to_use = c.add_torrent(FALLBACK_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+        
+    #     torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, torrent_to_use)
+    #     wanted_range = generate_month_range(start_month, end_month)
+    #     files_to_process = get_files_to_process_fallback(torrent_to_use.get_files(), wanted_range, submissions_only)
+    #     magnet_link = FALLBACK_MAGNET_LINK
+    #     message = f"Using fallback torrent with range {start_month} to {end_month}."
+    
+    # await manager.send_message(app_id, message)
+    # update_run_progress(run_id, message)
+
+    if not use_fallback:
+        torrent_hash_string = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
         magnet_link = PRIMARY_MAGNET_LINK
         message = f"Using primary torrent for subreddit '{subreddit}'."
     else:
-        fallback_hash = FALLBACK_MAGNET_LINK.split("btih:")[1].split("&")[0]
-        torrents = c.get_torrents()
-        torrent_to_use = next((t for t in torrents if t.hashString == fallback_hash), None)
-        if not torrent_to_use:
-            torrent_to_use = c.add_torrent(FALLBACK_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
-        
-        torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, torrent_to_use)
-        wanted_range = generate_month_range(start_month, end_month)
-        files_to_process = get_files_to_process_fallback(torrent_to_use.get_files(), wanted_range, submissions_only)
+        torrent_hash_string = FALLBACK_MAGNET_LINK.split("btih:")[1].split("&")[0]
         magnet_link = FALLBACK_MAGNET_LINK
         message = f"Using fallback torrent with range {start_month} to {end_month}."
+
+    torrents = c.get_torrents()
+    current_torrent = next((t for t in torrents if t.hashString == torrent_hash_string), None)
+    if not current_torrent:
+        current_torrent = c.add_torrent(magnet_link, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+        message += " (Added new torrent)"
+    else:
+        message += " (Using existing torrent)"
     
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
+
+    if current_torrent.download_dir != TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR:
+        message = f"Torrent download directory mismatch. Moving data to {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}..."
+        print(message)
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
+        c.move_torrent_data(current_torrent.id, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+        await asyncio.sleep(10)  
+        current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, magnet_link, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+        await asyncio.sleep(10)  
+        current_torrent = c.get_torrent(torrent_hash_string)
+        message = f"Torrent data moved and verified in {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}."
+        print(message)
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
+
+    torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, current_torrent)
+    
+    if not use_fallback:
+        files_to_process = get_files_to_process_primary(torrent_to_use.get_files(), subreddit, submissions_only)
+    else:
+        wanted_range = generate_month_range(start_month, end_month)
+        files_to_process = get_files_to_process_fallback(torrent_to_use.get_files(), wanted_range, submissions_only)
 
     files_to_process_actually = []
     files_already_processed = []

@@ -1,4 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, dialog, session } = require('electron');
+
+if (require('electron-squirrel-startup')) app.quit();
+
 const { autoUpdater } = require('electron-updater');
 const AutoLaunch = require('auto-launch');
 const remote = require('@electron/remote/main');

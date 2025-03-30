@@ -271,13 +271,11 @@ const LoadReddit: FC<{
                                 if (checkIfDataExists(location.pathname)) {
                                     openModal('deductive-coding-redo', async () => {
                                         await resetDataAfterPage(location.pathname);
-                                        let folderPath =
-                                            await ipcRenderer.invoke('select-folder-reddit');
+                                        let folderPath = await ipcRenderer.invoke('select-folder');
                                         setModeInput(`reddit:upload:${folderPath}`);
                                     });
                                 } else {
-                                    let folderPath =
-                                        await ipcRenderer.invoke('select-folder-reddit');
+                                    let folderPath = await ipcRenderer.invoke('select-folder');
                                     setModeInput(`reddit:upload:${folderPath}`);
                                 }
                             }}

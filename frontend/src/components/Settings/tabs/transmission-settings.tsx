@@ -2,6 +2,8 @@ import React, { useState, useEffect, FC } from 'react';
 import { useSettings } from '../../../context/settings-context';
 import { CommonSettingTabProps } from '../../../types/Settings/props';
 
+const { ipcRenderer } = window.require('electron');
+
 const TransmissionSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     const { settings, updateSettings, markSectionDirty } = useSettings();
     const { transmission } = settings;
@@ -23,6 +25,14 @@ const TransmissionSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSetting
     useEffect(() => {
         setSaveCurrentSettings(() => () => updateSettings('transmission', localTransmission));
     }, [localTransmission, updateSettings, setSaveCurrentSettings]);
+
+    const handleSelectFolder = async () => {
+        const folderPath = await ipcRenderer.invoke('select-folder');
+        if (folderPath) {
+            setLocalTransmission((prev) => ({ ...prev, downloadDir: folderPath }));
+            markSectionDirty('transmission', true);
+        }
+    };
 
     const handlePathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setLocalTransmission((prev) => ({ ...prev, path: e.target.value }));
@@ -54,13 +64,20 @@ const TransmissionSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSetting
             </div>
             <div className="mb-4">
                 <label className="block mb-2 font-medium">Transmission Download Path</label>
-                <input
-                    type="text"
-                    value={localTransmission.downloadDir}
-                    onChange={handleDownloadDirChange}
-                    className="w-full p-2 border border-gray-300 rounded"
-                    placeholder="Enter Transmission download folder path"
-                />
+                <div className="flex">
+                    <input
+                        type="text"
+                        value={localTransmission.downloadDir}
+                        onChange={handleDownloadDirChange}
+                        className="flex-grow p-2 border border-gray-300 rounded-l"
+                        placeholder="Enter or select Transmission download folder"
+                    />
+                    <button
+                        onClick={handleSelectFolder}
+                        className="p-2 bg-blue-500 text-white rounded-r">
+                        Select Folder
+                    </button>
+                </div>
             </div>
             <div className="mb-4">
                 <label className="block mb-2 font-medium">Academic Torrent Magnet link</label>
