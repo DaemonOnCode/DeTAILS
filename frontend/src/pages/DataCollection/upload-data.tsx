@@ -166,7 +166,7 @@ const UploadDataPage = () => {
                                     (modeInput.includes('files') &&
                                         (modeInput.split(':files:')[1] ?? '')
                                             .split(',')
-                                            .filter((file) => file.trim() !== '').length > 1))
+                                            .filter((file) => file.trim() !== '').length > 0))
                             }
                             onNextClick={handleButtonClick}
                         />

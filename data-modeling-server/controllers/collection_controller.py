@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 import time
-from typing import Dict, Optional
+from typing import Counter, Dict, Optional
 from uuid import uuid4
 from aiofiles import open as async_open
 from fastapi import HTTPException, UploadFile
@@ -24,10 +24,6 @@ from routes.websocket_routes import ConnectionManager
 dataset_repo = DatasetsRepository()
 comment_repo = CommentsRepository()
 post_repo = PostsRepository()
-
-# Database repository
-dataset_repo = DatasetsRepository()
-
 pipeline_repo = PipelineStepsRepository()
 file_repo = FileStatusRepository()
 progress_repo = TorrentDownloadProgressRepository()
@@ -70,7 +66,11 @@ def update_run_progress(run_id: str, new_message: str):
     Mirrors the logic of your TypeScript function, using full file keys for file-related updates.
     """
     # === Update Workspace Progress ===
-    progress = progress_repo.get_progress(run_id)
+    try:
+        progress = progress_repo.get_progress(run_id)
+    except Exception as e:
+        print(f"Error getting progress for run {run_id}: {e}")
+        return
     messages = json.loads(progress.messages) if progress.messages else []
     messages.append(new_message)
     workspace_updates = {"messages": json.dumps(messages)}
@@ -265,9 +265,7 @@ def update_run_progress(run_id: str, new_message: str):
     if "JSON extracted:" in new_message:
         m = re.search(r"JSON extracted:\s+(.*)/(R[S|C]_[\d-]+)\.json", new_message, re.IGNORECASE)
         if m:
-            # Reconstruct the file key as inserted: the relative path should be the same as f.name.
-            dir_part = m.group(1).strip()  # e.g. "/Volumes/Crucial X9/abc/transmission-downloads/reddit/submissions"
-            # Get the relative directory by removing the download dir prefix:
+            dir_part = m.group(1).strip() 
             rel_dir = os.path.relpath(dir_part, PATHS["transmission"])
             key = os.path.join(rel_dir, m.group(2) + ".zst")
             file_data = file_repo.get_file_progress(run_id, key)
@@ -277,15 +275,24 @@ def update_run_progress(run_id: str, new_message: str):
                 run_id, key,
                 {"messages": json.dumps(file_messages), "status": "complete", "progress": 100.0}
             )
+    if "Processed data saved to monthly JSON files for" in new_message:
+        m = re.search(r"Processed data saved to monthly JSON files for\s+(.*)", new_message)
+        if m:
 
+            file_key = m.group(1).strip() 
+            rel_dir = os.path.relpath(file_key, PATHS["transmission"])
+            key = os.path.join(rel_dir, file_key)
+            file_data = file_repo.get_file_progress(run_id, rel_dir)
+            file_messages = json.loads(file_data.messages) if file_data.messages else []
+            file_messages.append(new_message)
+            file_repo.update_file_progress(
+                run_id, key,
+                {"messages": json.dumps(file_messages), "status": "complete", "progress": 100.0}
+            )
 
     if "No data found" in new_message:
         m = re.search(r"No data found for\s+.+?\s+in file\s+(.+?)\.", new_message, re.IGNORECASE)
         if m:
-            # Reconstruct the file key as inserted: the relative path should be the same as f.name.
-            # dir_part = m.group(1).strip()  # e.g. "/Volumes/Crucial X9/abc/transmission-downloads/reddit/submissions"
-            # # Get the relative directory by removing the download dir prefix:
-            # rel_dir = os.path.relpath(dir_part, PATHS["transmission"])
             key =  m.group(1)+".zst"
             file_data = file_repo.get_file_progress(run_id, key)
             file_messages = json.loads(file_data.messages) if file_data.messages else []
@@ -501,8 +508,7 @@ def omit_first_if_matches_structure(data: list) -> list:
     return data
 
 
-def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: dict[str,datetime] = None):
-
+def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: dict[str, datetime] = None, is_primary: bool = False) -> dict:
     existing_posts_count = post_repo.count({"dataset_id": dataset_id})
     if existing_posts_count > 0:
         post_repo.delete({"dataset_id": dataset_id})
@@ -511,12 +517,20 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
     if existing_comments_count > 0:
         comment_repo.delete({"dataset_id": dataset_id})
 
-    dataset_path = dataset_path or os.path.join(DATASETS_DIR,dataset_id)
-    post_files = [f for f in os.listdir(dataset_path) if f.startswith("RS") and f.endswith(".json")]
-    comment_files = [f for f in os.listdir(dataset_path) if f.startswith("RC") and f.endswith(".json")]
-
-    all_files = [{"type": "submissions", "path": f"{dataset_path}/{file}"} for file in post_files] + \
-                [{"type": "comments", "path": f"{dataset_path}/{file}"} for file in comment_files]
+    dataset_path = dataset_path or os.path.join(DATASETS_DIR, dataset_id)
+    
+    all_files = []
+    for f in os.listdir(dataset_path):
+        if f.endswith(".json"):
+            full_path = os.path.join(dataset_path, f)
+            if f.endswith("_submissions.json"):
+                all_files.append({"type": "submissions", "path": full_path})
+            elif f.endswith("_comments.json"):
+                all_files.append({"type": "comments", "path": full_path})
+            elif f.startswith("RS"):
+                all_files.append({"type": "submissions", "path": full_path})
+            elif f.startswith("RC"):
+                all_files.append({"type": "comments", "path": full_path})
 
     start_ts = end_ts = None
     if date_filter:
@@ -545,7 +559,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                 if date_filter:
                     if (start_ts and created < start_ts) or (end_ts and created > end_ts):
                         continue
-                subreddit = p.get("subreddit", subreddit) 
+                subreddit = p.get("subreddit", subreddit)
                 posts.append(Post(
                     id=p["id"],
                     over_18=p.get("over_18", 0),
@@ -578,29 +592,59 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                 if date_filter:
                     if (start_ts and created < start_ts) or (end_ts and created > end_ts):
                         continue
-                subreddit = c.get("subreddit", subreddit)  # Update subreddit from comments
+
+                subreddit = c.get("subreddit", "unknown")
+
+                link_id_str = str(c.get("link_id", ""))
+                parent_id_str = str(c.get("parent_id", ""))
+
+                post_id = link_id_str.split("_")[1] if "_" in link_id_str else None
+                link_id = link_id_str.split("_")[1] if "_" in link_id_str else None
+                parent_id = parent_id_str.split("_")[1] if "_" in parent_id_str else None
+
+                if not c.get("id", ""):
+                    print(f"Skipping comment without id: {c}")
+                    continue
+                if not dataset_id:
+                    print(f"Skipping comment without dataset_id: {c}")
+                    continue
+                if not post_id:
+                    print(f"Skipping comment with invalid post_id: {c}")
+                    continue
+                if not parent_id:
+                    print(f"Skipping comment with invalid parent_id: {c}")
+                    continue
+
                 comments.append(Comment(
-                    id=c["id"],
+                    id=c.get("id", ""),
                     body=c.get("body", ""),
                     author=c.get("author", ""),
-                    post_id=c.get("link_id", "").split("_")[1] if "link_id" in c else None,
-                    created_utc=c.get("created_utc", 0),
-                    link_id=c.get("link_id", "").split("_")[1] if "link_id" in c else None,
-                    parent_id=c.get("parent_id", "").split("_")[1] if "parent_id" in c else None,
+                    post_id=post_id,
+                    created_utc=created,
+                    link_id=link_id,
+                    parent_id=parent_id,
                     controversiality=c.get("controversiality", 0),
-                    score_hidden=c.get("score_hidden", 0),
+                    score_hidden=c.get("score_hidden", False),
                     score=c.get("score", 0),
                     subreddit_id=c.get("subreddit_id", ""),
                     retrieved_on=c.get("retrieved_on", 0),
                     gilded=c.get("gilded", 0),
-                    dataset_id=dataset_id
+                    dataset_id=dataset_id 
                 ))
-            comment_repo.insert_batch(comments)
+            comment_ids = [c.id for c in comments]
+            duplicates = [id for id, count in Counter(comment_ids).items() if count > 1]
+            if duplicates:
+                print(f"Duplicate comment IDs detected: {duplicates}", file)
+            for duplicate in duplicates:
+                print(f"Duplicate comment: {duplicate}", file)
 
+            comments = [c for c in comments if c.id not in duplicates]
+            comment_repo.insert_batch(comments)
 
     update_dataset(dataset_id, name=subreddit)
 
     return {"message": "Reddit dataset parsed successfully"}
+
 
 async def run_command_async(command: str) -> str:
     process = await asyncio.create_subprocess_shell(
@@ -622,76 +666,134 @@ async def process_reddit_data(
     run_id: str,
     subreddit: str,
     zst_filename: str,
-):
-    # Create a unique intermediate filename
+    is_primary: bool = False  
+) -> str:
     directory = os.path.dirname(zst_filename)
     intermediate_filename = f"output_{time.time()}.jsonl"
     intermediate_file = os.path.join(directory, intermediate_filename)
     print(f"Intermediate file: {intermediate_file}")
 
-    regex = r'(?s)\{.*?"subreddit":\s*"' + subreddit + r'".*?\}'
-    
-    # Use the PATHS dictionary to get the executable paths
     zstd_executable = PATHS["executables"]["zstd"]
-    ripgrep_executable = PATHS["executables"]["ripgrep"]
 
-    # Build the command string using the absolute paths with platform-specific quoting
-    if os.name == 'nt':
-        regex_escaped = regex.replace('"', '\\"')
-        command = (
-            f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" ^| '
-            f'"{ripgrep_executable}" -P "{regex_escaped}" > "{intermediate_file}" || exit /B 0'
-        )
+    if is_primary:
+        command = f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" > "{intermediate_file}"'
     else:
-        command = (
-            f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" | '
-            f'"{ripgrep_executable}" -P \'{regex}\' > "{intermediate_file}" || true'
-        )
-        
-    print("Running command:")
-    print(command)
-    
-    message = f"Extracting {subreddit} data from {zst_filename}..."
+        ripgrep_executable = PATHS["executables"]["ripgrep"]
+        regex = r'(?s)\{.*?"subreddit":\s*"' + subreddit + r'".*?\}'
+        if os.name == 'nt':
+            regex_escaped = regex.replace('"', '\\"')
+            command = (
+                f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" ^| '
+                f'"{ripgrep_executable}" -P "{regex_escaped}" > "{intermediate_file}" || exit /B 0'
+            )
+        else:
+            command = (
+                f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" | '
+                f'"{ripgrep_executable}" -P \'{regex}\' > "{intermediate_file}" || true'
+            )
+
+    print(f"Running command:\n{command}")
+    message = f"Extracting data from {zst_filename}..."
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
-    
+
     await run_command_async(command)
 
-    # Create the output JSON file name based on the original zst_filename
-    base = os.path.splitext(os.path.basename(zst_filename))[0]
-    output_filename = os.path.join(directory, f"{base}.json")
+    if is_primary:
+        print("Primary magnet link processed.")
 
-    # Process the intermediate file and convert to a JSON array
-    with open(intermediate_file, "r", encoding="utf-8") as infile, \
-         open(output_filename, "w", encoding="utf-8") as outfile:
-        outfile.write("[\n")
-        first = True
-        for line in infile:
-            try:
-                obj = json.loads(line.strip())
-                if obj.get("subreddit") == subreddit:
+        if "_submissions.zst" in zst_filename:
+            data_type = "S"
+        elif "_comments.zst" in zst_filename:
+            data_type = "C"
+        else:
+            raise ValueError(f"Cannot determine data type from filename: {zst_filename}")
+
+        monthly_files = {}
+        with open(intermediate_file, "r", encoding="utf-8") as infile:
+            for line in infile:
+                try:
+                    obj = json.loads(line.strip())
+                    created_utc = obj.get("created_utc")
+                    if created_utc:
+                        created_utc_float = float(created_utc)
+                        dt = datetime.fromtimestamp(created_utc_float)
+                        year = dt.year
+                        month = dt.month
+                        key = f"{year}-{month:02d}"
+                        if key not in monthly_files:
+                            monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+                            monthly_files[key] = open(monthly_filename, "w", encoding="utf-8")
+                        monthly_files[key].write(line)
+                    else:
+                        print("Skipping object without 'created_utc' field.")
+                except json.JSONDecodeError:
+                    print("Skipping invalid JSON line.")
+
+        for file in monthly_files.values():
+            file.close()
+
+        json_files = []
+        for key in monthly_files:
+            jsonl_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+            json_filename = os.path.join(directory, f"R{data_type}_{key}.json")
+            with open(jsonl_filename, "r", encoding="utf-8") as jsonl_file, \
+                 open(json_filename, "w", encoding="utf-8") as json_file:
+                json_file.write("[\n")
+                first = True
+                for line in jsonl_file:
                     if not first:
-                        outfile.write(",\n")
-                    outfile.write(json.dumps(obj, ensure_ascii=False))
+                        json_file.write(",\n")
+                    json_file.write(line.strip())
                     first = False
-            except json.JSONDecodeError:
-                print("Skipping invalid JSON line.")
-        outfile.write("\n]\n")
-    
-    print(f"Processed data saved to {output_filename}")
-    message = f"JSON extracted: {output_filename}"
-    print(message)
-    await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
-    
-    # Remove the intermediate file
-    try:
-        os.remove(intermediate_file)
-        print(f"Intermediate file {intermediate_filename} removed.")
-    except Exception as e:
-        print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
-    
-    return output_filename
+                json_file.write("\n]")
+            json_files.append(json_filename)
+
+        try:
+            os.remove(intermediate_file)
+            print(f"Intermediate file {intermediate_filename} removed.")
+        except Exception as e:
+            print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
+
+        message = f"Processed data saved to monthly JSON files for {zst_filename}"
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
+        
+        return json_files
+
+    else:
+        print(f"Fallback magnet link processed for subreddit '{subreddit}'.")
+        base = os.path.splitext(os.path.basename(zst_filename))[0]
+        output_filename = os.path.join(directory, f"{base}.json")
+
+        with open(intermediate_file, "r", encoding="utf-8") as infile, \
+            open(output_filename, "w", encoding="utf-8") as outfile:
+            outfile.write("[\n")
+            first = True
+            for line in infile:
+                try:
+                    obj = json.loads(line.strip())
+                    if obj.get("subreddit") == subreddit:
+                        if not first:
+                            outfile.write(",\n")
+                        outfile.write(json.dumps(obj, ensure_ascii=False))
+                        first = False
+                except json.JSONDecodeError:
+                    print("Skipping invalid JSON line.")
+            outfile.write("\n]")
+
+        print(f"Processed data saved to {output_filename}")
+        message = f"JSON extracted: {output_filename}"
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
+
+        try:
+            os.remove(intermediate_file)
+            print(f"Intermediate file {intermediate_filename} removed.")
+        except Exception as e:
+            print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
+
+        return [output_filename] 
 
 
 
@@ -736,7 +838,6 @@ async def wait_for_metadata(
 ) -> Torrent:
     c.start_torrent(torrent.id)
 
-    # 1) Keep going while metadata is incomplete
     while torrent.metadata_percent_complete < 1.0:
         message = f"Metadata progress: {torrent.metadata_percent_complete * 100:.2f}%"
         print(message)
@@ -750,8 +851,6 @@ async def wait_for_metadata(
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
 
-    # 2) Once 100%, poll until we see a non-empty file list
-    #    or a certain timeout if you want to avoid infinite loops
     timeout_seconds = 15
     check_interval = 1
     t0 = time.time()
@@ -798,9 +897,7 @@ async def verify_torrent_with_retry(
             await asyncio.sleep(10)
             torrent = c.add_torrent(torrent_url, download_dir=download_dir)
             print("Torrent re-added.")
-            # Wait for metadata to be fully loaded before verifying
             torrent = await wait_for_metadata(manager, app_id, run_id, c, torrent)
-            # Now verify the torrent
             c.verify_torrent(torrent.id)
             print("Re-verifying torrent.")
             await asyncio.sleep(10)
@@ -842,6 +939,7 @@ async def process_single_file(
     file_name: str, 
     download_dir: str, 
     subreddit: str,
+    is_primary: bool = False
 ):
     print(f"\n--- Processing file: {file_name} ---")
 
@@ -850,14 +948,13 @@ async def process_single_file(
     update_run_progress(run_id, message)
 
     torrent_files = c.get_torrent(torrent.id).get_files()
-
     print(f"Torrent files: {torrent_files}")
 
-    wanted_file = list(filter(lambda f: f.name == file_name, torrent_files))[0]
+    wanted_file = next((f for f in torrent_files if f.name == file_name), None)
+    if not wanted_file:
+        raise ValueError(f"File {file_name} not found in torrent.")
 
     file_id = wanted_file.id
-    # print(f"Setting file {file_name} (ID: {file_id}) as wanted, others as unwanted")
-
     print(f"Setting file {file_name} as wanted, others as unwanted {file_id}")
     all_file_ids = [f.id for f in torrent_files]
     other_ids = [fid for fid in all_file_ids if fid != file_id]
@@ -869,6 +966,7 @@ async def process_single_file(
     file_path = os.path.join(download_dir, file_name)
     file_path_zst = file_path if file_path.endswith('.zst') else file_path + '.zst'
 
+    academic_file_paths = []
     try:
         while True:
             torrent = c.get_torrent(torrent.id)
@@ -898,7 +996,6 @@ async def process_single_file(
                     print(f"Waiting for file {file_name} to start...")
                 await asyncio.sleep(5)
 
-        # Wait until the .zst file appears on disk.
         while not os.path.exists(file_path_zst):
             message = f"Waiting for file {file_path_zst} to appear on disk..."
             print(message)
@@ -906,12 +1003,8 @@ async def process_single_file(
             update_run_progress(run_id, message)
             await asyncio.sleep(5)
         
-        # Process the file now in the academic folder.
-        output_file = await process_reddit_data(manager, app_id, run_id, subreddit, file_path_zst)
+        output_files = await process_reddit_data(manager, app_id, run_id, subreddit, file_path_zst, is_primary)
 
-        # Determine the academic folder.
-        # Assuming download_dir is the directory where Transmission downloads files,
-        # we place the academic folder one directory up.
         parent_dir = os.path.dirname(os.path.dirname(file_path_zst))
         academic_folder_name = f"academic-torrent-{subreddit}"
         academic_folder = os.path.join(parent_dir, academic_folder_name)
@@ -922,35 +1015,36 @@ async def process_single_file(
             await manager.send_message(app_id, msg)
             update_run_progress(run_id, msg)
 
-        # Move the downloaded file into the academic folder.
-        academic_file_path = os.path.join(academic_folder, os.path.basename(output_file))
-        shutil.move(output_file, academic_file_path)
-        msg = f"Moved file: {output_file} -> {academic_file_path}"
-        print(msg)
-        await manager.send_message(app_id, msg)
-        update_run_progress(run_id, msg)
-
-        # source_file = os.path.join(academic_folder, output_file)
         datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
         os.makedirs(datasets_academic_folder, exist_ok=True)
-        symlink_path = os.path.join(datasets_academic_folder, os.path.splitext(os.path.basename(file_name))[0] + ".json")
-        if os.path.lexists(symlink_path):
-            os.remove(symlink_path)
-        os.symlink(academic_file_path, symlink_path)
-        message = f"Symlink created: {symlink_path} -> {academic_file_path}"
-        await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
 
-        message = f"Processed file: {file_name} ..."
+        for output_file in output_files:
+            academic_file_path = os.path.join(academic_folder, os.path.basename(output_file))
+            shutil.move(output_file, academic_file_path)
+            msg = f"Moved file: {output_file} -> {academic_file_path}"
+            print(msg)
+            await manager.send_message(app_id, msg)
+            update_run_progress(run_id, msg)
+
+            symlink_path = os.path.join(datasets_academic_folder, os.path.basename(output_file))
+            if os.path.lexists(symlink_path):
+                os.remove(symlink_path)
+            os.symlink(academic_file_path, symlink_path)
+            message = f"Symlink created: {symlink_path} -> {academic_file_path}"
+            await manager.send_message(app_id, message)
+            update_run_progress(run_id, message)
+
+            if os.stat(academic_file_path).st_size <= 5:
+                message = f"No data found in {os.path.basename(academic_file_path)} for {subreddit}."
+                await manager.send_message(app_id, message)
+                update_run_progress(run_id, message)
+
+            academic_file_paths.append(academic_file_path)
+
+        message = f"Processed file: {file_name} into {len(academic_file_paths)} files."
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message)
         print(f"Processing complete for file {file_name}.")
-
-        print("File size", os.stat(academic_file_path))
-        if os.stat(academic_file_path).st_size <= 5: # Files created contain an empty list, which is 5 bytes long.
-            message = f"No data found for {subreddit} in file {file_name}."
-            await manager.send_message(app_id, message)
-            update_run_progress(run_id, message)
 
     except Exception as e:
         print(f"Error processing file {file_name}: {e}")
@@ -964,7 +1058,7 @@ async def process_single_file(
             os.remove(file_path_zst)
 
     await asyncio.sleep(1)
-    return output_file
+    return academic_file_paths
 
 async def get_reddit_data_from_torrent(
     manager: ConnectionManager,
@@ -976,73 +1070,87 @@ async def get_reddit_data_from_torrent(
     start_month: str = "2005-06",
     end_month: str = "2023-12",
     submissions_only: bool = True,
+    use_fallback: bool = False,
 ):
     settings = config.CustomSettings()
-    academic_torrent = settings.transmission.magnetLink
     TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = get_current_download_dir()
     print(f"Transmission download dir: {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}")
-    torrent_hash_string = academic_torrent.split("btih:")[1].split("&")[0]
+    
+    PRIMARY_MAGNET_LINK = settings.transmission.magnetLink
+    FALLBACK_MAGNET_LINK = settings.transmission.fallbackMagnetLink
     
     c = Client(host="localhost", port=9091, username="transmission", password="password")
 
-    torrents = c.get_torrents()
-    if not any(t.hashString == torrent_hash_string for t in torrents):
-        # c.remove_torrent()
-        # await asyncio.sleep(10)
-        c.add_torrent(academic_torrent, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
-    current_torrent = c.get_torrent(torrent_hash_string)
+    academic_folder_name = f"academic-torrent-{subreddit}"
+    parent_dir = os.path.dirname(TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+    academic_folder = os.path.join(parent_dir, academic_folder_name)
+    if not os.path.exists(academic_folder):
+        os.makedirs(academic_folder, exist_ok=True)
 
-    print("Current download dir: ", current_torrent.download_dir, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
-    if current_torrent.download_dir != TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR:
-        c.move_torrent_data(current_torrent.id, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
-        await asyncio.sleep(10)
-        current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, academic_torrent, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
-        await asyncio.sleep(10)
-        current_torrent = c.get_torrent(torrent_hash_string)
-        # c.remove_torrent(current_torrent.id)
-        # await asyncio.sleep(10)
-        # current_torrent = c.add_torrent(academic_torrent, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
-
-    message = f"Torrent added for subreddit '{subreddit}' with ID: {current_torrent.id}"
+    if not use_fallback:
+        primary_hash = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
+        torrents = c.get_torrents()
+        torrent_to_use = next((t for t in torrents if t.hashString == primary_hash), None)
+        if not torrent_to_use:
+            torrent_to_use = c.add_torrent(PRIMARY_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+        
+        torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, torrent_to_use)
+        files_to_process = get_files_to_process_primary(torrent_to_use.get_files(), subreddit, submissions_only)
+        magnet_link = PRIMARY_MAGNET_LINK
+        message = f"Using primary torrent for subreddit '{subreddit}'."
+    else:
+        fallback_hash = FALLBACK_MAGNET_LINK.split("btih:")[1].split("&")[0]
+        torrents = c.get_torrents()
+        torrent_to_use = next((t for t in torrents if t.hashString == fallback_hash), None)
+        if not torrent_to_use:
+            torrent_to_use = c.add_torrent(FALLBACK_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+        
+        torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, torrent_to_use)
+        wanted_range = generate_month_range(start_month, end_month)
+        files_to_process = get_files_to_process_fallback(torrent_to_use.get_files(), wanted_range, submissions_only)
+        magnet_link = FALLBACK_MAGNET_LINK
+        message = f"Using fallback torrent with range {start_month} to {end_month}."
+    
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
 
+    files_to_process_actually = []
+    files_already_processed = []
+    for zst_file in files_to_process:
+        base = os.path.splitext(os.path.basename(zst_file))[0]
+        json_file = os.path.join(academic_folder, f"{base}.json")
+        if os.path.exists(json_file):
+            files_already_processed.append(zst_file)
+        else:
+            files_to_process_actually.append(zst_file)
 
-    current_torrent = await wait_for_metadata(manager, app_id, run_id, c, current_torrent)
-    torrent_files = current_torrent.get_files()
-    wanted_range = generate_month_range(start_month, end_month)
-    print(f"Identified files for processing: {wanted_range}")
-    files_to_process = get_files_to_process(torrent_files, wanted_range, submissions_only)
-    already_existing_files = get_torrent_files_by_subreddit(subreddit)
-    print(f"Already existing files: {already_existing_files}")
-    files_already_downloaded = list(filter(lambda f: os.path.splitext(os.path.basename(f))[0] in already_existing_files, files_to_process))
-    message = f'Files already downloaded: {(", ").join([os.path.splitext(os.path.basename(f))[0] for f in files_already_downloaded])}'
-    await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
-    if len(already_existing_files) != 0:
-        files_to_process = list(filter(lambda f: os.path.splitext(os.path.basename(f))[0] not in already_existing_files, files_to_process))
-    print(f"Files to process: {files_to_process}")
-    message = f"Files to process: {len(files_to_process)}"
+    if files_already_processed:
+        already_processed_names = [os.path.splitext(os.path.basename(f))[0] for f in files_already_processed]
+        message = f"Files already processed: {', '.join(already_processed_names)}"
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
+    
+    message = f"Files to process: {len(files_to_process_actually)}"
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
 
     file_repo.insert_batch(
-        list(map(lambda f: FileStatus(run_id=run_id, file_name=f, workspace_id=workspace_id, dataset_id=dataset_id), files_to_process))
+        list(map(lambda f: FileStatus(run_id=run_id, file_name=f, workspace_id=workspace_id, dataset_id=dataset_id), files_to_process_actually))
     )
 
-    current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, academic_torrent, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+    torrent_to_use = await verify_torrent_with_retry(manager, app_id, run_id, c, torrent_to_use, magnet_link, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
 
-    output_files = []
-    for file in files_to_process:
-        output_file = await process_single_file(manager, app_id, run_id, c, current_torrent, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit)
-        output_files.append(output_file)
+    all_output_files = []
+    for file in files_to_process_actually:
+        output_files = await process_single_file(manager, app_id, run_id, c, torrent_to_use, file, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR, subreddit, not use_fallback)
+        all_output_files.extend(output_files)
+        
     
-    message = "All wanted files have been processed."
+    message = f"All wanted files have been processed. Total new files: {len(all_output_files)}."
     print(message)
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message)
-    return output_files
-
+    return all_output_files
 
 
 def filter_posts_by_deleted(dataset_id: str):
@@ -1112,10 +1220,70 @@ def get_torrent_files_by_subreddit(subreddit: str):
     dir_path = os.path.join(datasets_directory, f"academic-torrent-{subreddit}")
     if not os.path.exists(dir_path):
         return []
-    # List only those files that are either not symlinks or are valid symlinks.
     valid_files = [
         os.path.splitext(f)[0]
         for f in os.listdir(dir_path)
         if (not os.path.islink(os.path.join(dir_path, f))) or os.path.exists(os.path.join(dir_path, f))
     ]
     return valid_files
+
+
+def get_files_to_process_primary(torrent_files: list[TorrentFile], subreddit: str, submissions_only: bool) -> list[str]:
+    files_to_process = []
+    for file in torrent_files:
+        basename = os.path.basename(file.name)
+        if basename == f"{subreddit}_submissions.zst" and submissions_only:
+            files_to_process.append(file.name)
+        elif not submissions_only and (basename == f"{subreddit}_comments.zst" or basename == f"{subreddit}_submissions.zst"):
+            files_to_process.append(file.name)
+    return files_to_process
+
+def get_files_to_process_fallback(torrent_files: list[TorrentFile], wanted_range: list, submissions_only: bool) -> list[str]:
+    """Select files from the fallback (monthly-based) torrent."""
+    files_to_process = []
+    for file in torrent_files:
+        filename = os.path.splitext(os.path.basename(file.name))[0]
+        if submissions_only and not filename.startswith("RS"):
+            continue
+        if "RC_" in file.name or "RS_" in file.name:
+            month_part = filename.split("_")[1]
+            if month_part in wanted_range:
+                files_to_process.append(file.name)
+    return files_to_process
+
+
+async def check_primary_torrent(
+    manager: ConnectionManager,
+    app_id: str,
+    run_id: str,
+    subreddit: str,
+    submissions_only: bool,
+):
+    TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = get_current_download_dir()
+    c = Client(host="localhost", port=9091, username="transmission", password="password")
+
+    PRIMARY_MAGNET_LINK = config.CustomSettings().transmission.magnetLink
+
+    primary_hash = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
+    torrents = c.get_torrents()
+    primary_torrent = next((t for t in torrents if t.hashString == primary_hash), None)
+    if not primary_torrent:
+        primary_torrent = c.add_torrent(PRIMARY_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
+
+    message = f"Checking primary torrent for subreddit '{subreddit}'..."
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message)
+
+    primary_torrent = await wait_for_metadata(manager, app_id, run_id, c, primary_torrent)
+    primary_files = get_files_to_process_primary(primary_torrent.get_files(), subreddit, submissions_only)
+
+    if primary_files:
+        message = f"Found subreddit '{subreddit}' in primary torrent. Files available: {len(primary_files)}"
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
+        return {"status": True, "files": primary_files}
+    else:
+        message = f"Subreddit '{subreddit}' not found in primary torrent."
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message)
+        return {"status": False, "files": []}

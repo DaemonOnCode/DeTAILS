@@ -7,7 +7,7 @@ import shutil
 from typing import Dict
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Form, Body
-from controllers.collection_controller import create_dataset, delete_dataset, delete_run, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, update_run_progress, upload_dataset_file
+from controllers.collection_controller import check_primary_torrent, create_dataset, delete_dataset, delete_run, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, update_run_progress, upload_dataset_file
 from database import PipelineStepsRepository, TorrentDownloadProgressRepository
 from headers.app_id import get_app_id
 from models.collection_models import FilterRedditPostsByDeleted, GetTorrentStatusRequest, ParseDatasetRequest, ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
@@ -80,10 +80,12 @@ async def filter_posts_by_deleted_endpoint(
     loop = asyncio.get_running_loop()
     filtered_ids = await loop.run_in_executor(None, filter_posts_by_deleted, request.dataset_id)
     # filtered_ids = filter_posts_by_deleted(request.dataset_id)
-    print(filtered_ids)
+    # print(filtered_ids)
     return filtered_ids
 
 progress_repo = TorrentDownloadProgressRepository()
+
+pipeline_repo = PipelineStepsRepository()
 
 @router.post("/download-reddit-data-from-torrent")
 async def download_reddit_from_torrent_endpoint(
@@ -95,8 +97,6 @@ async def download_reddit_from_torrent_endpoint(
         app_id = request.headers.get("x-app-id")
 
         run_id = str(uuid4())
-
-        pipeline_repo = PipelineStepsRepository()
 
         progress_repo.insert(TorrentDownloadProgress(
             workspace_id=request_body.workspace_id,
@@ -144,28 +144,26 @@ async def download_reddit_from_torrent_endpoint(
                 start_month, 
                 end_month, 
                 request_body.submissions_only,
+                request_body.use_fallback
             )
 
-            print(output_files)
             message = f"Finished downloading {len(output_files)} file(s)."
             await manager.send_message(app_id, message)
             update_run_progress(run_id, message)
-            
-            # STEP 1: Create the academic folder one directory up from the downloaded files.
-            # Get the directory where the files were downloaded.
+
             academic_folder = None
             academic_folder_name = f"academic-torrent-{request_body.subreddit}"
 
             datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
+            print("Datasets academic folder:", datasets_academic_folder)
             if not os.path.exists(datasets_academic_folder):
                 os.makedirs(datasets_academic_folder)
                 message = f"Created datasets folder: {datasets_academic_folder}"
                 await manager.send_message(app_id, message)
                 update_run_progress(run_id, message)
-
+            print("Output files:", output_files)
             if len(output_files) > 0:
                 downloaded_dir = os.path.dirname(output_files[0])
-                # Now get one directory up from the downloaded directory.
                 parent_dir = os.path.dirname(downloaded_dir)
                 academic_folder = os.path.join(parent_dir, academic_folder_name)
                 if not os.path.exists(academic_folder):
@@ -173,29 +171,8 @@ async def download_reddit_from_torrent_endpoint(
                     message = f"Created folder: {academic_folder}"
                     await manager.send_message(app_id, message)
                     update_run_progress(run_id, message)
-
-                # STEP 2: Move each output file into the academic folder.
-                # for file_path in output_files:
-                #     if os.path.exists(file_path):
-                #         file_name = os.path.basename(file_path)
-                #         new_file_path = os.path.join(academic_folder, file_name)
-                #         shutil.move(file_path, new_file_path)
-                #         message = f"Moved file: {file_path} -> {new_file_path}"
-                #         await manager.send_message(app_id, message)
-                #         update_run_progress(run_id, message)
-                #     else:
-                #         message = f"WARNING: File not found on disk, skipping move: {file_path}"
-                #         await manager.send_message(app_id, message)
-                #         update_run_progress(run_id, message)
-
-                # STEP 3: In the datasets directory, create (or update) an academic folder with the same name,
-                # and for each file in the academic folder create a symlink.
-                
-
-
-                # for file_name in os.listdir(academic_folder):
                     
-
+            print("Academic folder:", academic_folder)
             if not academic_folder:
                 academic_folder = os.path.join(DATASETS_DIR, f"academic-torrent-{request_body.subreddit}")
                 os.makedirs(academic_folder, exist_ok=True)
@@ -207,9 +184,13 @@ async def download_reddit_from_torrent_endpoint(
             await manager.send_message(app_id, message)
             update_run_progress(run_id, message)
 
+            print("Parsing files in academic folder:", academic_folder)
             if os.path.exists(academic_folder or ""):
-                parse_reddit_files(dataset_id, academic_folder, date_filter={"start_date": start_date, "end_date": end_date})
+                await asyncio.to_thread(
+                    parse_reddit_files(dataset_id, academic_folder, date_filter={"start_date": start_date, "end_date": end_date})
+                )
 
+            print("Finished parsing files.")
             message = "Parsing complete. All steps finished."
             await manager.send_message(app_id, message)
             update_run_progress(run_id, message)
@@ -361,3 +342,18 @@ async def get_torrent_status_endpoint(
     request_body: GetTorrentStatusRequest
 ):
     return progress_repo.get_current_status(request_body.workspace_id, request_body.dataset_id)
+
+@router.post("/check-reddit-torrent-availability")
+async def check_reddit_torrent_availability(
+    request: Request,
+    request_body: ParseRedditFromTorrentRequest,
+    transmission_manager: GlobalTransmissionDaemonManager = Depends(get_transmission_manager)
+):
+    async with transmission_manager:
+        app_id = request.headers.get("x-app-id")
+        run_id = str(uuid4())
+
+        result = await check_primary_torrent(
+            manager, app_id, run_id, request_body.subreddit, request_body.submissions_only
+        )
+        return result

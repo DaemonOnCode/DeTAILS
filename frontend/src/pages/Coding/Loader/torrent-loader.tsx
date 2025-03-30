@@ -482,6 +482,18 @@ const TorrentLoader: React.FC = () => {
                     }
                 }
             }
+            if (msg.includes('Processed data saved to monthly JSON files for')) {
+                const match = msg.match(/Processed data saved to monthly JSON files for\s+(.*)/i);
+                if (match) {
+                    const fullPath = match[1].trim();
+                    const base = path.basename(fullPath);
+                    if (updated[base]) {
+                        updated[base].status = 'complete';
+                        updated[base].progress = 100;
+                        updated[base].messages.push(msg);
+                    }
+                }
+            }
             if (msg.toLowerCase().includes('downloading') && msg.includes('%')) {
                 const match = msg.match(
                     /Downloading\s+(.*?):\s+([\d.]+)%\s+\(([\d]+)\/([\d]+)\s+bytes\)/i

@@ -34,6 +34,7 @@ class ParseRedditFromTorrentRequest(BaseModel):
     start_date: str = "2005-06-01"
     end_date: str = "2023-12-31"
     submissions_only: bool = False
+    use_fallback: bool = False
 
 class ParseRedditFromTorrentFilesRequest(BaseModel):
     subreddit: str

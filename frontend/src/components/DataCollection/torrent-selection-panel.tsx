@@ -84,7 +84,13 @@ const TorrentSelectionPanel: React.FC<{
                 return `${baseInput}:files:${files.join(',')}`;
             });
         } else {
-            // setModeInput('');
+            setModeInput((prevModeInput) => {
+                let baseInput = `reddit:torrent:${activeSubreddit}`;
+                if (prevModeInput && prevModeInput.includes(':files:')) {
+                    baseInput = prevModeInput.split(':files:')[0];
+                }
+                return `${baseInput}:files:`;
+            });
         }
     }, [selected, activeSubreddit, setModeInput, dataResponse]);
 

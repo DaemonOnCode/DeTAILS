@@ -206,6 +206,20 @@ const useRedditData = () => {
                 setModeInput(
                     `reddit:torrent:${torrentSubreddit}|${torrentStart}|${torrentEnd}|${torrentPostsOnly}`
                 );
+                const { data: checkResponse, error: checkError } = await fetchData<{
+                    status: boolean;
+                    files: string[];
+                }>(REMOTE_SERVER_ROUTES.CHECK_PRIMARY_TORRENT, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        subreddit: torrentSubreddit,
+                        dataset_id: datasetId,
+                        workspace_id: currentWorkspace.id
+                    })
+                });
+
+                console.log('Check response:', checkResponse);
+
                 const torrentResponse = await fetchData(
                     REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT,
                     {
@@ -216,7 +230,8 @@ const useRedditData = () => {
                             end_date: torrentEnd,
                             submissions_only: torrentPostsOnly,
                             dataset_id: datasetId,
-                            workspace_id: currentWorkspace.id
+                            workspace_id: currentWorkspace.id,
+                            use_fallback: !checkResponse?.status
                         })
                     }
                 );
