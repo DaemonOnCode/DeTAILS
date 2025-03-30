@@ -189,12 +189,31 @@ const useRedditData = () => {
         }
     };
 
+    const checkPrimaryTorrentForSubreddit = async (subreddit: string) => {
+        const { data: checkResponse, error: checkError } = await fetchData<{
+            status: boolean;
+            files: string[];
+        }>(REMOTE_SERVER_ROUTES.CHECK_PRIMARY_TORRENT, {
+            method: 'POST',
+            body: JSON.stringify({
+                subreddit: subreddit,
+                dataset_id: datasetId,
+                workspace_id: currentWorkspace!.id
+            })
+        });
+
+        console.log('Check response:', checkResponse);
+
+        return checkResponse?.status;
+    };
+
     const loadTorrentData = async (
         addToDb: boolean = false,
         torrentSubreddit?: string,
         torrentStart?: string,
         torrentEnd?: string,
-        torrentPostsOnly?: boolean
+        torrentPostsOnly?: boolean,
+        useFallback: boolean = false
     ) => {
         setLoading(true);
         try {
@@ -206,19 +225,19 @@ const useRedditData = () => {
                 setModeInput(
                     `reddit:torrent:${torrentSubreddit}|${torrentStart}|${torrentEnd}|${torrentPostsOnly}`
                 );
-                const { data: checkResponse, error: checkError } = await fetchData<{
-                    status: boolean;
-                    files: string[];
-                }>(REMOTE_SERVER_ROUTES.CHECK_PRIMARY_TORRENT, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        subreddit: torrentSubreddit,
-                        dataset_id: datasetId,
-                        workspace_id: currentWorkspace.id
-                    })
-                });
+                // const { data: checkResponse, error: checkError } = await fetchData<{
+                //     status: boolean;
+                //     files: string[];
+                // }>(REMOTE_SERVER_ROUTES.CHECK_PRIMARY_TORRENT, {
+                //     method: 'POST',
+                //     body: JSON.stringify({
+                //         subreddit: torrentSubreddit,
+                //         dataset_id: datasetId,
+                //         workspace_id: currentWorkspace.id
+                //     })
+                // });
 
-                console.log('Check response:', checkResponse);
+                // console.log('Check response:', checkResponse);
 
                 const torrentResponse = await fetchData(
                     REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT,
@@ -231,7 +250,7 @@ const useRedditData = () => {
                             submissions_only: torrentPostsOnly,
                             dataset_id: datasetId,
                             workspace_id: currentWorkspace.id,
-                            use_fallback: !checkResponse?.status
+                            use_fallback: useFallback
                         })
                     }
                 );
@@ -293,7 +312,15 @@ const useRedditData = () => {
         }
     };
 
-    return { data, error, loadFolderData, loadTorrentData, handleLoadTorrentFromFiles, loading };
+    return {
+        data,
+        error,
+        loadFolderData,
+        loadTorrentData,
+        handleLoadTorrentFromFiles,
+        loading,
+        checkPrimaryTorrentForSubreddit
+    };
 };
 
 export default useRedditData;

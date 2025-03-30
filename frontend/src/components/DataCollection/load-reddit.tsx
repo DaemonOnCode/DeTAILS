@@ -21,8 +21,15 @@ const LoadReddit: FC<{
     const location = useLocation();
     const { modeInput, setModeInput, metadata, metadataDispatch, type, datasetId } =
         useCollectionContext();
-    const { data, loadFolderData, loadTorrentData, error, handleLoadTorrentFromFiles, loading } =
-        useRedditData();
+    const {
+        data,
+        loadFolderData,
+        loadTorrentData,
+        error,
+        handleLoadTorrentFromFiles,
+        loading,
+        checkPrimaryTorrentForSubreddit
+    } = useRedditData();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
     const navigate = useNavigate();
@@ -64,6 +71,9 @@ const LoadReddit: FC<{
         torrentModeInitial as 'posts' | 'postsAndComments'
     );
 
+    const [showModal, setShowModal] = useState(false);
+    const [modalState, setModalState] = useState<'loading' | 'error' | 'retry-form'>('loading');
+
     const selectedFilesRef = useRef<{ getFiles: () => [string, string[]] } | null>(null);
 
     const handleExternelLink = () => {
@@ -98,7 +108,13 @@ const LoadReddit: FC<{
         }
     }, [modeInput]);
 
-    const handleLoadTorrent = async () => {
+    const loadTorrentWithOptions = async (
+        subreddit: string,
+        start: string,
+        end: string,
+        postsOnly: boolean,
+        useFallback: boolean = false
+    ) => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
@@ -106,21 +122,19 @@ const LoadReddit: FC<{
         abortRequests(location.pathname);
         navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
         await new Promise((resolve) => setTimeout(resolve, 5000));
-        const postsOnly = torrentMode === 'posts';
         const { error } = await loadTorrentData(
             true,
-            torrentSubreddit,
-            torrentStart,
-            torrentEnd,
-            postsOnly
+            subreddit,
+            start,
+            end,
+            postsOnly,
+            useFallback
         );
-        console.log('error', error);
         if (error) return;
         loadingDispatch({
             type: 'SET_REST_UNDONE',
             route: location.pathname
         });
-
         loadingDispatch({
             type: 'SET_FIRST_RUN_DONE',
             route: location.pathname
@@ -130,6 +144,35 @@ const LoadReddit: FC<{
             route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
         });
         navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`);
+    };
+
+    const handleLoadTorrent = async () => {
+        setShowModal(true);
+        setModalState('loading');
+
+        const checkPrimaryTorrent = await checkPrimaryTorrentForSubreddit(torrentSubreddit);
+
+        if (!checkPrimaryTorrent) {
+            setModalState('retry-form');
+            return;
+        }
+
+        await loadTorrentWithOptions(
+            torrentSubreddit,
+            torrentStart,
+            torrentEnd,
+            torrentMode === 'posts'
+        );
+    };
+
+    const handleProceedWithFallback = async () => {
+        await loadTorrentWithOptions(
+            torrentSubreddit,
+            torrentStart,
+            torrentEnd,
+            torrentMode === 'posts',
+            true
+        );
     };
 
     useImperativeHandle(processRef, () => {
@@ -277,6 +320,53 @@ const LoadReddit: FC<{
                     />
                 )}
             </main>
+            {showModal && (
+                <div
+                    className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center"
+                    style={{ zIndex: 1000 }}>
+                    <div className="bg-white p-6 rounded shadow-lg max-w-md w-full">
+                        {modalState === 'loading' && (
+                            <p className="text-center">Checking subreddit availability...</p>
+                        )}
+                        {modalState === 'error' && (
+                            <div className="space-y-4">
+                                <p className="text-red-500">
+                                    Error loading torrent data. Please choose an option:
+                                </p>
+                                <button
+                                    onClick={() => {
+                                        setModalState('retry-form');
+                                    }}
+                                    className="w-full p-2 bg-blue-500 text-white rounded">
+                                    Correct name and retry
+                                </button>
+                            </div>
+                        )}
+                        {modalState === 'retry-form' && (
+                            <div className="space-y-4">
+                                <p>
+                                    Subreddit was not found in primary torrent. Switching to
+                                    fallback torrent will take more time but can possibly find
+                                    results for the subreddit
+                                </p>
+
+                                <div className="flex space-x-2 w-full">
+                                    <button
+                                        onClick={() => setShowModal(false)}
+                                        className="flex-1 p-2 bg-blue-500 text-white rounded">
+                                        Make changes to torrent details
+                                    </button>
+                                    <button
+                                        onClick={handleProceedWithFallback}
+                                        className="p-2 bg-green-500 text-white rounded">
+                                        Proceed with fallback torrent
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

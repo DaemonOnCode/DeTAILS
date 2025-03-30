@@ -187,7 +187,8 @@ async def download_reddit_from_torrent_endpoint(
             print("Parsing files in academic folder:", academic_folder)
             if os.path.exists(academic_folder or ""):
                 await asyncio.to_thread(
-                    parse_reddit_files(dataset_id, academic_folder, date_filter={"start_date": start_date, "end_date": end_date})
+                    parse_reddit_files,
+                    dataset_id, academic_folder, date_filter={"start_date": start_date, "end_date": end_date}, is_primary = not request_body.use_fallback
                 )
 
             print("Finished parsing files.")

@@ -631,15 +631,16 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     gilded=c.get("gilded", 0),
                     dataset_id=dataset_id 
                 ))
-            comment_ids = [c.id for c in comments]
-            duplicates = [id for id, count in Counter(comment_ids).items() if count > 1]
-            if duplicates:
-                print(f"Duplicate comment IDs detected: {duplicates}", file)
-            for duplicate in duplicates:
-                print(f"Duplicate comment: {duplicate}", file)
-
-            comments = [c for c in comments if c.id not in duplicates]
-            comment_repo.insert_batch(comments)
+            seen = set()
+            unique_comments = []
+            for comment in comments:
+                key = (comment.id, comment.dataset_id, comment.post_id, comment.parent_id)
+                if key not in seen:
+                    seen.add(key)
+                    unique_comments.append(comment)
+                else:
+                    print(f"Skipping duplicate comment with key: {key}")
+            comment_repo.insert_batch(unique_comments)
 
     update_dataset(dataset_id, name=subreddit)
 
@@ -939,7 +940,7 @@ async def process_single_file(
     file_name: str, 
     download_dir: str, 
     subreddit: str,
-    is_primary: bool = False
+    is_primary: bool = True
 ):
     print(f"\n--- Processing file: {file_name} ---")
 
@@ -1126,7 +1127,7 @@ async def get_reddit_data_from_torrent(
 
     if files_already_processed:
         already_processed_names = [os.path.splitext(os.path.basename(f))[0] for f in files_already_processed]
-        message = f"Files already processed: {', '.join(already_processed_names)}"
+        message = f"Files already downloaded: {', '.join(already_processed_names)}"
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message)
     
