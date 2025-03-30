@@ -38,32 +38,40 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
     const [searchTerm, setSearchTerm] = useState('');
-    const [appliedStartTime, setAppliedStartTime] = useState('');
-    const [appliedEndTime, setAppliedEndTime] = useState('');
-    const [appliedHideRemoved, setAppliedHideRemoved] = useState(false);
-    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-    const [pendingFilterStartTime, setPendingFilterStartTime] = useState('');
-    const [pendingFilterEndTime, setPendingFilterEndTime] = useState('');
-    const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState(false);
+    // const [appliedStartTime, setAppliedStartTime] = useState('');
+    // const [appliedEndTime, setAppliedEndTime] = useState('');
+    // const [appliedHideRemoved, setAppliedHideRemoved] = useState(false);
 
     const [isLoading, setIsLoading] = useState(false);
 
     const location = useLocation();
     const { fetchData } = useApi();
-    const { datasetId, isLocked, setIsLocked } = useCollectionContext();
+    const { datasetId, isLocked, setIsLocked, dataFilters, setDataFilters } =
+        useCollectionContext();
     const { checkIfDataExists, openModal, abortRequests, resetDataAfterPage } = useLoadingContext();
     const { currentWorkspace } = useWorkspaceContext();
+
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [pendingFilterStartTime, setPendingFilterStartTime] = useState(
+        dataFilters.reddit?.start_time || ''
+    );
+    const [pendingFilterEndTime, setPendingFilterEndTime] = useState(
+        dataFilters.reddit?.end_time || ''
+    );
+    const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState(
+        dataFilters.reddit?.hide_removed || false
+    );
 
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const { scrollRef: tableRef } = useScrollRestoration(`validation-table-page-${currentPage}`);
 
     const fetchPosts = async () => {
         setIsLoading(true);
-        const startTime = appliedStartTime
-            ? Math.floor(new Date(appliedStartTime).getTime() / 1000)
+        const startTime = dataFilters.reddit?.start_time
+            ? Math.floor(new Date(dataFilters.reddit.start_time).getTime() / 1000)
             : undefined;
-        const endTime = appliedEndTime
-            ? Math.floor(new Date(appliedEndTime).getTime() / 1000)
+        const endTime = dataFilters.reddit?.end_time
+            ? Math.floor(new Date(dataFilters.reddit.end_time).getTime() / 1000)
             : undefined;
 
         const offset = (currentPage - 1) * itemsPerPage;
@@ -76,7 +84,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             search_term: debouncedSearchTerm,
             start_time: startTime,
             end_time: endTime,
-            hide_removed: appliedHideRemoved,
+            hide_removed: dataFilters.reddit?.hide_removed || false,
             offset: offset,
             batch: batch,
             page: currentPage,
@@ -104,11 +112,11 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
     const fetchAllMatchingPostIds = async (): Promise<string[]> => {
         setIsLoading(true);
-        const startTime = appliedStartTime
-            ? Math.floor(new Date(appliedStartTime).getTime() / 1000)
+        const startTime = dataFilters.reddit?.start_time
+            ? Math.floor(new Date(dataFilters.reddit.start_time).getTime() / 1000)
             : undefined;
-        const endTime = appliedEndTime
-            ? Math.floor(new Date(appliedEndTime).getTime() / 1000)
+        const endTime = dataFilters.reddit?.end_time
+            ? Math.floor(new Date(dataFilters.reddit.end_time).getTime() / 1000)
             : undefined;
 
         const requestBody = {
@@ -120,7 +128,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             search_term: debouncedSearchTerm,
             start_time: startTime,
             end_time: endTime,
-            hide_removed: appliedHideRemoved,
+            hide_removed: dataFilters.reddit?.hide_removed || false,
             page: 1,
             items_per_page: 10,
             get_all_ids: true
@@ -154,9 +162,9 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         fetchPosts();
     }, [
         debouncedSearchTerm,
-        appliedStartTime,
-        appliedEndTime,
-        appliedHideRemoved,
+        dataFilters.reddit?.start_time,
+        dataFilters.reddit?.end_time,
+        dataFilters.reddit?.hide_removed,
         currentPage,
         itemsPerPage,
         datasetId
@@ -197,20 +205,29 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     };
 
     const handleApplyFilters = () => {
-        setAppliedStartTime(pendingFilterStartTime);
-        setAppliedEndTime(pendingFilterEndTime);
-        setAppliedHideRemoved(pendingFilterHideRemoved);
+        setDataFilters((prev) => ({
+            ...prev,
+            reddit: {
+                start_time: pendingFilterStartTime,
+                end_time: pendingFilterEndTime,
+                hide_removed: pendingFilterHideRemoved
+            }
+        }));
+        // setAppliedStartTime(pendingFilterStartTime);
+        // setAppliedEndTime(pendingFilterEndTime);
+        // setAppliedHideRemoved(pendingFilterHideRemoved);
         setIsFilterModalOpen(false);
         setCurrentPage(1);
     };
 
     const handleResetFilters = () => {
+        setDataFilters((prev) => ({ ...prev, reddit: {} }));
         setPendingFilterStartTime('');
         setPendingFilterEndTime('');
         setPendingFilterHideRemoved(false);
-        setAppliedStartTime('');
-        setAppliedEndTime('');
-        setAppliedHideRemoved(false);
+        // setAppliedStartTime('');
+        // setAppliedEndTime('');
+        // setAppliedHideRemoved(false);
         setCurrentPage(1);
     };
 
