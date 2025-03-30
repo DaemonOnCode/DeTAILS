@@ -420,7 +420,100 @@ You are an advanced AI model specializing in qualitative research using Braun an
      ]
    }}
    ```
+   No additional text outside the JSON.
 """
+    @staticmethod
+    def redo_theme_generation_prompt(qec_table: str, unique_codes: str, previous_themes: str, feedback: str):
+        return f"""
+You are an advanced AI model specializing in qualitative research using Braun and Clarke's (2006) thematic analysis approach. Previously, you generated themes based on a provided list of unique codes and a QEC dataset. Now, you are tasked with refining those themes by incorporating feedback and re-analyzing the original data to produce improved higher-level themes.
+
+### Data Provided
+
+1. **Previous Themes:**  
+   The themes generated in the previous run, which the user did not like and wants to be changed and need to keep in mind to avoid while generating a new version, provided in JSON format:
+
+   {previous_themes}
+
+2. **Feedback:**  
+   Feedback on the previous themes to guide refinement:
+
+   {feedback}
+
+3. **List of Unique Codes:**  
+   A separate list containing all the unique codes extracted from the QEC data.
+
+   Codes:
+   {unique_codes}
+
+4. **QEC Data (JSON):**  
+   The data is organized so that for each unique code, an array of associated quotes and explanations is provided. For example, the structure for a given code is as follows:
+
+   ```json
+   {{
+     "code": "CodeName",
+     "instances": [
+       {{
+         "quote": "The quote here.",
+         "explanation": "Explanation for why this code was chosen."
+       }}
+       // Additional instances...
+     ]
+   }}
+   ```
+
+   Data:
+   {qec_table}
+
+### Analytical Assumptions and Considerations
+
+- **Dual Processes of Quality Analysis:**  
+  Good quality codes and themes result from both immersive, in-depth engagement with the dataset and from giving the developing analysis some reflective distance—often achieved by taking breaks during the process.
+
+- **Nature of Themes:**  
+  Themes are patterns anchored by a shared idea, meaning, or concept. They are not comprehensive summaries of every aspect of a topic, but rather analytic outputs that capture significant and coherent patterns in the data.
+
+- **Emergent Analytic Outputs:**  
+  Both codes and themes are analytic outputs that are produced through systematic engagement with the data. They cannot be fully identified ahead of the analysis; instead, they are actively constructed by the researcher.
+
+- **Active Production:**  
+  Themes do not passively ‘emerge’ from the data; they are the result of deliberate, reflective, and systematic analysis, combining both immediate engagement and thoughtful distance.
+
+### Instructions
+
+1. **Review Previous Themes and Feedback:**
+   - Examine the previous themes and the feedback provided.
+   - Assess the strengths and weaknesses of the previous themes, identifying areas for improvement based on the feedback (e.g., missed patterns, unclear groupings, or misaligned interpretations).
+
+2. **Familiarization with the Data:**
+   - Re-examine the list of unique codes and the QEC data to refresh your understanding of the dataset.
+   - Consider both the explicit (semantic) content and the underlying (latent) meanings conveyed by the quotes and explanations.
+
+3. **Theme Refinement and Generation:**
+   - Actively construct new or refined themes by identifying patterns and shared meanings among the codes, informed by the previous themes and feedback.
+   - Modify existing themes, merge overlapping ones, separate themes that conflate distinct ideas, or create entirely new themes as needed to better capture significant and coherent patterns.
+   - Validate each theme’s coherence and relevance against the quotes and explanations in the QEC data.
+
+4. **Theme Naming:**
+   - Assign concise, evocative names to each theme that accurately reflect the central ideas of the grouped codes.
+
+5. **Output Format:**
+   - Provide your final output strictly in valid JSON format without any additional commentary.
+   - The JSON structure should be as follows:
+
+   ```json
+   {{
+     "themes": [
+       {{
+         "theme": "Theme Name",
+         "codes": ["Code1", "Code2", "Code3"]
+       }}
+       // Additional theme objects...
+     ]
+   }}
+   ```
+No additional text outside the JSON.
+"""
+
 
 class RefineCodebook:
     @staticmethod
@@ -758,7 +851,93 @@ Your tasks:
 - Each lower-level code should be included in only one higher-level code, and try to group as many codes as possible.
 - Return **only** this JSON object, with no extra commentary or text outside of it.
 """
-    
+    @staticmethod
+    def regroup_codes_prompt(codes: str, qec_table: str, previous_higher_level_codes: str, feedback: str):
+        return f"""
+You are an advanced AI model specialized in Braun & Clarke’s Reflexive Thematic Analysis method. Use the following instructions to refine the previous grouping of codes into higher-level themes based on the provided feedback and a re-examination of the data.
+
+### Data Provided
+
+1. **Previous Higher-Level Codes:**  
+   The higher-level codes generated in the previous run, which the user did not like and wants to be changed and need to keep in mind to avoid while generating a new version, provided in JSON format:  
+   {previous_higher_level_codes}
+
+2. **Feedback:**  
+   Feedback on the previous higher-level codes to guide refinement:  
+   {feedback}
+
+3. **Code and Summary Data (JSON):**  
+   A list of codes with their summaries:  
+   {qec_table}
+
+4. **List of Unique Codes:**  
+   A list of unique codes extracted from the Code and Summary Data:  
+   {codes}
+
+### Instructions
+
+1. **Review Previous Higher-Level Codes and Feedback:**  
+   - Examine the previous higher-level codes and the feedback provided.  
+   - Identify areas where the groupings can be improved based on the feedback.
+
+2. **Review the Code and Summary Data:**  
+   - Re-examine the Code and Summary Data to understand the context and meanings of the codes.
+
+3. **Examine the List of Unique Codes:**  
+   - Consider the full set of unique codes that need to be grouped.
+
+4. **Refine Higher-Level Codes:**  
+   - Integrate insights from the previous higher-level codes, the feedback, and a re-examination of the Code and Summary Data to refine the groupings.  
+   - Address the specific points raised in the feedback to improve the coherence, fit, and relevance of the higher-level codes.  
+   - Modify the groupings as needed:  
+     - Merge higher-level codes that are too similar or overlapping.  
+     - Split higher-level codes that cover multiple distinct concepts.  
+     - Add new higher-level codes if necessary to better capture patterns in the data.  
+     - Remove higher-level codes that are no longer relevant or supported by the data.  
+   - For each higher-level code, ensure it has a clear, concise name and a short definition that captures the essence of the grouping (for internal reasoning).
+
+5. **Check for Fit and Coherence:**  
+   - Ensure that each higher-level code is coherent and fits well with the codes it contains, based on their summaries.  
+   - Validate that the groupings align with the feedback and the data.  
+   - Be prepared to further revise (split, merge, rename) during this review.
+
+6. **Ensure Distinctness:**  
+   - Make sure each higher-level code is distinct and does not overlap significantly with others.
+
+7. **Finalize Output:**  
+   - Provide the refined higher-level codes in valid JSON format, following the structure below.  
+   - Do not include any additional text outside the JSON object.
+
+### Output Format
+```json
+{{
+  "higher_level_codes": [
+    {{
+      "name": "NameOfHigherLevelCode1",
+      "codes": [
+        "RelevantLowerLevelCodeA",
+        "RelevantLowerLevelCodeB"
+      ]
+    }},
+    {{
+      "name": "NameOfHigherLevelCode2",
+      "codes": [
+        "RelevantLowerLevelCodeC",
+        "RelevantLowerLevelCodeD"
+      ]
+    }}
+    // Additional higher-level code objects...
+  ]
+}}
+```
+
+**Important**:  
+- Provide clear, compelling names for each higher-level code.  
+- Ensure that each higher-level code strictly captures not more than 7 lower-level codes.  
+- Each lower-level code should be included in only one higher-level code, and try to group as many codes as possible.  
+- Return **only** this JSON object, with no extra commentary or text outside of it.
+"""
+
 
 class GenerateCodebookWithoutQuotes:
     @staticmethod
@@ -794,6 +973,68 @@ Present your results in a JSON object where each key is a code and each value is
 
 Your response should consist solely of the JSON object containing the definitions for each code. Do not include any additional text, explanations, or commentary.
 """
+    @staticmethod
+    def regenerate_codebook_without_quotes_prompt(codes: str, previous_codebook: str, feedback: str):
+        return f"""
+You are an AI assistant tasked with refining code definitions based on previous outputs and feedback. Previously, you generated definitions for various codes by summarizing multiple explanations. Now, you will refine those definitions using feedback and by re-examining the original explanations.
+
+### Data Provided
+
+1. **Previous Codebook:**  
+   The definitions generated in the previous run, which the user did not like and wants to be changed and need to keep in mind to avoid while generating a new version, provided in JSON format:
+
+   {previous_codebook}
+
+2. **Feedback:**  
+   Feedback on the previous codebook to guide refinement:
+
+   {feedback}
+
+3. **Original Explanations (JSON):**  
+   The original data containing codes and their explanations, structured as follows:
+   ```json
+   {{
+     "code1": ["Explanation1", "Explanation2", ...],
+     "code2": ["Explanation1", "Explanation2", ...],
+     ...
+   }}
+   ```
+   The input JSON object is:
+
+   {codes}
+
+### Instructions
+
+1. **Review the Previous Codebook and Feedback:**  
+   - Examine the previous definitions and the feedback provided.  
+   - Identify specific areas where the definitions can be improved based on the feedback.  
+   - If the feedback indicates that a definition is already satisfactory, you may keep it as is or make minor adjustments as needed.
+
+2. **Re-examine the Original Explanations:**  
+   - Review the original explanations for each code to ensure the refined definitions capture the common themes, key points, and any notable differences or contradictions.
+
+3. **Refine the Definitions:**  
+   - For each code, refine the definition by addressing the feedback while maintaining the essence of the original definition where appropriate.  
+   - Ensure that the refined definition remains grounded in the original explanations, integrating their key elements while addressing the feedback.  
+   - The refined definition should be concise (1-2 sentences), clear, and representative of the various perspectives in the explanations.  
+   - If there are contradictions in the explanations, acknowledge them or provide a definition that encompasses the different viewpoints.  
+   - Do not simply select one explanation as the definition; instead, create a new definition that integrates the key elements from all explanations, refined based on the feedback.
+
+4. **Output Format:**  
+   - Provide the refined definitions in a JSON object where each key is a code and each value is the corresponding refined definition.  
+   - The format should be:
+
+   ```json
+   {{
+     "code1": "refined_definition1",
+     "code2": "refined_definition2",
+     ...
+   }}
+   ```
+
+Your response should consist solely of the JSON object containing the refined definitions for each code. Do not include any additional text, explanations, or commentary.
+"""
+
 
 class GenerateDeductiveCodesFromCodebook:
     @staticmethod

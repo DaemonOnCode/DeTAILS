@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
@@ -20,6 +20,7 @@ import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import VirtualizedTableRow from '../../components/Coding/InitialCodebook/virtualized-table-row';
+import { DetailsLLMIcon } from '../../components/Shared/Icons';
 
 const InitialCodeBook = () => {
     const {
@@ -45,6 +46,9 @@ const InitialCodeBook = () => {
     const { datasetId } = useCollectionContext();
     const { fetchLLMData } = useApi();
     const { settings } = useSettings();
+
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+    const [feedback, setFeedback] = useState('');
 
     const { loadingState, loadingDispatch, checkIfDataExists, resetDataAfterPage, openModal } =
         useLoadingContext();
@@ -154,6 +158,69 @@ const InitialCodeBook = () => {
         });
     };
 
+    const handleRegenerateCodebook = async (extraFeedback = '') => {
+        navigate(
+            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                text: 'Generating Initial Codebook'
+            })
+        );
+        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.INITIAL_CODEBOOK });
+
+        const { data: results, error } = await fetchLLMData<{
+            message: string;
+            data: { [code: string]: string };
+        }>(REMOTE_SERVER_ROUTES.REGENERATE_CODEBOOK_WITHOUT_QUOTES, {
+            method: 'POST',
+            body: JSON.stringify({
+                dataset_id: datasetId,
+                model: settings.ai.model,
+                sampled_post_responses: sampledPostResponse,
+                unseen_post_responses: [],
+                feedback: extraFeedback,
+                previous_codebook: initialCodebookTable
+            })
+        });
+
+        if (error) {
+            console.error('Error in handleRegenerateCodebook:', error);
+            if (error.name !== 'AbortError') {
+                toast.error('Error generating codebook. Please try again.');
+                navigate(PAGE_ROUTES.INITIAL_CODEBOOK);
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: PAGE_ROUTES.INITIAL_CODEBOOK
+                });
+                throw new Error(error.message);
+            }
+            return;
+        }
+
+        console.log('Results:', results);
+        dispatchInitialCodebookTable({
+            type: 'INITIALIZE',
+            entries: Object.entries(results.data).map(([code, definition]) => ({
+                code,
+                definition
+            }))
+        });
+        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.INITIAL_CODEBOOK });
+        navigate(PAGE_ROUTES.INITIAL_CODEBOOK);
+    };
+
+    const handleFeedbackSubmit = () => {
+        setIsFeedbackModalOpen(false);
+        if (checkIfDataExists(location.pathname)) {
+            openModal('refresh-codes-submitted', async () => {
+                await resetDataAfterPage(location.pathname);
+                await handleRegenerateCodebook(feedback);
+            });
+        } else {
+            loadingDispatch({ type: 'SET_REST_UNDONE', route: location.pathname });
+            handleRegenerateCodebook(feedback);
+        }
+        setFeedback(''); // Clear feedback after submission
+    };
+
     const steps: TutorialStep[] = [
         {
             target: '#initial-codebook-table',
@@ -243,6 +310,29 @@ const InitialCodeBook = () => {
                             </tbody>
                         </table>
                     </div>
+                    <div className="pt-4 flex justify-end">
+                        <button
+                            id="refresh-codes-button"
+                            onClick={() => {
+                                // if (checkIfDataExists(location.pathname)) {
+                                //     openModal('refresh-codes-submitted', async () => {
+                                //         await resetDataAfterPage(location.pathname);
+                                //         // await handleRefreshCodes();
+                                //     });
+                                // } else {
+                                //     loadingDispatch({
+                                //         type: 'SET_REST_UNDONE',
+                                //         route: location.pathname
+                                //     });
+                                //     // handleRefreshCodes();
+                                // }
+                                setIsFeedbackModalOpen(true);
+                            }}
+                            className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
+                            <DetailsLLMIcon className="h-6 w-6" />
+                            Redo Codebook
+                        </button>
+                    </div>
                 </main>
 
                 <footer id="bottom-navigation" className="flex-none">
@@ -253,6 +343,35 @@ const InitialCodeBook = () => {
                         onNextClick={handleNextClick}
                     />
                 </footer>
+                {isFeedbackModalOpen && (
+                    <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
+                        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                            <h2 className="text-xl font-bold mb-4">Provide Feedback (Optional)</h2>
+                            <p className="mb-3">
+                                Please share any feedback on the current codebook:
+                            </p>
+                            <textarea
+                                value={feedback}
+                                onChange={(e) => setFeedback(e.target.value)}
+                                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                rows={4}
+                                placeholder="Enter your feedback here..."
+                            />
+                            <div className="flex justify-end mt-4">
+                                <button
+                                    onClick={() => setIsFeedbackModalOpen(false)}
+                                    className="mr-4 bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleFeedbackSubmit}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                    Submit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </TutorialWrapper>
     );

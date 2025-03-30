@@ -53,6 +53,8 @@ const ThemesPage = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [noResults, setNoResults] = useState(false);
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+    const [feedback, setFeedback] = useState('');
     // Ref to store DOM elements of codes
     const codeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -86,14 +88,13 @@ const ThemesPage = () => {
                 if (el) {
                     el.classList.add('highlight');
                     if (!firstMatchElement) {
-                        firstMatchElement = el; // el is HTMLDivElement here
+                        firstMatchElement = el;
                     }
                 } else {
                     console.log('Element not found for code:', code);
                 }
             });
 
-            // TypeScript should narrow firstMatchElement to HTMLDivElement here
             if (firstMatchElement) {
                 (firstMatchElement as HTMLDivElement).scrollIntoView({
                     behavior: 'smooth',
@@ -115,6 +116,23 @@ const ThemesPage = () => {
             setNoResults(false);
         }
     }, [searchQuery]);
+
+    const handleFeedbackSubmit = () => {
+        setIsFeedbackModalOpen(false);
+        if (checkIfDataExists(location.pathname)) {
+            openModal('refresh-themes-submitted', async () => {
+                await resetDataAfterPage(location.pathname);
+                await handleRefreshThemes(feedback);
+            });
+        } else {
+            loadingDispatch({
+                type: 'SET_REST_UNDONE',
+                route: location.pathname
+            });
+            handleRefreshThemes(feedback);
+        }
+        setFeedback('');
+    };
 
     const steps: TutorialStep[] = [
         {
@@ -252,7 +270,7 @@ const ThemesPage = () => {
         });
     }, [themes]);
 
-    const handleRefreshThemes = async () => {
+    const handleRefreshThemes = async (extraFeedback = '') => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
             route: PAGE_ROUTES.THEMES
@@ -265,7 +283,7 @@ const ThemesPage = () => {
                 themes: any[];
                 unplaced_codes: any[];
             };
-        }>(REMOTE_SERVER_ROUTES.THEME_GENERATION, {
+        }>(REMOTE_SERVER_ROUTES.REDO_THEME_GENERATION, {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
@@ -287,7 +305,9 @@ const ThemesPage = () => {
                     explanation: r.explanation,
                     comment: r.comment
                     // subCode: r.code
-                }))
+                })),
+                feedback: extraFeedback,
+                previous_themes: themes
             })
         });
 
@@ -432,18 +452,19 @@ const ThemesPage = () => {
                         <button
                             id="refresh-themes-button"
                             onClick={() => {
-                                if (checkIfDataExists(location.pathname)) {
-                                    openModal('refresh-themes-submitted', async () => {
-                                        await resetDataAfterPage(location.pathname);
-                                        await handleRefreshThemes();
-                                    });
-                                } else {
-                                    loadingDispatch({
-                                        type: 'SET_REST_UNDONE',
-                                        route: location.pathname
-                                    });
-                                    handleRefreshThemes();
-                                }
+                                // if (checkIfDataExists(location.pathname)) {
+                                //     openModal('refresh-themes-submitted', async () => {
+                                //         await resetDataAfterPage(location.pathname);
+                                //         await handleRefreshThemes();
+                                //     });
+                                // } else {
+                                //     loadingDispatch({
+                                //         type: 'SET_REST_UNDONE',
+                                //         route: location.pathname
+                                //     });
+                                //     handleRefreshThemes();
+                                // }
+                                setIsFeedbackModalOpen(true);
                             }}
                             className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
                             <DetailsLLMIcon className="h-6 w-6" />
@@ -457,6 +478,37 @@ const ThemesPage = () => {
                             isReady={unplacedCodes.length === 0}
                         />
                     </footer>
+                    {isFeedbackModalOpen && (
+                        <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
+                            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                                <h2 className="text-xl font-bold mb-4">
+                                    Provide Feedback (Optional)
+                                </h2>
+                                <p className="mb-3">
+                                    Please share any feedback on the current themes:
+                                </p>
+                                <textarea
+                                    value={feedback}
+                                    onChange={(e) => setFeedback(e.target.value)}
+                                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                    rows={4}
+                                    placeholder="Enter your feedback here..."
+                                />
+                                <div className="flex justify-end mt-4">
+                                    <button
+                                        onClick={() => setIsFeedbackModalOpen(false)}
+                                        className="mr-4 bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleFeedbackSubmit}
+                                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                        Submit
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </TutorialWrapper>
         </>

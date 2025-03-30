@@ -56,6 +56,8 @@ const FinalzingCodes = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [noResults, setNoResults] = useState(false);
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+    const [feedback, setFeedback] = useState('');
     const codeRefs = useRef(new Map<string, HTMLDivElement>());
 
     const setCodeRef = useCallback((code: string, node: HTMLDivElement | null) => {
@@ -245,6 +247,23 @@ const FinalzingCodes = () => {
         );
     };
 
+    const handleFeedbackSubmit = () => {
+        setIsFeedbackModalOpen(false);
+        if (checkIfDataExists(location.pathname)) {
+            openModal('refresh-codes-submitted', async () => {
+                await resetDataAfterPage(location.pathname);
+                await handleRefreshCodes(feedback);
+            });
+        } else {
+            loadingDispatch({
+                type: 'SET_REST_UNDONE',
+                route: location.pathname
+            });
+            handleRefreshCodes(feedback);
+        }
+        setFeedback('');
+    };
+
     // Placeholder for next button click
     const handleNextClick = async () => {
         loadingDispatch({
@@ -308,7 +327,7 @@ const FinalzingCodes = () => {
         });
     };
 
-    const handleRefreshCodes = async () => {
+    const handleRefreshCodes = async (extraFeedback = '') => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
             route: PAGE_ROUTES.FINALIZING_CODES
@@ -325,13 +344,15 @@ const FinalzingCodes = () => {
                 higher_level_codes: any[];
                 unplaced_codes: any[];
             };
-        }>(REMOTE_SERVER_ROUTES.GROUP_CODES, {
+        }>(REMOTE_SERVER_ROUTES.REGROUP_CODES, {
             method: 'POST',
             body: JSON.stringify({
                 dataset_id: datasetId,
                 model: settings.ai.model,
                 unseen_post_responses: unseenPostResponse,
-                sampled_post_responses: sampledPostResponse
+                sampled_post_responses: sampledPostResponse,
+                feedback: extraFeedback,
+                previous_codes: groupedCodes
             })
         });
 
@@ -538,18 +559,19 @@ const FinalzingCodes = () => {
                                     <button
                                         id="refresh-codes-button"
                                         onClick={() => {
-                                            if (checkIfDataExists(location.pathname)) {
-                                                openModal('refresh-codes-submitted', async () => {
-                                                    await resetDataAfterPage(location.pathname);
-                                                    await handleRefreshCodes();
-                                                });
-                                            } else {
-                                                loadingDispatch({
-                                                    type: 'SET_REST_UNDONE',
-                                                    route: location.pathname
-                                                });
-                                                handleRefreshCodes();
-                                            }
+                                            // if (checkIfDataExists(location.pathname)) {
+                                            //     openModal('refresh-codes-submitted', async () => {
+                                            //         await resetDataAfterPage(location.pathname);
+                                            //         await handleRefreshCodes();
+                                            //     });
+                                            // } else {
+                                            //     loadingDispatch({
+                                            //         type: 'SET_REST_UNDONE',
+                                            //         route: location.pathname
+                                            //     });
+                                            //     handleRefreshCodes();
+                                            // }
+                                            setIsFeedbackModalOpen(true);
                                         }}
                                         className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
                                         <DetailsLLMIcon className="h-6 w-6" />
@@ -557,6 +579,37 @@ const FinalzingCodes = () => {
                                     </button>
                                 </div>
                             </div>
+                            {isFeedbackModalOpen && (
+                                <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
+                                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                                        <h2 className="text-xl font-bold mb-4">
+                                            Provide Feedback (Optional)
+                                        </h2>
+                                        <p className="mb-3">
+                                            Please share any feedback on the current code groupings:
+                                        </p>
+                                        <textarea
+                                            value={feedback}
+                                            onChange={(e) => setFeedback(e.target.value)}
+                                            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                            rows={4}
+                                            placeholder="Enter your feedback here..."
+                                        />
+                                        <div className="flex justify-end mt-4">
+                                            <button
+                                                onClick={() => setIsFeedbackModalOpen(false)}
+                                                className="mr-4 bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={handleFeedbackSubmit}
+                                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                                Submit
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>

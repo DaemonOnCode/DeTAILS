@@ -61,6 +61,10 @@ class ThemeGenerationRequest(BaseModel):
     sampled_post_responses: list
     unseen_post_responses: list
 
+class RedoThemeGenerationRequest(ThemeGenerationRequest):
+    feedback: str = ""
+    previous_themes: list = []
+
 
 class RefineCodeRequest(BaseModel):
     chat_history: list
@@ -86,11 +90,20 @@ class GroupCodesRequest(BaseModel):
     sampled_post_responses: list
     unseen_post_responses: list
 
+class RegroupCodesRequest(GroupCodesRequest):
+    feedback: str = ""
+    previous_codes: list = []
+
 class GenerateCodebookWithoutQuotesRequest(BaseModel):
     dataset_id: str
     model: str
     sampled_post_responses: list
     unseen_post_responses: list
+
+class RegenerateCodebookWithoutQuotesRequest(GenerateCodebookWithoutQuotesRequest):
+    feedback: str = ""
+    previous_codebook: list = []
+
 
 class GenerateDeductiveCodesRequest(BaseModel):
     dataset_id: str

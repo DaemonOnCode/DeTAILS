@@ -1,12 +1,11 @@
 from datetime import datetime
-from enum import Enum
 import json
 from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import Document, LLMResult
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
-class Color(Enum):
+class Color:
     PURPLE = "\033[95m"
     CYAN = "\033[96m"
     DARKCYAN = "\033[36m"
