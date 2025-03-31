@@ -283,6 +283,7 @@ async def build_context_from_interests_endpoint(
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         rag_prompt_builder_func=ContextPrompt.systemPromptTemplate, 
         retriever=retriever, 
+        parent_function_name="build-context-from-topic",
         input_text=input_text,  
         mainTopic=mainTopic,
         researchQuestions=researchQuestions,
@@ -342,6 +343,7 @@ async def regenerate_keywords_endpoint(
         regex_pattern=r"```json\s*([\s\S]*?)\s*```", 
         rag_prompt_builder_func=ContextPrompt.regenerationPromptTemplate, 
         retriever=retriever, 
+        parent_function_name="regenerate-keywords",
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
         input_text=ContextPrompt.refined_context_builder( 
@@ -437,6 +439,7 @@ async def generate_codes_endpoint(request: Request,
                     manager=manager,
                     llm_model=request_body.model,
                     regex_pattern=r"\"codes\":\s*(\[.*?\])",
+                    parent_function_name="generate-initial-codes",
                     prompt_builder_func=InitialCodePrompts.initial_code_prompt,
                     function_id=function_id,
                     llm_instance=llm,
@@ -466,7 +469,7 @@ async def generate_codes_endpoint(request: Request,
                     code["postId"] = post_id
                     code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(codes, transcript)
+                codes = filter_codes_by_transcript(codes, transcript, parent_function_name="generate-initial-codes")
                 function_progress_repo.update({
                     "function_id": function_id,
                 }, {
@@ -490,7 +493,7 @@ async def generate_codes_endpoint(request: Request,
                 #     chat_history=None,
                 #     codebook_type=CodebookType.INITIAL.value
                 # ), codes)))
-                codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.INITIAL.value)
+                codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="generate-initial-codes")
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
@@ -545,6 +548,7 @@ async def generate_codes_endpoint(request: Request,
             manager,
             llm,
             llm_queue_manager,
+            parent_function_name="generate-initial-codes",
         )
 
         print("Clustered words with LLM", res)
@@ -560,7 +564,22 @@ async def generate_codes_endpoint(request: Request,
 
         for row in final_results:
             row["code"] = reverse_map_one_to_one.get(row["code"], row["code"])
-        
+
+        state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "post_ids": request_body.sampled_post_ids,
+                    "results": final_results,
+                }),
+                context=json.dumps({
+                    "function": "initial_codes",
+                    "run":"initial",
+                    "function_id": function_id
+                }),
+            )
+        )
+
         return {
             "message": "Initial codes generated successfully!",
             "data": final_results
@@ -596,6 +615,7 @@ async def refine_codebook_endpoint(
         manager=manager,
         llm_model=request_body.model,
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+        parent_function_name="refine-codebook",
         prompt_builder_func=RefineCodebook.refine_codebook_prompt,  # Non-RAG prompt
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
@@ -678,6 +698,7 @@ async def deductive_coding_endpoint(
                 regex_pattern=r"```json\s*([\s\S]*?)\s*```",
                 prompt_builder_func=DeductiveCoding.deductive_coding_prompt,
                 llm_instance=llm,
+                parent_function_name="deductive-coding",
                 function_id=function_id,
                 llm_queue_manager=llm_queue_manager,
                 final_codebook=json.dumps(request_body.final_codebook, indent=2),
@@ -708,7 +729,7 @@ async def deductive_coding_endpoint(
                 code["postId"] = post_id
                 code["id"] = str(uuid4())
 
-            codes = filter_codes_by_transcript(codes, transcript)
+            codes = filter_codes_by_transcript(codes, transcript, parent_function_name="deductive-coding")
             function_progress_repo.update({
                     "function_id": function_id,
                 }, {
@@ -717,7 +738,7 @@ async def deductive_coding_endpoint(
                     }).current + 1
                 })
 
-            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.DEDUCTIVE.value)
+            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.DEDUCTIVE.value, parent_function_name="deductive-coding")
 
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
@@ -733,6 +754,21 @@ async def deductive_coding_endpoint(
                 final_results.extend(codes)
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+        state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "post_ids": request_body.unseen_post_ids,
+                    "results": final_results,
+                }),
+                context=json.dumps({
+                    "function": "deductive_codes",
+                    "run":"initial",
+                    "function_id": function_id
+                }),
+            )
+        )
 
         return {
             "message": "Deductive coding completed successfully!",
@@ -777,6 +813,7 @@ async def theme_generation_endpoint(
         responses=rows,  # Pass the raw responses
         llm_model=request_body.model,
         app_id=app_id,
+        parent_function_name="theme-generation",
         dataset_id=dataset_id,
         manager=manager,
         llm_instance=llm,
@@ -798,6 +835,7 @@ async def theme_generation_endpoint(
         dataset_id=dataset_id,
         manager=manager,
         llm_model=request_body.model,
+        parent_function_name="theme-generation",
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=ThemeGeneration.theme_generation_prompt,
         llm_instance=llm,
@@ -823,6 +861,20 @@ async def theme_generation_endpoint(
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation completed.")
 
     await asyncio.sleep(5)
+
+    state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "themes": themes,
+                    "unplaced_codes": unplaced_codes,
+                }),
+                context=json.dumps({
+                    "function": "theme_generation",
+                    "run":"initial",
+                }),
+            )
+        )
 
     return {
         "message": "Themes generated successfully!",
@@ -862,6 +914,7 @@ async def redo_theme_generation_endpoint(
         responses=rows,
         llm_model=request_body.model,
         app_id=app_id,
+        parent_function_name="redo-theme-generation",
         dataset_id=dataset_id,
         manager=manager,
         llm_instance=llm,
@@ -881,6 +934,7 @@ async def redo_theme_generation_endpoint(
         dataset_id=dataset_id,
         manager=manager,
         llm_model=request_body.model,
+        parent_function_name="redo-theme-generation",
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=ThemeGeneration.redo_theme_generation_prompt,
         llm_instance=llm,
@@ -906,6 +960,20 @@ async def redo_theme_generation_endpoint(
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation redo completed.")
 
     await asyncio.sleep(5)
+
+    state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "themes": themes,
+                    "unplaced_codes": unplaced_codes
+                }),
+                context=json.dumps({
+                    "function": "theme_generation",
+                    "run":"regenerate",
+                }),
+            )
+        )
 
     return {
         "message": "Themes regenerated successfully!",
@@ -941,6 +1009,7 @@ async def refine_single_code_endpoint(
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=RefineSingleCode.refine_single_code_prompt,
         llm_instance=llm,
+        parent_function_name="refine-single-code",
         llm_queue_manager=llm_queue_manager,
         transcript=transcript,
         code=request_body.code,
@@ -995,6 +1064,7 @@ async def generate_codes_endpoint(request: Request,
             app_id=app_id,
             dataset_id=dataset_id,
             manager=manager,
+            parent_function_name="remake-codebook",
             llm_instance=llm,
             llm_queue_manager=llm_queue_manager,
             max_input_tokens=128000  # Adjust based on your LLM's token limit
@@ -1020,6 +1090,7 @@ async def generate_codes_endpoint(request: Request,
                     regex_pattern=r"```json\s*([\s\S]*?)\s*```",
                     prompt_builder_func=RemakerPrompts.codebook_remake_prompt,
                     llm_instance=llm,
+                    parent_function_name="remake-codebook",
                     llm_queue_manager=llm_queue_manager,
                     main_topic=request_body.main_topic,
                     additional_info=request_body.additional_info,
@@ -1051,9 +1122,9 @@ async def generate_codes_endpoint(request: Request,
                     code["postId"] = post_id
                     code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(codes, transcript)
+                codes = filter_codes_by_transcript(codes, transcript, parent_function_name="remake-codebook")
 
-                codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.INITIAL.value)
+                codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="remake-codebook")
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
@@ -1076,6 +1147,22 @@ async def generate_codes_endpoint(request: Request,
                 final_results.extend(codes)
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+        state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "post_ids": request_body.sampled_post_ids,
+                    "results": final_results,
+                    "feedback": request_body.feedback
+                }),
+                context=json.dumps({
+                    "function": "initial_codes",
+                    "run":"regenerate",
+                    "function_id": function_id
+                }),
+            )
+        )
 
         return {
             "message": "Initial codes generated successfully!",
@@ -1125,6 +1212,7 @@ async def redo_deductive_coding_endpoint(
             llm_model=request_body.model,
             app_id=app_id,
             dataset_id=dataset_id,
+            parent_function_name="redo-deductive-coding",
             manager=manager,
             llm_instance=llm,
             llm_queue_manager=llm_queue_manager,
@@ -1149,6 +1237,7 @@ async def redo_deductive_coding_endpoint(
                 regex_pattern=r"```json\s*([\s\S]*?)\s*```",
                 prompt_builder_func=RemakerPrompts.deductive_codebook_remake_prompt,
                 llm_instance=llm,
+                parent_function_name="redo-deductive-coding",
                 llm_queue_manager=llm_queue_manager,
                 final_codebook=json.dumps(request_body.final_codebook, indent=2),
                 keyword_table=json.dumps(request_body.keyword_table, indent=2),
@@ -1180,9 +1269,9 @@ async def redo_deductive_coding_endpoint(
                 code["postId"] = post_id
                 code["id"] = str(uuid4())
 
-            codes = filter_codes_by_transcript(codes, transcript)
+            codes = filter_codes_by_transcript(codes, transcript, parent_function_name="redo-deductive-coding")
 
-            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.DEDUCTIVE.value)
+            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.DEDUCTIVE.value, parent_function_name="redo-deductive-coding")
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
@@ -1198,6 +1287,22 @@ async def redo_deductive_coding_endpoint(
 
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+
+        state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "post_ids": request_body.unseen_post_ids,
+                    "results": final_results,
+                    "feedback": request_body.feedback
+                }),
+                context=json.dumps({
+                    "function": "deductive_codes",
+                    "run":"regenerate",
+                    "function_id": function_id
+                }),
+            )
+        )
 
         return {
             "message": "Deductive coding completed successfully!",
@@ -1247,6 +1352,7 @@ async def group_codes_endpoint(
         llm_model=request_body.model,
         app_id=app_id,
         dataset_id=dataset_id,
+        parent_function_name="group-codes",
         manager=manager,
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
@@ -1266,6 +1372,7 @@ async def group_codes_endpoint(
         dataset_id=dataset_id,
         manager=manager,
         llm_model=request_body.model,
+        parent_function_name="group-codes",
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=GroupCodes.group_codes_prompt,
         llm_instance=llm,
@@ -1285,6 +1392,21 @@ async def group_codes_endpoint(
 
     placed_codes = {code for higher_level_code in higher_level_codes for code in higher_level_code["codes"]}
     unplaced_codes = list(set(row["code"] for row in qec_table) - placed_codes)
+
+
+    state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "higher_level_codes": higher_level_codes,
+                    "unplaced_codes": unplaced_codes,
+                }),
+                context=json.dumps({
+                    "function": "code_grouping",
+                    "run":"initial",
+                }),
+            )
+        )
 
     return {
         "message": "Codes grouped successfully!",
@@ -1330,6 +1452,7 @@ async def regroup_codes_endpoint(
         dataset_id=dataset_id,
         manager=manager,
         llm_instance=llm,
+        parent_function_name="regroup-codes",
         llm_queue_manager=llm_queue_manager,
         max_input_tokens=128000
     )
@@ -1352,6 +1475,7 @@ async def regroup_codes_endpoint(
         prompt_builder_func=GroupCodes.regroup_codes_prompt,
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
+        parent_function_name="regroup-codes",
         codes=json.dumps([summary["code"] for summary in code_summary_table]),
         qec_table=json.dumps(code_summary_table),
         previous_codes=previous_codes_json,
@@ -1369,6 +1493,21 @@ async def regroup_codes_endpoint(
 
     placed_codes = {code for higher_level_code in higher_level_codes for code in higher_level_code["codes"]}
     unplaced_codes = list(set(row["code"] for row in qec_table) - placed_codes)
+
+    state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "higher_level_codes": higher_level_codes,
+                    "unplaced_codes": unplaced_codes,
+                }),
+                context=json.dumps({
+                    "function": "code_grouping",
+                    "run":"regenerate",
+                }),
+            )
+        )
+
 
     return {
         "message": "Codes regrouped successfully!",
@@ -1401,6 +1540,7 @@ async def generate_codebook_without_quotes_endpoint(
         responses=rows,
         llm_model=request_body.model,
         app_id=app_id,
+        parent_function_name="manual-codebook-generation",
         dataset_id=dataset_id,
         manager=manager,
         llm_instance=llm,
@@ -1417,12 +1557,27 @@ async def generate_codebook_without_quotes_endpoint(
         dataset_id=dataset_id,
         manager=manager,
         llm_model=request_body.model,
+        parent_function_name="manual-codebook-generation",
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=GenerateCodebookWithoutQuotes.generate_codebook_without_quotes_prompt,
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
         codes=json.dumps(summarized_grouped_ec)  # Pass summarized data
     )
+
+    state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "codebook": parsed_response,
+                }),
+                context=json.dumps({
+                    "function": "manual_codebook_generation",
+                    "run":"initial",
+                }),
+            )
+        )
+
 
     return {
         "message": "Codebook generated successfully!",
@@ -1451,6 +1606,7 @@ async def regenerate_codebook_without_quotes_endpoint(
         app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
+        parent_function_name="manual-codebook-generation",
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
         max_input_tokens=128000 
@@ -1468,11 +1624,25 @@ async def regenerate_codebook_without_quotes_endpoint(
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=GenerateCodebookWithoutQuotes.regenerate_codebook_without_quotes_prompt,
         llm_instance=llm,
+        parent_function_name="manual-codebook-generation",
         llm_queue_manager=llm_queue_manager,
         codes=json.dumps(summarized_grouped_ec),  
         previous_codebook=previous_codebook_json  ,
         feedback = request_body.feedback
     )
+
+    state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "codebook": parsed_response,
+                }),
+                context=json.dumps({
+                    "function": "manual_codebook_generation",
+                    "run":"regenerate",
+                }),
+            )
+        )
 
     return {
         "message": "Codebook regenerated successfully!",
@@ -1531,6 +1701,7 @@ async def generate_deductive_codes_endpoint(
                 prompt_builder_func=GenerateDeductiveCodesFromCodebook.generate_deductive_codes_from_codebook_prompt,
                 llm_instance=llm,
                 llm_queue_manager=llm_queue_manager,
+                parent_function_name="generate-deductive-codes",
                 codebook = request_body.codebook,
                 post_transcript=transcript,
                 store_response=True,
@@ -1550,8 +1721,8 @@ async def generate_deductive_codes_endpoint(
                 code["postId"] = post_id
                 code["id"] = str(uuid4())
 
-            codes = filter_codes_by_transcript(codes, transcript)
-            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.MANUAL.value)
+            codes = filter_codes_by_transcript(codes, transcript, parent_function_name="generate-deductive-codes")
+            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes")
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 

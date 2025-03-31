@@ -164,6 +164,7 @@ async def process_llm_task(
     manager: ConnectionManager,
     llm_model: str,
     regex_pattern: str,
+    parent_function_name: str = "",
     post_id: Optional[str] = None,
     prompt_builder_func=None,
     rag_prompt_builder_func=None,  
@@ -247,6 +248,7 @@ async def process_llm_task(
                         "retriever": bool(retriever),
                         "dataset_id": dataset_id,
                         "function_id": function_id,
+                        "parent_function_name": parent_function_name,
                     }),
                 )
             )
@@ -307,7 +309,7 @@ async def process_llm_task(
 #     print(parsed_keywords)
 
 
-def filter_codes_by_transcript(codes: list[dict], transcript: str) -> list[dict]:
+def filter_codes_by_transcript(codes: list[dict], transcript: str, parent_function_name: str = "") -> list[dict]:
     # return codes
     filtered_codes = []
     # For case-insensitive matching, lower both the transcript and the quote.
@@ -332,6 +334,7 @@ def filter_codes_by_transcript(codes: list[dict], transcript: str) -> list[dict]
             }),
             context=json.dumps({
                 "function": "llm_response_after_filtering_hallucinations",
+                "parent_function_name": parent_function_name,
             }),
         )
     )
@@ -339,7 +342,7 @@ def filter_codes_by_transcript(codes: list[dict], transcript: str) -> list[dict]
 
 
 
-def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, workspace_id: str, model: str, codebook_type: str):
+def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, workspace_id: str, model: str, codebook_type: str, parent_function_name: str = ""):
 #    for response in responses:
 #         if not (response["code"] and response["quote"] and response["explanation"]):
 #             print(f"Skipping invalid response: {response}")
@@ -396,6 +399,7 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
                 "function": "llm_response_after_filtering_empty_columns",
                 "codebook_type": codebook_type,
                 "dataset_id": dataset_id,
+                "parent_function_name": parent_function_name,
             }),
         )
     )
@@ -551,6 +555,7 @@ async def cluster_words_with_llm(
     manager: Any, 
     llm_instance: Any,  
     llm_queue_manager: Any,  
+    parent_function_name: str = "",
     store_response: bool = False,
     chunk_size: int = 100,
     retries: int = 3,
@@ -569,6 +574,7 @@ async def cluster_words_with_llm(
         manager=manager,
         llm_model=llm_model,
         regex_pattern=regex_pattern,
+        parent_function_name=parent_function_name + " cluster words with llm beginning",
         prompt_builder_func=TopicClustering.begin_topic_clustering_prompt,
         llm_instance=llm_instance,
         llm_queue_manager=llm_queue_manager,
@@ -594,6 +600,7 @@ async def cluster_words_with_llm(
             regex_pattern=regex_pattern,
             prompt_builder_func=TopicClustering.continuation_prompt_builder,
             llm_instance=llm_instance,
+            parent_function_name=parent_function_name+" cluster_words_with_llm continuation",
             llm_queue_manager=llm_queue_manager,
             store_response=store_response,
             retries=retries,
@@ -639,6 +646,7 @@ async def summarize_with_llm(
     llm_instance: Any,
     llm_queue_manager: Any,
     prompt_builder_func: Callable[[Dict[str, Any]], str],
+    parent_function_name: str = "",
     store_response: bool = False,
     max_input_tokens: int = 128000,
     retries: int = 3,
@@ -685,6 +693,7 @@ async def summarize_with_llm(
             regex_pattern=r"```json\s*(.*?)\s*```",
             prompt_builder_func=prompt_builder_func,
             llm_instance=llm_instance,
+            parent_function_name=parent_function_name+" summarize chunk",
             llm_queue_manager=llm_queue_manager,
             store_response=store_response,
             retries=retries,
@@ -720,6 +729,7 @@ async def summarize_with_llm(
         manager,
         llm_instance,
         llm_queue_manager,
+        parent_function_name=parent_function_name+" summarize summaries",
         prompt_builder_func=generic_prompt_builder,
         store_response=store_response,
         max_input_tokens=max_input_tokens,
@@ -775,6 +785,7 @@ async def summarize_codebook_explanations(
     app_id: str,
     dataset_id: str,
     manager: Any,
+    parent_function_name: str,
     llm_instance: Any,
     llm_queue_manager: Any,
     max_input_tokens: int = 128000,
@@ -821,6 +832,7 @@ async def summarize_codebook_explanations(
             llm_model=llm_model,
             regex_pattern=r"```json\s*(.*?)\s*```",
             prompt_builder_func=lambda **_: prompt,
+            parent_function_name=parent_function_name + " summarize_batch",
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
             store_response=kwargs.get('store_response', False),
@@ -847,6 +859,7 @@ async def summarize_codebook_explanations(
             app_id=app_id,
             dataset_id=dataset_id,
             manager=manager,
+            parent_function_name=parent_function_name + " summarize_individual_code",
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
             prompt_builder_func=prompt_builder,

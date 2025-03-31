@@ -11,8 +11,15 @@ from concurrent.futures import Future as ConcurrentFuture
 from typing import Callable, Dict, List, Optional, Tuple, Type
 import uuid
 
+from constants import STUDY_DATABASE_PATH
 from database import LlmPendingTaskRepository, LlmFunctionArgsRepository
+from database.state_dump_table import StateDumpsRepository
 from models import LlmPendingTask, LlmFunctionArgs
+from models.table_dataclasses import StateDump
+
+state_dump_repo = StateDumpsRepository(
+    database_path = STUDY_DATABASE_PATH
+)
 
 class GlobalQueueManager:
     def __init__(
@@ -66,7 +73,7 @@ class GlobalQueueManager:
 
             try:
                 self.pending_task_repo = LlmPendingTaskRepository()
-                # self.function_args_repo = LlmFunctionArgsRepository()
+                self.function_args_repo = LlmFunctionArgsRepository()
             except Exception as e:
                 print(f"[INIT] Failed to initialize database classes: {e}")
                 raise
@@ -416,10 +423,30 @@ class GlobalQueueManager:
                 if function_key in self.function_cache:
                     _, ref_count = self.function_cache[function_key]
                     self.function_cache[function_key] = (func, ref_count + 1)
+                    
                     print(f"[SUBMIT_SYNC] Incremented ref_count for {function_key} to {ref_count + 1}")
                 else:
                     self.function_cache[function_key] = (func, 1)
                     print(f"[SUBMIT_SYNC] Cached {function_key}")
+
+                    if cacheable_args is not None:
+                        filtered_args = [arg if not callable(arg) else None for arg in cacheable_args.get("args", [])]
+                        filtered_kwargs = {k: v for k, v in cacheable_args.get("kwargs", {}) if not callable(v)}
+                        filtered_cacheables = {"args": filtered_args, "kwargs": filtered_kwargs}
+                        
+                        state_dump_repo.insert(
+                            StateDump(
+                                state=json.dumps({
+                                    "cacheables": filtered_cacheables,
+                                }),
+                                context=json.dumps({
+                                    "function": "submit_task_sync",
+                                    "job_id": job_id,
+                                    "function_key": function_key
+                                }),
+                            )
+                        )
+
 
                 if cacheable_args is None:
                     cacheable_args = {"args": [], "kwargs": []}
@@ -439,6 +466,7 @@ class GlobalQueueManager:
                         self.cacheable_args[function_key]["kwargs"][k] = kwargs[k]
                         print(f"[SUBMIT_SYNC] Cached kwarg {k} for {function_key}")
 
+                
                 variable_args = [args[i] for i in range(len(args)) if i not in cacheable_args.get("args", [])]
                 variable_kwargs = {k: v for k, v in kwargs.items() if k not in cacheable_args.get("kwargs", [])}
 
