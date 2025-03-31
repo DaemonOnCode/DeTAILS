@@ -4,7 +4,7 @@ from models import GroupedCode
 
 class GroupedCodesRepository(BaseRepository[GroupedCode]):
     model = GroupedCode
-    def __init__(self):
-        super().__init__("grouped_codes", GroupedCode)
+    def __init__(self, *args, **kwargs):
+        super().__init__("grouped_codes", GroupedCode, *args, **kwargs)
     
 

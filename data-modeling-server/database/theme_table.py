@@ -4,7 +4,7 @@ from models import Theme
 
 class ThemesRepository(BaseRepository[Theme]):
     model = Theme
-    def __init__(self):
-        super().__init__("themes", Theme)
+    def __init__(self, *args, **kwargs):
+        super().__init__("themes", Theme, *args, **kwargs)
     
 

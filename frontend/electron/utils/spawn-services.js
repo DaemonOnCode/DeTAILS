@@ -177,7 +177,14 @@ const spawnServices = async (globalCtx) => {
     }
 
     // Get the path to packaged binaries
-    const resourceBinariesPath = path.join(process.resourcesPath, 'executables');
+    let resourceBinariesPath = '';
+    if (process.platform === 'win32') {
+        resourceBinariesPath = path.join(process.resourcesPath, 'executables_windows');
+    } else if (process.platform === 'darwin') {
+        resourceBinariesPath = path.join(process.resourcesPath, 'executables');
+    } else if (process.platform === 'linux') {
+        resourceBinariesPath = path.join(process.resourcesPath, 'executables');
+    }
 
     copyBinariesIfNotExists(resourceBinariesPath, binariesPath);
 

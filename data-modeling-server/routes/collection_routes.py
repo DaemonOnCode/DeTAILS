@@ -9,14 +9,19 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Form, Body
 from controllers.collection_controller import check_primary_torrent, create_dataset, delete_dataset, delete_run, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, update_run_progress, upload_dataset_file
 from database import PipelineStepsRepository, TorrentDownloadProgressRepository
+from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from models.collection_models import FilterRedditPostsByDeleted, GetTorrentStatusRequest, ParseDatasetRequest, ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
-from constants import DATASETS_DIR
+from constants import DATASETS_DIR, STUDY_DATABASE_PATH
 from models import PipelineStep, TorrentDownloadProgress
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 from routes.websocket_routes import manager
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
+
+state_dump_repo = StateDumpsRepository(
+    database_path = STUDY_DATABASE_PATH
+)
 
 @router.post("/datasets")
 async def upload_dataset_endpoint(file: UploadFile = File(...), description: str = Form(None), dataset_id: str = Form(None), workspace_id: str = Form(...)):

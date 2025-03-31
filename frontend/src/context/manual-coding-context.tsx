@@ -46,7 +46,11 @@ export interface IManualCodingContext {
     dispatchManualCodingResponses: Dispatch<BaseResponseHandlerActions<IQECTTyResponse>>; // Dispatch function for manual coding responses
     updateContext: (updates: Partial<IManualCodingContext>) => void;
     resetContext: () => void;
-    generateCodebook: (sampledPostResponses: any[], unseenPostResponses: any[]) => void;
+    generateCodebook: (
+        sampledPostResponses: any[],
+        unseenPostResponses: any[],
+        groupedCodes: any[]
+    ) => void;
 }
 
 // Create the context with default values
@@ -121,7 +125,7 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
         [fetchLLMData, settings]
     );
     const generateCodebookWithoutQuotes = useCallback(
-        async (sampledPostResponses: any[], unseenPostResponses: any[]) => {
+        async (sampledPostResponses: any[], unseenPostResponses: any[], groupedCodes: any[]) => {
             console.log(
                 'Generating codebook without quotes',
                 settings,
@@ -206,12 +210,13 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
 
     // Function to create the codebook by calling the backend
     const createCodebook = useCallback(
-        async (sampledPostResponses: any[], unseenPostResponses: any[]) => {
+        async (sampledPostResponses: any[], unseenPostResponses: any[], groupedCodes: any[]) => {
             setIsLoading(true);
             try {
                 const newCodebook = await generateCodebookWithoutQuotes(
                     sampledPostResponses,
-                    unseenPostResponses
+                    unseenPostResponses,
+                    groupedCodes
                 );
                 setCodebook(newCodebook);
             } catch (error) {
@@ -247,12 +252,16 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
 
     // Effect to trigger codebook creation when the set of postIds changes
     const generateCodebook = useCallback(
-        (sampledPostResponse: any[], unseenPostResponse: any[]) => {
-            console.log('Manual context mounted', Object.keys(codebook ?? {}).length === 0);
+        (sampledPostResponse: any[], unseenPostResponse: any[], groupedCodes: any[]) => {
+            console.log(
+                'Manual context mounted',
+                Object.keys(codebook ?? {}).length === 0,
+                Object.keys(codebook ?? {}).length !== 0
+            );
             if (Object.keys(codebook ?? {}).length !== 0) return;
             // const currentPostIds = Object.keys(postStates);
             // if (currentPostIds.length > 0 && !setsEqual(currentPostIds, prevPostIdsRef.current)) {
-            createCodebook(sampledPostResponse, unseenPostResponse);
+            createCodebook(sampledPostResponse, unseenPostResponse, groupedCodes);
             //     prevPostIdsRef.current = currentPostIds;
             // }
         },

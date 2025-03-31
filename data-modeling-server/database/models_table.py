@@ -4,7 +4,7 @@ from models import Model
 
 class ModelsRepository(BaseRepository[Model]):
     model = Model
-    def __init__(self):
-        super().__init__("models", Model)
+    def __init__(self, *args, **kwargs):
+        super().__init__("models", Model, *args, **kwargs)
     
 

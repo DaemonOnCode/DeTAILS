@@ -1,7 +1,6 @@
-import { Suspense, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
-import { createResource } from '../../../utility/resource-creator';
 import PostCards from '../CodingTranscript/post-cards';
 import { FetchResponse, useApi } from '../../../hooks/Shared/use-api';
 
@@ -39,27 +38,33 @@ const TranscriptGrid = ({
 }) => {
     const { datasetId } = useCollectionContext();
     const { fetchData } = useApi();
+    const [postData, setPostData] = useState<any[] | null>(null);
+
+    useEffect(() => {
+        const loadData = async () => {
+            const data = await fetchPostData(postIds, datasetId, fetchData);
+            setPostData(data);
+        };
+        loadData();
+    }, [postIds, datasetId, fetchData]);
 
     const handleViewTranscript = (postId: string) => {
         console.log('Viewing transcript for post:', postId);
         onPostSelect(postId);
     };
 
-    const resource = useMemo(
-        () => createResource(fetchPostData(postIds, datasetId, fetchData)),
-        [postIds, datasetId]
-    );
-
     console.count('Transcripts Page Render');
     return (
         <div>
-            <Suspense fallback={<p>Loading...</p>}>
+            {postData ? (
                 <PostCards
-                    resource={resource}
+                    postData={postData}
                     postStates={postStates}
                     onPostClick={(postId) => handleViewTranscript(postId)}
                 />
-            </Suspense>
+            ) : (
+                <p>Loading...</p>
+            )}
         </div>
     );
 };

@@ -26,5 +26,7 @@ from .table_dataclasses import (
     Theme,
     ThemeCode,
     SelectedPostId,
-    Subcode
+    Subcode,
+    ErrorLog,
+    StateDump
 )

@@ -12,11 +12,13 @@ import numpy as np
 import pandas as pd
 
 from config import Settings, CustomSettings
+from constants import STUDY_DATABASE_PATH
 from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
 from controllers.collection_controller import get_reddit_post_by_id
+from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
-from models.table_dataclasses import CodebookType, GenerationType, ResponseCreatorType, SelectedPostId
+from models.table_dataclasses import CodebookType, GenerationType, ResponseCreatorType, SelectedPostId, StateDump
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository, QectRepository, SelectedPostIdsRepository
 from services.langchain_llm import LangchainLLMService, get_llm_service
@@ -33,6 +35,10 @@ settings = Settings()
 function_progress_repo = FunctionProgressRepository()
 qect_repo = QectRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
+
+state_dump_repo = StateDumpsRepository(
+    database_path = STUDY_DATABASE_PATH
+)
 
 @router.post("/get-selected-post-ids")
 async def get_selected_post_ids_endpoint(
@@ -186,6 +192,20 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
 
     result = {group_names[i]: groups[i] for i in range(divisions)}
 
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "dataset_id": dataset_id,
+                "sample_size": sample_size,
+                "divisions": divisions,
+                "groups": result
+            }),
+            context=json.dumps({
+                "function": "sample_posts",
+            }),
+        )
+    )
+
     if result.get("sampled"):
         selected_post_ids_repo.insert_batch(
             list(map(
@@ -273,6 +293,23 @@ async def build_context_from_interests_endpoint(
 
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "dataset_id": dataset_id,
+                "main_topic": mainTopic,
+                "research_questions": researchQuestions,
+                "additional_info": additionalInfo,
+                "keywords": parsed_keywords.get("keywords", [])
+            }),
+            context=json.dumps({
+                "function": "keyword_cloud_table",
+                "run":"initial",
+
+            }),
+        )
+    )
+
     return {
         "message": "Context built successfully!",
         "keywords": parsed_keywords.get("keywords", [])
@@ -324,6 +361,23 @@ async def regenerate_keywords_endpoint(
     )
 
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
+
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "dataset_id": dataset_id,
+                "main_topic": request_body.mainTopic,
+                "research_questions": request_body.researchQuestions,
+                "additional_info": request_body.additionalInfo,
+                "feedback": request_body.extraFeedback,
+                "keywords": parsed_keywords.get("keywords", [])
+            }),
+            context=json.dumps({
+                "function": "keyword_cloud_table",
+                "run":"regenerate",
+            }),
+        )
+    )
 
     return {
         "message": "Keywords regenerated successfully!",
@@ -506,7 +560,7 @@ async def generate_codes_endpoint(request: Request,
 
         for row in final_results:
             row["code"] = reverse_map_one_to_one.get(row["code"], row["code"])
-
+        
         return {
             "message": "Initial codes generated successfully!",
             "data": final_results

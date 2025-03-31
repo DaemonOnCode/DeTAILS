@@ -4,8 +4,8 @@ from .base_class import BaseRepository
 class FileStatusRepository(BaseRepository[FileStatus]):
     model = FileStatus
 
-    def __init__(self):
-        super().__init__("file_status", FileStatus)
+    def __init__(self, *args, **kwargs):
+        super().__init__("file_status", FileStatus, *args, **kwargs)
 
     def get_file_progress(self, run_id: str, file_name: str) -> FileStatus:
         return self.find_one({"run_id": run_id, "file_name": file_name})

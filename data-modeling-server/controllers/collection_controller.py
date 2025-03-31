@@ -13,11 +13,12 @@ from transmission_rpc import Client, Torrent, File as TorrentFile
 from dateutil.relativedelta import relativedelta
 
 import config
-from constants import DATASETS_DIR, PATHS, UPLOAD_DIR
+from constants import DATASETS_DIR, PATHS, STUDY_DATABASE_PATH, UPLOAD_DIR
 from database import DatasetsRepository, CommentsRepository, PostsRepository, PipelineStepsRepository, FileStatusRepository, TorrentDownloadProgressRepository, SelectedPostIdsRepository
+from database.state_dump_table import StateDumpsRepository
 from decorators.execution_time_logger import log_execution_time
 from models import Dataset, Comment, Post, TorrentDownloadProgress
-from models.table_dataclasses import FileStatus
+from models.table_dataclasses import FileStatus, StateDump
 from routes.websocket_routes import ConnectionManager
 
 
@@ -29,6 +30,10 @@ pipeline_repo = PipelineStepsRepository()
 file_repo = FileStatusRepository()
 progress_repo = TorrentDownloadProgressRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
+state_dump_repo = StateDumpsRepository(
+    database_path = STUDY_DATABASE_PATH
+)
+
 
 def get_current_download_dir():
     with open(PATHS["settings"], "r") as f:
@@ -347,6 +352,17 @@ def delete_run(run_id: str):
 def create_dataset(description: str, dataset_id: str = None, workspace_id: str = None):
     """Create a new dataset entry."""
     dataset_id = dataset_id or str(uuid4())
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "dataset_id": dataset_id,
+                "workspace_id": workspace_id
+            }),
+            context=json.dumps({
+                "function": "create_dataset",
+            }),
+        )
+    )
     dataset_repo.insert(Dataset(id=dataset_id, name="", description=description, workspace_id=workspace_id))
     return dataset_id
 
@@ -1360,7 +1376,20 @@ async def check_primary_torrent(
     primary_torrent = await wait_for_metadata(manager, app_id, run_id, c, primary_torrent)
     primary_files = get_files_to_process_primary(primary_torrent.get_files(), subreddit, submissions_only)
 
-    if primary_files:
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "subreddit": subreddit,
+                "primary_files": primary_files,
+                "status": len(primary_files) > 0,
+            }),
+            context=json.dumps({
+                "function": "check_primary_torrent",
+            }),
+        )
+    )
+
+    if len(primary_files) > 0:
         message = f"Found subreddit '{subreddit}' in primary torrent. Files available: {len(primary_files)}"
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message)

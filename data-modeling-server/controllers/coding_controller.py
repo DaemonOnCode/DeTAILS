@@ -13,11 +13,12 @@ from chromadb import HttpClient
 from fastapi import UploadFile
 
 from chromadb.config import Settings as ChromaDBSettings
-from constants import CONTEXT_FILES_DIR, PATHS, RANDOM_SEED
+from constants import CONTEXT_FILES_DIR, PATHS, RANDOM_SEED, STUDY_DATABASE_PATH
 from controllers.miscellaneous_controller import get_credential_path
 from database.qect_table import QectRepository
+from database.state_dump_table import StateDumpsRepository
 from decorators import log_execution_time
-from models.table_dataclasses import GenerationType, LlmResponse, QectResponse, ResponseCreatorType
+from models.table_dataclasses import GenerationType, LlmResponse, QectResponse, ResponseCreatorType, StateDump
 from routes.websocket_routes import ConnectionManager, manager
 
 from langchain.prompts import PromptTemplate
@@ -40,6 +41,9 @@ from utils.prompts_v2 import TopicClustering
 llm_responses_repo = LlmResponsesRepository()
 qect_repo = QectRepository()
 
+state_dump_repo = StateDumpsRepository(
+    database_path = STUDY_DATABASE_PATH
+)
 
 def get_temperature_and_random_seed():
     with open(PATHS["settings"], "r") as f:
@@ -229,6 +233,23 @@ async def process_llm_task(
 
             print("Response", response)
             response = response["answer"] if retriever else response.content
+            state_dump_repo.insert(
+                StateDump(
+                    state=json.dumps({
+                        "dataset_id": dataset_id,
+                        "model": llm_model,
+                        "response": response,
+                        "id": function_id,
+                    }),
+                    context=json.dumps({
+                        "function": "llm_response_before_processing",
+                        "post_id": post_id,
+                        "retriever": bool(retriever),
+                        "dataset_id": dataset_id,
+                        "function_id": function_id,
+                    }),
+                )
+            )
             match = re.search(regex_pattern, response, re.DOTALL)
             if not match:
                 raise Exception("No valid structured data found in LLM response.")
@@ -299,6 +320,21 @@ def filter_codes_by_transcript(codes: list[dict], transcript: str) -> list[dict]
             filtered_codes.append(code)
         else:
             print(f"Filtered out code entry, quote not found in transcript: {quote}")
+
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "filtered_codes": filtered_codes,
+                "initial_codes": codes,
+                "difference": len(codes) - len(filtered_codes),
+                "code_count": len(codes),
+                "filtered_code_count": len(filtered_codes),
+            }),
+            context=json.dumps({
+                "function": "llm_response_after_filtering_hallucinations",
+            }),
+        )
+    )
     return filtered_codes
 
 
@@ -324,6 +360,7 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
 #                 codebook_type=codebook_type
 #             )
 #         )
+    initial_responses = responses
     responses = list(filter(lambda response: response.get("code") and response.get("quote") and response.get("explanation"), responses))
     qect_repo.insert_batch(
        list(
@@ -344,6 +381,22 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
                 ), 
                 responses
             )
+        )
+    )
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "final_responses": responses,
+                "initial_responses": initial_responses,
+                "response_count": len(responses),
+                "initial_response_count": len(initial_responses),
+                "difference": len(initial_responses) - len(responses),
+            }),
+            context=json.dumps({
+                "function": "llm_response_after_filtering_empty_columns",
+                "codebook_type": codebook_type,
+                "dataset_id": dataset_id,
+            }),
         )
     )
     return responses
@@ -559,6 +612,18 @@ async def cluster_words_with_llm(
 
         print("Updated Clusters", current_clusters)
 
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "final_clusters": current_clusters,
+                "initial_words": words,
+                "cluster_count": len(current_clusters.keys()),
+            }),
+            context=json.dumps({
+                "function": "llm_clustering_response",
+            }),
+        )
+    )
     return current_clusters
 
 

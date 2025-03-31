@@ -16,8 +16,13 @@ const ManualCodingPage: React.FC = () => {
     const portalContainerRef = useRef<HTMLDivElement>(document.createElement('div'));
 
     const navigate = useNavigate();
-    const { unseenPostResponse, dispatchUnseenPostResponse, unseenPostIds, sampledPostResponse } =
-        useCodingContext();
+    const {
+        unseenPostResponse,
+        dispatchUnseenPostResponse,
+        unseenPostIds,
+        sampledPostResponse,
+        groupedCodes
+    } = useCodingContext();
     const {
         postStates,
         addPostIds,
@@ -56,9 +61,10 @@ const ManualCodingPage: React.FC = () => {
             console.log(
                 'ManualCodingPage mounted Generating codebook',
                 sampledPostResponse,
-                unseenPostResponse
+                unseenPostResponse,
+                groupedCodes
             );
-            generateCodebook(sampledPostResponse, unseenPostResponse);
+            generateCodebook(sampledPostResponse, unseenPostResponse, groupedCodes);
         }
 
         return () => {

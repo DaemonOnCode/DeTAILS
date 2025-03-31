@@ -18,7 +18,7 @@ T = TypeVar("T")  # Generic type for the dataclass model
 
 
 class BaseRepository(Generic[T]):
-    def __init__(self, table_name: str, model: Type[T]):
+    def __init__(self, table_name: str, model: Type[T], database_path: str = DATABASE_PATH):
         """
         Base repository to handle generic database operations.
 
@@ -28,12 +28,19 @@ class BaseRepository(Generic[T]):
         self.table_name = table_name
         self.model = model
         self.query_builder_instance = QueryBuilder(table_name, model)
+        self.database_path = database_path
 
     def query_builder(self) -> QueryBuilder[T]:
         """
         Returns a type-safe QueryBuilder instance for this repository.
         """
         return self.query_builder_instance
+    
+    def set_database_path(self, database_path: str) -> None:
+        """
+        Sets the path to the SQLite database file.
+        """
+        self.database_path = database_path
     
     @handle_db_errors
     @auto_recover
@@ -77,7 +84,7 @@ class BaseRepository(Generic[T]):
         """
         Executes a SQL query with the given parameters.
         """
-        with sqlite3.connect(DATABASE_PATH) as conn:
+        with sqlite3.connect(self.database_path) as conn:
             cursor = conn.cursor()
             query_result = cursor.execute(query, params)
             conn.commit()
@@ -87,7 +94,7 @@ class BaseRepository(Generic[T]):
     @handle_db_errors   
     @auto_recover  
     def execute_many_query(self, query: str, params_list: List[tuple], result = False) -> None:
-        with sqlite3.connect(DATABASE_PATH) as conn:
+        with sqlite3.connect(self.database_path) as conn:
             cursor = conn.cursor()
             query_result = cursor.executemany(query, params_list)
             conn.commit()
@@ -100,7 +107,7 @@ class BaseRepository(Generic[T]):
         """
         Fetches all rows for a given query and maps them to the dataclass model.
         """
-        with sqlite3.connect(DATABASE_PATH) as conn:
+        with sqlite3.connect(self.database_path) as conn:
             conn.row_factory = Row
             cursor = conn.cursor()
             cursor.execute(query, params)
@@ -115,7 +122,7 @@ class BaseRepository(Generic[T]):
         """
         Fetches a single row for a given query and maps it to the dataclass model.
         """
-        with sqlite3.connect(DATABASE_PATH) as conn:
+        with sqlite3.connect(self.database_path) as conn:
             conn.row_factory = Row
             cursor = conn.cursor()
             cursor.execute(query, params)
@@ -242,7 +249,7 @@ class BaseRepository(Generic[T]):
         if limit is not None:
             self.query_builder_instance.limit(limit)
         query, params = self.query_builder_instance.find(filters)
-        print(query, params)
+        # print(query, params)
         result = self.fetch_all(query, params, map_to_model=map_to_model)
         self.query_builder_instance.reset()
         return result
@@ -274,7 +281,7 @@ class BaseRepository(Generic[T]):
         :return: Number of matching rows.
         """
         query, params = self.query_builder_instance.count(filters)
-        with sqlite3.connect(DATABASE_PATH) as conn:
+        with sqlite3.connect(self.database_path) as conn:
             cursor = conn.cursor()
             cursor.execute(query, params)
             return cursor.fetchone()[0]
@@ -288,7 +295,7 @@ class BaseRepository(Generic[T]):
         :param query: The SQL query string.
         :param params: Parameters for the query.
         """
-        with sqlite3.connect(DATABASE_PATH) as conn:
+        with sqlite3.connect(self.database_path) as conn:
             if keys:
                 conn.row_factory = sqlite3.Row
             cursor = conn.cursor()

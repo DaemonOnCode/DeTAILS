@@ -425,3 +425,20 @@ class LlmFunctionArgs(BaseDataclass):
     function_key: str = field(metadata={"primary_key": True, "not_null": True})
     args_json: Optional[str] = None
     kwargs_json: Optional[str] = None
+
+
+@dataclass
+class ErrorLog(BaseDataclass):
+    type: str = field(metadata={"not_null": True})
+    message: str = field(metadata={"not_null": True})
+    id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
+    traceback: Optional[str] = None
+    context: Optional[str] = None
+    created_at: Optional[datetime] = field(default_factory=datetime.now)
+
+@dataclass
+class StateDump(BaseDataclass):
+    state: str = field(metadata={"not_null": True})
+    context: Optional[str] = None
+    id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
+    created_at: Optional[datetime] = field(default_factory=datetime.now)

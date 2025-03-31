@@ -8,6 +8,8 @@ import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { DetailsIcon } from './Icons';
 import { useSettings } from '../../context/settings-context';
+import { FaAngleLeft } from 'react-icons/fa';
+import { IoMdArrowDropleft } from 'react-icons/io';
 
 // Format route names for display
 const formatRouteName = (path: string, workspaceName: string = 'Temporary') => {
@@ -337,13 +339,18 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                 <button
                     onClick={onToggleCollapse}
                     className="text-white p-2 lg:p-3 rounded-full bg-blue-500 hover:bg-blue-700 transition-transform">
-                    <p
-                        title={isCollapsed ? 'Open sidebar' : 'Collapse sidebar'}
+                    {/* <p
+                        
                         className={`text:base lg:text-2xl transform transition-transform ${
                             isCollapsed ? 'rotate-180' : 'rotate-0'
-                        }`}>
-                        ◀
-                    </p>
+                        }`}> */}
+                    <IoMdArrowDropleft
+                        title={isCollapsed ? 'Open sidebar' : 'Collapse sidebar'}
+                        className={`text-white text-base lg:text-2xl transform transition-transform ${
+                            isCollapsed ? 'rotate-180' : 'rotate-0'
+                        }`}
+                    />
+                    {/* </p> */}
                 </button>
             </div>
         </div>

@@ -4,7 +4,7 @@ from models import TokenizedPost
 
 class TokenizedPostsRepository(BaseRepository[TokenizedPost]):
     model = TokenizedPost
-    def __init__(self):
-        super().__init__("tokenized_posts", TokenizedPost)
+    def __init__(self, *args, **kwargs):
+        super().__init__("tokenized_posts", TokenizedPost, *args, **kwargs)
     
 

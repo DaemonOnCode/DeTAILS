@@ -1,6 +1,14 @@
 import asyncio
+import json
 from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+from constants import STUDY_DATABASE_PATH
+from database.error_table import ErrorLogRepository
+from models.table_dataclasses import ErrorLog
+
+error_log_repository = ErrorLogRepository(database_path = STUDY_DATABASE_PATH)
+
 
 class AbortOnDisconnectMiddleware:
     def __init__(self, app: ASGIApp):
@@ -30,6 +38,16 @@ class AbortOnDisconnectMiddleware:
             return await handler_task
         except asyncio.CancelledError:
             print("Cancelling request due to disconnect")
+            error_log_repository.insert(
+                    ErrorLog(
+                        type = "AbortRequest",
+                        message = "Request aborted due to client disconnect",
+                        context = json.dumps({
+                            "route": scope["path"]
+                        }),
+                        traceback=""
+                    )
+                )
             await send({
                 "type": "http.response.start",
                 "status": 499,

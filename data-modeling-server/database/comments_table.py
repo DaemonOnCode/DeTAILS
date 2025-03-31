@@ -4,8 +4,8 @@ from models import Comment
 
 class CommentsRepository(BaseRepository[Comment]):
     model = Comment
-    def __init__(self):
-        super().__init__("comments", Comment)
+    def __init__(self, *args, **kwargs):
+        super().__init__("comments", Comment, *args, **kwargs)
 
     def fetch_unprocessed_comments(self, dataset_id: str, batch_size: int, num_threads: int):
         """

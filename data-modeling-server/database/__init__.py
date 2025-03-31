@@ -27,7 +27,8 @@ from .grouped_subcode_code_table import GroupedCodeSubcodesRepository
 from .theme_subcode_table import ThemeCodesRepository
 from .theme_table import ThemesRepository
 from .subcode_table import SubcodesRepository
-from .initialize import initialize_database
+from .error_table import ErrorLogRepository
+from .initialize import initialize_database, initialize_study_database
 from .db_helpers import execute_query, execute_query_with_retry
 
 __all__ = [
@@ -60,7 +61,9 @@ __all__ = [
     "SubcodesRepository",
     "LlmPendingTaskRepository",
     "LlmFunctionArgsRepository",
+    "ErrorLogRepository",
     "initialize_database",
+    "initialize_study_database",
     "execute_query",
     "execute_query_with_retry",
 ]

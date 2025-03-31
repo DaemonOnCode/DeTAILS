@@ -2,23 +2,19 @@ import { FC, memo } from 'react';
 import { FaCheck } from 'react-icons/fa';
 
 interface PostCardsProps {
-    resource: {
-        read(): any;
-    };
+    postData: { id: string; title: string; selftext: string }[];
     postStates?: { [postId: string]: boolean };
     onPostClick: (postId: string) => void;
 }
 
-const PostCards: FC<PostCardsProps> = memo(({ resource, postStates, onPostClick }) => {
-    const postIdTitles = resource.read();
-
-    if (!postIdTitles || postIdTitles.length === 0) {
+const PostCards: FC<PostCardsProps> = memo(({ postData, postStates, onPostClick }) => {
+    if (!postData || postData.length === 0) {
         return <p>No posts available</p>;
     }
 
     return (
         <div className="p-4 grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {postIdTitles.map((post: { id: string; title: string; selftext: string }) => {
+            {postData.map((post) => {
                 const isDone = postStates?.[post.id] ?? false;
                 return (
                     <div

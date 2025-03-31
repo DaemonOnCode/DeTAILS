@@ -82,7 +82,8 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             await resetDataAfterPage(location.pathname, true);
             if (activeModalId && modalCallbacks[activeModalId]) {
                 const result = modalCallbacks[activeModalId](e);
-
+                // Breaks on windows
+                // @ts-ignore
                 if (result !== undefined && typeof result.then === 'function') {
                     await result;
                 }
@@ -95,7 +96,6 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             setActiveModalId(null);
         } catch (error) {
             console.error('Error in handleDownloadAndProceed:', error);
-            // Errors are caught and logged, effectively ignored by the application
         }
     };
 
@@ -110,7 +110,8 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             await resetDataAfterPage(location.pathname, false);
             if (activeModalId && modalCallbacks[activeModalId]) {
                 const result = modalCallbacks[activeModalId](e);
-
+                // Breaks on windows
+                // @ts-ignore
                 if (result !== undefined && typeof result.then === 'function') {
                     await result;
                 }

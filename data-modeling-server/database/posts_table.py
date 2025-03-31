@@ -4,8 +4,8 @@ from models import Post
 
 class PostsRepository(BaseRepository[Post]):
     model = Post
-    def __init__(self):
-        super().__init__("posts", Post)
+    def __init__(self, *args, **kwargs):
+        super().__init__("posts", Post, *args, **kwargs)
     
     def fetch_unprocessed_posts(self, dataset_id: str, batch_size: int, num_threads: int):
         """

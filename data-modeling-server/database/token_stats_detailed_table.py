@@ -4,7 +4,7 @@ from models import TokenStatDetailed
 
 class TokenStatsDetailedRepository(BaseRepository[TokenStatDetailed]):
     model = TokenStatDetailed
-    def __init__(self):
-        super().__init__("token_stats_detailed", TokenStatDetailed)
+    def __init__(self, *args, **kwargs):
+        super().__init__("token_stats_detailed", TokenStatDetailed, *args, **kwargs)
     
 

@@ -17,8 +17,12 @@ from database import (
     LlmPendingTaskRepository, LlmFunctionArgsRepository,
     SubcodesRepository, SelectedPostIdsRepository,
     GroupedCodesRepository, GroupedCodeSubcodesRepository,
-    ThemeCodesRepository, ThemesRepository
+    ThemeCodesRepository, ThemesRepository,
+    ErrorLogRepository
 )
+from database.full_qect_table import FullQectRepository
+from database.initialize import initialize_study_database
+from database.state_dump_table import StateDumpsRepository
 from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware, AbortOnDisconnectMiddleware
 from routes import (
     coding_routes, collection_routes, 
@@ -26,6 +30,8 @@ from routes import (
     miscellaneous_routes, workspace_routes, 
     state_routes
 )
+
+sys.stdout.reconfigure(encoding='utf-8')
 
 load_dotenv()
 print(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
@@ -105,6 +111,23 @@ if __name__ == "__main__":
         GroupedCodeSubcodesRepository,
         ThemeCodesRepository,
         ThemesRepository
+    ])
+
+    initialize_study_database([
+        FullQectRepository,
+        WorkspaceStatesRepository,
+        WorkspacesRepository,
+        LlmPendingTaskRepository,
+        LlmFunctionArgsRepository,
+        ThemesRepository,
+        ThemeCodesRepository,
+        GroupedCodesRepository,
+        GroupedCodeSubcodesRepository,
+        SubcodesRepository,
+        SelectedPostIdsRepository,
+        QectRepository,
+        ErrorLogRepository,
+        StateDumpsRepository
     ])
 
     print("Database initialized!")

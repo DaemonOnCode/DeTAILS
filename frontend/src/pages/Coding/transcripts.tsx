@@ -1,10 +1,8 @@
-import { Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import PostCards from '../../components/Coding/CodingTranscript/post-cards';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useCollectionContext } from '../../context/collection-context';
-import { createResource } from '../../utility/resource-creator';
 import { FetchResponse, useApi } from '../../hooks/Shared/use-api';
 
 const fetchPostData = async (
@@ -35,14 +33,24 @@ const TranscriptsPage = () => {
     const navigate = useNavigate();
     const { datasetId, dataset } = useCollectionContext();
     const { fetchData } = useApi();
+    const [postData, setPostData] = useState(null);
 
-    // If location.state exists and has postIds, use them; otherwise derive from dataset.
+    // Determine postIds from location.state or dataset
     const postIds: string[] =
         location.state && location.state.postIds
             ? location.state.postIds
             : Array.isArray(dataset)
               ? dataset.map((post: any) => post.id)
               : [];
+
+    // Fetch data when component mounts or dependencies change
+    useEffect(() => {
+        const loadData = async () => {
+            const data = await fetchPostData(postIds, datasetId, fetchData);
+            setPostData(data);
+        };
+        loadData();
+    }, [postIds, datasetId, fetchData]);
 
     const handleViewTranscript = (postId: string) => {
         let params = new URLSearchParams();
@@ -62,19 +70,18 @@ const TranscriptsPage = () => {
         );
     };
 
-    // Create a resource that will be used by Suspense to fetch post data.
-    const resource = createResource(fetchPostData(postIds, datasetId, fetchData));
-
     console.count('Transcripts Page Render');
 
     return (
         <div>
-            <Suspense fallback={<p>Loading...</p>}>
+            {postData !== null ? (
                 <PostCards
-                    resource={resource}
+                    postData={postData}
                     onPostClick={(postId: string) => handleViewTranscript(postId)}
                 />
-            </Suspense>
+            ) : (
+                <p>Loading...</p>
+            )}
         </div>
     );
 };

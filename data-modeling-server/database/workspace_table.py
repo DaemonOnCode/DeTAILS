@@ -4,8 +4,8 @@ from models import Workspace
 
 class WorkspacesRepository(BaseRepository[Workspace]):
     model = Workspace
-    def __init__(self):
-        super().__init__("workspaces", Workspace)
+    def __init__(self, *args, **kwargs):
+        super().__init__("workspaces", Workspace, *args, **kwargs)
 
     def find_by_user_email(self, user_email: str) -> List[Workspace]:
         """

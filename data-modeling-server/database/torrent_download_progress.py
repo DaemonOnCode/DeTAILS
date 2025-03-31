@@ -5,8 +5,8 @@ from models import TorrentDownloadProgress
 
 class TorrentDownloadProgressRepository(BaseRepository[TorrentDownloadProgress]):
     model = TorrentDownloadProgress
-    def __init__(self):
-        super().__init__("torrent_download_progress", TorrentDownloadProgress)
+    def __init__(self, *args, **kwargs):
+        super().__init__("torrent_download_progress", TorrentDownloadProgress, *args, **kwargs)
     
     def get_progress(self, run_id: str) -> TorrentDownloadProgress:
         return self.find_one({"run_id": run_id})

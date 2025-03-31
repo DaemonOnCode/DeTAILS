@@ -9,17 +9,41 @@ from zipfile import ZipFile
 
 from chromadb import HttpClient
 from fastapi import HTTPException, UploadFile
+from constants import STUDY_DATABASE_PATH
 from controllers.workspace_controller import upgrade_workspace_from_temp
+from database.state_dump_table import StateDumpsRepository
 from models import WorkspaceState, Workspace
 from database import WorkspaceStatesRepository, WorkspacesRepository
 from models.state_models import CodingContext, CollectionContext, LoadingContext, ManualCodingContext, ModelingContext
+from models.table_dataclasses import StateDump
 from utils.chroma_export import chroma_export_cli, chroma_import
 
 workspace_state_repo = WorkspaceStatesRepository()
 workspaces_repo = WorkspacesRepository()
+state_dump_repo = StateDumpsRepository(
+    database_path = STUDY_DATABASE_PATH
+)
 
 def save_state(data):
     # Create context objects from data
+
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "workspace_id": data.workspace_id,
+                "user_email": data.user_email,
+                "collection_context": data.collection_context,
+                "coding_context": data.coding_context,
+                "modeling_context": data.modeling_context,
+                "loading_context": data.loading_context,
+                "manual_coding_context": data.manual_coding_context,
+            }),
+            context=json.dumps({
+                "function": "save_state",
+            }),
+        )
+    )
+
     collection_context = CollectionContext(**data.collection_context)
     coding_context = CodingContext(**data.coding_context)
     modeling_context = ModelingContext(**data.modeling_context)

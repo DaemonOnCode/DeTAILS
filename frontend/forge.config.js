@@ -3,6 +3,11 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 const path = require('path');
 const fs = require('fs');
 
+const extraResourcePath =
+    process.platform === 'win32'
+        ? path.resolve(__dirname, '..', 'executables_windows')
+        : path.resolve(__dirname, '..', 'executables');
+
 module.exports = {
     hooks: {
         prePackage: async () => {
@@ -16,20 +21,27 @@ module.exports = {
                 fs.rmSync(makeDir, { recursive: true, force: true });
             }
         }
+        // packageAfterPrune: async (forgeConfig, buildPath, electronVersion, platform, arch) => {
+        //     forgeConfig.packagerConfig.extraResource =
+        //         platform === 'win32'
+        //             ? [path.resolve(__dirname, '..', 'executables_windows')]
+        //             : [path.resolve(__dirname, '..', 'executables')];
+        // }
     },
     packagerConfig: {
         name: 'DeTAILS',
         asar: true,
         appCategoryType: 'public.app-category.developer-tools',
         icon: 'public/details-icon',
-        extraResource: [path.resolve(__dirname, '..', 'executables')]
+        extraResource: [extraResourcePath]
     },
     rebuildConfig: {},
     makers: [
         {
             name: '@electron-forge/maker-squirrel',
             config: {
-                setupIcon: 'public/favicon.ico'
+                setupIcon: 'public/favicon.ico',
+                icon: 'public/favicon.ico'
             }
         },
         {

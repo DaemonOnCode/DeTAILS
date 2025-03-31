@@ -4,6 +4,6 @@ from models import FunctionProgress
 
 class FunctionProgressRepository(BaseRepository[FunctionProgress]):
     model = FunctionProgress
-    def __init__(self):
-        super().__init__("function_progress", FunctionProgress)
+    def __init__(self, *args, **kwargs):
+        super().__init__("function_progress", FunctionProgress, *args, **kwargs)
     
