@@ -190,7 +190,7 @@ const ContextPage = () => {
         if (error) {
             console.error('Error building context:', error);
             if (error.name !== 'AbortError') {
-                toast.error('Error building context. Please try again.');
+                toast.error('Error building context. Please try again. ' + (error.message ?? ''));
                 navigate(PAGE_ROUTES.CONTEXT_V2);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',

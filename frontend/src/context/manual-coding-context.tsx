@@ -179,6 +179,7 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
                 })
             });
             if (error) {
+                console.error('Failed to generate codebook:', error);
                 throw new Error('Failed to generate codebook');
             }
             return data.data;
@@ -326,23 +327,26 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
             downloadData?: { name: string; data: any[]; condition?: boolean };
         }
     > = useMemo(
-        () => ({
-            [PAGE_ROUTES.MANUAL_CODING]: {
-                relatedStates: [
-                    {
-                        state: codebook,
-                        func: setCodebook,
-                        name: 'setCodebook',
-                        initValue: null
-                    },
-                    {
-                        state: manualCodingResponses,
-                        func: dispatchManualCodingResponses,
-                        name: 'dispatchManualCodingResponses'
-                    }
-                ]
-            }
-        }),
+        () =>
+            settings.general.manualCoding
+                ? {
+                      [PAGE_ROUTES.MANUAL_CODING]: {
+                          relatedStates: [
+                              {
+                                  state: codebook,
+                                  func: setCodebook,
+                                  name: 'setCodebook',
+                                  initValue: null
+                              },
+                              {
+                                  state: manualCodingResponses,
+                                  func: dispatchManualCodingResponses,
+                                  name: 'dispatchManualCodingResponses'
+                              }
+                          ]
+                      }
+                  }
+                : {},
         [codebook, manualCodingResponses]
     );
 

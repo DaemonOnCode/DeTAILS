@@ -307,7 +307,7 @@ const FinalzingCodes = () => {
         if (error) {
             console.error('Error in handleNextClick:', error);
             if (error.name !== 'AbortError') {
-                toast.error('Error generating themes. Please try again.');
+                toast.error('Error generating themes. Please try again. ' + (error.message ?? ''));
                 navigate(PAGE_ROUTES.FINALIZING_CODES);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',

@@ -206,11 +206,7 @@ const CodebookCreation = () => {
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
-            navigate(
-                getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                    text: 'Loading data'
-                })
-            );
+            navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
         }
     }, []);
 

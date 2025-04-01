@@ -17,7 +17,7 @@ class GoogleProvider(LLMProvider):
             if not self.settings.ai.providers["google"].apiKey:
                 raise ConfigurationError("Google API key is not set in settings")
             return ChatGoogleGenerativeAI(
-                model=model_name,
+                model=f"models/{model_name}",
                 num_ctx=num_ctx,
                 num_predict=num_predict,
                 temperature=temperature,
@@ -32,8 +32,9 @@ class GoogleProvider(LLMProvider):
         try:
             if not self.settings.ai.providers["google"].apiKey:
                 raise ConfigurationError("Google API key is not set in settings")
+            print(self.settings.ai.providers["google"].textEmbedding, model_name, "textEmbedding")
             return GoogleGenerativeAIEmbeddings(
-                model=self.settings.ai.providers["google"].textEmbedding,
+                model=f"models/{model_name or self.settings.ai.providers['google'].textEmbedding}",
                 google_api_key=self.settings.ai.providers["google"].apiKey
             )
         except Exception as e:

@@ -36,6 +36,7 @@ class GlobalQueueManager:
             self._max_queue_size = max_queue_size
             self._num_workers = num_workers
             self.worker_tasks: List[asyncio.Task] = []
+            self.worker_states: Dict[int, str] = {}
             self.running = False
             self.pending_tasks: Dict[str, ConcurrentFuture] = {}
             self._lock = threading.Lock()
@@ -50,7 +51,7 @@ class GlobalQueueManager:
             self.cancel_threshold = cancel_threshold
             self.function_jobs: Dict[str, List[str]] = defaultdict(list)
             self.cancelled_jobs_count: Dict[str, int] = defaultdict(int)
-            
+
             self.rate_limit_per_minute = rate_limit_per_minute
             self.rate_limit_per_sec = rate_limit_per_minute / 60.0 if rate_limit_per_minute else None
             self.last_start_time = 0.0
@@ -79,7 +80,7 @@ class GlobalQueueManager:
                 raise
 
             try:
-                stray_tasks = self.pending_task_repo.find(filters={"status": ["pending", "enqueued"]})
+                stray_tasks = self.pending_task_repo.find(filters={"status": ["pending", "enqueued", "in-progress"]})
                 for task in stray_tasks:
                     function_key = task.function_key
                     if function_key not in self.function_cache:
@@ -169,6 +170,7 @@ class GlobalQueueManager:
             self.worker_tasks.clear()
             self.enqueue_task = None
             self.status_task = None 
+            self.cacheable_args.clear()
             print("[STOP] Stopped successfully and state reset")
         except Exception as e:
             print(f"[STOP] Failed to stop manager: {e}")
@@ -180,6 +182,13 @@ class GlobalQueueManager:
                 with self._lock:
                     pending_count = len(self.pending_tasks)
                     queue_size = self.queue.qsize()
+                    all_workers_idle = all([state == "idle" for state in self.worker_states.values()])
+
+                    if queue_size == 0 and all_workers_idle:
+                        print("[STATUS] No queued jobs or active workers, stopping manager")
+                        await self.stop()
+                        break
+
                     if pending_count == 0 and queue_size == 0:
                         print("[STATUS] No pending tasks or queued jobs, stopping manager")
                         await self.stop()
@@ -283,8 +292,12 @@ class GlobalQueueManager:
                 
             while not self.stop_event.is_set():
                 try:
+                    with self._lock:
+                        self.worker_states[worker_id] = "idle"
                     job = await self.queue.get()
                     job_id, function_key, args, kwargs, cfut = job
+                    with self._lock:
+                        self.worker_states[worker_id] = "busy"
                     print(f"[WORKER {worker_id}] Dequeued job {job_id}")
 
                     with self._lock:
@@ -366,6 +379,7 @@ class GlobalQueueManager:
                             )
                     finally:
                         with self._lock:
+                            self.worker_states[worker_id] = "idle"
                             if job_id in self.pending_tasks:
                                 del self.pending_tasks[job_id]
                                 print(f"[WORKER {worker_id}] Removed task {job_id} from pending_tasks")
@@ -470,6 +484,7 @@ class GlobalQueueManager:
                 variable_args = [args[i] for i in range(len(args)) if i not in cacheable_args.get("args", [])]
                 variable_kwargs = {k: v for k, v in kwargs.items() if k not in cacheable_args.get("kwargs", [])}
 
+                self.function_jobs[function_key].append(job_id)  # Track the job
                 task = LlmPendingTask(
                     task_id=job_id,
                     status="pending",
@@ -479,7 +494,6 @@ class GlobalQueueManager:
                     created_at=datetime.now()
                 )
                 self.pending_task_repo.insert(task)
-                self.function_jobs[function_key].append(job_id)  # Track the job
                 print(f"[SUBMIT_SYNC] Inserted task {job_id} and added to function_jobs")
         except Exception as e:
             print(f"[SUBMIT_SYNC] Failed to insert task {job_id}: {e}")

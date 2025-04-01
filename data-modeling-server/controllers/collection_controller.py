@@ -393,7 +393,7 @@ def get_reddit_posts_by_batch(
     params = [dataset_id]
     if hide_removed:
         base_query = """
-        SELECT p.id, p.*  
+        SELECT p.id, p.title, p.selftext, p.url, p.created_utc
         FROM posts p
         LEFT JOIN (
             SELECT post_id
@@ -423,7 +423,7 @@ def get_reddit_posts_by_batch(
         """
     else:
         base_query = """
-        SELECT p.id, p.* 
+        SELECT p.id, p.title, p.selftext, p.url, p.created_utc 
         FROM posts p
         WHERE p.dataset_id = ?
         """

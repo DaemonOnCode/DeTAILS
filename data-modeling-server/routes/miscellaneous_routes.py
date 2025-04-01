@@ -199,12 +199,12 @@ async def test_model_endpoint(
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     full_model = f"{request_body.provider}-{request_body.name}"
-    try:
-        llm, _ = llm_service.get_llm_and_embeddings(full_model)
-        llm.invoke("Hello!") 
-        return {"success": True}
-    except Exception as e:
-        raise InvalidGenAIModelError(f"Failed to initialize or invoke LLM: {str(e)}")
+    # try:
+    llm, _ = llm_service.get_llm_and_embeddings(full_model)
+    llm.invoke("Hello!") 
+    return {"success": True}
+    # except Exception as e:
+    #     raise InvalidGenAIModelError(f"Failed to initialize or invoke LLM: {str(e)}")
 
 @router.post("/test-embedding")
 async def test_embedding_endpoint(
@@ -213,17 +213,19 @@ async def test_embedding_endpoint(
 ):
 
     full_embedding = request_body.name
-    try:
-        if not llm_service.is_embedding_model_supported(full_embedding):
-            raise UnsupportedEmbeddingModelError(f"Embedding model '{full_embedding}' is not supported")
-        
-        # provider_name, embedding_name = llm_service._extract_provider_and_model(full_embedding)
-        provider_instance = llm_service.provider_factory.get_provider(request_body.provider)
-        embeddings = provider_instance.get_embeddings(request_body.name)
-        embeddings.embed_query("test")
-        return {"success": True}
-    except Exception as e:
-        raise InvalidTextEmbeddingError(f"Failed to initialize or use embeddings: {str(e)}")
+
+    print(f"Full embedding: {full_embedding}")
+    # try:
+    if not llm_service.is_embedding_model_supported(full_embedding):
+        raise UnsupportedEmbeddingModelError(f"Embedding model '{full_embedding}' is not supported")
+    
+    # provider_name, embedding_name = llm_service._extract_provider_and_model(full_embedding)
+    provider_instance = llm_service.provider_factory.get_provider(request_body.provider)
+    embeddings = provider_instance.get_embeddings(request_body.name)
+    embeddings.embed_query("test")
+    return {"success": True}
+    # except Exception as e:
+    #     raise InvalidTextEmbeddingError(f"Failed to initialize or use embeddings: {str(e)}")
 
 @router.post("/get-function-progress")
 async def get_function_progress(

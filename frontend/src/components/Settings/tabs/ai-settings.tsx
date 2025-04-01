@@ -13,6 +13,8 @@ import PullProgress from '../components/pull-progress';
 import { CommonSettingTabProps } from '../../../types/Settings/props';
 import { ModelObj, Metadata, ProviderSettings } from '../../../types/Settings/shared';
 
+const { ipcRenderer } = window.require('electron');
+
 const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     const { settings, updateSettings, markSectionDirty, setDisableBack } = useSettings();
     const { ai } = settings;
@@ -23,7 +25,6 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     const [localAi, setLocalAi] = useState(ai);
 
     // Other existing state
-    const [selectedProvider, setSelectedProvider] = useState('google');
     const [downloadedModels, setDownloadedModels] = useState<any[]>([]);
     const [downloadedModelsLoading, setDownloadedModelsLoading] = useState(false);
     const [ollamaInput, setOllamaInput] = useState('');
@@ -51,6 +52,9 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         setSaveCurrentSettings(() => () => updateSettings('ai', localAi));
     }, [localAi, updateSettings, setSaveCurrentSettings]);
 
+    const [selectedProvider, setSelectedProvider] = useState<string>(
+        localAi.model.split('-', 1)[0]
+    );
     // Reset provider-specific local state when provider changes
     useEffect(() => {
         const providerSettings = localAi.providers[selectedProvider];
@@ -197,7 +201,7 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
                     })
                 });
                 if (error) {
-                    setEmbeddingError('Invalid text embedding');
+                    setEmbeddingError('Invalid text embedding - ' + error.message.error_message);
                 } else {
                     setLocalAi((prev) => ({
                         ...prev,
@@ -264,7 +268,7 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
                     markSectionDirty('ai', true);
                     setNewModelInput('');
                 } else {
-                    setModelError('Invalid model');
+                    setModelError('Invalid model - ' + error.message.error_message);
                 }
             } else {
                 const newModelList = [...providerSettings.modelList, newModel];
@@ -339,6 +343,23 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         setDisableBack(false);
     };
 
+    const handleSelectCredentialsFolder = async () => {
+        const filePath = await ipcRenderer.invoke('select-file', ['json']);
+        if (filePath) {
+            setLocalAi((prev) => ({
+                ...prev,
+                providers: {
+                    ...prev.providers,
+                    vertexai: {
+                        ...prev.providers.vertexai,
+                        credentialsPath: filePath
+                    }
+                }
+            }));
+            markSectionDirty('ai', true);
+        }
+    };
+
     const handleDeleteDownloadedModel = async (modelObj: ModelObj) => {
         try {
             const { error } = await fetchData(REMOTE_SERVER_ROUTES.OLLAMA_DELETE, {
@@ -403,7 +424,7 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
                                     className={`ml-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors ${
                                         isCheckingEmbedding ? 'opacity-50 cursor-not-allowed' : ''
                                     }`}>
-                                    {isCheckingEmbedding ? 'Checking...' : 'Check and Update'}
+                                    {isCheckingEmbedding ? 'Checking...' : 'Check embedding'}
                                 </button>
                             </div>
                             {embeddingError && (
@@ -470,14 +491,22 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
             if ('credentialsPath' in providerSettings) {
                 return (
                     <div>
-                        <div>
-                            <label className="block font-medium">Credentials Path</label>
-                            <input
-                                type="text"
-                                value={providerSettings.credentialsPath}
-                                onChange={handleCredentialsPathChange}
-                                className="w-full p-2 border border-gray-300 rounded mt-1"
-                            />
+                        <div className="mb-4">
+                            <label className="block mb-2 font-medium">Credentials Path</label>
+                            <div className="flex">
+                                <input
+                                    type="text"
+                                    value={providerSettings.credentialsPath}
+                                    onChange={handleCredentialsPathChange}
+                                    className="flex-grow p-2 border border-gray-300 rounded-l"
+                                    placeholder="Enter or select credentials folder"
+                                />
+                                <button
+                                    onClick={handleSelectCredentialsFolder}
+                                    className="p-2 bg-blue-500 text-white rounded-r">
+                                    Select Folder
+                                </button>
+                            </div>
                         </div>
                         <div className="mt-4">
                             <label className="block font-medium">Text Embedding</label>

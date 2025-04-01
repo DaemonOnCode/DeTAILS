@@ -219,7 +219,7 @@ const DataViewerPage = () => {
         if (codeError) {
             console.error('Error generating initial codes:', codeError);
             if (codeError.name !== 'AbortError') {
-                toast.error('Error generating initial codes');
+                toast.error('Error generating initial codes. ' + (codeError.message ?? ''));
                 navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',

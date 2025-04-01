@@ -20,7 +20,7 @@ import KeywordTableRow from '../../components/Coding/KeywordTable/keyword-table-
 const { ipcRenderer } = window.require('electron');
 
 const KeywordsTablePage: FC = () => {
-    const { keywordTable, dispatchKeywordsTable } = useCodingContext();
+    const { keywordTable, dispatchKeywordsTable, selectedKeywords } = useCodingContext();
     const { datasetId } = useCollectionContext();
     const [saving, setSaving] = useState(false);
     const { loadingState } = useLoadingContext();
@@ -159,6 +159,10 @@ const KeywordsTablePage: FC = () => {
         );
     }
 
+    const filteredKeywordTable = keywordTable.filter((entry) =>
+        selectedKeywords.includes(entry.word)
+    );
+
     const isReadyCheck = keywordTable.some((entry) => entry.isMarked === true);
 
     return (
@@ -212,7 +216,7 @@ const KeywordsTablePage: FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {keywordTable.map((entry, index) => (
+                                    {filteredKeywordTable.map((entry, index) => (
                                         <KeywordTableRow
                                             key={index}
                                             entry={entry}

@@ -186,7 +186,7 @@ const DeductiveCodingPage = () => {
         if (error) {
             console.error('Error refreshing themes:', error);
             if (error.name !== 'AbortError') {
-                toast.error('Error finalizing codes');
+                toast.error('Error finalizing codes ' + (error.message ?? ''));
                 navigate(PAGE_ROUTES.DEDUCTIVE_CODING);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',

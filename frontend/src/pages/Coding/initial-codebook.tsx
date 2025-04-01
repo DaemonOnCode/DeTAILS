@@ -119,7 +119,9 @@ const InitialCodeBook = () => {
         if (error) {
             console.error('Error in handleNextClick:', error);
             if (error.name !== 'AbortError') {
-                toast.error('Error generating codebook. Please try again.');
+                toast.error(
+                    'Error generating codebook. Please try again. ' + (error.message ?? '')
+                );
                 navigate(PAGE_ROUTES.INITIAL_CODEBOOK);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
@@ -184,7 +186,7 @@ const InitialCodeBook = () => {
         if (error) {
             console.error('Error in handleRegenerateCodebook:', error);
             if (error.name !== 'AbortError') {
-                toast.error('Error generating codebook. Please try again.');
+                toast.error('Error generating codebook. Please try again. ' + error.message);
                 navigate(PAGE_ROUTES.INITIAL_CODEBOOK);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',

@@ -9,7 +9,7 @@ base_path = os.path.dirname(sys.argv[0])  # Directory where the .spec file is lo
 if os.name == "nt":  # Windows
     model_path = os.path.join(base_path, "./winenv/Lib/site-packages/en_core_web_sm/en_core_web_sm-3.8.0")
 else:  # macOS/Linux
-    model_path = os.path.join(base_path, "./.venv/lib/python3.10/site-packages/en_core_web_sm/en_core_web_sm-3.8.0")
+    model_path = os.path.join(base_path, "./.venv/lib/python3.11/site-packages/en_core_web_sm/en_core_web_sm-3.8.0")
 
 a = Analysis(
     ['main.py'],

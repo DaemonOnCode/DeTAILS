@@ -222,10 +222,10 @@ const KeywordCloudPage: FC = () => {
 
         console.log('response', response, selectedKeywords);
 
-        dispatchKeywordsTable({
-            type: 'INITIALIZE',
-            entries: response.filter((keyword) => selectedKeywords.includes(keyword.word))
-        });
+        // dispatchKeywordsTable({
+        //     type: 'INITIALIZE',
+        //     entries: response.filter((keyword) => selectedKeywords.includes(keyword.word))
+        // });
         await logger.info('Codebook Generation completed');
     };
 

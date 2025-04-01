@@ -98,12 +98,16 @@ export const useApi = (): UseApiResult => {
             try {
                 const response = await fetch(url, mergedOptions);
 
+                console.log('Request did not abort');
+
                 if (!response.ok) {
                     try {
+                        const text = await response.text();
+                        console.log('Error while request:', text);
                         const errorResponse: {
                             error_message: string;
                             error: string;
-                        } = await response.json();
+                        } = JSON.parse(text);
                         return {
                             error: {
                                 message: {
@@ -135,10 +139,13 @@ export const useApi = (): UseApiResult => {
                 const data = (await response.json()) as T;
                 return { data, abort: controller.abort.bind(controller) };
             } catch (error: any) {
-                console.error('Fetch error:', error);
+                console.log('Fetch error:', error);
                 return {
                     error: {
-                        message: error,
+                        message: {
+                            error: 'Fetch error',
+                            error_message: 'Error fetching data'
+                        },
                         name: 'FetchError'
                     },
                     abort: controller.abort.bind(controller)
@@ -214,7 +221,8 @@ export const useApi = (): UseApiResult => {
                     credentialsResponse = await fetchData(REMOTE_SERVER_ROUTES.CHECK_CREDENTIALS, {
                         method: 'POST',
                         body: JSON.stringify({
-                            credential_path: newCredentialPath
+                            provider: 'vertexai',
+                            credential: newCredentialPath
                         })
                     });
                 }
