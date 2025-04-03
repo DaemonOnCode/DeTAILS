@@ -125,7 +125,7 @@ async def download_reddit_from_torrent_endpoint(
         )
         message = f"Starting download for subreddit '{request_body.subreddit}' ..."
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
+        update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
         print(request_body.start_date, request_body.end_date)
         start_date = datetime.strptime(request_body.start_date, "%Y-%m")
@@ -140,7 +140,7 @@ async def download_reddit_from_torrent_endpoint(
         try:
             message = f"Fetching torrent data for months {start_month} through {end_month}..."
             await manager.send_message(app_id, message)
-            update_run_progress(run_id, message)
+            update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
             output_files = await get_reddit_data_from_torrent(
                 manager, app_id, run_id,
@@ -149,12 +149,13 @@ async def download_reddit_from_torrent_endpoint(
                 start_month, 
                 end_month, 
                 request_body.submissions_only,
-                request_body.use_fallback
+                request_body.use_fallback,
+                request_body.download_dir
             )
 
             message = f"Finished downloading {len(output_files)} file(s)."
             await manager.send_message(app_id, message)
-            update_run_progress(run_id, message)
+            update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
             academic_folder = None
             academic_folder_name = f"academic-torrent-{request_body.subreddit}"
@@ -165,7 +166,7 @@ async def download_reddit_from_torrent_endpoint(
                 os.makedirs(datasets_academic_folder)
                 message = f"Created datasets folder: {datasets_academic_folder}"
                 await manager.send_message(app_id, message)
-                update_run_progress(run_id, message)
+                update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
             print("Output files:", output_files)
             if len(output_files) > 0:
                 downloaded_dir = os.path.dirname(output_files[0])
@@ -175,7 +176,7 @@ async def download_reddit_from_torrent_endpoint(
                     os.makedirs(academic_folder, exist_ok=True)
                     message = f"Created folder: {academic_folder}"
                     await manager.send_message(app_id, message)
-                    update_run_progress(run_id, message)
+                    update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
                     
             print("Academic folder:", academic_folder)
             if not academic_folder:
@@ -187,7 +188,7 @@ async def download_reddit_from_torrent_endpoint(
 
             message = f"Parsing files into dataset {dataset_id}..."
             await manager.send_message(app_id, message)
-            update_run_progress(run_id, message)
+            update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
             print("Parsing files in academic folder:", academic_folder)
             if os.path.exists(academic_folder or ""):
@@ -199,20 +200,20 @@ async def download_reddit_from_torrent_endpoint(
             print("Finished parsing files.")
             message = "Parsing complete. All steps finished."
             await manager.send_message(app_id, message)
-            update_run_progress(run_id, message)
+            update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
 
 
             message = "Loading dataset, this may take a few moments..."
             await manager.send_message(app_id, message)
-            update_run_progress(run_id, message)
+            update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
         except Exception as e:
             err_msg = f"ERROR: {str(e)}"
             await manager.send_message(app_id, err_msg)
-            update_run_progress(run_id, err_msg)
+            # update_run_progress(run_id, err_msg)
             print(err_msg)
-            raise HTTPException(status_code=500, detail=err_msg)
+            raise e
         finally:
             delete_run(run_id)
 
@@ -360,6 +361,6 @@ async def check_reddit_torrent_availability(
         run_id = str(uuid4())
 
         result = await check_primary_torrent(
-            manager, app_id, run_id, request_body.subreddit, request_body.submissions_only
+            manager, app_id, run_id, request_body.subreddit, request_body.submissions_only, request_body.download_dir
         )
         return result

@@ -9,8 +9,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useCollectionContext } from '../../context/collection-context';
 import { useApi } from '../../hooks/Shared/use-api';
 import { TORRENT_END_DATE, TORRENT_START_DATE } from '../../constants/DataCollection/shared';
+import { useSettings } from '../../context/settings-context';
+import debounce from 'lodash/debounce';
 
-const { shell } = window.require('electron');
+const { shell, ipcRenderer } = window.require('electron');
+const fs = window.require('fs');
 
 const TorrentDataTab = ({
     torrentSubreddit,
@@ -22,7 +25,11 @@ const TorrentDataTab = ({
     torrentMode,
     setTorrentMode,
     handleLoadTorrent,
-    selectedFilesRef
+    selectedFilesRef,
+    selectedTorrentType,
+    setSelectedTorrentType,
+    downloadPath,
+    setDownloadPath
 }: {
     torrentSubreddit: string;
     setTorrentSubreddit: SetState<string>;
@@ -34,12 +41,17 @@ const TorrentDataTab = ({
     setTorrentMode: SetState<'posts' | 'postsAndComments'>;
     handleLoadTorrent: () => Promise<void>;
     selectedFilesRef: RefObject<{ getFiles: () => [string, string[]] } | null>;
+    selectedTorrentType: string;
+    setSelectedTorrentType: SetState<string>;
+    downloadPath: string;
+    setDownloadPath: SetState<string>;
 }) => {
     const location = useLocation();
     const { getServerUrl } = useServerUtils();
     const { fetchData } = useApi();
     const [checking, setChecking] = useState<boolean>(false);
     const navigate = useNavigate();
+    const { settings } = useSettings();
 
     const fetchTorrentData = useCallback(async () => {
         const { data, error } = await fetchData<any>(REMOTE_SERVER_ROUTES.GET_ALL_TORRENT_DATA);
@@ -53,7 +65,54 @@ const TorrentDataTab = ({
     const dataResource = useMemo(() => createResource(fetchTorrentData()), [fetchTorrentData]);
 
     const [transmissionExists, setTransmissionExists] = useState<boolean | null>(null);
-    // const { type } = useCollectionContext();
+
+    const checkFolderExistence = (path: string) => {
+        try {
+            const checkPath =
+                fs.existsSync(path) &&
+                fs
+                    .lstatSync(path, {
+                        throwIfNoEntry: false
+                    })
+                    ?.isDirectory();
+            console.log(
+                'Folder exists:',
+                checkPath,
+                fs.existsSync(path),
+                fs
+                    .lstatSync(path, {
+                        throwIfNoEntry: false
+                    })
+                    ?.isDirectory()
+            );
+            // setFolderExists(checkPath);
+            return checkPath;
+        } catch (error) {
+            console.error('Error checking folder existence:', error);
+            // setFolderExists(false);
+            return false;
+        }
+    };
+
+    const [folderExists, setFolderExists] = useState<boolean | null>(
+        checkFolderExistence(settings.transmission.downloadDir)
+    );
+    const debouncedCheckFolderExistence = useMemo(
+        () => debounce((path: string) => setFolderExists(checkFolderExistence(path)), 300),
+        []
+    );
+    const handleDownloadPathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newPath = e.target.value;
+        setDownloadPath(newPath);
+        debouncedCheckFolderExistence(newPath);
+    };
+
+    const handleSelectFolder = async () => {
+        const folderPath = await ipcRenderer.invoke('select-folder');
+        if (folderPath) {
+            setDownloadPath(folderPath);
+        }
+    };
 
     const checkTransmissionStatus = async () => {
         setChecking(true);
@@ -92,6 +151,7 @@ const TorrentDataTab = ({
     }
 
     const torrentDisabledCheck =
+        !folderExists ||
         torrentSubreddit === '' ||
         torrentStart === '' ||
         torrentEnd === '' ||
@@ -248,6 +308,48 @@ const TorrentDataTab = ({
                             Posts Only
                         </button>
                     </div>
+                </div>
+                <div className="mb-4">
+                    <label className="block mb-2">Select Torrent</label>
+                    <div className="flex space-x-4">
+                        <button
+                            onClick={() => setSelectedTorrentType('primary')}
+                            className={`px-4 py-2 rounded focus:outline-none transition-colors ${
+                                selectedTorrentType === 'primary'
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                            }`}>
+                            Primary Torrent
+                        </button>
+                        <button
+                            onClick={() => setSelectedTorrentType('fallback')}
+                            className={`px-4 py-2 rounded focus:outline-none transition-colors ${
+                                selectedTorrentType === 'fallback'
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                            }`}>
+                            Fallback Torrent
+                        </button>
+                    </div>
+                </div>
+
+                <div className="mb-4">
+                    <label className="block mb-2">Download Folder</label>
+                    <div className="flex">
+                        <input
+                            type="text"
+                            value={downloadPath}
+                            onChange={handleDownloadPathChange}
+                            className="flex-grow p-2 border border-gray-300 rounded-l"
+                            placeholder="Enter or select download folder"
+                        />
+                        <button
+                            onClick={handleSelectFolder}
+                            className="p-2 bg-blue-500 text-white rounded-r">
+                            Select Folder
+                        </button>
+                    </div>
+                    {!folderExists && <p className="text-red-500 mt-1">Folder does not exist.</p>}
                 </div>
                 <button
                     title={

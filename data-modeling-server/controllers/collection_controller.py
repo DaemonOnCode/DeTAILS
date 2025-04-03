@@ -1,6 +1,8 @@
 import asyncio
 from datetime import datetime
+import errno
 import json
+from multiprocessing import Pool
 import os
 import re
 import shutil
@@ -8,6 +10,7 @@ import time
 from typing import Counter, Dict, Optional
 from uuid import uuid4
 from aiofiles import open as async_open
+import aiofiles
 from fastapi import HTTPException, UploadFile
 from transmission_rpc import Client, Torrent, File as TorrentFile
 from dateutil.relativedelta import relativedelta
@@ -46,32 +49,36 @@ def get_current_download_dir():
         return settings["transmission"]["downloadDir"]
 
 
-def normalize_file_key(file_key: str) -> str:
+def normalize_file_key(file_key: str, current_download_dir: str = None) -> str:
     """
     If the file_key is an absolute path that starts with TRANSMISSION_DOWNLOAD_DIR,
     convert it to a relative path; otherwise, return the key unchanged.
     """
-    TRANSMISSION_DOWNLOAD_DIR_ABS = get_current_download_dir()
+    if current_download_dir is None:
+        TRANSMISSION_DOWNLOAD_DIR_ABS = get_current_download_dir()
+    else:
+        TRANSMISSION_DOWNLOAD_DIR_ABS = current_download_dir
     if file_key.startswith(TRANSMISSION_DOWNLOAD_DIR_ABS):
         return os.path.relpath(file_key, TRANSMISSION_DOWNLOAD_DIR_ABS)
     return file_key
 
 
-def get_file_key_full(msg: str, pattern: str, group_index: int = 2) -> str:
+def get_file_key_full(msg: str, pattern: str, group_index: int = 2, current_download_dir: str = None) -> str:
     m = re.search(pattern, msg, re.IGNORECASE)
     if m:
         key = m.group(group_index).strip()
         if key.endswith("..."):
             key = key[:-3].strip()
-        return normalize_file_key(key)
+        return normalize_file_key(key, current_download_dir)
     return None
 
-def update_run_progress(run_id: str, new_message: str):
+def update_run_progress(run_id: str, new_message: str, current_download_dir: str = None):
     """
     Updates the run's progress based on the received message.
     Mirrors the logic of your TypeScript function, using full file keys for file-related updates.
     """
-    DOWNLOAD_DIR = get_current_download_dir()
+    DOWNLOAD_DIR = current_download_dir or get_current_download_dir()
+    print("download dir", DOWNLOAD_DIR)
     # === Update Workspace Progress ===
     try:
         progress = progress_repo.get_progress(run_id)
@@ -219,7 +226,7 @@ def update_run_progress(run_id: str, new_message: str):
 
     # -- Processing/Processed File --
     if "processing file:" in new_message.lower() or "processed file:" in new_message.lower():
-        key = get_file_key_full(new_message, r"(Processing|Processed)\s+file:\s+(.*?)(?:\s|\(|\.\.\.|$)")
+        key = get_file_key_full(new_message, r"(Processing|Processed)\s+file:\s+(.*?)(?:\s|\(|\.\.\.|$)", current_download_dir=DOWNLOAD_DIR)
         if key:
             file_data = file_repo.get_file_progress(run_id, key)
             file_messages = json.loads(file_data.messages) if file_data.messages else []
@@ -228,7 +235,7 @@ def update_run_progress(run_id: str, new_message: str):
 
     # -- Downloading File Progress --
     if "downloading" in new_message.lower() and "%" in new_message:
-        key = get_file_key_full(new_message, r"Downloading\s+(.*?):\s+([\d.]+)%\s+\((\d+)/(\d+)\s+bytes\)", group_index=1)
+        key = get_file_key_full(new_message, r"Downloading\s+(.*?):\s+([\d.]+)%\s+\((\d+)/(\d+)\s+bytes\)", group_index=1, current_download_dir=DOWNLOAD_DIR)
         if key:
             m = re.search(r"Downloading\s+(.*?):\s+([\d.]+)%\s+\((\d+)/(\d+)\s+bytes\)", new_message, re.IGNORECASE)
             percent = float(m.group(2))
@@ -245,7 +252,7 @@ def update_run_progress(run_id: str, new_message: str):
 
     # -- Fully Downloaded File --
     if "fully downloaded" in new_message.lower():
-        key = get_file_key_full(new_message, r"File\s+(.*)\s+fully downloaded.*\((\d+)/(\d+)\s+bytes\)", group_index=1)
+        key = get_file_key_full(new_message, r"File\s+(.*)\s+fully downloaded.*\((\d+)/(\d+)\s+bytes\)", group_index=1, current_download_dir=DOWNLOAD_DIR)
         if key:
             m = re.search(r"File\s+(.*)\s+fully downloaded.*\((\d+)/(\d+)\s+bytes\)", new_message, re.IGNORECASE)
             completed = int(m.group(2))
@@ -261,7 +268,7 @@ def update_run_progress(run_id: str, new_message: str):
 
     # -- Extracting File --
     if "Extracting" in new_message:
-        key = get_file_key_full(new_message, r"Extracting.*from\s+(.*?\.zst)(?:\.{3})?", group_index=1)
+        key = get_file_key_full(new_message, r"Extracting.*from\s+(.*?\.zst)(?:\.{3})?", group_index=1, current_download_dir=DOWNLOAD_DIR)
         if key:
             file_data = file_repo.get_file_progress(run_id, key)
             file_messages = json.loads(file_data.messages) if file_data.messages else []
@@ -285,11 +292,11 @@ def update_run_progress(run_id: str, new_message: str):
     if "Processed data saved to monthly JSON files for" in new_message:
         m = re.search(r"Processed data saved to monthly JSON files for\s+(.*)", new_message)
         if m:
-
             file_key = m.group(1).strip() 
             rel_dir = os.path.relpath(file_key, DOWNLOAD_DIR)
             key = os.path.join(rel_dir, file_key)
             file_data = file_repo.get_file_progress(run_id, rel_dir)
+            print("This is the file data", file_data)
             file_messages = json.loads(file_data.messages) if file_data.messages else []
             file_messages.append(new_message)
             file_repo.update_file_progress(
@@ -329,7 +336,7 @@ def update_run_progress(run_id: str, new_message: str):
 
     # -- Error Downloading File --
     if "error downloading" in new_message.lower():
-        key = get_file_key_full(new_message, r"ERROR downloading\s+(.*?):", group_index=1)
+        key = get_file_key_full(new_message, r"ERROR downloading\s+(.*?):", group_index=1, current_download_dir=DOWNLOAD_DIR)
         if key:
             file_data = file_repo.get_file_progress(run_id, key)
             file_messages = json.loads(file_data.messages) if file_data.messages else []
@@ -538,7 +545,22 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
     dataset_path = dataset_path or os.path.join(DATASETS_DIR, dataset_id)
     
     all_files = []
-    for f in os.listdir(dataset_path):
+    try:
+        files = os.listdir(dataset_path)
+    except FileNotFoundError:
+        print(f"Directory not found: {dataset_path}")
+        return {"error": f"Directory not found: {dataset_path}"}
+    except NotADirectoryError:
+        print(f"Not a directory: {dataset_path}")
+        return {"error": f"Not a directory: {dataset_path}"}
+    except PermissionError:
+        print(f"Permission denied: {dataset_path}")
+        return {"error": f"Permission denied: {dataset_path}"}
+    except Exception as e:
+        print(f"Unexpected error listing directory {dataset_path}: {e}")
+        return {"error": f"Unexpected error: {e}"}
+    
+    for f in files:
         if f.endswith(".json"):
             full_path = os.path.join(dataset_path, f)
             if f.startswith("RS_") or f.startswith("RC_"):
@@ -591,6 +613,21 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
         try:
             with open(file["path"], "r", encoding="utf-8") as f:
                 raw_data_str = f.read()
+        except FileNotFoundError:
+            print(f"File not found: {file['path']}")
+            raise e
+        except PermissionError:
+            print(f"Permission denied: {file['path']}")
+            raise e
+        except IOError as e:
+            print(f"IO error reading file {file['path']}: {e}")
+            raise e
+        except Exception as e:
+            print(f"Unexpected error reading file {file['path']}: {e}")
+            raise e
+        try:
+            # with open(file["path"], "r", encoding="utf-8") as f:
+            #     raw_data_str = f.read()
             raw_data = json.loads(raw_data_str, strict=False)
         except json.JSONDecodeError as e:
             print(f"Error decoding JSON in file {file['path']}: {e}")
@@ -706,7 +743,22 @@ async def run_command_async(command: str) -> str:
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
         print("Command failed with return code:", process.returncode)
-        print("Error output:", stderr.decode())
+        error_message = stderr.decode().strip()
+        print("Error output:", error_message)
+        if "No such file or directory" in error_message:
+            raise FileNotFoundError(error_message)
+        elif "Permission denied" in error_message:
+            raise PermissionError(error_message)
+        elif "Out of memory" in error_message:
+            raise MemoryError(error_message)
+        elif "No space left on device" in error_message:
+            raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+        elif "Input/output error" in error_message:
+            raise OSError(errno.EIO, os.strerror(errno.EIO))
+        elif "Broken pipe" in error_message:
+            raise OSError(errno.EPIPE, os.strerror(errno.EPIPE))
+        else:
+            raise RuntimeError(f"zstd command failed: {error_message}")
     else:
         print("Command executed successfully.")
     return stdout.decode()
@@ -717,8 +769,9 @@ async def process_reddit_data(
     run_id: str,
     subreddit: str,
     zst_filename: str,
-    is_primary: bool = False  
-) -> str:
+    is_primary: bool = False,
+    current_download_dir: str = None
+) -> list[str]:
     directory = os.path.dirname(zst_filename)
     intermediate_filename = f"output_{time.time()}.jsonl"
     intermediate_file = os.path.join(directory, intermediate_filename)
@@ -746,7 +799,7 @@ async def process_reddit_data(
     print(f"Running command:\n{command}")
     message = f"Extracting data from {zst_filename}..."
     await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
+    update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
     await run_command_async(command)
 
@@ -760,60 +813,86 @@ async def process_reddit_data(
         else:
             raise ValueError(f"Cannot determine data type from filename: {zst_filename}")
 
-        monthly_files = {}
+        # Read all lines synchronously for multiprocessing
         with open(intermediate_file, "r", encoding="utf-8") as infile:
-            for line in infile:
-                try:
-                    obj = json.loads(line.strip())
-                    created_utc = obj.get("created_utc")
-                    if created_utc:
-                        created_utc_float = float(created_utc)
-                        dt = datetime.fromtimestamp(created_utc_float)
-                        year = dt.year
-                        month = dt.month
-                        key = f"{year}-{month:02d}"
-                        if key not in monthly_files:
-                            monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
-                            monthly_files[key] = open(monthly_filename, "w", encoding="utf-8")
-                        monthly_files[key].write(line)
-                    else:
-                        print("Skipping object without 'created_utc' field.")
-                except json.JSONDecodeError:
-                    print("Skipping invalid JSON line.")
+            lines = infile.readlines()
+            
 
-        for file in monthly_files.values():
-            file.close()
+        # Worker function for primary mode
+        def process_line_primary(line):
+            try:
+                obj = json.loads(line.strip())
+                created_utc = obj.get("created_utc")
+                if created_utc:
+                    dt = datetime.fromtimestamp(float(created_utc))
+                    key = f"{dt.year}-{dt.month:02d}"
+                    return (key, line)
+                return None
+            except json.JSONDecodeError:
+                print("Skipping invalid JSON line.")
+                return None
+
+        # Use multiprocessing to process lines
+        num_processes = os.cpu_count()
+        with Pool(processes=num_processes) as pool:
+            results = pool.map(process_line_primary, lines)
+
+        # Group results by month and write to files
+        monthly_files = {}
+        for result in [r for r in results if r is not None]:
+            key, line = result
+            if key not in monthly_files:
+                monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+                print(f"Opening monthly file for writing: {monthly_filename}")
+                monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
+            await monthly_files[key].write(line)
+
+        # Close all monthly files
+        for key, file in monthly_files.items():
+            print(f"Closing monthly file: R{data_type}_{key}.jsonl")
+            await file.close()
 
         json_files = []
         for key in monthly_files:
             jsonl_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
             json_filename = os.path.join(directory, f"R{data_type}_{key}.json")
-            with open(jsonl_filename, "r", encoding="utf-8") as jsonl_file, \
-                 open(json_filename, "w", encoding="utf-8") as json_file:
-                json_file.write("[\n")
-                first = True
-                for line in jsonl_file:
-                    if not first:
-                        json_file.write(",\n")
-                    json_file.write(line.strip())
-                    first = False
-                json_file.write("\n]")
+            print(f"Converting {jsonl_filename} to {json_filename}")
+            try:
+                async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as jsonl_file, \
+                        aiofiles.open(json_filename, "w", encoding="utf-8") as json_file:
+                    await json_file.write("[\n")
+                    first = True
+                    async for line in jsonl_file:
+                        if not first:
+                            await json_file.write(",\n")
+                        await json_file.write(line.strip())
+                        first = False
+                    await json_file.write("\n]")
+            except FileNotFoundError:
+                print(f"File not found: {jsonl_filename}")
+                raise
+            except PermissionError:
+                print(f"Permission denied: {jsonl_filename} or {json_filename}")
+                raise
+            except IOError as e:
+                print(f"IO error processing {jsonl_filename}: {e}")
+                raise
             json_files.append(json_filename)
-        
-
 
         try:
+            print(f"Removing intermediate file: {intermediate_file}")
             os.remove(intermediate_file)
             for key in monthly_files:
+                monthly_jsonl = os.path.join(directory, f"R{data_type}_{key}.jsonl")
                 print(f"Intermediate file R{data_type}_{key}.jsonl removed.")
-                os.remove(os.path.join(directory, f"R{data_type}_{key}.jsonl"))
+                os.remove(monthly_jsonl)
             print(f"Intermediate file {intermediate_filename} removed.")
         except Exception as e:
             print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
 
         message = f"Processed data saved to monthly JSON files for {zst_filename}"
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
+        update_run_progress(run_id, message, current_download_dir=current_download_dir)
         
         return json_files
 
@@ -822,34 +901,50 @@ async def process_reddit_data(
         base = os.path.splitext(os.path.basename(zst_filename))[0]
         output_filename = os.path.join(directory, f"{base}.json")
 
-        with open(intermediate_file, "r", encoding="utf-8") as infile, \
-            open(output_filename, "w", encoding="utf-8") as outfile:
-            outfile.write("[\n")
+        # Read all lines synchronously for multiprocessing
+        with open(intermediate_file, "r", encoding="utf-8") as infile:
+            lines = infile.readlines()
+
+        # Worker function for fallback mode
+        def process_line_fallback(line):
+            try:
+                obj = json.loads(line.strip())
+                if obj.get("subreddit") == subreddit:
+                    return json.dumps(obj, ensure_ascii=False) + "\n"
+                return None
+            except json.JSONDecodeError:
+                print("Skipping invalid JSON line.")
+                return None
+
+        # Use multiprocessing to process lines
+        num_processes = os.cpu_count()
+        with Pool(processes=num_processes) as pool:
+            results = pool.map(process_line_fallback, lines)
+
+        # Write filtered lines to output file
+        async with aiofiles.open(output_filename, "w", encoding="utf-8") as outfile:
+            await outfile.write("[\n")
             first = True
-            for line in infile:
-                try:
-                    obj = json.loads(line.strip())
-                    if obj.get("subreddit") == subreddit:
-                        if not first:
-                            outfile.write(",\n")
-                        outfile.write(json.dumps(obj, ensure_ascii=False))
-                        first = False
-                except json.JSONDecodeError:
-                    print("Skipping invalid JSON line.")
-            outfile.write("\n]")
+            for line in [r for r in results if r is not None]:
+                if not first:
+                    await outfile.write(",\n")
+                await outfile.write(line.strip())
+                first = False
+            await outfile.write("\n]")
 
         print(f"Processed data saved to {output_filename}")
         message = f"JSON extracted: {output_filename}"
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
+        update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
         try:
+            print(f"Removing intermediate file: {intermediate_file}")
             os.remove(intermediate_file)
             print(f"Intermediate file {intermediate_filename} removed.")
         except Exception as e:
             print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
 
-        return [output_filename] 
+        return [output_filename]
 
 
 
@@ -890,7 +985,8 @@ async def wait_for_metadata(
     app_id: str,
     run_id: str,
     c: Client,
-    torrent: Torrent
+    torrent: Torrent,
+    current_download_dir: str = None,
 ) -> Torrent:
     c.start_torrent(torrent.id)
 
@@ -898,14 +994,14 @@ async def wait_for_metadata(
         message = f"Metadata progress: {torrent.metadata_percent_complete * 100:.2f}%"
         print(message)
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
+        update_run_progress(run_id, message, current_download_dir=current_download_dir)
         await asyncio.sleep(1)
         torrent = c.get_torrent(torrent.id)
 
     message = "Metadata download complete. Verifying metadata..."
     print(message)
     await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
+    update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
     timeout_seconds = 15
     check_interval = 1
@@ -925,7 +1021,7 @@ async def wait_for_metadata(
     message = "Metadata fully loaded. Stopping torrent."
     print(message)
     await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
+    update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
     c.stop_torrent(torrent.id)
     return torrent
@@ -953,6 +1049,15 @@ async def verify_torrent_with_retry(
             await asyncio.sleep(10)
             torrent = c.add_torrent(torrent_url, download_dir=download_dir)
             print("Torrent re-added.")
+            while True:
+                try:
+                    torrent = c.get_torrent(torrent.id)
+                    if torrent.status not in ["stopped", "check pending", "checking"]:
+                        break
+                except Exception as e:
+                    print(f"Waiting for torrent to be recognized: {e}")
+                await asyncio.sleep(5)
+
             torrent = await wait_for_metadata(manager, app_id, run_id, c, torrent)
             c.verify_torrent(torrent.id)
             print("Re-verifying torrent.")
@@ -964,12 +1069,12 @@ async def verify_torrent_with_retry(
         message = f"Verification in progress: {status}"
         print(message)
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
+        update_run_progress(run_id, message, current_download_dir=download_dir)
         await asyncio.sleep(5)
     message = "Torrent verified. Starting download."
     print(message)
     await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
+    update_run_progress(run_id, message, current_download_dir=download_dir)
     return torrent
 
 
@@ -1001,10 +1106,10 @@ async def process_single_file(
 
     message = f"Processing file: {file_name} ..."
     await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
+    update_run_progress(run_id, message, current_download_dir=download_dir)
 
     torrent_files = c.get_torrent(torrent.id).get_files()
-    print(f"Torrent files: {torrent_files}")
+    # print(f"Torrent files: {torrent_files}")
 
     wanted_file = next((f for f in torrent_files if f.name == file_name), None)
     if not wanted_file:
@@ -1027,11 +1132,20 @@ async def process_single_file(
         while True:
             torrent = c.get_torrent(torrent.id)
             if hasattr(torrent, "error") and torrent.error != 0:
-                err_msg = f"ERROR downloading {file_name}: {torrent.error_string}"
+                err_msg = f"Error downloading {file_name}: {torrent.error_string}"
                 print(err_msg)
                 await manager.send_message(app_id, err_msg)
                 update_run_progress(run_id, err_msg)
-                raise Exception(err_msg)
+                if "Out of memory" in err_msg:
+                    raise MemoryError(err_msg)
+                elif "No space left on device" in err_msg:
+                    raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+                elif "Input/output error" in err_msg:
+                    raise OSError(errno.EIO, os.strerror(errno.EIO))
+                elif "Broken pipe" in err_msg:
+                    raise OSError(errno.EPIPE, os.strerror(errno.EPIPE))
+                else:
+                    raise RuntimeError(f"Torrent download failed: {err_msg}")
             
             file_status = next((f for f in torrent.get_files() if f.id == file_id), None)
             if file_status and file_status.completed >= file_status.size:
@@ -1039,7 +1153,7 @@ async def process_single_file(
                 message = f"File {file_name} fully downloaded ({file_status.completed}/{file_status.size} bytes)."
                 print(message)
                 await manager.send_message(app_id, message)
-                update_run_progress(run_id, message)
+                update_run_progress(run_id, message, current_download_dir=download_dir)
                 break
             else:
                 if file_status and file_status.size != 0:
@@ -1047,7 +1161,7 @@ async def process_single_file(
                     message = f"Downloading {file_name}: {pct_done:.2f}% ({file_status.completed}/{file_status.size} bytes)"
                     print(message)
                     await manager.send_message(app_id, message)
-                    update_run_progress(run_id, message)
+                    update_run_progress(run_id, message, current_download_dir=download_dir)
                 else:
                     print(f"Waiting for file {file_name} to start...")
                 await asyncio.sleep(5)
@@ -1056,10 +1170,10 @@ async def process_single_file(
             message = f"Waiting for file {file_path_zst} to appear on disk..."
             print(message)
             await manager.send_message(app_id, message)
-            update_run_progress(run_id, message)
+            update_run_progress(run_id, message, current_download_dir=download_dir)
             await asyncio.sleep(5)
         
-        output_files = await process_reddit_data(manager, app_id, run_id, subreddit, file_path_zst, is_primary)
+        output_files = await process_reddit_data(manager, app_id, run_id, subreddit, file_path_zst, is_primary, download_dir)
 
         parent_dir = os.path.dirname(os.path.dirname(file_path_zst))
         academic_folder_name = f"academic-torrent-{subreddit}"
@@ -1088,25 +1202,26 @@ async def process_single_file(
             os.symlink(academic_file_path, symlink_path)
             message = f"Symlink created: {symlink_path} -> {academic_file_path}"
             await manager.send_message(app_id, message)
-            update_run_progress(run_id, message)
+            update_run_progress(run_id, message, current_download_dir=download_dir)
 
             if os.stat(academic_file_path).st_size <= 5:
                 message = f"No data found in {os.path.basename(academic_file_path)} for {subreddit}."
                 await manager.send_message(app_id, message)
-                update_run_progress(run_id, message)
+                update_run_progress(run_id, message, current_download_dir=download_dir)
 
             academic_file_paths.append(academic_file_path)
 
         message = f"Processed file: {file_name} into {len(academic_file_paths)} files."
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
+        update_run_progress(run_id, message, current_download_dir=download_dir)
         print(f"Processing complete for file {file_name}.")
 
     except Exception as e:
         print(f"Error processing file {file_name}: {e}")
         message = f"Error processing file {file_name}: {e}"
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
+        # update_run_progress(run_id, message, current_download_dir=download_dir)
+        raise e
     finally:
         c.stop_torrent(torrent.id)
         if os.path.exists(file_path_zst):
@@ -1127,9 +1242,13 @@ async def get_reddit_data_from_torrent(
     end_month: str = "2023-12",
     submissions_only: bool = True,
     use_fallback: bool = False,
+    download_dir: str = None,
 ):
     settings = config.CustomSettings()
-    TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = get_current_download_dir()
+    if not download_dir:
+        TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = get_current_download_dir()
+    else:
+        TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = download_dir
     print(f"Transmission download dir: {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}")
     
     PRIMARY_MAGNET_LINK = settings.transmission.magnetLink
@@ -1168,7 +1287,7 @@ async def get_reddit_data_from_torrent(
     #     message = f"Using fallback torrent with range {start_month} to {end_month}."
     
     # await manager.send_message(app_id, message)
-    # update_run_progress(run_id, message)
+    # update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
     if not use_fallback:
         torrent_hash_string = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
@@ -1188,13 +1307,13 @@ async def get_reddit_data_from_torrent(
         message += " (Using existing torrent)"
     
     await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
+    update_run_progress(run_id, message, current_download_dir=download_dir)
 
     if current_torrent.download_dir != TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR:
         message = f"Torrent download directory mismatch. Moving data to {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}..."
         print(message)
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
+        update_run_progress(run_id, message, current_download_dir=download_dir)
         c.move_torrent_data(current_torrent.id, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
         await asyncio.sleep(10)  
         current_torrent = await verify_torrent_with_retry(manager, app_id, run_id, c, current_torrent, magnet_link, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
@@ -1203,9 +1322,9 @@ async def get_reddit_data_from_torrent(
         message = f"Torrent data moved and verified in {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}."
         print(message)
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
+        update_run_progress(run_id, message, current_download_dir=download_dir)
 
-    torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, current_torrent)
+    torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, current_torrent, current_download_dir=download_dir)
     
     if not use_fallback:
         files_to_process = get_files_to_process_primary(torrent_to_use.get_files(), subreddit, submissions_only)
@@ -1227,11 +1346,11 @@ async def get_reddit_data_from_torrent(
         already_processed_names = [os.path.splitext(os.path.basename(f))[0] for f in files_already_processed]
         message = f"Files already downloaded: {', '.join(already_processed_names)}"
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
+        update_run_progress(run_id, message, current_download_dir=download_dir)
     
     message = f"Files to process: {len(files_to_process_actually)}"
     await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
+    update_run_progress(run_id, message, current_download_dir=download_dir)
 
     file_repo.insert_batch(
         list(map(lambda f: FileStatus(run_id=run_id, file_name=f, workspace_id=workspace_id, dataset_id=dataset_id), files_to_process_actually))
@@ -1248,7 +1367,7 @@ async def get_reddit_data_from_torrent(
     message = f"All wanted files have been processed. Total new files: {len(all_output_files)}."
     print(message)
     await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
+    update_run_progress(run_id, message, current_download_dir=download_dir)
     return all_output_files
 
 
@@ -1357,12 +1476,15 @@ async def check_primary_torrent(
     run_id: str,
     subreddit: str,
     submissions_only: bool,
+    download_dir: str = None,
 ):
-    TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = get_current_download_dir()
+    if not download_dir:
+        TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = get_current_download_dir()
+    else:
+        TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR = download_dir
     c = Client(host="localhost", port=9091, username="transmission", password="password")
 
     PRIMARY_MAGNET_LINK = config.CustomSettings().transmission.magnetLink
-
     primary_hash = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
     torrents = c.get_torrents()
     primary_torrent = next((t for t in torrents if t.hashString == primary_hash), None)
@@ -1371,10 +1493,22 @@ async def check_primary_torrent(
 
     message = f"Checking primary torrent for subreddit '{subreddit}'..."
     await manager.send_message(app_id, message)
-    update_run_progress(run_id, message)
+    update_run_progress(run_id, message, current_download_dir=download_dir)
 
     primary_torrent = await wait_for_metadata(manager, app_id, run_id, c, primary_torrent)
     primary_files = get_files_to_process_primary(primary_torrent.get_files(), subreddit, submissions_only)
+
+    file_sizes = [file.size for file in primary_torrent.get_files() if file.name in primary_files]
+    total_size = sum(file_sizes)
+
+    download_dir = TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR
+    available_space = shutil.disk_usage(download_dir).free
+
+    if total_size > available_space:
+        message = f"Insufficient disk space for subreddit '{subreddit}'. Required: {total_size} bytes, Available: {available_space} bytes."
+        await manager.send_message(app_id, message)
+        update_run_progress(run_id, message, current_download_dir=download_dir)
+        return {"status": False, "files": primary_files, "error": "Insufficient disk space"}
 
     state_dump_repo.insert(
         StateDump(
@@ -1382,6 +1516,8 @@ async def check_primary_torrent(
                 "subreddit": subreddit,
                 "primary_files": primary_files,
                 "status": len(primary_files) > 0,
+                "total_size": total_size,
+                "available_space": available_space,
             }),
             context=json.dumps({
                 "function": "check_primary_torrent",
@@ -1390,12 +1526,12 @@ async def check_primary_torrent(
     )
 
     if len(primary_files) > 0:
-        message = f"Found subreddit '{subreddit}' in primary torrent. Files available: {len(primary_files)}"
+        message = f"Found subreddit '{subreddit}' in primary torrent. Files available: {len(primary_files)}, Total size: {total_size} bytes"
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
-        return {"status": True, "files": primary_files}
+        update_run_progress(run_id, message, current_download_dir=download_dir)
+        return {"status": True, "files": primary_files, "total_size": total_size}
     else:
         message = f"Subreddit '{subreddit}' not found in primary torrent."
         await manager.send_message(app_id, message)
-        update_run_progress(run_id, message)
-        return {"status": False, "files": []}
+        update_run_progress(run_id, message, current_download_dir=download_dir)
+        return {"status": False, "files": [], "total_size": 0, "error": "Subreddit not found"}

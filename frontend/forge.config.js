@@ -37,11 +37,19 @@ module.exports = {
     },
     rebuildConfig: {},
     makers: [
+        // {
+        //     name: '@electron-forge/maker-wix',
+        //     platforms: ['win32'],
+        //     config: {
+        //         appIcon: 'public/favicon.ico',
+        //         setupIcon: 'public/favicon.ico'
+        //     }
+        // },
         {
             name: '@electron-forge/maker-squirrel',
             config: {
                 setupIcon: 'public/favicon.ico',
-                icon: 'public/favicon.ico'
+                iconUrl: `file://${path.resolve(__dirname, 'public', 'favicon.ico')}`
             }
         },
         {

@@ -11,6 +11,7 @@ import { ROUTES, LOADER_ROUTES } from '../../../constants/Coding/shared';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 import { useLoadingContext } from '../../../context/loading-context';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 const path = window.require('path');
 
 // Data model for pipeline steps
@@ -43,18 +44,20 @@ function formatBytes(bytes: number, decimals = 2): string {
 
 // Helper to parse the mode input string (if needed)
 function parseModeInput(modeInput: string) {
-    // Expected format: "reddit:torrent:subreddit|start|end|postsOnly"
+    // Expected format: "reddit:torrent:subreddit|start|end|postsOnly|true|path"
     const parts = modeInput.split(':');
     if (parts.length !== 3) {
         throw new Error('Invalid mode input format');
     }
     const data = parts[2];
-    const [subreddit, start, end, postsOnlyStr] = data.split('|');
+    const [subreddit, start, end, postsOnlyStr, useFallback, downloadPath] = data.split('|');
     return {
         subreddit,
         start,
         end,
-        postsOnly: postsOnlyStr === 'true'
+        postsOnly: postsOnlyStr === 'true',
+        useFallback: useFallback === 'true',
+        downloadPath
     };
 }
 
@@ -243,10 +246,20 @@ const TorrentLoader: React.FC = () => {
             setTotalFiles(0);
             setDownloadedFiles([]);
             await new Promise((resolve) => setTimeout(resolve, 10000));
-            const { subreddit, start, end, postsOnly } = parseModeInput(modeInput);
-            const { error } = await loadTorrentData(true, subreddit, start, end, postsOnly);
+            const { subreddit, start, end, postsOnly, useFallback, downloadPath } =
+                parseModeInput(modeInput);
+            const { error } = await loadTorrentData(
+                true,
+                subreddit,
+                start,
+                end,
+                postsOnly,
+                useFallback,
+                downloadPath
+            );
             if (error) {
-                throw new Error('Failed to retry request');
+                toast.error('Error while downloading torrent. ' + error);
+                throw new Error('Error while downloading torrent. ' + error);
             }
             loadingDispatch({
                 type: 'SET_REST_UNDONE',

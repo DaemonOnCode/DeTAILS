@@ -14,3 +14,7 @@ ollama-*
 **/*.log
 !**/requirements*.txt
 transmission-downloads
+node_modules_*
+package-lock_*
+*.exe
+intense*

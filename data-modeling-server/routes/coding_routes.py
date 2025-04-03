@@ -1148,6 +1148,33 @@ async def generate_codes_endpoint(request: Request,
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
+        unique_codes = list(set(row["code"] for row in final_results))
+
+        res = await cluster_words_with_llm(
+            unique_codes,
+            request_body.model,
+            app_id,
+            dataset_id,
+            manager,
+            llm,
+            llm_queue_manager,
+            parent_function_name="remake-codebook",
+        )
+
+        print("Clustered words with LLM", res)
+
+        reverse_map_one_to_one = {}
+
+        # Iterate through each topic and each of its sub-topics
+        for topic_head, subtopics in res.items():
+            for subtopic in subtopics:
+                # Only set the mapping if this subtopic hasn't been assigned yet
+                if subtopic not in reverse_map_one_to_one:
+                    reverse_map_one_to_one[subtopic] = topic_head
+
+        for row in final_results:
+            row["code"] = reverse_map_one_to_one.get(row["code"], row["code"])
+
         state_dump_repo.insert(
             StateDump(
                 state=json.dumps({

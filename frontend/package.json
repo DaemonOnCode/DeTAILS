@@ -9,6 +9,7 @@
         "@electron-forge/maker-dmg": "^7.6.1",
         "@electron-forge/maker-rpm": "^7.6.1",
         "@electron-forge/maker-squirrel": "^7.6.1",
+        "@electron-forge/maker-wix": "^7.8.0",
         "@electron-forge/maker-zip": "^7.6.1",
         "@electron-forge/plugin-auto-unpack-natives": "^7.6.1",
         "@electron-forge/plugin-fuses": "^7.6.1",
@@ -92,11 +93,12 @@
         "format": "prettier --write .",
         "update": "taze latest -w",
         "serve:chroma": "chroma run --path ${DB_PATH:-../chroma}",
-        "executable:build": "cd ../executables && ./build.sh",
+        "executable:build-mac": "cd ../executables && ./build.sh",
+        "executable:build-win": "powershell -Command \"Set-Location -Path '..\\executables_windows'; if ($?) { .\\build.ps1 } else { Write-Error 'Failed to change directory'; exit 1 }\"",
         "start": "cross-env NODE_ENV=production electron-forge start",
         "package": "cross-env NODE_ENV=production electron-forge package",
-        "make": "npm run executable:build && npm run build && cross-env NODE_ENV=production electron-forge make",
-        "make-win": "npm run build && cross-env NODE_ENV=production electron-forge make --platform=win32"
+        "make-mac": "npm run executable:build-mac && npm run build && cross-env NODE_ENV=production electron-forge make --platform=darwin",
+        "make-win": "npm run executable:build-win && npm run build && cross-env NODE_ENV=production electron-forge make --platform=win32"
     },
     "eslintConfig": {
         "extends": [

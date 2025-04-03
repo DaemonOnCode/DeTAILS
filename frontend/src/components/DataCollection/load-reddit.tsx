@@ -12,6 +12,8 @@ import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
 import { useLoadingContext } from '../../context/loading-context';
 import { TORRENT_END_DATE, TORRENT_START_DATE } from '../../constants/DataCollection/shared';
+import { useSettings } from '../../context/settings-context';
+import { toast } from 'react-toastify';
 
 const { ipcRenderer, shell } = window.require('electron');
 
@@ -38,6 +40,7 @@ const LoadReddit: FC<{
     const [searchParams, setSearchParams] = useSearchParams();
     const queryActiveTab = searchParams.get('activeTab') as 'folder' | 'torrent' | null;
     console.log('queryActiveTab', queryActiveTab);
+    const { settings } = useSettings();
 
     const [activeTab, setActiveTab] = useState<'folder' | 'torrent'>(queryActiveTab ?? 'torrent');
 
@@ -50,6 +53,8 @@ const LoadReddit: FC<{
     let torrentStartInitial = defaultStart;
     let torrentEndInitial = defaultEnd;
     let torrentModeInitial = defaultMode;
+    let torrentTypeInitial: 'primary' | 'fallback' = 'primary';
+    let torrentDownloadPathInitial = settings.transmission.downloadDir;
 
     if (modeInput && typeof modeInput === 'string') {
         const modeSplits = modeInput.split(':');
@@ -60,6 +65,8 @@ const LoadReddit: FC<{
                 torrentStartInitial = torrentParams[1] || defaultStart;
                 torrentEndInitial = torrentParams[2] || defaultEnd;
                 torrentModeInitial = torrentParams[3] !== 'false' ? 'posts' : 'postsAndComments';
+                torrentTypeInitial = torrentParams[4] === 'true' ? 'fallback' : 'primary';
+                torrentDownloadPathInitial = torrentParams[5] || torrentDownloadPathInitial;
             }
         }
     }
@@ -70,9 +77,14 @@ const LoadReddit: FC<{
     const [torrentMode, setTorrentMode] = useState<'posts' | 'postsAndComments'>(
         torrentModeInitial as 'posts' | 'postsAndComments'
     );
+    const [selectedTorrentType, setSelectedTorrentType] = useState<'primary' | 'fallback'>(
+        torrentTypeInitial
+    );
+    const [downloadPath, setDownloadPath] = useState<string>(torrentDownloadPathInitial);
 
     const [showModal, setShowModal] = useState(false);
     const [modalState, setModalState] = useState<'loading' | 'error' | 'retry-form'>('loading');
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const selectedFilesRef = useRef<{ getFiles: () => [string, string[]] } | null>(null);
 
@@ -128,9 +140,14 @@ const LoadReddit: FC<{
             start,
             end,
             postsOnly,
-            useFallback
+            useFallback,
+            downloadPath
         );
-        if (error) return;
+        console.log('Torrent error', error);
+        if (error) {
+            toast.error('Error while downloading torrent. ' + error);
+            return;
+        }
         loadingDispatch({
             type: 'SET_REST_UNDONE',
             route: location.pathname
@@ -150,18 +167,29 @@ const LoadReddit: FC<{
         setShowModal(true);
         setModalState('loading');
 
-        const checkPrimaryTorrent = await checkPrimaryTorrentForSubreddit(torrentSubreddit);
+        if (selectedTorrentType !== 'fallback') {
+            const checkPrimaryTorrent = await checkPrimaryTorrentForSubreddit(
+                torrentSubreddit,
+                downloadPath
+            );
 
-        if (!checkPrimaryTorrent) {
-            setModalState('retry-form');
-            return;
+            if (!checkPrimaryTorrent.status) {
+                if (checkPrimaryTorrent.error) {
+                    setErrorMessage(checkPrimaryTorrent.error);
+                } else {
+                    setErrorMessage('Subreddit not found in primary torrent.');
+                }
+                setModalState('retry-form');
+                return;
+            }
         }
 
         await loadTorrentWithOptions(
             torrentSubreddit,
             torrentStart,
             torrentEnd,
-            torrentMode === 'posts'
+            torrentMode === 'posts',
+            selectedTorrentType === 'fallback'
         );
     };
 
@@ -301,6 +329,10 @@ const LoadReddit: FC<{
                         setTorrentEnd={setTorrentEnd}
                         torrentMode={torrentMode}
                         setTorrentMode={setTorrentMode}
+                        selectedTorrentType={selectedTorrentType}
+                        setSelectedTorrentType={setSelectedTorrentType}
+                        downloadPath={downloadPath}
+                        setDownloadPath={setDownloadPath}
                         handleLoadTorrent={async () => {
                             if (checkIfDataExists(location.pathname)) {
                                 openModal('load-reddit-torrent', async () => {
@@ -343,23 +375,34 @@ const LoadReddit: FC<{
                         {modalState === 'retry-form' && (
                             <div className="space-y-4">
                                 <p>
-                                    Subreddit was not found in primary torrent. Switching to
-                                    fallback torrent will take more time but can possibly find
-                                    results for the subreddit
+                                    {errorMessage
+                                        ? errorMessage.includes('space')
+                                            ? `${errorMessage}. Please free up disk space and try again.`
+                                            : errorMessage
+                                        : 'Subreddit was not found in primary torrent. Switching to fallback torrent will take more time but can possibly find results for the subreddit.'}
                                 </p>
-
-                                <div className="flex space-x-2 w-full">
-                                    <button
-                                        onClick={() => setShowModal(false)}
-                                        className="flex-1 p-2 bg-blue-500 text-white rounded">
-                                        Make changes to torrent details
-                                    </button>
-                                    <button
-                                        onClick={handleProceedWithFallback}
-                                        className="p-2 bg-green-500 text-white rounded">
-                                        Proceed with fallback torrent
-                                    </button>
-                                </div>
+                                {errorMessage && !errorMessage.includes('space') ? (
+                                    <div className="flex space-x-2 w-full">
+                                        <button
+                                            onClick={() => setShowModal(false)}
+                                            className="flex-1 p-2 bg-blue-500 text-white rounded">
+                                            Make changes to torrent details
+                                        </button>
+                                        <button
+                                            onClick={handleProceedWithFallback}
+                                            className="p-2 bg-green-500 text-white rounded">
+                                            Proceed with fallback torrent
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex space-x-2 w-full">
+                                        <button
+                                            onClick={() => setShowModal(false)}
+                                            className="flex-1 p-2 bg-blue-500 text-white rounded">
+                                            Close
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

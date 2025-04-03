@@ -53,6 +53,12 @@ EXCEPTION_HANDLERS = {
     LLMInitializationError: lambda e: (500, f"LLM initialization failed: {str(e)}"),
     EmbeddingsInitializationError: lambda e: (500, f"Embeddings initialization failed: {str(e)}"),
     ConfigurationError: lambda e: (500, f"Configuration error: {str(e)}"),
+
+    FileNotFoundError: lambda e: (500, f"File not found: {str(e)}"),
+    PermissionError: lambda e: (500, f"Permission denied: {str(e)}"),
+    MemoryError: lambda e: (500, f"Out of memory: {str(e)}"),
+    RuntimeError: lambda e: (500, f"Runtime error: {str(e)}"),
+    OSError: lambda e: (500, f"OS error: {str(e)}"),
 }
 
 error_log_repository = ErrorLogRepository(database_path = STUDY_DATABASE_PATH)

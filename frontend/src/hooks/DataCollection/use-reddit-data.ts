@@ -189,22 +189,31 @@ const useRedditData = () => {
         }
     };
 
-    const checkPrimaryTorrentForSubreddit = async (subreddit: string) => {
+    const checkPrimaryTorrentForSubreddit = async (
+        subreddit: string,
+        downloadDirectory?: string
+    ) => {
         const { data: checkResponse, error: checkError } = await fetchData<{
             status: boolean;
             files: string[];
+            total_size: number;
+            error?: string;
         }>(REMOTE_SERVER_ROUTES.CHECK_PRIMARY_TORRENT, {
             method: 'POST',
             body: JSON.stringify({
                 subreddit: subreddit,
                 dataset_id: datasetId,
-                workspace_id: currentWorkspace!.id
+                workspace_id: currentWorkspace!.id,
+                download_dir: downloadDirectory
             })
         });
 
         console.log('Check response:', checkResponse);
 
-        return checkResponse?.status;
+        return {
+            status: checkResponse?.status,
+            error: checkResponse.error
+        };
     };
 
     const loadTorrentData = async (
@@ -213,7 +222,8 @@ const useRedditData = () => {
         torrentStart?: string,
         torrentEnd?: string,
         torrentPostsOnly?: boolean,
-        useFallback: boolean = false
+        useFallback: boolean = false,
+        downloadDirectory?: string
     ) => {
         setLoading(true);
         try {
@@ -223,7 +233,7 @@ const useRedditData = () => {
 
             if (addToDb) {
                 setModeInput(
-                    `reddit:torrent:${torrentSubreddit}|${torrentStart}|${torrentEnd}|${torrentPostsOnly}`
+                    `reddit:torrent:${torrentSubreddit}|${torrentStart}|${torrentEnd}|${torrentPostsOnly}|${useFallback}|${downloadDirectory}`
                 );
                 // const { data: checkResponse, error: checkError } = await fetchData<{
                 //     status: boolean;
@@ -250,7 +260,8 @@ const useRedditData = () => {
                             submissions_only: torrentPostsOnly,
                             dataset_id: datasetId,
                             workspace_id: currentWorkspace.id,
-                            use_fallback: useFallback
+                            use_fallback: useFallback,
+                            download_dir: downloadDirectory
                         })
                     }
                 );
@@ -259,7 +270,7 @@ const useRedditData = () => {
                     console.error('Failed to load torrent data:', torrentResponse.error);
                     // setError('Failed to load torrent data.');
                     setError(torrentResponse.error.name);
-                    throw new Error('Failed to load torrent data.');
+                    throw new Error(torrentResponse.error.message.error_message);
                 } else {
                     console.log('Torrent data:', torrentResponse.data);
                 }
@@ -277,11 +288,11 @@ const useRedditData = () => {
                 data: parsedData,
                 error: null
             };
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to load torrent data:', err);
             setError('Failed to load torrent data.');
             return {
-                error: 'Failed to load torrent data.'
+                error: err
             };
         } finally {
             setLoading(false);

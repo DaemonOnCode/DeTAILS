@@ -179,19 +179,19 @@ app.whenReady().then(async () => {
 
         app.exit(exitCode);
     });
-});
 
-app.on('window-all-closed', () => {
-    console.log('window-all-closed');
-    // if (process.platform !== 'darwin') {
-    //     cleanupAndExit(globalCtx);
-    // } else {
-    //     // globalCtx.getState().mainWindow.hide();
-    //     // try {
-    //     //     globalCtx.getState().websocket.close();
-    //     //     globalCtx.setState({ websocket: null });
-    //     // } catch (e) {
-    //     //     electronLogger.log('Error closing websocket', e);
-    //     // }
-    // }
+    app.on('window-all-closed', () => {
+        console.log('window-all-closed');
+        if (process.platform !== 'darwin') {
+            cleanupAndExit(globalCtx);
+        } else {
+            // globalCtx.getState().mainWindow.hide();
+            // try {
+            //     globalCtx.getState().websocket.close();
+            //     globalCtx.setState({ websocket: null });
+            // } catch (e) {
+            //     electronLogger.log('Error closing websocket', e);
+            // }
+        }
+    });
 });
