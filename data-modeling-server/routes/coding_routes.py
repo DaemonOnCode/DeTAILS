@@ -71,7 +71,9 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
     async def fetch_and_compute_length(post_id: str):
         async with sem:
             try:
-                post = await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id)
+                post = await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id, [
+                    "id", "title", "selftext"
+                ])
                 transcript = await asyncio.to_thread(generate_transcript, post)
                 length = len(transcript)
                 return post_id, length

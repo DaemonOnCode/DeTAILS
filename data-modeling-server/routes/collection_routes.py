@@ -71,7 +71,7 @@ async def get_reddit_titles_endpoint(request: ParseRedditPostsRequest = Body(...
 async def get_reddit_post_endpoint(request: ParseRedditPostByIdRequest = Body(...)):
     dataset_id = request.datasetId
     post_id = request.postId
-    return get_reddit_post_by_id(dataset_id, post_id)
+    return await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id)
 
 
 @router.post("/stream-upload")

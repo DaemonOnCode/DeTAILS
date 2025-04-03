@@ -193,11 +193,6 @@ PHASE 2 (Generating Initial Codes) Requirements:
 
 Only generate codes that directly contribute to understanding the phenomenon under study. Exclude any codes that do not have a clear link to the main topic or research questions.
 
-Include in JSON output:
-- "code_type" classification ("semantic" or "latent")
-- "comparison_notes" showing code relationships relative to the keyword table
-- "data_position" indicating line numbers from the transcript
-
 You are an advanced AI model specializing in qualitative research and deductive thematic analysis using Braun and Clarke's method. Your task is to extract thematic codes from the given post transcript using the provided keyword table.
 
 Main Topic: {main_topic}

@@ -499,8 +499,12 @@ def get_reddit_posts_by_batch(
 def get_reddit_post_titles(dataset_id: str):
     return post_repo.find({"dataset_id": dataset_id}, columns=["id", "title"])
 
-def get_reddit_post_by_id(dataset_id: str, post_id: str):
-    post = post_repo.find({"dataset_id": dataset_id, "id": post_id})
+def get_reddit_post_by_id(dataset_id: str, post_id: str, columns: list = None):
+    post = post_repo.find(
+        {"dataset_id": dataset_id, "id": post_id}, 
+        columns=columns,
+        map_to_model=not columns
+    )
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
