@@ -9,6 +9,7 @@ import { useLoadingContext } from '../../context/loading-context';
 import { useLocation } from 'react-router-dom';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import { useWorkspaceContext } from '../../context/workspace-context';
+import { TORRENT_START_DATE, TORRENT_END_DATE } from '../../constants/DataCollection/shared';
 
 type RedditTableRendererProps = {
     maxTableHeightClass?: string;
@@ -38,6 +39,8 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [minDate, setMinDate] = useState('');
+    const [maxDate, setMaxDate] = useState('');
     // const [appliedStartTime, setAppliedStartTime] = useState('');
     // const [appliedEndTime, setAppliedEndTime] = useState('');
     // const [appliedHideRemoved, setAppliedHideRemoved] = useState(false);
@@ -46,10 +49,53 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
     const location = useLocation();
     const { fetchData } = useApi();
-    const { datasetId, isLocked, setIsLocked, dataFilters, setDataFilters } =
+    const { datasetId, isLocked, setIsLocked, dataFilters, setDataFilters, modeInput } =
         useCollectionContext();
     const { checkIfDataExists, openModal, abortRequests, resetDataAfterPage } = useLoadingContext();
     const { currentWorkspace } = useWorkspaceContext();
+
+    // Function to format a Date object to YYYY-MM-DD
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-based, so +1
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // Function to get the first day of the month from <year>-<month>
+    function getStartDate(yearMonth) {
+        const [year, month] = yearMonth.split('-').map(Number);
+        const date = new Date(year, month - 1, 1); // month - 1 because Date months are 0-based
+        return formatDate(date);
+    }
+
+    // Function to get the last day of the month from <year>-<month>
+    function getEndDate(yearMonth) {
+        const [year, month] = yearMonth.split('-').map(Number);
+        const date = new Date(year, month, 0); // Day 0 of next month is the last day of current month
+        return formatDate(date);
+    }
+
+    // let torrentStartDate = TORRENT_START_DATE;
+    // let torrentEndDate = TORRENT_END_DATE;
+
+    // if (modeInput && typeof modeInput === 'string') {
+    //     const modeSplits = modeInput.split(':');
+    //     if (modeSplits.length >= 3 && modeSplits[0] === 'reddit' && modeSplits[1] === 'torrent') {
+    //         const torrentParams = modeSplits[2].split('|');
+    //         if (torrentParams.length >= 4) {
+    //             torrentStartDate = torrentParams[1] || torrentStartDate;
+    //             torrentEndDate = torrentParams[2] || torrentEndDate;
+    //         }
+    //     }
+    // }
+
+    // if (/^\d{4}-\d{2}$/.test(torrentStartDate)) {
+    //     torrentStartDate = getStartDate(torrentStartDate);
+    // }
+    // if (/^\d{4}-\d{2}$/.test(torrentEndDate)) {
+    //     torrentEndDate = getEndDate(torrentEndDate);
+    // }
 
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [pendingFilterStartTime, setPendingFilterStartTime] = useState(
@@ -101,11 +147,15 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             setPosts({});
             // setSelectedData([]);
             setTotalCount(0);
+            setMinDate(getStartDate(TORRENT_START_DATE));
+            setMaxDate(getEndDate(TORRENT_END_DATE));
         } else {
             setPosts(response.data.posts || {});
             if (selectedData.length === 0) setSelectedData(response.data.selected_post_ids || []);
             // setSelectedData(response.data.selected_post_ids || []);
             setTotalCount(response.data.total_count || 0);
+            setMinDate(response.data.start_date || getStartDate(TORRENT_START_DATE));
+            setMaxDate(response.data.end_date || getEndDate(TORRENT_END_DATE));
         }
         setIsLoading(false);
     };
@@ -325,6 +375,8 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                             <label className="block mb-1">Start Date:</label>
                             <input
                                 type="date"
+                                min={minDate}
+                                max={maxDate}
                                 value={pendingFilterStartTime}
                                 onChange={(e) => setPendingFilterStartTime(e.target.value)}
                                 className="p-2 border border-gray-300 rounded w-full"
@@ -335,6 +387,8 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                             <input
                                 type="date"
                                 value={pendingFilterEndTime}
+                                min={minDate}
+                                max={maxDate}
                                 onChange={(e) => setPendingFilterEndTime(e.target.value)}
                                 className="p-2 border border-gray-300 rounded w-full"
                             />
