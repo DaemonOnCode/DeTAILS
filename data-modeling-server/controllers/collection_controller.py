@@ -2,7 +2,6 @@ import asyncio
 from datetime import datetime
 import errno
 import json
-from multiprocessing import Pool
 import os
 import re
 import shutil
@@ -813,41 +812,45 @@ async def process_reddit_data(
         else:
             raise ValueError(f"Cannot determine data type from filename: {zst_filename}")
 
-        # Read all lines synchronously for multiprocessing
-        with open(intermediate_file, "r", encoding="utf-8") as infile:
-            lines = infile.readlines()
-            
-
-        # Worker function for primary mode
-        def process_line_primary(line):
-            try:
-                obj = json.loads(line.strip())
-                created_utc = obj.get("created_utc")
-                if created_utc:
-                    dt = datetime.fromtimestamp(float(created_utc))
-                    key = f"{dt.year}-{dt.month:02d}"
-                    return (key, line)
-                return None
-            except json.JSONDecodeError:
-                print("Skipping invalid JSON line.")
-                return None
-
-        # Use multiprocessing to process lines
-        num_processes = os.cpu_count()
-        with Pool(processes=num_processes) as pool:
-            results = pool.map(process_line_primary, lines)
-
-        # Group results by month and write to files
         monthly_files = {}
-        for result in [r for r in results if r is not None]:
-            key, line = result
-            if key not in monthly_files:
-                monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
-                print(f"Opening monthly file for writing: {monthly_filename}")
-                monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
-            await monthly_files[key].write(line)
-
-        # Close all monthly files
+        print(f"Opening intermediate file for reading: {intermediate_file}")
+        try:
+            async with aiofiles.open(intermediate_file, "r", encoding="utf-8") as infile:
+                async for line in infile:
+                    try:
+                        obj = json.loads(line.strip())
+                        created_utc = obj.get("created_utc")
+                        if created_utc:
+                            created_utc_float = float(created_utc)
+                            dt = datetime.fromtimestamp(created_utc_float)
+                            year = dt.year
+                            month = dt.month
+                            key = f"{year}-{month:02d}"
+                            if key not in monthly_files:
+                                monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+                                print(f"Opening monthly file for writing: {monthly_filename}")
+                                try:
+                                    monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
+                                except PermissionError:
+                                    print(f"Permission denied writing to {monthly_filename}")
+                                    raise e
+                                except IOError as e:
+                                    print(f"IO error opening {monthly_filename}: {e}")
+                                    raise e
+                            await monthly_files[key].write(line)
+                        else:
+                            print("Skipping object without 'created_utc' field.")
+                    except json.JSONDecodeError:
+                        print("Skipping invalid JSON line.")
+        except FileNotFoundError:
+            print(f"Intermediate file not found: {intermediate_file}")
+            return []
+        except PermissionError:
+            print(f"Permission denied: {intermediate_file}")
+            return []
+        except IOError as e:
+            print(f"IO error reading {intermediate_file}: {e}")
+            return []
         for key, file in monthly_files.items():
             print(f"Closing monthly file: R{data_type}_{key}.jsonl")
             await file.close()
@@ -870,13 +873,13 @@ async def process_reddit_data(
                     await json_file.write("\n]")
             except FileNotFoundError:
                 print(f"File not found: {jsonl_filename}")
-                raise
+                raise e
             except PermissionError:
                 print(f"Permission denied: {jsonl_filename} or {json_filename}")
-                raise
+                raise e
             except IOError as e:
                 print(f"IO error processing {jsonl_filename}: {e}")
-                raise
+                raise e
             json_files.append(json_filename)
 
         try:
@@ -901,35 +904,22 @@ async def process_reddit_data(
         base = os.path.splitext(os.path.basename(zst_filename))[0]
         output_filename = os.path.join(directory, f"{base}.json")
 
-        # Read all lines synchronously for multiprocessing
-        with open(intermediate_file, "r", encoding="utf-8") as infile:
-            lines = infile.readlines()
-
-        # Worker function for fallback mode
-        def process_line_fallback(line):
-            try:
-                obj = json.loads(line.strip())
-                if obj.get("subreddit") == subreddit:
-                    return json.dumps(obj, ensure_ascii=False) + "\n"
-                return None
-            except json.JSONDecodeError:
-                print("Skipping invalid JSON line.")
-                return None
-
-        # Use multiprocessing to process lines
-        num_processes = os.cpu_count()
-        with Pool(processes=num_processes) as pool:
-            results = pool.map(process_line_fallback, lines)
-
-        # Write filtered lines to output file
-        async with aiofiles.open(output_filename, "w", encoding="utf-8") as outfile:
+        print(f"Opening intermediate file for reading: {intermediate_file}")
+        print(f"Opening output file for writing: {output_filename}")
+        async with aiofiles.open(intermediate_file, "r", encoding="utf-8") as infile, \
+                   aiofiles.open(output_filename, "w", encoding="utf-8") as outfile:
             await outfile.write("[\n")
             first = True
-            for line in [r for r in results if r is not None]:
-                if not first:
-                    await outfile.write(",\n")
-                await outfile.write(line.strip())
-                first = False
+            async for line in infile:
+                try:
+                    obj = json.loads(line.strip())
+                    if obj.get("subreddit") == subreddit:
+                        if not first:
+                            await outfile.write(",\n")
+                        await outfile.write(json.dumps(obj, ensure_ascii=False))
+                        first = False
+                except json.JSONDecodeError:
+                    print("Skipping invalid JSON line.")
             await outfile.write("\n]")
 
         print(f"Processed data saved to {output_filename}")
