@@ -232,7 +232,7 @@ async def process_llm_task(
 
             response = await response_future
 
-            print("Response", response)
+            # print("Response", response)
             response = response["answer"] if retriever else response.content
             state_dump_repo.insert(
                 StateDump(
@@ -257,7 +257,7 @@ async def process_llm_task(
                 raise Exception("No valid structured data found in LLM response.")
 
             json_str = match.group(1).strip()
-            extracted_data = json.loads(json_str)
+            extracted_data = json.loads(json_str, strict=False)
 
             success = True
             await manager.send_message(app_id, f"Dataset {dataset_id}: LLM process completed successfully.")

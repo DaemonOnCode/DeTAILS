@@ -9,6 +9,9 @@ from errors.llm_errors import ConfigurationError, EmbeddingsInitializationError,
 from models.shared import LLMProvider
 from utils.llm_logger import AllChainDetails
 
+from langchain_core.globals import set_debug
+set_debug(True)
+
 class VertexAIProvider(LLMProvider):
     def __init__(self, settings: CustomSettings):
         self.settings = settings

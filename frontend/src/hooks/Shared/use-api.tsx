@@ -146,7 +146,7 @@ export const useApi = (): UseApiResult => {
                             error: 'Fetch error',
                             error_message: 'Error fetching data'
                         },
-                        name: 'FetchError'
+                        name: 'AbortError'
                     },
                     abort: controller.abort.bind(controller)
                 };

@@ -75,7 +75,11 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                                 if (dataExists) {
                                     openModal('nav-proceed-btn', async (e: any) => {
                                         // setShowProceedConfirmModal(false);
-                                        abortRequests(location.pathname);
+                                        try {
+                                            abortRequests(location.pathname);
+                                        } catch (e) {
+                                            console.error('Error in abortRequests:', e);
+                                        }
                                         await resetDataAfterPage(location.pathname);
                                         onNextClick && (await onNextClick(e));
                                         loadingDispatch({
@@ -85,7 +89,11 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                                         autoNavigateToNext && navigate(nextPageFull);
                                     });
                                 } else {
-                                    abortRequests(location.pathname);
+                                    try {
+                                        abortRequests(location.pathname);
+                                    } catch (e) {
+                                        console.error('Error in abortRequests:', e);
+                                    }
                                     loadingDispatch({
                                         type: 'SET_REST_UNDONE',
                                         route: location.pathname

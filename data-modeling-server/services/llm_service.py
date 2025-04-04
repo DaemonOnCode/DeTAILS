@@ -30,16 +30,18 @@ class GlobalQueueManager:
         rate_limit_per_minute: Optional[int] = None,
         status_check_interval: float = 5.0,
         enable_status_check: bool = True,
-        cancel_threshold: int = 1
+        cancel_threshold: int = 1,
+        idle_threshold: float = 60.0,
     ):
         try:
             self._max_queue_size = max_queue_size
             self._num_workers = num_workers
             self.worker_tasks: List[asyncio.Task] = []
-            self.worker_states: Dict[int, str] = {}
+            self.worker_states: Dict[int, Tuple[str, float]] = {}
             self.running = False
             self.pending_tasks: Dict[str, ConcurrentFuture] = {}
             self._lock = threading.Lock()
+            self.idle_threshold = idle_threshold
 
             self.function_cache: Dict[str, Tuple[Callable, int]] = {}
             self.cacheable_args: Dict[str, Dict[str, List|Dict]] = {}
@@ -179,15 +181,20 @@ class GlobalQueueManager:
         while self.running:
             try:
                 await asyncio.sleep(self.status_check_interval)
+                current_time = time.time()
                 with self._lock:
                     pending_count = len(self.pending_tasks)
                     queue_size = self.queue.qsize()
-                    all_workers_idle = all([state == "idle" for state in self.worker_states.values()])
 
-                    if queue_size == 0 and all_workers_idle:
-                        print("[STATUS] No queued jobs or active workers, stopping manager")
-                        await self.stop()
-                        break
+                    all_idle = all(state == "idle" for state, _ in self.worker_states.values())
+                    if all_idle and self.worker_states:
+                        max_last_updated = max(last_updated for _, last_updated in self.worker_states.values())
+                        time_since_last_activity = current_time - max_last_updated
+                        if (time_since_last_activity > self.idle_threshold and pending_jobs_count == 0 and queue_size == 0):
+                            print(f"[STATUS] All workers idle for {time_since_last_activity:.2f}s, "
+                                  f"no pending or queued jobs, stopping manager")
+                            await self.stop()
+                            break
 
                     if pending_count == 0 and queue_size == 0:
                         print("[STATUS] No pending tasks or queued jobs, stopping manager")
@@ -296,14 +303,14 @@ class GlobalQueueManager:
                 print(f"[WORKER {worker_id}] Queue not initialized, waiting")
                 await asyncio.sleep(0.1)
                 
+            with self._lock:
+                self.worker_states[worker_id] = ("idle", time.time())
             while not self.stop_event.is_set():
                 try:
-                    with self._lock:
-                        self.worker_states[worker_id] = "idle"
                     job = await self.queue.get()
                     job_id, function_key, args, kwargs, cfut = job
                     with self._lock:
-                        self.worker_states[worker_id] = "busy"
+                        self.worker_states[worker_id] = ("busy", time.time())
                     print(f"[WORKER {worker_id}] Dequeued job {job_id}")
 
                     with self._lock:
@@ -385,7 +392,7 @@ class GlobalQueueManager:
                             )
                     finally:
                         with self._lock:
-                            self.worker_states[worker_id] = "idle"
+                            self.worker_states[worker_id] = ("idle", time.time())
                             if job_id in self.pending_tasks:
                                 del self.pending_tasks[job_id]
                                 print(f"[WORKER {worker_id}] Removed task {job_id} from pending_tasks")
@@ -514,7 +521,8 @@ def get_llm_manager():
             rate_limit_per_minute=10,
             status_check_interval=15.0,
             enable_status_check=True,
-            cancel_threshold=1
+            cancel_threshold=1,
+            idle_threshold=15,
         )
     except Exception as e:
         print(f"Failed to create GlobalQueueManager: {e}")
