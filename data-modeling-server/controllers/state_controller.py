@@ -89,7 +89,7 @@ def save_state(data):
         mode_input=collection_context.mode_input,
         type=collection_context.type,
         metadata=metadata,
-        # selected_data=selected_data,
+        selected_data=selected_data,
         models=models,
         data_filters=data_filters,
         is_locked=collection_context.is_locked,

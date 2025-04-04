@@ -4,7 +4,7 @@ export enum ROUTES {
     HOME = 'home',
     BACKGROUND_RESEARCH = 'background-research',
     CODEBOOK_CREATION = 'initial-coding',
-    DEDUCTIVE_CODING = 'final-coding',
+    DEDUCTIVE_CODING = 'final-codes',
     // BASIS = 'basis',
     LLM_CONTEXT_V2 = 'l_l_m-context-v2',
     // FLASHCARDS = 'flashcards',
@@ -34,7 +34,7 @@ export enum ROUTES {
     MANUAL_CODING = 'manual-coding',
     FINALIZING_CODES = 'finalizing-codes',
     INITIAL_CODEBOOK = 'initial-codebook',
-    INITIAL_CODING_CODEBOOK = 'initial-coding-codebook'
+    INITIAL_CODING_CODEBOOK = 'initial-codes'
 }
 
 export const PAGE_ROUTES = Object.freeze({

@@ -22,7 +22,7 @@
                     "gemini-2.0-flash-001",
                     "gemini-2.0-pro-exp-02-05"
                 ],
-                "textEmbedding": "text-embedding-005"
+                "textEmbedding": "text-embedding-004"
             },
             "openai": {
                 "name": "OpenAI",

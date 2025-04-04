@@ -473,7 +473,7 @@ const ThemesPage = () => {
                     </div>
                     <footer id="bottom-navigation">
                         <NavigationBottomBar
-                            previousPage={PAGE_ROUTES.DEDUCTIVE_CODING}
+                            previousPage={PAGE_ROUTES.FINALIZING_CODES}
                             nextPage={PAGE_ROUTES.ANALYSIS}
                             isReady={unplacedCodes.length === 0}
                         />

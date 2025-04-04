@@ -1,8 +1,10 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import datetime
 import errno
 import json
+import multiprocessing
+import multiprocessing.queues
 import os
 import re
 import shutil
@@ -783,59 +785,59 @@ async def run_command_async(command: str) -> str:
         elif "Broken pipe" in error_message:
             raise OSError(errno.EPIPE, os.strerror(errno.EPIPE))
         else:
-            raise RuntimeError(f"zstd command failed: {error_message}")
+            raise RuntimeError(f"Torrent failed to extract data, try fallback torrent.")
     else:
         print("Command executed successfully.")
     return stdout.decode()
 
-def parse_json(line):
-    """
-    Parse a JSON line and handle errors gracefully.
+# def parse_json(line):
+#     """
+#     Parse a JSON line and handle errors gracefully.
 
-    Args:
-        line (bytes): A single line from the input file in bytes.
+#     Args:
+#         line (bytes): A single line from the input file in bytes.
 
-    Returns:
-        dict or None: Parsed JSON object if successful, None if parsing fails.
-    """
-    try:
-        return json.loads(line.decode('utf-8').strip())
-    except json.JSONDecodeError:
-        print(f"Invalid JSON line: {line[:100]}...")  # Truncate for brevity
-        return None
+#     Returns:
+#         dict or None: Parsed JSON object if successful, None if parsing fails.
+#     """
+#     try:
+#         return json.loads(line.decode('utf-8').strip())
+#     except json.JSONDecodeError:
+#         print(f"Invalid JSON line: {line[:100]}...")  # Truncate for brevity
+#         return None
 
-async def convert_jsonl_to_json(jsonl_filename: str, json_filename: str, batch_size: int = 1000):
-    """
-    Convert a JSONL file to a JSON file with batched reading and writing.
+# async def convert_jsonl_to_json(jsonl_filename: str, json_filename: str, batch_size: int = 1000):
+#     """
+#     Convert a JSONL file to a JSON file with batched reading and writing.
 
-    Args:
-        jsonl_filename (str): Path to the input JSONL file.
-        json_filename (str): Path to the output JSON file.
-        batch_size (int): Number of lines to process per batch.
-    """
-    async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as infile:
-        async with aiofiles.open(json_filename, "w", encoding="utf-8") as outfile:
-            await outfile.write("[\n")
-            first = True
-            while True:
-                lines = []
-                for _ in range(batch_size):
-                    line = await infile.readline()
-                    if not line:
-                        break
-                    lines.append(line.strip())
-                if not lines:
-                    break
-                objects = [json.loads(line) for line in lines if line]
-                for obj in objects:
-                    if not first:
-                        await outfile.write(",\n")
-                    await outfile.write(json.dumps(obj))
-                    first = False
-            await outfile.write("\n]")
+#     Args:
+#         jsonl_filename (str): Path to the input JSONL file.
+#         json_filename (str): Path to the output JSON file.
+#         batch_size (int): Number of lines to process per batch.
+#     """
+#     async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as infile:
+#         async with aiofiles.open(json_filename, "w", encoding="utf-8") as outfile:
+#             await outfile.write("[\n")
+#             first = True
+#             while True:
+#                 lines = []
+#                 for _ in range(batch_size):
+#                     line = await infile.readline()
+#                     if not line:
+#                         break
+#                     lines.append(line.strip())
+#                 if not lines:
+#                     break
+#                 objects = [json.loads(line) for line in lines if line]
+#                 for obj in objects:
+#                     if not first:
+#                         await outfile.write(",\n")
+#                     await outfile.write(json.dumps(obj))
+#                     first = False
+#             await outfile.write("\n]")
 
 async def process_reddit_data(
-    manager: 'ConnectionManager',
+    manager: ConnectionManager,
     app_id: str,
     run_id: str,
     subreddit: str,
@@ -843,244 +845,171 @@ async def process_reddit_data(
     is_primary: bool = False,
     current_download_dir: str = None
 ) -> list[str]:
-    """
-    Process Reddit data from a ZST file, either splitting into monthly files or filtering by subreddit.
-
-    Args:
-        manager (ConnectionManager): Manager for sending messages to the client.
-        app_id (str): Application identifier.
-        run_id (str): Run identifier.
-        subreddit (str): Subreddit name for filtering in fallback mode.
-        zst_filename (str): Path to the ZST file.
-        is_primary (bool): If True, split data by month; if False, filter by subreddit.
-        current_download_dir (str): Directory for progress updates (optional).
-
-    Returns:
-        list[str]: List of paths to generated JSON files.
-    """
-    print(f"[{app_id}][{run_id}] Starting process_reddit_data for {zst_filename}, is_primary={is_primary}")
-    total_start_time = time.time()
     directory = os.path.dirname(zst_filename)
+    intermediate_filename = f"output_{time.time()}.jsonl"
+    intermediate_file = os.path.join(directory, intermediate_filename)
+    print(f"Intermediate file: {intermediate_file}")
 
-    # Paths to executables (adjust these based on your environment)
-    PATHS = {
-        "executables": {
-            "zstd": "zstd",  # Replace with actual path to zstd executable
-            "ripgrep": "rg"  # Replace with actual path to ripgrep executable
-        }
-    }
     zstd_executable = PATHS["executables"]["zstd"]
-    ripgrep_executable = PATHS["executables"]["ripgrep"]
-    loop = asyncio.get_running_loop()
-
-    # Thread pool for JSON parsing, using all CPU cores
-    executor = ThreadPoolExecutor(max_workers=os.cpu_count())
-    line_count = 0  # Track total lines processed
-
-    # Placeholder for progress update function
-    def update_run_progress(run_id, message, current_download_dir=None):
-        print(f"[{run_id}] Progress update: {message}")
 
     if is_primary:
-        ### Primary Path: Split Data by Month
-        print(f"[{app_id}][{run_id}] Primary path: splitting data by month")
-
-        # Determine data type from filename
-        if "_submissions.zst" in zst_filename:
-            data_type = "S"
-            print(f"[{app_id}][{run_id}] Data type determined: submissions")
-        elif "_comments.zst" in zst_filename:
-            data_type = "C"
-            print(f"[{app_id}][{run_id}] Data type determined: comments")
-        else:
-            print(f"[{app_id}][{run_id}] Cannot determine data type from filename: {zst_filename}")
-            raise ValueError(f"Cannot determine data type from filename: {zst_filename}")
-
-        # Notify processing start
-        message = f"Extracting and processing data from {zst_filename}..."
-        print(f"[{app_id}][{run_id}] Sending start message: {message}")
-        await manager.send_message(app_id, message)
-        update_run_progress(run_id, message, current_download_dir=current_download_dir)
-
-        # Start zstd decompression subprocess with a large buffer limit (10MB)
-        proc = await asyncio.create_subprocess_exec(
-            zstd_executable, '-cdq', '--memory=2048MB', '-T8', zst_filename,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            limit=1024 * 1024 * 1024 *2 # Set buffer limit to 10MB
-        )
-
-        # Process the stream line by line with a large limit
-        monthly_files = {}
-        while True:
-            try:
-                # Read until newline with a 10MB limit
-                line = await proc.stdout.readuntil(separator=b'\n')
-            except asyncio.LimitOverrunError:
-                print(f"[{app_id}][{run_id}] Line too long in {zst_filename}, skipping...")
-                await proc.stdout.readuntil(separator=b'\n')  # Skip the oversized line
-                continue
-            except asyncio.IncompleteReadError:
-                # End of stream reached
-                break
-
-            if not line:
-                break
-            line_count += 1
-
-            # Decode and parse the JSON line
-            obj = await loop.run_in_executor(executor, parse_json, line)
-            if obj:
-                created_utc = obj.get("created_utc")
-                if created_utc:
-                    dt = datetime.fromtimestamp(float(created_utc))
-                    key = f"{dt.year}-{dt.month:02d}"
-                    if key not in monthly_files:
-                        monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
-                        print(f"[{app_id}][{run_id}] Opening new monthly file: {monthly_filename}")
-                        monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
-                    await monthly_files[key].write(line.decode('utf-8'))
-
-        # Close all monthly files
-        for key, file in monthly_files.items():
-            await file.close()
-            print(f"[{app_id}][{run_id}] Closed monthly file: R{data_type}_{key}.jsonl")
-
-        # Verify subprocess completion
-        await proc.wait()
-        if proc.returncode != 0:
-            stderr = await proc.stderr.read()
-            print(f"[{app_id}][{run_id}] zstd decompression failed with return code {proc.returncode}")
-            print(f"[{app_id}][{run_id}] stderr: {stderr.decode('utf-8')}")
-            raise RuntimeError("Decompression failed")
-        print(f"[{app_id}][{run_id}] zstd subprocess completed")
-
-        # Convert JSONL files to JSON concurrently
-        print(f"[{app_id}][{run_id}] Starting conversion of JSONL to JSON files")
-        async def convert_with_batching(key):
-            jsonl_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
-            json_filename = os.path.join(directory, f"R{data_type}_{key}.json")
-            start_time = time.time()
-            await convert_jsonl_to_json(jsonl_filename, json_filename, batch_size=1000)
-            end_time = time.time()
-            print(f"[{app_id}][{run_id}] Converted {jsonl_filename} to {json_filename} in {end_time - start_time:.2f} seconds")
-            os.remove(jsonl_filename)
-
-        tasks = [convert_with_batching(key) for key in monthly_files]
-        await asyncio.gather(*tasks)
-        print(f"[{app_id}][{run_id}] All monthly files converted to JSON")
-
-        # Prepare list of output files
-        json_files = [os.path.join(directory, f"R{data_type}_{key}.json") for key in monthly_files]
-
-        # Notify completion
-        message = f"Processed data saved to monthly JSON files for {zst_filename}"
-        print(f"[{app_id}][{run_id}] Sending completion message: {message}")
-        await manager.send_message(app_id, message)
-        update_run_progress(run_id, message, current_download_dir=current_download_dir)
-
+        command = f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" > "{intermediate_file}"'
     else:
-        ### Fallback Path: Filter by Subreddit
-        print(f"[{app_id}][{run_id}] Fallback path: filtering by subreddit '{subreddit}'")
+        ripgrep_executable = PATHS["executables"]["ripgrep"]
         regex = r'(?s)\{.*?"subreddit":\s*"' + subreddit + r'".*?\}'
         if os.name == 'nt':
             regex_escaped = regex.replace('"', '\\"')
             command = (
-                f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" | '
-                f'"{ripgrep_executable}" -P "{regex_escaped}"'
+                f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" ^| '
+                f'"{ripgrep_executable}" -P "{regex_escaped}" > "{intermediate_file}" || exit /B 0'
             )
         else:
             command = (
                 f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" | '
-                f'"{ripgrep_executable}" -P \'{regex}\''
+                f'"{ripgrep_executable}" -P \'{regex}\' > "{intermediate_file}" || true'
             )
-        print(f"[{app_id}][{run_id}] Executing command: {command}")
 
-        # Notify processing start
-        message = f"Extracting data for subreddit '{subreddit}' from {zst_filename}..."
-        print(f"[{app_id}][{run_id}] Sending start message: {message}")
+    print(f"Running command:\n{command}")
+    message = f"Extracting data from {zst_filename}..."
+    await manager.send_message(app_id, message)
+    update_run_progress(run_id, message, current_download_dir=current_download_dir)
+
+    await run_command_async(command)
+
+    if is_primary:
+        print("Primary magnet link processed.")
+
+        if "_submissions.zst" in zst_filename:
+            data_type = "S"
+        elif "_comments.zst" in zst_filename:
+            data_type = "C"
+        else:
+            raise ValueError(f"Cannot determine data type from filename: {zst_filename}")
+
+        monthly_files = {}
+        print(f"Opening intermediate file for reading: {intermediate_file}")
+        try:
+            async with aiofiles.open(intermediate_file, "r", encoding="utf-8") as infile:
+                async for line in infile:
+                    try:
+                        obj = json.loads(line.strip())
+                        created_utc = obj.get("created_utc")
+                        if created_utc:
+                            created_utc_float = float(created_utc)
+                            dt = datetime.fromtimestamp(created_utc_float)
+                            year = dt.year
+                            month = dt.month
+                            key = f"{year}-{month:02d}"
+                            if key not in monthly_files:
+                                monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+                                print(f"Opening monthly file for writing: {monthly_filename}")
+                                try:
+                                    monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
+                                except PermissionError:
+                                    print(f"Permission denied writing to {monthly_filename}")
+                                    raise e
+                                except IOError as e:
+                                    print(f"IO error opening {monthly_filename}: {e}")
+                                    raise e
+                            await monthly_files[key].write(line)
+                        else:
+                            print("Skipping object without 'created_utc' field.")
+                    except json.JSONDecodeError:
+                        print("Skipping invalid JSON line.")
+        except FileNotFoundError:
+            print(f"Intermediate file not found: {intermediate_file}")
+            return []
+        except PermissionError:
+            print(f"Permission denied: {intermediate_file}")
+            return []
+        except IOError as e:
+            print(f"IO error reading {intermediate_file}: {e}")
+            return []
+        for key, file in monthly_files.items():
+            print(f"Closing monthly file: R{data_type}_{key}.jsonl")
+            await file.close()
+
+        json_files = []
+        for key in monthly_files:
+            jsonl_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+            json_filename = os.path.join(directory, f"R{data_type}_{key}.json")
+            print(f"Converting {jsonl_filename} to {json_filename}")
+            try:
+                async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as jsonl_file, \
+                        aiofiles.open(json_filename, "w", encoding="utf-8") as json_file:
+                    await json_file.write("[\n")
+                    first = True
+                    async for line in jsonl_file:
+                        if not first:
+                            await json_file.write(",\n")
+                        await json_file.write(line.strip())
+                        first = False
+                    await json_file.write("\n]")
+            except FileNotFoundError:
+                print(f"File not found: {jsonl_filename}")
+                raise e
+            except PermissionError:
+                print(f"Permission denied: {jsonl_filename} or {json_filename}")
+                raise e
+            except IOError as e:
+                print(f"IO error processing {jsonl_filename}: {e}")
+                raise e
+            json_files.append(json_filename)
+
+        try:
+            print(f"Removing intermediate file: {intermediate_file}")
+            os.remove(intermediate_file)
+            for key in monthly_files:
+                monthly_jsonl = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+                print(f"Intermediate file R{data_type}_{key}.jsonl removed.")
+                os.remove(monthly_jsonl)
+            print(f"Intermediate file {intermediate_filename} removed.")
+        except Exception as e:
+            print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
+
+        message = f"Processed data saved to monthly JSON files for {zst_filename}"
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=current_download_dir)
+        
+        return json_files
 
-        # Start decompression and filtering pipeline
-        proc = await asyncio.create_subprocess_shell(
-            command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            limit=1024 * 1024 * 10  # Set buffer limit to 10MB
-        )
-
-        # Define output file
+    else:
+        print(f"Fallback magnet link processed for subreddit '{subreddit}'.")
         base = os.path.splitext(os.path.basename(zst_filename))[0]
         output_filename = os.path.join(directory, f"{base}.json")
-        print(f"[{app_id}][{run_id}] Writing filtered data to {output_filename}")
 
-        # Process and write filtered data with batch parsing
-        batch_size = 1000
-        async with aiofiles.open(output_filename, "w", encoding="utf-8") as outfile:
+        print(f"Opening intermediate file for reading: {intermediate_file}")
+        print(f"Opening output file for writing: {output_filename}")
+        async with aiofiles.open(intermediate_file, "r", encoding="utf-8") as infile, \
+                   aiofiles.open(output_filename, "w", encoding="utf-8") as outfile:
             await outfile.write("[\n")
             first = True
-            while True:
-                lines = []
-                for _ in range(batch_size):
-                    try:
-                        line = await proc.stdout.readuntil(separator=b'\n')
-                    except asyncio.LimitOverrunError:
-                        print(f"[{app_id}][{run_id}] Line too long in {zst_filename}, skipping...")
-                        await proc.stdout.readuntil(separator=b'\n')
-                        continue
-                    except asyncio.IncompleteReadError:
-                        break
-                    if not line:
-                        break
-                    lines.append(line)
-                if not lines:
-                    break
-                line_count += len(lines)
-
-                # Parse lines concurrently
-                start_time = time.time()
-                futures = [loop.run_in_executor(executor, parse_json, line) for line in lines]
-                objects = await asyncio.gather(*futures)
-                parse_time = time.time() - start_time
-                print(f"[{app_id}][{run_id}] Parsed {len(lines)} lines in {parse_time:.2f} seconds")
-
-                # Write matching objects
-                for obj in objects:
-                    if obj and obj.get("subreddit") == subreddit:
+            async for line in infile:
+                try:
+                    obj = json.loads(line.strip())
+                    if obj.get("subreddit") == subreddit:
                         if not first:
                             await outfile.write(",\n")
-                        await outfile.write(json.dumps(obj))
+                        await outfile.write(json.dumps(obj, ensure_ascii=False))
                         first = False
-
+                except json.JSONDecodeError:
+                    print("Skipping invalid JSON line.")
             await outfile.write("\n]")
 
-        # Verify subprocess completion
-        await proc.wait()
-        if proc.returncode != 0:
-            stderr = await proc.stderr.read()
-            print(f"[{app_id}][{run_id}] Pipeline failed with return code {proc.returncode}")
-            print(f"[{app_id}][{run_id}] stderr: {stderr.decode('utf-8')}")
-            raise RuntimeError("Subprocess failed")
-        print(f"[{app_id}][{run_id}] Pipeline subprocess completed")
-
-        # Notify completion
+        print(f"Processed data saved to {output_filename}")
         message = f"JSON extracted: {output_filename}"
-        print(f"[{app_id}][{run_id}] Sending completion message: {message}")
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
-        json_files = [output_filename]
+        try:
+            print(f"Removing intermediate file: {intermediate_file}")
+            os.remove(intermediate_file)
+            print(f"Intermediate file {intermediate_filename} removed.")
+        except Exception as e:
+            print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
 
-    # Log total processing time and performance metrics
-    total_end_time = time.time()
-    total_time = total_end_time - total_start_time
-    processing_rate = line_count / total_time if total_time > 0 else 0
-    print(f"[{app_id}][{run_id}] Total processing time: {total_time:.2f} seconds")
-    print(f"[{app_id}][{run_id}] Processed {line_count} lines at {processing_rate:.2f} lines/second")
-    print(f"[{app_id}][{run_id}] process_reddit_data completed for {zst_filename}")
+        return [output_filename]
 
-    return json_files
 def wait_for_file_stable(file_path, stable_time=5, poll_interval=2) -> bool:
     if not os.path.exists(file_path):
         return False
