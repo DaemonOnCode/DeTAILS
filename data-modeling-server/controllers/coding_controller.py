@@ -567,64 +567,78 @@ async def cluster_words_with_llm(
     retries: int = 3,
     **kwargs
 ) -> Dict[str, List[str]]:
-    chunks = divide_into_fixed_chunks(words, chunk_size)
-    if not chunks:
+    # Split words into initial chunks
+    chunks_to_process = divide_into_fixed_chunks(words, chunk_size)
+    if not chunks_to_process:
         return {}
 
     regex_pattern = r"```(?:json)?\s*(.*?)\s*```"
+    current_clusters = None
+    i = 0
+
+    # Process chunks dynamically
+    while i < len(chunks_to_process):
+        chunk = chunks_to_process[i]
+        if current_clusters is None:
+            # First chunk, use beginning prompt
+            extracted_data = await process_llm_task(
+                app_id=app_id,
+                dataset_id=dataset_id,
+                manager=manager,
+                llm_model=llm_model,
+                regex_pattern=regex_pattern,
+                parent_function_name=parent_function_name + " cluster words with llm beginning",
+                prompt_builder_func=TopicClustering.begin_topic_clustering_prompt,
+                llm_instance=llm_instance,
+                llm_queue_manager=llm_queue_manager,
+                store_response=store_response,
+                retries=retries,
+                words_json=json.dumps(chunk),
+                **kwargs
+            )
+        else:
+            # Continuation chunk
+            extracted_data = await process_llm_task(
+                app_id=app_id,
+                dataset_id=dataset_id,
+                manager=manager,
+                llm_model=llm_model,
+                regex_pattern=regex_pattern,
+                parent_function_name=parent_function_name + " cluster words with llm continuation",
+                prompt_builder_func=TopicClustering.continuation_prompt_builder,
+                llm_instance=llm_instance,
+                llm_queue_manager=llm_queue_manager,
+                store_response=store_response,
+                retries=retries,
+                current_clusters_keys=json.dumps(list(current_clusters.keys())),
+                words_json=json.dumps(chunk),
+                **kwargs
+            )
         
-
-    extracted_data = await process_llm_task(
-        app_id=app_id,
-        dataset_id=dataset_id,
-        manager=manager,
-        llm_model=llm_model,
-        regex_pattern=regex_pattern,
-        parent_function_name=parent_function_name + " cluster words with llm beginning",
-        prompt_builder_func=TopicClustering.begin_topic_clustering_prompt,
-        llm_instance=llm_instance,
-        llm_queue_manager=llm_queue_manager,
-        store_response=store_response,
-        retries=retries,
-        words_json=json.dumps(chunks[0]),
-        **kwargs
-    )
-    if not isinstance(extracted_data, dict):
-        raise ValueError("Failed to obtain valid clusters from the first chunk.")
-    current_clusters = extracted_data
-
-    print("Beginning Clusters", current_clusters)
-
-    for chunk in chunks[1:]:
-        
-
-        extracted_data = await process_llm_task(
-            app_id=app_id,
-            dataset_id=dataset_id,
-            manager=manager,
-            llm_model=llm_model,
-            regex_pattern=regex_pattern,
-            prompt_builder_func=TopicClustering.continuation_prompt_builder,
-            llm_instance=llm_instance,
-            parent_function_name=parent_function_name+" cluster_words_with_llm continuation",
-            llm_queue_manager=llm_queue_manager,
-            store_response=store_response,
-            retries=retries,
-            current_clusters_keys=json.dumps(list(current_clusters.keys())),
-            words_json=json.dumps(chunk),
-            **kwargs
-        )
-        if not isinstance(extracted_data, dict):
-            raise ValueError("Failed to update clusters for a subsequent chunk.")
-
-        for topic, new_words in extracted_data.items():
-            if topic in current_clusters:
-                current_clusters[topic].extend(new_words)
+        if isinstance(extracted_data, dict):
+            # Success: update clusters
+            if current_clusters is None:
+                current_clusters = extracted_data
             else:
-                current_clusters[topic] = new_words
+                for topic, new_words in extracted_data.items():
+                    if topic in current_clusters:
+                        current_clusters[topic].extend(new_words)
+                    else:
+                        current_clusters[topic] = new_words
+            i += 1  # Move to next chunk
+        else:
+            # Failure: split chunk if possible
+            if len(chunk) > 1:
+                mid = len(chunk) // 2
+                left = chunk[:mid]
+                right = chunk[mid:]
+                # Insert halves at current position
+                chunks_to_process = chunks_to_process[:i] + [left, right] + chunks_to_process[i+1:]
+                # Do not increment i, so next iteration processes 'left'
+            else:
+                raise ValueError(f"Failed to process single word after retries: {chunk}")
 
-        print("Updated Clusters", current_clusters)
-
+    # Store final state
     state_dump_repo.insert(
         StateDump(
             state=json.dumps({
@@ -643,6 +657,256 @@ async def cluster_words_with_llm(
 def get_num_tokens(text: str, llm_instance: Any) -> int:
     return llm_instance.get_num_tokens(text)
 
+# async def summarize_with_llm(
+#     texts: List[str],
+#     llm_model: str,
+#     app_id: str,
+#     dataset_id: str,
+#     manager: Any,
+#     llm_instance: Any,
+#     llm_queue_manager: Any,
+#     prompt_builder_func: Callable[[Dict[str, Any]], str],
+#     parent_function_name: str = "",
+#     store_response: bool = False,
+#     max_input_tokens: int = 128000,
+#     retries: int = 3,
+#     **kwargs
+# ) -> str:
+#     if not texts:
+#         return ""
+
+#     def generic_prompt_builder(**params) -> str:
+#         texts = params['texts']
+#         concatenated_text = "\n\n".join(texts)
+#         return (
+#             f"Provide a concise summary of the following texts. "
+#             f"Return the summary in JSON format as ```json{{ \"summary\": \"your summary here\" }}```.\n\n"
+#             f"Texts:\n{concatenated_text}"
+#         )
+
+#     def build_chunk(texts: List[str], max_tokens: int) -> tuple[List[str], List[str]]:
+#         chunk = []
+#         current_tokens = 0
+#         prompt_func = prompt_builder_func if 'code' in kwargs else generic_prompt_builder
+#         fixed_prompt = prompt_func(**{**kwargs, 'texts': []})
+#         fixed_prompt_tokens = llm_instance.get_num_tokens(fixed_prompt)
+#         separator = "\n\n"
+#         separator_tokens = llm_instance.get_num_tokens(separator)
+
+#         for text in texts:
+#             text_tokens = llm_instance.get_num_tokens(text)
+#             additional_tokens = separator_tokens + text_tokens if chunk else text_tokens
+#             if fixed_prompt_tokens + current_tokens + additional_tokens > max_tokens:
+#                 break
+#             chunk.append(text)
+#             current_tokens += additional_tokens
+
+#         remaining = texts[len(chunk):]
+#         return chunk, remaining
+
+#     async def summarize_chunk(chunk: List[str]) -> str:
+#         extracted_dict = await process_llm_task(
+#             app_id=app_id,
+#             dataset_id=dataset_id,
+#             manager=manager,
+#             llm_model=llm_model,
+#             regex_pattern=r"```json\s*(.*?)\s*```",
+#             prompt_builder_func=prompt_builder_func,
+#             llm_instance=llm_instance,
+#             parent_function_name=parent_function_name+" summarize chunk",
+#             llm_queue_manager=llm_queue_manager,
+#             store_response=store_response,
+#             retries=retries,
+#             texts=chunk,
+#             **kwargs
+#         )
+
+#         if not isinstance(extracted_dict, dict):
+#             raise ValueError(f"Expected dict, got {type(extracted_dict)}: {extracted_dict}")
+#         if "summary" not in extracted_dict:
+#             raise ValueError(f"Missing 'summary' key. Got: {extracted_dict}")
+#         summary = extracted_dict["summary"]
+#         if not isinstance(summary, str):
+#             raise ValueError(f"Summary must be a string, got {type(summary)}: {summary}")
+#         return summary
+
+#     remaining_texts = texts
+#     summaries = []
+#     while remaining_texts:
+#         chunk, remaining_texts = build_chunk(remaining_texts, max_input_tokens)
+#         if not chunk:
+#             break
+#         summary = await summarize_chunk(chunk)
+#         summaries.append(summary)
+
+#     if len(summaries) == 1:
+#         return summaries[0]
+#     return await summarize_with_llm(
+#         summaries,
+#         llm_model,
+#         app_id,
+#         dataset_id,
+#         manager,
+#         llm_instance,
+#         llm_queue_manager,
+#         parent_function_name=parent_function_name+" summarize summaries",
+#         prompt_builder_func=generic_prompt_builder,
+#         store_response=store_response,
+#         max_input_tokens=max_input_tokens,
+#         retries=retries,
+#         **{k: v for k, v in kwargs.items() if k != 'code'}
+#     )
+
+# def split_into_batches(
+#     codes_dict: Dict[str, List[str]],
+#     max_tokens: int,
+#     llm_instance: Any
+# ) -> List[List[str]]:
+#     batches = []
+#     current_batch = []
+#     fixed_prompt = (
+#         "Provide a concise summary of 1-2 lines for each of the following codes based on their explanations. "
+#         "Return all summaries in a single JSON object where each key is the code and each value is its summary, "
+#         "like {\"code1\": \"summary1\", \"code2\": \"summary2\", ...}. "
+#         "Ensure the entire JSON object is wrapped in triple backticks with json specifier (```json ... ```). "
+#         "Do not return multiple separate JSON objects.\n\n"
+#     )
+#     fixed_tokens = llm_instance.get_num_tokens(fixed_prompt)
+#     separator = "---\n"
+#     current_tokens = fixed_tokens
+
+#     for code, explanations in codes_dict.items():
+#         code_section = f"Code: {code}\nExplanations:\n" + "\n".join(f"- {exp}" for exp in explanations) + "\n" + separator
+#         code_section_tokens = llm_instance.get_num_tokens(code_section)
+
+#         if current_tokens + code_section_tokens > max_tokens:
+#             if current_batch:
+#                 batches.append(current_batch)
+#                 current_batch = []
+#                 current_tokens = fixed_tokens
+#             if fixed_tokens + code_section_tokens > max_tokens:
+#                 print(f"Single code '{code}' exceeds token limit: {fixed_tokens + code_section_tokens} > {max_tokens}")
+#                 batches.append([code])
+#             else:
+#                 current_batch.append(code)
+#                 current_tokens = fixed_tokens + code_section_tokens
+#         else:
+#             current_batch.append(code)
+#             current_tokens += code_section_tokens
+
+#     if current_batch:
+#         batches.append(current_batch)
+
+#     return batches
+
+# async def summarize_codebook_explanations(
+#     responses: List[Dict[str, Any]],
+#     llm_model: str,
+#     app_id: str,
+#     dataset_id: str,
+#     manager: Any,
+#     parent_function_name: str,
+#     llm_instance: Any,
+#     llm_queue_manager: Any,
+#     max_input_tokens: int = 128000,
+#     **kwargs
+# ) -> Dict[str, str]:
+#     grouped_explanations = defaultdict(list)
+#     for response in responses:
+#         code = response['code']
+#         explanation = response['explanation']
+#         grouped_explanations[code].append(explanation)
+
+#     batchable_codes = {code: exps for code, exps in grouped_explanations.items() if len(exps) < 4}
+#     individual_codes = [code for code, exps in grouped_explanations.items() if len(exps) >= 4]
+
+#     def prompt_builder(**params) -> str:
+#         texts = params['texts']
+#         code = params['code']
+#         concatenated_text = "\n\n".join(texts)
+#         return (
+#             f"Provide a concise summary of 1-2 lines for the explanations of code '{code}'. "
+#             f"Return the summary in JSON format as ```json{{ \"summary\": \"your summary here\" }}```.\n\n"
+#             f"Explanations:\n{concatenated_text}"
+#         )
+
+#     async def batch_multiple_codes_task(batch: List[str]) -> List[Tuple[str, str]]:
+#         if not batch:
+#             return []
+
+#         prompt = (
+#             "Provide a concise summary of 1-2 lines for each of the following codes based on their explanations. "
+#             "Return all summaries in a single JSON object where each key is the code and each value is its summary. "
+#             "The JSON object must be wrapped in ```json ... ```. Example:\n"
+#             "```json\n{\"codeA\": \"Summary A\", \"codeB\": \"Summary B\"}\n```\n\n"
+#             "Codes and explanations:\n"
+#         )
+#         for code in batch:
+#             explanations = batchable_codes[code]
+#             prompt += f"Code: {code}\nExplanations:\n" + "\n".join(f"- {exp}" for exp in explanations) + "\n---\n"
+
+#         extracted_dict = await process_llm_task(
+#             app_id=app_id,
+#             dataset_id=dataset_id,
+#             manager=manager,
+#             llm_model=llm_model,
+#             regex_pattern=r"```json\s*(.*?)\s*```",
+#             prompt_builder_func=lambda **_: prompt,
+#             parent_function_name=parent_function_name + " summarize_batch",
+#             llm_instance=llm_instance,
+#             llm_queue_manager=llm_queue_manager,
+#             store_response=kwargs.get('store_response', False),
+#             retries=kwargs.get('retries', 3),
+#             **kwargs
+#         )
+
+#         if not isinstance(extracted_dict, dict):
+#             raise ValueError(f"Expected dict, got {type(extracted_dict)}: {extracted_dict}")
+#         summaries = {}
+#         for code in batch:
+#             if code not in extracted_dict:
+#                 raise ValueError(f"Missing summary for '{code}'. Got: {extracted_dict}")
+#             summary = extracted_dict[code]
+#             if not isinstance(summary, str):
+#                 raise ValueError(f"Summary for '{code}' must be string, got {type(summary)}: {summary}")
+#             summaries[code] = summary
+#         return [(code, summaries[code]) for code in batch]
+
+#     async def summarize_individual_code(code: str) -> List[Tuple[str, str]]:
+#         summary = await summarize_with_llm(
+#             texts=grouped_explanations[code],
+#             llm_model=llm_model,
+#             app_id=app_id,
+#             dataset_id=dataset_id,
+#             manager=manager,
+#             parent_function_name=parent_function_name + " summarize_individual_code",
+#             llm_instance=llm_instance,
+#             llm_queue_manager=llm_queue_manager,
+#             prompt_builder_func=prompt_builder,
+#             code=code,
+#             max_input_tokens=max_input_tokens,
+#             **kwargs
+#         )
+#         return [(code, summary)]
+
+#     batches = split_into_batches(batchable_codes, max_input_tokens, llm_instance) if batchable_codes else []
+
+#     tasks = [batch_multiple_codes_task(batch) for batch in batches]
+#     tasks.extend(summarize_individual_code(code) for code in individual_codes)
+#     results = await asyncio.gather(*tasks)
+
+#     all_summaries = [item for sublist in results for item in sublist]
+#     return dict(all_summaries)
+
+# Helper function to truncate text to a specified token count
+def truncate_text(text: str, max_tokens: int, llm_instance: Any) -> str:
+    tokens = llm_instance.tokenize(text)
+    if len(tokens) <= max_tokens:
+        return text
+    truncated_tokens = tokens[:max_tokens]
+    return llm_instance.detokenize(truncated_tokens)
+
+# Modified summarize_with_llm to handle oversized texts
 async def summarize_with_llm(
     texts: List[str],
     llm_model: str,
@@ -670,7 +934,7 @@ async def summarize_with_llm(
             f"Texts:\n{concatenated_text}"
         )
 
-    def build_chunk(texts: List[str], max_tokens: int) -> tuple[List[str], List[str]]:
+    def build_chunk(texts: List[str], max_tokens: int) -> Tuple[List[str], List[str]]:
         chunk = []
         current_tokens = 0
         prompt_func = prompt_builder_func if 'code' in kwargs else generic_prompt_builder
@@ -679,42 +943,64 @@ async def summarize_with_llm(
         separator = "\n\n"
         separator_tokens = llm_instance.get_num_tokens(separator)
 
-        for text in texts:
+        remaining_texts = texts
+        for text in remaining_texts:
             text_tokens = llm_instance.get_num_tokens(text)
+            # Truncate if text is too long
+            if text_tokens > max_tokens - fixed_prompt_tokens - (separator_tokens if chunk else 0):
+                text = truncate_text(
+                    text,
+                    max_tokens - fixed_prompt_tokens - (separator_tokens if chunk else 0),
+                    llm_instance
+                )
+                text_tokens = llm_instance.get_num_tokens(text)
             additional_tokens = separator_tokens + text_tokens if chunk else text_tokens
             if fixed_prompt_tokens + current_tokens + additional_tokens > max_tokens:
                 break
             chunk.append(text)
             current_tokens += additional_tokens
 
-        remaining = texts[len(chunk):]
+        remaining = remaining_texts[len(chunk):]
+        # If no chunk was formed and there are texts, force truncate the first one
+        if not chunk and remaining_texts:
+            text = remaining_texts[0]
+            truncated_text = truncate_text(text, max_tokens - fixed_prompt_tokens, llm_instance)
+            chunk = [truncated_text]
+            remaining = remaining_texts[1:]
         return chunk, remaining
 
     async def summarize_chunk(chunk: List[str]) -> str:
-        extracted_dict = await process_llm_task(
-            app_id=app_id,
-            dataset_id=dataset_id,
-            manager=manager,
-            llm_model=llm_model,
-            regex_pattern=r"```json\s*(.*?)\s*```",
-            prompt_builder_func=prompt_builder_func,
-            llm_instance=llm_instance,
-            parent_function_name=parent_function_name+" summarize chunk",
-            llm_queue_manager=llm_queue_manager,
-            store_response=store_response,
-            retries=retries,
-            texts=chunk,
-            **kwargs
-        )
+        prompt_func = prompt_builder_func if 'code' in kwargs else generic_prompt_builder
+        prompt = prompt_func(**{**kwargs, 'texts': chunk})
+        for attempt in range(retries):
+            extracted_dict = await process_llm_task(
+                app_id=app_id,
+                dataset_id=dataset_id,
+                manager=manager,
+                llm_model=llm_model,
+                regex_pattern=r"```json\s*(.*?)\s*```",
+                prompt_builder_func=lambda **_: prompt,
+                parent_function_name=parent_function_name + " summarize chunk",
+                llm_instance=llm_instance,
+                llm_queue_manager=llm_queue_manager,
+                store_response=store_response,
+                retries=1,  # Inner retries handled here
+                **kwargs
+            )
 
-        if not isinstance(extracted_dict, dict):
-            raise ValueError(f"Expected dict, got {type(extracted_dict)}: {extracted_dict}")
-        if "summary" not in extracted_dict:
-            raise ValueError(f"Missing 'summary' key. Got: {extracted_dict}")
-        summary = extracted_dict["summary"]
-        if not isinstance(summary, str):
-            raise ValueError(f"Summary must be a string, got {type(summary)}: {summary}")
-        return summary
+            if (isinstance(extracted_dict, dict) and 
+                "summary" in extracted_dict and 
+                isinstance(extracted_dict["summary"], str)):
+                return extracted_dict["summary"]
+            # Adjust prompt based on issue
+            if not isinstance(extracted_dict, dict):
+                prompt += "\n\nPlease provide the response in the correct JSON format: ```json{\"summary\": \"text\"}```."
+            elif "summary" not in extracted_dict:
+                prompt += "\n\nThe response is missing the 'summary' key. Please include it in the JSON."
+            elif not isinstance(extracted_dict["summary"], str):
+                prompt += "\n\nThe 'summary' must be a string. Please correct the format."
+        # If retries fail, return a default note
+        return "Summary unavailable due to repeated invalid responses from LLM."
 
     remaining_texts = texts
     summaries = []
@@ -735,7 +1021,7 @@ async def summarize_with_llm(
         manager,
         llm_instance,
         llm_queue_manager,
-        parent_function_name=parent_function_name+" summarize summaries",
+        parent_function_name=parent_function_name + " summarize summaries",
         prompt_builder_func=generic_prompt_builder,
         store_response=store_response,
         max_input_tokens=max_input_tokens,
@@ -743,6 +1029,7 @@ async def summarize_with_llm(
         **{k: v for k, v in kwargs.items() if k != 'code'}
     )
 
+# Batch splitting function (unchanged)
 def split_into_batches(
     codes_dict: Dict[str, List[str]],
     max_tokens: int,
@@ -782,9 +1069,9 @@ def split_into_batches(
 
     if current_batch:
         batches.append(current_batch)
-
     return batches
 
+# Main function with improved error handling
 async def summarize_codebook_explanations(
     responses: List[Dict[str, Any]],
     llm_model: str,
@@ -795,6 +1082,7 @@ async def summarize_codebook_explanations(
     llm_instance: Any,
     llm_queue_manager: Any,
     max_input_tokens: int = 128000,
+    retries: int = 3,
     **kwargs
 ) -> Dict[str, str]:
     grouped_explanations = defaultdict(list)
@@ -831,31 +1119,36 @@ async def summarize_codebook_explanations(
             explanations = batchable_codes[code]
             prompt += f"Code: {code}\nExplanations:\n" + "\n".join(f"- {exp}" for exp in explanations) + "\n---\n"
 
-        extracted_dict = await process_llm_task(
-            app_id=app_id,
-            dataset_id=dataset_id,
-            manager=manager,
-            llm_model=llm_model,
-            regex_pattern=r"```json\s*(.*?)\s*```",
-            prompt_builder_func=lambda **_: prompt,
-            parent_function_name=parent_function_name + " summarize_batch",
-            llm_instance=llm_instance,
-            llm_queue_manager=llm_queue_manager,
-            store_response=kwargs.get('store_response', False),
-            retries=kwargs.get('retries', 3),
-            **kwargs
-        )
+        for attempt in range(retries):
+            extracted_dict = await process_llm_task(
+                app_id=app_id,
+                dataset_id=dataset_id,
+                manager=manager,
+                llm_model=llm_model,
+                regex_pattern=r"```json\s*(.*?)\s*```",
+                prompt_builder_func=lambda **_: prompt,
+                parent_function_name=parent_function_name + " summarize_batch",
+                llm_instance=llm_instance,
+                llm_queue_manager=llm_queue_manager,
+                store_response=kwargs.get('store_response', False),
+                retries=1,
+                **kwargs
+            )
 
-        if not isinstance(extracted_dict, dict):
-            raise ValueError(f"Expected dict, got {type(extracted_dict)}: {extracted_dict}")
-        summaries = {}
-        for code in batch:
-            if code not in extracted_dict:
-                raise ValueError(f"Missing summary for '{code}'. Got: {extracted_dict}")
-            summary = extracted_dict[code]
-            if not isinstance(summary, str):
-                raise ValueError(f"Summary for '{code}' must be string, got {type(summary)}: {summary}")
-            summaries[code] = summary
+            if isinstance(extracted_dict, dict):
+                missing_codes = [code for code in batch if code not in extracted_dict]
+                all_strings = all(isinstance(extracted_dict.get(code, ""), str) for code in batch)
+                if not missing_codes and all_strings:
+                    return [(code, extracted_dict[code]) for code in batch]
+                # Adjust prompt for specific issues
+                if missing_codes:
+                    prompt += f"\n\nPlease include summaries for the following missing codes: {', '.join(missing_codes)}."
+                if not all_strings:
+                    prompt += "\n\nAll summaries must be strings. Please correct any non-string values."
+            else:
+                prompt += "\n\nPlease provide the response in the correct JSON format as shown in the example."
+        # Fallback after retries
+        summaries = {code: "Summary unavailable due to repeated invalid responses from LLM" for code in batch}
         return [(code, summaries[code]) for code in batch]
 
     async def summarize_individual_code(code: str) -> List[Tuple[str, str]]:
@@ -871,6 +1164,7 @@ async def summarize_codebook_explanations(
             prompt_builder_func=prompt_builder,
             code=code,
             max_input_tokens=max_input_tokens,
+            retries=retries,
             **kwargs
         )
         return [(code, summary)]

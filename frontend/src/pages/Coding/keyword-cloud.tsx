@@ -49,22 +49,15 @@ const KeywordCloudPage: FC = () => {
     const location = useLocation();
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const [response, setResponse] = useState<
-        {
-            word: string;
-            description: string;
-            inclusion_criteria: string[];
-            exclusion_criteria: string[];
-            isMarked?: boolean;
-        }[]
-    >(
-        keywordTable.map((keyword) => ({
-            word: keyword.word,
-            description: keyword.description,
-            inclusion_criteria: keyword.inclusion_criteria,
-            exclusion_criteria: keyword.exclusion_criteria,
-            isMarked: true
-        }))
+    const [response, setResponse] = useState<string[]>(
+        // keywordTable.map((keyword) => ({
+        //     word: keyword.word,
+        //     description: keyword.description,
+        //     inclusion_criteria: keyword.inclusion_criteria,
+        //     exclusion_criteria: keyword.exclusion_criteria,
+        //     isMarked: true
+        // }))
+        keywords
     );
     const { getServerUrl } = getServerUtils();
     const { fetchLLMData } = useApi();
@@ -174,10 +167,7 @@ const KeywordCloudPage: FC = () => {
             exclusion_criteria: string[];
         }[] = results.keywords ?? [];
 
-        setResponse((prevResponse) => [
-            ...prevResponse,
-            ...newKeywords.map((k) => ({ ...k, isMarked: true }))
-        ]);
+        setResponse((prevResponse) => [...prevResponse, ...newKeywords.map((k) => k.word)]);
 
         dispatchKeywordsTable({
             type: 'ADD_MANY',
@@ -222,10 +212,58 @@ const KeywordCloudPage: FC = () => {
 
         console.log('response', response, selectedKeywords);
 
-        // dispatchKeywordsTable({
-        //     type: 'INITIALIZE',
-        //     entries: response.filter((keyword) => selectedKeywords.includes(keyword.word))
-        // });
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: PAGE_ROUTES.KEYWORD_TABLE
+        });
+        navigate(
+            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                text: 'Generating Keyword Definitions'
+            })
+        );
+
+        const { data: results, error } = await fetchLLMData<{
+            message: string;
+            results: {
+                word: string;
+                description: string;
+                inclusion_criteria: string[];
+                exclusion_criteria: string[];
+            }[];
+        }>(REMOTE_SERVER_ROUTES.GENERATE_KEYWORD_DEFINITIONS, {
+            method: 'POST',
+            body: JSON.stringify({
+                model: settings.ai.model,
+                main_topic: mainTopic,
+                additional_info: additionalInfo,
+                research_questions: researchQuestions,
+                selected_words: [...new Set(selectedKeywords)],
+                dataset_id: datasetId
+            })
+        });
+
+        if (error) {
+            console.error('Error regenerating Keyword Cloud:', error);
+            if (error.name !== 'AbortError') {
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: PAGE_ROUTES.KEYWORD_TABLE
+                });
+            }
+            navigate(PAGE_ROUTES.KEYWORD_CLOUD);
+            return;
+        }
+        console.log(results, 'Keyword Table Page');
+
+        dispatchKeywordsTable({
+            type: 'INITIALIZE',
+            entries: results.results.map((res) => ({ ...res, isMarked: true }))
+        });
+
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: PAGE_ROUTES.KEYWORD_TABLE
+        });
         await logger.info('Codebook Generation completed');
     };
 

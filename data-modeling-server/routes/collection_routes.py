@@ -47,7 +47,7 @@ async def parse_reddit_dataset_endpoint(request: ParseDatasetRequest = Body(...)
 
 @router.post("/reddit-posts-by-batch")
 async def get_reddit_posts_endpoint(request: ParseRedditPostsRequest = Body(...)):
-    results = get_reddit_posts_by_batch(
+    results = await asyncio.to_thread(get_reddit_posts_by_batch,
         request.dataset_id,
         request.batch,
         request.offset,

@@ -111,3 +111,11 @@ class GenerateDeductiveCodesRequest(BaseModel):
     codebook: dict
     post_ids: list
     workspace_id: str
+
+class GenerateKeywordDefinitionsRequest(BaseModel):
+    dataset_id: str
+    model: str
+    main_topic: str
+    additional_info: str
+    research_questions: list 
+    selected_words: list

@@ -464,8 +464,8 @@ def get_reddit_posts_by_batch(
     end_date = summary_result[2]
 
     # Convert timestamps to "YYYY-MM-DD" format, or None if no posts
-    start_date_str = datetime.utcfromtimestamp(start_date).strftime('%Y-%m-%d') if start_date else None
-    end_date_str = datetime.utcfromtimestamp(end_date).strftime('%Y-%m-%d') if end_date else None
+    start_date_str = datetime.fromtimestamp(start_date).strftime('%Y-%m-%d') if start_date else None
+    end_date_str = datetime.fromtimestamp(end_date).strftime('%Y-%m-%d') if end_date else None
 
     # Case 1: Return all post IDs
     if get_all_ids:
@@ -907,7 +907,7 @@ async def process_reddit_data(
             zstd_executable, '-cdq', '--memory=2048MB', '-T8', zst_filename,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            limit=1024 * 1024 * 10  # Set buffer limit to 10MB
+            limit=1024 * 1024 * 1024 *2 # Set buffer limit to 10MB
         )
 
         # Process the stream line by line with a large limit
@@ -1443,7 +1443,7 @@ async def get_reddit_data_from_torrent(
     update_run_progress(run_id, message, current_download_dir=download_dir)
 
     if current_torrent.download_dir != TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR:
-        message = f"Torrent download directory mismatch. Moving data to {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}..."
+        message = f"Torrent download directory mismatch. Moving torrent to {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}..."
         print(message)
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)

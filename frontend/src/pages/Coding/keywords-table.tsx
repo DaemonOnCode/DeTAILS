@@ -2,7 +2,7 @@ import { FC, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
+import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
 import { useCollectionContext } from '../../context/collection-context';
@@ -16,6 +16,7 @@ import { useLoadingContext } from '../../context/loading-context';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import KeywordTableRow from '../../components/Coding/KeywordTable/keyword-table-row';
+import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -33,6 +34,7 @@ const KeywordsTablePage: FC = () => {
 
     const hasSavedRef = useRef(false);
     const location = useLocation();
+    const stepRoute = location.pathname;
 
     const steps = [
         {
@@ -151,6 +153,15 @@ const KeywordsTablePage: FC = () => {
         }, 500);
     };
 
+    useEffect(() => {
+        if (loadingState[stepRoute]?.isLoading) {
+            navigate(
+                getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                    text: 'Generating Keyword Definitions'
+                })
+            );
+        }
+    }, []);
     if (loadingState[location.pathname]?.isFirstRun) {
         return (
             <p className="h-page w-full flex justify-center items-center">
@@ -159,9 +170,10 @@ const KeywordsTablePage: FC = () => {
         );
     }
 
-    const filteredKeywordTable = keywordTable.filter((entry) =>
-        selectedKeywords.includes(entry.word)
-    );
+    const filteredKeywordTable = keywordTable;
+    // .filter((entry) =>
+    //     selectedKeywords.includes(entry.word)
+    // );
 
     const isReadyCheck = keywordTable.some((entry) => entry.isMarked === true);
 
@@ -187,7 +199,7 @@ const KeywordsTablePage: FC = () => {
                                         <th className="border border-gray-400 p-2">Word</th>
                                         <th className="border border-gray-400 p-2">Description</th>
                                         <th className="border border-gray-400 p-2">
-                                            inclusion Criteria
+                                            Inclusion Criteria
                                         </th>
                                         <th className="border border-gray-400 p-2">
                                             Exclusion Criteria

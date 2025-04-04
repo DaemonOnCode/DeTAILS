@@ -17,7 +17,7 @@ from controllers.coding_controller import cluster_words_with_llm, filter_codes_b
 from controllers.collection_controller import get_reddit_post_by_id
 from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
-from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GroupCodesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
+from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GenerateKeywordDefinitionsRequest, GroupCodesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
 from models.table_dataclasses import CodebookType, GenerationType, ResponseCreatorType, SelectedPostId, StateDump
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository, QectRepository, SelectedPostIdsRepository
@@ -316,6 +316,160 @@ async def build_context_from_interests_endpoint(
     return {
         "message": "Context built successfully!",
         "keywords": parsed_keywords.get("keywords", [])
+    }
+
+def batch_list(lst, batch_size):
+    """Split a list into batches of size batch_size using slicing."""
+    for i in range(0, len(lst), batch_size):
+        yield lst[i:i + batch_size]
+
+@router.post("/generate-definitions")
+async def generate_definitions_endpoint(
+    request: Request,
+    request_body: GenerateKeywordDefinitionsRequest,
+    # model: str = Form(...),
+    # mainTopic: str = Form(...),
+    # additionalFeedback: str = Form(""),
+    # researchQuestions: str = Form(...),
+    # datasetId: str = Form(...),
+    # words: str = Form(...),  
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
+):
+    """
+    Generate definitions, inclusion criteria, and exclusion criteria for a list of words
+    based on a main topic, research questions, and additional feedback using RAG.
+
+    Args:
+        contextFiles: Uploaded files providing context for retrieval.
+        model: The LLM model to use.
+        mainTopic: The primary topic of the research.
+        additionalFeedback: Optional feedback to guide generation.
+        researchQuestions: Research questions framing the study.
+        datasetId: Identifier for the dataset.
+        words: Comma-separated string of words to define.
+
+    Returns:
+        JSON response with results for each word.
+    """
+    model = request_body.model
+    mainTopic = request_body.main_topic
+    additionalFeedback = request_body.additional_info
+    researchQuestions = request_body.research_questions
+    datasetId = request_body.dataset_id
+    words = request_body.selected_words
+
+    if not datasetId or not len(words):
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+    
+    dataset_id = datasetId
+    app_id = request.headers.get("x-app-id")
+    
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Processing started.")
+    
+    # Initialize LLM and embeddings
+    llm, embeddings = llm_service.get_llm_and_embeddings(model)
+    
+    # Set up vector store with context files
+    vector_store = initialize_vector_store(dataset_id, model, embeddings)
+
+    # Create retriever
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Creating retriever...")
+    retriever = vector_store.as_retriever(search_kwargs={'k': 20})
+    
+    # Parse the words list
+    word_list = [word.strip() for word in words]
+    
+    # Define batch size
+    batch_size = 70
+    
+    # Split word_list into batches using slicing
+    word_batches = list(batch_list(word_list, batch_size))
+    print("Word batches:", word_batches)
+    
+    # Regex pattern to extract JSON from LLM output
+    regex_pattern = r"```json\s*([\s\S]*?)\s*```"
+    
+    # Initialize results list
+    results = []
+    
+    # Process each batch
+    for batch_words in word_batches:
+        # Define the prompt builder for the current batch
+        def definition_prompt_builder():
+            system_prompt = (
+                "You are an AI assistant specializing in qualitative research. "
+                "Your task is to provide definitions, inclusion criteria, and exclusion criteria "
+                "for the following list of words based on the provided context, main topic, "
+                "research questions, and additional feedback. Try not to be completely dependant on context and think more about the main topic, additional information about main topic, and research questions.\n\n"
+                "Your response must be in JSON format as a list of objects, each containing "
+                """
+{{
+  "keywords": [
+    {{
+      "word": "ExtractedKeyword",
+      "description": "Explanation of the word and its relevance to the main topic and additional information.",
+      "inclusion_criteria": ["Criteria 1", "Criteria 2", "..."],
+      "exclusion_criteria": ["Criteria 1", "Criteria 2", "..."]
+    }},
+    ...
+  ]
+}}"""
+                "\nTextual Data: \n{context}\n\n"
+            )
+            
+            return system_prompt
+        
+        # Retrieve documents based on main topic
+        input_text = (
+                f"Main Topic: {mainTopic}\n"
+                f"Additional information about main topic: {additionalFeedback}\n\n"
+                f"Research Questions: {researchQuestions}\n"
+                f"Words to define: {', '.join(batch_words)}\n\n"
+                f"Provide the response in JSON format."
+            )
+        
+        # Process with LLM using RAG
+        parsed_output = await process_llm_task(
+            app_id=app_id,
+            dataset_id=dataset_id,
+            manager=manager,
+            llm_model=model,
+            regex_pattern=regex_pattern,
+            rag_prompt_builder_func=definition_prompt_builder,
+            retriever=retriever,
+            parent_function_name="generate-definitions",
+            input_text=input_text,
+            llm_instance=llm,
+            llm_queue_manager=llm_queue_manager,
+        )
+        
+        # Append the parsed output (list of dictionaries) to results
+        results.extend(parsed_output.get("keywords", []))
+        print("Parsed output:", parsed_output)
+
+        state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "dataset_id": dataset_id,
+                "main_topic": mainTopic,
+                "research_questions": researchQuestions,
+                "additional_info": additionalFeedback,
+                "keywords": batch_words,
+                "results": parsed_output,
+            }),
+            context=json.dumps({
+                "function": "keyword_table",
+                "run":"initial",
+            }),
+        )
+    )
+    
+    await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
+    
+    return {
+        "message": "Definitions generated successfully!",
+        "results": results
     }
 
 @router.post("/regenerate-keywords")

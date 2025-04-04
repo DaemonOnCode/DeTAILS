@@ -162,6 +162,8 @@ const UploadDataPage = () => {
                             nextPage={`${PAGE_ROUTES.DATASET_CREATION}`}
                             isReady={
                                 !!modeInput &&
+                                (!modeInput.includes('upload') ||
+                                    !modeInput.includes('undefined')) &&
                                 (!modeInput.includes('torrent') ||
                                     (modeInput.includes('files') &&
                                         (modeInput.split(':files:')[1] ?? '')

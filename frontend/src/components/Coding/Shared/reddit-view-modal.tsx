@@ -49,8 +49,8 @@ const RedditViewModal = ({
         }
     };
 
-    const closeBrowserView = () => {
-        ipcRenderer.invoke('close-reddit-webview');
+    const closeBrowserView = async () => {
+        await ipcRenderer.invoke('close-reddit-webview');
         closeModal?.();
         setBrowserViewBounds({
             x: 0,

@@ -205,10 +205,10 @@ const ContextPage = () => {
         if (results.keywords.length > 0) {
             setKeywords(Array.from(new Set(results.keywords.map((keyword) => keyword.word))));
         }
-        dispatchKeywordsTable({
-            type: 'INITIALIZE',
-            entries: results.keywords.map((r) => ({ ...r, isMarked: true }))
-        });
+        // dispatchKeywordsTable({
+        //     type: 'INITIALIZE',
+        //     entries: results.keywords.map((r) => ({ ...r, isMarked: true }))
+        // });
         await logger.info('Theme Cloud generated');
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',

@@ -45,6 +45,7 @@ const config = {
                 'coding/generate-codes-with-themes-and-feedback',
             REMAKE_CODEBOOK: 'coding/remake-codebook',
             REDO_DEDUCTIVE_CODING: 'coding/remake-deductive-codes',
+            GENERATE_KEYWORD_DEFINITIONS: 'coding/generate-definitions',
 
             SAMPLE_POSTS: 'coding/sample-posts',
             BUILD_CONTEXT: 'coding/build-context-from-topic',

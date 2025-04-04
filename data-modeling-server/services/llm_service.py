@@ -274,8 +274,14 @@ class GlobalQueueManager:
                                 print(f"[ENQUEUE] Failed to enqueue task {job_id}: {e}")
                         else:
                             print(f"[ENQUEUE] No future for task {job_id}, skipping")
+                            with self._lock:
+                                for task in pending_tasks:
+                                    job_id = task.task_id
+                                    if job_id in self.pending_tasks:
+                                        del self.pending_tasks[job_id]
+                                        print(f"[ENQUEUE] Removed task {job_id} from pending_tasks")
                 else:
-                    print("[ENQUEUE] Queue full or no pending tasks, waiting")
+                    print("[ENQUEUE] Queue not empty or no pending tasks, waiting")
                     await asyncio.sleep(1)
             except Exception as e:
                 print(f"[ENQUEUE] Unexpected error: {e}")

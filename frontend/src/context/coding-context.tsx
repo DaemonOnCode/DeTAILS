@@ -214,11 +214,11 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             },
             [PAGE_ROUTES.KEYWORD_TABLE]: {
                 relatedStates: [
-                    // {
-                    //     state: keywordTable,
-                    //     func: dispatchKeywordsTable,
-                    //     name: 'dispatchKeywordsTable'
-                    // }
+                    {
+                        state: keywordTable,
+                        func: dispatchKeywordsTable,
+                        name: 'dispatchKeywordsTable'
+                    }
                 ]
             },
             [PAGE_ROUTES.CODEBOOK_CREATION]: {

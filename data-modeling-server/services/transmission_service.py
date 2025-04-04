@@ -29,13 +29,6 @@ async def read_stream(stream: aiohttp.StreamReader | None):
         print(line.decode().strip())
 
 def get_transmission_cmd():
-    """
-    Checks the settings.json (from PATHS["settings"]) for a custom transmission command.
-    If provided and non-empty and valid, returns the custom command.
-    If the path is empty or only whitespace, writes the default path into the settings file
-    and returns the default command.
-    Also checks for a custom download directory; if empty, writes a default download directory.
-    """
     settings_path = PATHS.get("settings")
     default_cmd = get_default_transmission_cmd()
     default_path = default_cmd[0]
@@ -81,7 +74,6 @@ def get_transmission_cmd():
                     return default_cmd
         except Exception as e:
             print("Error reading custom transmission settings:", e)
-    # Fallback if settings file doesn't exist.
     return default_cmd
 
 class GlobalTransmissionDaemonManager:
@@ -93,9 +85,8 @@ class GlobalTransmissionDaemonManager:
         self._stdout_task = None
         self._stderr_task = None
 
-        # Dynamically determine the transmission command.
         self._transmission_cmd = get_transmission_cmd()
-        # Check if the Transmission CLI exists.
+
         self.transmission_present = os.path.exists(self._transmission_cmd[0])
         if self.transmission_present:
             print("Transmission CLI is present at:", self._transmission_cmd[0])
@@ -103,10 +94,6 @@ class GlobalTransmissionDaemonManager:
             print("Transmission CLI is not present at:", self._transmission_cmd[0])
 
     def recheck_transmission(self):
-        """
-        Rechecks if the Transmission CLI exists based on the current command path
-        and updates the transmission_present property.
-        """
         self.transmission_present = os.path.exists(self._transmission_cmd[0])
         if self.transmission_present:
             print("Recheck: Transmission CLI is present at:", self._transmission_cmd[0])
@@ -115,7 +102,6 @@ class GlobalTransmissionDaemonManager:
         return self.transmission_present
 
     async def __aenter__(self):
-        # Prevent entering if termination is in progress.
         await self._termination_lock.acquire()
         self._termination_lock.release()
 

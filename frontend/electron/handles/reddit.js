@@ -34,6 +34,49 @@ const redditHandler = (...ctxs) => {
             // Remove existing BrowserView if it exists
             electronLogger.log('sentence', text);
 
+            if (globalCtx.getState().browserView) {
+                globalCtx.getState().mainWindow.removeBrowserView(globalCtx.getState().browserView);
+                // globalCtx.getState().browserView.destroy();
+                globalCtx.setState({ browserView: null });
+            }
+
+            const view = new BrowserView({
+                webPreferences: {
+                    contextIsolation: false,
+                    nodeIntegration: false,
+                    webSecurity: false
+                }
+            });
+
+            // Add the BrowserView to the main window
+            globalCtx.getState().mainWindow.setBrowserView(view);
+
+            globalCtx.setState({ browserView: view });
+
+            const viewWidth = 800;
+            const viewHeight = 600;
+
+            const [mainWidth, mainHeight] = globalCtx.getState().mainWindow.getContentSize();
+
+            // Calculate centered position
+            const x = Math.round((mainWidth - viewWidth) / 2);
+            const y = Math.round((mainHeight - viewHeight) / 2);
+
+            // Set bounds for the BrowserView
+            view.setBounds({ x, y, width: viewWidth, height: viewHeight });
+            view.setAutoResize({ width: true, height: true, x: true, y: true });
+
+            const handleRedirect = (event, newUrl) => {
+                electronLogger.log('Redirect detected to:', newUrl);
+                url = newUrl; // Update the URL to reflect the redirected URL
+            };
+
+            // Listen for redirects and navigation events
+            view.webContents.session.webRequest.onBeforeRedirect((details) => {
+                electronLogger.log('Redirect detected via webRequest:', details.redirectURL);
+                url = details.redirectURL; // Update the URL with the redirect destination
+            });
+
             let postData = null;
             if (getFromPostData) {
                 if (!postId) {
@@ -63,47 +106,6 @@ const redditHandler = (...ctxs) => {
 
             electronLogger.log('postData', postData);
 
-            if (globalCtx.getState().browserView) {
-                globalCtx.getState().mainWindow.removeBrowserView(globalCtx.getState().browserView);
-                // globalCtx.getState().browserView.destroy();
-                globalCtx.setState({ browserView: null });
-            }
-
-            const view = new BrowserView({
-                webPreferences: {
-                    contextIsolation: false,
-                    nodeIntegration: false,
-                    webSecurity: false
-                }
-            });
-
-            // Add the BrowserView to the main window
-            globalCtx.getState().mainWindow.setBrowserView(view);
-
-            const viewWidth = 800;
-            const viewHeight = 600;
-
-            const [mainWidth, mainHeight] = globalCtx.getState().mainWindow.getContentSize();
-
-            // Calculate centered position
-            const x = Math.round((mainWidth - viewWidth) / 2);
-            const y = Math.round((mainHeight - viewHeight) / 2);
-
-            // Set bounds for the BrowserView
-            view.setBounds({ x, y, width: viewWidth, height: viewHeight });
-            view.setAutoResize({ width: true, height: true, x: true, y: true });
-
-            const handleRedirect = (event, newUrl) => {
-                electronLogger.log('Redirect detected to:', newUrl);
-                url = newUrl; // Update the URL to reflect the redirected URL
-            };
-
-            // Listen for redirects and navigation events
-            view.webContents.session.webRequest.onBeforeRedirect((details) => {
-                electronLogger.log('Redirect detected via webRequest:', details.redirectURL);
-                url = details.redirectURL; // Update the URL with the redirect destination
-            });
-
             // Load the URL
             if (!getFromPostData) {
                 await logger.info(`Loading Reddit content:, ${url}`);
@@ -117,6 +119,7 @@ const redditHandler = (...ctxs) => {
                 );
                 electronLogger.log('Loading template from:', templatePath);
                 try {
+                    if (!globalCtx.getState().browserView) return;
                     await view.webContents.loadFile(templatePath);
                 } catch (error) {
                     electronLogger.error('Error loading template:', error);
@@ -297,8 +300,6 @@ const redditHandler = (...ctxs) => {
             //         electronLogger.log(`[webContents event] ${event}:`, args);
             //     });
             // });
-
-            globalCtx.setState({ browserView: view });
 
             return {
                 success: true,

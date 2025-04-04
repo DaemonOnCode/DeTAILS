@@ -285,6 +285,14 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
     }, [sampledPostIds, unseenPostIds]);
 
     useEffect(() => {
+        console.log(
+            'Manual coding context mounted',
+            manualCodingResponses,
+            codebook,
+            postStates,
+            sampledPostResponse,
+            unseenPostResponse
+        );
         if (
             manualCodingResponses.length === 0 &&
             codebook &&
