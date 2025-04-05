@@ -28,6 +28,7 @@ export type RedditTableProps = {
     togglePostSelection: (id: string) => void; // Function to toggle individual post selection
     toggleSelectPage: (pageData: [string, RedditPosts[string]][]) => void; // Function to toggle all posts on the page
     isLoading: boolean; // Flag to indicate if data is loading
+    itemsPerPage?: number; // Number of items per page
 };
 
 export type AddCodeModalProps = {

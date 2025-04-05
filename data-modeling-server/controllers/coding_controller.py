@@ -161,6 +161,7 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
 async def process_llm_task(
     app_id: str,
     dataset_id: str,
+    workspace_id: str,
     manager: ConnectionManager,
     llm_model: str,
     regex_pattern: str,
@@ -249,6 +250,7 @@ async def process_llm_task(
                         "dataset_id": dataset_id,
                         "function_id": function_id,
                         "parent_function_name": parent_function_name,
+                        "workspace_id": workspace_id,
                     }),
                 )
             )
@@ -316,7 +318,7 @@ def normalize_text(text: str) -> str:
     text = text.strip()
     return text
 
-def filter_codes_by_transcript(codes: list[dict], transcript: str, parent_function_name: str = "") -> list[dict]:
+def filter_codes_by_transcript(workspace_id:str, codes: list[dict], transcript: str, parent_function_name: str = "") -> list[dict]:
     # return codes
     filtered_codes = []
     normalized_transcript = normalize_text(transcript)
@@ -341,6 +343,7 @@ def filter_codes_by_transcript(codes: list[dict], transcript: str, parent_functi
             context=json.dumps({
                 "function": "llm_response_after_filtering_hallucinations",
                 "parent_function_name": parent_function_name,
+                "workspace_id": workspace_id,
             }),
         )
     )
@@ -406,6 +409,7 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
                 "codebook_type": codebook_type,
                 "dataset_id": dataset_id,
                 "parent_function_name": parent_function_name,
+                "workspace_id": workspace_id,
             }),
         )
     )
@@ -554,6 +558,7 @@ def divide_into_fixed_chunks(words: List[str], chunk_size: int) -> List[List[str
     return [words[i:i + chunk_size] for i in range(0, len(words), chunk_size)]
 
 async def cluster_words_with_llm(
+    workspace_id:str, 
     words: List[str],
     llm_model: str,
     app_id: str,
@@ -583,6 +588,7 @@ async def cluster_words_with_llm(
             # First chunk, use beginning prompt
             extracted_data = await process_llm_task(
                 app_id=app_id,
+                workspace_id = workspace_id, 
                 dataset_id=dataset_id,
                 manager=manager,
                 llm_model=llm_model,
@@ -600,6 +606,7 @@ async def cluster_words_with_llm(
             # Continuation chunk
             extracted_data = await process_llm_task(
                 app_id=app_id,
+                workspace_id = workspace_id,
                 dataset_id=dataset_id,
                 manager=manager,
                 llm_model=llm_model,
@@ -648,6 +655,7 @@ async def cluster_words_with_llm(
             }),
             context=json.dumps({
                 "function": "llm_clustering_response",
+                "workspace_id": workspace_id,
             }),
         )
     )
@@ -908,6 +916,7 @@ def truncate_text(text: str, max_tokens: int, llm_instance: Any) -> str:
 
 # Modified summarize_with_llm to handle oversized texts
 async def summarize_with_llm(
+    workspace_id:str,
     texts: List[str],
     llm_model: str,
     app_id: str,
@@ -974,6 +983,7 @@ async def summarize_with_llm(
         prompt = prompt_func(**{**kwargs, 'texts': chunk})
         for attempt in range(retries):
             extracted_dict = await process_llm_task(
+                workspace_id = workspace_id,
                 app_id=app_id,
                 dataset_id=dataset_id,
                 manager=manager,
@@ -1014,6 +1024,7 @@ async def summarize_with_llm(
     if len(summaries) == 1:
         return summaries[0]
     return await summarize_with_llm(
+        workspace_id,
         summaries,
         llm_model,
         app_id,
@@ -1073,6 +1084,7 @@ def split_into_batches(
 
 # Main function with improved error handling
 async def summarize_codebook_explanations(
+    workspace_id:str,
     responses: List[Dict[str, Any]],
     llm_model: str,
     app_id: str,
@@ -1121,6 +1133,7 @@ async def summarize_codebook_explanations(
 
         for attempt in range(retries):
             extracted_dict = await process_llm_task(
+                workspace_id = workspace_id,
                 app_id=app_id,
                 dataset_id=dataset_id,
                 manager=manager,
@@ -1153,6 +1166,7 @@ async def summarize_codebook_explanations(
 
     async def summarize_individual_code(code: str) -> List[Tuple[str, str]]:
         summary = await summarize_with_llm(
+            workspace_id = workspace_id,
             texts=grouped_explanations[code],
             llm_model=llm_model,
             app_id=app_id,

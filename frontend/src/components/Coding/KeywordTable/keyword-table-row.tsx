@@ -18,14 +18,14 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
     onDeleteRow
 }) => {
     // Local state for text fields
-    const [localWord, setLocalWord] = useState(entry.word);
+    // const [localWord, setLocalWord] = useState(entry.word);
     const [localDescription, setLocalDescription] = useState(entry.description);
     const [localInclusion, setLocalInclusion] = useState(entry.inclusion_criteria.join(', '));
     const [localExclusion, setLocalExclusion] = useState(entry.exclusion_criteria.join(', '));
 
     // Sync local state with parent state when entry changes (e.g., due to undo)
     useEffect(() => {
-        setLocalWord(entry.word);
+        // setLocalWord(entry.word);
         setLocalDescription(entry.description);
         setLocalInclusion(entry.inclusion_criteria.join(', '));
         setLocalExclusion(entry.exclusion_criteria.join(', '));
@@ -34,9 +34,9 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
     // Debounce updates and notify parent
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (localWord !== entry.word) {
-                onFieldChange(index, 'word', localWord);
-            }
+            // if (localWord !== entry.word) {
+            //     onFieldChange(index, 'word', localWord);
+            // }
             if (localDescription !== entry.description) {
                 onFieldChange(index, 'description', localDescription);
             }
@@ -56,15 +56,16 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
             }
         }, 500); // 500ms debounce delay
         return () => clearTimeout(timer);
-    }, [localWord, localDescription, localInclusion, localExclusion, entry, index, onFieldChange]);
+    }, [localDescription, localInclusion, localExclusion, entry, index, onFieldChange]);
 
     return (
         <tr className="text-center">
             <td className="border border-gray-400 p-2">
                 <textarea
-                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                    value={localWord}
-                    onChange={(e) => setLocalWord(e.target.value)}
+                    className="w-full p-2 resize-none h-24 pointer-events-none"
+                    value={entry.word}
+                    readOnly
+                    // onChange={(e) => setLocalWord(e.target.value)}
                 />
             </td>
             <td className="border border-gray-400 p-2">

@@ -429,6 +429,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                     selectedPosts={selectedData}
                     togglePostSelection={togglePostSelection}
                     toggleSelectPage={toggleSelectPage}
+                    itemsPerPage={itemsPerPage}
                 />
             </div>
 

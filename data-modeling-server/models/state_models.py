@@ -6,6 +6,7 @@ class SaveStateRequest(BaseModel):
     workspace_id: str
     user_email: str
     dataset_id: str
+    page_url: str = "/"
     coding_context: Dict[str, Any]
     collection_context: Dict[str, Any]
     modeling_context: Dict[str, Any]

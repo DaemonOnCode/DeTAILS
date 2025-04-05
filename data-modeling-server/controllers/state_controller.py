@@ -40,6 +40,7 @@ def save_state(data):
             }),
             context=json.dumps({
                 "function": "save_state",
+                "page_url": data.page_url,
             }),
         )
     )

@@ -369,6 +369,7 @@ def create_dataset(description: str, dataset_id: str = None, workspace_id: str =
             }),
             context=json.dumps({
                 "function": "create_dataset",
+                "workspace_id": workspace_id,
             }),
         )
     )
@@ -1533,6 +1534,7 @@ def get_files_to_process_fallback(torrent_files: list[TorrentFile], wanted_range
 
 
 async def check_primary_torrent(
+    workspace_id: str,
     manager: ConnectionManager,
     app_id: str,
     run_id: str,
@@ -1583,6 +1585,7 @@ async def check_primary_torrent(
             }),
             context=json.dumps({
                 "function": "check_primary_torrent",
+                "workspace_id": workspace_id,
             }),
         )
     )

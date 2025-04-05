@@ -19,6 +19,7 @@ import { useToast } from '../../context/toast-context';
 import { useApi } from './use-api';
 import { useLoadingContext } from '../../context/loading-context';
 import { IManualCodingContext, useManualCodingContext } from '../../context/manual-coding-context';
+import { useLocation } from 'react-router-dom';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
@@ -31,6 +32,7 @@ const useWorkspaceUtils = () => {
     const { serviceStarting } = useWebSocket();
     const { showToast } = useToast();
     const { fetchData } = useApi();
+    const location = useLocation();
 
     const getPayload = (
         currentWorkspace: IWorkspaceContext['currentWorkspace'],
@@ -44,6 +46,7 @@ const useWorkspaceUtils = () => {
         return {
             workspace_id: currentWorkspace?.id || '',
             user_email: user?.email || '',
+            page_url: `${location.pathname}${location.search}`,
             dataset_id: collectionContext.datasetId || '',
             collection_context: {
                 type: collectionContext.type || '',

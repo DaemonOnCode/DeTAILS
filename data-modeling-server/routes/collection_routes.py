@@ -11,13 +11,14 @@ from controllers.collection_controller import check_primary_torrent, create_data
 from database import PipelineStepsRepository, TorrentDownloadProgressRepository
 from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
+from headers.workspace_id import get_workspace_id
 from models.collection_models import FilterRedditPostsByDeleted, GetTorrentStatusRequest, ParseDatasetRequest, ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
 from constants import DATASETS_DIR, STUDY_DATABASE_PATH
 from models import PipelineStep, TorrentDownloadProgress
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 from routes.websocket_routes import manager
 
-router = APIRouter(dependencies=[Depends(get_app_id)])
+router = APIRouter(dependencies=[Depends(get_app_id), Depends(get_workspace_id)])
 
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
@@ -100,11 +101,12 @@ async def download_reddit_from_torrent_endpoint(
 ):
     async with transmission_manager:
         app_id = request.headers.get("x-app-id")
+        workspace_id = request.headers.get("x-workspace-id")
 
         run_id = str(uuid4())
 
         progress_repo.insert(TorrentDownloadProgress(
-            workspace_id=request_body.workspace_id,
+            workspace_id=workspace_id,
             dataset_id=request_body.dataset_id,
             run_id=run_id,
             status="in-progress",
@@ -116,7 +118,7 @@ async def download_reddit_from_torrent_endpoint(
         pipeline_repo.insert_batch(
             list(map(
                 lambda step: PipelineStep(
-                    workspace_id=request_body.workspace_id,
+                    workspace_id=workspace_id,
                     dataset_id=request_body.dataset_id,
                     run_id=run_id,
                     step_label=step
@@ -144,7 +146,7 @@ async def download_reddit_from_torrent_endpoint(
 
             output_files = await get_reddit_data_from_torrent(
                 manager, app_id, run_id,
-                request_body.dataset_id, request_body.workspace_id,
+                request_body.dataset_id, workspace_id,
                 request_body.subreddit, 
                 start_month, 
                 end_month, 
@@ -348,7 +350,8 @@ async def get_torrent_status_endpoint(
     request: Request,
     request_body: GetTorrentStatusRequest
 ):
-    return progress_repo.get_current_status(request_body.workspace_id, request_body.dataset_id)
+    workspace_id = request.headers.get("x-workspace-id")
+    return progress_repo.get_current_status(workspace_id, request_body.dataset_id)
 
 @router.post("/check-reddit-torrent-availability")
 async def check_reddit_torrent_availability(
@@ -358,9 +361,10 @@ async def check_reddit_torrent_availability(
 ):
     async with transmission_manager:
         app_id = request.headers.get("x-app-id")
+        workspace_id = request.headers.get("x-workspace-id")
         run_id = str(uuid4())
 
         result = await check_primary_torrent(
-            manager, app_id, run_id, request_body.subreddit, request_body.submissions_only, request_body.download_dir
+            workspace_id, manager, app_id, run_id, request_body.subreddit, request_body.submissions_only, request_body.download_dir
         )
         return result

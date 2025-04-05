@@ -12,7 +12,8 @@ const RedditTable: FC<RedditTableProps> = ({
     selectedPosts,
     togglePostSelection,
     toggleSelectPage,
-    isLoading
+    isLoading,
+    itemsPerPage = 10
 }) => {
     const { isLocked } = useCollectionContext();
     const [selectedPost, setSelectedPost] = useState<(typeof data)[number] | null>(null);
@@ -48,7 +49,7 @@ const RedditTable: FC<RedditTableProps> = ({
                 <tbody>
                     {isLoading
                         ? // Render skeleton rows if loading
-                          [...Array(10)].map((_, index) => (
+                          [...Array(itemsPerPage)].map((_, index) => (
                               <tr key={index} className="hover:bg-gray-50">
                                   <td className="px-4 py-6 border">
                                       <div className="h-6 w-6 bg-gray-200 rounded-full animate-pulse"></div>

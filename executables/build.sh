@@ -93,16 +93,16 @@ echo "Exiting the backend"
 cd ..
 echo "Backend built sucessfully"
 
-# Build the log-viewer
-echo "Entering log-viewer"
-cd ./log-viewer
-echo "Building the log-viewer"
-REACT_APP_ROUTER=hash npm run build
-echo "Copying the built log-viewer"
-cp -r ./build ../executables/log-viewer
-echo "Exiting log-viewer"
-cd ..
-echo "Log-viewer built sucessfully"
+# # Build the log-viewer
+# echo "Entering log-viewer"
+# cd ./log-viewer
+# echo "Building the log-viewer"
+# REACT_APP_ROUTER=hash npm run build
+# echo "Copying the built log-viewer"
+# cp -r ./build ../executables/log-viewer
+# echo "Exiting log-viewer"
+# cd ..
+# echo "Log-viewer built sucessfully"
 
 
 # Build ollama

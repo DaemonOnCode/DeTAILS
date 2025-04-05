@@ -17,6 +17,7 @@ from controllers.coding_controller import cluster_words_with_llm, filter_codes_b
 from controllers.collection_controller import get_reddit_post_by_id
 from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
+from headers.workspace_id import get_workspace_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GenerateKeywordDefinitionsRequest, GroupCodesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
 from models.table_dataclasses import CodebookType, GenerationType, ResponseCreatorType, SelectedPostId, StateDump
 from routes.websocket_routes import manager
@@ -29,7 +30,7 @@ from database.db_helpers import get_post_and_comments_from_id
 from utils.prompts_v2 import ContextPrompt, DeductiveCoding, GenerateCodebookWithoutQuotes, GenerateDeductiveCodesFromCodebook, GroupCodes, InitialCodePrompts, RefineCodebook, RefineSingleCode, RemakerPrompts, ThemeGeneration
 
 
-router = APIRouter(dependencies=[Depends(get_app_id)])
+router = APIRouter(dependencies=[Depends(get_app_id), Depends(get_workspace_id)])
 settings = Settings()
 
 function_progress_repo = FunctionProgressRepository()
@@ -42,12 +43,16 @@ state_dump_repo = StateDumpsRepository(
 
 @router.post("/get-selected-post-ids")
 async def get_selected_post_ids_endpoint(
+    request: Request,
     request_body: SelectedPostIdsRequest
 ):
     return selected_post_ids_repo.find({"dataset_id": request_body.dataset_id})
 
 @router.post("/sample-posts")
-async def sample_posts_endpoint(request_body: SamplePostsRequest):
+async def sample_posts_endpoint(
+    request: Request,
+    request_body: SamplePostsRequest
+):
     settings = CustomSettings()
 
     if (request_body.sample_size <= 0 or 
@@ -60,7 +65,7 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
     post_ids = request_body.post_ids
     sample_size = request_body.sample_size
     divisions = request_body.divisions
-    workspace_id = request_body.workspace_id
+    workspace_id = request.headers.get("x-workspace-id")
 
     if len(selected_post_ids_repo.find({"dataset_id": dataset_id}))!=0:
         selected_post_ids_repo.delete({"dataset_id": dataset_id})
@@ -204,6 +209,8 @@ async def sample_posts_endpoint(request_body: SamplePostsRequest):
             }),
             context=json.dumps({
                 "function": "sample_posts",
+                "workspace_id": workspace_id,
+
             }),
         )
     )
@@ -279,6 +286,7 @@ async def build_context_from_interests_endpoint(
 
     parsed_keywords = await process_llm_task(
         app_id=app_id,
+        workspace_id=request.headers.get("x-workspace-id"),
         dataset_id=dataset_id,
         manager=manager,
         llm_model=model,
@@ -308,7 +316,7 @@ async def build_context_from_interests_endpoint(
             context=json.dumps({
                 "function": "keyword_cloud_table",
                 "run":"initial",
-
+                "workspace_id": request.headers.get("x-workspace-id"),
             }),
         )
     )
@@ -431,6 +439,7 @@ async def generate_definitions_endpoint(
         
         # Process with LLM using RAG
         parsed_output = await process_llm_task(
+            workspace_id=request.headers.get("x-workspace-id"),
             app_id=app_id,
             dataset_id=dataset_id,
             manager=manager,
@@ -461,6 +470,7 @@ async def generate_definitions_endpoint(
             context=json.dumps({
                 "function": "keyword_table",
                 "run":"initial",
+                "workspace_id": request.headers.get("x-workspace-id"),
             }),
         )
     )
@@ -492,6 +502,7 @@ async def regenerate_keywords_endpoint(
     retriever = vector_store.as_retriever(search_kwargs={'k': 50})
 
     parsed_keywords = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
         app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
@@ -533,6 +544,7 @@ async def regenerate_keywords_endpoint(
             context=json.dumps({
                 "function": "keyword_cloud_table",
                 "run":"regenerate",
+                "workspace_id": request.headers.get("x-workspace-id"),
             }),
         )
     )
@@ -554,6 +566,7 @@ async def generate_codes_endpoint(request: Request,
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+    workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
 
@@ -568,7 +581,7 @@ async def generate_codes_endpoint(request: Request,
         # raise HTTPException(status_code=400, detail="Codebook generation already in progress.")
 
     function_progress_repo.insert(FunctionProgress(
-        workspace_id=request_body.workspace_id,
+        workspace_id=workspace_id,
         dataset_id=dataset_id,
         name="codebook",
         function_id=function_id,
@@ -589,6 +602,7 @@ async def generate_codes_endpoint(request: Request,
                 transcript = generate_transcript(post_data)
 
                 parsed_response = await process_llm_task(
+                    workspace_id=workspace_id,
                     app_id=app_id,
                     dataset_id=dataset_id,
                     post_id=post_id,
@@ -625,7 +639,7 @@ async def generate_codes_endpoint(request: Request,
                     code["postId"] = post_id
                     code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(codes, transcript, parent_function_name="generate-initial-codes")
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-initial-codes")
                 function_progress_repo.update({
                     "function_id": function_id,
                 }, {
@@ -649,7 +663,7 @@ async def generate_codes_endpoint(request: Request,
                 #     chat_history=None,
                 #     codebook_type=CodebookType.INITIAL.value
                 # ), codes)))
-                codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="generate-initial-codes")
+                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="generate-initial-codes")
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
@@ -697,6 +711,7 @@ async def generate_codes_endpoint(request: Request,
 
 
         res = await cluster_words_with_llm(
+            workspace_id,
             unique_codes,
             request_body.model,
             app_id,
@@ -731,7 +746,8 @@ async def generate_codes_endpoint(request: Request,
                 context=json.dumps({
                     "function": "initial_codes",
                     "run":"initial",
-                    "function_id": function_id
+                    "function_id": function_id,
+                    "workspace_id": workspace_id,
                 }),
             )
         )
@@ -766,6 +782,7 @@ async def refine_codebook_endpoint(
     current_codebook_json = json.dumps(request_body.currentCodebook, indent=2)
 
     parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
         app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
@@ -810,6 +827,7 @@ async def deductive_coding_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+    workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Deductive coding process started.")
 
 
@@ -824,7 +842,7 @@ async def deductive_coding_endpoint(
         print(f"Error in deductive_coding_endpoint: {e}")
 
     function_progress_repo.insert(FunctionProgress(
-        workspace_id=request_body.workspace_id,
+        workspace_id=workspace_id,
         dataset_id=dataset_id,
         name="deductive",
         function_id=function_id,
@@ -846,6 +864,7 @@ async def deductive_coding_endpoint(
             transcript = generate_transcript(post_data)
 
             parsed_response = await process_llm_task(
+                workspace_id=workspace_id,
                 app_id=app_id,
                 dataset_id=dataset_id,
                 post_id=post_id,
@@ -885,7 +904,7 @@ async def deductive_coding_endpoint(
                 code["postId"] = post_id
                 code["id"] = str(uuid4())
 
-            codes = filter_codes_by_transcript(codes, transcript, parent_function_name="deductive-coding")
+            codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="deductive-coding")
             function_progress_repo.update({
                     "function_id": function_id,
                 }, {
@@ -894,7 +913,7 @@ async def deductive_coding_endpoint(
                     }).current + 1
                 })
 
-            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.DEDUCTIVE.value, parent_function_name="deductive-coding")
+            codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.DEDUCTIVE.value, parent_function_name="deductive-coding")
 
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
@@ -921,7 +940,8 @@ async def deductive_coding_endpoint(
                 context=json.dumps({
                     "function": "deductive_codes",
                     "run":"initial",
-                    "function_id": function_id
+                    "function_id": function_id,
+                    "workspace_id": workspace_id,
                 }),
             )
         )
@@ -966,6 +986,7 @@ async def theme_generation_endpoint(
 
     # Summarize explanations for each code
     summaries = await summarize_codebook_explanations(
+        workspace_id=request.headers.get("x-workspace-id"),
         responses=rows,  # Pass the raw responses
         llm_model=request_body.model,
         app_id=app_id,
@@ -987,6 +1008,7 @@ async def theme_generation_endpoint(
 
     # Generate themes using the summarized explanations
     parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
         app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
@@ -1028,6 +1050,7 @@ async def theme_generation_endpoint(
                 context=json.dumps({
                     "function": "theme_generation",
                     "run":"initial",
+                    "workspace_id": request.headers.get("x-workspace-id"),
                 }),
             )
         )
@@ -1067,6 +1090,7 @@ async def redo_theme_generation_endpoint(
         })
 
     summaries = await summarize_codebook_explanations(
+        workspace_id=request.headers.get("x-workspace-id"),
         responses=rows,
         llm_model=request_body.model,
         app_id=app_id,
@@ -1086,6 +1110,7 @@ async def redo_theme_generation_endpoint(
     print(qec_table)
 
     parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
         app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
@@ -1127,6 +1152,7 @@ async def redo_theme_generation_endpoint(
                 context=json.dumps({
                     "function": "theme_generation",
                     "run":"regenerate",
+                    "workspace_id": request.headers.get("x-workspace-id"),
                 }),
             )
         )
@@ -1158,6 +1184,7 @@ async def refine_single_code_endpoint(
     *chat_history, user_comment = request_body.chat_history
 
     parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
         app_id=request.headers.get("x-app-id"),
         dataset_id="",
         manager=manager,
@@ -1193,6 +1220,7 @@ async def generate_codes_endpoint(request: Request,
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+    workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
 
@@ -1200,7 +1228,7 @@ async def generate_codes_endpoint(request: Request,
     total_posts = len(request_body.sampled_post_ids)
 
     function_progress_repo.insert(FunctionProgress(
-        workspace_id=request_body.workspace_id,
+        workspace_id=workspace_id,
         dataset_id=dataset_id,
         name="codebook",
         function_id=function_id,
@@ -1215,6 +1243,7 @@ async def generate_codes_endpoint(request: Request,
         function_id = str(uuid4())
 
         summarized_codebook_dict = await summarize_codebook_explanations(
+            workspace_id=request.headers.get("x-workspace-id"),
             responses=request_body.codebook,
             llm_model=request_body.model,
             app_id=app_id,
@@ -1238,6 +1267,7 @@ async def generate_codes_endpoint(request: Request,
                 transcript = generate_transcript(post_data)
 
                 parsed_response = await process_llm_task(
+                    workspace_id=workspace_id,
                     app_id=app_id,
                     dataset_id=dataset_id,
                     post_id=post_id,
@@ -1278,9 +1308,9 @@ async def generate_codes_endpoint(request: Request,
                     code["postId"] = post_id
                     code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(codes, transcript, parent_function_name="remake-codebook")
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="remake-codebook")
 
-                codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="remake-codebook")
+                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="remake-codebook")
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
@@ -1307,6 +1337,7 @@ async def generate_codes_endpoint(request: Request,
         unique_codes = list(set(row["code"] for row in final_results))
 
         res = await cluster_words_with_llm(
+            workspace_id,
             unique_codes,
             request_body.model,
             app_id,
@@ -1342,7 +1373,8 @@ async def generate_codes_endpoint(request: Request,
                 context=json.dumps({
                     "function": "initial_codes",
                     "run":"regenerate",
-                    "function_id": function_id
+                    "function_id": function_id,
+                    "workspace_id": workspace_id,
                 }),
             )
         )
@@ -1370,13 +1402,14 @@ async def redo_deductive_coding_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+    workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Deductive coding process started.")
 
     function_id = str(uuid4())
     total_posts = len(request_body.unseen_post_ids)
 
     function_progress_repo.insert(FunctionProgress(
-        workspace_id=request_body.workspace_id,
+        workspace_id=workspace_id,
         dataset_id=dataset_id,
         name="deductive",
         function_id=function_id,
@@ -1391,6 +1424,7 @@ async def redo_deductive_coding_endpoint(
         llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
         summarized_current_codebook_dict = await summarize_codebook_explanations(
+            workspace_id=request.headers.get("x-workspace-id"),
             responses=request_body.current_codebook,
             llm_model=request_body.model,
             app_id=app_id,
@@ -1412,6 +1446,7 @@ async def redo_deductive_coding_endpoint(
             transcript = generate_transcript(post_data)
 
             parsed_response = await process_llm_task(
+                workspace_id=workspace_id,
                 app_id=app_id,
                 dataset_id=dataset_id,
                 post_id=post_id,
@@ -1452,9 +1487,9 @@ async def redo_deductive_coding_endpoint(
                 code["postId"] = post_id
                 code["id"] = str(uuid4())
 
-            codes = filter_codes_by_transcript(codes, transcript, parent_function_name="redo-deductive-coding")
+            codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-deductive-coding")
 
-            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.DEDUCTIVE.value, parent_function_name="redo-deductive-coding")
+            codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.DEDUCTIVE.value, parent_function_name="redo-deductive-coding")
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
@@ -1482,7 +1517,8 @@ async def redo_deductive_coding_endpoint(
                 context=json.dumps({
                     "function": "deductive_codes",
                     "run":"regenerate",
-                    "function_id": function_id
+                    "function_id": function_id,
+                    "workspace_id": workspace_id,
                 }),
             )
         )
@@ -1531,6 +1567,7 @@ async def group_codes_endpoint(
 
     # Summarize explanations for each code
     summarized_explanations = await summarize_codebook_explanations(
+        workspace_id=request.headers.get("x-workspace-id"),
         responses=rows,
         llm_model=request_body.model,
         app_id=app_id,
@@ -1551,6 +1588,7 @@ async def group_codes_endpoint(
     print(qec_table, grouped_qec)
 
     parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
         app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
@@ -1587,6 +1625,7 @@ async def group_codes_endpoint(
                 context=json.dumps({
                     "function": "code_grouping",
                     "run":"initial",
+                    "workspace_id": request.headers.get("x-workspace-id"),
                 }),
             )
         )
@@ -1629,6 +1668,7 @@ async def regroup_codes_endpoint(
     ]
 
     summarized_explanations = await summarize_codebook_explanations(
+        workspace_id=request.headers.get("x-workspace-id"),
         responses=rows,
         llm_model=request_body.model,
         app_id=app_id,
@@ -1650,6 +1690,7 @@ async def regroup_codes_endpoint(
     previous_codes_json = json.dumps(request_body.previous_codes)
 
     parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
         app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
@@ -1687,6 +1728,7 @@ async def regroup_codes_endpoint(
                 context=json.dumps({
                     "function": "code_grouping",
                     "run":"regenerate",
+                    "workspace_id": request.headers.get("x-workspace-id"),
                 }),
             )
         )
@@ -1720,6 +1762,7 @@ async def generate_codebook_without_quotes_endpoint(
 
     # Summarize the explanations for each code
     summarized_dict = await summarize_codebook_explanations(
+        workspace_id=request.headers.get("x-workspace-id"),
         responses=rows,
         llm_model=request_body.model,
         app_id=app_id,
@@ -1736,6 +1779,7 @@ async def generate_codebook_without_quotes_endpoint(
 
     # Generate the codebook using the summarized explanations
     parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
         app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
@@ -1757,6 +1801,7 @@ async def generate_codebook_without_quotes_endpoint(
                 context=json.dumps({
                     "function": "manual_codebook_generation",
                     "run":"initial",
+                    "workspace_id": request.headers.get("x-workspace-id"),
                 }),
             )
         )
@@ -1784,6 +1829,7 @@ async def regenerate_codebook_without_quotes_endpoint(
     rows = request_body.sampled_post_responses + request_body.unseen_post_responses
 
     summarized_dict = await summarize_codebook_explanations(
+        workspace_id=request.headers.get("x-workspace-id"),
         responses=rows,
         llm_model=request_body.model,
         app_id=app_id,
@@ -1800,6 +1846,7 @@ async def regenerate_codebook_without_quotes_endpoint(
     previous_codebook_json = json.dumps(request_body.previous_codebook)
 
     parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
         app_id=app_id,
         dataset_id=dataset_id,
         manager=manager,
@@ -1823,6 +1870,7 @@ async def regenerate_codebook_without_quotes_endpoint(
                 context=json.dumps({
                     "function": "manual_codebook_generation",
                     "run":"regenerate",
+                    "workspace_id": request.headers.get("x-workspace-id"),
                 }),
             )
         )
@@ -1845,6 +1893,7 @@ async def generate_deductive_codes_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+    workspace_id = request.headers.get("x-workspace-id")
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
@@ -1852,7 +1901,7 @@ async def generate_deductive_codes_endpoint(
     total_posts = len(request_body.post_ids)
 
     function_progress_repo.insert(FunctionProgress(
-        workspace_id=request_body.workspace_id,
+        workspace_id=request.headers.get("x-workspace-id"),
         dataset_id=dataset_id,
         name="deductive",
         function_id=function_id,
@@ -1874,6 +1923,7 @@ async def generate_deductive_codes_endpoint(
             transcript = generate_transcript(post_data)
 
             parsed_response = await process_llm_task(
+                workspace_id=request.headers.get("x-workspace-id"),
                 app_id=app_id,
                 dataset_id=dataset_id,
                 post_id=post_id,
@@ -1904,8 +1954,8 @@ async def generate_deductive_codes_endpoint(
                 code["postId"] = post_id
                 code["id"] = str(uuid4())
 
-            codes = filter_codes_by_transcript(codes, transcript, parent_function_name="generate-deductive-codes")
-            codes = insert_responses_into_db(codes, dataset_id, request_body.workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes")
+            codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-deductive-codes")
+            codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes")
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 

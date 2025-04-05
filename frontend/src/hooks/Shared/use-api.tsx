@@ -4,6 +4,7 @@ import { useSettings } from '../../context/settings-context';
 import { useLoadingContext } from '../../context/loading-context';
 import { useLocation } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 export type FetchResponse<T = any> =
     | { data: T; error?: never; abort: () => void }
@@ -53,6 +54,7 @@ export const useApi = (): UseApiResult => {
     const { getServerUrl } = useServerUtils();
     const { settings, updateSettings } = useSettings();
     const location = useLocation();
+    const { currentWorkspace } = useWorkspaceContext();
     const { requestArrayRef, openCredentialModalForCredentialError } = useLoadingContext();
 
     const fetchData = useCallback(
@@ -67,14 +69,16 @@ export const useApi = (): UseApiResult => {
 
             const defaultHeaders: Record<string, string> = {
                 'Content-Type': 'application/json',
-                'X-App-ID': settings.app.id
+                'X-App-ID': settings.app.id,
+                'X-Workspace-ID': currentWorkspace?.id ?? ''
             };
 
             const isFormData = restOptions.body instanceof FormData;
             const mergedHeaders = isFormData
                 ? {
                       ...((restOptions.headers as Record<string, string>) || {}),
-                      'X-App-ID': settings.app.id
+                      'X-App-ID': settings.app.id,
+                      'X-Workspace-ID': currentWorkspace?.id || ''
                   }
                 : { ...defaultHeaders, ...(restOptions.headers || {}) };
 

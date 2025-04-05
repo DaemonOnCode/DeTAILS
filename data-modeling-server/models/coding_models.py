@@ -4,7 +4,6 @@ from pydantic import BaseModel
 
 
 class SamplePostsRequest(BaseModel):
-    workspace_id: str
     dataset_id: str
     post_ids: list= []
     sample_size: int = 0.5
@@ -33,7 +32,6 @@ class GenerateInitialCodesRequest(BaseModel):
     additional_info: str
     research_questions: list
     sampled_post_ids: list
-    workspace_id: str
 
     
 class CodebookRefinementRequest(BaseModel):
@@ -52,7 +50,6 @@ class DeductiveCodingRequest(BaseModel):
     additional_info: Optional[str] = ""
     research_questions: Optional[list] = []
     unseen_post_ids: list
-    workspace_id: str
 
   
 class ThemeGenerationRequest(BaseModel):
@@ -110,7 +107,6 @@ class GenerateDeductiveCodesRequest(BaseModel):
     model: str
     codebook: dict
     post_ids: list
-    workspace_id: str
 
 class GenerateKeywordDefinitionsRequest(BaseModel):
     dataset_id: str
