@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import json
 import os
+import time
 from typing import Annotated, List
 from uuid import uuid4
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
@@ -70,6 +71,7 @@ async def sample_posts_endpoint(
     if len(selected_post_ids_repo.find({"dataset_id": dataset_id}))!=0:
         selected_post_ids_repo.delete({"dataset_id": dataset_id})
 
+    start_time = time.time()
 
     sem = asyncio.Semaphore(os.cpu_count())
 
@@ -210,7 +212,7 @@ async def sample_posts_endpoint(
             context=json.dumps({
                 "function": "sample_posts",
                 "workspace_id": workspace_id,
-
+                "time_taken": time.time() - start_time,
             }),
         )
     )
@@ -270,6 +272,8 @@ async def build_context_from_interests_endpoint(
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing started.")
 
+    start_time = time.time()
+
     llm, embeddings = llm_service.get_llm_and_embeddings(model)
 
     # Initialize vector store & process files
@@ -302,6 +306,12 @@ async def build_context_from_interests_endpoint(
         llm_queue_manager=llm_queue_manager,
     )
 
+    if isinstance(parsed_keywords, list):
+        parsed_keywords = {"keywords": parsed_keywords}
+
+    keywords_list = parsed_keywords.get("keywords", [])
+    keywords_with_ids = [{"id": str(uuid4()), **word} for word in keywords_list]
+
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 
     state_dump_repo.insert(
@@ -311,19 +321,20 @@ async def build_context_from_interests_endpoint(
                 "main_topic": mainTopic,
                 "research_questions": researchQuestions,
                 "additional_info": additionalInfo,
-                "keywords": parsed_keywords.get("keywords", [])
+                "keywords": keywords_with_ids
             }),
             context=json.dumps({
                 "function": "keyword_cloud_table",
                 "run":"initial",
                 "workspace_id": request.headers.get("x-workspace-id"),
+                "time_taken": time.time() - start_time,
             }),
         )
     )
 
     return {
         "message": "Context built successfully!",
-        "keywords": parsed_keywords.get("keywords", [])
+        "keywords": keywords_with_ids
     }
 
 def batch_list(lst, batch_size):
@@ -374,6 +385,8 @@ async def generate_definitions_endpoint(
     app_id = request.headers.get("x-app-id")
     
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing started.")
+
+    start_time = time.time()
     
     # Initialize LLM and embeddings
     llm, embeddings = llm_service.get_llm_and_embeddings(model)
@@ -454,6 +467,10 @@ async def generate_definitions_endpoint(
         )
         
         # Append the parsed output (list of dictionaries) to results
+
+        if isinstance(parsed_output, list):
+            parsed_output = {"keywords": parsed_output}
+
         results.extend(parsed_output.get("keywords", []))
         print("Parsed output:", parsed_output)
 
@@ -471,6 +488,7 @@ async def generate_definitions_endpoint(
                 "function": "keyword_table",
                 "run":"initial",
                 "workspace_id": request.headers.get("x-workspace-id"),
+                "time_taken": time.time() - start_time,
             }),
         )
     )
@@ -495,6 +513,8 @@ async def regenerate_keywords_endpoint(
 
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Regenerating keywords with feedback...")
+
+    start_time = time.time()
 
     llm, embeddings = llm_service.get_llm_and_embeddings(request_body.model)
 
@@ -529,6 +549,12 @@ async def regenerate_keywords_endpoint(
         extraFeedback=request_body.extraFeedback,
     )
 
+    if isinstance(parsed_keywords, list):
+        parsed_keywords = {"keywords": parsed_keywords}
+
+    keywords_list = parsed_keywords.get("keywords", [])
+    keywords_with_ids = [{"id": str(uuid4()), **word} for word in keywords_list]
+
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 
     state_dump_repo.insert(
@@ -539,19 +565,20 @@ async def regenerate_keywords_endpoint(
                 "research_questions": request_body.researchQuestions,
                 "additional_info": request_body.additionalInfo,
                 "feedback": request_body.extraFeedback,
-                "keywords": parsed_keywords.get("keywords", [])
+                "keywords": keywords_with_ids
             }),
             context=json.dumps({
                 "function": "keyword_cloud_table",
                 "run":"regenerate",
                 "workspace_id": request.headers.get("x-workspace-id"),
+                "time_taken": time.time() - start_time,
             }),
         )
     )
 
     return {
         "message": "Keywords regenerated successfully!",
-        "keywords": parsed_keywords.get("keywords", [])
+        "keywords": keywords_with_ids
     }
 
 @router.post("/generate-initial-codes")
@@ -569,6 +596,7 @@ async def generate_codes_endpoint(request: Request,
     workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
+    start_time = time.time()
 
     function_id = str(uuid4())
     total_posts = len(request_body.sampled_post_ids)
@@ -748,6 +776,7 @@ async def generate_codes_endpoint(request: Request,
                     "run":"initial",
                     "function_id": function_id,
                     "workspace_id": workspace_id,
+                    "time_taken": time.time() - start_time,
                 }),
             )
         )
@@ -775,6 +804,8 @@ async def refine_codebook_endpoint(
 
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
+
+    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
     # Convert codebooks to JSON format
@@ -829,6 +860,8 @@ async def deductive_coding_endpoint(
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Deductive coding process started.")
+
+    start_time = time.time()
 
 
     function_id = str(uuid4())
@@ -942,6 +975,7 @@ async def deductive_coding_endpoint(
                     "run":"initial",
                     "function_id": function_id,
                     "workspace_id": workspace_id,
+                    "time_taken": time.time() - start_time,
                 }),
             )
         )
@@ -970,6 +1004,8 @@ async def theme_generation_endpoint(
 
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation process started.")
+
+    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
@@ -1051,6 +1087,7 @@ async def theme_generation_endpoint(
                     "function": "theme_generation",
                     "run":"initial",
                     "workspace_id": request.headers.get("x-workspace-id"),
+                    "time_taken": time.time() - start_time,
                 }),
             )
         )
@@ -1077,6 +1114,8 @@ async def redo_theme_generation_endpoint(
 
     app_id = request.headers.get("x-app-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation redo process started.")
+
+    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
@@ -1153,6 +1192,7 @@ async def redo_theme_generation_endpoint(
                     "function": "theme_generation",
                     "run":"regenerate",
                     "workspace_id": request.headers.get("x-workspace-id"),
+                    "time_taken": time.time() - start_time,
                 }),
             )
         )
@@ -1176,6 +1216,8 @@ async def refine_single_code_endpoint(
     dataset_id = request_body.dataset_id
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
+    
+    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
     post_data = get_post_and_comments_from_id(request_body.post_id, dataset_id)
@@ -1202,6 +1244,25 @@ async def refine_single_code_endpoint(
     )
 
 
+    state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "post_id": request_body.post_id,
+                    "quote": request_body.quote,
+                    "code": request_body.code,
+                    "parsed_response": parsed_response,
+                    "chat_history": request_body.chat_history,
+                    "user_comment": user_comment,
+                }),
+                context=json.dumps({
+                    "function": "refine_single_code",
+                    "run":"initial",
+                    "workspace_id": request.headers.get("x-workspace-id"),
+                    "time_taken": time.time() - start_time,
+                }),
+            )
+        )
     # print(parsed_response["alternate_codes"])
     # parsed_response["alternate_codes"] = json.loads(parsed_response["alternate_codes"])
 
@@ -1222,6 +1283,8 @@ async def generate_codes_endpoint(request: Request,
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
+
+    start_time = time.time()
 
 
     function_id = str(uuid4())
@@ -1375,6 +1438,7 @@ async def generate_codes_endpoint(request: Request,
                     "run":"regenerate",
                     "function_id": function_id,
                     "workspace_id": workspace_id,
+                    "time_taken": time.time() - start_time,
                 }),
             )
         )
@@ -1404,6 +1468,8 @@ async def redo_deductive_coding_endpoint(
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Deductive coding process started.")
+
+    start_time = time.time()
 
     function_id = str(uuid4())
     total_posts = len(request_body.unseen_post_ids)
@@ -1519,6 +1585,7 @@ async def redo_deductive_coding_endpoint(
                     "run":"regenerate",
                     "function_id": function_id,
                     "workspace_id": workspace_id,
+                    "time_taken": time.time() - start_time,
                 }),
             )
         )
@@ -1546,6 +1613,8 @@ async def group_codes_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+
+    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
@@ -1626,6 +1695,7 @@ async def group_codes_endpoint(
                     "function": "code_grouping",
                     "run":"initial",
                     "workspace_id": request.headers.get("x-workspace-id"),
+                    "time_taken": time.time() - start_time,
                 }),
             )
         )
@@ -1650,6 +1720,7 @@ async def regroup_codes_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
@@ -1729,6 +1800,7 @@ async def regroup_codes_endpoint(
                     "function": "code_grouping",
                     "run":"regenerate",
                     "workspace_id": request.headers.get("x-workspace-id"),
+                    "time_taken": time.time() - start_time,
                 }),
             )
         )
@@ -1755,6 +1827,9 @@ async def generate_codebook_without_quotes_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+
+    start_time = time.time()
+
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
     # Combine sampled and unseen responses
@@ -1802,6 +1877,7 @@ async def generate_codebook_without_quotes_endpoint(
                     "function": "manual_codebook_generation",
                     "run":"initial",
                     "workspace_id": request.headers.get("x-workspace-id"),
+                    "time_taken": time.time() - start_time,
                 }),
             )
         )
@@ -1824,6 +1900,9 @@ async def regenerate_codebook_without_quotes_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+
+    start_time = time.time()
+
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
     rows = request_body.sampled_post_responses + request_body.unseen_post_responses
@@ -1871,6 +1950,7 @@ async def regenerate_codebook_without_quotes_endpoint(
                     "function": "manual_codebook_generation",
                     "run":"regenerate",
                     "workspace_id": request.headers.get("x-workspace-id"),
+                    "time_taken": time.time() - start_time,
                 }),
             )
         )
@@ -1894,6 +1974,8 @@ async def generate_deductive_codes_endpoint(
 
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
+
+    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
@@ -1970,6 +2052,20 @@ async def generate_deductive_codes_endpoint(
                 final_results.extend(codes)
 
 
+        state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "dataset_id": dataset_id,
+                    "codebook": final_results,
+                }),
+                context=json.dumps({
+                    "function": "generate_deductive_codes",
+                    "run":"initial",
+                    "workspace_id": request.headers.get("x-workspace-id"),
+                    "time_taken": time.time() - start_time,
+                }),
+            )
+        )
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
         return {

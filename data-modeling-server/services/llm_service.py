@@ -185,6 +185,7 @@ class GlobalQueueManager:
                 with self._lock:
                     pending_count = len(self.pending_tasks)
                     queue_size = self.queue.qsize()
+                    pending_jobs_count = self.pending_task_repo.count(filters={"status": "pending"})
 
                     all_idle = all(state == "idle" for state, _ in self.worker_states.values())
                     if all_idle and self.worker_states:

@@ -177,6 +177,7 @@ const ContextPage = () => {
         const { data: results, error } = await fetchLLMData<{
             message: string;
             keywords: {
+                id: string;
                 word: string;
                 description: string;
                 inclusion_criteria: string[];
@@ -203,7 +204,29 @@ const ContextPage = () => {
         console.log('Response from remote server', results);
 
         if (results.keywords.length > 0) {
-            setKeywords(Array.from(new Set(results.keywords.map((keyword) => keyword.word))));
+            setKeywords((prev) => {
+                console.log(
+                    'Previous keywords',
+                    prev,
+                    results.keywords.filter(
+                        (keyword) => prev.find((k) => k.word === keyword.word) === undefined
+                    ),
+                    results.keywords
+                        .filter(
+                            (keyword) => prev.find((k) => k.word === keyword.word) === undefined
+                        )
+                        .map((keyword) => ({
+                            id: keyword.id,
+                            word: keyword.word
+                        }))
+                );
+                return results.keywords
+                    .filter((keyword) => prev.find((k) => k.word === keyword.word) === undefined)
+                    .map((keyword) => ({
+                        id: keyword.id,
+                        word: keyword.word
+                    }));
+            });
         }
         // dispatchKeywordsTable({
         //     type: 'INITIALIZE',

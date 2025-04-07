@@ -14,6 +14,7 @@ import {
     RedditPosts,
     SetState
 } from './shared';
+import { Keyword } from '../Shared';
 
 export type PaginationControlsProps = {
     currentPage: number;
@@ -172,10 +173,11 @@ export type ThemeCloudProps = {
 
 export type KeywordCloudProps = {
     mainTopic: string;
-    keywords: string[];
-    selectedKeywords: string[];
-    toggleKeywordSelection: (keyword: string) => void;
-    setKeywords: SetState<string[]>;
+    keywords: Keyword[];
+    selectedKeywords: Keyword[];
+    toggleKeywordSelection: (keyword: Keyword) => void;
+    setKeywords: SetState<Keyword[]>;
+    setSelectedKeywords: SetState<Keyword[]>;
 };
 
 export type PostTranscriptProps = {

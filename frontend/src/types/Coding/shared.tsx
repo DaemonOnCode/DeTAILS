@@ -1,4 +1,5 @@
 import { Dispatch, ReactNode, SetStateAction } from 'react';
+import { Keyword } from '../Shared';
 
 export interface ILayout {
     children: ReactNode;
@@ -22,7 +23,7 @@ export interface IWordBox {
 }
 
 export interface IKeywordBox {
-    text: string;
+    text: Keyword;
     x: number;
     y: number;
     width: number;

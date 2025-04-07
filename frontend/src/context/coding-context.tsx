@@ -22,7 +22,7 @@ import {
 } from '../types/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
 import { PAGE_ROUTES, ROUTES } from '../constants/Coding/shared';
-import { ICodingContext } from '../types/Shared';
+import { ICodingContext, Keyword } from '../types/Shared';
 import { useLocation } from 'react-router-dom';
 import { useLoadingContext } from './loading-context';
 import {
@@ -34,6 +34,7 @@ import {
 } from '../reducers/coding';
 import { getGroupedCodeOfSubCode, getThemeByCode } from '../utility/theme-finder';
 import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
+import { v4 } from 'uuid';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -97,8 +98,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     const [additionalInfo, setAdditionalInfo] = useState<string>('');
     const [researchQuestions, setResearchQuestions] = useState<string[]>([]);
 
-    const [words, setWords] = useState<string[]>([]);
-    const [selectedWords, setSelectedWords] = useState<string[]>([]);
+    const [words, setWords] = useState<Keyword[]>([]);
+    const [selectedWords, setSelectedWords] = useState<Keyword[]>([]);
 
     const [sampledPostIds, setSampledPostIds] = useState<string[]>([]);
 
@@ -123,8 +124,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
 
     const [conflictingResponses, setConflictingResponses] = useState<IQECResponse[]>([]);
 
-    const [keywords, setKeywords] = useState<string[]>([]);
-    const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+    const [keywords, setKeywords] = useState<Keyword[]>([]);
+    const [selectedKeywords, setSelectedKeywords] = useState<Keyword[]>([]);
 
     const [references, setReferences] = useState<{
         [code: string]: IReference[];
@@ -441,8 +442,13 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     };
 
     useEffect(() => {
-        if (!selectedKeywords.includes(mainTopic)) {
-            setSelectedKeywords([mainTopic]);
+        if (!selectedKeywords.find((kw) => kw.word === mainTopic)) {
+            setSelectedKeywords([
+                {
+                    id: v4(),
+                    word: mainTopic
+                }
+            ]);
         }
     }, [mainTopic, keywords]);
 

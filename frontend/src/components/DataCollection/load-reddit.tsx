@@ -212,7 +212,7 @@ const LoadReddit: FC<{
                         if (selectedFilesRef.current?.getFiles) {
                             navigate(
                                 getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                                    text: 'Loading data'
+                                    text: 'Loading Data'
                                 })
                             );
                             console.log(selectedFilesRef.current.getFiles(), 'current selected');
@@ -224,7 +224,7 @@ const LoadReddit: FC<{
                     } else {
                         navigate(
                             getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                                text: 'Loading data'
+                                text: 'Loading Data'
                             })
                         );
                         await loadFolderData(true, true);

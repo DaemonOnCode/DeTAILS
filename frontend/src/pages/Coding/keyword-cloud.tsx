@@ -21,7 +21,7 @@ import { DetailsLLMIcon, GeminiIcon } from '../../components/Shared/Icons';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { useLoadingContext } from '../../context/loading-context';
-import { StepHandle } from '../../types/Shared';
+import { Keyword, StepHandle } from '../../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
@@ -49,7 +49,7 @@ const KeywordCloudPage: FC = () => {
     const location = useLocation();
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const [response, setResponse] = useState<string[]>(
+    const [response, setResponse] = useState<Keyword[]>(
         // keywordTable.map((keyword) => ({
         //     word: keyword.word,
         //     description: keyword.description,
@@ -82,13 +82,12 @@ const KeywordCloudPage: FC = () => {
         };
     }, []);
 
-    const toggleKeywordSelection = (word: string) => {
-        if (word === mainTopic) return;
-
+    const toggleKeywordSelection = (keyword: Keyword) => {
+        if (keyword.word === mainTopic) return;
         setSelectedKeywords((prevSelected) =>
-            prevSelected.includes(word)
-                ? prevSelected.filter((w) => w !== word)
-                : [...prevSelected, word]
+            prevSelected.some((k) => k.id === keyword.id)
+                ? prevSelected.filter((k) => k.id !== keyword.id)
+                : [...prevSelected, keyword]
         );
     };
 
@@ -126,6 +125,7 @@ const KeywordCloudPage: FC = () => {
         const { data: results, error } = await fetchLLMData<{
             message: string;
             keywords: {
+                id: string;
                 word: string;
                 description: string;
                 inclusion_criteria: string[];
@@ -138,10 +138,10 @@ const KeywordCloudPage: FC = () => {
                 mainTopic,
                 additionalInfo,
                 researchQuestions,
-                unselectedKeywords: keywords.filter(
-                    (keyword) => !selectedKeywords.includes(keyword)
-                ),
-                selectedKeywords,
+                unselectedKeywords: keywords
+                    .filter((k) => !selectedKeywords.some((sk) => sk.id === k.id))
+                    .map((k) => k.word),
+                selectedKeywords: selectedKeywords.map((k) => k.word),
                 extraFeedback: feedback,
                 datasetId
             })
@@ -161,13 +161,17 @@ const KeywordCloudPage: FC = () => {
         console.log(results, 'Keyword Cloud Page');
 
         const newKeywords: {
+            id: string;
             word: string;
             description: string;
             inclusion_criteria: string[];
             exclusion_criteria: string[];
         }[] = results.keywords ?? [];
 
-        setResponse((prevResponse) => [...prevResponse, ...newKeywords.map((k) => k.word)]);
+        setResponse((prevResponse) => [
+            ...prevResponse,
+            ...newKeywords.map((k) => ({ id: k.id, word: k.word }))
+        ]);
 
         dispatchKeywordsTable({
             type: 'ADD_MANY',
@@ -181,12 +185,12 @@ const KeywordCloudPage: FC = () => {
         });
 
         setKeywords((prevKeywords) => {
-            const filteredPrevKeywords = prevKeywords.filter((keyword) =>
-                selectedKeywords.includes(keyword)
+            const filteredPrevKeywords = prevKeywords.filter((k) =>
+                selectedKeywords.some((sk) => sk.id === k.id)
             );
-            const filteredNewKeywords = newKeywords
-                .filter((keyword) => !filteredPrevKeywords.includes(keyword.word))
-                .map((keyword) => keyword.word);
+            const filteredNewKeywords = newKeywords.filter(
+                (nk) => !filteredPrevKeywords.some((pk) => pk.id === nk.id)
+            );
             return [...filteredPrevKeywords, ...filteredNewKeywords];
         });
         loadingDispatch({
@@ -237,7 +241,7 @@ const KeywordCloudPage: FC = () => {
                 main_topic: mainTopic,
                 additional_info: additionalInfo,
                 research_questions: researchQuestions,
-                selected_words: [...new Set(selectedKeywords)],
+                selected_words: [...new Set(selectedKeywords.map((k) => k.word))],
                 dataset_id: datasetId
             })
         });
@@ -269,9 +273,9 @@ const KeywordCloudPage: FC = () => {
 
     const handleSelectAll = (selectAll: boolean) => {
         if (selectAll) {
-            setSelectedKeywords((prev) => [mainTopic, ...keywords]);
+            setSelectedKeywords(keywords);
         } else {
-            setSelectedKeywords((prev) => prev.filter((keyword) => keyword === mainTopic));
+            setSelectedKeywords(keywords.filter((k) => k.word === mainTopic));
         }
     };
 
@@ -338,6 +342,7 @@ const KeywordCloudPage: FC = () => {
                             selectedKeywords={selectedKeywords}
                             toggleKeywordSelection={toggleKeywordSelection}
                             setKeywords={setKeywords}
+                            setSelectedKeywords={setSelectedKeywords}
                         />
                     </div>
                     <div className="absolute bottom-0 right-0 flex flex-col gap-y-4">

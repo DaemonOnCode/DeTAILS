@@ -2,18 +2,19 @@ import { useState, useEffect, useRef, FC } from 'react';
 import { IKeywordBox } from '../../../types/Coding/shared';
 import { KeywordCloudProps } from '../../../types/Coding/props';
 import { FiEdit, FiTrash2 } from 'react-icons/fi';
-import UndoNotification from '../../Shared/undo-toast';
-import { toast } from 'react-toastify';
 import { useUndo } from '../../../hooks/Shared/use-undo';
+import { Keyword } from '../../../types/Shared';
+import { v4 as uuidv4 } from 'uuid';
 
+// Constants for styling and layout (unchanged)
 const MAIN_TOPIC_FONT_SIZE = 20;
 const OTHER_KEYWORD_FONT_SIZE = 14;
 const PADDING_BETWEEN_WORDS = 10;
-const EDGE_PADDING = 10; // Minimal padding from the edge of the circle
-const RADIUS_STEP = 5; // Step to move inward if no spot is found
+const EDGE_PADDING = 10;
+const RADIUS_STEP = 5;
 const ANGLE_OFFSETS = [0, -5, 5, -10, 10, -15, 15].map((deg) => (deg * Math.PI) / 180);
 
-// Helper: measure text width using a temporary canvas.
+// Helper functions (unchanged)
 function measureTextWidth(text: string, fontSize: number): number {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -24,7 +25,6 @@ function measureTextWidth(text: string, fontSize: number): number {
     return 50;
 }
 
-// Simple collision detection between two keyword boxes (with extra padding)
 function areKeywordsColliding(
     a: IKeywordBox,
     b: IKeywordBox,
@@ -38,7 +38,6 @@ function areKeywordsColliding(
     );
 }
 
-// Helper: Given an array, interleave its elements from the beginning and end.
 function interleaveArray<T>(arr: T[]): T[] {
     const result: T[] = [];
     let left = 0;
@@ -57,7 +56,7 @@ function interleaveArray<T>(arr: T[]): T[] {
 }
 
 interface DraggingKeyword {
-    text: string;
+    text: Keyword;
     startX: number;
     startY: number;
     mouseStartX: number;
@@ -66,64 +65,68 @@ interface DraggingKeyword {
     height: number;
 }
 
+// KeywordCloud Component
 const KeywordCloud: FC<KeywordCloudProps> = ({
     mainTopic,
     keywords,
     selectedKeywords,
     toggleKeywordSelection,
-    setKeywords
+    setKeywords,
+    setSelectedKeywords
 }) => {
-    console.log(selectedKeywords, 'wordcloud');
+    // console.log('Rendering KeywordCloud', mainTopic, keywords, selectedKeywords);
     const { performWithUndo } = useUndo();
     const svgRef = useRef<SVGSVGElement | null>(null);
-    // State for keyword placement (includes rotation if needed)
     const [placedKeywords, setPlacedKeywords] = useState<(IKeywordBox & { rotation: number })[]>(
         []
     );
     const [radius, setRadius] = useState<number>(0);
-
-    // States for editing functionality
-    const [editingWord, setEditingWord] = useState<string | null>(null);
+    const [editingWordId, setEditingWordId] = useState<string | null>(null);
     const [newWord, setNewWord] = useState<string>('');
-
-    // State for hovered keyword
     const [hoveredKeyword, setHoveredKeyword] = useState<string | null>(null);
-
-    // New state to track the keyword currently being dragged.
     const [draggingKeyword, setDraggingKeyword] = useState<DraggingKeyword | null>(null);
 
-    const handleEdit = (word: string) => {
-        setEditingWord(word);
-        setNewWord(word);
+    // *** NEW: Normalize mainTopic to a string ***
+    const mainTopicString = Array.isArray(mainTopic)
+        ? mainTopic[0]?.word || '' // Extract 'word' from first object, default to empty string if undefined
+        : mainTopic; // Use as-is if it’s a string
+
+    // Handle editing a keyword (unchanged)
+    const handleEdit = (wordId: string) => {
+        setEditingWordId(wordId);
+        setNewWord(keywords.find((k) => k.id === wordId)?.word || '');
     };
 
     const saveEdit = () => {
         performWithUndo([keywords], [setKeywords], () => {
-            setKeywords((prev) => prev.map((w) => (w === editingWord ? newWord : w)));
+            setKeywords((prev) =>
+                prev.map((k) => (k.id === editingWordId ? { ...k, word: newWord } : k))
+            );
+            setSelectedKeywords((prevSelected) =>
+                prevSelected.map((sk) => (sk.id === editingWordId ? { ...sk, word: newWord } : sk))
+            );
         });
-        setEditingWord(null);
+        setEditingWordId(null);
         setNewWord('');
     };
 
-    const handleDelete = (word: string) => {
+    // Handle deleting a keyword (unchanged)
+    const handleDelete = (word: Keyword) => {
         performWithUndo([keywords], [setKeywords], () => {
-            setKeywords((prev) => prev.filter((w) => w !== word));
+            setKeywords((prev) => prev.filter((k) => k.id !== word.id));
         });
     };
 
-    // Update a keyword’s position in state.
-    const updateKeywordPosition = (text: string, newX: number, newY: number) => {
+    // Update keyword position during drag (unchanged)
+    const updateKeywordPosition = (textId: string, newX: number, newY: number) => {
         setPlacedKeywords((prev) =>
-            prev.map((k) => (k.text === text ? { ...k, x: newX, y: newY } : k))
+            prev.map((k) => (k.text.id === textId ? { ...k, x: newX, y: newY } : k))
         );
     };
 
-    // --- DRAG HANDLERS (Additional logic)
-
-    // When a drag starts, record the keyword's starting position and the mouse's SVG coordinates.
+    // Drag Start Handler (updated to use mainTopicString)
     const handleDragStart = (e: React.MouseEvent, keyword: IKeywordBox & { rotation: number }) => {
-        // Only allow drag for non–main keywords.
-        if (keyword.text === mainTopic) return;
+        if (keyword.text.word === mainTopicString) return; // Main topic is not draggable
         e.preventDefault();
         e.stopPropagation();
         if (svgRef.current) {
@@ -146,7 +149,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
         }
     };
 
-    // When a drag is in progress, update the keyword's position.
+    // Drag Effect (unchanged)
     useEffect(() => {
         if (!draggingKeyword || !svgRef.current) return;
 
@@ -162,7 +165,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             const deltaY = svgPoint.y - draggingKeyword.mouseStartY;
             const newX = draggingKeyword.startX + deltaX;
             const newY = draggingKeyword.startY + deltaY;
-            updateKeywordPosition(draggingKeyword.text, newX, newY);
+            updateKeywordPosition(draggingKeyword.text.id, newX, newY);
         };
 
         const handleMouseUp = (e: MouseEvent) => {
@@ -178,13 +181,11 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             const deltaY = svgPoint.y - draggingKeyword.mouseStartY;
             const newX = draggingKeyword.startX + deltaX;
             const newY = draggingKeyword.startY + deltaY;
-            // Calculate the keyword's center.
             const centerX = newX + draggingKeyword.width / 2;
             const centerY = newY + draggingKeyword.height / 2;
-            // If the new center is outside the circle, revert to the original position.
             if (Math.sqrt(centerX * centerX + centerY * centerY) > radius) {
                 updateKeywordPosition(
-                    draggingKeyword.text,
+                    draggingKeyword.text.id,
                     draggingKeyword.startX,
                     draggingKeyword.startY
                 );
@@ -200,21 +201,31 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
         };
     }, [draggingKeyword, radius]);
 
-    // --- END OF DRAG HANDLERS
-
+    // Layout Keywords (updated to use mainTopicString)
     useEffect(() => {
-        // Instead of using the current container size, use the device's full screen size.
         const deviceWidth = window.screen.width;
         const deviceHeight = window.screen.height;
         const deviceDiameter = Math.min(deviceWidth, deviceHeight);
         const baseRadius = deviceDiameter / 2;
         setRadius(baseRadius);
 
-        // 1. Place the main topic at the center.
-        const mainW = measureTextWidth(mainTopic, MAIN_TOPIC_FONT_SIZE) + 30;
+        // Normalize keywords
+        const normalizedKeywords = keywords.map((k) => ({
+            id: k.id || uuidv4(),
+            word: typeof k.word === 'string' ? k.word : String(k.word)
+        }));
+
+        // *** CHANGED: Use mainTopicString instead of mainTopic ***
+        const mainKeyword = mainTopicString;
+
+        // Place main topic at center
+        const mainW = measureTextWidth(mainKeyword, MAIN_TOPIC_FONT_SIZE) + 30;
         const mainH = MAIN_TOPIC_FONT_SIZE + 10;
         const mainBox: IKeywordBox & { rotation: number } = {
-            text: mainTopic,
+            text: {
+                id: uuidv4(),
+                word: mainKeyword
+            },
             x: -mainW / 2,
             y: -mainH / 2,
             width: mainW,
@@ -222,27 +233,22 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             rotation: 0
         };
 
-        // 2. Define a safe radius around the main topic.
         const mainRadius = Math.hypot(mainW, mainH) / 2 + PADDING_BETWEEN_WORDS;
-
-        // 3. Get the other keywords (excluding the main topic)
-        const otherKeywords = keywords.filter((k) => k !== mainTopic);
-        let measured = otherKeywords.map((word) => ({
-            word,
-            width: measureTextWidth(word, OTHER_KEYWORD_FONT_SIZE) + 30,
+        const otherKeywords = normalizedKeywords.filter((k) => k.word !== mainTopicString); // Updated here
+        let measured = otherKeywords.map((k) => ({
+            text: k,
+            width: measureTextWidth(k.word, OTHER_KEYWORD_FONT_SIZE) + 30,
             height: OTHER_KEYWORD_FONT_SIZE + 10
         }));
 
-        // 4. Sort measured words descending by width and interleave them.
+        // Sort and interleave keywords
         measured.sort((a, b) => b.width - a.width);
         const orderedWords = interleaveArray(measured);
         const totalWords = orderedWords.length;
 
-        const placedPhrases: (IKeywordBox & { rotation: number })[] = [];
-        // Place the main topic first.
-        placedPhrases.push(mainBox);
+        const placedPhrases: (IKeywordBox & { rotation: number })[] = [mainBox];
 
-        // 5. For each other keyword, try to find a collision-free spot.
+        // Place other keywords
         orderedWords.forEach((item, sortedIndex) => {
             const halfDiagonal = Math.sqrt((item.width / 2) ** 2 + (item.height / 2) ** 2);
             const allowedCandidateRadius = baseRadius - EDGE_PADDING - halfDiagonal;
@@ -252,7 +258,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             let candidateAngle = baseAngle;
 
             let candidateBox: IKeywordBox = {
-                text: item.word,
+                text: item.text,
                 x: 0,
                 y: 0,
                 width: item.width,
@@ -260,7 +266,6 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             };
 
             let found = false;
-            // Try several radii and angle offsets until a spot is found.
             for (
                 let rCandidate = candidateRadius;
                 rCandidate >= lowerBoundRadius;
@@ -271,19 +276,17 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                     const centerX = Math.cos(candidateAngle) * rCandidate;
                     const centerY = Math.sin(candidateAngle) * rCandidate;
                     candidateBox = {
-                        text: item.word,
+                        text: item.text,
                         x: centerX - item.width / 2,
                         y: centerY - item.height / 2,
                         width: item.width,
                         height: item.height
                     };
 
-                    // Ensure the word doesn't come too near the edge.
                     if (rCandidate + halfDiagonal > baseRadius - EDGE_PADDING) {
                         continue;
                     }
 
-                    // Check collisions with already placed keywords.
                     let collision = false;
                     for (const placedBox of placedPhrases) {
                         if (areKeywordsColliding(candidateBox, placedBox)) {
@@ -300,21 +303,21 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                 if (found) break;
             }
 
-            // If no collision-free candidate was found, use the last candidateBox.
-            const rotation = 0; // (Modify this if you want to rotate based on candidateAngle)
+            const rotation = 0;
             placedPhrases.push({ ...candidateBox, rotation });
         });
 
         setPlacedKeywords(placedPhrases);
-    }, [keywords, mainTopic]);
+    }, [keywords, mainTopicString]); // *** Updated dependency ***
 
-    // Reorder keywords so that the hovered one is rendered last (on top).
+    // Sort keywords to render hovered one last (unchanged)
     const sortedKeywords = [...placedKeywords].sort((a, b) => {
-        if (a.text === hoveredKeyword) return 1;
-        if (b.text === hoveredKeyword) return -1;
+        if (a.text.id === hoveredKeyword) return 1;
+        if (b.text.id === hoveredKeyword) return -1;
         return 0;
     });
 
+    // Render (updated to use mainTopicString)
     return (
         <div
             style={{
@@ -324,8 +327,8 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                 maxHeight: 'calc(100vh - 11rem)',
                 margin: '0 auto'
             }}>
-            {/* Editing Modal */}
-            {editingWord && (
+            {/* Editing Modal (unchanged) */}
+            {editingWordId && (
                 <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
                     <div className="bg-white p-4 rounded shadow">
                         <h2 className="text-lg font-bold mb-2">Edit Word</h2>
@@ -336,7 +339,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                         />
                         <div className="flex justify-end">
                             <button
-                                onClick={() => setEditingWord(null)}
+                                onClick={() => setEditingWordId(null)}
                                 className="px-4 py-2 bg-gray-300 rounded mr-2">
                                 Cancel
                             </button>
@@ -356,17 +359,16 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                 height="100%"
                 viewBox={`-${radius} -${radius} ${2 * radius} ${2 * radius}`}
                 style={{ display: 'block', borderRadius: '50%' }}>
-                {/* Background Circle */}
                 <circle cx="0" cy="0" r={radius} className="fill-gray-100" stroke="#ccc" />
 
-                {/* Lines connecting the center to each keyword (skip main topic) */}
+                {/* Lines connecting center to keywords (unchanged) */}
                 {sortedKeywords.map((kw) => {
-                    if (kw.text === mainTopic) return null;
+                    if (kw.text.word === mainTopicString) return null; // Updated here
                     const centerX = kw.x + kw.width / 2;
                     const centerY = kw.y + kw.height / 2;
                     return (
                         <line
-                            key={`line-${kw.text}`}
+                            key={`line-${kw.text.id}`}
                             x1={0}
                             y1={0}
                             x2={centerX}
@@ -377,10 +379,13 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                     );
                 })}
 
-                {/* Render each keyword as a clickable element */}
+                {/* Render keywords (updated to use mainTopicString) */}
                 {sortedKeywords.map((kw, idx) => {
-                    const isMain = kw.text === mainTopic;
-                    const isSelected = selectedKeywords && selectedKeywords.includes(kw.text);
+                    console.log('Rendering keyword:', kw, mainTopicString);
+                    const isMain = kw.text.word === mainTopicString; // Updated here
+                    const isSelected = selectedKeywords.some(
+                        (sk) => sk.id === kw.text.id || (isMain && sk.word === mainTopicString)
+                    );
                     const bgClass = isSelected
                         ? 'bg-blue-200 text-blue-700'
                         : isMain
@@ -389,22 +394,15 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
 
                     return (
                         <foreignObject
-                            key={kw.text}
+                            key={kw.text.id}
                             x={kw.x}
                             y={kw.y}
                             width={kw.width}
                             height={kw.height}
                             style={{ overflow: 'visible' }}>
                             <div
-                                // Add onMouseDown only for non–main keywords to initiate drag.
-                                onMouseDown={
-                                    !isMain
-                                        ? (e) => {
-                                              handleDragStart(e, kw);
-                                          }
-                                        : undefined
-                                }
-                                onMouseEnter={() => setHoveredKeyword(kw.text)}
+                                onMouseDown={!isMain ? (e) => handleDragStart(e, kw) : undefined}
+                                onMouseEnter={() => setHoveredKeyword(kw.text.id)}
                                 onMouseLeave={() => setHoveredKeyword(null)}
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -424,15 +422,14 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                                             : undefined,
                                         transformOrigin: 'center center'
                                     }}>
-                                    {kw.text}
+                                    {kw.text.word}
                                 </div>
-                                {/* Only non–main keywords show edit/delete buttons */}
                                 {!isMain && (
                                     <div className="absolute -top-2 -right-2 flex space-x-1 opacity-0 group-hover:opacity-100">
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleEdit(kw.text);
+                                                handleEdit(kw.text.id);
                                             }}
                                             className="text-blue-600 hover:text-blue-800">
                                             <FiEdit />

@@ -82,6 +82,8 @@ export interface IModelingContext {
     stopListening: () => void;
 }
 
+export type Keyword = { id: string; word: string };
+
 export interface ICodingContext {
     contextFiles: IFile;
     addContextFile: (filePath: string, fileName: string) => void;
@@ -90,14 +92,14 @@ export interface ICodingContext {
     setMainTopic: SetState<string>;
     additionalInfo?: string;
     setAdditionalInfo: SetState<string>;
-    keywords: string[];
-    setKeywords: SetState<string[]>;
-    selectedKeywords: string[];
-    setSelectedKeywords: SetState<string[]>;
-    words: string[];
-    setWords: SetState<string[]>;
-    selectedWords: string[];
-    setSelectedWords: SetState<string[]>;
+    keywords: Keyword[];
+    setKeywords: SetState<Keyword[]>;
+    selectedKeywords: Keyword[];
+    setSelectedKeywords: SetState<Keyword[]>;
+    words: Keyword[];
+    setWords: SetState<Keyword[]>;
+    selectedWords: Keyword[];
+    setSelectedWords: SetState<Keyword[]>;
     references: {
         [code: string]: IReference[];
     };

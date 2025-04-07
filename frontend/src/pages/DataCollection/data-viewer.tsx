@@ -69,7 +69,7 @@ const DataViewerPage = () => {
                     if (inputSplits[3] === 'files') {
                         navigate(
                             getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                                text: 'Loading data'
+                                text: 'Loading Data'
                             })
                         );
                     } else {
@@ -78,7 +78,7 @@ const DataViewerPage = () => {
                 } else {
                     navigate(
                         getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                            text: 'Loading data'
+                            text: 'Loading Data'
                         })
                     );
                 }
