@@ -28,5 +28,6 @@ from .table_dataclasses import (
     SelectedPostId,
     Subcode,
     ErrorLog,
-    StateDump
+    StateDump,
+    BackgroundJob
 )

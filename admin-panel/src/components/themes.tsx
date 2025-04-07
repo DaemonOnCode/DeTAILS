@@ -1,11 +1,17 @@
-import { useDatabase } from "./database-context";
+import EntriesViewer from "./entries-viewer";
 
 function Themes() {
-  const { isDatabaseLoaded } = useDatabase();
-  if (!isDatabaseLoaded) {
-    return <p className="p-4">Please select a database first.</p>;
-  }
-  return <div className="p-4">Themes page content goes here</div>;
+  const getComparisonData = (state: any) =>
+    state["themes"]?.map((theme: any) => theme.theme) ??
+    state["coding_context"]?.["themes"].map((theme: any) => theme.name);
+  return (
+    <EntriesViewer
+      title="Themes Entries and Differences"
+      functionName="theme_generation"
+      getComparisonData={getComparisonData}
+      includeRun={true}
+    />
+  );
 }
 
 export default Themes;

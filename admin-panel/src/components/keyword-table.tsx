@@ -1,11 +1,16 @@
-import { useDatabase } from "./database-context";
+import EntriesViewer from "./entries-viewer";
 
 function KeywordTable() {
-  const { isDatabaseLoaded } = useDatabase();
-  if (!isDatabaseLoaded) {
-    return <p className="p-4">Please select a database first.</p>;
-  }
-  return <div className="p-4">KeywordTable page content goes here</div>;
+  const getComparisonData = (state: any) =>
+    state["results"] ?? state["coding_context"]?.["keyword_table"];
+  return (
+    <EntriesViewer
+      title="Keyword Table Entries and Differences"
+      functionName="keyword_cloud_table"
+      getComparisonData={getComparisonData}
+      includeRun={false}
+    />
+  );
 }
 
 export default KeywordTable;

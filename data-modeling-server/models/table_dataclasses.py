@@ -442,3 +442,12 @@ class StateDump(BaseDataclass):
     context: Optional[str] = None
     id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
     created_at: Optional[datetime] = field(default_factory=datetime.now)
+
+@dataclass
+class BackgroundJob(BaseDataclass):
+    job_id: int = field(metadata={"primary_key": True, "auto_increment": True})
+    status: str = field(metadata={"not_null": True})
+    error: Optional[str] = None
+    created_at: datetime = field(default_factory=datetime.now)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None

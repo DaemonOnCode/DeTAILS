@@ -13,12 +13,12 @@ import pandas as pd
 
 from config import Settings, CustomSettings
 from constants import STUDY_DATABASE_PATH
-from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
+from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
 from controllers.collection_controller import get_reddit_post_by_id
 from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
-from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GenerateKeywordDefinitionsRequest, GroupCodesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
+from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GenerateKeywordDefinitionsRequest, GetCodedDataRequest, GroupCodesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
 from models.table_dataclasses import CodebookType, GenerationType, ResponseCreatorType, SelectedPostId, StateDump
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository, QectRepository, SelectedPostIdsRepository
@@ -1981,3 +1981,20 @@ async def generate_deductive_codes_endpoint(
         raise HTTPException(status_code=500, detail="An error occurred during deductive coding.")
     finally:
         function_progress_repo.delete({"function_id": function_id})
+
+
+@router.post("/get-coded-data")
+def get_coded_data_endpoint(
+    request: Request,
+    request_body: GetCodedDataRequest
+):
+    dataset_id = request_body.dataset_id
+    if not dataset_id:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+
+    coded_data = get_coded_data(request_body.codebook_names, request_body.filters, dataset_id, request_body.batch_size, request_body.offset)
+
+    return {
+        "message": "Coded data retrieved successfully!",
+        "data": coded_data
+    }

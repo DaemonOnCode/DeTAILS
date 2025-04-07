@@ -2,14 +2,12 @@ from enum import Enum
 import re
 import sqlite3
 from dataclasses import fields
-from typing import Optional, Any, Dict
 from datetime import datetime
 
 from constants import DATABASE_PATH, STUDY_DATABASE_PATH
 from database.constants import SQLITE_TYPE_MAPPING
 
 def camel_to_snake(name: str) -> str:
-    """Convert CamelCase to snake_case."""
     name = name.replace("Repository", "")
     return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
 

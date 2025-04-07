@@ -115,3 +115,10 @@ class GenerateKeywordDefinitionsRequest(BaseModel):
     additional_info: str
     research_questions: list 
     selected_words: list
+
+class GetCodedDataRequest(BaseModel):
+    dataset_id: str
+    codebook_names: list
+    filters: dict
+    batch_size: int = 20
+    offset: int = 0

@@ -10,6 +10,7 @@ import KeywordCloud from "./components/keyword-cloud";
 import KeywordTable from "./components/keyword-table";
 import Themes from "./components/themes";
 import Timeline from "./components/timeline";
+import ErrorRates from "./components/error-rates";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="/final-coding" element={<FinalCoding />} />
           <Route path="/finalizing-codes" element={<FinalizingCodes />} />
           <Route path="/themes" element={<Themes />} />
+          <Route path="/error-rates" element={<ErrorRates />} />
           <Route path="/" element={<SelectDBFile />} />
         </Routes>
       </DatabaseProvider>

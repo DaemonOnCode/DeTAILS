@@ -20,8 +20,12 @@ export function diff(obj1: any, obj2: any, path: string = ""): Difference[] {
   if (type1 !== type2) {
     differences.push({
       path,
-      type: "changed",
+      type: "removed",
       oldValue: obj1,
+    });
+    differences.push({
+      path,
+      type: "added",
       newValue: obj2,
     });
     return differences;

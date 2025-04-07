@@ -8,15 +8,6 @@ class CommentsRepository(BaseRepository[Comment]):
         super().__init__("comments", Comment, *args, **kwargs)
 
     def fetch_unprocessed_comments(self, dataset_id: str, batch_size: int, num_threads: int):
-        """
-        Fetch comments that have not been tokenized yet.
-        
-        :param dataset_id: ID of the dataset to filter comments.
-        :param batch_size: Number of comments to process per thread.
-        :param num_threads: Number of threads processing the comments.
-        :return: List of comment records that are not yet tokenized.
-        """
-
         tokenized_comment_ids = list(map(lambda x: x["comment_id"], self.execute_raw_query("SELECT comment_id FROM tokenized_comments", keys=True)))
 
         query_builder = self.query_builder()

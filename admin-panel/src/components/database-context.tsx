@@ -104,8 +104,8 @@ export const DatabaseProvider = ({
   const executeQuery = (
     query: string,
     params?: any[],
-    page: number = 0,
-    pageSize: number = 20
+    page?: number,
+    pageSize?: number
   ) => {
     return new Promise((resolve, reject) => {
       if (!worker) return reject("Worker not initialized");

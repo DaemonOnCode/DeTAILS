@@ -1191,3 +1191,108 @@ async def summarize_codebook_explanations(
 
     all_summaries = [item for sublist in results for item in sublist]
     return dict(all_summaries)
+
+
+def get_coded_data(
+    codebook_names: list,
+    filters: dict,
+    dataset_id: str,
+    batch_size: int,
+    offset: int,
+):
+    # Extract filter parameters
+    show_coder_type = filters.get("showCoderType", False)
+    selected_type_filter = filters.get("selectedTypeFilter", "All")
+    filter_param = filters.get("filter")
+    
+    # Build the base WHERE clause
+    base_conditions = ["dataset_id = :dataset_id"]
+    params = {"dataset_id": dataset_id}
+    
+    # Filter by codebook names if provided
+    if codebook_names:
+        placeholders = ", ".join([f":codebook_{i}" for i in range(len(codebook_names))])
+        base_conditions.append(f"codebook_type IN ({placeholders})")
+        for i, name in enumerate(codebook_names):
+            params[f"codebook_{i}"] = name
+    
+    # Apply coder type and response type filters
+    if not show_coder_type:
+        if selected_type_filter == "All":
+            base_conditions.append(
+                "(codebook_type = :initial OR (codebook_type = :deductive AND response_type = :llm))"
+            )
+            params["initial"] = "initial"
+            params["deductive"] = "deductive"
+            params["llm"] = "LLM"
+        elif selected_type_filter == "New Data":
+            base_conditions.append("codebook_type = :deductive")
+            base_conditions.append("response_type = :llm")
+            params["deductive"] = "deductive"
+            params["llm"] = "LLM"
+        elif selected_type_filter == "Codebook":
+            base_conditions.append("codebook_type = :initial")
+            params["initial"] = "initial"
+    else:
+        base_conditions.append("codebook_type = :manual")
+        params["manual"] = "manual"
+        if selected_type_filter == "Human":
+            base_conditions.append("response_type = :human")
+            params["human"] = "Human"
+        elif selected_type_filter == "LLM":
+            base_conditions.append("response_type = :llm")
+            params["llm"] = "LLM"
+    
+    # Combine conditions into WHERE clause
+    base_where_clause = " AND ".join(base_conditions)
+    
+    # Calculate total_ids using SQL COUNT(*)
+    total_ids_query = f"SELECT COUNT(*) FROM qect WHERE {base_where_clause}"
+    total_ids_result = qect_repo.execute_raw_query(total_ids_query, tuple(params.values()), keys=False)
+    total_ids = total_ids_result.fetchone()[0]
+    
+    # Fetch total_data for unique codes and filtering
+    total_data_query = f"SELECT * FROM qect WHERE {base_where_clause}"
+    total_data_rows = qect_repo.execute_raw_query(total_data_query, tuple(params.values()), keys=True)
+    total_data = [QectResponse(**row) for row in total_data_rows]
+    
+    # Compute unique codes
+    unique_codes = list(set(resp.code for resp in total_data))
+    
+    # Apply additional filtering based on filter_param
+    if filter_param:
+        if filter_param == "coded-data":
+            filtered_data = total_data
+            filtered_post_ids = list(set(resp.post_id for resp in total_data))
+        elif "|" in filter_param and filter_param.endswith("|coded-data"):
+            post_id = filter_param.split("|")[0]
+            filtered_data = [resp for resp in total_data if resp.post_id == post_id]
+            filtered_post_ids = [post_id] if filtered_data else []
+        else:
+            all_post_ids = set(resp.post_id for resp in total_data)
+            if filter_param in all_post_ids:
+                filtered_data = [resp for resp in total_data if resp.post_id == filter_param]
+                filtered_post_ids = list(set(resp.post_id for resp in total_data))
+            else:
+                filtered_data = [resp for resp in total_data if resp.code == filter_param]
+                filtered_post_ids = list(set(resp.post_id for resp in filtered_data))
+    else:
+        filtered_data = total_data
+        filtered_post_ids = list(set(resp.post_id for resp in total_data))
+    
+    # Apply batching and offsetting
+    if batch_size is not None:
+        filtered_data = filtered_data[offset:offset + batch_size]
+    else:
+        filtered_data = filtered_data[offset:]
+    
+    # Serialize filtered_data
+    filtered_data_serialized = [resp.to_dict() for resp in filtered_data]
+    
+    # Return the required values
+    return {
+        "filteredData": filtered_data_serialized,
+        "filteredPostIds": filtered_post_ids,
+        "totalIds": total_ids,
+        "uniqueCodes": unique_codes
+    }

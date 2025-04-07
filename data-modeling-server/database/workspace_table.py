@@ -8,16 +8,10 @@ class WorkspacesRepository(BaseRepository[Workspace]):
         super().__init__("workspaces", Workspace, *args, **kwargs)
 
     def find_by_user_email(self, user_email: str) -> List[Workspace]:
-        """
-        Finds workspaces by user email.
-        """
         query, params = self.query_builder().where("user_email", user_email).find()
         return self.fetch_all(query, params)
 
     def find_recent_workspaces(self, user_email: str, limit: int = 5) -> List[Workspace]:
-        """
-        Finds recent workspaces for a user, limited by count.
-        """
         query, params = (
             self.query_builder()
             .where("", user_email)

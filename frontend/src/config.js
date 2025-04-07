@@ -61,6 +61,7 @@ const config = {
             GENERATE_CODEBOOK_WITHOUT_QUOTES: 'coding/generate-codebook-without-quotes',
             REGENERATE_CODEBOOK_WITHOUT_QUOTES: 'coding/regenerate-codebook-without-quotes',
             GENERATE_DEDUCTIVE_CODES: 'coding/generate-deductive-codes',
+            GET_CODED_DATA: 'coding/get-coded-data',
 
             CREATE_WORKSPACE: 'workspaces/create-workspace',
             GET_WORKSPACES: 'workspaces/get-workspaces',

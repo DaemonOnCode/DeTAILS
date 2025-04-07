@@ -6,7 +6,6 @@ from constants import DATABASE_PATH
 from database import PostsRepository, CommentsRepository
 
 def execute_query(query: str, params: tuple = (), keys = False) -> List[tuple]:
-    """Utility function to execute SQL queries."""
     with sqlite3.connect(DATABASE_PATH) as conn:
         if keys:
             conn.row_factory = sqlite3.Row
@@ -42,22 +41,18 @@ def get_post_and_comments_from_id(post_id: str, dataset_id: str) -> Dict[str, An
     posts_repo = PostsRepository()
     comments_repo = CommentsRepository()
 
-    # Fetch post data
     post = posts_repo.find_one({"id": post_id, "dataset_id": dataset_id}, columns=["id", "title", "selftext"], map_to_model=False)
 
-    # Fetch all comments for the post
     comments = comments_repo.find({"post_id": post_id, "dataset_id": dataset_id}, columns=["id", "body", "parent_id", "author"], map_to_model=False)
 
-    # Convert comments into hierarchical structure
     comment_map = {comment["id"]: comment for comment in comments}
 
     for comment in comments:
-            # print(comment['parent_id'],comment['id'], post_id , "comment", comment['parent_id'] in comment_map, comment['parent_id'] in comment_map.keys())
         if comment["parent_id"] and comment["parent_id"] in comment_map:
             parent = comment_map[comment["parent_id"]]
             parent.setdefault("comments", []).append(comment)
 
     top_level_comments = [comment for comment in comments if comment["parent_id"] == post_id]
     
-    print(post, comments)
+    # print(post, comments)
     return {**post, "comments": top_level_comments}

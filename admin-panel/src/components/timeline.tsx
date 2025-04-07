@@ -25,24 +25,20 @@ const toTitleCase = (str: string): string => {
 function Timeline() {
   const { isDatabaseLoaded, executeQuery } = useDatabase();
 
-  // **Typed State Variables**
+  // **State Variables**
   const [entries, setEntries] = useState<DatabaseRow[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(0);
-  const [hasMore, setHasMore] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
-  const [initialLoadComplete, setInitialLoadComplete] =
-    useState<boolean>(false);
   const [filterFunction, setFilterFunction] = useState<string | null>(null);
   const [uniqueFunctions, setUniqueFunctions] = useState<FunctionOption[]>([]);
+  const [visibleEntries, setVisibleEntries] = useState<Set<number>>(new Set()); // Tracks visible entry IDs
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // **Database Check**
   if (!isDatabaseLoaded) {
     return <p className="p-4">Please select a database first.</p>;
   }
 
-  // **Fetch Unique Functions**
+  // **Fetch Unique Functions for Filter**
   useEffect(() => {
     if (isDatabaseLoaded) {
       const fetchUniqueFunctions = async () => {
@@ -70,65 +66,67 @@ function Timeline() {
     }
   }, [isDatabaseLoaded, executeQuery]);
 
-  // **Reset and Reload on Filter Change**
+  // **Fetch All Entries Initially**
   useEffect(() => {
-    setEntries([]);
-    setCurrentPage(0);
-    setHasMore(true);
-    setInitialLoadComplete(false);
-    loadMore();
-  }, [filterFunction]);
-
-  // **Load More Entries**
-  const loadMore = async () => {
-    if (loading || !hasMore) return;
-    setLoading(true);
-    try {
-      const query = filterFunction
-        ? `SELECT * FROM state_dumps WHERE json_extract(context, '$.function') = ? ORDER BY id`
-        : `SELECT * FROM state_dumps ORDER BY id`;
-      const params = filterFunction ? [filterFunction] : [];
-      const newEntries: DatabaseRow[] = await executeQuery(
-        query,
-        params,
-        currentPage,
-        20
-      );
-      setEntries((prev) => [...prev, ...newEntries]);
-      if (newEntries.length === 20) {
-        setCurrentPage((prev) => prev + 1);
-      } else {
-        setHasMore(false);
+    const fetchAllEntries = async () => {
+      setLoading(true);
+      try {
+        let query = `SELECT * FROM state_dumps`;
+        let params: string[] = [];
+        if (filterFunction) {
+          query += ` WHERE json_extract(context, '$.function') = ?`;
+          params.push(filterFunction);
+        }
+        query += ` ORDER BY id`;
+        const result = await executeQuery(query, params);
+        setEntries(result);
+      } catch (error) {
+        console.error("Error fetching entries:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-      setInitialLoadComplete(true);
+    };
+    fetchAllEntries();
+  }, [filterFunction, executeQuery]);
+
+  // **Set Up Intersection Observer**
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        setVisibleEntries((prev) => {
+          const newVisible = new Set(prev);
+          entries.forEach((entry) => {
+            const id = Number(entry.target.getAttribute("data-id"));
+            if (entry.isIntersecting) {
+              newVisible.add(id);
+            } else {
+              newVisible.delete(id);
+            }
+          });
+          return newVisible;
+        });
+      },
+      { threshold: 0.1 } // Trigger when 10% of the element is visible
+    );
+
+    // Clean up observer on unmount
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  // **Callback Ref to Observe Each Entry**
+  const observeElement = (id: number) => (element: HTMLDivElement | null) => {
+    if (element && observerRef.current) {
+      observerRef.current.observe(element);
     }
   };
 
-  // **Infinite Scrolling**
-  useEffect(() => {
-    if (observerRef.current) observerRef.current.disconnect();
-    observerRef.current = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasMore && !loading) {
-        loadMore();
-      }
-    });
-    if (sentinelRef.current) {
-      observerRef.current.observe(sentinelRef.current);
-    }
-    return () => {
-      if (observerRef.current) observerRef.current.disconnect();
-    };
-  }, [hasMore, loading]);
-
   // **Recursive JSON Rendering**
   const renderJsonRecursive = (data: any, depth: number = 0): JSX.Element => {
-    if (depth > 5) {
-      return <span>...</span>;
-    }
+    if (depth > 5) return <span>...</span>;
     if (typeof data === "object" && data !== null) {
       if (Array.isArray(data)) {
         return (
@@ -149,11 +147,10 @@ function Timeline() {
           </div>
         );
       }
-    } else {
-      return (
-        <span>{typeof data === "string" ? data : JSON.stringify(data)}</span>
-      );
     }
+    return (
+      <span>{typeof data === "string" ? data : JSON.stringify(data)}</span>
+    );
   };
 
   // **JSON Rendering with Error Handling**
@@ -192,7 +189,10 @@ function Timeline() {
           ))}
         </select>
       </div>
-      {initialLoadComplete && entries.length === 0 && !loading && !hasMore && (
+      {loading && (
+        <p className="text-center text-gray-600">Loading entries...</p>
+      )}
+      {!loading && entries.length === 0 && (
         <p className="text-center text-gray-600">
           {filterFunction
             ? "No entries match the selected function."
@@ -200,38 +200,42 @@ function Timeline() {
         </p>
       )}
       <div className="space-y-4">
-        {entries.map((entry) => (
-          <div
-            key={entry.id}
-            className="bg-white p-4 rounded-lg shadow-md border border-gray-200"
-          >
-            <p className="text-sm text-gray-500 mb-2">
-              {new Date(entry.created_at).toLocaleString()}
-            </p>
-            <details className="mb-2">
-              <summary className="font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
-                State
-              </summary>
-              {renderJson(entry.state)}
-            </details>
-            <details>
-              <summary className="font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
-                Context
-              </summary>
-              {renderJson(entry.context)}
-            </details>
-          </div>
-        ))}
+        {entries.map((entry) => {
+          const isVisible = visibleEntries.has(entry.id);
+          return (
+            <div
+              key={entry.id}
+              data-id={entry.id} // Used by Intersection Observer
+              ref={observeElement(entry.id)} // Observe this element
+              className="bg-white p-4 rounded-lg shadow-md border border-gray-200"
+            >
+              <p className="text-sm text-gray-500 mb-2">
+                {new Date(entry.created_at).toLocaleString()}
+              </p>
+              <details className="mb-2">
+                <summary className="font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
+                  State
+                </summary>
+                {isVisible ? (
+                  renderJson(entry.state)
+                ) : (
+                  <p className="text-gray-400">Loading state...</p>
+                )}
+              </details>
+              <details>
+                <summary className="font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
+                  Context
+                </summary>
+                {isVisible ? (
+                  renderJson(entry.context)
+                ) : (
+                  <p className="text-gray-400">Loading context...</p>
+                )}
+              </details>
+            </div>
+          );
+        })}
       </div>
-      <div ref={sentinelRef} className="h-1" />
-      {loading && (
-        <p className="text-center text-gray-600 mt-4">Loading more...</p>
-      )}
-      {!hasMore && entries.length > 0 && (
-        <p className="text-center text-gray-600 mt-4">
-          No more entries to load.
-        </p>
-      )}
     </div>
   );
 }

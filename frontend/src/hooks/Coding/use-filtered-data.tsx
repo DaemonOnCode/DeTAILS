@@ -1,4 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+// import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+// import { useApi } from '../Shared/use-api';
+// import { useCollectionContext } from '../../context/collection-context';
 
 interface UseFilteredDataParams {
     data: any[];
@@ -15,6 +18,13 @@ interface UseFilteredDataParams {
     testPostIds: string[];
 }
 
+// interface CodedDataResponse {
+//     filteredData: { postId: string; code: string; type: string }[];
+//     filteredPostIds: string[];
+//     totalIds: number;
+//     uniqueCodes: string[];
+// }
+
 export function useFilteredData({
     data,
     postIds,
@@ -29,6 +39,39 @@ export function useFilteredData({
     unseenPostIds,
     testPostIds
 }: UseFilteredDataParams) {
+    // const { datasetId } = useCollectionContext();
+    // const { fetchData } = useApi();
+    // useEffect(() => {
+    //     async function fetchCodedData() {
+    //         const { data, error } = await fetchData<{ message: string; data: CodedDataResponse }>(
+    //             REMOTE_SERVER_ROUTES.GET_CODED_DATA,
+    //             {
+    //                 method: 'POST',
+    //                 body: JSON.stringify({
+    //                     codebook_names: ['initial', 'deductive', 'manual'],
+    //                     filters: {
+    //                         showCoderType,
+    //                         selectedTypeFilter,
+    //                         filter: applyFilters ? filter : null // Only send filter if applying filters
+    //                     },
+    //                     dataset_id: datasetId,
+    //                     batch_size: 20, // Fetch all data; adjust if pagination is needed
+    //                     offset: 0
+    //                 })
+    //             }
+    //         );
+
+    //         if (data) {
+    //             console.log('Fetched coded data:', data);
+    //         }
+    //         if (error) {
+    //             console.error('Error fetching coded data:', error);
+    //         }
+    //     }
+
+    //     fetchCodedData();
+    // }, [filter, showCoderType, applyFilters, selectedTypeFilter]);
+
     return useMemo(() => {
         let filteredData = data;
         let filteredPostIds = postIds;

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 function NavBar() {
   return (
-    <nav className="bg-gray-800 p-4">
+    <nav className="bg-gray-800 p-4 sticky top-0 z-50">
       <ul className="flex space-x-4">
         <li>
           <Link to="/select-db-file" className="text-white hover:text-gray-300">
@@ -45,6 +45,11 @@ function NavBar() {
         <li>
           <Link to="/themes" className="text-white hover:text-gray-300">
             Themes
+          </Link>
+        </li>
+        <li>
+          <Link to="/error-rates" className="text-white hover:text-gray-300">
+            Error Rates
           </Link>
         </li>
       </ul>
