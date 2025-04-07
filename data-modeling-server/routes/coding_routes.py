@@ -15,7 +15,7 @@ import pandas as pd
 from config import Settings, CustomSettings
 from constants import STUDY_DATABASE_PATH
 from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
-from controllers.collection_controller import get_reddit_post_by_id
+from controllers.collection_controller import count_comments, get_reddit_post_by_id
 from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
@@ -81,15 +81,16 @@ async def sample_posts_endpoint(
                 post = await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id, [
                     "id", "title", "selftext"
                 ])
+                num_comments = count_comments(post.get("comments", []))
                 transcript = await asyncio.to_thread(generate_transcript, post)
                 length = len(transcript)
-                return post_id, length
+                return post_id, length, num_comments
             except HTTPException as e:
                 print(f"Post {post_id} not found: {e.detail}")
-                return post_id, None
+                return post_id, None, None
             except Exception as e:
                 print(f"Unexpected error for post {post_id}: {e}")
-                return post_id, None
+                return post_id, None, None
 
     tasks = [fetch_and_compute_length(post_id) for post_id in post_ids]
     results = await asyncio.gather(*tasks)
@@ -97,13 +98,15 @@ async def sample_posts_endpoint(
     valid_results = [res for res in results if res[1] is not None]
     invalid_post_ids = [res[0] for res in results if res[1] is None]
 
+    post_comments = {post_id: num_comments for post_id, _, num_comments in valid_results}
+
     if invalid_post_ids:
         print(f"Some posts were not found: {invalid_post_ids}")
 
     if not valid_results:
         raise HTTPException(status_code=400, detail="No valid posts found.")
 
-    df = pd.DataFrame(valid_results, columns=['post_id', 'length'])
+    df = pd.DataFrame(valid_results, columns=['post_id', 'length', "num_comments"])
     np.random.seed(settings.ai.randomSeed)
 
     if divisions == 1:
@@ -207,7 +210,8 @@ async def sample_posts_endpoint(
                 "dataset_id": dataset_id,
                 "sample_size": sample_size,
                 "divisions": divisions,
-                "groups": result
+                "groups": result,
+                "post_comments": post_comments
             }),
             context=json.dumps({
                 "function": "sample_posts",
@@ -482,7 +486,7 @@ async def generate_definitions_endpoint(
                 "research_questions": researchQuestions,
                 "additional_info": additionalFeedback,
                 "keywords": batch_words,
-                "results": parsed_output,
+                "results": results
             }),
             context=json.dumps({
                 "function": "keyword_table",

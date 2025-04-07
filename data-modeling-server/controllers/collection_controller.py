@@ -502,6 +502,12 @@ def get_reddit_posts_by_batch(
 def get_reddit_post_titles(dataset_id: str):
     return post_repo.find({"dataset_id": dataset_id}, columns=["id", "title"])
 
+def count_comments(comments):
+    total = len(comments)
+    for comment in comments:
+        total += count_comments(comment.get("comments", []))
+    return total
+
 def get_reddit_post_by_id(dataset_id: str, post_id: str, columns: list = None):
     post = post_repo.find(
         {"dataset_id": dataset_id, "id": post_id}, 

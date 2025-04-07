@@ -30,7 +30,7 @@ function Timeline() {
   const [loading, setLoading] = useState<boolean>(false);
   const [filterFunction, setFilterFunction] = useState<string | null>(null);
   const [uniqueFunctions, setUniqueFunctions] = useState<FunctionOption[]>([]);
-  const [visibleEntries, setVisibleEntries] = useState<Set<number>>(new Set()); // Tracks visible entry IDs
+  const [loadedEntries, setLoadedEntries] = useState<Set<number>>(new Set()); // Tracks loaded entry IDs
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   // **Database Check**
@@ -93,20 +93,19 @@ function Timeline() {
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
-        setVisibleEntries((prev) => {
-          const newVisible = new Set(prev);
+        setLoadedEntries((prev) => {
+          const newLoaded = new Set(prev);
           entries.forEach((entry) => {
-            const id = Number(entry.target.getAttribute("data-id"));
             if (entry.isIntersecting) {
-              newVisible.add(id);
-            } else {
-              newVisible.delete(id);
+              const id = Number(entry.target.getAttribute("data-id"));
+              newLoaded.add(id);
             }
+            // Note: We don’t remove IDs when entry.isIntersecting is false
           });
-          return newVisible;
+          return newLoaded;
         });
       },
-      { threshold: 0.1 } // Trigger when 10% of the element is visible
+      { threshold: 0 } // Trigger when any part of the element is visible
     );
 
     // Clean up observer on unmount
@@ -201,7 +200,7 @@ function Timeline() {
       )}
       <div className="space-y-4">
         {entries.map((entry) => {
-          const isVisible = visibleEntries.has(entry.id);
+          const isLoaded = loadedEntries.has(entry.id);
           return (
             <div
               key={entry.id}
@@ -216,7 +215,7 @@ function Timeline() {
                 <summary className="font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
                   State
                 </summary>
-                {isVisible ? (
+                {isLoaded ? (
                   renderJson(entry.state)
                 ) : (
                   <p className="text-gray-400">Loading state...</p>
@@ -226,7 +225,7 @@ function Timeline() {
                 <summary className="font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
                   Context
                 </summary>
-                {isVisible ? (
+                {isLoaded ? (
                   renderJson(entry.context)
                 ) : (
                   <p className="text-gray-400">Loading context...</p>

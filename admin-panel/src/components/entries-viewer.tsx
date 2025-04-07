@@ -233,10 +233,18 @@ function EntriesViewer({
                 const entryText = includeRun
                   ? `ID: ${entry.id} - Function: ${context.function} - Run: ${
                       context.run ?? "N/A"
-                    } - ${new Date(entry.created_at).toLocaleString()}`
+                    } - ${new Date(
+                      entry.created_at
+                    ).toLocaleString()} - Time taken: ${
+                      context.time_taken ?? "N/A"
+                    }`
                   : `ID: ${entry.id} - Function: ${
                       context.function
-                    } - ${new Date(entry.created_at).toLocaleString()}`;
+                    } - ${new Date(
+                      entry.created_at
+                    ).toLocaleString()} - Time taken: ${
+                      context.time_taken?.toFixed(2) ?? "N/A"
+                    } seconds`;
                 return (
                   <tr key={entry.id}>
                     <td className="p-2 border">{entryText}</td>
