@@ -12,6 +12,10 @@ import { DetailsLLMIcon } from '../../Shared/Icons';
 import { toast } from 'react-toastify';
 import { useLoadingContext } from '../../../context/loading-context';
 import { useManualCodingContext } from '../../../context/manual-coding-context';
+import { useApi } from '../../../hooks/Shared/use-api';
+import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
+import { useCollectionContext } from '../../../context/collection-context';
+import { downloadFile } from '../../../utility/file-downloader';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
@@ -54,6 +58,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { fetchData } = useApi();
+    const { datasetId } = useCollectionContext();
     const {
         sampledPostResponse,
         unseenPostResponse,
@@ -78,6 +84,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [feedback, setFeedback] = useState('');
+
+    const [isDownloadingTranscripts, setIsDownloadingTranscripts] = useState(false);
 
     // Restore states from URL on mount
     useEffect(() => {
@@ -209,6 +217,52 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         }
     };
 
+    const downloadTranscripts = async (e: any, responses: any[]) => {
+        let fileHandle;
+        const _window = window as any;
+        if (_window.showSaveFilePicker) {
+            try {
+                fileHandle = await _window.showSaveFilePicker({
+                    suggestedName: 'transcripts.csv',
+                    types: [
+                        {
+                            description: 'CSV Files',
+                            accept: { 'text/csv': ['.csv'] }
+                        }
+                    ]
+                });
+            } catch (error) {
+                console.error('File save cancelled or failed', error);
+                return false;
+            }
+        }
+
+        const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.GET_TRANSCRIPTS_CSV, {
+            method: 'POST',
+            body: JSON.stringify({
+                dataset_id: datasetId,
+                post_ids: [...new Set(responses.map((response) => response.postId))]
+            }),
+            rawResponse: true
+        });
+
+        if (error) {
+            console.error('Error fetching transcripts:', error);
+            return false;
+        }
+
+        const content = await data.text();
+
+        if (fileHandle) {
+            const writable = await fileHandle.createWritable();
+            await writable.write(content);
+            await writable.close();
+            return true;
+        } else {
+            return downloadFile(content, 'transcripts.csv');
+        }
+    };
+
     const effectiveDispatch =
         coderType && !(selectedTypeFilter === 'Human' || selectedTypeFilter === 'LLM')
             ? routeDispatch
@@ -311,18 +365,34 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                         id="coding-controls"
                         className="flex justify-evenly items-center px-6 py-4">
                         {download && (
-                            <button
-                                onClick={async () => {
-                                    const success = await downloadCodebook(filteredData);
-                                    if (success) {
-                                        toast.success('Codebook downloaded successfully');
-                                    } else {
-                                        toast.error('Download cancelled or failed');
-                                    }
-                                }}
-                                className="px-4 py-2 bg-green-500 text-white rounded">
-                                Download Initial Codes
-                            </button>
+                            <div className="flex gap-x-2">
+                                <button
+                                    onClick={async () => {
+                                        const success = await downloadCodebook(filteredData);
+                                        if (success) {
+                                            toast.success('Codebook downloaded successfully');
+                                        } else {
+                                            toast.error('Download cancelled or failed');
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-green-500 text-white rounded">
+                                    Download Initial Codes
+                                </button>
+                                <button
+                                    onClick={async (e) => {
+                                        setIsDownloadingTranscripts(true);
+                                        const success = await downloadTranscripts(e, filteredData);
+                                        setIsDownloadingTranscripts(false);
+                                        if (success) {
+                                            toast.success('Transcripts downloaded successfully');
+                                        } else {
+                                            toast.error('Download cancelled or failed');
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-green-500 text-white rounded">
+                                    Download Transcripts
+                                </button>
+                            </div>
                         )}
                         <ReviewToggle review={review} setReview={setReview} />
                     </div>
@@ -385,6 +455,13 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                                     Submit
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                )}
+                {isDownloadingTranscripts && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-800 bg-opacity-50">
+                        <div className="bg-white p-6 rounded shadow-lg">
+                            <p className="text-lg font-semibold">Downloading transcripts...</p>
                         </div>
                     </div>
                 )}

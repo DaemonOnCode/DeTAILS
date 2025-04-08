@@ -38,13 +38,22 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     const { scrollRef: subcodeRef } = useScrollRestoration('subcodes-section');
     const { scrollRef: explanationRef } = useScrollRestoration('explanations-section');
 
-    function getStoredChatHistory(postId: string, code: string, quote: string) {
-        const key = `${postId}-${code}-${quote}`;
+    function getStoredChatHistory(
+        postId: string,
+        code: string,
+        quote: string,
+        explanation: string
+    ) {
+        const key = `${postId}-${code}-${quote}-${explanation}`;
         if (chatHistories && chatHistories[key]) {
             return chatHistories[key];
         }
         const found = codeResponses.find(
-            (resp) => resp.postId === postId && resp.code === code && resp.quote === quote
+            (resp) =>
+                resp.postId === postId &&
+                resp.code === code &&
+                resp.quote === quote &&
+                resp.explanation === explanation
         );
         return found?.chatHistory || [];
     }
@@ -105,11 +114,12 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                     const existingChat = getStoredChatHistory(
                         postId,
                         explanationItem.code,
-                        explanationItem.fullText
+                        explanationItem.fullText,
+                        explanationItem.explanation
                     );
                     return (
                         <ChatExplanation
-                            key={`${explanationItem.code}-${explanationItem.fullText}`}
+                            key={`${explanationItem.code}-${explanationItem.fullText}-${explanationItem.explanation}`}
                             initialExplanationWithCode={explanationItem}
                             existingChatHistory={existingChat}
                             postId={postId}

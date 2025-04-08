@@ -7,18 +7,18 @@ import shutil
 from typing import Dict
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Form, Body
-from controllers.collection_controller import check_primary_torrent, create_dataset, delete_dataset, delete_run, filter_posts_by_deleted, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, update_run_progress, upload_dataset_file
+from fastapi.responses import FileResponse
+from controllers.collection_controller import check_primary_torrent, create_dataset, delete_dataset, delete_run, filter_posts_by_deleted, get_post_transcripts_csv, get_reddit_data_from_torrent, get_reddit_post_by_id, get_reddit_post_titles, get_reddit_posts_by_batch, list_datasets, parse_reddit_files, stream_upload_file, update_run_progress, upload_dataset_file
 from database import PipelineStepsRepository, TorrentDownloadProgressRepository
 from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
-from headers.workspace_id import get_workspace_id
-from models.collection_models import FilterRedditPostsByDeleted, GetTorrentStatusRequest, ParseDatasetRequest, ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
-from constants import DATASETS_DIR, STUDY_DATABASE_PATH
+from models.collection_models import FilterRedditPostsByDeleted, GetTorrentStatusRequest, GetTranscriptsCsvRequest, ParseDatasetRequest, ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, ParseRedditPostByIdRequest, ParseRedditPostsRequest
+from constants import DATASETS_DIR, STUDY_DATABASE_PATH, TEMP_DIR
 from models import PipelineStep, TorrentDownloadProgress
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 from routes.websocket_routes import manager
 
-router = APIRouter(dependencies=[Depends(get_app_id), Depends(get_workspace_id)])
+router = APIRouter(dependencies=[Depends(get_app_id)])
 
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
@@ -368,3 +368,17 @@ async def check_reddit_torrent_availability(
             workspace_id, manager, app_id, run_id, request_body.subreddit, request_body.submissions_only, request_body.download_dir
         )
         return result
+    
+@router.post("/get-transcripts-csv")
+async def get_transcripts_csv_endpoint(
+    request: Request,
+    request_body: GetTranscriptsCsvRequest,
+):
+    os.makedirs(TEMP_DIR, exist_ok=True)
+    output_file = os.path.join(TEMP_DIR, f"transcripts-{uuid4()}.csv")
+    await get_post_transcripts_csv(request_body.dataset_id, request_body.post_ids, output_file)
+    return FileResponse(
+        output_file,
+        media_type="text/csv",
+        filename="transcripts.csv"
+    )

@@ -28,6 +28,7 @@ const config = {
             PREPARE_REDDIT_TORRENT_DATA_FROM_FILES: 'collections/prepare-torrent-data-from-files',
             GET_TORRENT_STATUS: 'collections/torrent-status',
             CHECK_PRIMARY_TORRENT: 'collections/check-reddit-torrent-availability',
+            GET_TRANSCRIPTS_CSV: 'collections/get-transcripts-csv',
 
             // ADD_DOCUMENTS_LANGCHAIN: 'coding/add-documents-langchain',
             REGENERATE_FLASHCARDS: 'coding/generate-additional-flashcards',

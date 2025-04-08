@@ -42,3 +42,7 @@ class ParseRedditFromTorrentFilesRequest(BaseModel):
 
 class GetTorrentStatusRequest(BaseModel):
     dataset_id: str
+
+class GetTranscriptsCsvRequest(BaseModel):
+    dataset_id: str
+    post_ids: list

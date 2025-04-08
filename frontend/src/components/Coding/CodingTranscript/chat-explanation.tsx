@@ -6,6 +6,7 @@ import { useTranscriptContext } from '../../../context/transcript-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { useSettings } from '../../../context/settings-context';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
+import { v4 } from 'uuid';
 
 interface ChatExplanationProps {
     initialExplanationWithCode: {
@@ -29,8 +30,16 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     const { chatHistories, setChatHistories, review } = useTranscriptContext();
     const prevCode = initialExplanationWithCode.code;
 
-    const chatKey = `${postId}-${prevCode}-${initialExplanationWithCode.fullText}`;
+    const chatKey = `${postId}-${initialExplanationWithCode.code}-${initialExplanationWithCode.fullText}-${initialExplanationWithCode.explanation}`;
 
+    console.log(
+        'Chat Key:',
+        chatKey,
+        'Chat Histories:',
+        chatHistories,
+        chatHistories[chatKey],
+        existingChatHistory
+    );
     const initialMessages = chatHistories[chatKey] ?? existingChatHistory;
 
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);

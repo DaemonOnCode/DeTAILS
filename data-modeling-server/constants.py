@@ -33,6 +33,7 @@ CONTEXT_FILES_DIR = os.path.join(get_app_data_path(), APP_NAME, "executables", "
 DATABASE_PATH = os.path.join(get_app_data_path(), APP_NAME, "executables", "data_modeling.db")
 STUDY_DATABASE_PATH = os.path.join(get_app_data_path(), APP_NAME, "executables", "study.db")
 LOG_FILE = os.path.join(get_app_data_path(), APP_NAME, "executables", "logs.jsonl")
+TEMP_DIR = os.path.join(get_app_data_path(), APP_NAME, "executables", "temp")
 
 exe_ext = ".exe" if os.name == "nt" else ""
 

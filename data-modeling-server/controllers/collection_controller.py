@@ -1,5 +1,6 @@
 import asyncio
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import csv
 from datetime import datetime
 import errno
 import json
@@ -9,7 +10,7 @@ import os
 import re
 import shutil
 import time
-from typing import Counter, Dict, Optional
+from typing import Counter, Dict, List, Optional, Tuple
 from uuid import uuid4
 from aiofiles import open as async_open
 import aiofiles
@@ -25,6 +26,7 @@ from decorators.execution_time_logger import log_execution_time
 from models import Dataset, Comment, Post, TorrentDownloadProgress
 from models.table_dataclasses import FileStatus, StateDump
 from routes.websocket_routes import ConnectionManager
+from utils.coding_helpers import generate_transcript
 
 
 
@@ -1606,3 +1608,40 @@ async def check_primary_torrent(
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)
         return {"status": False, "files": [], "total_size": 0, "error": "Subreddit not found"}
+    
+
+async def get_post_transcripts_csv(dataset_id: str, post_ids: List[str], csv_file: str) -> None:
+    sem = asyncio.Semaphore(os.cpu_count())
+    transcripts = [None] * len(post_ids)  # List to store transcripts, initially None
+    next_index = 0
+    write_lock = asyncio.Lock()
+
+    async def fetch_post_transcript(post_id: str, index: int) -> None:
+        async with sem:
+            try:
+                post = await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id, ["id", "title", "selftext"])
+                transcript = await asyncio.to_thread(generate_transcript, post)
+            except HTTPException as e:
+                print(f"Post {post_id} not found: {e.detail}")
+                transcript = ""
+            except Exception as e:
+                print(f"Unexpected error for post {post_id}: {e}")
+                transcript = ""
+            transcripts[index] = transcript 
+            await write_consecutive()
+
+    async def write_consecutive():
+        nonlocal next_index
+        async with write_lock:
+            while next_index < len(post_ids) and transcripts[next_index] is not None:
+                writer.writerow({"Post ID": post_ids[next_index], "Transcript": transcripts[next_index]})
+                next_index += 1
+
+    with open(csv_file, "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=["Post ID", "Transcript"])
+        writer.writeheader()
+
+        tasks = [fetch_post_transcript(post_id, i) for i, post_id in enumerate(post_ids)]
+        await asyncio.gather(*tasks) 
+
+    return csv_file

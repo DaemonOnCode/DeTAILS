@@ -137,6 +137,7 @@ export const TranscriptContextProvider: FC<{
     // >([]);
 
     const codes: {
+        id: string;
         text: string;
         code: string;
         rangeMarker?: { itemId: string; range: [number, number] };
@@ -144,7 +145,12 @@ export const TranscriptContextProvider: FC<{
         () =>
             codeResponses
                 .filter((r) => r.postId === postId)
-                .map((r) => ({ text: r.quote, code: r.code })),
+                .map((r) => ({
+                    id: r.id,
+                    text: r.quote,
+                    code: r.code,
+                    rangeMarker: r.rangeMarker
+                })),
         [codeResponses, postId]
     );
 
@@ -176,7 +182,7 @@ export const TranscriptContextProvider: FC<{
         codeResponses
             .filter((response) => response.postId === postId)
             .forEach((response) => {
-                const key = `${postId}-${response.code}-${response.quote}`;
+                const key = `${postId}-${response.code}-${response.quote}-${response.explanation}`;
                 newChatHistories[key] = response.chatHistory ?? [
                     {
                         id: 1,
@@ -391,14 +397,14 @@ export const TranscriptContextProvider: FC<{
     interface CodeInterval {
         start: number;
         end: number;
-        code: string;
+        codeId: string;
         text: string;
     }
 
     interface TextEvent {
         position: number;
         type: 'start' | 'end';
-        code: string;
+        codeId: string;
     }
 
     const normalizeText = (text: string) => {
@@ -417,11 +423,6 @@ export const TranscriptContextProvider: FC<{
 
             codeSet.forEach((code) => {
                 codeColors[code] = generateColor(code);
-            });
-
-            const codeToOriginalQuote: Record<string, string> = {};
-            codes.forEach((c) => {
-                codeToOriginalQuote[c.code] = c.text;
             });
 
             const transcriptFlatMap = [
@@ -446,8 +447,8 @@ export const TranscriptContextProvider: FC<{
                     .map((c) => ({
                         start: c.rangeMarker?.range[0] ?? 0,
                         end: c.rangeMarker?.range[1] ?? 0,
-                        code: c.code,
-                        text: text.slice(c.rangeMarker?.range[0] ?? 0, c.rangeMarker?.range[1] ?? 0)
+                        codeId: c.id,
+                        text: c.text // Use the original quote
                     }));
 
                 const normalizedText = normalizeText(text);
@@ -462,7 +463,7 @@ export const TranscriptContextProvider: FC<{
                         return positions.map((pos) => ({
                             start: pos,
                             end: pos + c.text.length,
-                            code: c.code,
+                            codeId: c.id,
                             text: c.text
                         }));
                     }
@@ -471,15 +472,13 @@ export const TranscriptContextProvider: FC<{
 
                 const allIntervals = [...markerIntervals, ...matchingIntervals];
                 if (allIntervals.length === 0) {
-                    return [
-                        createSegment(text, data, dataIndex, 0, [], codeColors, codeToOriginalQuote)
-                    ];
+                    return [createSegment(text, data, dataIndex, 0, [], codeColors, codes)];
                 }
 
                 const events: TextEvent[] = [];
-                allIntervals.forEach(({ start, end, code }) => {
-                    events.push({ position: start, type: 'start', code });
-                    events.push({ position: end, type: 'end', code });
+                allIntervals.forEach(({ start, end, codeId }) => {
+                    events.push({ position: start, type: 'start', codeId });
+                    events.push({ position: end, type: 'end', codeId });
                 });
 
                 events.sort(
@@ -489,7 +488,7 @@ export const TranscriptContextProvider: FC<{
 
                 const itemSegments: Segment[] = [];
                 let currentPos = 0;
-                const currentCodes = new Set<string>();
+                const currentCodeIds = new Set<string>();
 
                 events.forEach((event) => {
                     if (event.position > currentPos) {
@@ -501,18 +500,18 @@ export const TranscriptContextProvider: FC<{
                                     data,
                                     dataIndex,
                                     itemSegments.length,
-                                    Array.from(currentCodes),
+                                    Array.from(currentCodeIds),
                                     codeColors,
-                                    codeToOriginalQuote
+                                    codes
                                 )
                             );
                         }
                         currentPos = event.position;
                     }
                     if (event.type === 'start') {
-                        currentCodes.add(event.code);
+                        currentCodeIds.add(event.codeId);
                     } else {
-                        currentCodes.delete(event.code);
+                        currentCodeIds.delete(event.codeId);
                     }
                 });
 
@@ -523,9 +522,9 @@ export const TranscriptContextProvider: FC<{
                             data,
                             dataIndex,
                             itemSegments.length,
-                            Array.from(currentCodes),
+                            Array.from(currentCodeIds),
                             codeColors,
-                            codeToOriginalQuote
+                            codes
                         )
                     );
                 }
@@ -537,7 +536,6 @@ export const TranscriptContextProvider: FC<{
         },
         [codes]
     );
-
     const displayText = (text: string) => {
         return text.replace(/\s+/g, ' ').trim();
     };
@@ -547,11 +545,35 @@ export const TranscriptContextProvider: FC<{
         data: any,
         dataIndex: number,
         segmentIndex: number,
-        activeCodes: string[],
+        activeCodeIds: string[],
         codeColors: Record<string, string>,
-        codeToOriginalQuote: Record<string, string>
+        codes: { id: string; text: string; code: string }[]
     ): Segment {
-        const relevantOriginalQuotes = activeCodes.map((code) => codeToOriginalQuote[code] || '');
+        const activeCodes = activeCodeIds
+            .map((id) => codes.find((c) => c.id === id))
+            .filter(Boolean) as {
+            id: string;
+            text: string;
+            code: string;
+        }[];
+
+        const codeToOriginalQuotes: Record<string, string[]> = {};
+        activeCodes.forEach((c) => {
+            if (!codeToOriginalQuotes[c.code]) {
+                codeToOriginalQuotes[c.code] = [];
+            }
+            codeToOriginalQuotes[c.code].push(c.text);
+        });
+
+        const relatedCodeText = Array.from(new Set(activeCodes.map((c) => c.code)));
+
+        const codeQuotes = relatedCodeText.reduce(
+            (acc, code) => {
+                acc[code] = segmentText;
+                return acc;
+            },
+            {} as Record<string, string>
+        );
 
         return {
             line: displayText(segmentText),
@@ -559,16 +581,11 @@ export const TranscriptContextProvider: FC<{
             type: data.type,
             parent_id: data.parent_id,
             index: `${dataIndex}|${segmentIndex}`,
-            relatedCodeText: activeCodes,
-            backgroundColours: activeCodes.map((code) => codeColors[code]),
-            fullText: relevantOriginalQuotes,
-            codeQuotes: activeCodes.reduce(
-                (acc, code) => {
-                    acc[code] = codeToOriginalQuote[code] || '';
-                    return acc;
-                },
-                {} as Record<string, string>
-            )
+            relatedCodeText,
+            backgroundColours: relatedCodeText.map((code) => codeColors[code]),
+            fullText: activeCodes.map((c) => c.text),
+            codeQuotes,
+            codeToOriginalQuotes
         };
     }
 

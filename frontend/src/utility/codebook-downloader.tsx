@@ -1,3 +1,5 @@
+import { downloadFile } from './file-downloader';
+
 export async function downloadCodebook(
     filteredData: any[],
     fileName?: string,
@@ -7,63 +9,57 @@ export async function downloadCodebook(
         return false;
     }
 
-    // Build CSV rows
-    const headers = ['Post ID', 'Sentence', 'Coded Word', 'Theme', 'Type'];
-    const csvRows = [headers.join(',')];
+    function escapeCSV(value) {
+        if (value == null) return '""';
+        const str = String(value);
+        const escaped = str.replace(/"/g, '""');
+        return `"${escaped}"`;
+    }
 
+    const optionalFields = ['theme', 'type', 'subCode'];
+    const presentFields = new Set();
     filteredData.forEach((row) => {
-        if ('type' in row && 'theme' in row) {
-            csvRows.push(
-                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","${row.theme || 'N/A'}","${row.type || 'N/A'}","${row.subCode || 'N/A'}"`
-            );
-        } else if ('theme' in row) {
-            csvRows.push(
-                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","${row.theme || 'N/A'}","N/A","${row.subCode || 'N/A'}"`
-            );
-        } else if ('subCode' in row) {
-            csvRows.push(
-                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","${row.theme || 'N/A'}","N/A","${row.subCode}"`
-            );
-        } else {
-            csvRows.push(
-                `${row.postId},"${row.quote}","${row.code ?? row.coded_word ?? ''}","N/A","N/A","N/A"`
-            );
-        }
+        optionalFields.forEach((field) => {
+            if (field in row) presentFields.add(field);
+        });
+    });
+
+    const coreHeaders = ['Post ID', 'Sentence', 'Coded Word', 'Explanation'];
+    const fieldToHeader = {
+        theme: 'Theme',
+        type: 'Type',
+        subCode: 'Sub Code'
+    };
+    const optionalHeaders = Array.from(presentFields).map(
+        (field) => fieldToHeader[field as string]
+    );
+    const headers = [...coreHeaders, ...optionalHeaders];
+
+    const headerToValue = {
+        'Post ID': (row) => row.postId,
+        Sentence: (row) => row.quote,
+        'Coded Word': (row) => row.code ?? row.coded_word ?? '',
+        Explanation: (row) => row.explanation,
+        Theme: (row) => ('theme' in row ? row.theme : 'N/A'),
+        Type: (row) => ('type' in row ? row.type : 'N/A'),
+        'Sub Code': (row) => ('subCode' in row ? row.subCode : 'N/A')
+    };
+
+    const csvRows = [headers.join(',')];
+    filteredData.forEach((row) => {
+        const rowValues = headers.map((header) => escapeCSV(headerToValue[header](row)));
+        csvRows.push(rowValues.join(','));
     });
 
     const csvContent = csvRows.join('\n');
 
-    // Use the File System Access API if available
-    if (_window.showSaveFilePicker) {
-        try {
-            const options = {
-                suggestedName: fileName ?? 'codebook.csv',
-                types: [
-                    {
-                        description: 'CSV Files',
-                        accept: { 'text/csv': ['.csv'] }
-                    }
-                ]
-            };
-            const handle = await _window.showSaveFilePicker(options);
-            const writable = await handle.createWritable();
-            await writable.write(csvContent);
-            await writable.close();
-            return true;
-        } catch (error) {
-            console.error('File save cancelled or failed', error);
-            return false;
-        }
-    } else {
-        // Fallback: trigger a download via a hidden link.
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName ?? 'codebook.csv';
-        link.click();
-        URL.revokeObjectURL(url);
-        // Note: this fallback cannot reliably tell if the user saved or cancelled.
-        return true;
-    }
+    const success = await downloadFile(
+        csvContent,
+        fileName ?? 'codebook.csv',
+        undefined,
+        undefined,
+        undefined,
+        _window
+    );
+    return success;
 }

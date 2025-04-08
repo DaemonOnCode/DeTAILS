@@ -185,7 +185,7 @@ PHASE 2 (Generating Initial Codes) Requirements:
    - Compare newly generated codes with existing ones in the provided keyword table.
    - Highlight similarities or differences in how {main_topic} is handled.
 
-3. MULTIPLE CODING:
+3. CODING TYPES:
    - Semantic: Code the explicit (surface) meaning.
      Example: "I hate Monday mornings" → "Negative time perception"
    - Latent: Code the underlying (implicit) meaning.
