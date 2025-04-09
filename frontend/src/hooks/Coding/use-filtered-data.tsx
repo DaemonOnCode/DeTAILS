@@ -78,6 +78,8 @@ export function useFilteredData({
         let totalIds = postIds.length;
         let totalData = data;
 
+        // console.log('Filtered data:', filteredData, filteredPostIds, totalIds, totalData);
+
         const llmFilteredResponses = unseenPostResponse.filter(
             (response) => response.type === 'LLM'
         );
@@ -138,18 +140,21 @@ export function useFilteredData({
                 );
             } else {
                 // Distinguish between postId and code filters
+                console.log('Filter:', filter);
                 const allPostIds = Array.from(new Set(totalData.map((item) => item.postId)));
                 if (allPostIds.includes(filter)) {
                     // Filter by postId: show responses for this post, keep all relevant postIds
                     filteredData = filteredData.filter((response) => response.postId === filter);
-                    // Optionally: filteredPostIds = postIds; to show all posts, but here we keep as is
+                    // filteredPostIds = postIds;
                 } else {
                     // Filter by code: show only posts with responses matching the code
                     filteredData = filteredData.filter((response) => response.code === filter);
-                    const postIdsWithCode = Array.from(new Set(filteredData.map((r) => r.postId)));
-                    filteredPostIds = filteredPostIds.filter((postId) =>
-                        postIdsWithCode.includes(postId)
-                    );
+                    // const postIdsWithCode = Array.from(new Set(filteredData.map((r) => r.postId)));
+                    filteredPostIds = postIds;
+                    // filteredPostIds.filter((postId) =>
+                    // postIdsWithCode.includes(postId)
+                    // );
+                    console.log('Filter: by postId:', filter, filteredPostIds, filteredData);
                 }
             }
         }

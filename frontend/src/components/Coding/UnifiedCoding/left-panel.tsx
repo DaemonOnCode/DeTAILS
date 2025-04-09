@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import PostTab from './post-tab';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
@@ -44,40 +44,97 @@ const LeftPanel: FC<LeftPanelProps> = ({
     selectedItem,
     setSelectedItem
 }) => {
+    // States for infinite scrolling
     const [fetchedPostTitles, setFetchedPostTitles] = useState<{ id: string; title: string }[]>([]);
+    const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(false);
+    const batchSize = 20; // Number of posts to fetch per batch
+    const sentinelRef = useRef<HTMLDivElement>(null); // Ref for the sentinel element
     const containerRef = useRef<HTMLUListElement>(null);
     const { fetchData } = useApi();
     const { datasetId } = useCollectionContext();
     const { scrollRef: listRef, storageKey } = useScrollRestoration('left-panel');
 
-    // Fetch all post titles at once
+    // Fetch initial batch of post titles
     useEffect(() => {
-        const fetchAllPostTitles = async () => {
+        const fetchInitialBatch = async () => {
             if (!postIds.length || !datasetId) {
                 setFetchedPostTitles([]);
+                setHasMore(false);
                 return;
             }
             setLoading(true);
+            const initialBatch = postIds.slice(0, batchSize);
             const { data: results, error } = await fetchData<any[]>(
                 REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH,
                 {
                     method: 'POST',
-                    body: JSON.stringify({ post_ids: postIds, dataset_id: datasetId })
+                    body: JSON.stringify({ post_ids: initialBatch, dataset_id: datasetId })
                 }
             );
             if (error) {
-                console.error('Failed to fetch post titles:', error);
-                setFetchedPostTitles([]);
+                console.error('Failed to fetch initial batch:', error);
             } else {
                 setFetchedPostTitles(
                     results?.map((result: any) => ({ id: result.id, title: result.title })) ?? []
                 );
+                setHasMore(postIds.length > batchSize);
             }
             setLoading(false);
         };
-        fetchAllPostTitles();
+        fetchInitialBatch();
     }, [postIds, datasetId, fetchData]);
+
+    // Load more posts when reaching the end
+    const loadMore = useCallback(async () => {
+        if (!hasMore || loading) return;
+        const nextBatch = postIds.slice(
+            fetchedPostTitles.length,
+            fetchedPostTitles.length + batchSize
+        );
+        if (nextBatch.length === 0) {
+            setHasMore(false);
+            return;
+        }
+        setLoading(true);
+        const { data: results, error } = await fetchData<any[]>(
+            REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH,
+            {
+                method: 'POST',
+                body: JSON.stringify({ post_ids: nextBatch, dataset_id: datasetId })
+            }
+        );
+        if (error) {
+            console.error('Failed to fetch more posts:', error);
+        } else {
+            setFetchedPostTitles((prev) => [
+                ...prev,
+                ...results.map((result: any) => ({ id: result.id, title: result.title }))
+            ]);
+            setHasMore(fetchedPostTitles.length + nextBatch.length < postIds.length);
+        }
+        setLoading(false);
+    }, [postIds, datasetId, fetchedPostTitles, hasMore, loading, fetchData]);
+
+    // Set up IntersectionObserver to trigger loadMore
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasMore && !loading) {
+                    loadMore();
+                }
+            },
+            { root: listRef.current, threshold: 1.0 }
+        );
+        if (sentinelRef.current) {
+            observer.observe(sentinelRef.current);
+        }
+        return () => {
+            if (sentinelRef.current) {
+                observer.unobserve(sentinelRef.current);
+            }
+        };
+    }, [hasMore, loading, loadMore, listRef]);
 
     // Reset selection when filter changes
     useEffect(() => {
@@ -236,6 +293,12 @@ const LeftPanel: FC<LeftPanelProps> = ({
                                 />
                             ))
                         )}
+                        {hasMore && !loading && filteredPosts.length > 0 && (
+                            <li>
+                                <div ref={sentinelRef} className="h-1" />
+                            </li>
+                        )}
+                        {loading && filteredPosts.length > 0 && <li>Loading more...</li>}
                     </ul>
                 ) : (
                     <ul className="space-y-2">
