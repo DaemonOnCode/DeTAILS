@@ -11,6 +11,7 @@ from concurrent.futures import Future as ConcurrentFuture
 from typing import Callable, Dict, List, Optional, Tuple, Type
 import uuid
 
+from config import CustomSettings
 from constants import STUDY_DATABASE_PATH
 from database import LlmPendingTaskRepository, LlmFunctionArgsRepository
 from database.state_dump_table import StateDumpsRepository
@@ -43,8 +44,8 @@ class GlobalQueueManager:
             self.pending_tasks: Dict[str, ConcurrentFuture] = {}
             self._lock = threading.Lock()
             self.idle_threshold = idle_threshold
-
-            self.cutoff = cutoff
+            settings = CustomSettings()
+            self.cutoff = settings.ai.cutoff or cutoff
 
             self.function_cache: Dict[str, Tuple[Callable, int]] = {}
             self.cacheable_args: Dict[str, Dict[str, List|Dict]] = {}
@@ -131,6 +132,7 @@ class GlobalQueueManager:
                 return
             self.running = True
             self.stop_event.clear()
+            self.cutoff = CustomSettings().ai.cutoff or self.cutoff
             print(f"[START] Starting {self._num_workers} worker(s)")
             self.enqueue_task = asyncio.create_task(self.enqueue_pending_jobs())
             print("[START] Enqueue task created")
@@ -205,7 +207,7 @@ class GlobalQueueManager:
                         await self.stop()
                         break
                 pending_jobs_count = self.pending_task_repo.count(filters={"status": "pending"})
-                print(f"[STATUS] Pending tasks: {pending_count}, Queue size: {queue_size}, DB pending: {pending_jobs_count}, function_cache: {len(self.function_cache)}")
+                print(f"[STATUS] Pending tasks: {pending_count}, Queue size: {queue_size}, DB pending: {pending_jobs_count}, function_cache: {len(self.function_cache)}, Current cutoff: {self.cutoff}")
                 # for k in self.function_cache.keys():
                 #     print(f"[STATUS] Function {k} cached", self.cacheable_args.get(k, {"args": [], "kwargs": {}}))
                     # if self.cacheable_args[k].get("args"):
@@ -516,9 +518,11 @@ class GlobalQueueManager:
             print(f"[SUBMIT_SYNC] Failed to insert task {job_id}: {e}")
             raise e
 
+
 @lru_cache
 def get_llm_manager():
     try:
+        
         return GlobalQueueManager(
             max_queue_size=20,
             num_workers=5,
@@ -527,7 +531,7 @@ def get_llm_manager():
             enable_status_check=True,
             cancel_threshold=1,
             idle_threshold=15,
-            cutoff=120,
+            cutoff=300,
         )
     except Exception as e:
         print(f"Failed to create GlobalQueueManager: {e}")

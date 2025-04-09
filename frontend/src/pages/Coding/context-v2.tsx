@@ -213,12 +213,10 @@ const ContextPage = () => {
                     'Previous keywords',
                     prev,
                     results.keywords.filter(
-                        (keyword) => prev.find((k) => k.word === keyword.word) === undefined
+                        (keyword) => !prev.find((k) => k.word === keyword.word)
                     ),
                     results.keywords
-                        .filter(
-                            (keyword) => prev.find((k) => k.word === keyword.word) === undefined
-                        )
+                        .filter((keyword) => !prev.find((k) => k.word === keyword.word))
                         .map((keyword) => ({
                             id: keyword.id,
                             word: keyword.word

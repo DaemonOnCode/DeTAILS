@@ -25,8 +25,10 @@ export interface ModelSelectProps {
 export interface AIParametersProps {
     temperature: number;
     randomSeed: number;
+    cutoff: number;
     onTemperatureChange: (newTemperature: number) => void;
     onRandomSeedChange: (newRandomSeed: number) => void;
+    onCutoffChange: (newCutoff: number) => void;
 }
 
 export interface PullProgressProps {

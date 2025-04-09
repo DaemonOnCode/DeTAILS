@@ -46,7 +46,8 @@
             }
         },
         "temperature": 0.0,
-        "randomSeed": 42
+        "randomSeed": 42,
+        "cutoff": 300
     },
     "devtools": {
         "showConsole": false,

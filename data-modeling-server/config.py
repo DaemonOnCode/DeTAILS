@@ -65,7 +65,7 @@ class OllamaProviderDict(TypedDict, total=False):
 ProviderValue = Union[APIKeyProviderDict, CredentialsProviderDict, OllamaProviderDict]
 
 class AISettings:
-    def __init__(self, model: str = "", providers: Dict[str, ProviderValue] = None, temperature: float = 0.0, randomSeed: int = 42, **kwargs):
+    def __init__(self, model: str = "", providers: Dict[str, ProviderValue] = None, temperature: float = 0.0, randomSeed: int = 42, cutoff: int = 300, **kwargs):
         self.model = model
         # Initialize providers sub-settings if provided.
         self.providers = {}
@@ -80,6 +80,7 @@ class AISettings:
                 self.providers["ollama"] = OllamaProviderSettings(**providers["ollama"])
         self.temperature = temperature
         self.randomSeed = randomSeed
+        self.cutoff = cutoff
 
 class DevtoolsSettings:
     def __init__(self, showConsole: bool = False, enableRemoteDebugging: bool = False, **kwargs):

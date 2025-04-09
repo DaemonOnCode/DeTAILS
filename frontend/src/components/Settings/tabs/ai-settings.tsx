@@ -123,6 +123,11 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         markSectionDirty('ai', true);
     };
 
+    const handleCutoffChange = (newCutoff: number) => {
+        setLocalAi((prev) => ({ ...prev, cutoff: newCutoff }));
+        markSectionDirty('ai', true);
+    };
+
     const handleRandomSeedChange = (newSeed: number) => {
         setLocalAi((prev) => ({ ...prev, randomSeed: newSeed }));
         markSectionDirty('ai', true);
@@ -633,8 +638,10 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
             <AIParameters
                 temperature={localAi.temperature}
                 randomSeed={localAi.randomSeed}
+                cutoff={localAi.cutoff}
                 onTemperatureChange={handleTemperatureChange}
                 onRandomSeedChange={handleRandomSeedChange}
+                onCutoffChange={handleCutoffChange}
             />
             <div className="my-4">
                 <label className="block font-medium">Select Provider</label>

@@ -24,6 +24,7 @@ export interface ISettingsConfig {
         temperature: number;
         randomSeed: number;
         providers: Record<string, ProviderSettings>;
+        cutoff: number;
     };
     devtools: {
         showConsole: boolean;
