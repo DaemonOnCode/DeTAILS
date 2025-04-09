@@ -444,7 +444,12 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     <HighlightModal
                         hidden={addHighlightModalHidden}
                         setHidden={setAddHighlightModalHidden}
-                        codes={additionalCodes}
+                        codes={[
+                            ...new Set([
+                                ...additionalCodes,
+                                ...codeResponses.map((response) => response.code)
+                            ])
+                        ]}
                         selectedCode={selectedCode}
                         setSelectedCode={setSelectedCode}
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}
