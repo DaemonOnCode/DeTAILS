@@ -57,8 +57,10 @@ const CodebookCreation = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Code Creation Page Unloaded').then(() => {
                 logger.time('Code Creation Page stay time', { time: timer.end() });

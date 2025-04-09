@@ -203,13 +203,23 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         state: keywords,
                         func: setKeywords,
                         name: 'setKeywords',
-                        initValue: [mainTopic]
+                        initValue: [
+                            {
+                                id: '1',
+                                word: mainTopic
+                            }
+                        ]
                     },
                     {
                         state: selectedKeywords,
                         func: setSelectedKeywords,
                         name: 'setSelectedKeywords',
-                        initValue: [mainTopic]
+                        initValue: [
+                            {
+                                id: '1',
+                                word: mainTopic
+                            }
+                        ]
                     }
                 ]
             },
@@ -442,10 +452,15 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     };
 
     useEffect(() => {
-        if (!selectedKeywords.find((kw) => kw.word === mainTopic)) {
-            setSelectedKeywords([
+        console.log(
+            'Rendering Keywordcloud',
+            selectedKeywords.find((kw) => kw.word === mainTopic)
+        );
+        if (!selectedKeywords.find((kw) => kw.word === mainTopic) && keywords.length > 0) {
+            setSelectedKeywords((prev) => [
+                ...prev,
                 {
-                    id: v4(),
+                    id: '1',
                     word: mainTopic
                 }
             ]);

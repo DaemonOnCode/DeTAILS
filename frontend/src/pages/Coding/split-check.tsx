@@ -20,8 +20,10 @@ const SplitCheckPage = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Split check Page Unloaded').then(() => {
                 logger.time('Split check Page stay time', { time: timer.end() });

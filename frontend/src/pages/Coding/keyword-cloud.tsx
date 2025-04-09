@@ -73,8 +73,10 @@ const KeywordCloudPage: FC = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Unloaded Keyword cloud Page').then(() => {
                 logger.time('Keyword cloud Page stay time', { time: timer.end() });
@@ -173,20 +175,20 @@ const KeywordCloudPage: FC = () => {
             ...newKeywords.map((k) => ({ id: k.id, word: k.word }))
         ]);
 
-        dispatchKeywordsTable({
-            type: 'ADD_MANY',
-            entries: newKeywords.map((keyword) => ({
-                word: keyword.word,
-                description: keyword.description,
-                inclusion_criteria: keyword.inclusion_criteria,
-                exclusion_criteria: keyword.exclusion_criteria,
-                isMarked: true
-            }))
-        });
+        // dispatchKeywordsTable({
+        //     type: 'ADD_MANY',
+        //     entries: newKeywords.map((keyword) => ({
+        //         word: keyword.word,
+        //         description: keyword.description,
+        //         inclusion_criteria: keyword.inclusion_criteria,
+        //         exclusion_criteria: keyword.exclusion_criteria,
+        //         isMarked: true
+        //     }))
+        // });
 
         setKeywords((prevKeywords) => {
             const filteredPrevKeywords = prevKeywords.filter((k) =>
-                selectedKeywords.some((sk) => sk.id === k.id)
+                selectedKeywords.some((sk) => sk.word === k.word)
             );
             const filteredNewKeywords = newKeywords.filter(
                 (nk) => !filteredPrevKeywords.some((pk) => pk.id === nk.id)
@@ -273,14 +275,27 @@ const KeywordCloudPage: FC = () => {
 
     const handleSelectAll = (selectAll: boolean) => {
         if (selectAll) {
-            setSelectedKeywords(keywords);
+            setSelectedKeywords([...keywords, { word: mainTopic, id: '1' }]);
         } else {
-            setSelectedKeywords(keywords.filter((k) => k.word === mainTopic));
+            setSelectedKeywords([
+                ...keywords.filter((k) => k.word === mainTopic),
+                { word: mainTopic, id: '1' }
+            ]);
         }
     };
 
     const checkIfReady = selectedKeywords.length > WORD_CLOUD_MIN_THRESHOLD;
-    const allSelected = keywords.every((keyword) => selectedKeywords.includes(keyword));
+    const allSelected = keywords.every((keyword) =>
+        selectedKeywords.find((k) => k.id === keyword.id)
+    );
+    console.log(
+        'allSelected',
+        allSelected,
+        'selectedKeywords',
+        selectedKeywords,
+        'keywords',
+        keywords
+    );
 
     // Define tutorial steps for the Keyword Cloud page.
     const steps: TutorialStep[] = [
@@ -389,7 +404,11 @@ const KeywordCloudPage: FC = () => {
                             <p className=" mb-3">
                                 Word list:{' '}
                                 {keywords
-                                    .filter((keyword) => !selectedKeywords.includes(keyword))
+                                    .filter(
+                                        (keyword) =>
+                                            !selectedKeywords.find((k) => k.id === keyword.id)
+                                    )
+                                    .map((keyword) => keyword.word)
                                     .join(', ')}
                             </p>
                             <textarea

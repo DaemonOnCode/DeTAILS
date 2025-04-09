@@ -176,8 +176,10 @@ const ThemesPage = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Themes Page Unloaded').then(() => {
                 logger.time('Themes Page stay time', { time: timer.end() });

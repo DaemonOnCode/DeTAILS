@@ -59,8 +59,10 @@ const InitialCodeBook = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Code Creation Page Unloaded').then(() => {
                 logger.time('Code Creation Page stay time', { time: timer.end() });
@@ -212,7 +214,7 @@ const InitialCodeBook = () => {
     const handleFeedbackSubmit = () => {
         setIsFeedbackModalOpen(false);
         if (checkIfDataExists(location.pathname)) {
-            openModal('refresh-codes-submitted', async () => {
+            openModal('refresh-codebook-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
                 await handleRegenerateCodebook(feedback);
             });

@@ -71,7 +71,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
     setKeywords,
     setSelectedKeywords
 }) => {
-    // console.log('Rendering KeywordCloud', mainTopic, keywords, selectedKeywords);
+    console.log('Rendering KeywordCloud', mainTopic, keywords, selectedKeywords);
     const { performWithUndo } = useUndo();
     const svgRef = useRef<SVGSVGElement | null>(null);
     const [placedKeywords, setPlacedKeywords] = useState<(IKeywordBox & { rotation: number })[]>(
@@ -366,10 +366,10 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
 
                 {/* Render keywords (updated to use mainTopicString) */}
                 {sortedKeywords.map((kw, idx) => {
-                    console.log('Rendering keyword:', kw, mainTopic);
+                    // console.log('Rendering keyword:', kw, mainTopic);
                     const isMain = kw.text.word === mainTopic; // Updated here
                     const isSelected = selectedKeywords.some(
-                        (sk) => sk.id === kw.text.id || (isMain && sk.word === mainTopic)
+                        (sk) => sk.id === kw.text.id || isMain
                     );
                     const bgClass = isSelected
                         ? 'bg-blue-200 text-blue-700'

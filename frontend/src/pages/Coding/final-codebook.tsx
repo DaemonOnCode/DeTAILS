@@ -20,8 +20,10 @@ const FinalThemes = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('FInal codebook Page Unloaded').then(() => {
                 logger.time('FInal codebook Page stay time', { time: timer.end() });

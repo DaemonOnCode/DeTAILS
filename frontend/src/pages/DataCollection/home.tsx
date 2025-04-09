@@ -59,8 +59,10 @@ const HomePage = () => {
     useEffect(() => {
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
         };
     }, []);

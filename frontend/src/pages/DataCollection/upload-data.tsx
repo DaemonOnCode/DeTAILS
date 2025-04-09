@@ -87,7 +87,7 @@ const UploadDataPage = () => {
         return () => {
             if (!hasSavedRef.current) {
                 hasSavedRef.current = true;
-                saveWorkspaceData().then(() => {
+                saveWorkspaceData().finally(() => {
                     hasSavedRef.current = false;
                 });
             }

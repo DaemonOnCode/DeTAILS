@@ -62,8 +62,10 @@ const TranscriptPage = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Transcript Page Unloaded').then(() => {
                 logger.time('Transcript Page stay time', { time: timer.end() });
@@ -830,11 +832,16 @@ const TranscriptPage = () => {
                         className={`${splitCodebook ? 'h-[60%]' : 'h-full'} flex-1 flex flex-col overflow-hidden`}
                         onClick={(e) => handleSetActiveTranscript(e, null)}>
                         {codebookIsTrue && state === 'review' && (
-                            <div className="flex justify-center p-3">
+                            <div className="flex justify-center p-3 gap-x-6">
                                 <button
                                     className="bg-blue-500 text-white rounded px-4 py-2"
                                     onClick={() => setShowCodebook((prev) => !prev)}>
                                     {showCodebook ? 'Hide Codebook' : 'Show Codebook'}
+                                </button>
+                                <button
+                                    className="bg-blue-500 text-white rounded px-4 py-2"
+                                    onClick={handleSwitchToEditMode}>
+                                    Go to Edit mode
                                 </button>
                             </div>
                         )}

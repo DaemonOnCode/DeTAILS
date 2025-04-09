@@ -50,8 +50,10 @@ const LoadData = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Home Page Unloaded').then(() => {
                 logger.time('Home Page stay time', { time: timer.end() });

@@ -11,14 +11,16 @@ const TransmissionSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSetting
     const [localTransmission, setLocalTransmission] = useState({
         path: transmission?.path || '',
         downloadDir: transmission?.downloadDir || '',
-        magnetLink: transmission?.magnetLink || ''
+        magnetLink: transmission?.magnetLink || '',
+        fallbackMagnetLink: transmission?.fallbackMagnetLink || ''
     });
 
     useEffect(() => {
         setLocalTransmission({
             path: transmission?.path || '',
             downloadDir: transmission?.downloadDir || '',
-            magnetLink: transmission?.magnetLink || ''
+            magnetLink: transmission?.magnetLink || '',
+            fallbackMagnetLink: transmission?.fallbackMagnetLink || ''
         });
     }, [transmission]);
 
@@ -46,6 +48,11 @@ const TransmissionSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSetting
 
     const handleMagnetLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setLocalTransmission((prev) => ({ ...prev, magnetLink: e.target.value }));
+        markSectionDirty('transmission', true);
+    };
+
+    const handleFallbackMagnetLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setLocalTransmission((prev) => ({ ...prev, fallbackMagnetLink: e.target.value }));
         markSectionDirty('transmission', true);
     };
 
@@ -87,6 +94,18 @@ const TransmissionSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSetting
                     onChange={handleMagnetLinkChange}
                     className="w-full p-2 border border-gray-300 rounded"
                     placeholder="Enter magnet link (e.g., magnet:?xt=urn:btih:...)"
+                />
+            </div>
+            <div>
+                <label className="block mb-1 font-medium">
+                    Fallback Academic Torrent Magnet Link
+                </label>
+                <input
+                    type="text"
+                    value={localTransmission.fallbackMagnetLink}
+                    onChange={handleFallbackMagnetLinkChange}
+                    className="w-full p-2 border border-gray-300 rounded"
+                    placeholder="Enter fallback magnet link (e.g., magnet:?xt=urn:btih:...)"
                 />
             </div>
         </div>

@@ -40,7 +40,12 @@ const FinalPage = () => {
 
         return () => {
             // if (!hasSavedRef.current) {
-            saveWorkspaceData();
+            if (!hasSavedRef.current) {
+                hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
+            }
             //     hasSavedRef.current = true;
             // }
             logger.info('Unloaded Final Page').then(() => {

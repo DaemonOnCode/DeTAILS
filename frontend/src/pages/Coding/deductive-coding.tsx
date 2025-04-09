@@ -56,8 +56,10 @@ const DeductiveCodingPage = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Deductive coding Page Unloaded').then(() => {
                 logger.time('Deductive coding Page stay time', { time: timer.end() });

@@ -250,7 +250,7 @@ const FinalzingCodes = () => {
     const handleFeedbackSubmit = () => {
         setIsFeedbackModalOpen(false);
         if (checkIfDataExists(location.pathname)) {
-            openModal('refresh-codes-submitted', async () => {
+            openModal('refresh--finalizing-codes-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
                 await handleRefreshCodes(feedback);
             });
@@ -394,8 +394,10 @@ const FinalzingCodes = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Themes Page Unloaded').then(() => {
                 logger.time('Themes Page stay time', { time: timer.end() });

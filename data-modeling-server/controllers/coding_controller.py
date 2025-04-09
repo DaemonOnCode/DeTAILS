@@ -7,6 +7,7 @@ import re
 import shutil
 import time
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
+import unicodedata
 from uuid import UUID, uuid4
 
 from chromadb import HttpClient
@@ -282,6 +283,7 @@ async def process_llm_task(
             await manager.send_message(app_id, 
                 f"WARNING: Dataset {dataset_id}: Error processing LLM response - {str(e)}. Retrying... ({retries}/{max_retries})"
             )
+            # await asyncio.sleep(60)
             if retries == 0:
                 await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
                 extracted_data = []
@@ -314,7 +316,7 @@ async def process_llm_task(
 def normalize_text(text: str) -> str:
     text = text.lower()
     text = re.sub(r'\s+', ' ', text)
-    text = re.sub(r'[^\w\s]|_', '', text)
+    text = ''.join(char for char in text if char != '_' and unicodedata.category(char).startswith(('L', 'N', 'Z', 'P')))
     text = text.strip()
     return text
 

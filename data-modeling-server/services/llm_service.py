@@ -32,6 +32,7 @@ class GlobalQueueManager:
         enable_status_check: bool = True,
         cancel_threshold: int = 1,
         idle_threshold: float = 60.0,
+        cutoff: float = 300,
     ):
         try:
             self._max_queue_size = max_queue_size
@@ -42,6 +43,8 @@ class GlobalQueueManager:
             self.pending_tasks: Dict[str, ConcurrentFuture] = {}
             self._lock = threading.Lock()
             self.idle_threshold = idle_threshold
+
+            self.cutoff = cutoff
 
             self.function_cache: Dict[str, Tuple[Callable, int]] = {}
             self.cacheable_args: Dict[str, Dict[str, List|Dict]] = {}
@@ -345,7 +348,7 @@ class GlobalQueueManager:
                         print(f"[WORKER {worker_id}] Executing job {job_id}", args, kwargs, func.__name__)
                         result = await asyncio.wait_for(
                             asyncio.to_thread(func, *args, **kwargs),
-                            timeout=120
+                            timeout=self.cutoff
                         )
                         cfut.set_result(result)
                         try:
@@ -358,11 +361,11 @@ class GlobalQueueManager:
                         )
                         print(f"[WORKER {worker_id}] Job {job_id} completed")
                     except asyncio.TimeoutError:
-                        print(f"[WORKER {worker_id}] Job {job_id} timed out after 600s")
-                        cfut.set_exception(asyncio.TimeoutError("Task exceeded 600s"))
+                        print(f"[WORKER {worker_id}] Job {job_id} timed out after {self.cutoff} seconds")
+                        cfut.set_exception(asyncio.TimeoutError(f"Task exceeded {self.cutoff}s"))
                         self.pending_task_repo.update(
                             filters={"task_id": job_id},
-                            updates={"status": "failed", "error": "Timeout after 600s", "completed_at": datetime.now()}
+                            updates={"status": "failed", "error": f"Timeout after {self.cutoff}s", "completed_at": datetime.now()}
                         )
                     except Exception as e:
                         if isinstance(e, concurrent.futures.CancelledError):
@@ -519,11 +522,12 @@ def get_llm_manager():
         return GlobalQueueManager(
             max_queue_size=20,
             num_workers=5,
-            rate_limit_per_minute=10,
+            rate_limit_per_minute=20,
             status_check_interval=15.0,
             enable_status_check=True,
             cancel_threshold=1,
             idle_threshold=15,
+            cutoff=120,
         )
     except Exception as e:
         print(f"Failed to create GlobalQueueManager: {e}")

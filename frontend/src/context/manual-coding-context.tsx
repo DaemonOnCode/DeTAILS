@@ -118,6 +118,9 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
                 })
             });
             if (error) {
+                toast.error(
+                    'Failed to fetch LLM responses for manual coding. ' + (error.message ?? '')
+                );
                 throw new Error('Failed to fetch LLM responses');
             }
             return data.data;
@@ -180,6 +183,7 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
             });
             if (error) {
                 console.error('Failed to generate codebook:', error);
+                toast.error('Failed to generate codebook ' + (error.message ?? ''));
                 throw new Error('Failed to generate codebook');
             }
             return data.data;

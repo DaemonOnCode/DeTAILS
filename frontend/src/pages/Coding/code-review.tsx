@@ -26,8 +26,10 @@ const CodeReview = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Code Review Page Unloaded').then(() => {
                 logger.time('Code Review Page stay time', { time: timer.end() });

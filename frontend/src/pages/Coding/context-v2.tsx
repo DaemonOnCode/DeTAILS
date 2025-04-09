@@ -109,9 +109,13 @@ const ContextPage = () => {
         logger.info('Loaded Context Page');
 
         return () => {
+            console.log('Unloading Context Page');
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
+                console.log('Saving workspace data on unload of Context Page');
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Unloaded Context Page').then(() => {
                 logger.time('Context Page stay time', { time: timer.end() });

@@ -89,14 +89,18 @@ export const useApi = (): UseApiResult => {
             };
             // console.log('Fetching data:', url, mergedOptions);
 
-            if (requestArrayRef.current !== null && route !== REMOTE_SERVER_ROUTES.SAVE_STATE) {
-                console.log('Request array ref is not null for:', location.pathname);
-                requestArrayRef.current[location.pathname] = [
-                    ...(requestArrayRef.current[location.pathname] || []),
-                    controller.abort.bind(controller)
-                ];
+            if (route === REMOTE_SERVER_ROUTES.SAVE_STATE) {
+                console.log('Saving state:', location.pathname);
             } else {
-                console.log('Request array ref is null for:', location.pathname);
+                if (requestArrayRef.current !== null) {
+                    console.log('Request array ref is not null for:', location.pathname);
+                    requestArrayRef.current[location.pathname] = [
+                        ...(requestArrayRef.current[location.pathname] || []),
+                        controller.abort.bind(controller)
+                    ];
+                } else {
+                    console.log('Request array ref is null for:', location.pathname, 'save state');
+                }
             }
 
             try {

@@ -38,6 +38,7 @@ export interface ISettingsConfig {
         path: string;
         downloadDir: string;
         magnetLink: string;
+        fallbackMagnetLink: string;
     };
 }
 

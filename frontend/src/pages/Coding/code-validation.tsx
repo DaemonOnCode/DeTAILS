@@ -20,8 +20,10 @@ const CodeValidation = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Code validation Page Unloaded').then(() => {
                 logger.time('Code validation Page stay time', { time: timer.end() });

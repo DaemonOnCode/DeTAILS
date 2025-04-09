@@ -38,8 +38,10 @@ const CodebookRefinement = () => {
 
         return () => {
             if (!hasSavedRef.current) {
-                saveWorkspaceData();
                 hasSavedRef.current = true;
+                saveWorkspaceData().finally(() => {
+                    hasSavedRef.current = false;
+                });
             }
             logger.info('Code Refinement Unloaded').then(() => {
                 logger.time('Code Refinement stay time', { time: timer.end() });
