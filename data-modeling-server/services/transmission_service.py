@@ -1,5 +1,6 @@
 import asyncio
 import os
+import subprocess
 import sys
 import json
 import time
@@ -8,11 +9,13 @@ import aiohttp
 
 from constants import TRANSMISSION_RPC_URL, PATHS, get_default_transmission_cmd  # PATHS is assumed to be a dict with key "settings"
 
-async def wait_for_transmission(timeout=15, interval=0.5):
+async def wait_for_transmission(timeout=120.0, interval=0.5):
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(
+                conn_timeout = timeout,
+            ) as session:
                 async with session.get(TRANSMISSION_RPC_URL) as response:
                     if response.status in (200, 409):
                         print("Transmission daemon is up and running.")
@@ -94,6 +97,7 @@ class GlobalTransmissionDaemonManager:
             print("Transmission CLI is not present at:", self._transmission_cmd[0])
 
     def recheck_transmission(self):
+        print("Rechecking transmission", self._transmission_cmd[0], os.path.exists(self._transmission_cmd[0]))
         self.transmission_present = os.path.exists(self._transmission_cmd[0])
         if self.transmission_present:
             print("Recheck: Transmission CLI is present at:", self._transmission_cmd[0])
@@ -104,11 +108,14 @@ class GlobalTransmissionDaemonManager:
     async def __aenter__(self):
         await self._termination_lock.acquire()
         self._termination_lock.release()
+        # if sys.platform == "win32":
+        #     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
         async with self._lock:
             if self._ref_count == 0:
                 if not self.transmission_present:
                     raise RuntimeError("Transmission CLI is not available on this system.")
+                print("Starting Transmission daemon...", self._transmission_cmd)
                 self._process = await asyncio.create_subprocess_exec(
                     *self._transmission_cmd,
                     stdout=asyncio.subprocess.PIPE,
@@ -128,8 +135,14 @@ class GlobalTransmissionDaemonManager:
             if self._ref_count == 0:
                 await self._termination_lock.acquire()
                 try:
-                    self._process.terminate()
-                    await self._process.wait()
+                    if sys.platform == "win32":
+                        subprocess.run(
+                            ["taskkill", "/F", "/T", "/PID", str(self._process.pid)],
+                            check=True
+                        )
+                    else:
+                        self._process.terminate()
+                        await self._process.wait()
                     self._stdout_task.cancel()
                     self._stderr_task.cancel()
                     self._process = None

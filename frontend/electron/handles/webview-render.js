@@ -41,8 +41,8 @@ const webviewHandler = (...ctxs) => {
         mainWindow.setBrowserView(view);
 
         // Define the view dimensions and center the view.
-        const viewWidth = 800;
-        const viewHeight = 600;
+        const viewWidth = 600;
+        const viewHeight = 400;
         const [mainWidth, mainHeight] = mainWindow.getContentSize();
         const x = Math.round((mainWidth - viewWidth) / 2);
         const y = Math.round((mainHeight - viewHeight) / 2);

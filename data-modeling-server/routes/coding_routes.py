@@ -14,7 +14,7 @@ import pandas as pd
 
 from config import Settings, CustomSettings
 from constants import STUDY_DATABASE_PATH
-from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
+from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, filter_duplicate_codes, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
 from controllers.collection_controller import count_comments, get_reddit_post_by_id
 from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
@@ -768,6 +768,7 @@ async def generate_codes_endpoint(request: Request,
         for row in final_results:
             row["code"] = reverse_map_one_to_one.get(row["code"], row["code"])
 
+        filter_duplicate_codes(final_results, parent_function_name="generate-initial-codes", workspace_id=workspace_id)
         state_dump_repo.insert(
             StateDump(
                 state=json.dumps({
@@ -1429,6 +1430,7 @@ async def generate_codes_endpoint(request: Request,
         for row in final_results:
             row["code"] = reverse_map_one_to_one.get(row["code"], row["code"])
 
+        filter_duplicate_codes(final_results, parent_function_name="remake-initial-codes", workspace_id=workspace_id)
         state_dump_repo.insert(
             StateDump(
                 state=json.dumps({

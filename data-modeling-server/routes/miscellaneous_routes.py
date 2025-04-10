@@ -108,7 +108,7 @@ async def get_post_title_from_id_endpoint(
 async def check_transmission_endpoint(
     transmission_manager: GlobalTransmissionDaemonManager = Depends(get_transmission_manager)
 ):
-    return {"exists": transmission_manager.transmission_present}
+    return {"exists": transmission_manager.recheck_transmission()}
 
 
 @router.post("/test-user-credentials")

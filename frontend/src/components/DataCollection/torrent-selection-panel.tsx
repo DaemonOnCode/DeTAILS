@@ -77,11 +77,11 @@ const TorrentSelectionPanel: React.FC<{
         if (isAnyFileSelected && activeSubreddit) {
             const files = getFilesForSubreddit(activeSubreddit);
             setModeInput((prevModeInput) => {
-                let baseInput = `reddit:torrent:${activeSubreddit}`;
-                if (prevModeInput && prevModeInput.includes(':files:')) {
-                    baseInput = prevModeInput.split(':files:')[0];
+                let baseInput = `reddit|torrent|${activeSubreddit}`;
+                if (prevModeInput && prevModeInput.includes('|files|')) {
+                    baseInput = prevModeInput.split('|files|')[0];
                 }
-                return `${baseInput}:files:${files.join(',')}`;
+                return `${baseInput}|files|${files.join(',')}`;
             });
         } else {
             // setModeInput((prevModeInput) => {
@@ -95,9 +95,9 @@ const TorrentSelectionPanel: React.FC<{
     }, [selected, activeSubreddit, setModeInput, dataResponse]);
 
     useEffect(() => {
-        if (modeInput && modeInput.includes(':files:')) {
-            const [base, filesStr] = modeInput.split(':files:');
-            const parts = base.split(':');
+        if (modeInput && modeInput.includes('|files|')) {
+            const [base, filesStr] = modeInput.split('|files|');
+            const parts = base.split('|');
             if (parts.length >= 3) {
                 const subredditFromMode = parts[2];
                 setActiveSubreddit(subredditFromMode);

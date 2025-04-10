@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { PAGE_ROUTES } from '../../constants/Coding/shared';
 import RedditViewModal from '../../components/Coding/Shared/reddit-view-modal';
@@ -82,26 +82,29 @@ const FinalPage = () => {
     };
 
     // Combine sampled & unseen post data
-    const finalCodeResponses = [
-        ...sampledPostResponse.map((post) => ({
-            postId: post.postId,
-            quote: post.quote,
-            coded_word: getGroupedCodeOfSubCode(post.code, groupedCodes),
-            reasoning: post.explanation,
-            theme: getThemeByCode(post.code, themes, groupedCodes),
-            id: post.id
-        })),
-        ...unseenPostResponse
-            // .filter((post) => post.type === 'LLM')
-            .map((post) => ({
+    const finalCodeResponses = useMemo(
+        () => [
+            ...sampledPostResponse.map((post) => ({
                 postId: post.postId,
                 quote: post.quote,
                 coded_word: getGroupedCodeOfSubCode(post.code, groupedCodes),
                 reasoning: post.explanation,
                 theme: getThemeByCode(post.code, themes, groupedCodes),
                 id: post.id
-            }))
-    ];
+            })),
+            ...unseenPostResponse
+                // .filter((post) => post.type === 'LLM')
+                .map((post) => ({
+                    postId: post.postId,
+                    quote: post.quote,
+                    coded_word: getGroupedCodeOfSubCode(post.code, groupedCodes),
+                    reasoning: post.explanation,
+                    theme: getThemeByCode(post.code, themes, groupedCodes),
+                    id: post.id
+                }))
+        ],
+        [sampledPostResponse, unseenPostResponse, themes, groupedCodes]
+    );
 
     // Group by postId
     const grouped = useMemo(() => groupByPostId(finalCodeResponses), [finalCodeResponses]);
@@ -110,14 +113,179 @@ const FinalPage = () => {
     const groupedByCode = useMemo(() => groupByCode(finalCodeResponses), [finalCodeResponses]);
     const allCodes = Object.keys(groupedByCode);
 
-    const handleDownloadCodebook = async () => {
-        const success = await downloadCodebook(finalCodeResponses);
-        if (success) {
-            toast.success('Codebook downloaded successfully');
+    // const handleDownloadCodebook = async () => {
+    //     const success = await downloadCodebook(
+    //         finalCodeResponses.map((item) => ({
+    //             postId: item.postId,
+    //             quote: item.quote,
+    //             coded_word: item.coded_word,
+    //             explanation: item.reasoning,
+    //             theme: item.theme
+    //         }))
+    //     );
+    //     if (success) {
+    //         toast.success('Codebook downloaded successfully');
+    //     } else {
+    //         toast.error('Download cancelled or failed');
+    //     }
+    // };
+
+    const getDetailedCodeData = useCallback(() => {
+        const data = [];
+        for (const code of allCodes) {
+            const rows = groupedByCode[code];
+            const theme = rows[0]?.theme || 'Unknown Theme';
+            for (const item of rows) {
+                data.push({
+                    Code: code,
+                    Theme: theme,
+                    'Post ID': item.postId,
+                    Quote: item.quote,
+                    Explanation: item.reasoning
+                });
+            }
+        }
+        return data;
+    }, [allCodes, groupedByCode]);
+
+    const getSummaryCodeData = useCallback(() => {
+        const themeGroups = {};
+        allCodes.forEach((code) => {
+            const rows = groupedByCode[code];
+            rows.forEach((item) => {
+                const theme = item.theme;
+                if (!themeGroups[theme]) {
+                    themeGroups[theme] = [];
+                }
+                themeGroups[theme].push(item);
+            });
+        });
+
+        const summaryRows = Object.keys(themeGroups).map((themeName) => {
+            const items: any[] = themeGroups[themeName];
+            const uniquePosts = new Set(items.map((item) => item.postId));
+            const uniqueCodes = new Set(items.map((item) => item.coded_word));
+            const totalQuoteCount = items.length;
+            return [themeName, uniquePosts.size, uniqueCodes.size, totalQuoteCount];
+        });
+
+        const overallUniqueThemes = Object.keys(themeGroups).length;
+        const overallUniquePosts = new Set();
+        const overallUniqueCodes = new Set();
+        let overallTotalQuoteCount = 0;
+        Object.values(themeGroups).forEach((items: any[]) => {
+            overallTotalQuoteCount += items.length;
+            items.forEach((item) => {
+                overallUniquePosts.add(item.postId);
+                overallUniqueCodes.add(item.coded_word);
+            });
+        });
+
+        const overallStats = [
+            ['Overall Stats', 'Value'],
+            ['Total Unique Themes', overallUniqueThemes],
+            ['Total Unique Posts', overallUniquePosts.size],
+            ['Total Code Count', overallUniqueCodes.size],
+            ['Total Quote Count', overallTotalQuoteCount]
+        ];
+
+        return [
+            ['Theme Name', 'Unique Posts Count', 'Unique Codes Count', 'Total Quote Count'],
+            ...summaryRows,
+            [], // Empty row for separation
+            ...overallStats
+        ];
+    }, [allCodes, groupedByCode]);
+
+    const getDetailedPostData = useCallback(() => {
+        const data = [];
+        for (const pid of allPostIds) {
+            const rows = grouped[pid];
+            for (const item of rows) {
+                data.push({
+                    'Post ID': pid,
+                    Code: item.coded_word,
+                    Theme: item.theme,
+                    Quote: item.quote,
+                    Explanation: item.reasoning
+                });
+            }
+        }
+        return data;
+    }, [allPostIds, grouped]);
+
+    const getSummaryPostData = useCallback(() => {
+        const summaryRows = allPostIds.map((pid) => {
+            const rows = grouped[pid];
+            const uniqueThemes = new Set(rows.map((row) => row.theme));
+            const uniqueCodes = new Set(rows.map((row) => row.coded_word));
+            const totalQuoteCount = rows.length;
+            return [pid, uniqueThemes.size, uniqueCodes.size, totalQuoteCount];
+        });
+
+        const overallThemes = new Set();
+        const overallCodes = new Set();
+        let overallQuoteCount = 0;
+        allPostIds.forEach((pid) => {
+            const rows = grouped[pid];
+            rows.forEach((row) => {
+                overallThemes.add(row.theme);
+                overallCodes.add(row.coded_word);
+            });
+            overallQuoteCount += rows.length;
+        });
+
+        const overallStats = [
+            ['Overall Stats', 'Value'],
+            ['Total Unique Themes', overallThemes.size],
+            ['Total Unique Codes', overallCodes.size],
+            ['Total Quote Count', overallQuoteCount]
+        ];
+
+        return [
+            ['Post ID', 'Unique Theme Count', 'Unique Code Count', 'Total Quote Count'],
+            ...summaryRows,
+            [], // Empty row for separation
+            ...overallStats
+        ];
+    }, [allPostIds, grouped]);
+
+    const handleDownloadData = useCallback(async () => {
+        console.log('Downloading data...', isCodeView, isSummaryView);
+        let data;
+        if (isCodeView) {
+            if (isSummaryView) {
+                data = getSummaryCodeData();
+            } else {
+                data = getDetailedCodeData();
+            }
+        } else {
+            if (isSummaryView) {
+                data = getSummaryPostData();
+            } else {
+                data = getDetailedPostData();
+            }
+        }
+        const result = await ipcRenderer.invoke('save-csv', {
+            data,
+            fileName: `${isCodeView ? 'code' : 'post'}_${
+                isSummaryView ? 'summary' : 'detailed'
+            }_analysis`
+        });
+
+        if (result.success) {
+            toast.success('Data downloaded successfully');
         } else {
             toast.error('Download cancelled or failed');
         }
-    };
+    }, [
+        isCodeView,
+        isSummaryView,
+        getSummaryCodeData,
+        getDetailedCodeData,
+        getSummaryPostData,
+        getDetailedPostData
+    ]);
 
     if (loadingState[location.pathname]?.isFirstRun) {
         return (
@@ -185,7 +353,7 @@ const FinalPage = () => {
 
                     <button
                         className="min-w-32 px-4 py-2 bg-blue-500 text-white rounded"
-                        onClick={handleDownloadCodebook}>
+                        onClick={handleDownloadData}>
                         Download Data
                     </button>
 

@@ -349,7 +349,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     )}
                     <div
                         id="transcript-container"
-                        className={`flex-1 overflow-y-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}
+                        className={`flex-1 overflow-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}
                         onMouseUp={transcriptHandleMouseUp}
                         onClick={transcriptHandleMouseClick}
                         ref={containerRef}>

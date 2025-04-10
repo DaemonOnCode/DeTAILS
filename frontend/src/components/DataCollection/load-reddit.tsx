@@ -57,9 +57,10 @@ const LoadReddit: FC<{
     let torrentDownloadPathInitial = settings.transmission.downloadDir;
 
     if (modeInput && typeof modeInput === 'string') {
-        const modeSplits = modeInput.split(':');
+        const modeSplits = modeInput.split('|');
+        console.log('modeSplits', modeSplits);
         if (modeSplits.length >= 3 && modeSplits[0] === 'reddit' && modeSplits[1] === 'torrent') {
-            const torrentParams = modeSplits[2].split('|');
+            const torrentParams = modeSplits.slice(2);
             if (torrentParams.length >= 4) {
                 torrentSubredditInitial = torrentParams[0] || defaultSubreddit;
                 torrentStartInitial = torrentParams[1] || defaultStart;
@@ -93,7 +94,7 @@ const LoadReddit: FC<{
     };
     useEffect(() => {
         if (!queryActiveTab) {
-            searchParams.set('activeTab', modeInput.split(':')[1]);
+            searchParams.set('activeTab', modeInput.split('|')[1]);
             console.log('setting active tab', activeTab, searchParams.toString());
             setSearchParams(searchParams);
         }
@@ -108,7 +109,7 @@ const LoadReddit: FC<{
     useEffect(() => {
         console.log('modeInput', modeInput);
         if (modeInput) {
-            const splits = modeInput.split(':');
+            const splits = modeInput.split('|');
             if (splits.length >= 2) {
                 const subMode = splits[1];
                 if (subMode === 'torrent') {
@@ -206,7 +207,7 @@ const LoadReddit: FC<{
     useImperativeHandle(processRef, () => {
         return {
             run: async () => {
-                const inputSplits = modeInput.split(':');
+                const inputSplits = modeInput.split('|');
                 if (inputSplits.length && inputSplits[0] === 'reddit') {
                     if (inputSplits[1] === 'torrent') {
                         if (selectedFilesRef.current?.getFiles) {
@@ -245,8 +246,8 @@ const LoadReddit: FC<{
     }
 
     const currentFolder =
-        modeInput.split(':').slice(0, 2).join(':') === 'reddit:upload'
-            ? modeInput.split(':').slice(2).join(':')
+        modeInput.split('|').slice(0, 2).join('|') === 'reddit|upload'
+            ? modeInput.split('|').slice(2).join('|')
             : '';
 
     // Handler to update active tab and the URL query parameter.
@@ -300,11 +301,11 @@ const LoadReddit: FC<{
                                     openModal('deductive-coding-redo', async () => {
                                         await resetDataAfterPage(location.pathname);
                                         let folderPath = await ipcRenderer.invoke('select-folder');
-                                        setModeInput(`reddit:upload:${folderPath}`);
+                                        setModeInput(`reddit|upload|${folderPath}`);
                                     });
                                 } else {
                                     let folderPath = await ipcRenderer.invoke('select-folder');
-                                    setModeInput(`reddit:upload:${folderPath}`);
+                                    setModeInput(`reddit|upload|${folderPath}`);
                                 }
                             }}
                             className="p-2 border border-gray-300 rounded w-96 mb-4">

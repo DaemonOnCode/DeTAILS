@@ -52,7 +52,7 @@ const LoadInterview: FC = () => {
         let existingFiles: InterviewFile[] = [];
         if (modeInput && modeInput.startsWith('interview:')) {
             try {
-                existingFiles = JSON.parse(modeInput.split(':').slice(1).join(':') ?? '');
+                existingFiles = JSON.parse(modeInput.split('|').slice(1).join('|') ?? '');
             } catch (e) {
                 console.error('Error parsing modeInput', e);
             }
@@ -65,7 +65,7 @@ const LoadInterview: FC = () => {
     const handleRemoveFile = (filePath: string) => {
         try {
             const files = JSON.parse(
-                modeInput.split(':').slice(1).join(':') ?? ''
+                modeInput.split('|').slice(1).join('|') ?? ''
             ) as InterviewFile[];
             const newFiles = files.filter((file) => file.filePath !== filePath);
             setModeInput(`interview:${JSON.stringify(newFiles)}`);
@@ -98,7 +98,7 @@ const LoadInterview: FC = () => {
                             let files: InterviewFile[] = [];
                             try {
                                 files = JSON.parse(
-                                    modeInput.split(':').slice(1).join(':') ?? ''
+                                    modeInput.split('|').slice(1).join('|') ?? ''
                                 ) as InterviewFile[];
                             } catch (e) {
                                 console.error('Error parsing modeInput', e);

@@ -35,7 +35,7 @@ const DataViewerPage = () => {
     const { type, datasetId, selectedData, setSelectedData, modeInput, isLocked } =
         useCollectionContext();
     const [searchParams] = useSearchParams();
-    const datasetType = searchParams.get('type') ?? modeInput.split(':')[0];
+    const datasetType = searchParams.get('type') ?? modeInput.split('|')[0];
     const navigate = useNavigate();
     const {
         setSampledPostIds,
@@ -63,7 +63,7 @@ const DataViewerPage = () => {
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
-            const inputSplits = modeInput.split(':');
+            const inputSplits = modeInput.split('|');
             if (inputSplits.length && inputSplits[0] === 'reddit') {
                 if (inputSplits[1] === 'torrent') {
                     if (inputSplits[3] === 'files') {
@@ -84,7 +84,7 @@ const DataViewerPage = () => {
                 }
             }
         } else {
-            const inputSplits = modeInput.split(':');
+            const inputSplits = modeInput.split('|');
             if (inputSplits.length && inputSplits[0] === 'reddit') {
                 if (inputSplits[1] === 'torrent') {
                     loadTorrentData();

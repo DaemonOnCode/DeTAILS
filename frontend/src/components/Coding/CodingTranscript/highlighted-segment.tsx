@@ -22,23 +22,23 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
     } = useTranscriptContext();
     const segmentRef = useRef<HTMLSpanElement>(null);
 
-    const isVisible = useIntersectionObserver(segmentRef, {
-        root: containerRef.current,
-        rootMargin: '100px'
-    });
+    // const isVisible = useIntersectionObserver(segmentRef, {
+    //     root: containerRef.current,
+    //     rootMargin: '100px'
+    // });
 
-    if (!isVisible) {
-        return (
-            <span
-                ref={segmentRef}
-                style={{
-                    display: 'inline-block',
-                    height: '1.5em',
-                    width: '100%'
-                }}
-            />
-        );
-    }
+    // if (!isVisible) {
+    //     return (
+    //         <span
+    //             ref={segmentRef}
+    //             style={{
+    //                 display: 'inline-block',
+    //                 height: '1.5em',
+    //                 width: '100%'
+    //             }}
+    //         />
+    //     );
+    // }
 
     const isActive = activeSegment?.index === segment.index;
 
@@ -47,7 +47,7 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
             <span
                 ref={segmentRef}
                 data-segment-id={segment.index}
-                className="relative z-10 mr-0.5 whitespace-pre-line">
+                className="relative z-10 mr-0.5 whitespace-pre-line min-w-96">
                 {segment.line}
             </span>
         );

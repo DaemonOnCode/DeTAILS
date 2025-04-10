@@ -13,6 +13,7 @@ const { spawnedProcesses } = require('./utils/spawn-services');
 const { createMenu } = require('./utils/menu');
 const { createContext } = require('./utils/context');
 const { electronLogger } = require('./utils/electron-logger');
+const { execSync } = require('child_process');
 
 const newConfig = require('../src/config')('electron');
 
@@ -53,12 +54,22 @@ const cleanupAndExit = async (globalCtx, signal) => {
     electronLogger.log(`Received signal: ${signal}`);
     await logger.info('Process exited', { signal });
     // electronLogger.log('Closing spawned processes...', spawnedProcesses);
-    for (const { name, process } of spawnedProcesses) {
+    for (const { name, process: child } of spawnedProcesses) {
         electronLogger.log(`Terminating process: ${name}`);
-        try {
-            process.kill(); // Sends SIGTERM to the process
-        } catch (err) {
-            electronLogger.error(`Error terminating process ${name}:`, err);
+        if (process.platform === 'win32') {
+            try {
+                execSync(`taskkill /F /T /PID ${child.pid}`);
+                electronLogger.log(`Successfully terminated ${name} and its subprocesses.`);
+            } catch (err) {
+                electronLogger.error(`Error terminating ${name}:`, err);
+            }
+        } else {
+            try {
+                // On POSIX, using negative pid kills the entire process group.
+                process.kill(-child.pid);
+            } catch (err) {
+                electronLogger.error(`Error terminating ${name}:`, err);
+            }
         }
     }
     try {
@@ -74,6 +85,8 @@ const cleanupAndExit = async (globalCtx, signal) => {
     }
     app.exit();
 };
+
+app.commandLine.appendSwitch('force-color-profile', 'srgb');
 
 // Wait for the app to be ready
 app.whenReady().then(async () => {

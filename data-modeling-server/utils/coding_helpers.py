@@ -2,19 +2,21 @@ def generate_transcript(post):
     # Start with the post title and selftext
     transcript = f"Title: {post['title']}\n\n{post['selftext']}\n\n"
 
-    # Helper function to recursively process comments
-    def process_comments(comments, depth=0):
+    # Helper function to recursively process comments with hierarchical numbering
+    def process_comments(comments, prefix=""):
         result = ""
-        # print('comments', comments, type(comments))
-
         if not comments:
             return ""
-
-        for comment in comments:
-            indent = "  " * depth  # Indentation for nested comments
-            result += f"{indent} {comment['body']}\n"
+        for i, comment in enumerate(comments, start=1):
+            # Calculate the current comment's number in the hierarchy
+            current_number = prefix + str(i)
+            # Create the label for the comment
+            label = "comment " + current_number + ": "
+            # Add the label and comment body to the result
+            result += label + comment['body'] + "\n"
+            # If the comment has replies, process them recursively
             if 'comments' in comment and comment['comments']:
-                result += process_comments(comment['comments'], depth + 1)
+                result += process_comments(comment['comments'], prefix=current_number + ".")
         return result
 
     # If there are comments, process them

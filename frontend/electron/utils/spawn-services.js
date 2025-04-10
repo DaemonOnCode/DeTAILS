@@ -29,7 +29,6 @@ const servicesConfig = (executablesPath) => {
         ollama: {
             name: 'ollama',
             folder: path.join(executablesPath, 'ollama'),
-            // Replace 'ollama-win.exe' with the actual Windows executable name for ollama
             command: isWindows ? 'ollama.exe' : './ollama-darwin',
             args: ['serve']
         }
@@ -38,11 +37,13 @@ const servicesConfig = (executablesPath) => {
 
 // Helper function to spawn a process
 const spawnService = async (config, globalCtx) => {
+    const isWindows = process.platform === 'win32';
     return new Promise((resolve, reject) => {
         electronLogger.log(`Starting ${config.name}...`);
         const extraConfig = {
             cwd: config.folder,
-            shell: true,
+            shell: !isWindows,
+            detached: false,
             stdio: ['pipe', 'pipe', 'pipe']
         };
         const service = spawn(config.command, config.args, extraConfig);

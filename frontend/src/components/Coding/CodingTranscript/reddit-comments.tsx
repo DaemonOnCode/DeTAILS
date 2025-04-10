@@ -42,11 +42,12 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
               border-l border-gray-300
               pl-4
               my-2
+               min-w-96
               ${indentClass}
               ${elbowClass}
             `}>
                         {/* The actual comment text using processedSegments */}
-                        <div className="text-gray-700 leading-relaxed overflow-wrap py-2 relative">
+                        <div className="text-gray-700 leading-relaxed overflow-wrap py-2 relative  min-w-96">
                             {processedSegments
                                 .filter(
                                     (segment) =>

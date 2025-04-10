@@ -320,27 +320,29 @@ def normalize_text(text: str) -> str:
     text = text.strip()
     return text
 
-def filter_codes_by_transcript(workspace_id:str, codes: list[dict], transcript: str, parent_function_name: str = "") -> list[dict]:
-    # return codes
-    filtered_codes = []
+def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript: str, parent_function_name: str = "") -> list[dict]:
+    # Normalize the transcript once for efficiency
     normalized_transcript = normalize_text(transcript)
+    
+    # Step 1: Filter out hallucinations (quotes not in transcript)
+    hallucination_filtered_codes = []
     for code in codes:
         quote = code.get("quote", "").strip()
         normalized_quote = normalize_text(quote)
-
         if normalized_quote and normalized_quote in normalized_transcript:
-            filtered_codes.append(code)
+            hallucination_filtered_codes.append(code)
         else:
             print(f"Filtered out code entry, quote not found in transcript: {quote}")
-
+    
+    # State Dump 1: Log results after removing hallucinations
     state_dump_repo.insert(
         StateDump(
             state=json.dumps({
-                "filtered_codes": filtered_codes,
+                "hallucination_filtered_codes": hallucination_filtered_codes,
                 "initial_codes": codes,
-                "difference": len(codes) - len(filtered_codes),
+                "difference": len(codes) - len(hallucination_filtered_codes),
                 "code_count": len(codes),
-                "filtered_code_count": len(filtered_codes),
+                "filtered_code_count": len(hallucination_filtered_codes),
             }),
             context=json.dumps({
                 "function": "llm_response_after_filtering_hallucinations",
@@ -349,8 +351,74 @@ def filter_codes_by_transcript(workspace_id:str, codes: list[dict], transcript: 
             }),
         )
     )
-    return filtered_codes
+    
+    # Step 2: Filter out duplicates (based on "code" and "quote")
+    seen_pairs = set()
+    duplicate_filtered_codes = []
+    for code in hallucination_filtered_codes:
+        code_value = code.get("code", "").strip()
+        quote = code.get("quote", "").strip()
+        normalized_code = normalize_text(code_value)
+        normalized_quote = normalize_text(quote)
+        pair = (normalized_code, normalized_quote)
+        if pair not in seen_pairs:
+            duplicate_filtered_codes.append(code)
+            seen_pairs.add(pair)
+        else:
+            print(f"Filtered out duplicate code entry: code={code_value}, quote={quote}")
+    
+    # State Dump 2: Log results after removing duplicates
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "duplicate_filtered_codes": duplicate_filtered_codes,
+                "hallucination_filtered_codes": hallucination_filtered_codes,
+                "difference": len(hallucination_filtered_codes) - len(duplicate_filtered_codes),
+                "code_count": len(hallucination_filtered_codes),
+                "filtered_code_count": len(duplicate_filtered_codes),
+            }),
+            context=json.dumps({
+                "function": "llm_response_after_filtering_duplicates",
+                "parent_function_name": parent_function_name,
+                "workspace_id": workspace_id,
+            }),
+        )
+    )
+    
+    # Return the final filtered list
+    return duplicate_filtered_codes
 
+
+def filter_duplicate_codes(codes: List[Dict[str, Any]], parent_function_name: str, workspace_id: str) -> List[Dict[str, Any]]:
+    seen_pairs = set()
+    filtered_codes = []
+    for code in codes:
+        code_value = code.get("code", "").strip()
+        quote = code.get("quote", "").strip()
+        normalized_code = normalize_text(code_value)
+        normalized_quote = normalize_text(quote)
+        pair = (normalized_code, normalized_quote)
+        if pair not in seen_pairs:
+            filtered_codes.append(code)
+            seen_pairs.add(pair)
+        else:
+            print(f"Filtered out duplicate code entry: code={code_value}, quote={quote}")
+
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "filtered_codes": filtered_codes,
+                "initial_codes": codes,
+            }),
+            context=json.dumps({
+                "function": "llm_response_after_filtering_duplicates",
+                "parent_function_name": parent_function_name,
+                "workspace_id": workspace_id,
+            }),
+        )
+    )
+    
+    return filtered_codes
 
 
 def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, workspace_id: str, model: str, codebook_type: str, parent_function_name: str = ""):

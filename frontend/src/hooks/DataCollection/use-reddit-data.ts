@@ -161,7 +161,7 @@ const useRedditData = () => {
             if (!currentWorkspace || !currentWorkspace.id) {
                 throw new Error('Workspace not found');
             }
-            let folderPath = modeInput.split(':')?.[2];
+            let folderPath = modeInput.split('|')?.[2];
             // Uncomment and modify if you want to prompt for a folder:
             // if (!modeInput && changeModeInput) {
             //     folderPath = await ipcRenderer.invoke('select-folder-reddit');
@@ -212,7 +212,7 @@ const useRedditData = () => {
 
         return {
             status: checkResponse?.status,
-            error: checkResponse.error
+            error: checkResponse.error ? checkResponse.error : checkError?.message?.error_message
         };
     };
 
@@ -233,7 +233,7 @@ const useRedditData = () => {
 
             if (addToDb) {
                 setModeInput(
-                    `reddit:torrent:${torrentSubreddit}|${torrentStart}|${torrentEnd}|${torrentPostsOnly}|${useFallback}|${downloadDirectory}`
+                    `reddit|torrent|${torrentSubreddit}|${torrentStart}|${torrentEnd}|${torrentPostsOnly}|${useFallback}|${downloadDirectory}`
                 );
                 // const { data: checkResponse, error: checkError } = await fetchData<{
                 //     status: boolean;

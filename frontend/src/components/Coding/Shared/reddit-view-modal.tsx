@@ -14,8 +14,8 @@ const RedditViewModal = ({
     const [browserViewBounds, setBrowserViewBounds] = useState({
         x: 0,
         y: 0,
-        width: 800,
-        height: 600
+        width: 600,
+        height: 400
     });
 
     const { datasetId } = useCollectionContext();

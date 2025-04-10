@@ -282,13 +282,13 @@ const ContextPage = () => {
                 <div className="w-full h-full flex justify-between flex-col relative">
                     <div className="max-h-maxPageContent h-maxPageContent">
                         <section id="file-section" className="max-h-3/5 h-3/5 border-b-2">
-                            <h1>
+                            <h1 className="text-center">
                                 Provide context for DeTAILS by uploading literature (e.g., research
                                 papers), formulating research questions, identifying topics of
                                 interest, and including additional information related to your
                                 topic-
                             </h1>
-                            <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto max-w-screen-sm lg:max-w-screen-lg">
+                            <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto">
                                 <label
                                     className="flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white p-4 cursor-pointer text-blue-500 font-semibold hover:bg-blue-50"
                                     onClick={handleSelectFiles}>

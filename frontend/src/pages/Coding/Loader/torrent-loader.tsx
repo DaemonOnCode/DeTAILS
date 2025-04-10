@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { useWebSocket } from '../../../context/websocket-context';
@@ -45,7 +45,7 @@ function formatBytes(bytes: number, decimals = 2): string {
 // Helper to parse the mode input string (if needed)
 function parseModeInput(modeInput: string) {
     // Expected format: "reddit:torrent:subreddit|start|end|postsOnly|true|path"
-    const parts = modeInput.split(':');
+    const parts = modeInput.split('|');
     if (parts.length !== 3) {
         throw new Error('Invalid mode input format');
     }
@@ -233,7 +233,7 @@ const TorrentLoader: React.FC = () => {
     }, [messages]);
 
     // Retry logic
-    const handleRetry = async () => {
+    const handleRetry = useCallback(async () => {
         logger.info('Retrying request...');
         try {
             abortRequestsByRoute(
@@ -277,7 +277,7 @@ const TorrentLoader: React.FC = () => {
         } catch (error) {
             logger.error(`Retry failed: ${error}`);
         }
-    };
+    }, [modeInput]);
 
     // WebSocket message handler – parse incoming messages to update steps, files, and downloaded files
     const handleWebSocketMessage = (message: string) => {

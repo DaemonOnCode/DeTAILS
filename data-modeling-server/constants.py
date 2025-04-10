@@ -49,12 +49,9 @@ PATHS = {
 def get_default_transmission_cmd():
     """Returns the default transmission command based on the current platform."""
     if sys.platform.startswith("win"):
-        # Example default for Windows (adjust as needed)
-        return [
-            r"C:\Program Files\Transmission\transmission-daemon.exe",
-            "--foreground",
-            # "--config-dir", r"C:\ProgramData\Transmission"
-        ]
+        # Default for Windows
+        transmission_exe = r"C:\Program Files\Transmission\transmission-daemon.exe"
+        return [transmission_exe, "--foreground"]
     elif sys.platform.startswith("darwin"):
         # Default for macOS
         return [

@@ -62,7 +62,7 @@ function Invoke-ComponentBuild {
         Write-Host "Building $componentName..."
         if ($componentName -eq "ollama") {
             # Use Start-Process with -Wait for ollama to ensure the build completes
-            $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $buildCommands -NoNewWindow -Wait -PassThru
+            $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $buildCommands -WorkingDirectory (Get-Location) -NoNewWindow -Wait -PassThru
             if ($process.ExitCode -ne 0) {
                 throw "$componentName build failed with exit code $($process.ExitCode)."
             }
@@ -132,5 +132,5 @@ Invoke-ComponentBuild -componentName "chromadb" -folderName "chroma" -buildComma
 
 # Build ollama
 $ollamaFolder = "ollama-0.4.2"
-$buildCommands = "C:\msys64\msys2_shell.cmd -mingw64 -here -c `"export CGO_ENABLED=1 && make -j 8 && go build -v -x .; echo $? && sleep 10`""
+$buildCommands = "set CGO_ENABLED=1 && make -j 8 && go build -v -x . && echo %ERRORLEVEL% && timeout /T 10 /NOBREAK"
 Invoke-ComponentBuild -componentName "ollama" -folderName $ollamaFolder -buildCommands $buildCommands -artifactPath "ollama.exe" -destSubDir "ollama"

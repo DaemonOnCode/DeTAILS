@@ -24,7 +24,7 @@ export async function downloadCodebook(
         });
     });
 
-    const coreHeaders = ['Post ID', 'Sentence', 'Coded Word', 'Explanation'];
+    const coreHeaders = ['Post ID', 'Quote', 'Code', 'Explanation'];
     const fieldToHeader = {
         theme: 'Theme',
         type: 'Type',
@@ -37,8 +37,8 @@ export async function downloadCodebook(
 
     const headerToValue = {
         'Post ID': (row) => row.postId,
-        Sentence: (row) => row.quote,
-        'Coded Word': (row) => row.code ?? row.coded_word ?? '',
+        Quote: (row) => row.quote,
+        Code: (row) => row.code ?? row.coded_word ?? '',
         Explanation: (row) => row.explanation,
         Theme: (row) => ('theme' in row ? row.theme : 'N/A'),
         Type: (row) => ('type' in row ? row.type : 'N/A'),

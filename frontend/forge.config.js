@@ -10,7 +10,7 @@ const extraResourcePath =
 
 module.exports = {
     hooks: {
-        prePackage: async () => {
+        prePackage: () => {
             console.log('Cleaning old builds...');
             const outDir = path.join(__dirname, 'out');
             const makeDir = path.join(__dirname, 'make');

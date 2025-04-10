@@ -25,7 +25,7 @@ const redditHandler = (...ctxs) => {
         'render-reddit-webview',
         async (event, url, text, postId = '', datasetId = '', getFromPostData = true) => {
             electronLogger.log('url', url, globalCtx.getState());
-            if (url.startsWith('/r/')) {
+            if (url?.startsWith('/r/')) {
                 url = 'https://www.reddit.com' + url;
             }
             // if (url.length === 6) {
@@ -53,8 +53,8 @@ const redditHandler = (...ctxs) => {
 
             globalCtx.setState({ browserView: view });
 
-            const viewWidth = 800;
-            const viewHeight = 600;
+            const viewWidth = 600;
+            const viewHeight = 400;
 
             const [mainWidth, mainHeight] = globalCtx.getState().mainWindow.getContentSize();
 

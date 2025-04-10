@@ -142,8 +142,9 @@ if __name__ == "__main__":
     print("Directories created!")
 
     is_pyinstaller = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+    print(sys.platform)
     uvicorn.run(
         "main:app",
         port=8080,
-        reload=not is_pyinstaller  # Enable reload only outside of PyInstaller
+        reload=not is_pyinstaller and not sys.platform.startswith("win")
     )

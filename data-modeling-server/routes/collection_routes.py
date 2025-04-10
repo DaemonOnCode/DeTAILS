@@ -359,15 +359,22 @@ async def check_reddit_torrent_availability(
     request_body: ParseRedditFromTorrentRequest,
     transmission_manager: GlobalTransmissionDaemonManager = Depends(get_transmission_manager)
 ):
-    async with transmission_manager:
-        app_id = request.headers.get("x-app-id")
-        workspace_id = request.headers.get("x-workspace-id")
-        run_id = str(uuid4())
+    try:
+        async with transmission_manager:
+            app_id = request.headers.get("x-app-id")
+            workspace_id = request.headers.get("x-workspace-id")
+            run_id = str(uuid4())
 
-        result = await check_primary_torrent(
-            workspace_id, manager, app_id, run_id, request_body.subreddit, request_body.submissions_only, request_body.download_dir
-        )
-        return result
+            result = await check_primary_torrent(
+                workspace_id, manager, app_id, run_id, request_body.subreddit, request_body.submissions_only, request_body.download_dir
+            )
+            return result
+    except Exception as e:
+        print(f"Error checking torrent availability: {e}")
+        return {
+            "status": False,
+            "error": str(e)
+        }
     
 @router.post("/get-transcripts-csv")
 async def get_transcripts_csv_endpoint(

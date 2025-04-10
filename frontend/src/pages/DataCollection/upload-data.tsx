@@ -30,7 +30,7 @@ const UploadDataPage = () => {
     const [searchParams] = useSearchParams();
     // Determine dataset type from query parameter "type". If not provided, fallback to the modeInput's prefix.
     console.log('Selected mode:', modeInput);
-    const datasetType = searchParams.get('type') ?? modeInput.split(':')[0];
+    const datasetType = searchParams.get('type') ?? modeInput.split('|')[0];
 
     console.log('Selected data:', datasetType);
     const navigate = useNavigate();
@@ -166,7 +166,7 @@ const UploadDataPage = () => {
                                     !modeInput.includes('undefined')) &&
                                 (!modeInput.includes('torrent') ||
                                     (modeInput.includes('files') &&
-                                        (modeInput.split(':files:')[1] ?? '')
+                                        (modeInput.split('|files|')[1] ?? '')
                                             .split(',')
                                             .filter((file) => file.trim() !== '').length > 0))
                             }

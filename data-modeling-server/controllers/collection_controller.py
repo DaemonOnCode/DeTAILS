@@ -1,14 +1,17 @@
 import asyncio
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import csv
+import ctypes
 from datetime import datetime
 import errno
 import json
 import multiprocessing
 import multiprocessing.queues
 import os
+from pathlib import Path
 import re
 import shutil
+import tempfile
 import time
 from typing import Counter, Dict, List, Optional, Tuple
 from uuid import uuid4
@@ -63,7 +66,7 @@ def normalize_file_key(file_key: str, current_download_dir: str = None) -> str:
     else:
         TRANSMISSION_DOWNLOAD_DIR_ABS = current_download_dir
     if file_key.startswith(TRANSMISSION_DOWNLOAD_DIR_ABS):
-        return os.path.relpath(file_key, TRANSMISSION_DOWNLOAD_DIR_ABS)
+        return Path(os.path.relpath(file_key, TRANSMISSION_DOWNLOAD_DIR_ABS)).as_posix()
     return file_key
 
 
@@ -297,8 +300,8 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
         m = re.search(r"Processed data saved to monthly JSON files for\s+(.*)", new_message)
         if m:
             file_key = m.group(1).strip() 
-            rel_dir = os.path.relpath(file_key, DOWNLOAD_DIR)
-            key = os.path.join(rel_dir, file_key)
+            rel_dir =  Path(os.path.relpath(file_key, DOWNLOAD_DIR)).as_posix()
+            key = Path(os.path.join(rel_dir, file_key)).as_posix()
             file_data = file_repo.get_file_progress(run_id, rel_dir)
             print("This is the file data", file_data)
             file_messages = json.loads(file_data.messages) if file_data.messages else []
@@ -911,9 +914,11 @@ async def process_reddit_data(
                             key = f"{year}-{month:02d}"
                             if key not in monthly_files:
                                 monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
-                                print(f"Opening monthly file for writing: {monthly_filename}")
+                                message = f"Creating monthly file for writing: {monthly_filename}"
                                 try:
                                     monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
+                                    print(message)
+                                    await manager.send_message(app_id, message)
                                 except PermissionError:
                                     print(f"Permission denied writing to {monthly_filename}")
                                     raise e
@@ -942,7 +947,9 @@ async def process_reddit_data(
         for key in monthly_files:
             jsonl_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
             json_filename = os.path.join(directory, f"R{data_type}_{key}.json")
-            print(f"Converting {jsonl_filename} to {json_filename}")
+            message = f"Converting {jsonl_filename} to {json_filename}"
+            print(message)
+            await manager.send_message(app_id, message)
             try:
                 async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as jsonl_file, \
                         aiofiles.open(json_filename, "w", encoding="utf-8") as json_file:
@@ -1057,27 +1064,37 @@ async def wait_for_metadata(
     run_id: str,
     c: Client,
     torrent: Torrent,
-    current_download_dir: str = None,
+    current_download_dir: str = None
 ) -> Torrent:
     c.start_torrent(torrent.id)
 
-    while torrent.metadata_percent_complete < 1.0:
-        message = f"Metadata progress: {torrent.metadata_percent_complete * 100:.2f}%"
-        print(message)
-        await manager.send_message(app_id, message)
-        update_run_progress(run_id, message, current_download_dir=current_download_dir)
-        await asyncio.sleep(1)
+    while True:
         torrent = c.get_torrent(torrent.id)
+        # Safely get the metadata percent complete; if not available, default to 0 or wait.
+        mpc = getattr(torrent, "metadata_percent_complete", None)
+        if mpc is None:
+            print("Metadata percent not available yet, waiting...")
+            await asyncio.sleep(1)
+            continue
+
+        print(f"Metadata progress: {mpc * 100:.2f}%")
+        await manager.send_message(app_id, f"Metadata progress: {mpc * 100:.2f}%")
+        update_run_progress(run_id, f"Metadata progress: {mpc * 100:.2f}%", current_download_dir=current_download_dir)
+
+        if mpc >= 1.0:
+            break
+
+        await asyncio.sleep(1)
 
     message = "Metadata download complete. Verifying metadata..."
     print(message)
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
+    # Optionally perform further checks (e.g., wait until files are available)
     timeout_seconds = 15
     check_interval = 1
     t0 = time.time()
-
     while True:
         torrent = c.get_torrent(torrent.id)
         torrent_files = torrent.get_files()
@@ -1259,28 +1276,94 @@ async def process_single_file(
         datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
         os.makedirs(datasets_academic_folder, exist_ok=True)
 
-        for output_file in output_files:
-            academic_file_path = os.path.join(academic_folder, os.path.basename(output_file))
-            shutil.move(output_file, academic_file_path)
-            msg = f"Moved file: {output_file} -> {academic_file_path}"
-            print(msg)
-            await manager.send_message(app_id, msg)
-            update_run_progress(run_id, msg)
+        # for output_file in output_files:
+        #     academic_file_path = os.path.join(academic_folder, os.path.basename(output_file))
+        #     shutil.move(output_file, academic_file_path)
+        #     msg = f"Moved file: {output_file} -> {academic_file_path}"
+        #     print(msg)
+        #     await manager.send_message(app_id, msg)
+        #     update_run_progress(run_id, msg)
 
-            symlink_path = os.path.join(datasets_academic_folder, os.path.basename(output_file))
-            if os.path.lexists(symlink_path):
-                os.remove(symlink_path)
-            os.symlink(academic_file_path, symlink_path)
-            message = f"Symlink created: {symlink_path} -> {academic_file_path}"
-            await manager.send_message(app_id, message)
-            update_run_progress(run_id, message, current_download_dir=download_dir)
+        #     symlink_path = os.path.join(datasets_academic_folder, os.path.basename(output_file))
+        #     if os.path.lexists(symlink_path):
+        #         os.remove(symlink_path)
+        #     os.symlink(academic_file_path, symlink_path)
+        #     message = f"Symlink created: {symlink_path} -> {academic_file_path}"
+        #     await manager.send_message(app_id, message)
+        #     update_run_progress(run_id, message, current_download_dir=download_dir)
 
+        #     if os.stat(academic_file_path).st_size <= 5:
+        #         message = f"No data found in {os.path.basename(academic_file_path)} for {subreddit}."
+        #         await manager.send_message(app_id, message)
+        #         update_run_progress(run_id, message, current_download_dir=download_dir)
+
+        #     academic_file_paths.append(academic_file_path)
+
+        if os.name == 'nt':  # Windows-specific branch
+            symlink_commands = []
+            for output_file in output_files:
+                academic_file_path = os.path.join(academic_folder, os.path.basename(output_file))
+                shutil.move(output_file, academic_file_path)
+                msg = f"Moved file: {output_file} -> {academic_file_path}"
+                print(msg)
+                await manager.send_message(app_id, msg)
+                update_run_progress(run_id, msg)
+                
+                symlink_path = os.path.join(datasets_academic_folder, os.path.basename(output_file))
+                if os.path.lexists(symlink_path):
+                    os.remove(symlink_path)
+                symlink_commands.append(f'mklink "{symlink_path}" "{academic_file_path}"')
+                academic_file_paths.append(academic_file_path)
+            
+            if symlink_commands:
+                # Alert the user about the need for administrator access
+                message = "Administrator access is required to create symbolic links on Windows. A UAC prompt will appear to grant these permissions."
+                await manager.send_message(app_id, message)
+                update_run_progress(run_id, message, current_download_dir=download_dir)
+                
+                # Create and execute a batch file with all mklink commands
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.bat', delete=False) as bat_file:
+                    bat_file.write("\n".join(symlink_commands))
+                    bat_file_path = bat_file.name
+                
+                shell32 = ctypes.windll.shell32
+                result = shell32.ShellExecuteW(None, "runas", "cmd.exe", f'/c "{bat_file_path}"', None, 1)
+                if result <= 32:  # ShellExecuteW returns <= 32 on failure
+                    os.unlink(bat_file_path)
+                    error_msg = f"Failed to create symlinks: Administrator access was not granted (ShellExecute returned {result})."
+                    await manager.send_message(app_id, error_msg)
+                    raise RuntimeError(error_msg)
+                
+                await asyncio.sleep(2)  # Brief wait for the batch file to execute
+                os.unlink(bat_file_path)  # Clean up the temporary file
+                
+                message = f"Created {len(symlink_commands)} symlinks in {datasets_academic_folder}"
+                await manager.send_message(app_id, message)
+                update_run_progress(run_id, message, current_download_dir=download_dir)
+        else:  # Unix-based systems (original logic)
+            for output_file in output_files:
+                academic_file_path = os.path.join(academic_folder, os.path.basename(output_file))
+                shutil.move(output_file, academic_file_path)
+                msg = f"Moved file: {output_file} -> {academic_file_path}"
+                print(msg)
+                await manager.send_message(app_id, msg)
+                update_run_progress(run_id, msg)
+                
+                symlink_path = os.path.join(datasets_academic_folder, os.path.basename(output_file))
+                if os.path.lexists(symlink_path):
+                    os.remove(symlink_path)
+                os.symlink(academic_file_path, symlink_path)
+                message = f"Symlink created: {symlink_path} -> {academic_file_path}"
+                await manager.send_message(app_id, message)
+                update_run_progress(run_id, message, current_download_dir=download_dir)
+                academic_file_paths.append(academic_file_path)
+
+        # Post-processing checks (unchanged)
+        for academic_file_path in academic_file_paths:
             if os.stat(academic_file_path).st_size <= 5:
                 message = f"No data found in {os.path.basename(academic_file_path)} for {subreddit}."
                 await manager.send_message(app_id, message)
                 update_run_progress(run_id, message, current_download_dir=download_dir)
-
-            academic_file_paths.append(academic_file_path)
 
         message = f"Processed file: {file_name} into {len(academic_file_paths)} files."
         await manager.send_message(app_id, message)
