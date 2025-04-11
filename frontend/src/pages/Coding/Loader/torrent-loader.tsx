@@ -13,6 +13,7 @@ import { useLoadingContext } from '../../../context/loading-context';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 const path = window.require('path');
+const os = window.require('os');
 
 // Data model for pipeline steps
 interface PipelineStep {
@@ -46,11 +47,12 @@ function formatBytes(bytes: number, decimals = 2): string {
 function parseModeInput(modeInput: string) {
     // Expected format: "reddit:torrent:subreddit|start|end|postsOnly|true|path"
     const parts = modeInput.split('|');
-    if (parts.length !== 3) {
+    console.log('Parsed mode input:', parts, modeInput);
+    if (parts.length <= 3) {
         throw new Error('Invalid mode input format');
     }
-    const data = parts[2];
-    const [subreddit, start, end, postsOnlyStr, useFallback, downloadPath] = data.split('|');
+    const data = parts.slice(2);
+    const [subreddit, start, end, postsOnlyStr, useFallback, downloadPath] = data;
     return {
         subreddit,
         start,
@@ -94,7 +96,6 @@ const TorrentLoader: React.FC = () => {
     const { fetchData } = useApi();
     const location = useLocation();
     const { abortRequestsByRoute, loadingDispatch } = useLoadingContext();
-
     const logBottomRef = useRef<HTMLDivElement>(null);
     const fileBottomRef = useRef<HTMLDivElement>(null);
 
@@ -632,7 +633,7 @@ const TorrentLoader: React.FC = () => {
     const fileList = Object.values(files);
 
     return (
-        <div className="h-page w-full flex flex-col lg:flex-row gap-6 max-w-6xl bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="h-page w-full flex flex-col lg:flex-row gap-6 bg-white rounded-lg shadow-lg overflow-hidden">
             {/* Left Panel: Steps + File List */}
             <div className="w-full lg:w-2/3 p-6 flex flex-col h-full">
                 {/* Torrent Pipeline Heading + Metadata */}
@@ -650,6 +651,19 @@ const TorrentLoader: React.FC = () => {
                         </p>
                     </div>
                 </div>
+                {os.platform() === 'win32' && (
+                    <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4">
+                        <p className="font-bold">Note:</p>
+                        <p>
+                            Whenever a file finishes downloading and extracting, we'll set up
+                            shortcuts for easy access on Windows. This requires a quick, safe
+                            process that needs administrator permissions. You’ll see a prompt asking
+                            for permission, and a small black window will briefly appear as the
+                            shortcuts are created. This is completely safe and helps make your files
+                            more convenient to access.
+                        </p>
+                    </div>
+                )}
                 {/* Pipeline Steps */}
                 <div className="flex flex-col h-max gap-4">
                     {/* <div className="flex flex-col"> */}

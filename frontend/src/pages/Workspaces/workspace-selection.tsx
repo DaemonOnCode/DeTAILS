@@ -228,7 +228,7 @@ const WorkspaceSelectionPage: React.FC = () => {
     }
 
     return (
-        <div className="h-page">
+        <div className="h-page ">
             <div className="flex justify-between items-center mb-4">
                 <h1 className="text-2xl font-bold">Workspace Management</h1>
             </div>
@@ -247,7 +247,7 @@ const WorkspaceSelectionPage: React.FC = () => {
                     Add
                 </button>
             </div>
-            <div className="bg-white shadow-md rounded-lg">
+            <div className="bg-white shadow-md rounded-lg my-4">
                 <div className="p-4 border-b">
                     <h2 className="text-lg font-semibold">All Workspaces</h2>
                 </div>

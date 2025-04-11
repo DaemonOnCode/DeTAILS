@@ -1218,9 +1218,9 @@ async def process_single_file(
     academic_file_paths = []
     try:
         while True:
-            torrent = c.get_torrent(torrent.id)
-            if hasattr(torrent, "error") and torrent.error != 0:
-                err_msg = f"Error downloading {file_name}: {torrent.error_string}"
+            curr_torrent = c.get_torrent(torrent.id)
+            if hasattr(curr_torrent, "error") and curr_torrent.error != 0:
+                err_msg = f"Error downloading {file_name}: {curr_torrent.error_string}"
                 print(err_msg)
                 await manager.send_message(app_id, err_msg)
                 update_run_progress(run_id, err_msg)
@@ -1235,7 +1235,7 @@ async def process_single_file(
                 else:
                     raise RuntimeError(f"Torrent download failed: {err_msg}")
             
-            file_status = next((f for f in torrent.get_files() if f.id == file_id), None)
+            file_status = next((f for f in curr_torrent.get_files() if f.id == file_id), None)
             if file_status and file_status.completed >= file_status.size:
                 print(f"File {file_name} has been fully downloaded.")
                 message = f"File {file_name} fully downloaded ({file_status.completed}/{file_status.size} bytes)."

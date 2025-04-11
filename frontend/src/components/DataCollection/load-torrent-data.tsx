@@ -117,17 +117,23 @@ const TorrentDataTab = ({
     const checkTransmissionStatus = async () => {
         setChecking(true);
         // await new Promise((resolve) => setTimeout(resolve, 1000));
-        const { data, error } = await fetchData<{ exists: boolean }>(
-            REMOTE_SERVER_ROUTES.CHECK_TRANSMISSION
-        );
+        try {
+            const { data, error } = await fetchData<{ exists: boolean }>(
+                REMOTE_SERVER_ROUTES.CHECK_TRANSMISSION
+            );
 
-        if (error) {
+            if (error) {
+                console.error('Error checking transmission:', error);
+                setTransmissionExists(false);
+            } else {
+                setTransmissionExists(data.exists);
+            }
+        } catch (error) {
             console.error('Error checking transmission:', error);
             setTransmissionExists(false);
-        } else {
-            setTransmissionExists(data.exists);
+        } finally {
+            setChecking(false);
         }
-        setChecking(false);
     };
 
     // Initial check when component mounts.
@@ -170,12 +176,32 @@ const TorrentDataTab = ({
                             Installation Instructions for Windows:
                         </h3>
                         <ol className="list-decimal ml-6 mb-4">
+                            <li>
+                                In some cases, you may need to install the Microsoft Visual C++
+                                Redistributable before installing Transmission. Download it from:
+                                <a
+                                    href="https://aka.ms/vs/17/release/vc_redist.x64.exe"
+                                    target="_blank"
+                                    rel="noopener noreferrer">
+                                    vc_redist.x64.exe
+                                </a>
+                            </li>
                             <li>Download Transmission for Windows from the official website.</li>
-                            <li>Run the installer to install the daemon.</li>
-                            {/* <li>
-                                Configure the Transmission settings (e.g. configuration directory)
-                                as needed.
-                            </li> */}
+                            <li>
+                                Run the installer to install Transmission, go through the
+                                installation prompts normally. On the screen which says{' '}
+                                <strong>Custom Setup</strong>, click on the icon on the left of
+                                "Transmission" and select{' '}
+                                <strong>
+                                    "Entire feature will be installed on local hard drive."
+                                </strong>
+                            </li>
+                            <li>
+                                After installing Transmission for the first time, the toolkit may
+                                request administrator access to run transmission. You might also
+                                notice a brief black window that appears and then closes; this is
+                                completely normal.
+                            </li>
                         </ol>
                     </div>
                 ) : platform === 'macos' ? (

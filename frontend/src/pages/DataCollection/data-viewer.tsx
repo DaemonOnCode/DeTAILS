@@ -150,6 +150,7 @@ const DataViewerPage = () => {
         navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
         console.log('Sampling posts:', postIds);
 
+        await new Promise((resolve) => setTimeout(resolve, 5000));
         // Sample posts from the backend.
         const { data: sampleData, error: sampleError } = await fetchData<
             | {
