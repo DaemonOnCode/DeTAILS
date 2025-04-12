@@ -11,6 +11,7 @@ const spawnedProcesses = [];
 // Configuration for services
 const servicesConfig = (executablesPath) => {
     const isWindows = process.platform === 'win32';
+    const isDarwin = process.platform === 'darwin';
     return {
         chroma: {
             name: 'chroma',
@@ -29,7 +30,7 @@ const servicesConfig = (executablesPath) => {
         ollama: {
             name: 'ollama',
             folder: path.join(executablesPath, 'ollama'),
-            command: isWindows ? 'ollama.exe' : './ollama-darwin',
+            command: isWindows ? 'ollama.exe' : isDarwin ? './ollama-darwin': './ollama',
             args: ['serve']
         }
     };
@@ -184,7 +185,7 @@ const spawnServices = async (globalCtx) => {
     } else if (process.platform === 'darwin') {
         resourceBinariesPath = path.join(process.resourcesPath, 'executables');
     } else if (process.platform === 'linux') {
-        resourceBinariesPath = path.join(process.resourcesPath, 'executables');
+        resourceBinariesPath = path.join(process.resourcesPath, 'executables_linux');
     }
 
     copyBinariesIfNotExists(resourceBinariesPath, binariesPath);

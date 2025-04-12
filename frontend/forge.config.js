@@ -6,7 +6,8 @@ const fs = require('fs');
 const extraResourcePath =
     process.platform === 'win32'
         ? path.resolve(__dirname, '..', 'executables_windows')
-        : path.resolve(__dirname, '..', 'executables');
+        : process.platform === 'darwin' ?path.resolve(__dirname, '..', 'executables')
+        : path.resolve(__dirname, '..', 'executables_linux');
 
 module.exports = {
     hooks: {

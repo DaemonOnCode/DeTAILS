@@ -65,8 +65,8 @@ const cleanupAndExit = async (globalCtx, signal) => {
             }
         } else {
             try {
-                // On POSIX, using negative pid kills the entire process group.
-                process.kill(-child.pid);
+                child.kill();
+                electronLogger.log(`Successfully terminated ${name} and its subprocesses.`);
             } catch (err) {
                 electronLogger.error(`Error terminating ${name}:`, err);
             }

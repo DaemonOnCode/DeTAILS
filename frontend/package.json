@@ -97,7 +97,8 @@
         "start": "cross-env NODE_ENV=production electron-forge start",
         "package": "cross-env NODE_ENV=production electron-forge package",
         "make-mac": "npm run executable:build-mac && npm run build && cross-env NODE_ENV=production electron-forge make --platform=darwin",
-        "make-win": "npm run executable:build-win && npm run build && cross-env NODE_ENV=production electron-forge make --platform=win32"
+        "make-win": "npm run executable:build-win && npm run build && cross-env NODE_ENV=production electron-forge make --platform=win32",
+        "make-linux": "npm run build && cross-env NODE_ENV=production electron-forge make --platform=linux"
     },
     "eslintConfig": {
         "extends": [
