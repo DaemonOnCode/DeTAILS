@@ -147,7 +147,11 @@ const DataViewerPage = () => {
             type: 'SET_LOADING_ROUTE',
             route: PAGE_ROUTES.CODEBOOK_CREATION
         });
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
+        navigate(
+            getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
+                text: 'Initial Coding in Progress'
+            })
+        );
         console.log('Sampling posts:', postIds);
 
         await new Promise((resolve) => setTimeout(resolve, 5000));

@@ -5,7 +5,7 @@ import sqlite3
 from dataclasses import fields
 from datetime import datetime
 
-from data_modeling_server.constants import DATABASE_PATH, STUDY_DATABASE_PATH, DATABASE_DIR
+from constants import DATABASE_PATH, STUDY_DATABASE_PATH, DATABASE_DIR
 from database.constants import SQLITE_TYPE_MAPPING
 
 def camel_to_snake(name: str) -> str:
@@ -75,7 +75,8 @@ def generate_create_table_statement(dataclass_obj):
     return f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(columns)}{primary_key_clause}{foreign_key_clause});"
 
 def initialize_database(dataclasses):
-    os.makedirs(os.path.dirname(DATABASE_DIR), exist_ok=True)
+    os.makedirs(DATABASE_DIR, exist_ok=True)
+    print(os.path.exists(DATABASE_DIR))
     with sqlite3.connect(DATABASE_PATH) as conn:
         cursor = conn.cursor()
         for dataclass_obj in dataclasses:
@@ -86,7 +87,7 @@ def initialize_database(dataclasses):
         conn.commit()
 
 def initialize_study_database(dataclasses):
-    os.makedirs(os.path.dirname(DATABASE_DIR), exist_ok=True)
+    os.makedirs(DATABASE_DIR, exist_ok=True)
     with sqlite3.connect(STUDY_DATABASE_PATH) as conn:
         cursor = conn.cursor()
         for dataclass_obj in dataclasses:

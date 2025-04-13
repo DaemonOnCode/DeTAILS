@@ -93,6 +93,21 @@ export const CodingRouter: RouteObject[] = [
             {
                 path: ROUTES.INITIAL_CODEBOOK,
                 element: <InitialCodeBookPage />
+            },
+            {
+                path: ROUTES.DEDUCTIVE_CODING,
+                element: <DeductiveCodingPage />
+                // children: [
+                //     {
+                //         path: ROUTES.SPLIT_CHECK,
+                //         element: <SplitCheckPage />,
+                //         index: true
+                //     },
+                //     {
+                //         path: ROUTES.ENCODED_DATA,
+                //         element: <EncodedDataPage />
+                //     }
+                // ]
             }
         ]
     },
@@ -102,35 +117,20 @@ export const CodingRouter: RouteObject[] = [
         element: <TranscriptPage />
     },
     {
-        path: ROUTES.DEDUCTIVE_CODING,
-        element: <DeductiveCodingPage />
-        // children: [
-        //     {
-        //         path: ROUTES.SPLIT_CHECK,
-        //         element: <SplitCheckPage />,
-        //         index: true
-        //     },
-        //     {
-        //         path: ROUTES.ENCODED_DATA,
-        //         element: <EncodedDataPage />
-        //     }
-        // ]
-    },
-    {
         path: ROUTES.FINALIZING_CODES,
         element: <FinalizingCodesPage />
     },
     {
-        path: ROUTES.THEMATIC_ANALYSIS,
-        children: [
-            {
-                index: true,
-                path: ROUTES.THEMES,
-                element: <ThemesPage />
-            },
-            { path: ROUTES.ANALYSIS, element: <AnalysisPage /> }
-        ]
+        // index: true,
+        path: ROUTES.THEMES,
+        element: <ThemesPage />
     },
+    { path: ROUTES.ANALYSIS, element: <AnalysisPage /> },
+    // {
+    //     path: ROUTES.THEMATIC_ANALYSIS,
+    //     children: [
+    //     ]
+    // },
     {
         path: ROUTES.TRANSCRIPTS,
         element: <TranscriptsPage />

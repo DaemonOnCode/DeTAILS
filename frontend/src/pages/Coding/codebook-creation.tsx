@@ -75,7 +75,11 @@ const CodebookCreation = () => {
             type: 'SET_LOADING_ROUTE',
             route: PAGE_ROUTES.CODEBOOK_CREATION
         });
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
+        navigate(
+            getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
+                text: 'Initial Coding in Progress'
+            })
+        );
 
         const { data: results, error } = await fetchLLMData(REMOTE_SERVER_ROUTES.REMAKE_CODEBOOK, {
             method: 'POST',
@@ -122,11 +126,7 @@ const CodebookCreation = () => {
     };
 
     const handleNextClick = async () => {
-        navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                text: 'Generating Initial Codebook'
-            })
-        );
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
 
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',

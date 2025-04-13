@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect, useTransition } from 'react';
 import { generateRandomText } from '../../../utility/random-text-generator';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../../../constants/Coding/shared';
 import { useSettings } from '../../../context/settings-context';
 import { useCodingContext } from '../../../context/coding-context';
@@ -24,12 +24,14 @@ const highlightColors = [
 
 const DeductiveCoding = () => {
     const { registerCallback, unregisterCallback } = useWebSocket();
-    const { unseenPostIds } = useCodingContext();
+    const { unseenPostIds, sampledPostIds } = useCodingContext();
 
     const [highlightedWords, setHighlightedWords] = useState<{ index: number; color: string }[]>(
         []
     );
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const headingText = searchParams.get('text') || 'Final Coding in Progress';
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
     const [textLine, setTextLine] = useState<string>(generateRandomText(500));
     const [resetting, setResetting] = useState(false);
@@ -39,6 +41,8 @@ const DeductiveCoding = () => {
     const { settings } = useSettings();
 
     const [postsFinished, setPostsFinished] = useState<number>(0);
+
+    const currentPostIds = headingText.includes('Final') ? unseenPostIds : sampledPostIds;
 
     const handleWebsocketMessage = (message: string) => {
         console.log('Websocket message:', message);
@@ -127,10 +131,11 @@ const DeductiveCoding = () => {
         <div className="flex flex-col h-page px-4">
             <div className="flex-grow flex justify-center items-center">
                 <div className="bg-white shadow-lg p-6 rounded-lg w-full max-w-3xl text-left border">
-                    <h2 className="text-2xl font-semibold mb-2">🔍 Final Coding in Progress</h2>
-                    <p className="mb-4">
-                        {postsFinished}/{unseenPostIds.length} completed. Please wait, this may take
-                        a moment...
+                    <h2 className="text-2xl font-semibold mb-2">🔍 {headingText}</h2>
+                    <p className=" mb-4">
+                        {!!currentPostIds?.length &&
+                            `${postsFinished}/${currentPostIds.length} completed. `}
+                        Please wait, this may take a moment...
                     </p>
                     <p className="text-lg font-mono leading-relaxed whitespace-pre-line">
                         {textLine.split(' ').map((word, idx) => {

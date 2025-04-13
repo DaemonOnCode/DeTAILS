@@ -3,7 +3,7 @@ from typing import Type, TypeVar, List, Optional, Dict, Any, Generic, get_type_h
 from sqlite3 import Cursor, Row
 from dataclasses import fields, asdict
 
-from data_modeling_server.constants import DATABASE_PATH
+from constants import DATABASE_PATH
 from database.initialize import SQLITE_TYPE_MAPPING
 from database.query_builder import QueryBuilder
 from errors.database_errors import (

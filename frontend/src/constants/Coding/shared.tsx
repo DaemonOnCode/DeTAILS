@@ -1,17 +1,17 @@
-export const CODING_ROUTES = 'coding';
+export const CODING_ROUTES = 'code';
 
 export enum ROUTES {
     HOME = 'home',
     BACKGROUND_RESEARCH = 'background-research',
     CODEBOOK_CREATION = 'initial-coding',
-    DEDUCTIVE_CODING = 'final-codes',
+    DEDUCTIVE_CODING = 'final-coding',
     // BASIS = 'basis',
-    LLM_CONTEXT_V2 = 'l_l_m-context-v2',
+    LLM_CONTEXT_V2 = 'context',
     // FLASHCARDS = 'flashcards',
-    KEYWORD_CLOUD = 'keyword-cloud',
+    KEYWORD_CLOUD = 'related-concepts',
     // WORD_CLOUD = 'word-cloud',
-    KEYWORD_TABLE = 'keyword-table',
-    LOAD_DATA = 'load-data',
+    KEYWORD_TABLE = 'concept-outline',
+    LOAD_DATA = 'loading-data',
     DATA_SOURCE = 'data-type',
     DATASET_CREATION = 'data-source',
     DATA_VIEWER = 'dataset-creation',
@@ -22,19 +22,19 @@ export enum ROUTES {
     // CODING_OVERVIEW = 'coding-overview',
     CODES_REVIEW = 'codes-review',
     CODEBOOK_REFINEMENT = 'codebook-refinement',
-    THEMES = 'themes',
+    THEMES = 'generating-themes',
     FINAL_CODEBOOK = 'final-codebook',
     // CODE_VALIDATION = 'code-validation',
     SPLIT_CHECK = 'split-check',
     ENCODED_DATA = 'encoded-data',
     THEMATIC_ANALYSIS = 'thematic-analysis',
-    ANALYSIS = 'analysis',
+    ANALYSIS = 'report',
     TRANSCRIPT = 'transcript/:id/:state',
     TRANSCRIPTS = 'transcripts',
     MANUAL_CODING = 'manual-coding',
-    FINALIZING_CODES = 'finalizing-codes',
+    FINALIZING_CODES = 'reviewing-codes',
     INITIAL_CODEBOOK = 'initial-codebook',
-    INITIAL_CODING_CODEBOOK = 'initial-codes'
+    INITIAL_CODING_CODEBOOK = 'coding'
 }
 
 export const PAGE_ROUTES = Object.freeze({
@@ -42,8 +42,6 @@ export const PAGE_ROUTES = Object.freeze({
     HOME: `/${CODING_ROUTES}/${ROUTES.HOME}`,
     TRANSCRIPTS: `/${CODING_ROUTES}/${ROUTES.TRANSCRIPTS}`,
     TRANSCRIPT: `/${CODING_ROUTES}/${ROUTES.TRANSCRIPT}`,
-    DEDUCTIVE_CODING: `/${CODING_ROUTES}/${ROUTES.DEDUCTIVE_CODING}`,
-    FINALIZING_CODES: `/${CODING_ROUTES}/${ROUTES.FINALIZING_CODES}`,
     MANUAL_CODING: `/${CODING_ROUTES}/${ROUTES.MANUAL_CODING}`,
 
     // Nested routes under BACKGROUND_RESEARCH
@@ -59,10 +57,13 @@ export const PAGE_ROUTES = Object.freeze({
     // Nested routes under INITIAL_CODING_CODEBOOK
     CODEBOOK_CREATION: `/${CODING_ROUTES}/${ROUTES.INITIAL_CODING_CODEBOOK}/${ROUTES.CODEBOOK_CREATION}`,
     INITIAL_CODEBOOK: `/${CODING_ROUTES}/${ROUTES.INITIAL_CODING_CODEBOOK}/${ROUTES.INITIAL_CODEBOOK}`,
+    DEDUCTIVE_CODING: `/${CODING_ROUTES}/${ROUTES.INITIAL_CODING_CODEBOOK}/${ROUTES.DEDUCTIVE_CODING}`,
 
+    FINALIZING_CODES: `/${CODING_ROUTES}/${ROUTES.FINALIZING_CODES}`,
+
+    THEMES: `/${CODING_ROUTES}/${ROUTES.THEMES}`,
     // Nested routes under THEMATIC_ANALYSIS
-    THEMES: `/${CODING_ROUTES}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}`,
-    ANALYSIS: `/${CODING_ROUTES}/${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.ANALYSIS}`
+    ANALYSIS: `/${CODING_ROUTES}/${ROUTES.ANALYSIS}`
 });
 
 export enum LOADER_ROUTES {

@@ -85,7 +85,11 @@ const InitialCodeBook = () => {
     };
 
     const handleNextClick = async () => {
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER));
+        navigate(
+            getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
+                text: 'Final Coding in Progress'
+            })
+        );
 
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
@@ -163,11 +167,7 @@ const InitialCodeBook = () => {
     };
 
     const handleRegenerateCodebook = async (extraFeedback = '') => {
-        navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                text: 'Generating Initial Codebook'
-            })
-        );
+        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
         loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.INITIAL_CODEBOOK });
 
         const { data: results, error } = await fetchLLMData<{

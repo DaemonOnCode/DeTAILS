@@ -70,7 +70,11 @@ const DeductiveCodingPage = () => {
     const stepRoute = location.pathname;
 
     const handleRedoCoding = async () => {
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER));
+        navigate(
+            getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
+                text: 'Final Coding in Progress'
+            })
+        );
 
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
@@ -165,7 +169,7 @@ const DeductiveCodingPage = () => {
         });
         navigate(
             getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                text: 'Finalizing codes'
+                text: 'Reviewing codes'
             })
         );
 

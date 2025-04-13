@@ -397,7 +397,7 @@ def filter_duplicate_codes(codes: List[Dict[str, Any]], parent_function_name: st
         quote = code.get("quote", "").strip()
         normalized_code = normalize_text(code_value)
         normalized_quote = normalize_text(quote)
-        pair = (normalized_code, normalized_quote)
+        pair = f"{normalized_code}|{normalized_quote}"
         if pair not in seen_pairs:
             filtered_codes.append(code)
             seen_pairs.add(pair)

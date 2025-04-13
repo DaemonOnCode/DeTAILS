@@ -13,7 +13,7 @@ import { IoMdArrowDropleft } from 'react-icons/io';
 
 // Format route names for display
 const formatRouteName = (path: string, workspaceName: string = 'Temporary') => {
-    if (path === 'coding') {
+    if (path === SHARED_ROUTES.CODING) {
         return (
             <span className="overflow-wrap flex items-center gap-1">
                 <span className="inline-flex items-center">
