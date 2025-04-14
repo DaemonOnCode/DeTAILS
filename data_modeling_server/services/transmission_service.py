@@ -8,7 +8,7 @@ import time
 from functools import lru_cache
 import aiohttp
 
-from constants import TRANSMISSION_RPC_URL, PATHS, get_default_transmission_cmd  # PATHS is assumed to be a dict with key "settings"
+from constants import TRANSMISSION_RPC_URL, PATHS, get_default_transmission_cmd  
 
 async def wait_for_transmission(timeout=120.0, interval=0.5):
     start_time = time.time()
@@ -44,10 +44,8 @@ def get_transmission_cmd():
             transmission_config = data.get("transmission", {})
             custom_path = transmission_config.get("path", "")
             download_dir = transmission_config.get("downloadDir", "")
-            # If the transmission path is empty, update with default path.
             if not custom_path.strip():
                 transmission_config["path"] = default_path
-                # If downloadDir is also empty, set default download directory.
                 if not download_dir.strip():
                     default_download_dir = PATHS["transmission"]
                     transmission_config["downloadDir"] = default_download_dir
@@ -58,7 +56,6 @@ def get_transmission_cmd():
                 return default_cmd
             else:
                 if os.path.exists(custom_path):
-                    # If the custom download directory is empty, update it.
                     if not download_dir.strip():
                         default_download_dir = PATHS["transmission"]
                         transmission_config["downloadDir"] = default_download_dir
@@ -107,11 +104,9 @@ class GlobalTransmissionDaemonManager:
         return self.transmission_present
 
     async def _kill_existing_daemons(self):
-        """Kill any existing Transmission daemon processes, using elevated privileges on Windows only when necessary."""
-        process_name = os.path.basename(self._transmission_cmd[0])  # e.g., "transmission-daemon.exe"
+        process_name = os.path.basename(self._transmission_cmd[0])  
         pids = []
 
-        # Step 1: Identify running Transmission daemon processes
         if sys.platform == "win32":
             try:
                 proc = await asyncio.create_subprocess_exec(
@@ -124,35 +119,22 @@ class GlobalTransmissionDaemonManager:
                 for line in lines:
                     if process_name in line:
                         parts = line.split()
-                        pid = parts[1]  # PID is the second column in tasklist output
+                        pid = parts[1]  
                         pids.append(pid)
             except Exception as e:
                 print(f"Error listing Transmission daemons: {e}")
                 raise
         else:
             return
-            # try:
-            #     proc = await asyncio.create_subprocess_exec(
-            #         "pgrep", "-f", process_name,
-            #         stdout=asyncio.subprocess.PIPE,
-            #         stderr=asyncio.subprocess.PIPE
-            #     )
-            #     stdout, _ = await proc.communicate()
-            #     pids = stdout.decode().splitlines()
-            # except Exception as e:
-            #     print(f"Error listing Transmission daemons on Unix-like system: {e}")
-            #     raise
 
         if not pids:
             print("No existing Transmission daemons found.")
             return
 
-        # Step 2: Kill processes, using elevation only when needed
         if sys.platform == "win32":
             shell32 = ctypes.windll.shell32
 
             def parse_taskkill_output(output):
-                """Parse the combined stdout and stderr output of taskkill to determine the result."""
                 if "SUCCESS: The process with PID" in output:
                     return "success"
                 elif "ERROR: The process \"" in output and "not found." in output:
@@ -170,7 +152,6 @@ class GlobalTransmissionDaemonManager:
                     return "other_error"
 
             for pid in pids:
-                # Check if the process still exists
                 check_proc = await asyncio.create_subprocess_exec(
                     "tasklist", "/FI", f"PID eq {pid}",
                     stdout=asyncio.subprocess.PIPE,
@@ -181,14 +162,13 @@ class GlobalTransmissionDaemonManager:
                     print(f"Process PID {pid} not found, likely already terminated.")
                     continue
 
-                # Try to kill without elevation first
                 proc = await asyncio.create_subprocess_exec(
                     "taskkill", "/F", "/PID", pid,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE
                 )
                 stdout, stderr = await proc.communicate()
-                output = stdout.decode() + stderr.decode()  # Combine stdout and stderr
+                output = stdout.decode() + stderr.decode()  
                 result = parse_taskkill_output(output)
 
                 if result == "success":
@@ -214,9 +194,8 @@ class GlobalTransmissionDaemonManager:
                     print(error_msg)
                     raise RuntimeError(error_msg)
 
-                # Wait for the process to terminate
                 start_time = time.time()
-                while time.time() - start_time < 30:  # 30-second timeout
+                while time.time() - start_time < 30:  
                     check_proc = await asyncio.create_subprocess_exec(
                         "tasklist", "/FI", f"PID eq {pid}",
                         stdout=asyncio.subprocess.PIPE,
@@ -233,30 +212,10 @@ class GlobalTransmissionDaemonManager:
                     raise RuntimeError(error_msg)
 
             print(f"Processed {len(pids)} Transmission daemon(s).")
-        # else:
-            # for pid in pids:
-            #     try:
-            #         await asyncio.create_subprocess_exec("kill", pid)
-            #     except Exception as e:
-            #         print(f"Error killing PID {pid}: {e}")
-            #         print(f"You may need to run 'sudo kill {pid}' if permissions are insufficient.")
-            #     while True:
-            #         proc = await asyncio.create_subprocess_exec(
-            #             "ps", "-p", pid,
-            #             stdout=asyncio.subprocess.PIPE,
-            #             stderr=asyncio.subprocess.PIPE
-            #         )
-            #         stdout, _ = await proc.communicate()
-            #         if not stdout:
-            #             break
-            #         await asyncio.sleep(0.1)
 
     async def __aenter__(self):
         await self._termination_lock.acquire()
         self._termination_lock.release()
-        # if sys.platform == "win32":
-        #     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
         async with self._lock:
             if self._ref_count == 0:
                 if not self.transmission_present:

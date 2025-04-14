@@ -724,7 +724,9 @@ const TranscriptPage = () => {
             params.append('codebook', codebook);
         }
 
-        navigate(`/coding/transcript/${id}/refine?${params.toString()}`, { state: location.state });
+        navigate(`/${SHARED_ROUTES.CODING}/transcript/${id}/refine?${params.toString()}`, {
+            state: location.state
+        });
     };
 
     if (loading) {
@@ -778,7 +780,7 @@ const TranscriptPage = () => {
     return (
         <TutorialWrapper
             steps={tutorialSteps}
-            pageId={`/coding/transcript?review=${state === 'review'}`}>
+            pageId={`/${SHARED_ROUTES.CODING}/transcript?review=${state === 'review'}`}>
             <main className="h-screen flex flex-col -m-6" id="transcript-main" ref={componentRef}>
                 {/* {splitIsTrue ? (
                 <div className="flex justify-center p-3">

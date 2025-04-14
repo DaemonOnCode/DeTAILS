@@ -149,16 +149,16 @@ const InitialCodeBook = () => {
         //     );
         // }
 
-        dispatchUnseenPostResponse({
-            type: 'SET_RESPONSES',
-            responses: results['data'].map((response) => ({
-                ...response,
-                isMarked: true,
-                type: 'LLM',
-                comment: '',
-                theme: ''
-            }))
-        });
+        // dispatchUnseenPostResponse({
+        //     type: 'SET_RESPONSES',
+        //     responses: results['data'].map((response) => ({
+        //         ...response,
+        //         isMarked: true,
+        //         type: 'LLM',
+        //         comment: '',
+        //         theme: ''
+        //     }))
+        // });
         // setSampledPostResponseCopy([...sampledPostResponse]);
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',

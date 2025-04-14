@@ -393,11 +393,9 @@ def filter_duplicate_codes(codes: List[Dict[str, Any]], parent_function_name: st
     seen_pairs = set()
     filtered_codes = []
     for code in codes:
-        code_value = code.get("code", "").strip()
-        quote = code.get("quote", "").strip()
-        normalized_code = normalize_text(code_value)
-        normalized_quote = normalize_text(quote)
-        pair = f"{normalized_code}|{normalized_quote}"
+        code_value = code.get("code", "")
+        quote = code.get("quote", "")
+        pair = f"{code_value}|{quote}"
         if pair not in seen_pairs:
             filtered_codes.append(code)
             seen_pairs.add(pair)
@@ -424,7 +422,7 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
     count_before = qect_repo.count({
         "dataset_id": dataset_id,
         "codebook_type": codebook_type,
-        "generation_type": generation_type
+        # "generation_type": generation_type
     })
 
     delete_query = """
@@ -432,18 +430,18 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
         WHERE id NOT IN (
             SELECT MIN(id)
             FROM qect
-            WHERE dataset_id = ? AND codebook_type = ? AND generation_type = ?
+            WHERE dataset_id = ? AND codebook_type = ?
             GROUP BY LOWER(TRIM(code)), LOWER(TRIM(quote))
         )
-        AND dataset_id = ? AND codebook_type = ? AND generation_type = ?
+        AND dataset_id = ? AND codebook_type = ?
     """
-    params = (dataset_id, codebook_type, generation_type, dataset_id, codebook_type, generation_type)
+    params = (dataset_id, codebook_type, dataset_id, codebook_type)
     qect_repo.execute_raw_query(delete_query, params)
     
     count_after = qect_repo.count({
         "dataset_id": dataset_id,
         "codebook_type": codebook_type,
-        "generation_type": generation_type
+        # "generation_type": generation_type
     })
     
     duplicates_removed = count_before - count_after
@@ -494,7 +492,7 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
             map(
                 lambda code: QectResponse(
                     id=code["id"],
-                    generation_type=GenerationType.INITIAL.value,
+                    # generation_type=GenerationType.INITIAL.value,
                     dataset_id=dataset_id,
                     workspace_id=workspace_id,
                     model=model,

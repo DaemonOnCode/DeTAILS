@@ -25,13 +25,13 @@ class RegenerateKeywordsRequest(BaseModel):
 
 
 class GenerateInitialCodesRequest(BaseModel):
-    dataset_id: str
-    keyword_table: list
+    # dataset_id: str
+    # keyword_table: list
     model: str
-    main_topic: str
-    additional_info: str
-    research_questions: list
-    sampled_post_ids: list
+    # main_topic: str
+    # additional_info: str
+    # research_questions: list
+    # sampled_post_ids: list
 
     
 class CodebookRefinementRequest(BaseModel):
@@ -82,10 +82,10 @@ class RemakeDeductiveCodesRequest(DeductiveCodingRequest):
     feedback: str = ""
 
 class GroupCodesRequest(BaseModel):
-    dataset_id: str
+    # dataset_id: str
     model: str
-    sampled_post_responses: list
-    unseen_post_responses: list
+    # sampled_post_responses: list
+    # unseen_post_responses: list
 
 class RegroupCodesRequest(GroupCodesRequest):
     feedback: str = ""

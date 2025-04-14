@@ -390,7 +390,7 @@ class CodebookType(Enum):
 @dataclass
 class QectResponse(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
-    generation_type: str = field(metadata={"not_null": True})
+    # generation_type: str = field(metadata={"not_null": True})
     dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
     model: str = field(metadata={"not_null": True})
@@ -503,7 +503,7 @@ class InitialCodebookEntry(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
     code: str = field(metadata={"not_null": True})
-    description: Optional[str] = None
+    definition: Optional[str] = None
 # @dataclass
 # class SelectedPostId(BaseDataclass):
 #     dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})

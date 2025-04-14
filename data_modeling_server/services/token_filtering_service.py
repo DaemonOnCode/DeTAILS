@@ -6,8 +6,8 @@ from utils.spacy_util import get_spacy_stopwords
 
 class TokenFilteringService:
     def __init__(self):
-        self.datasets = {}  # Simulate a database of datasets
-        self.filter_rules = {}  # Store filter rules for each dataset
+        self.datasets = {}  
+        self.filter_rules = {} 
 
     def list_datasets(self) -> List[Dict[str, Any]]:
         return [{"id": key, "name": value["name"]} for key, value in self.datasets.items()]
@@ -20,7 +20,6 @@ class TokenFilteringService:
         if not dataset:
             raise ValueError("Dataset not found")
 
-        # Apply rules to the dataset tokens
         filtered_tokens = []
         for token in dataset["tokens"]:
             if self._apply_rules_to_token(token, rules):
@@ -43,9 +42,6 @@ class TokenFilteringService:
         return {"message": "Rules loaded successfully"}
 
     def _apply_rules_to_token(self, token: Dict[str, Any], rules: List[Dict[str, Any]]) -> bool:
-        """
-        Apply rules to a single token. Return True if the token should be included.
-        """
         for rule in rules:
             if rule["type"] == "remove" and rule["value"] == token["text"]:
                 return False

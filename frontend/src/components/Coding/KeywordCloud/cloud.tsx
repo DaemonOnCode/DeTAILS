@@ -93,13 +93,9 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             setKeywords((prev) =>
                 prev.map((k) => (k.id === editingWordId ? { ...k, word: newWord } : k))
             );
-            // setSelectedKeywords((prevSelected) =>
-            //     prevSelected.find((sk) => sk === editingWordId)
-            //         ? prevSelected.map((sk) =>
-            //               sk === editingWordId ? { ...sk, word: newWord } : sk
-            //           )
-            //         : [...prevSelected, { id: editingWordId, word: newWord }]
-            // );
+            setSelectedKeywords((prev) =>
+                prev.find((sk) => sk === editingWordId) ? prev : [...prev, editingWordId]
+            );
         });
         setEditingWordId(null);
         setNewWord('');

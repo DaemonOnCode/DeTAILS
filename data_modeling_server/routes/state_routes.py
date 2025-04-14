@@ -48,20 +48,11 @@ initial_codebook_repo = InitialCodebookEntriesRepository()
 
 @router.post("/save-coding-context")
 async def save_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """
-    Save changes to the coding context based on the operation type.
-    
-    Args:
-        request_body (Dict[str, Any]): JSON body containing 'type' and operation-specific data.
-    
-    Returns:
-        Dict[str, Any]: Success status and updated data.
-    """
     workspace_id = request.headers.get("x-workspace-id")
     if not workspace_id:
         raise HTTPException(status_code=400, detail="workspaceId is required")
 
-    # Ensure CodingContext exists
+    
     try:
         coding_context = coding_context_repo.find_one({"id": workspace_id})
     except:
@@ -150,7 +141,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
         process_keyword_table_action(workspace_id, action)
-        # Fetch and return the updated keywordTable
+        
         keyword_entries = keyword_entries_repo.find({"coding_context_id": workspace_id})
         keyword_table = [
             {
@@ -171,8 +162,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         process_sampled_post_response_action(workspace_id, action)
         sampled_responses = qect_repo.find({
             "workspace_id": workspace_id,
-            "codebook_type": CodebookType.INITIAL.value,
-            "generation_type": GenerationType.INITIAL.value
+            "codebook_type": CodebookType.INITIAL.value
         })
         return {"success": True, "sampledPostResponse": [response.to_dict() for response in sampled_responses]}
     
@@ -181,7 +171,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
         process_initial_codebook_table_action(workspace_id, action)
-        codebook_entries = initial_codebook_repo.find({"workspace_id": workspace_id})  # Assuming a repo exists
+        codebook_entries = initial_codebook_repo.find({"coding_context_id": workspace_id})  
         return {"success": True, "initialCodebookTable": [entry.to_dict() for entry in codebook_entries]}
     
     elif operation_type == "setUnseenPostIds":
@@ -201,8 +191,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         process_unseen_post_response_action(workspace_id, action)
         unseen_responses = qect_repo.find({
             "workspace_id": workspace_id,
-            "codebook_type": CodebookType.DEDUCTIVE.value,  # Adjust based on frontend usage
-            "generation_type": GenerationType.LATEST.value
+            "codebook_type": CodebookType.DEDUCTIVE.value,
         })
         return {"success": True, "unseenPostResponse": [response.to_dict() for response in unseen_responses]}
 
@@ -212,15 +201,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
 
 @router.post("/load-coding-context")
 async def load_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """
-    Load specific states of the coding context for a given workspace.
-    
-    Args:
-        request_body (Dict[str, Any]): JSON body containing 'states' (optional list of states to retrieve).
-    
-    Returns:
-        Dict[str, Any]: A dictionary containing the requested states.
-    """
     workspace_id = request.headers.get("x-workspace-id")
     if not workspace_id:
         raise HTTPException(status_code=400, detail="workspaceId is required")
@@ -242,7 +222,7 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
     except Exception:
         coding_context = None
 
-    # Existing states (unchanged)
+    
     if "mainTopic" in states:
         response["mainTopic"] = coding_context.main_topic or "" if coding_context else ""
     if "additionalInfo" in states:
@@ -273,14 +253,14 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
             for ke in keyword_entries
         ]
 
-    # New state: sampledPostIds
+    
     if "sampledPostIds" in states:
         sampled_posts = selected_posts_repo.find({"dataset_id": workspace_id, "type": "sampled"})
         response["sampledPostIds"] = [sp.post_id for sp in sampled_posts]
 
-    # New state: sampledPostResponses
+    
     if "sampledPostResponse" in states:
-        # Fetch sampled post IDs if not already fetched
+        
         sampled_post_ids = response.get("sampledPostIds", [])
         if not sampled_post_ids and "sampledPostIds" not in states:
             sampled_posts = selected_posts_repo.find({"dataset_id": workspace_id, "type": "sampled"})
@@ -290,12 +270,10 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
             SELECT * FROM qect
             WHERE workspace_id = ?
             AND post_id IN ({post_id_placeholders})
-            AND generation_type = ?
             AND codebook_type = ?
         """, (
             workspace_id,
             *sampled_post_ids, 
-            GenerationType.INITIAL.value,
             CodebookType.INITIAL.value
         ), True)
         response["sampledPostResponse"] = [
@@ -312,13 +290,59 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
             for qr in qect_responses
         ]
 
+    if "unseenPostIds" in states:
+        unseen_posts = selected_posts_repo.find({"dataset_id": workspace_id, "type": "unseen"})
+        response["unseenPostIds"] = [up.post_id for up in unseen_posts]
+    
+    if "unseenPostResponse" in states:
+        unseen_post_ids = response.get("unseenPostIds", [])
+        if not unseen_post_ids and "unseenPostIds" not in states:
+            unseen_posts = selected_posts_repo.find({"dataset_id": workspace_id, "type": "unseen"})
+            unseen_post_ids = [up.post_id for up in unseen_posts]
+        post_id_placeholders = ', '.join(['?'] * len(unseen_post_ids))
+        qect_responses = qect_repo.execute_raw_query(f"""
+            SELECT * FROM qect
+            WHERE workspace_id = ?
+            AND post_id IN ({post_id_placeholders})
+            AND codebook_type = ?
+        """, (
+            workspace_id,
+            *unseen_post_ids, 
+            CodebookType.DEDUCTIVE.value
+        ), True)
+        response["unseenPostResponse"] = [
+            {
+                "id": qr["id"],
+                "model": qr["model"],
+                "quote": qr["quote"],
+                "code": qr["code"],
+                "type": qr["response_type"],
+                "explanation": qr["explanation"],
+                "postId": qr["post_id"],
+                "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else [],
+                "isMarked": qr["is_marked"]
+            }
+            for qr in qect_responses
+        ]
+
+    if "initialCodebookTable" in states:
+        initial_codebook_entries = initial_codebook_repo.find({"coding_context_id": workspace_id})
+        response["initialCodebookTable"] = [
+            {
+                "id": entry.id,
+                "code": entry.code,
+                "definition": entry.definition,
+            }
+            for entry in initial_codebook_entries
+        ]
+
     return response
 
 @router.post("/load-state")
 async def load_state_endpoint(request: LoadStateRequest):
     try:
         result = load_state(request)
-        # print("Loaded state", result)
+        
         return {"success": True, "data": result.get("data")}
     except Exception as e:
         print(f"Error loading state: {e}")
@@ -345,7 +369,6 @@ async def export_workspace_endpoint(request: LoadStateRequest):
         raise HTTPException(status_code=400, detail="workspace_id and user_email are required")
     try:
         zip_file, temp_folder = export_workspace(workspace_id, user_email) 
-        # Return the ZIP file
         return FileResponse(
             zip_file,
             media_type="application/zip",
@@ -353,12 +376,10 @@ async def export_workspace_endpoint(request: LoadStateRequest):
         )
 
     except Exception as e:
-        # Log the error and return an appropriate HTTP error
         print(f"Error exporting workspace: {e}")
         raise HTTPException(status_code=500, detail="An error occurred while exporting the workspace")
 
     finally:
-        # Clean up temporary files and folder
         if os.path.exists(temp_folder):
             shutil.rmtree(temp_folder)
 
@@ -376,14 +397,6 @@ async def import_workspace_endpoint(
         workspace_id, workspace_name, workspace_description = import_workspace(
             user_email, file
         )
-    # try:
-        # Create a temporary directory for file extraction
-        
-        # Clean up temporary directory
-        # shutil.rmtree(temp_dir, ignore_errors=True)
-        # print(f"Cleaned up temporary directory: {temp_dir}")
-
-        # Return the new workspace details
         return {
             "success": True,
             "message": "Workspace imported successfully",
@@ -394,10 +407,5 @@ async def import_workspace_endpoint(
             }
         }
 
-    # except Exception as e:
-    #     if os.path.exists(temp_dir):
-    #         shutil.rmtree(temp_dir)
-    #     print(f"Error importing workspace: {e}")
-    #     raise HTTPException(status_code=500, detail=f"Error importing workspace: {str(e)}")
 
 

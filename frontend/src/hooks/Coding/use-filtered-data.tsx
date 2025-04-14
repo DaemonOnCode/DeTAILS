@@ -78,7 +78,7 @@ export function useFilteredData({
         let totalIds = postIds.length;
         let totalData = data;
 
-        // console.log('Filtered data:', filteredData, filteredPostIds, totalIds, totalData);
+        console.log('Filtered data1:', filteredData, filteredPostIds, totalIds, totalData);
 
         const llmFilteredResponses = unseenPostResponse.filter(
             (response) => response.type === 'LLM'

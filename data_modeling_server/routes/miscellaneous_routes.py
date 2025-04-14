@@ -29,7 +29,6 @@ function_progress_repo = FunctionProgressRepository()
 
 @router.post("/get-link-from-post", response_model=dict)
 async def get_reddit_post_link_endpoint(request: RedditPostLinkRequest):
-    """Retrieve Reddit post link or comment link based on a text slice."""
     if not request.postId or not request.datasetId:
         raise HTTPException(status_code=400, detail="Post ID and Dataset ID are required.")
 
@@ -48,14 +47,12 @@ async def get_reddit_post_link_endpoint(request: RedditPostLinkRequest):
 
     normalized_comment_slice = normalize_text(comment_slice)
 
-    # Check if slice exists in post
     if (
         normalized_comment_slice in normalize_text(post_data.get('title', '')) or
         normalized_comment_slice in normalize_text(post_data.get('selftext', ''))
     ):
         return {"link": link_creator(post_data.get('id'), 'post', post_data.get('id'), post_data.get('subreddit'))}
 
-    # Check in comments
     comment_id = next((comment["id"] for comment in comment_data if search_slice(comment, normalized_comment_slice)), None)
 
     if comment_id:
@@ -67,7 +64,6 @@ async def get_reddit_post_link_endpoint(request: RedditPostLinkRequest):
 
 @router.post("/get-post-from-id")
 async def get_post_from_id_endpoint(request: RedditPostByIdRequest):
-    """Retrieve a post and its comments, structured in a hierarchical format."""
     if not request.postId or not request.datasetId:
         raise HTTPException(status_code=400, detail="Post ID and Dataset ID are required.")
 
@@ -79,7 +75,6 @@ async def get_post_from_id_endpoint(request: RedditPostByIdRequest):
 
 @router.post("/get-post-title-from-id-batch")
 async def get_post_title_from_id_batch_endpoint(request: RedditPostIDAndTitleRequestBatch):
-    """Retrieve post titles for multiple post IDs in a dataset."""
     if not request.post_ids or not request.dataset_id:
         raise HTTPException(status_code=400, detail="Missing post_ids or dataset_id")
     
@@ -199,33 +194,24 @@ async def test_model_endpoint(
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     full_model = f"{request_body.provider}-{request_body.name}"
-    # try:
     llm, _ = llm_service.get_llm_and_embeddings(full_model)
     llm.invoke("Hello!") 
     return {"success": True}
-    # except Exception as e:
-    #     raise InvalidGenAIModelError(f"Failed to initialize or invoke LLM: {str(e)}")
 
 @router.post("/test-embedding")
 async def test_embedding_endpoint(
     request_body: EmbeddingTestRequest,
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-
     full_embedding = request_body.name
 
     print(f"Full embedding: {full_embedding}")
-    # try:
     if not llm_service.is_embedding_model_supported(full_embedding):
         raise UnsupportedEmbeddingModelError(f"Embedding model '{full_embedding}' is not supported")
-    
-    # provider_name, embedding_name = llm_service._extract_provider_and_model(full_embedding)
     provider_instance = llm_service.provider_factory.get_provider(request_body.provider)
     embeddings = provider_instance.get_embeddings(request_body.name)
     embeddings.embed_query("test")
     return {"success": True}
-    # except Exception as e:
-    #     raise InvalidTextEmbeddingError(f"Failed to initialize or use embeddings: {str(e)}")
 
 @router.post("/get-function-progress")
 async def get_function_progress(

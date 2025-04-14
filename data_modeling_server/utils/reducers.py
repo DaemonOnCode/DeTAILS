@@ -149,8 +149,7 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
     # Common filters to scope operations to the workspace and initial codebook/generation
     base_filters = {
         "workspace_id": workspace_id,
-        "codebook_type": CodebookType.INITIAL.value,
-        "generation_type": GenerationType.INITIAL.value
+        "codebook_type": CodebookType.INITIAL.value
     }
 
     # Helper function to get all responses as a list (mimicking frontend state)
@@ -211,7 +210,6 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
         if response_data["code"].strip() and response_data["quote"].strip():
             new_response = QectResponse(
                 id=str(uuid4()),
-                generation_type=GenerationType.INITIAL.value,
                 dataset_id=response_data["datasetId"],
                 workspace_id=workspace_id,
                 model=response_data["model"],
@@ -238,7 +236,6 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
         for response_data in new_responses:
             new_response = QectResponse(
                 id=str(uuid4()),
-                generation_type=GenerationType.INITIAL.value,
                 dataset_id=response_data["datasetId"],
                 workspace_id=workspace_id,
                 model=response_data["model"],
@@ -262,7 +259,6 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
         for response_data in new_responses:
             new_response = QectResponse(
                 id=str(uuid4()),
-                generation_type=GenerationType.INITIAL.value,
                 dataset_id=response_data["datasetId"],
                 workspace_id=workspace_id,
                 model=response_data["model"],
@@ -397,7 +393,6 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
             if response_data["code"].strip() and response_data["quote"].strip():
                 new_response = QectResponse(
                     id=str(uuid4()),
-                    generation_type=GenerationType.INITIAL.value,
                     dataset_id=response_data["datasetId"],
                     workspace_id=workspace_id,
                     model=response_data["model"],
@@ -440,7 +435,6 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
     filters = {
         "workspace_id": workspace_id,
         "codebook_type": CodebookType.DEDUCTIVE,
-        "generation_type": GenerationType.LATEST
     }
 
     # Placeholder for repository; replace with your actual database interface
@@ -494,7 +488,6 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
             quote=response_data["quote"],
             explanation=response_data["explanation"],
             model=response_data["model"],
-            generation_type=GenerationType.LATEST,
             codebook_type=CodebookType.DEDUCTIVE,
             response_type=ResponseCreatorType.LLM,
             chat_history=json.dumps(response_data.get("chatHistory", [])),
@@ -514,7 +507,6 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
                 quote=response_data["quote"],
                 explanation=response_data["explanation"],
                 model=response_data["model"],
-                generation_type=GenerationType.LATEST,
                 codebook_type=CodebookType.DEDUCTIVE,
                 response_type=ResponseCreatorType.LLM,
                 chat_history=json.dumps(response_data.get("chatHistory", [])),
@@ -533,7 +525,6 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
                 quote=response_data["quote"],
                 explanation=response_data["explanation"],
                 model=response_data["model"],
-                generation_type=GenerationType.LATEST,
                 codebook_type=CodebookType.DEDUCTIVE,
                 response_type=ResponseCreatorType.LLM,
                 chat_history=json.dumps(response_data.get("chatHistory", [])),
@@ -643,7 +634,6 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
                 quote=response_data["quote"],
                 explanation=response_data["explanation"],
                 model=response_data["model"],
-                generation_type=GenerationType.LATEST,
                 codebook_type=CodebookType.DEDUCTIVE,
                 response_type=ResponseCreatorType.LLM,
                 chat_history=json.dumps(response_data.get("chatHistory", [])),
@@ -683,7 +673,7 @@ def process_initial_codebook_table_action(workspace_id: str, action: Dict[str, A
                 id=str(uuid4()),
                 coding_context_id=workspace_id,
                 code=entry_data["code"],
-                description=entry_data["definition"]
+                definition=entry_data["definition"]
             )
             initial_codebook_repo.insert(entry)
 
@@ -695,7 +685,7 @@ def process_initial_codebook_table_action(workspace_id: str, action: Dict[str, A
                 id=str(uuid4()),
                 coding_context_id=workspace_id,
                 code=entry_data["code"],
-                description=entry_data["definition"]
+                definition=entry_data["definition"]
             )
             initial_codebook_repo.insert(entry)
 
@@ -718,7 +708,7 @@ def process_initial_codebook_table_action(workspace_id: str, action: Dict[str, A
             id=str(uuid4()),
             coding_context_id=workspace_id,
             code=entry_data.get("code", ""),
-            description=entry_data.get("definition", "")
+            definition=entry_data.get("definition", "")
         )
         initial_codebook_repo.insert(new_entry)
 
@@ -732,7 +722,7 @@ def process_initial_codebook_table_action(workspace_id: str, action: Dict[str, A
                 id=str(uuid4()),
                 coding_context_id=workspace_id,
                 code=entry_data["code"],
-                description=entry_data["definition"]
+                definition=entry_data["definition"]
             )
             initial_codebook_repo.insert(entry)
 

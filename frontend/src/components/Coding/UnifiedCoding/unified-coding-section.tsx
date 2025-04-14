@@ -13,7 +13,7 @@ import { toast } from 'react-toastify';
 import { useLoadingContext } from '../../../context/loading-context';
 import { useManualCodingContext } from '../../../context/manual-coding-context';
 import { useApi } from '../../../hooks/Shared/use-api';
-import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
+import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
 import { downloadFile } from '../../../utility/file-downloader';
 
@@ -305,11 +305,11 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
             console.log(
                 'Current config',
-                `/coding/transcript/${postId}/${mode}?${params.toString()}`,
+                `/${SHARED_ROUTES.CODING}/transcript/${postId}/${mode}?${params.toString()}`,
                 navigationState
             );
 
-            navigate(`/coding/transcript/${postId}/${mode}?${params.toString()}`, {
+            navigate(`/${SHARED_ROUTES.CODING}/transcript/${postId}/${mode}?${params.toString()}`, {
                 state: navigationState
             });
         },

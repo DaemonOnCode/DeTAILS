@@ -215,14 +215,14 @@ const DataViewerPage = () => {
         }>(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES, {
             method: 'POST',
             body: JSON.stringify({
-                dataset_id: datasetId,
-                keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
-                model: settings.ai.model,
-                workspace_id: currentWorkspace!.id,
-                main_topic: mainTopic,
-                additional_info: additionalInfo,
-                research_questions: researchQuestions,
-                sampled_post_ids: sampleData.sampled ?? []
+                // dataset_id: datasetId,
+                // keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
+                model: settings.ai.model
+                // workspace_id: currentWorkspace!.id,
+                // main_topic: mainTopic,
+                // additional_info: additionalInfo,
+                // research_questions: researchQuestions,
+                // sampled_post_ids: sampleData.sampled ?? []
             })
         });
 

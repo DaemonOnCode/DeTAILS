@@ -97,8 +97,6 @@ async def filter_posts_by_deleted_endpoint(
     dataset_id = request.headers.get("x-workspace-id")
     loop = asyncio.get_running_loop()
     filtered_ids = await loop.run_in_executor(None, filter_posts_by_deleted, dataset_id)
-    # filtered_ids = filter_posts_by_deleted(request.dataset_id)
-    # print(filtered_ids)
     return filtered_ids
 
 progress_repo = TorrentDownloadProgressRepository()
@@ -217,8 +215,6 @@ async def download_reddit_from_torrent_endpoint(
             await manager.send_message(app_id, message)
             update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
-
-
             message = "Loading dataset, this may take a few moments..."
             await manager.send_message(app_id, message)
             update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
@@ -226,7 +222,6 @@ async def download_reddit_from_torrent_endpoint(
         except Exception as e:
             err_msg = f"ERROR: {str(e)}"
             await manager.send_message(app_id, err_msg)
-            # update_run_progress(run_id, err_msg)
             print(err_msg)
             raise e
         finally:
@@ -320,8 +315,7 @@ async def prepare_torrent_data_from_files(
             month_part = file_identifier[3:] 
         else:
             continue
-
-        # Search the torrent folder for files that match the prefix and contain the month part.
+   
         for f in os.listdir(target_folder):
             if f.startswith(prefix) and month_part in f and f.endswith(".json"):
                 valid_files.append(os.path.join(target_folder, f))

@@ -9,9 +9,9 @@ from routes.websocket_routes import manager
 router = APIRouter(dependencies=[Depends(get_app_id)])
 
 models_repo = ModelsRepository()
-# main_event_loop = asyncio.get_event_loop()
 
-# Dynamic route to handle topic modeling methods
+
+
 @router.post("/model/{method}")
 async def topic_model_endpoint(
     request: Request,

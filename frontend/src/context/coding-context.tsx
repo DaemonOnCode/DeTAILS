@@ -181,6 +181,7 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 body: JSON.stringify({ states: stateNames })
             });
             if (error) throw new Error(`Failed to fetch states: ${stateNames.join(', ')}`);
+            console.log('Fetched states:', data);
             return data;
         } catch (error) {
             console.error(`Error fetching states:`, error);
@@ -215,6 +216,7 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                     if (fetchedData) {
                         // Update the required states with fetched data
                         statesToFetch.forEach((stateName) => {
+                            console.log(`Setting state: ${stateName}`, fetchedData[stateName]);
                             if (
                                 fetchedData[stateName] !== undefined &&
                                 setterFunctions[stateName]
@@ -393,6 +395,7 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         unseenPostResponse,
         dispatchUnseenPostResponse: async (action: BaseResponseHandlerActions<IQECTTyResponse>) => {
             const data = await saveCodingContext('dispatchUnseenPostResponse', { action });
+            console.log('Unseen Post Response:', data);
             if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
         },
         themes,
