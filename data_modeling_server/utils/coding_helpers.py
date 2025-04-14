@@ -1,68 +1,27 @@
 def generate_transcript(post):
-    # Start with the post title and selftext
     transcript = f"Title: {post['title']}\n\n{post['selftext']}\n\n"
 
-    # Helper function to recursively process comments with hierarchical numbering
     def process_comments(comments, prefix=""):
         result = ""
         if not comments:
             return ""
         for i, comment in enumerate(comments, start=1):
-            # Calculate the current comment's number in the hierarchy
             current_number = prefix + str(i)
-            # Create the label for the comment
             label = "comment " + current_number + ": "
-            # Add the label and comment body to the result
             result += label + comment['body'] + "\n"
-            # If the comment has replies, process them recursively
             if 'comments' in comment and comment['comments']:
                 result += process_comments(comment['comments'], prefix=current_number + ".")
         return result
 
-    # If there are comments, process them
     if 'comments' in post and post['comments']:
         transcript += "Comments:\n"
         transcript += process_comments(post['comments'])
 
     return transcript.strip()
 
-
-def generate_context(references, main_code, selected_flashcards, selected_words):
-    context = ""
-
-    # Add the main code
-    context += f"Main Code:\n{main_code}\n\n"
-
-    # Add selected words
-    if selected_words:
-        context += f"Selected Words:\n- " + "\n- ".join(selected_words) + "\n\n"
-
-    # Add selected flashcards
-    if selected_flashcards:
-        context += "Flashcards:\n"
-        for flashcard in selected_flashcards:
-            context += f"Q: {flashcard['question']}\nA: {flashcard['answer']}\n\n"
-
-    # Add references
-    if references:
-        context += "References:\n"
-        print('references', references)
-        for code, ref_list in references.items():
-            context += f"Code: {code}\n"
-            print('refList', ref_list, len(ref_list), type(ref_list))
-            for ref in ref_list:
-                context += f"- {ref['text']}\n"
-            context += "\n"
-
-    return context.strip()
-
 def generate_context_with_codebook(references, main_code, codebook):
     context = ""
-
-    # Add the main code
     context += f"Main Code:\n{main_code}\n\n"
-
-    # Add codebook
     if codebook:
         context += "Codebook:\n"
         for code_data in codebook:
@@ -70,8 +29,6 @@ def generate_context_with_codebook(references, main_code, codebook):
             context += f'Description: {code_data["description"]}\n'
             context += f'Inclusion criteria: {", ".join(code_data["inclusion_criteria"])}\n\n'
             context += f'Exclusion criteria: {", ".join(code_data["exclusion_criteria"])}\n\n'
-
-    # Add references
     if references:
         context += "References:\n"
         for code, ref_list in references.items():

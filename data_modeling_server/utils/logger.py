@@ -3,27 +3,24 @@ import asyncio
 import aiohttp
 from typing import Optional, Dict
 
-# Configuration
-LOGGING = False  # Set to False to disable external logging
-LOGGING_API_URL = ""  # Replace with actual URL
+
+LOGGING = False  
+LOGGING_API_URL = ""  
 
 class Logger:
     def __init__(self):
         self.user_email = "Anonymous"
-        self.session = None  # Defer initialization
+        self.session = None  
 
     async def _init_session(self):
-        """Lazily initialize aiohttp.ClientSession."""
         if self.session is None:
             self.session = aiohttp.ClientSession()
 
     def set_user_email(self, user: str):
-        """Set the user email for logging."""
         self.user_email = user
 
     async def log(self, level: str, message: str, context: Optional[Dict] = None):
-        """Asynchronously logs a message with a given level and optional context."""
-        await self._init_session()  # Ensure session is initialized
+        await self._init_session()  
 
         if context is None:
             context = {}
@@ -34,13 +31,11 @@ class Logger:
             "level": level,
             "message": message,
             "context": context,
-            "timestamp": asyncio.get_event_loop().time()  # Precise timestamp
+            "timestamp": asyncio.get_event_loop().time()  
         }
-
-        # Print to console
+        
         print(f"[{level.upper()}]: {message}")
 
-        # Send to external logging API if enabled
         if LOGGING:
             try:
                 async with self.session.post(
@@ -72,7 +67,6 @@ class Logger:
         await self.log("time", message, context)
 
     async def close(self):
-        """Close the aiohttp session if it was created."""
         if self.session:
             await self.session.close()
-            self.session = None  # Reset session
+            self.session = None 

@@ -73,7 +73,6 @@ class EmbeddableTextResource(EmbeddableResource):
         ]
 
     def model_dump(self, **kwargs):
-        # Convert NumPy arrays to lists before dumping
         data = super().model_dump(**kwargs)
         if isinstance(data["embedding"], np.ndarray):
             data["embedding"] = data["embedding"].tolist()
@@ -83,7 +82,6 @@ class EmbeddableTextResource(EmbeddableResource):
 D = TypeVar("D", bound=EmbeddableResource, contravariant=True)
 
 def _get_result_to_chroma_doc_list(result: GetResult) -> List[EmbeddableTextResource]:
-    """Converts a GetResult to a list of ChromaDocuments."""
     docs = []
     for idx, _ in enumerate(result["ids"]):
         docs.append(
@@ -104,7 +102,6 @@ def remap_features(
     id_feature: str = "id",
     meta_features: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Remaps EmbeddableTextResource features to a dictionary."""
     metadata_dict = doc.metadata.model_dump() if isinstance(doc.metadata, LineMetadata) else doc.metadata
     _metas = (
         metadata_dict
@@ -115,15 +112,6 @@ def remap_features(
             if metadata_dict is not None and k in metadata_dict
         }
     )
-    # _metas = (
-    #     doc.metadata
-    #     if meta_features is None or len(meta_features) == 0
-    #     else {
-    #         k: doc.metadata[k]
-    #         for k in meta_features
-    #         if doc.metadata is not None and k in doc.metadata
-    #     }
-    # )
     return {
         f"{doc_feature}": doc.text_chunk,
         f"{embed_feature}": doc.embedding,
@@ -140,7 +128,6 @@ def read_large_data_in_chunks(
     where: Where = None,
     where_document: WhereDocument = None,
 ):
-    """Reads large data in chunks from ChromaDB."""
     result = collection.get(
         where=where,
         where_document=where_document,
@@ -168,7 +155,6 @@ def chroma_export(
     format_output: Optional[str] = "record",
     max_threads: Optional[int] = os.cpu_count() - 2,
 ) -> Generator[Dict[str, Any], None, None]:
-    """Exports data from ChromaDB."""
     client = HttpClient(host="localhost", port=8000)
     _collection = collection
     _batch_size = batch_size
@@ -177,8 +163,7 @@ def chroma_export(
     _start = _offset if _offset > 0 else 0
     chroma_collection = client.get_collection(_collection)
     col_count = chroma_collection.count()
-    # precondition the DB for fetching data
-    chroma_collection.get(limit=1, include=["embeddings"])  # noqa
+    chroma_collection.get(limit=1, include=["embeddings"])
     total_results_to_fetch = min(col_count, _limit) if _limit > 0 else col_count
     _where = None
     if where:
@@ -336,16 +321,13 @@ def add_to_col(
     ef: EmbeddingFunction = None,
 ) -> None:
     try:
-        print(col, batch.keys(), upsert, ef, len(batch["documents"]), "adding to col")
         if "embeddings" in batch and len(batch["embeddings"]) > 0:
             batch["embeddings"] = [
                 e.tolist() if isinstance(e, np.ndarray) else e
                 for e in batch["embeddings"]
             ]
         if ef:
-            # print("embedding", batch["documents"])
             batch["embeddings"] = ef(batch["documents"])
-            # print(batch["embeddings"], "batch embeddings")
         if upsert:
             print("upserting to col")
             col.upsert(**batch)
@@ -420,20 +402,17 @@ def chroma_import(
                     break
                 cleaned_line = line.strip()
                 
-                # If the line starts with b' or ends with ', remove these
                 if cleaned_line.startswith(b"b'") and cleaned_line.endswith(b"'"):
                     cleaned_line = cleaned_line[2:-1]
 
-                # Decode to string
                 decoded_line = cleaned_line.decode('utf-8')
                 
-                # Unescape the string (e.g., turn \\n into \n)
                 _line = codecs.decode(decoded_line, 'unicode_escape')
                 doc = ParsedLine(**json.loads(_line))
                 _batch["documents"].append(doc.text_chunk)
                 _batch["embeddings"].append(
                     doc.embedding if _embedding_function is None else None
-                )  # call EF?
+                ) 
                 _batch["metadatas"].append(doc.metadata.model_dump())
                 _batch["ids"].append(doc.id if doc.id else uuid.uuid4())
                 if len(_batch["documents"]) >= _batch_size:

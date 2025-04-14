@@ -69,14 +69,12 @@ class OutputFormatter:
 
 class AllChainDetails(BaseCallbackHandler):
     def __init__(self, debug_mode: Optional[bool] = False, out: Type[OutputFormatter] = OutputFormatter, log_file: str = 'chain_log.jsonl', log_to_file: bool = True) -> None:
-        """Initialize the callback handler with logging options."""
         self.debug_mode = debug_mode
         self.out = out
         self.log_file = log_file
         self.log_to_file = log_to_file
 
     def _log_event(self, event_type: str, details: Dict[str, Any], run_id: Optional[UUID] = None, parent_run_id: Optional[UUID] = None) -> None:
-        """Log an event to the file in JSON Lines format if logging is enabled."""
         if not self.log_to_file:
             return
         event = {

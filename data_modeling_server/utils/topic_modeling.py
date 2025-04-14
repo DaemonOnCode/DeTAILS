@@ -1,7 +1,6 @@
 from logging import config
 import sqlite3
 from tabnanny import verbose
-from regex import B
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.decomposition import NMF
 import lda
@@ -17,7 +16,6 @@ from umap import UMAP
 from bertopic.vectorizers import ClassTfidfTransformer
 import pandas as pd
 
-from constants import DATABASE_PATH
 
 
 
@@ -26,8 +24,8 @@ def convert_post_to_document(post):
 
 # LDA
 def lda_topic_modeling(dataset_id, num_topics):
-    # documents = []
-    # return []
+    documents = []
+    return []
 
 
     config = {
@@ -121,26 +119,22 @@ def bertopic_modeling(num_topics):
     embedding_model = model.encode(documents, show_progress_bar=False)
 
     print("works 1.2!")
-    
-    # Step 2.2 - Reduce dimensionality
+
     umap_model = UMAP(n_neighbors=15, n_components=5, min_dist=0.0, metric='cosine')
-    
-    # Step 2.3 - Cluster reduced embeddings
+
     hdbscan_model = HDBSCAN(min_cluster_size=15, metric='euclidean', cluster_selection_method='eom', prediction_data=True)
     print("works 2!")
-    # Step 2.4 - Tokenize topics
     vectorizer_model = CountVectorizer(stop_words="english")
     
-    # Step 2.5 - Create topic representation
     ctfidf_model = ClassTfidfTransformer()
     
     topic_model = BERTopic(
-        embedding_model=model,    # Step 1 - Extract embeddings
-        umap_model=umap_model,              # Step 2 - Reduce dimensionality
-        hdbscan_model=hdbscan_model,        # Step 3 - Cluster reduced embeddings
-        vectorizer_model=vectorizer_model,  # Step 4 - Tokenize topics
-        ctfidf_model=ctfidf_model,          # Step 5 - Extract topic words
-        nr_topics=num_topics          # Step 6 - Diversify topic words
+        embedding_model=model,   
+        umap_model=umap_model,             
+        hdbscan_model=hdbscan_model,        
+        vectorizer_model=vectorizer_model, 
+        ctfidf_model=ctfidf_model,        
+        nr_topics=num_topics         
     )
     topics, probabilities = topic_model.fit_transform(documents)
 
@@ -164,13 +158,6 @@ def bertopic_modeling(num_topics):
 def llm_topic_modeling(num_topics):
     documents = []
     return []
-    
-    # Data preprocessing / tokenization
-    # Text embedding generation
-    # Dimensionality reduction
-    # Clustering to identify topics
-    # Topic representation
-    # Visualization
 
     summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
     full_text = " ".join(documents)
