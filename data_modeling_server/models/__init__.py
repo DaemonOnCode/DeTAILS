@@ -35,5 +35,6 @@ from .table_dataclasses import (
     ResearchQuestion,
     Keyword,
     SelectedKeyword,
-    KeywordEntry
+    KeywordEntry,
+    InitialCodebookEntry
 )

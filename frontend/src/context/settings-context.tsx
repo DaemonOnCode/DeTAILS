@@ -15,6 +15,7 @@ export interface ISettingsConfig {
         language: string;
         manualCoding: boolean;
         keepSignedIn: boolean;
+        sampleRatio: number;
     };
     workspace: {
         layout: 'grid' | 'list';

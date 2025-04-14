@@ -14,10 +14,11 @@ import pandas as pd
 
 from config import Settings, CustomSettings
 from constants import STUDY_DATABASE_PATH
-from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, filter_duplicate_codes, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
+from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, filter_duplicate_codes, filter_duplicate_codes_in_db, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
 from controllers.collection_controller import count_comments, get_reddit_post_by_id
 from database.coding_context_table import CodingContextRepository
 from database.context_file_table import ContextFilesRepository
+from database.initial_codebook_table import InitialCodebookEntriesRepository
 from database.keyword_entry_table import KeywordEntriesRepository
 from database.keyword_table import KeywordsRepository
 from database.research_question_table import ResearchQuestionsRepository
@@ -26,7 +27,7 @@ from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GenerateKeywordDefinitionsRequest, GetCodedDataRequest, GroupCodesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
-from models.table_dataclasses import CodebookType, GenerationType, Keyword, KeywordEntry, ResponseCreatorType, SelectedKeyword, SelectedPostId, StateDump
+from models.table_dataclasses import CodebookType, GenerationType, InitialCodebookEntry, Keyword, KeywordEntry, ResponseCreatorType, SelectedKeyword, SelectedPostId, StateDump
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository, QectRepository, SelectedPostIdsRepository
 from services.langchain_llm import LangchainLLMService, get_llm_service
@@ -49,6 +50,7 @@ research_question_repo = ResearchQuestionsRepository()
 keywords_repo = KeywordsRepository()
 selected_keywords_repo = SelectedKeywordsRepository()
 keyword_entries_repo = KeywordEntriesRepository()
+initial_codebook_repo = InitialCodebookEntriesRepository()
 
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
@@ -68,13 +70,14 @@ async def sample_posts_endpoint(
 ):
     settings = CustomSettings()
 
+    dataset_id = request.headers.get("x-workspace-id")
+
     if (request_body.sample_size <= 0 or 
-        request_body.dataset_id == "" or 
+        dataset_id == "" or 
         len(request_body.post_ids) == 0 or 
         request_body.divisions < 1):
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
     
-    dataset_id = request_body.dataset_id
     post_ids = request_body.post_ids
     sample_size = request_body.sample_size
     divisions = request_body.divisions
@@ -268,6 +271,7 @@ async def sample_posts_endpoint(
         )
     return result
 
+
 @router.post("/build-context-from-topic")
 async def build_context_from_interests_endpoint(
     request: Request,
@@ -417,7 +421,7 @@ async def generate_definitions_endpoint(
     # mainTopic = request_body.main_topic
     # additionalFeedback = request_body.additional_info
     # researchQuestions = request_body.research_questions
-    # datasetId = request_body.dataset_id
+    # datasetId = dataset_id
     # words = request_body.selected_words
 
     coding_context = coding_context_repo.find_one({"id": workspace_id})
@@ -655,9 +659,9 @@ async def regenerate_keywords_endpoint(
         StateDump(
             state=json.dumps({
                 "dataset_id": dataset_id,
-                "main_topic": request_body.mainTopic,
-                "research_questions": request_body.researchQuestions,
-                "additional_info": request_body.additionalInfo,
+                "main_topic": mainTopic,
+                "research_questions": researchQuestions,
+                "additional_info": additionalInfo,
                 "feedback": request_body.extraFeedback,
                 "keywords": [
                     {
@@ -688,10 +692,10 @@ async def generate_codes_endpoint(request: Request,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    dataset_id = request_body.dataset_id
-    if not dataset_id or len(request_body.sampled_post_ids) == 0:
+    if len(request_body.sampled_post_ids) == 0:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
+    dataset_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
@@ -719,7 +723,11 @@ async def generate_codes_endpoint(request: Request,
     ))
     try:
         llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
-        final_results = []
+        
+        try:
+            qect_repo.delete({"dataset_id": dataset_id, "generation_type": GenerationType.INITIAL.value, "codebook_type": CodebookType.INITIAL.value})
+        except Exception as e:
+            print(e)
 
         async def process_post(post_id: str):
             try:
@@ -808,10 +816,10 @@ async def generate_codes_endpoint(request: Request,
             await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
             
             # Process posts in the batch concurrently
-            batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+            await asyncio.gather(*(process_post(post_id) for post_id in batch))
 
-            for codes in batch_results:
-                final_results.extend(codes)
+            # for codes in batch_results:
+            #     final_results.extend(codes)
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
@@ -835,8 +843,18 @@ async def generate_codes_endpoint(request: Request,
         # qect_repo.insert_batch(qect_responses)
 
 
-        unique_codes = list(set(row["code"] for row in final_results))
-
+        # unique_codes = list(set(row["code"] for row in final_results))
+        unique_codes_query = """
+            SELECT DISTINCT code 
+            FROM qect 
+            WHERE dataset_id = ? AND codebook_type = ? AND generation_type = ?
+        """
+        unique_codes_result = qect_repo.execute_raw_query(
+            unique_codes_query,
+            (dataset_id, CodebookType.INITIAL.value, GenerationType.INITIAL.value),
+            keys=True
+        )
+        unique_codes = [row["code"] for row in unique_codes_result]
 
         res = await cluster_words_with_llm(
             workspace_id,
@@ -861,16 +879,30 @@ async def generate_codes_endpoint(request: Request,
                 if subtopic not in reverse_map_one_to_one:
                     reverse_map_one_to_one[subtopic] = topic_head
 
-        for row in final_results:
-            row["code"] = reverse_map_one_to_one.get(row["code"], row["code"])
+        for subtopic, topic_head in reverse_map_one_to_one.items():
+            update_query = """
+                UPDATE qect 
+                SET code = ? 
+                WHERE code = ? AND dataset_id = ? AND codebook_type = ? AND generation_type = ?
+            """
+            qect_repo.execute_raw_query(
+                update_query,
+                (topic_head, subtopic, dataset_id, CodebookType.INITIAL.value, GenerationType.INITIAL.value)
+            )
 
-        filter_duplicate_codes(final_results, parent_function_name="generate-initial-codes", workspace_id=workspace_id)
+        filter_duplicate_codes_in_db(
+            dataset_id=dataset_id,
+            codebook_type=CodebookType.INITIAL.value,
+            generation_type=GenerationType.INITIAL.value,
+            workspace_id=workspace_id,
+            parent_function_name="generate-initial-codes"
+        )
         state_dump_repo.insert(
             StateDump(
                 state=json.dumps({
                     "dataset_id": dataset_id,
                     "post_ids": request_body.sampled_post_ids,
-                    "results": final_results,
+                    "results": res,
                 }),
                 context=json.dumps({
                     "function": "initial_codes",
@@ -884,7 +916,6 @@ async def generate_codes_endpoint(request: Request,
 
         return {
             "message": "Initial codes generated successfully!",
-            "data": final_results
         }
     except Exception as e:
         print(f"Error in generate_codes_endpoint: {e}")
@@ -954,10 +985,7 @@ async def deductive_coding_endpoint(
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    dataset_id = request_body.dataset_id
-    if not dataset_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
+    dataset_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Deductive coding process started.")
@@ -989,6 +1017,11 @@ async def deductive_coding_endpoint(
         final_results = []
         posts = request_body.unseen_post_ids
         llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
+
+        try:
+            qect_repo.delete({"dataset_id": dataset_id, "generation_type": GenerationType.INITIAL.value, "codebook_type": CodebookType.DEDUCTIVE.value})
+        except Exception as e:
+            print(e)
 
         async def process_post(post_id: str):
             await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
@@ -1057,10 +1090,10 @@ async def deductive_coding_endpoint(
         for batch in batches:
             await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
             
-            batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
+            await asyncio.gather(*(process_post(post_id) for post_id in batch))
             
-            for codes in batch_results:
-                final_results.extend(codes)
+            # for codes in batch_results:
+            #     final_results.extend(codes)
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
@@ -1083,7 +1116,7 @@ async def deductive_coding_endpoint(
 
         return {
             "message": "Deductive coding completed successfully!",
-            "data": final_results
+            # "data": final_results
         }
     except Exception as e:
         print(f"Error in deductive_coding_endpoint: {e}")
@@ -1982,6 +2015,17 @@ async def generate_codebook_without_quotes_endpoint(
                     "time_taken": time.time() - start_time,
                 }),
             )
+        )
+    
+    initial_codebook_repo.insert_batch(
+            [
+                InitialCodebookEntry(
+                    id=str(uuid4()),
+                    coding_context_id=request.headers.get("x-workspace-id"),
+                    code= pr[0],
+                    description= pr[1],
+                ) for pr in  parsed_response.items() 
+            ]
         )
 
 

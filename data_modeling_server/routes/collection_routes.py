@@ -25,7 +25,8 @@ state_dump_repo = StateDumpsRepository(
 )
 
 @router.post("/datasets")
-async def upload_dataset_endpoint(file: UploadFile = File(...), description: str = Form(None), dataset_id: str = Form(None), workspace_id: str = Form(...)):
+async def upload_dataset_endpoint(request: Request ,file: UploadFile = File(...), description: str = Form(None), dataset_id: str = Form(None), workspace_id: str = Form(...)):
+    dataset_id = request.headers.get("x-workspace-id")
     if not dataset_id:
         dataset_id = create_dataset(description, dataset_id, workspace_id)
     file_path = await upload_dataset_file(file, dataset_id)
@@ -41,8 +42,11 @@ async def remove_dataset_endpoint(dataset_id: str):
 
 
 @router.post("/parse-reddit-dataset")
-async def parse_reddit_dataset_endpoint(request: ParseDatasetRequest = Body(...)):
-    dataset_id = request.dataset_id
+async def parse_reddit_dataset_endpoint(
+    request: Request,
+    request_body: ParseDatasetRequest = Body(...)
+):
+    dataset_id = request.headers.get("x-workspace-id")
     return parse_reddit_files(dataset_id)
 
 
@@ -64,14 +68,20 @@ async def get_reddit_posts_endpoint(request: ParseRedditPostsRequest = Body(...)
     return results
 
 @router.post("/reddit-posts-titles")
-async def get_reddit_titles_endpoint(request: ParseRedditPostsRequest = Body(...)):
-    dataset_id = request.dataset_id
+async def get_reddit_titles_endpoint(
+    request: Request,
+    request_body: ParseRedditPostsRequest = Body(...)
+):
+    dataset_id = request.headers.get("x-workspace-id")
     return get_reddit_post_titles(dataset_id)
 
 @router.post("/reddit-post-by-id")
-async def get_reddit_post_endpoint(request: ParseRedditPostByIdRequest = Body(...)):
-    dataset_id = request.datasetId
-    post_id = request.postId
+async def get_reddit_post_endpoint(
+    request: Request,
+    request_body: ParseRedditPostByIdRequest = Body(...)
+):
+    dataset_id = request.headers.get("x-workspace-id")
+    post_id = request_body.postId
     return await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id)
 
 
@@ -81,10 +91,12 @@ async def stream_upload_endpoint(file: UploadFile = File(...)):
 
 @router.post("/filter-posts-by-deleted")
 async def filter_posts_by_deleted_endpoint(
-    request: FilterRedditPostsByDeleted
+    request: Request,
+    request_body: FilterRedditPostsByDeleted
 ):
+    dataset_id = request.headers.get("x-workspace-id")
     loop = asyncio.get_running_loop()
-    filtered_ids = await loop.run_in_executor(None, filter_posts_by_deleted, request.dataset_id)
+    filtered_ids = await loop.run_in_executor(None, filter_posts_by_deleted, dataset_id)
     # filtered_ids = filter_posts_by_deleted(request.dataset_id)
     # print(filtered_ids)
     return filtered_ids
@@ -104,10 +116,11 @@ async def download_reddit_from_torrent_endpoint(
         workspace_id = request.headers.get("x-workspace-id")
 
         run_id = str(uuid4())
+        dataset_id = request.headers.get("x-workspace-id")
 
         progress_repo.insert(TorrentDownloadProgress(
             workspace_id=workspace_id,
-            dataset_id=request_body.dataset_id,
+            dataset_id=dataset_id,
             run_id=run_id,
             status="in-progress",
             subreddit=request_body.subreddit,
@@ -119,7 +132,7 @@ async def download_reddit_from_torrent_endpoint(
             list(map(
                 lambda step: PipelineStep(
                     workspace_id=workspace_id,
-                    dataset_id=request_body.dataset_id,
+                    dataset_id=dataset_id,
                     run_id=run_id,
                     step_label=step
                 ), ["Metadata", "Verification", "Downloading", "Symlinks", "Parsing"]
@@ -146,7 +159,7 @@ async def download_reddit_from_torrent_endpoint(
 
             output_files = await get_reddit_data_from_torrent(
                 manager, app_id, run_id,
-                request_body.dataset_id, workspace_id,
+                dataset_id, workspace_id,
                 request_body.subreddit, 
                 start_month, 
                 end_month, 
@@ -184,7 +197,7 @@ async def download_reddit_from_torrent_endpoint(
             if not academic_folder:
                 academic_folder = os.path.join(DATASETS_DIR, f"academic-torrent-{request_body.subreddit}")
                 os.makedirs(academic_folder, exist_ok=True)
-            dataset_id = request_body.dataset_id
+
             if not dataset_id:
                 dataset_id = str(uuid4())
 
@@ -288,9 +301,11 @@ async def get_torrent_data_endpoint():
 
 @router.post("/prepare-torrent-data-from-files")
 async def prepare_torrent_data_from_files(
-    request: ParseRedditFromTorrentFilesRequest
+    request: Request,
+    request_body: ParseRedditFromTorrentFilesRequest
 ):
-    folder_name = f"academic-torrent-{request.subreddit}"
+    dataset_id = request.headers.get("x-workspace-id")
+    folder_name = f"academic-torrent-{request_body.subreddit}"
     target_folder = os.path.join(DATASETS_DIR, folder_name)
     if not os.path.exists(target_folder):
         raise HTTPException(
@@ -299,7 +314,7 @@ async def prepare_torrent_data_from_files(
         )
 
     valid_files = []
-    for file_identifier in request.files:
+    for file_identifier in request_body.files:
         if file_identifier.startswith("RS_") or file_identifier.startswith("RC_"):
             prefix = file_identifier[:2]
             month_part = file_identifier[3:] 
@@ -317,7 +332,6 @@ async def prepare_torrent_data_from_files(
             detail="No matching files found in the torrent folder."
         )
 
-    dataset_id = request.dataset_id
     if not dataset_id:
         dataset_id = str(uuid4())
 
@@ -351,7 +365,8 @@ async def get_torrent_status_endpoint(
     request_body: GetTorrentStatusRequest
 ):
     workspace_id = request.headers.get("x-workspace-id")
-    return progress_repo.get_current_status(workspace_id, request_body.dataset_id)
+    dataset_id = request.headers.get("x-workspace-id")
+    return progress_repo.get_current_status(workspace_id, dataset_id)
 
 @router.post("/check-reddit-torrent-availability")
 async def check_reddit_torrent_availability(
@@ -381,9 +396,10 @@ async def get_transcripts_csv_endpoint(
     request: Request,
     request_body: GetTranscriptsCsvRequest,
 ):
+    dataset_id = request.headers.get("x-workspace-id")
     os.makedirs(TEMP_DIR, exist_ok=True)
     output_file = os.path.join(TEMP_DIR, f"transcripts-{uuid4()}.csv")
-    await get_post_transcripts_csv(request_body.dataset_id, request_body.post_ids, output_file)
+    await get_post_transcripts_csv(dataset_id, request_body.post_ids, output_file)
     return FileResponse(
         output_file,
         media_type="text/csv",

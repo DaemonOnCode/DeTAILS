@@ -122,6 +122,56 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         }
     };
 
+    const setterFunctions: Record<string, (value: any) => void> = {
+        contextFiles: setContextFilesState,
+        mainTopic: setMainTopicState,
+        additionalInfo: setAdditionalInfoState,
+        researchQuestions: setResearchQuestionsState,
+        keywords: setKeywordsState,
+        selectedKeywords: setSelectedKeywordsState,
+        words: setWordsState,
+        selectedWords: setSelectedWordsState,
+        references: setReferencesState,
+        keywordTable: setKeywordTableState,
+        sampledPostResponse: setSampledPostResponseState,
+        sampledPostResponseCopy: setSampledPostResponseCopyState,
+        sampledPostWithThemeResponse: setSampledPostWithThemeResponseState,
+        unseenPostResponse: setUnseenPostResponseState,
+        themes: setThemesState,
+        unplacedCodes: setUnplacedCodesState,
+        groupedCodes: setGroupedCodesState,
+        unplacedSubCodes: setUnplacedSubCodesState,
+        sampledPostIds: setSampledPostIdsState,
+        unseenPostIds: setUnseenPostIdsState,
+        conflictingResponses: setConflictingResponsesState,
+        initialCodebookTable: setInitialCodebookTableState
+    };
+
+    const resetFunctions: Record<string, () => void> = {
+        contextFiles: () => setContextFilesState({}),
+        mainTopic: () => setMainTopicState(''),
+        additionalInfo: () => setAdditionalInfoState(''),
+        researchQuestions: () => setResearchQuestionsState([]),
+        keywords: () => setKeywordsState([]),
+        selectedKeywords: () => setSelectedKeywordsState([]),
+        words: () => setWordsState([]),
+        selectedWords: () => setSelectedWordsState([]),
+        references: () => setReferencesState({}),
+        keywordTable: () => setKeywordTableState([]),
+        sampledPostResponse: () => setSampledPostResponseState([]),
+        sampledPostResponseCopy: () => setSampledPostResponseCopyState([]),
+        sampledPostWithThemeResponse: () => setSampledPostWithThemeResponseState([]),
+        unseenPostResponse: () => setUnseenPostResponseState([]),
+        themes: () => setThemesState([]),
+        unplacedCodes: () => setUnplacedCodesState([]),
+        groupedCodes: () => setGroupedCodesState([]),
+        unplacedSubCodes: () => setUnplacedSubCodesState([]),
+        sampledPostIds: () => setSampledPostIdsState([]),
+        unseenPostIds: () => setUnseenPostIdsState([]),
+        conflictingResponses: () => setConflictingResponsesState([]),
+        initialCodebookTable: () => setInitialCodebookTableState([])
+    };
+
     // Helper function to fetch states from the backend
     const fetchStates = async (stateNames: string[]) => {
         try {
@@ -131,83 +181,10 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 body: JSON.stringify({ states: stateNames })
             });
             if (error) throw new Error(`Failed to fetch states: ${stateNames.join(', ')}`);
-            stateNames.forEach((stateName) => {
-                if (data[stateName] !== undefined) {
-                    // Use the corresponding state setter
-                    switch (stateName) {
-                        case 'contextFiles':
-                            setContextFilesState(data[stateName]);
-                            break;
-                        case 'mainTopic':
-                            setMainTopicState(data[stateName]);
-                            break;
-                        case 'additionalInfo':
-                            setAdditionalInfoState(data[stateName]);
-                            break;
-                        case 'researchQuestions':
-                            setResearchQuestionsState(data[stateName]);
-                            break;
-                        case 'keywords':
-                            setKeywordsState(data[stateName]);
-                            break;
-                        case 'selectedKeywords':
-                            setSelectedKeywordsState(data[stateName]);
-                            break;
-                        case 'words':
-                            setWordsState(data[stateName]);
-                            break;
-                        case 'selectedWords':
-                            setSelectedWordsState(data[stateName]);
-                            break;
-                        case 'references':
-                            setReferencesState(data[stateName]);
-                            break;
-                        case 'keywordTable':
-                            setKeywordTableState(data[stateName]);
-                            break;
-                        case 'sampledPostResponse':
-                            setSampledPostResponseState(data[stateName]);
-                            break;
-                        case 'sampledPostResponseCopy':
-                            setSampledPostResponseCopyState(data[stateName]);
-                            break;
-                        case 'sampledPostWithThemeResponse':
-                            setSampledPostWithThemeResponseState(data[stateName]);
-                            break;
-                        case 'unseenPostResponse':
-                            setUnseenPostResponseState(data[stateName]);
-                            break;
-                        case 'themes':
-                            setThemesState(data[stateName]);
-                            break;
-                        case 'unplacedCodes':
-                            setUnplacedCodesState(data[stateName]);
-                            break;
-                        case 'groupedCodes':
-                            setGroupedCodesState(data[stateName]);
-                            break;
-                        case 'unplacedSubCodes':
-                            setUnplacedSubCodesState(data[stateName]);
-                            break;
-                        case 'sampledPostIds':
-                            setSampledPostIdsState(data[stateName]);
-                            break;
-                        case 'unseenPostIds':
-                            setUnseenPostIdsState(data[stateName]);
-                            break;
-                        case 'conflictingResponses':
-                            setConflictingResponsesState(data[stateName]);
-                            break;
-                        case 'initialCodebookTable':
-                            setInitialCodebookTableState(data[stateName]);
-                            break;
-                        default:
-                            console.warn(`Unknown state name: ${stateName}`);
-                    }
-                }
-            });
+            return data;
         } catch (error) {
             console.error(`Error fetching states:`, error);
+            throw error;
         }
     };
 
@@ -221,17 +198,42 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 'additionalInfo',
                 'researchQuestions'
             ],
-            [PAGE_ROUTES.KEYWORD_CLOUD]: ['keywords', 'selectedKeywords'],
+            [PAGE_ROUTES.KEYWORD_CLOUD]: ['mainTopic', 'keywords', 'selectedKeywords'],
             [PAGE_ROUTES.KEYWORD_TABLE]: ['keywordTable'],
-            [PAGE_ROUTES.CODEBOOK_CREATION]: ['sampledPostResponse'],
+            [PAGE_ROUTES.CODEBOOK_CREATION]: ['sampledPostResponse', 'sampledPostIds'],
             [PAGE_ROUTES.INITIAL_CODEBOOK]: ['initialCodebookTable'],
-            [PAGE_ROUTES.DEDUCTIVE_CODING]: ['unseenPostResponse'],
+            [PAGE_ROUTES.DEDUCTIVE_CODING]: ['unseenPostResponse', 'unseenPostIds'],
             [PAGE_ROUTES.FINALIZING_CODES]: ['groupedCodes', 'unplacedSubCodes'],
             [PAGE_ROUTES.THEMES]: ['themes', 'unplacedCodes']
         };
         const statesToFetch = stateMap[page] || [];
         if (statesToFetch.length > 0) {
-            fetchStates(statesToFetch);
+            (async () => {
+                try {
+                    // Fetch only the required states
+                    const fetchedData = await fetchStates(statesToFetch);
+                    if (fetchedData) {
+                        // Update the required states with fetched data
+                        statesToFetch.forEach((stateName) => {
+                            if (
+                                fetchedData[stateName] !== undefined &&
+                                setterFunctions[stateName]
+                            ) {
+                                setterFunctions[stateName](fetchedData[stateName]);
+                            }
+                        });
+
+                        // Reset only the unused states
+                        // const allStates = Object.keys(setterFunctions);
+                        // const statesToReset = allStates.filter(
+                        //     (state) => !statesToFetch.includes(state)
+                        // );
+                        // statesToReset.forEach((state) => resetFunctions[state]());
+                    }
+                } catch (error) {
+                    console.error('Error in state fetching effect:', error);
+                }
+            })();
         }
     }, [location.pathname]);
 
@@ -442,15 +444,15 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         setSampledPostIds: async (idsOrUpdater) => {
             const newIds =
                 typeof idsOrUpdater === 'function' ? idsOrUpdater(sampledPostIds) : idsOrUpdater;
-            const data = await saveCodingContext('setSampledPostIds', { sampledPostIds: newIds });
-            if (data.sampledPostIds) setSampledPostIdsState(data.sampledPostIds);
+            // const data = await saveCodingContext('setSampledPostIds', { sampledPostIds: newIds });
+            if (newIds) setSampledPostIdsState(newIds);
         },
         unseenPostIds,
         setUnseenPostIds: async (idsOrUpdater) => {
             const newIds =
                 typeof idsOrUpdater === 'function' ? idsOrUpdater(unseenPostIds) : idsOrUpdater;
-            const data = await saveCodingContext('setUnseenPostIds', { unseenPostIds: newIds });
-            if (data.unseenPostIds) setUnseenPostIdsState(data.unseenPostIds);
+            // const data = await saveCodingContext('setUnseenPostIds', { unseenPostIds: newIds });
+            if (newIds) setUnseenPostIdsState(newIds);
         },
         conflictingResponses,
         setConflictingResponses: async (crsOrUpdater) => {

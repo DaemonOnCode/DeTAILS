@@ -30,7 +30,7 @@ const servicesConfig = (executablesPath) => {
         ollama: {
             name: 'ollama',
             folder: path.join(executablesPath, 'ollama'),
-            command: isWindows ? 'ollama.exe' : isDarwin ? './ollama-darwin': './ollama',
+            command: isWindows ? 'ollama.exe' : isDarwin ? './ollama-darwin' : './ollama',
             args: ['serve']
         }
     };

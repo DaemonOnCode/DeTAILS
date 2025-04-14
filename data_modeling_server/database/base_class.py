@@ -17,31 +17,6 @@ from decorators import handle_db_errors, auto_recover
 
 T = TypeVar("T") 
 
-class EnsureSchemaSynced:
-    def __init__(self, method):
-        """Initialize the decorator with the method to be decorated."""
-        self.method = method
-
-    def __get__(self, instance, owner):
-        """
-        Bind the method to the instance when accessed.
-        
-        Args:
-            instance: The instance of the class (self).
-            owner: The class owning the method.
-        
-        Returns:
-            A wrapper function bound to the instance.
-        """
-        @wraps(self.method)
-        def wrapper(*args, **kwargs):
-            if instance is not None:
-                # Access the instance (self) and call a method on it
-                instance.sync_table_schema()
-            # Call the original method with the instance and arguments
-            return self.method(instance, *args, **kwargs)
-        return wrapper
-
 class BaseRepository(Generic[T]):
     def __init__(self, table_name: str, model: Type[T], database_path: str = DATABASE_PATH):
         self.table_name = table_name

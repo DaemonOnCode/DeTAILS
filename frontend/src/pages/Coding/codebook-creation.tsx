@@ -208,7 +208,11 @@ const CodebookCreation = () => {
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
-            navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
+            navigate(
+                getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
+                    text: 'Initial Coding in Progress'
+                })
+            );
         }
     }, []);
 

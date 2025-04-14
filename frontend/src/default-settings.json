@@ -6,7 +6,8 @@
         "theme": "light",
         "language": "en",
         "keepSignedIn": false,
-        "manualCoding": false
+        "manualCoding": false,
+        "sampleRatio": 0.5
     },
     "workspace": {
         "layout": "grid"

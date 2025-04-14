@@ -148,7 +148,7 @@ class WorkspaceState(BaseDataclass):
 class SelectedPostId(BaseDataclass):
     dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
-    type: str = field(metadata={"not_null": True})  # "sampled" or "unseen" or "test"
+    type: str = field(metadata={"not_null": True})  # "sampled" or "unseen" or "test" corresponding to sampledPostReposne, UnseenPostResponse, and manualCoding Responses
 
 @dataclass
 class Theme(BaseDataclass):
@@ -497,6 +497,13 @@ class KeywordEntry(BaseDataclass):
     exclusion_criteria: Optional[str] = None
     is_marked: Optional[bool] = field(default=True)
 
+
+@dataclass
+class InitialCodebookEntry(BaseDataclass):
+    id: str = field(metadata={"primary_key": True})
+    coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
+    code: str = field(metadata={"not_null": True})
+    description: Optional[str] = None
 # @dataclass
 # class SelectedPostId(BaseDataclass):
 #     dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})

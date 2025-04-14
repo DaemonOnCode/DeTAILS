@@ -174,7 +174,10 @@ const DataViewerPage = () => {
                 workspace_id: currentWorkspace!.id,
                 dataset_id: datasetId,
                 post_ids: postIds,
-                divisions: settings.general.manualCoding ? 3 : 2
+                divisions: settings.general.manualCoding ? 3 : 2,
+                ...(!settings.general.manualCoding
+                    ? { sample_size: settings.general.sampleRatio }
+                    : {})
             })
         });
 
@@ -239,16 +242,15 @@ const DataViewerPage = () => {
                 );
                 throw new Error(codeError.message);
             }
-            console.error("Should end here if there's an error");
             return;
         }
 
         console.log('Results:', codeData);
 
-        dispatchSampledPostResponse({
-            type: 'SET_RESPONSES',
-            responses: codeData['data'].map((response: any) => ({ ...response, isMarked: true }))
-        });
+        // dispatchSampledPostResponse({
+        //     type: 'SET_RESPONSES',
+        //     responses: codeData['data'].map((response: any) => ({ ...response, isMarked: true }))
+        // });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: PAGE_ROUTES.CODEBOOK_CREATION

@@ -420,6 +420,51 @@ def filter_duplicate_codes(codes: List[Dict[str, Any]], parent_function_name: st
     
     return filtered_codes
 
+def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation_type: str, workspace_id: str, parent_function_name: str):
+    count_before = qect_repo.count({
+        "dataset_id": dataset_id,
+        "codebook_type": codebook_type,
+        "generation_type": generation_type
+    })
+
+    delete_query = """
+        DELETE FROM qect
+        WHERE id NOT IN (
+            SELECT MIN(id)
+            FROM qect
+            WHERE dataset_id = ? AND codebook_type = ? AND generation_type = ?
+            GROUP BY LOWER(TRIM(code)), LOWER(TRIM(quote))
+        )
+        AND dataset_id = ? AND codebook_type = ? AND generation_type = ?
+    """
+    params = (dataset_id, codebook_type, generation_type, dataset_id, codebook_type, generation_type)
+    qect_repo.execute_raw_query(delete_query, params)
+    
+    count_after = qect_repo.count({
+        "dataset_id": dataset_id,
+        "codebook_type": codebook_type,
+        "generation_type": generation_type
+    })
+    
+    duplicates_removed = count_before - count_after
+    
+    # Log the action
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps({
+                "duplicates_removed": duplicates_removed,
+                "dataset_id": dataset_id,
+                "codebook_type": codebook_type,
+                "generation_type": generation_type
+            }),
+            context=json.dumps({
+                "function": "llm_response_after_filtering_duplicates",
+                "parent_function_name": parent_function_name,
+                "workspace_id": workspace_id,
+            }),
+        )
+    )
+
 
 def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, workspace_id: str, model: str, codebook_type: str, parent_function_name: str = ""):
 #    for response in responses:

@@ -42,6 +42,25 @@ const GeneralSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) 
                     <span>Show Manual coding</span>
                 </label>
             </div>
+            <div className="mb-4">
+                <div className="flex justify-between items-center">
+                    <label className="font-medium">Sample Ratio</label>
+                    <span>{localGeneral.sampleRatio.toFixed(2)}</span>
+                </div>
+                <input
+                    type="range"
+                    min="0.01"
+                    max="0.99"
+                    step="0.01"
+                    value={localGeneral.sampleRatio}
+                    onChange={(e) => {
+                        const newValue = parseFloat(e.target.value);
+                        setLocalGeneral((prev) => ({ ...prev, sampleRatio: newValue }));
+                        markSectionDirty('general', true);
+                    }}
+                    className="w-full mt-1 custom-range"
+                />
+            </div>
             {/* Uncomment and update if needed */}
             {/* <div className="mb-4">
                 <label className="mr-2">Theme:</label>

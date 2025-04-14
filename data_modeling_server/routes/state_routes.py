@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 import os
 import shutil
 from typing import Any, Dict, List
@@ -9,13 +10,16 @@ from fastapi.responses import FileResponse
 from controllers.state_controller import delete_state, export_workspace, import_workspace, load_state, save_state
 from database.coding_context_table import CodingContextRepository
 from database.context_file_table import ContextFilesRepository
+from database.initial_codebook_table import InitialCodebookEntriesRepository
 from database.keyword_entry_table import KeywordEntriesRepository
 from database.keyword_table import KeywordsRepository
+from database.qect_table import QectRepository
 from database.research_question_table import ResearchQuestionsRepository
 from database.selected_keywords_table import SelectedKeywordsRepository
+from database.selected_post_ids_table import SelectedPostIdsRepository
 from models.state_models import LoadStateRequest, SaveStateRequest
-from models.table_dataclasses import CodingContext, ContextFile, Keyword, ResearchQuestion, SelectedKeyword
-from utils.reducers import process_keyword_table_action
+from models.table_dataclasses import CodebookType, CodingContext, ContextFile, GenerationType, Keyword, ResearchQuestion, SelectedKeyword, SelectedPostId
+from utils.reducers import process_initial_codebook_table_action, process_keyword_table_action, process_sampled_post_response_action, process_unseen_post_response_action
 
 
 router = APIRouter()
@@ -38,6 +42,9 @@ research_question_repo = ResearchQuestionsRepository()
 keywords_repo = KeywordsRepository()
 selected_keywords_repo = SelectedKeywordsRepository()
 keyword_entries_repo = KeywordEntriesRepository()
+qect_repo = QectRepository()
+selected_posts_repo = SelectedPostIdsRepository()
+initial_codebook_repo = InitialCodebookEntriesRepository()
 
 @router.post("/save-coding-context")
 async def save_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
@@ -157,9 +164,51 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             for ke in keyword_entries
         ]
         return {"success": True, "keywordTable": keyword_table}
+    elif operation_type == "dispatchSampledPostResponse":
+        action = request_body.get("action")
+        if not action or "type" not in action:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        process_sampled_post_response_action(workspace_id, action)
+        sampled_responses = qect_repo.find({
+            "workspace_id": workspace_id,
+            "codebook_type": CodebookType.INITIAL.value,
+            "generation_type": GenerationType.INITIAL.value
+        })
+        return {"success": True, "sampledPostResponse": [response.to_dict() for response in sampled_responses]}
+    
+    elif operation_type == "dispatchInitialCodebookTable":
+        action = request_body.get("action")
+        if not action or "type" not in action:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        process_initial_codebook_table_action(workspace_id, action)
+        codebook_entries = initial_codebook_repo.find({"workspace_id": workspace_id})  # Assuming a repo exists
+        return {"success": True, "initialCodebookTable": [entry.to_dict() for entry in codebook_entries]}
+    
+    elif operation_type == "setUnseenPostIds":
+        post_ids = request_body.get("unseenPostIds")
+        dataset_id = request_body.get("datasetId", workspace_id)
+        if not isinstance(post_ids, list):
+            raise HTTPException(status_code=400, detail="unseenPostIds must be a list")
+        selected_posts_repo.delete({"dataset_id": dataset_id, "type": "unseen"})
+        for post_id in post_ids:
+            selected_posts_repo.insert(SelectedPostId(dataset_id=dataset_id, post_id=post_id, type="unseen"))
+        return {"success": True, "unseenPostIds": post_ids}
+    
+    elif operation_type == "dispatchUnseenPostResponse":
+        action = request_body.get("action")
+        if not action or "type" not in action:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        process_unseen_post_response_action(workspace_id, action)
+        unseen_responses = qect_repo.find({
+            "workspace_id": workspace_id,
+            "codebook_type": CodebookType.DEDUCTIVE.value,  # Adjust based on frontend usage
+            "generation_type": GenerationType.LATEST.value
+        })
+        return {"success": True, "unseenPostResponse": [response.to_dict() for response in unseen_responses]}
 
     else:
-        raise HTTPException(status_code=400, detail="Invalid operation type")
+        print(f"Unknown operation type: {operation_type}")
+        return {"success": False}
 
 @router.post("/load-coding-context")
 async def load_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
@@ -178,7 +227,10 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
 
     states: List[str] = request_body.get("states", [])
     if not states:
-        states = ["mainTopic", "additionalInfo", "contextFiles", "researchQuestions", "keywords", "selectedKeywords", "keywordTable"]
+        states = [
+            "mainTopic", "additionalInfo", "contextFiles", "researchQuestions",
+            "keywords", "selectedKeywords", "keywordTable", "sampledPostIds", "sampledPostResponses"
+        ]
 
     response: Dict[str, Any] = {}
 
@@ -190,6 +242,7 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
     except Exception:
         coding_context = None
 
+    # Existing states (unchanged)
     if "mainTopic" in states:
         response["mainTopic"] = coding_context.main_topic or "" if coding_context else ""
     if "additionalInfo" in states:
@@ -218,6 +271,45 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
                 "isMarked": bool(ke.is_marked)
             }
             for ke in keyword_entries
+        ]
+
+    # New state: sampledPostIds
+    if "sampledPostIds" in states:
+        sampled_posts = selected_posts_repo.find({"dataset_id": workspace_id, "type": "sampled"})
+        response["sampledPostIds"] = [sp.post_id for sp in sampled_posts]
+
+    # New state: sampledPostResponses
+    if "sampledPostResponse" in states:
+        # Fetch sampled post IDs if not already fetched
+        sampled_post_ids = response.get("sampledPostIds", [])
+        if not sampled_post_ids and "sampledPostIds" not in states:
+            sampled_posts = selected_posts_repo.find({"dataset_id": workspace_id, "type": "sampled"})
+            sampled_post_ids = [sp.post_id for sp in sampled_posts]
+        post_id_placeholders = ', '.join(['?'] * len(sampled_post_ids))
+        qect_responses = qect_repo.execute_raw_query(f"""
+            SELECT * FROM qect
+            WHERE workspace_id = ?
+            AND post_id IN ({post_id_placeholders})
+            AND generation_type = ?
+            AND codebook_type = ?
+        """, (
+            workspace_id,
+            *sampled_post_ids, 
+            GenerationType.INITIAL.value,
+            CodebookType.INITIAL.value
+        ), True)
+        response["sampledPostResponse"] = [
+            {
+                "id": qr["id"],
+                "model": qr["model"],
+                "quote": qr["quote"],
+                "code": qr["code"],
+                "explanation": qr["explanation"],
+                "postId": qr["post_id"],
+                "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else [],
+                "isMarked": qr["is_marked"]
+            }
+            for qr in qect_responses
         ]
 
     return response
