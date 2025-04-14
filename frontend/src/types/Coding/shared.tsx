@@ -202,8 +202,8 @@ export interface KeywordEntry {
     word: string;
     description: string;
     codes?: string[];
-    inclusion_criteria: string[];
-    exclusion_criteria: string[];
+    inclusion_criteria: string;
+    exclusion_criteria: string;
     isMarked?: boolean;
 }
 

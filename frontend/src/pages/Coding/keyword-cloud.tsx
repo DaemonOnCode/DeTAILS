@@ -241,14 +241,14 @@ const KeywordCloudPage: FC = () => {
         }>(REMOTE_SERVER_ROUTES.GENERATE_KEYWORD_DEFINITIONS, {
             method: 'POST',
             body: JSON.stringify({
-                model: settings.ai.model,
-                main_topic: mainTopic,
-                additional_info: additionalInfo,
-                research_questions: researchQuestions,
-                selected_words: [
-                    ...new Set(keywords.filter((k) => selectedKeywords.some((sk) => sk === k.id)))
-                ],
-                dataset_id: datasetId
+                model: settings.ai.model
+                // main_topic: mainTopic,
+                // additional_info: additionalInfo,
+                // research_questions: researchQuestions,
+                // selected_words: [
+                //     ...new Set(keywords.filter((k) => selectedKeywords.some((sk) => sk === k.id)))
+                // ],
+                // dataset_id: datasetId
             })
         });
 
@@ -265,10 +265,10 @@ const KeywordCloudPage: FC = () => {
         }
         console.log(results, 'Keyword Table Page');
 
-        dispatchKeywordsTable({
-            type: 'INITIALIZE',
-            entries: results.results.map((res) => ({ ...res, isMarked: true }))
-        });
+        // dispatchKeywordsTable({
+        //     type: 'INITIALIZE',
+        //     entries: results.results.map((res) => ({ ...res, isMarked: true }))
+        // });
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',

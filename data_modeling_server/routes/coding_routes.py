@@ -18,6 +18,7 @@ from controllers.coding_controller import cluster_words_with_llm, filter_codes_b
 from controllers.collection_controller import count_comments, get_reddit_post_by_id
 from database.coding_context_table import CodingContextRepository
 from database.context_file_table import ContextFilesRepository
+from database.keyword_entry_table import KeywordEntriesRepository
 from database.keyword_table import KeywordsRepository
 from database.research_question_table import ResearchQuestionsRepository
 from database.selected_keywords_table import SelectedKeywordsRepository
@@ -25,7 +26,7 @@ from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GenerateKeywordDefinitionsRequest, GetCodedDataRequest, GroupCodesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
-from models.table_dataclasses import CodebookType, GenerationType, Keyword, ResponseCreatorType, SelectedKeyword, SelectedPostId, StateDump
+from models.table_dataclasses import CodebookType, GenerationType, Keyword, KeywordEntry, ResponseCreatorType, SelectedKeyword, SelectedPostId, StateDump
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository, QectRepository, SelectedPostIdsRepository
 from services.langchain_llm import LangchainLLMService, get_llm_service
@@ -47,6 +48,7 @@ context_files_repo = ContextFilesRepository()
 research_question_repo = ResearchQuestionsRepository()
 keywords_repo = KeywordsRepository()
 selected_keywords_repo = SelectedKeywordsRepository()
+keyword_entries_repo = KeywordEntriesRepository()
 
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
@@ -407,34 +409,30 @@ async def generate_definitions_endpoint(
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    """
-    Generate definitions, inclusion criteria, and exclusion criteria for a list of words
-    based on a main topic, research questions, and additional feedback using RAG.
-
-    Args:
-        contextFiles: Uploaded files providing context for retrieval.
-        model: The LLM model to use.
-        mainTopic: The primary topic of the research.
-        additionalFeedback: Optional feedback to guide generation.
-        researchQuestions: Research questions framing the study.
-        datasetId: Identifier for the dataset.
-        words: Comma-separated string of words to define.
-
-    Returns:
-        JSON response with results for each word.
-    """
-    model = request_body.model
-    mainTopic = request_body.main_topic
-    additionalFeedback = request_body.additional_info
-    researchQuestions = request_body.research_questions
-    datasetId = request_body.dataset_id
-    words = request_body.selected_words
-
-    if not datasetId or not len(words):
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
     
-    dataset_id = datasetId
     app_id = request.headers.get("x-app-id")
+    dataset_id = request.headers.get("x-workspace-id")
+    workspace_id = request.headers.get("x-workspace-id")
+    model = request_body.model
+    # mainTopic = request_body.main_topic
+    # additionalFeedback = request_body.additional_info
+    # researchQuestions = request_body.research_questions
+    # datasetId = request_body.dataset_id
+    # words = request_body.selected_words
+
+    coding_context = coding_context_repo.find_one({"id": workspace_id})
+
+    mainTopic = coding_context.main_topic
+    additionalInfo = coding_context.additional_info or ""
+    researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
+    keywords = keywords_repo.find({"coding_context_id": workspace_id})
+    selected_keywords = list(map(lambda x: x.keyword_id, selected_keywords_repo.find({"coding_context_id": workspace_id})))
+
+    words = set(list(map(lambda x: x.word, filter(lambda x: x.id in selected_keywords, keywords))))
+
+
+    if not len(words):
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
     
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing started.")
 
@@ -496,7 +494,7 @@ async def generate_definitions_endpoint(
         # Retrieve documents based on main topic
         input_text = (
                 f"Main Topic: {mainTopic}\n"
-                f"Additional information about main topic: {additionalFeedback}\n\n"
+                f"Additional information about main topic: {additionalInfo}\n\n"
                 f"Research Questions: {researchQuestions}\n"
                 f"Words to define: {', '.join(batch_words)}\n\n"
                 f"Provide the response in JSON format."
@@ -526,13 +524,33 @@ async def generate_definitions_endpoint(
         results.extend(parsed_output.get("keywords", []))
         print("Parsed output:", parsed_output)
 
+    # Convert results to KeywordEntry objects
+        keyword_entries = [
+            KeywordEntry(
+                id=str(uuid4()),
+                coding_context_id=workspace_id,
+                word=entry.get("word"),
+                description=entry.get("description"),
+                inclusion_criteria=", ".join(entry.get("inclusion_criteria")),
+                exclusion_criteria=", ".join(entry.get("exclusion_criteria")),
+            )
+            for entry in results
+        ]
+
+        try:
+            keyword_entries_repo.delete({"coding_context_id": workspace_id})
+        except Exception as e:
+            print(e)
+
+        keyword_entries_repo.insert_batch(keyword_entries)
+
         state_dump_repo.insert(
         StateDump(
             state=json.dumps({
                 "dataset_id": dataset_id,
                 "main_topic": mainTopic,
                 "research_questions": researchQuestions,
-                "additional_info": additionalFeedback,
+                "additional_info": additionalInfo,
                 "keywords": batch_words,
                 "results": results
             }),
@@ -549,7 +567,7 @@ async def generate_definitions_endpoint(
     
     return {
         "message": "Definitions generated successfully!",
-        "results": results
+        # "results": results
     }
 
 @router.post("/regenerate-keywords")

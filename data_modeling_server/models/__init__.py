@@ -34,5 +34,6 @@ from .table_dataclasses import (
     ContextFile,
     ResearchQuestion,
     Keyword,
-    SelectedKeyword
+    SelectedKeyword,
+    KeywordEntry
 )

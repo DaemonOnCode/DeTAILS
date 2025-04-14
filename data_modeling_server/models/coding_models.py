@@ -109,12 +109,12 @@ class GenerateDeductiveCodesRequest(BaseModel):
     post_ids: list
 
 class GenerateKeywordDefinitionsRequest(BaseModel):
-    dataset_id: str
+    # dataset_id: str
     model: str
-    main_topic: str
-    additional_info: str
-    research_questions: list 
-    selected_words: list
+    # main_topic: str
+    # additional_info: str
+    # research_questions: list 
+    # selected_words: list
 
 class GetCodedDataRequest(BaseModel):
     dataset_id: str

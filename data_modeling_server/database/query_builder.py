@@ -172,12 +172,29 @@ class QueryBuilder(Generic[T]):
         return queries_and_params
 
     def delete(self, filters: Dict[str, Any]) -> Tuple[str, Tuple[Any, ...]]:
-        for key, value in filters.items():
-            self._validate_column(key)
-            self._validate_value(key, value)
-        where_clause = " AND ".join([f"{key} = ?" for key in filters.keys()])
+        if not filters:
+            raise ValueError("Filters are required for delete operation to prevent accidental deletion of all records.")
+
+        clauses = []
+        params = []
+
+        for column, value in filters.items():
+            self._validate_column(column)
+
+            if isinstance(value, list):
+                if not value:
+                    raise ValueError(f"Filter for '{column}' cannot be an empty list.")
+                placeholders = ", ".join(["?"] * len(value))
+                clauses.append(f"{column} IN ({placeholders})")
+                params.extend(value)
+            else:
+                self._validate_value(column, value)
+                clauses.append(f"{column} = ?")
+                params.append(value)
+
+        where_clause = " AND ".join(clauses)
         query = f"DELETE FROM {self.table_name} WHERE {where_clause}"
-        return query, tuple(filters.values())
+        return query, tuple(params)
 
     def aggregate(self, function: str, column: str) -> Tuple[str, Tuple[Any, ...]]:
         self._validate_column(column)

@@ -487,14 +487,15 @@ class SelectedKeyword(BaseDataclass):
     id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
 
 
-# @dataclass
-# class KeywordEntry(BaseDataclass):
-#     id: str = field(metadata={"primary_key": True})
-#     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
-#     word: str = field(metadata={"not_null": True})
-#     description: Optional[str] = None
-#     inclusion_criteria: Optional[str] = None
-#     exclusion_criteria: Optional[str] = None
+@dataclass
+class KeywordEntry(BaseDataclass):
+    id: str = field(metadata={"primary_key": True})
+    coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
+    word: str = field(metadata={"not_null": True})
+    description: Optional[str] = None
+    inclusion_criteria: Optional[str] = None
+    exclusion_criteria: Optional[str] = None
+    is_marked: Optional[bool] = field(default=True)
 
 # @dataclass
 # class SelectedPostId(BaseDataclass):

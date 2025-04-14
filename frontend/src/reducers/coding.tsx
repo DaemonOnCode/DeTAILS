@@ -55,8 +55,8 @@ export const keywordTableReducer = (
                 word: '',
                 description: '',
                 codes: [],
-                inclusion_criteria: [],
-                exclusion_criteria: []
+                inclusion_criteria: '',
+                exclusion_criteria: ''
             };
             if (action.entry) {
                 newRow = action.entry;

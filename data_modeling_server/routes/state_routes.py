@@ -9,11 +9,13 @@ from fastapi.responses import FileResponse
 from controllers.state_controller import delete_state, export_workspace, import_workspace, load_state, save_state
 from database.coding_context_table import CodingContextRepository
 from database.context_file_table import ContextFilesRepository
+from database.keyword_entry_table import KeywordEntriesRepository
 from database.keyword_table import KeywordsRepository
 from database.research_question_table import ResearchQuestionsRepository
 from database.selected_keywords_table import SelectedKeywordsRepository
 from models.state_models import LoadStateRequest, SaveStateRequest
 from models.table_dataclasses import CodingContext, ContextFile, Keyword, ResearchQuestion, SelectedKeyword
+from utils.reducers import process_keyword_table_action
 
 
 router = APIRouter()
@@ -35,10 +37,19 @@ context_files_repo = ContextFilesRepository()
 research_question_repo = ResearchQuestionsRepository()
 keywords_repo = KeywordsRepository()
 selected_keywords_repo = SelectedKeywordsRepository()
+keyword_entries_repo = KeywordEntriesRepository()
 
 @router.post("/save-coding-context")
 async def save_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    # Get workspace ID from headers
+    """
+    Save changes to the coding context based on the operation type.
+    
+    Args:
+        request_body (Dict[str, Any]): JSON body containing 'type' and operation-specific data.
+    
+    Returns:
+        Dict[str, Any]: Success status and updated data.
+    """
     workspace_id = request.headers.get("x-workspace-id")
     if not workspace_id:
         raise HTTPException(status_code=400, detail="workspaceId is required")
@@ -50,12 +61,10 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         coding_context = CodingContext(id=workspace_id)
         coding_context_repo.insert(coding_context)
 
-    # Get operation type
     operation_type = request_body.get("type")
     if not operation_type:
         raise HTTPException(status_code=400, detail="Operation type is required")
 
-    # Handle operations
     if operation_type == "addContextFile":
         file_path = request_body.get("filePath")
         file_name = request_body.get("fileName")
@@ -98,23 +107,21 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             research_question_repo.insert(rq)
         return {"success": True, "researchQuestions": research_questions}
 
-    # New operation: setKeywords
     elif operation_type == "setKeywords":
         keywords = request_body.get("keywords")
         if not isinstance(keywords, list):
             raise HTTPException(status_code=400, detail="keywords must be a list")
-        keywords_repo.delete({"coding_context_id": workspace_id})  # Clear existing keywords
+        keywords_repo.delete({"coding_context_id": workspace_id})
         for kw in keywords:
-            keyword = Keyword(coding_context_id=workspace_id, word=kw["word"])
+            keyword = Keyword(coding_context_id=workspace_id, word=kw["word"], id=kw["id"])
             keywords_repo.insert(keyword)
         return {"success": True, "keywords": keywords}
 
-    # New operation: setSelectedKeywords
     elif operation_type == "setSelectedKeywords":
         selected_keywords = request_body.get("selectedKeywords")
         if not isinstance(selected_keywords, list):
             raise HTTPException(status_code=400, detail="selectedKeywords must be a list")
-        selected_keywords_repo.delete({"coding_context_id": workspace_id})  # Clear existing selected keywords
+        selected_keywords_repo.delete({"coding_context_id": workspace_id})
         for sk in selected_keywords:
             skw = SelectedKeyword(coding_context_id=workspace_id, keyword_id=sk)
             selected_keywords_repo.insert(skw)
@@ -123,13 +130,33 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
     elif operation_type == "resetContext":
         context_files_repo.delete({"coding_context_id": workspace_id})
         research_question_repo.delete({"coding_context_id": workspace_id})
-        keywords_repo.delete({"coding_context_id": workspace_id})  # Clear keywords
-        selected_keywords_repo.delete({"coding_context_id": workspace_id})  # Clear selected keywords
+        keywords_repo.delete({"coding_context_id": workspace_id})
+        selected_keywords_repo.delete({"coding_context_id": workspace_id})
         coding_context_repo.update(
             {"id": workspace_id},
             {"main_topic": None, "additional_info": None, "updated_at": datetime.now()}
         )
         return {"success": True, "message": "Context reset successfully"}
+
+    elif operation_type == "dispatchKeywordsTable":
+        action = request_body.get("action")
+        if not action or "type" not in action:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        process_keyword_table_action(workspace_id, action)
+        # Fetch and return the updated keywordTable
+        keyword_entries = keyword_entries_repo.find({"coding_context_id": workspace_id})
+        keyword_table = [
+            {
+                "id": ke.id,
+                "word": ke.word,
+                "description": ke.description,
+                "inclusion_criteria": ke.inclusion_criteria,
+                "exclusion_criteria": ke.exclusion_criteria,
+                "isMarked": bool(ke.is_marked)
+            }
+            for ke in keyword_entries
+        ]
+        return {"success": True, "keywordTable": keyword_table}
 
     else:
         raise HTTPException(status_code=400, detail="Invalid operation type")
@@ -138,28 +165,23 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
 async def load_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     """
     Load specific states of the coding context for a given workspace.
-
+    
     Args:
-        request_body (Dict[str, Any]): JSON body containing:
-            - states (List[str], optional): List of state names to retrieve 
-              (e.g., ["mainTopic", "keywords"]). If omitted, all states are returned.
-
+        request_body (Dict[str, Any]): JSON body containing 'states' (optional list of states to retrieve).
+    
     Returns:
         Dict[str, Any]: A dictionary containing the requested states.
     """
-    # Extract workspaceId and states from the request
     workspace_id = request.headers.get("x-workspace-id")
     if not workspace_id:
         raise HTTPException(status_code=400, detail="workspaceId is required")
 
     states: List[str] = request_body.get("states", [])
     if not states:
-        states = ["mainTopic", "additionalInfo", "contextFiles", "researchQuestions", "keywords", "selectedKeywords"]
+        states = ["mainTopic", "additionalInfo", "contextFiles", "researchQuestions", "keywords", "selectedKeywords", "keywordTable"]
 
-    # Initialize the response dictionary
     response: Dict[str, Any] = {}
 
-    # Fetch CodingContext only if needed
     try:
         if any(state in ["mainTopic", "additionalInfo"] for state in states):
             coding_context = coding_context_repo.find_one({"id": workspace_id})
@@ -168,7 +190,6 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
     except Exception:
         coding_context = None
 
-    # Populate the response with requested states
     if "mainTopic" in states:
         response["mainTopic"] = coding_context.main_topic or "" if coding_context else ""
     if "additionalInfo" in states:
@@ -185,6 +206,19 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
     if "selectedKeywords" in states:
         selected_keywords = selected_keywords_repo.find({"coding_context_id": workspace_id})
         response["selectedKeywords"] = [sk.keyword_id for sk in selected_keywords]
+    if "keywordTable" in states:
+        keyword_entries = keyword_entries_repo.find({"coding_context_id": workspace_id})
+        response["keywordTable"] = [
+            {
+                "id": ke.id,
+                "word": ke.word,
+                "description": ke.description,
+                "inclusion_criteria": ke.inclusion_criteria,
+                "exclusion_criteria": ke.exclusion_criteria,
+                "isMarked": bool(ke.is_marked)
+            }
+            for ke in keyword_entries
+        ]
 
     return response
 

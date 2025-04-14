@@ -20,15 +20,15 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
     // Local state for text fields
     const [localWord, setLocalWord] = useState(entry.word);
     const [localDescription, setLocalDescription] = useState(entry.description);
-    const [localInclusion, setLocalInclusion] = useState(entry.inclusion_criteria.join(', '));
-    const [localExclusion, setLocalExclusion] = useState(entry.exclusion_criteria.join(', '));
+    const [localInclusion, setLocalInclusion] = useState(entry.inclusion_criteria);
+    const [localExclusion, setLocalExclusion] = useState(entry.exclusion_criteria);
 
     // Sync local state with parent state when entry changes (e.g., due to undo)
     useEffect(() => {
         setLocalWord(entry.word);
         setLocalDescription(entry.description);
-        setLocalInclusion(entry.inclusion_criteria.join(', '));
-        setLocalExclusion(entry.exclusion_criteria.join(', '));
+        setLocalInclusion(entry.inclusion_criteria);
+        setLocalExclusion(entry.exclusion_criteria);
     }, [entry]);
 
     // Debounce updates and notify parent
@@ -40,19 +40,11 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
             if (localDescription !== entry.description) {
                 onFieldChange(index, 'description', localDescription);
             }
-            if (localInclusion !== entry.inclusion_criteria.join(', ')) {
-                onFieldChange(
-                    index,
-                    'inclusion_criteria',
-                    localInclusion.split(',').map((v) => v.trim())
-                );
+            if (localInclusion !== entry.inclusion_criteria) {
+                onFieldChange(index, 'inclusion_criteria', localInclusion);
             }
-            if (localExclusion !== entry.exclusion_criteria.join(', ')) {
-                onFieldChange(
-                    index,
-                    'exclusion_criteria',
-                    localExclusion.split(',').map((v) => v.trim())
-                );
+            if (localExclusion !== entry.exclusion_criteria) {
+                onFieldChange(index, 'exclusion_criteria', localExclusion);
             }
         }, 500); // 500ms debounce delay
         return () => clearTimeout(timer);
