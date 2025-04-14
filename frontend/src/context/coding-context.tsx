@@ -1,565 +1,367 @@
-import {
-    createContext,
-    useState,
-    FC,
-    useCallback,
-    useReducer,
-    useEffect,
-    useContext,
-    useRef,
-    Dispatch,
-    useImperativeHandle
-} from 'react';
-import { useMemo } from 'react';
-import {
-    IFile,
-    ILayout,
-    IReference,
-    IQECResponse,
-    ThemeBucket,
-    SetState,
-    GroupedCodeBucket
-} from '../types/Coding/shared';
-import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
-import { PAGE_ROUTES, ROUTES } from '../constants/Coding/shared';
-import { ICodingContext, Keyword } from '../types/Shared';
+import React, { createContext, useState, useEffect, useContext, FC } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useLoadingContext } from './loading-context';
+import { PAGE_ROUTES } from '../constants/Coding/shared';
+import { ICodingContext, Keyword } from '../types/Shared';
 import {
-    sampleDataResponseReducer,
-    sampleDataWithThemeResponseReducer,
-    unseenDataResponseReducer,
-    keywordTableReducer,
-    initialCodebookReducer
-} from '../reducers/coding';
-import { getGroupedCodeOfSubCode, getThemeByCode } from '../utility/theme-finder';
-import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
-import { v4 } from 'uuid';
+    IFile,
+    IReference,
+    IQECResponse,
+    IQECTResponse,
+    IQECTTyResponse,
+    ThemeBucket,
+    GroupedCodeBucket,
+    KeywordEntry,
+    InitialCodebookCode,
+    KeywordsTableAction,
+    SampleDataResponseReducerActions,
+    SampleDataWithThemeResponseReducerActions,
+    BaseResponseHandlerActions,
+    InitialCodebookTableAction
+} from '../types/Coding/shared';
+import { useApi } from '../hooks/Shared/use-api';
+import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
 
-const { ipcRenderer } = window.require('electron');
-
+// Define the CodingContext with default values
 export const CodingContext = createContext<ICodingContext>({
     contextFiles: {},
-    addContextFile: () => {},
-    removeContextFile: () => {},
+    addContextFile: async () => {},
+    removeContextFile: async () => {},
     mainTopic: '',
-    setMainTopic: () => {},
+    setMainTopic: async () => {},
     additionalInfo: '',
-    setAdditionalInfo: () => {},
+    setAdditionalInfo: async () => {},
     keywords: [],
-    setKeywords: () => {},
+    setKeywords: async () => {},
     selectedKeywords: [],
-    setSelectedKeywords: () => {},
+    setSelectedKeywords: async () => {},
     words: [],
-    setWords: () => {},
+    setWords: async () => {},
     selectedWords: [],
-    setSelectedWords: () => {},
+    setSelectedWords: async () => {},
     references: {},
-    setReferences: () => {},
+    setReferences: async () => {},
     keywordTable: [],
-    dispatchKeywordsTable: () => {},
-    updateContext: () => {},
-    resetContext: () => {},
+    dispatchKeywordsTable: async () => {},
+    updateContext: async () => {},
+    resetContext: async () => {},
     sampledPostResponse: [],
-    dispatchSampledPostResponse: () => {},
+    dispatchSampledPostResponse: async () => {},
     sampledPostResponseCopy: [],
-    setSampledPostResponseCopy: () => {},
+    setSampledPostResponseCopy: async () => {},
     sampledPostWithThemeResponse: [],
-    dispatchSampledPostWithThemeResponse: () => {},
+    dispatchSampledPostWithThemeResponse: async () => {},
     unseenPostResponse: [],
-    dispatchUnseenPostResponse: () => {},
+    dispatchUnseenPostResponse: async () => {},
     themes: [],
-    setThemes: () => {},
+    setThemes: async () => {},
     unplacedCodes: [],
-    setUnplacedCodes: () => {},
+    setUnplacedCodes: async () => {},
     groupedCodes: [],
-    setGroupedCodes: () => {},
+    setGroupedCodes: async () => {},
     unplacedSubCodes: [],
-    setUnplacedSubCodes: () => {},
+    setUnplacedSubCodes: async () => {},
     researchQuestions: [],
-    setResearchQuestions: () => {},
+    setResearchQuestions: async () => {},
     sampledPostIds: [],
-    setSampledPostIds: () => {},
+    setSampledPostIds: async () => {},
     unseenPostIds: [],
-    setUnseenPostIds: () => {},
+    setUnseenPostIds: async () => {},
     conflictingResponses: [],
-    setConflictingResponses: () => {},
+    setConflictingResponses: async () => {},
     initialCodebookTable: [],
-    dispatchInitialCodebookTable: () => {}
+    dispatchInitialCodebookTable: async () => {}
 });
 
-// Create a provider component
-export const CodingProvider: FC<ILayout> = ({ children }) => {
+// CodingProvider component
+export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
     const location = useLocation();
-    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
+    const { loadingState, loadingDispatch } = useLoadingContext();
+    const { fetchData } = useApi();
 
+    // State declarations with initial values
     const [contextFiles, setContextFiles] = useState<IFile>({});
     const [mainTopic, setMainTopic] = useState<string>('');
     const [additionalInfo, setAdditionalInfo] = useState<string>('');
     const [researchQuestions, setResearchQuestions] = useState<string[]>([]);
-
+    const [keywords, setKeywords] = useState<Keyword[]>([]);
+    const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
     const [words, setWords] = useState<Keyword[]>([]);
     const [selectedWords, setSelectedWords] = useState<Keyword[]>([]);
-
-    const [sampledPostIds, setSampledPostIds] = useState<string[]>([]);
-
-    const [unseenPostIds, setUnseenPostIds] = useState<string[]>([]);
-
-    const [sampledPostResponse, dispatchSampledPostResponse] = useReducer(
-        sampleDataResponseReducer,
-        []
-    );
-
+    const [references, setReferences] = useState<{ [code: string]: IReference[] }>({});
+    const [keywordTable, setKeywordTable] = useState<KeywordEntry[]>([]);
+    const [sampledPostResponse, setSampledPostResponse] = useState<IQECResponse[]>([]);
     const [sampledPostResponseCopy, setSampledPostResponseCopy] = useState<IQECResponse[]>([]);
-
-    const [sampledPostWithThemeResponse, dispatchSampledPostWithThemeResponse] = useReducer(
-        sampleDataWithThemeResponseReducer,
-        []
-    );
-
-    const [unseenPostResponse, dispatchUnseenPostResponse] = useReducer(
-        unseenDataResponseReducer,
-        []
-    );
-
-    const [conflictingResponses, setConflictingResponses] = useState<IQECResponse[]>([]);
-
-    const [keywords, setKeywords] = useState<Keyword[]>([]);
-    const [selectedKeywords, setSelectedKeywords] = useState<Keyword[]>([]);
-
-    const [references, setReferences] = useState<{
-        [code: string]: IReference[];
-    }>({});
-
-    const [keywordTable, dispatchKeywordsTable] = useReducer(keywordTableReducer, []);
-
+    const [sampledPostWithThemeResponse, setSampledPostWithThemeResponse] = useState<
+        IQECTResponse[]
+    >([]);
+    const [unseenPostResponse, setUnseenPostResponse] = useState<IQECTTyResponse[]>([]);
     const [themes, setThemes] = useState<ThemeBucket[]>([]);
-
     const [unplacedCodes, setUnplacedCodes] = useState<string[]>([]);
-
     const [groupedCodes, setGroupedCodes] = useState<GroupedCodeBucket[]>([]);
-
     const [unplacedSubCodes, setUnplacedSubCodes] = useState<string[]>([]);
+    const [sampledPostIds, setSampledPostIds] = useState<string[]>([]);
+    const [unseenPostIds, setUnseenPostIds] = useState<string[]>([]);
+    const [conflictingResponses, setConflictingResponses] = useState<IQECResponse[]>([]);
+    const [initialCodebookTable, setInitialCodebookTable] = useState<InitialCodebookCode[]>([]);
 
-    const [initialCodebookTable, dispatchInitialCodebookTable] = useReducer(
-        initialCodebookReducer,
-        []
-    );
+    // Map of state setters for dynamic updates
+    const stateSetters = {
+        contextFiles: setContextFiles,
+        mainTopic: setMainTopic,
+        additionalInfo: setAdditionalInfo,
+        researchQuestions: setResearchQuestions,
+        keywords: setKeywords,
+        selectedKeywords: setSelectedKeywords,
+        words: setWords,
+        selectedWords: setSelectedWords,
+        references: setReferences,
+        keywordTable: setKeywordTable,
+        sampledPostResponse: setSampledPostResponse,
+        sampledPostResponseCopy: setSampledPostResponseCopy,
+        sampledPostWithThemeResponse: setSampledPostWithThemeResponse,
+        unseenPostResponse: setUnseenPostResponse,
+        themes: setThemes,
+        unplacedCodes: setUnplacedCodes,
+        groupedCodes: setGroupedCodes,
+        unplacedSubCodes: setUnplacedSubCodes,
+        sampledPostIds: setSampledPostIds,
+        unseenPostIds: setUnseenPostIds,
+        conflictingResponses: setConflictingResponses,
+        initialCodebookTable: setInitialCodebookTable
+    };
 
-    // const toggleMode = useCallback(() => {
-    //     setCurrentMode((prevMode: Mode) => {
-    //         setModeInput('');
-    //         return prevMode === 'link' ? 'folder' : 'link';
-    //     });
-    // }, []);
-    const addContextFile = useCallback((filePath: string, fileName: string) => {
-        setContextFiles((prevFiles) => ({ ...prevFiles, [filePath]: fileName }));
-    }, []);
-
-    const removeContextFile = useCallback((filePath: string) => {
-        setContextFiles((prevFiles) => {
-            const newFiles = { ...prevFiles };
-            delete newFiles[filePath];
-            return newFiles;
-        });
-    }, []);
-
-    useEffect(() => {
-        console.log(location.pathname, 'pthname');
-    }, [location]);
-
-    const loadingStateInitialization: Record<
-        string,
-        {
-            relatedStates: {
-                state: any;
-                func: SetState<any> | Dispatch<any>;
-                name: string;
-                initValue?: any;
-            }[];
-            downloadData?: { name: string; data: any[]; condition?: boolean };
+    // Helper function to save context to the backend
+    const saveCodingContext = async (operationType: string, payload: object) => {
+        try {
+            const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.SAVE_CODING_CONTEXT, {
+                method: 'POST',
+                body: JSON.stringify({ type: operationType, ...payload })
+            });
+            if (error) throw new Error(`Failed to save context for ${operationType}`);
+            return data;
+        } catch (error) {
+            console.error(`Error in ${operationType}:`, error);
+            throw error;
         }
-    > = useMemo(
-        () => ({
-            [PAGE_ROUTES.CONTEXT_V2]: {
-                relatedStates: [
-                    {
-                        state: contextFiles,
-                        func: setContextFiles,
-                        name: 'setContextFiles'
-                    },
-                    { state: mainTopic, func: setMainTopic, name: 'setMainTopic' },
-                    { state: additionalInfo, func: setAdditionalInfo, name: 'setAdditionalInfo' },
-                    {
-                        state: researchQuestions,
-                        func: setResearchQuestions,
-                        name: 'setResearchQuestions'
-                    }
-                ]
-            },
-            [PAGE_ROUTES.KEYWORD_CLOUD]: {
-                relatedStates: [
-                    {
-                        state: keywords,
-                        func: setKeywords,
-                        name: 'setKeywords',
-                        initValue: [
-                            {
-                                id: '1',
-                                word: mainTopic
-                            }
-                        ]
-                    },
-                    {
-                        state: selectedKeywords,
-                        func: setSelectedKeywords,
-                        name: 'setSelectedKeywords',
-                        initValue: [
-                            {
-                                id: '1',
-                                word: mainTopic
-                            }
-                        ]
-                    }
-                ]
-            },
-            [PAGE_ROUTES.KEYWORD_TABLE]: {
-                relatedStates: [
-                    {
-                        state: keywordTable,
-                        func: dispatchKeywordsTable,
-                        name: 'dispatchKeywordsTable'
-                    }
-                ]
-            },
-            [PAGE_ROUTES.CODEBOOK_CREATION]: {
-                relatedStates: [
-                    {
-                        state: sampledPostResponse,
-                        func: dispatchSampledPostResponse,
-                        name: 'dispatchSampledPostResponse'
-                    },
-                    {
-                        state: sampledPostResponseCopy,
-                        func: setSampledPostResponseCopy,
-                        name: 'setSampledPostResponseCopy'
-                    },
-                    {
-                        state: sampledPostIds,
-                        func: setSampledPostIds,
-                        name: 'setSampledPostIds'
-                    },
-                    {
-                        state: unseenPostIds,
-                        func: setUnseenPostIds,
-                        name: 'setUnseenPostIds'
-                    }
-                ],
-                downloadData: { name: 'codebook', data: sampledPostResponse }
-            },
-            [PAGE_ROUTES.INITIAL_CODEBOOK]: {
-                relatedStates: [
-                    {
-                        state: initialCodebookTable,
-                        func: dispatchInitialCodebookTable,
-                        name: 'dispatchInitialCodebookTable'
-                    }
-                ]
-            },
-            [PAGE_ROUTES.DEDUCTIVE_CODING]: {
-                relatedStates: [
-                    {
-                        state: unseenPostResponse,
-                        func: dispatchUnseenPostResponse,
-                        name: 'dispatchUnseenPostResponse'
-                    }
-                ],
-                downloadData: { name: 'deductive_codebook', data: unseenPostResponse }
-            },
-            [PAGE_ROUTES.FINALIZING_CODES]: {
-                relatedStates: [
-                    { state: groupedCodes, func: setGroupedCodes, name: 'setGroupedCodes' },
-                    {
-                        state: unplacedSubCodes,
-                        func: setUnplacedSubCodes,
-                        name: 'setUnplacedSubCodes'
-                    }
-                ],
-                downloadData: {
-                    name: 'codebook_with_grouped_codes',
-                    condition: groupedCodes.length > 0,
-                    data: [
-                        ...sampledPostResponse.map((post) => ({
-                            postId: post.postId,
-                            id: post.id,
-                            code: getGroupedCodeOfSubCode(post.code, groupedCodes),
-                            quote: post.quote,
-                            explanation: post.explanation,
-                            comment: post.comment,
-                            subCode: post.code
-                        })),
-                        ...unseenPostResponse.map((post) => ({
-                            postId: post.postId,
-                            id: post.id,
-                            code: getGroupedCodeOfSubCode(post.code, groupedCodes),
-                            quote: post.quote,
-                            explanation: post.explanation,
-                            comment: post.comment,
-                            subCode: post.code
-                        }))
-                    ]
+    };
+
+    // Helper function to fetch states from the backend
+    const fetchStates = async (stateNames: string[]) => {
+        try {
+            if (stateNames.length === 0) return;
+            const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.LOAD_CODING_CONTEXT, {
+                method: 'POST',
+                body: JSON.stringify({ states: stateNames })
+            });
+            if (error) throw new Error(`Failed to fetch states: ${stateNames.join(', ')}`);
+            stateNames.forEach((stateName) => {
+                if (data[stateName] !== undefined) {
+                    stateSetters[stateName](data[stateName]);
                 }
-            },
-            [PAGE_ROUTES.THEMES]: {
-                relatedStates: [
-                    { state: themes, func: setThemes, name: 'setThemes' },
-                    { state: unplacedCodes, func: setUnplacedCodes, name: 'setUnplacedCodes' }
-                ],
-                downloadData: {
-                    name: 'codebook_with_themes',
-                    condition: themes.length > 0,
-                    data: [
-                        ...sampledPostResponse.map((post) => ({
-                            postId: post.postId,
-                            quote: post.quote,
-                            coded_word: post.code,
-                            reasoning: post.explanation,
-                            theme: getThemeByCode(post.code, themes, groupedCodes),
-                            id: post.id
-                        })),
-                        ...unseenPostResponse.map((post) => ({
-                            postId: post.postId,
-                            quote: post.quote,
-                            coded_word: post.code,
-                            reasoning: post.explanation,
-                            theme: getThemeByCode(post.code, themes, groupedCodes),
-                            id: post.id
-                        }))
-                    ]
-                }
+            });
+        } catch (error) {
+            console.error(`Error fetching states:`, error);
+        }
+    };
+
+    // Fetch states based on the current page when location changes
+    useEffect(() => {
+        const page = location.pathname;
+        const stateMap: Record<string, string[]> = {
+            [PAGE_ROUTES.CONTEXT_V2]: [
+                'contextFiles',
+                'mainTopic',
+                'additionalInfo',
+                'researchQuestions'
+            ],
+            [PAGE_ROUTES.KEYWORD_CLOUD]: ['keywords', 'selectedKeywords'],
+            [PAGE_ROUTES.KEYWORD_TABLE]: ['keywordTable'],
+            [PAGE_ROUTES.CODEBOOK_CREATION]: ['sampledPostResponse'],
+            [PAGE_ROUTES.INITIAL_CODEBOOK]: ['initialCodebookTable'],
+            [PAGE_ROUTES.DEDUCTIVE_CODING]: ['unseenPostResponse'],
+            [PAGE_ROUTES.FINALIZING_CODES]: ['groupedCodes', 'unplacedSubCodes'],
+            [PAGE_ROUTES.THEMES]: ['themes', 'unplacedCodes']
+        };
+        const statesToFetch = stateMap[page] || [];
+        if (statesToFetch.length > 0) {
+            fetchStates(statesToFetch);
+        }
+    }, [location.pathname]);
+
+    // Context value with methods to interact with the backend
+    const value: ICodingContext = {
+        contextFiles,
+        addContextFile: async (filePath: string, fileName: string) => {
+            const data = await saveCodingContext('addContextFile', { filePath, fileName });
+            if (data.contextFiles) setContextFiles(data.contextFiles);
+        },
+        removeContextFile: async (filePath: string) => {
+            const data = await saveCodingContext('removeContextFile', { filePath });
+            if (data.contextFiles) setContextFiles(data.contextFiles);
+        },
+        mainTopic,
+        setMainTopic: async (topic: string) => {
+            const data = await saveCodingContext('setMainTopic', { mainTopic: topic });
+            if (data.mainTopic !== undefined) setMainTopic(data.mainTopic);
+        },
+        additionalInfo,
+        setAdditionalInfo: async (info: string) => {
+            const data = await saveCodingContext('setAdditionalInfo', { additionalInfo: info });
+            if (data.additionalInfo !== undefined) setAdditionalInfo(data.additionalInfo);
+        },
+        keywords,
+        setKeywords: async (kws: Keyword[]) => {
+            const data = await saveCodingContext('setKeywords', { keywords: kws });
+            if (data.keywords) setKeywords(data.keywords);
+        },
+        selectedKeywords,
+        setSelectedKeywords: async (skws: string[]) => {
+            const data = await saveCodingContext('setSelectedKeywords', { selectedKeywords: skws });
+            if (data.selectedKeywords) setSelectedKeywords(data.selectedKeywords);
+        },
+        words,
+        setWords: async (wds: Keyword[]) => {
+            const data = await saveCodingContext('setWords', { words: wds });
+            if (data.words) setWords(data.words);
+        },
+        selectedWords,
+        setSelectedWords: async (swds: Keyword[]) => {
+            const data = await saveCodingContext('setSelectedWords', { selectedWords: swds });
+            if (data.selectedWords) setSelectedWords(data.selectedWords);
+        },
+        references,
+        setReferences: async (refs: { [code: string]: IReference[] }) => {
+            const data = await saveCodingContext('setReferences', { references: refs });
+            if (data.references) setReferences(data.references);
+        },
+        keywordTable,
+        dispatchKeywordsTable: async (action: KeywordsTableAction) => {
+            const data = await saveCodingContext('dispatchKeywordsTable', { action });
+            if (data.keywordTable) setKeywordTable(data.keywordTable);
+        },
+        updateContext: async (updates: Partial<ICodingContext>) => {
+            const data = await saveCodingContext('updateContext', updates);
+            Object.entries(data).forEach(([key, value]) => {
+                if (stateSetters[key]) stateSetters[key](value);
+            });
+        },
+        resetContext: async () => {
+            const data = await saveCodingContext('resetContext', {});
+            if (data.success) {
+                setContextFiles({});
+                setMainTopic('');
+                setAdditionalInfo('');
+                setResearchQuestions([]);
+                setKeywords([]);
+                setSelectedKeywords([]);
+                setWords([]);
+                setSelectedWords([]);
+                setReferences({});
+                setKeywordTable([]);
+                setSampledPostResponse([]);
+                setSampledPostResponseCopy([]);
+                setSampledPostWithThemeResponse([]);
+                setUnseenPostResponse([]);
+                setThemes([]);
+                setUnplacedCodes([]);
+                setGroupedCodes([]);
+                setUnplacedSubCodes([]);
+                setSampledPostIds([]);
+                setUnseenPostIds([]);
+                setConflictingResponses([]);
+                setInitialCodebookTable([]);
             }
-        }),
-        [
-            contextFiles,
-            mainTopic,
-            additionalInfo,
-            keywords,
-            selectedKeywords,
-            keywordTable,
-            sampledPostResponse,
-            unseenPostResponse,
-            themes,
-            unplacedCodes
-        ]
-    );
-
-    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.CONTEXT_V2]?.stepRef);
-    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.KEYWORD_CLOUD]?.stepRef);
-    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.KEYWORD_TABLE]?.stepRef);
-    useLoadingSteps(
-        loadingStateInitialization,
-        loadingState[PAGE_ROUTES.CODEBOOK_CREATION]?.stepRef
-    );
-    useLoadingSteps(
-        loadingStateInitialization,
-        loadingState[PAGE_ROUTES.INITIAL_CODEBOOK]?.stepRef
-    );
-    useLoadingSteps(
-        loadingStateInitialization,
-        loadingState[PAGE_ROUTES.DEDUCTIVE_CODING]?.stepRef
-    );
-    useLoadingSteps(
-        loadingStateInitialization,
-        loadingState[PAGE_ROUTES.FINALIZING_CODES]?.stepRef
-    );
-    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.THEMES]?.stepRef);
-
-    const updateContext = (updates: Partial<ICodingContext>) => {
-        console.log('Updates:', updates);
-        if (updates.contextFiles) setContextFiles(updates.contextFiles);
-        if (updates.mainTopic) setMainTopic(updates.mainTopic);
-        if (updates.additionalInfo) setAdditionalInfo(updates.additionalInfo);
-        if (updates.keywords) setKeywords(updates.keywords);
-        if (updates.selectedKeywords) setSelectedKeywords(updates.selectedKeywords);
-        if (updates.words) setWords(updates.words);
-        if (updates.selectedWords) setSelectedWords(updates.selectedWords);
-        if (updates.references) setReferences(updates.references);
-        if (updates.keywordTable) {
-            dispatchKeywordsTable({ type: 'INITIALIZE', entries: updates.keywordTable });
-        }
-        if (updates.sampledPostWithThemeResponse) {
-            dispatchSampledPostWithThemeResponse({
-                type: 'SET_RESPONSES',
-                responses: updates.sampledPostWithThemeResponse
+        },
+        sampledPostResponse,
+        dispatchSampledPostResponse: async (action: SampleDataResponseReducerActions) => {
+            const data = await saveCodingContext('dispatchSampledPostResponse', { action });
+            if (data.sampledPostResponse) setSampledPostResponse(data.sampledPostResponse);
+        },
+        sampledPostResponseCopy,
+        setSampledPostResponseCopy: async (copy: IQECResponse[]) => {
+            const data = await saveCodingContext('setSampledPostResponseCopy', {
+                sampledPostResponseCopy: copy
             });
-        }
-        if (updates.sampledPostResponse) {
-            dispatchSampledPostResponse({
-                type: 'SET_RESPONSES',
-                responses: updates.sampledPostResponse
+            if (data.sampledPostResponseCopy)
+                setSampledPostResponseCopy(data.sampledPostResponseCopy);
+        },
+        sampledPostWithThemeResponse,
+        dispatchSampledPostWithThemeResponse: async (
+            action: SampleDataWithThemeResponseReducerActions
+        ) => {
+            const data = await saveCodingContext('dispatchSampledPostWithThemeResponse', {
+                action
             });
-        }
-        if (updates.unseenPostResponse) {
-            dispatchUnseenPostResponse({
-                type: 'SET_RESPONSES',
-                responses: updates.unseenPostResponse
+            if (data.sampledPostWithThemeResponse)
+                setSampledPostWithThemeResponse(data.sampledPostWithThemeResponse);
+        },
+        unseenPostResponse,
+        dispatchUnseenPostResponse: async (action: BaseResponseHandlerActions<IQECTTyResponse>) => {
+            const data = await saveCodingContext('dispatchUnseenPostResponse', { action });
+            if (data.unseenPostResponse) setUnseenPostResponse(data.unseenPostResponse);
+        },
+        themes,
+        setThemes: async (tms: ThemeBucket[]) => {
+            const data = await saveCodingContext('setThemes', { themes: tms });
+            if (data.themes) setThemes(data.themes);
+        },
+        unplacedCodes,
+        setUnplacedCodes: async (codes: string[]) => {
+            const data = await saveCodingContext('setUnplacedCodes', { unplacedCodes: codes });
+            if (data.unplacedCodes) setUnplacedCodes(data.unplacedCodes);
+        },
+        groupedCodes,
+        setGroupedCodes: async (gcs: GroupedCodeBucket[]) => {
+            const data = await saveCodingContext('setGroupedCodes', { groupedCodes: gcs });
+            if (data.groupedCodes) setGroupedCodes(data.groupedCodes);
+        },
+        unplacedSubCodes,
+        setUnplacedSubCodes: async (subCodes: string[]) => {
+            const data = await saveCodingContext('setUnplacedSubCodes', {
+                unplacedSubCodes: subCodes
             });
-        }
-        if (updates.themes) setThemes(updates.themes);
-        if (updates.unplacedCodes) setUnplacedCodes(updates.unplacedCodes);
-        if (updates.groupedCodes) setGroupedCodes(updates.groupedCodes);
-        if (updates.unplacedSubCodes) setUnplacedSubCodes(updates.unplacedSubCodes);
-        if (updates.researchQuestions) setResearchQuestions(updates.researchQuestions);
-        if (updates.sampledPostIds) setSampledPostIds(updates.sampledPostIds);
-        if (updates.unseenPostIds) setUnseenPostIds(updates.unseenPostIds);
-        if (updates.conflictingResponses) setConflictingResponses(updates.conflictingResponses);
-        if (updates.initialCodebookTable) {
-            dispatchInitialCodebookTable({
-                type: 'INITIALIZE',
-                entries: updates.initialCodebookTable
+            if (data.unplacedSubCodes) setUnplacedSubCodes(data.unplacedSubCodes);
+        },
+        researchQuestions,
+        setResearchQuestions: async (rqs: string[]) => {
+            const data = await saveCodingContext('setResearchQuestions', {
+                researchQuestions: rqs
             });
+            if (data.researchQuestions) setResearchQuestions(data.researchQuestions);
+        },
+        sampledPostIds,
+        setSampledPostIds: async (ids: string[]) => {
+            const data = await saveCodingContext('setSampledPostIds', { sampledPostIds: ids });
+            if (data.sampledPostIds) setSampledPostIds(data.sampledPostIds);
+        },
+        unseenPostIds,
+        setUnseenPostIds: async (ids: string[]) => {
+            const data = await saveCodingContext('setUnseenPostIds', { unseenPostIds: ids });
+            if (data.unseenPostIds) setUnseenPostIds(data.unseenPostIds);
+        },
+        conflictingResponses,
+        setConflictingResponses: async (crs: IQECResponse[]) => {
+            const data = await saveCodingContext('setConflictingResponses', {
+                conflictingResponses: crs
+            });
+            if (data.conflictingResponses) setConflictingResponses(data.conflictingResponses);
+        },
+        initialCodebookTable,
+        dispatchInitialCodebookTable: async (action: InitialCodebookTableAction) => {
+            const data = await saveCodingContext('dispatchInitialCodebookTable', { action });
+            if (data.initialCodebookTable) setInitialCodebookTable(data.initialCodebookTable);
         }
     };
-
-    const resetContext = () => {
-        setContextFiles({});
-        setMainTopic('');
-        setAdditionalInfo('');
-        setKeywords([]);
-        setSelectedKeywords([]);
-        setWords([]);
-        setSelectedWords([]);
-        setReferences({});
-        dispatchKeywordsTable({ type: 'INITIALIZE', entries: [] });
-        dispatchSampledPostWithThemeResponse({ type: 'SET_RESPONSES', responses: [] });
-        dispatchSampledPostResponse({
-            type: 'SET_RESPONSES',
-            responses: []
-        });
-        dispatchUnseenPostResponse({
-            type: 'SET_RESPONSES',
-            responses: []
-        });
-        setThemes([]);
-        setUnplacedCodes([]);
-        setGroupedCodes([]);
-        setUnplacedSubCodes([]);
-        setResearchQuestions([]);
-        setSampledPostIds([]);
-        setUnseenPostIds([]);
-        setConflictingResponses([]);
-        dispatchInitialCodebookTable({ type: 'INITIALIZE', entries: [] });
-    };
-
-    useEffect(() => {
-        console.log(
-            'Rendering Keywordcloud',
-            selectedKeywords.find((kw) => kw.word === mainTopic)
-        );
-        if (!selectedKeywords.find((kw) => kw.word === mainTopic) && keywords.length > 0) {
-            setSelectedKeywords((prev) => [
-                ...prev,
-                {
-                    id: '1',
-                    word: mainTopic
-                }
-            ]);
-        }
-    }, [mainTopic, keywords]);
-
-    // useEffect(() => {
-    //     if (!keywords.includes(mainTopic)) {
-    //         setKeywords((prev) => [...prev, mainTopic]);
-    //     }
-    // }, [keywords]);
-
-    useEffect(() => {
-        console.log('KT update', keywordTable);
-    }, [keywordTable]);
-
-    const value = useMemo(
-        () => ({
-            contextFiles,
-            addContextFile,
-            removeContextFile,
-            // selectedPosts,
-            // setSelectedPosts,
-            mainTopic,
-            setMainTopic,
-            additionalInfo,
-            setAdditionalInfo,
-            keywords,
-            setKeywords,
-            selectedKeywords,
-            setSelectedKeywords,
-            words,
-            setWords,
-            selectedWords,
-            setSelectedWords,
-            references,
-            setReferences,
-            keywordTable,
-            dispatchKeywordsTable,
-            updateContext,
-            resetContext,
-            sampledPostResponse,
-            dispatchSampledPostResponse,
-            sampledPostResponseCopy,
-            setSampledPostResponseCopy,
-            sampledPostWithThemeResponse,
-            dispatchSampledPostWithThemeResponse,
-            unseenPostResponse,
-            dispatchUnseenPostResponse,
-            themes,
-            setThemes,
-            unplacedCodes,
-            setUnplacedCodes,
-            groupedCodes,
-            setGroupedCodes,
-            unplacedSubCodes,
-            setUnplacedSubCodes,
-            researchQuestions,
-            setResearchQuestions,
-            sampledPostIds,
-            setSampledPostIds,
-            unseenPostIds,
-            setUnseenPostIds,
-            conflictingResponses,
-            setConflictingResponses,
-            initialCodebookTable,
-            dispatchInitialCodebookTable
-        }),
-        [
-            // currentMode,
-            // modeInput,
-            // selectedPosts,
-            // subreddit,
-            contextFiles,
-            mainTopic,
-            additionalInfo,
-            keywords,
-            selectedKeywords,
-            words,
-            selectedWords,
-            keywordTable,
-            references,
-            sampledPostResponse,
-            sampledPostResponseCopy,
-            sampledPostWithThemeResponse,
-            unseenPostResponse,
-            themes,
-            unplacedCodes,
-            groupedCodes,
-            unplacedSubCodes,
-            researchQuestions,
-            sampledPostIds,
-            unseenPostIds,
-            conflictingResponses,
-            initialCodebookTable
-        ]
-    );
 
     return <CodingContext.Provider value={value}>{children}</CodingContext.Provider>;
 };
 
-export const useCodingContext = () => useContext(CodingContext);
+// Hook to use the CodingContext
+export const useCodingContext = () => {
+    const context = useContext(CodingContext);
+    if (!context) {
+        throw new Error('useCodingContext must be used within a CodingProvider');
+    }
+    return context;
+};

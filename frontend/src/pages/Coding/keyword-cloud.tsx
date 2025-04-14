@@ -87,9 +87,9 @@ const KeywordCloudPage: FC = () => {
     const toggleKeywordSelection = (keyword: Keyword) => {
         if (keyword.word === mainTopic) return;
         setSelectedKeywords((prevSelected) =>
-            prevSelected.some((k) => k.id === keyword.id)
-                ? prevSelected.filter((k) => k.id !== keyword.id)
-                : [...prevSelected, keyword]
+            prevSelected.some((k) => k === keyword.id)
+                ? prevSelected.filter((k) => k !== keyword.id)
+                : [...prevSelected, keyword.id]
         );
     };
 
@@ -137,15 +137,17 @@ const KeywordCloudPage: FC = () => {
             method: 'POST',
             body: JSON.stringify({
                 model: settings.ai.model,
-                mainTopic,
-                additionalInfo,
-                researchQuestions,
-                unselectedKeywords: keywords
-                    .filter((k) => !selectedKeywords.some((sk) => sk.id === k.id))
-                    .map((k) => k.word),
-                selectedKeywords: selectedKeywords.map((k) => k.word),
-                extraFeedback: feedback,
-                datasetId
+                // mainTopic,
+                // additionalInfo,
+                // researchQuestions,
+                // unselectedKeywords: keywords
+                //     .filter((k) => !selectedKeywords.some((sk) => sk === k.id))
+                //     .map((k) => k.word),
+                // selectedKeywords: keywords.filter((k) =>
+                //     selectedKeywords.some((sk) => sk === k.id)
+                // ),
+                extraFeedback: feedback
+                // datasetId
             })
         });
 
@@ -188,7 +190,7 @@ const KeywordCloudPage: FC = () => {
 
         setKeywords((prevKeywords) => {
             const filteredPrevKeywords = prevKeywords.filter((k) =>
-                selectedKeywords.some((sk) => sk.word === k.word)
+                selectedKeywords.some((sk) => sk === k.id)
             );
             const filteredNewKeywords = newKeywords.filter(
                 (nk) => !filteredPrevKeywords.some((pk) => pk.id === nk.id)
@@ -243,7 +245,9 @@ const KeywordCloudPage: FC = () => {
                 main_topic: mainTopic,
                 additional_info: additionalInfo,
                 research_questions: researchQuestions,
-                selected_words: [...new Set(selectedKeywords.map((k) => k.word))],
+                selected_words: [
+                    ...new Set(keywords.filter((k) => selectedKeywords.some((sk) => sk === k.id)))
+                ],
                 dataset_id: datasetId
             })
         });
@@ -275,19 +279,17 @@ const KeywordCloudPage: FC = () => {
 
     const handleSelectAll = (selectAll: boolean) => {
         if (selectAll) {
-            setSelectedKeywords([...keywords, { word: mainTopic, id: '1' }]);
+            setSelectedKeywords([...keywords.map((k) => k.id), '1']);
         } else {
             setSelectedKeywords([
-                ...keywords.filter((k) => k.word === mainTopic),
-                { word: mainTopic, id: '1' }
+                ...keywords.filter((k) => k.word === mainTopic).map((k) => k.id),
+                '1'
             ]);
         }
     };
 
     const checkIfReady = selectedKeywords.length > WORD_CLOUD_MIN_THRESHOLD;
-    const allSelected = keywords.every((keyword) =>
-        selectedKeywords.find((k) => k.id === keyword.id)
-    );
+    const allSelected = keywords.every((keyword) => selectedKeywords.find((k) => k === keyword.id));
     console.log(
         'allSelected',
         allSelected,
@@ -405,8 +407,7 @@ const KeywordCloudPage: FC = () => {
                                 Word list:{' '}
                                 {keywords
                                     .filter(
-                                        (keyword) =>
-                                            !selectedKeywords.find((k) => k.id === keyword.id)
+                                        (keyword) => !selectedKeywords.find((k) => k === keyword.id)
                                     )
                                     .map((keyword) => keyword.word)
                                     .join(', ')}

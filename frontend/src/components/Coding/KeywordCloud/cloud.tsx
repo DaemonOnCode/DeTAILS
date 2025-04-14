@@ -93,13 +93,13 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             setKeywords((prev) =>
                 prev.map((k) => (k.id === editingWordId ? { ...k, word: newWord } : k))
             );
-            setSelectedKeywords((prevSelected) =>
-                prevSelected.find((sk) => sk.id === editingWordId)
-                    ? prevSelected.map((sk) =>
-                          sk.id === editingWordId ? { ...sk, word: newWord } : sk
-                      )
-                    : [...prevSelected, { id: editingWordId, word: newWord }]
-            );
+            // setSelectedKeywords((prevSelected) =>
+            //     prevSelected.find((sk) => sk === editingWordId)
+            //         ? prevSelected.map((sk) =>
+            //               sk === editingWordId ? { ...sk, word: newWord } : sk
+            //           )
+            //         : [...prevSelected, { id: editingWordId, word: newWord }]
+            // );
         });
         setEditingWordId(null);
         setNewWord('');
@@ -368,9 +368,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                 {sortedKeywords.map((kw, idx) => {
                     // console.log('Rendering keyword:', kw, mainTopic);
                     const isMain = kw.text.word === mainTopic; // Updated here
-                    const isSelected = selectedKeywords.some(
-                        (sk) => sk.id === kw.text.id || isMain
-                    );
+                    const isSelected = selectedKeywords.some((sk) => sk === kw.text.id || isMain);
                     const bgClass = isSelected
                         ? 'bg-blue-200 text-blue-700'
                         : isMain

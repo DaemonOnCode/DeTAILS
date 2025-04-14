@@ -15,13 +15,13 @@ class SelectedPostIdsRequest(BaseModel):
     
 class RegenerateKeywordsRequest(BaseModel):
     model: str
-    mainTopic: str
-    additionalInfo: str = ""
-    researchQuestions: list
-    selectedKeywords: list
-    unselectedKeywords: list
+    # mainTopic: str
+    # additionalInfo: str = ""
+    # researchQuestions: list
+    # selectedKeywords: list
+    # unselectedKeywords: list
     extraFeedback: str = ""
-    datasetId: str 
+    # datasetId: str 
 
 
 class GenerateInitialCodesRequest(BaseModel):

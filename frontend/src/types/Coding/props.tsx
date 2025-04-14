@@ -174,10 +174,10 @@ export type ThemeCloudProps = {
 export type KeywordCloudProps = {
     mainTopic: string;
     keywords: Keyword[];
-    selectedKeywords: Keyword[];
+    selectedKeywords: string[];
     toggleKeywordSelection: (keyword: Keyword) => void;
     setKeywords: SetState<Keyword[]>;
-    setSelectedKeywords: SetState<Keyword[]>;
+    setSelectedKeywords: SetState<string[]>;
 };
 
 export type PostTranscriptProps = {

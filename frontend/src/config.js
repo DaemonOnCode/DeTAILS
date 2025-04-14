@@ -77,6 +77,9 @@ const config = {
             IMPORT_WORKSPACE: 'state/import-workspace',
             EXPORT_WORKSPACE: 'state/export-workspace',
 
+            SAVE_CODING_CONTEXT: 'state/save-coding-context',
+            LOAD_CODING_CONTEXT: 'state/load-coding-context',
+
             GET_MODEL_METADATA: 'data-modeling/metadata',
             GET_MODEL_SAMPLES: 'data-modeling/samples',
             ADD_MODEL: 'data-modeling/model',

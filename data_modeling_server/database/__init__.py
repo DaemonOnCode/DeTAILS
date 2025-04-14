@@ -29,6 +29,11 @@ from .theme_table import ThemesRepository
 from .subcode_table import SubcodesRepository
 from .error_table import ErrorLogRepository
 from .background_job import BackgroundJobsRepository
+from .coding_context_table import CodingContextRepository
+from .context_file_table import ContextFilesRepository
+from .research_question_table import ResearchQuestionsRepository
+from .keyword_table import KeywordsRepository
+from .selected_keywords_table import SelectedKeywordsRepository
 from .initialize import initialize_database, initialize_study_database
 from .db_helpers import execute_query, execute_query_with_retry
 
@@ -64,6 +69,11 @@ __all__ = [
     "LlmFunctionArgsRepository",
     "ErrorLogRepository",
     "BackgroundJobsRepository",
+    "CodingContextRepository",
+    "ContextFilesRepository",
+    "ResearchQuestionsRepository",
+    "KeywordsRepository",
+    "SelectedKeywordsRepository",
     "initialize_database",
     "initialize_study_database",
     "execute_query",

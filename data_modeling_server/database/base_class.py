@@ -1,3 +1,4 @@
+from functools import wraps
 import sqlite3
 from typing import Type, TypeVar, List, Optional, Dict, Any, Generic, get_type_hints
 from sqlite3 import Cursor, Row
@@ -16,6 +17,30 @@ from decorators import handle_db_errors, auto_recover
 
 T = TypeVar("T") 
 
+class EnsureSchemaSynced:
+    def __init__(self, method):
+        """Initialize the decorator with the method to be decorated."""
+        self.method = method
+
+    def __get__(self, instance, owner):
+        """
+        Bind the method to the instance when accessed.
+        
+        Args:
+            instance: The instance of the class (self).
+            owner: The class owning the method.
+        
+        Returns:
+            A wrapper function bound to the instance.
+        """
+        @wraps(self.method)
+        def wrapper(*args, **kwargs):
+            if instance is not None:
+                # Access the instance (self) and call a method on it
+                instance.sync_table_schema()
+            # Call the original method with the instance and arguments
+            return self.method(instance, *args, **kwargs)
+        return wrapper
 
 class BaseRepository(Generic[T]):
     def __init__(self, table_name: str, model: Type[T], database_path: str = DATABASE_PATH):
@@ -23,12 +48,64 @@ class BaseRepository(Generic[T]):
         self.model = model
         self.query_builder_instance = QueryBuilder(table_name, model)
         self.database_path = database_path
+        self.sync_table_schema()
 
     def query_builder(self) -> QueryBuilder[T]:
         return self.query_builder_instance
     
     def set_database_path(self, database_path: str) -> None:
         self.database_path = database_path
+
+    def get_table_schema(self) -> Dict[str, str]:
+        """Retrieve the current schema of the table as a name:type dictionary."""
+        try:
+            with sqlite3.connect(self.database_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(f"PRAGMA table_info({self.table_name})")
+                return {col[1]: col[2] for col in cursor.fetchall()}
+        except sqlite3.Error:
+            return {}
+
+    def get_model_fields(self) -> Dict[str, type]:
+        """Extract field names and types from the model."""
+        return {field.name: field.type for field in fields(self.model)}
+
+    def sync_table_schema(self) -> None:
+        """Sync the table schema with the model fields."""
+        # Check if table exists; create it if not
+        with sqlite3.connect(self.database_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{self.table_name}'")
+            if not cursor.fetchone():
+                # Create table based on model fields
+                model_fields = self.get_model_fields()
+                columns = ", ".join(f"{name} {SQLITE_TYPE_MAPPING.get(type_, 'TEXT')}"
+                                  for name, type_ in model_fields.items())
+                query = f"CREATE TABLE {self.table_name} ({columns})"
+                cursor.execute(query)
+                conn.commit()
+                return
+
+        # If table exists, sync by adding missing columns
+        table_schema = self.get_table_schema()
+        model_fields = self.get_model_fields()
+        missing_columns = set(model_fields.keys()) - set(table_schema.keys())
+
+        if missing_columns:
+            with sqlite3.connect(self.database_path) as conn:
+                cursor = conn.cursor()
+                for col in missing_columns:
+                    col_type = SQLITE_TYPE_MAPPING.get(model_fields[col], "TEXT")
+                    query = f"ALTER TABLE {self.table_name} ADD COLUMN {col} {col_type}"
+                    cursor.execute(query)
+                conn.commit()
+
+    def ensure_schema_synced(self, method):
+        """Decorator to ensure schema is synced before every method execution."""
+        def wrapper(*args, **kwargs):
+            self.sync_table_schema()
+            return method(self, *args, **kwargs)
+        return wrapper
     
     @handle_db_errors
     @auto_recover

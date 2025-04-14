@@ -451,3 +451,54 @@ class BackgroundJob(BaseDataclass):
     created_at: datetime = field(default_factory=datetime.now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+
+
+@dataclass
+class CodingContext(BaseDataclass):
+    id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True, "primary_key": True})
+    main_topic: Optional[str] = None
+    additional_info: Optional[str] = None
+    created_at: Optional[datetime] = field(default_factory=datetime.now)
+    updated_at: Optional[datetime] = field(default_factory=datetime.now)
+
+@dataclass
+class ContextFile(BaseDataclass):
+    coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
+    file_path: str = field(metadata={"not_null": True})
+    file_name: str = field(metadata={"not_null": True})
+    id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
+
+@dataclass
+class ResearchQuestion(BaseDataclass):
+    coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
+    question: str = field(metadata={"not_null": True})
+    id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
+
+@dataclass
+class Keyword(BaseDataclass):
+    id: str = field(metadata={"primary_key": True})
+    coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
+    word: str = field(metadata={"not_null": True})
+
+@dataclass
+class SelectedKeyword(BaseDataclass):
+    coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
+    keyword_id: str = field(metadata={"primary_key": True, "foreign_key": "keywords(id)"})
+    id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
+
+
+# @dataclass
+# class KeywordEntry(BaseDataclass):
+#     id: str = field(metadata={"primary_key": True})
+#     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
+#     word: str = field(metadata={"not_null": True})
+#     description: Optional[str] = None
+#     inclusion_criteria: Optional[str] = None
+#     exclusion_criteria: Optional[str] = None
+
+# @dataclass
+# class SelectedPostId(BaseDataclass):
+#     dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
+#     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
+#     type: str = field(metadata={"not_null": True}) 
+

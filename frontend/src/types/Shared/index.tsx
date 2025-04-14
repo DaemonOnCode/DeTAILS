@@ -94,8 +94,8 @@ export interface ICodingContext {
     setAdditionalInfo: SetState<string>;
     keywords: Keyword[];
     setKeywords: SetState<Keyword[]>;
-    selectedKeywords: Keyword[];
-    setSelectedKeywords: SetState<Keyword[]>;
+    selectedKeywords: string[];
+    setSelectedKeywords: SetState<string[]>;
     words: Keyword[];
     setWords: SetState<Keyword[]>;
     selectedWords: Keyword[];

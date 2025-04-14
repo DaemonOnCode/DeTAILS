@@ -16,11 +16,16 @@ from config import Settings, CustomSettings
 from constants import STUDY_DATABASE_PATH
 from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, filter_duplicate_codes, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
 from controllers.collection_controller import count_comments, get_reddit_post_by_id
+from database.coding_context_table import CodingContextRepository
+from database.context_file_table import ContextFilesRepository
+from database.keyword_table import KeywordsRepository
+from database.research_question_table import ResearchQuestionsRepository
+from database.selected_keywords_table import SelectedKeywordsRepository
 from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GenerateKeywordDefinitionsRequest, GetCodedDataRequest, GroupCodesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
-from models.table_dataclasses import CodebookType, GenerationType, ResponseCreatorType, SelectedPostId, StateDump
+from models.table_dataclasses import CodebookType, GenerationType, Keyword, ResponseCreatorType, SelectedKeyword, SelectedPostId, StateDump
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository, QectRepository, SelectedPostIdsRepository
 from services.langchain_llm import LangchainLLMService, get_llm_service
@@ -37,6 +42,11 @@ settings = Settings()
 function_progress_repo = FunctionProgressRepository()
 qect_repo = QectRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
+coding_context_repo = CodingContextRepository()
+context_files_repo = ContextFilesRepository()
+research_question_repo = ResearchQuestionsRepository()
+keywords_repo = KeywordsRepository()
+selected_keywords_repo = SelectedKeywordsRepository()
 
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
@@ -261,19 +271,21 @@ async def build_context_from_interests_endpoint(
     request: Request,
     contextFiles: List[UploadFile],
     model: str = Form(...),
-    mainTopic: str = Form(...),
-    additionalInfo: str = Form(""),
-    researchQuestions: str = Form(...),
-    datasetId: str = Form(...),
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    if not datasetId:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
-    dataset_id = datasetId
-
+    dataset_id = request.headers.get("x-workspace-id")
+    workspace_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
+
+    coding_context = coding_context_repo.find_one({"id": workspace_id})
+    if not coding_context:
+        raise HTTPException(status_code=404, detail="Coding context not found for the workspace.")
+
+    mainTopic = coding_context.main_topic
+    additionalInfo = coding_context.additional_info or ""
+    researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
+
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing started.")
 
     start_time = time.time()
@@ -314,7 +326,35 @@ async def build_context_from_interests_endpoint(
         parsed_keywords = {"keywords": parsed_keywords}
 
     keywords_list = parsed_keywords.get("keywords", [])
-    keywords_with_ids = [{"id": str(uuid4()), **word} for word in keywords_list]
+
+    keywords_with_ids = [Keyword(
+        id=str(uuid4()),
+        word=word.get("word"),
+        coding_context_id=workspace_id,
+    ) for word in keywords_list]
+
+    keywords_with_ids.append(Keyword(
+        id="1",
+        word=mainTopic,
+        coding_context_id=workspace_id,
+    ))
+
+    try:
+        keywords_repo.delete({"coding_context_id": workspace_id})
+        selected_keywords_repo.delete({"coding_context_id": workspace_id})
+    except Exception as e:
+        print(e)
+    
+    keywords_repo.insert_batch(keywords_with_ids)
+    selected_keywords_repo.insert(
+        SelectedKeyword(
+            keyword_id="1",
+            coding_context_id=workspace_id,
+        )
+    )
+    
+
+    # keywords_with_ids = [{"id": str(uuid4()), **word} for word in keywords_list]
 
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 
@@ -325,7 +365,13 @@ async def build_context_from_interests_endpoint(
                 "main_topic": mainTopic,
                 "research_questions": researchQuestions,
                 "additional_info": additionalInfo,
-                "keywords": keywords_with_ids
+                "keywords": [
+                    {
+                        "id": keywords_with_ids[idx].id,
+                         **word,
+                    }
+                    for idx, word in enumerate(keywords_list)
+                ]
             }),
             context=json.dumps({
                 "function": "keyword_cloud_table",
@@ -336,9 +382,11 @@ async def build_context_from_interests_endpoint(
         )
     )
 
+    
+
     return {
         "message": "Context built successfully!",
-        "keywords": keywords_with_ids
+        # "keywords": keywords_with_ids
     }
 
 def batch_list(lst, batch_size):
@@ -511,11 +559,20 @@ async def regenerate_keywords_endpoint(
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    dataset_id = request_body.datasetId
-    if not dataset_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
+    dataset_id = request.headers.get("x-workspace-id")
+    workspace_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
+
+    coding_context = coding_context_repo.find_one({"id": workspace_id})
+    if not coding_context:
+        raise HTTPException(status_code=404, detail="Coding context not found for the workspace.")
+
+    mainTopic = coding_context.main_topic
+    additionalInfo = coding_context.additional_info or ""
+    researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
+    keywords = keywords_repo.find({"coding_context_id": workspace_id})
+    selected_keywords = list(map(lambda x: x.keyword_id, selected_keywords_repo.find({"coding_context_id": workspace_id})))
+
     await manager.send_message(app_id, f"Dataset {dataset_id}: Regenerating keywords with feedback...")
 
     start_time = time.time()
@@ -524,6 +581,9 @@ async def regenerate_keywords_endpoint(
 
     vector_store = initialize_vector_store(dataset_id, request_body.model, embeddings)
     retriever = vector_store.as_retriever(search_kwargs={'k': 50})
+
+    selected_words = list(map(lambda x: x.word, filter(lambda x: x.id in selected_keywords, keywords)))
+    unselected_words = list(map(lambda x: x.word, filter(lambda x: x.id not in selected_keywords, keywords)))
 
     parsed_keywords = await process_llm_task(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -538,18 +598,18 @@ async def regenerate_keywords_endpoint(
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
         input_text=ContextPrompt.refined_context_builder( 
-            request_body.mainTopic, 
-            request_body.researchQuestions, 
-            request_body.additionalInfo, 
-            request_body.selectedKeywords, 
-            request_body.unselectedKeywords, 
+            mainTopic, 
+            researchQuestions, 
+            additionalInfo, 
+            selected_words, 
+            unselected_words, 
             request_body.extraFeedback
         ),
-        mainTopic=request_body.mainTopic,
-        researchQuestions=request_body.researchQuestions,
-        additionalInfo=request_body.additionalInfo,
-        selectedKeywords=request_body.selectedKeywords,
-        unselectedKeywords=request_body.unselectedKeywords,
+        mainTopic=mainTopic,
+        researchQuestions=researchQuestions,
+        additionalInfo=additionalInfo,
+        selectedKeywords=selected_words,
+        unselectedKeywords=unselected_words,
         extraFeedback=request_body.extraFeedback,
     )
 
@@ -557,7 +617,19 @@ async def regenerate_keywords_endpoint(
         parsed_keywords = {"keywords": parsed_keywords}
 
     keywords_list = parsed_keywords.get("keywords", [])
-    keywords_with_ids = [{"id": str(uuid4()), **word} for word in keywords_list]
+    keywords_with_ids = [Keyword(
+        id=str(uuid4()),
+        word=word.get("word"),
+        coding_context_id=workspace_id,
+    ) for word in keywords_list]
+
+    # try:
+    #     keywords_repo.delete({"coding_context_id": workspace_id})
+    # except Exception as e:
+    #     print(e)
+    
+    keywords_repo.insert_batch(keywords_with_ids)
+    # keywords_with_ids = [{"id": str(uuid4()), **word} for word in keywords_list]
 
     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 
@@ -569,7 +641,13 @@ async def regenerate_keywords_endpoint(
                 "research_questions": request_body.researchQuestions,
                 "additional_info": request_body.additionalInfo,
                 "feedback": request_body.extraFeedback,
-                "keywords": keywords_with_ids
+                "keywords": [
+                    {
+                        "id": keywords_with_ids[idx].id,
+                        **word,
+                    }
+                    for idx, word in enumerate(keywords_list)
+                ]
             }),
             context=json.dumps({
                 "function": "keyword_cloud_table",
@@ -582,7 +660,7 @@ async def regenerate_keywords_endpoint(
 
     return {
         "message": "Keywords regenerated successfully!",
-        "keywords": keywords_with_ids
+        # "keywords": keywords_with_ids
     }
 
 @router.post("/generate-initial-codes")

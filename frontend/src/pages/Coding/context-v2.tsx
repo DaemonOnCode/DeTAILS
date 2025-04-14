@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import FileCard from '../../components/Coding/Shared/file-card';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
@@ -14,10 +14,10 @@ import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { useLoadingContext } from '../../context/loading-context';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
-import { StepHandle } from '../../types/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { toast } from 'react-toastify';
+import { debounce } from 'lodash';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -31,61 +31,93 @@ const ContextPage = () => {
     const {
         contextFiles,
         addContextFile,
-        mainTopic,
-        additionalInfo,
+        mainTopic: globalMainTopic,
+        additionalInfo: globalAdditionalInfo,
         setAdditionalInfo,
         setMainTopic,
         removeContextFile,
         setKeywords,
-        researchQuestions,
+        researchQuestions: globalResearchQuestions,
         setResearchQuestions,
         dispatchKeywordsTable
     } = useCodingContext();
     const { settings } = useSettings();
-    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
+    const { loadingState, loadingDispatch } = useLoadingContext();
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { getServerUrl } = getServerUtils();
     const { fetchLLMData } = useApi();
+
+    // Local state for fields prone to frequent changes
+    const [localMainTopic, setLocalMainTopic] = useState(globalMainTopic);
+    const [localAdditionalInfo, setLocalAdditionalInfo] = useState(globalAdditionalInfo);
+    const [localResearchQuestions, setLocalResearchQuestions] = useState(globalResearchQuestions);
     const [newQuestion, setNewQuestion] = useState<string>('');
 
+    // Debounced update functions using useRef to persist across renders
+    const debouncedSetMainTopic = useRef(debounce((value) => setMainTopic(value), 500)).current;
+    const debouncedSetAdditionalInfo = useRef(
+        debounce((value) => setAdditionalInfo(value), 500)
+    ).current;
+    const debouncedSetResearchQuestions = useRef(
+        debounce((value) => setResearchQuestions(value), 500)
+    ).current;
+
+    // Sync local state with global state on mount or when global state changes
+    useEffect(() => {
+        setLocalMainTopic(globalMainTopic);
+    }, [globalMainTopic]);
+
+    useEffect(() => {
+        setLocalAdditionalInfo(globalAdditionalInfo);
+    }, [globalAdditionalInfo]);
+
+    useEffect(() => {
+        setLocalResearchQuestions(globalResearchQuestions);
+    }, [globalResearchQuestions]);
+
     const steps: TutorialStep[] = [
-        {
-            target: '#file-section',
-            content: 'Click "+ Add File" to add a file.'
-        },
+        { target: '#file-section', content: 'Click "+ Add File" to add a file.' },
         {
             target: '#topic-section',
             content: 'Enter your main topic of interest and related additional information.'
         },
-        {
-            target: '#research-section',
-            content: 'Add relevant research questions.'
-        },
-        {
-            target: '#proceed-next-step',
-            content: 'Proceed to next step',
-            placement: 'top left'
-        }
+        { target: '#research-section', content: 'Add relevant research questions.' },
+        { target: '#proceed-next-step', content: 'Proceed to next step', placement: 'top left' }
     ];
+
+    // Handlers for updating local state and triggering debounced global updates
+    const handleMainTopicChange = (value: string) => {
+        setLocalMainTopic(value);
+        debouncedSetMainTopic(value);
+    };
+
+    const handleAdditionalInfoChange = (value: string) => {
+        setLocalAdditionalInfo(value);
+        debouncedSetAdditionalInfo(value);
+    };
 
     const addQuestion = () => {
         if (newQuestion.trim() !== '') {
-            setResearchQuestions([...researchQuestions, newQuestion]);
+            const updatedQuestions = [...localResearchQuestions, newQuestion];
+            setLocalResearchQuestions(updatedQuestions);
+            debouncedSetResearchQuestions(updatedQuestions);
             setNewQuestion('');
         }
     };
 
     const updateQuestion = (index: number, updatedQuestion: string) => {
-        const updatedQuestions = researchQuestions.map((question, i) =>
+        const updatedQuestions = localResearchQuestions.map((question, i) =>
             i === index ? updatedQuestion : question
         );
-        setResearchQuestions(updatedQuestions);
+        setLocalResearchQuestions(updatedQuestions);
+        debouncedSetResearchQuestions(updatedQuestions);
     };
 
     const deleteQuestion = (index: number) => {
-        const updatedQuestions = researchQuestions.filter((_, i) => i !== index);
-        setResearchQuestions(updatedQuestions);
+        const updatedQuestions = localResearchQuestions.filter((_, i) => i !== index);
+        setLocalResearchQuestions(updatedQuestions);
+        debouncedSetResearchQuestions(updatedQuestions);
     };
 
     const adjustHeight = (element: any) => {
@@ -99,9 +131,9 @@ const ContextPage = () => {
         document
             .querySelectorAll('textarea.auto-height')
             .forEach((textarea) => adjustHeight(textarea));
-    }, [researchQuestions]);
+    }, [localResearchQuestions]);
 
-    const checkIfReady = Object.keys(contextFiles).length > 0 && mainTopic.length > 0;
+    const checkIfReady = Object.keys(contextFiles).length > 0 && localMainTopic.length > 0;
 
     const hasSavedRef = useRef(false);
     useEffect(() => {
@@ -122,12 +154,6 @@ const ContextPage = () => {
             });
         };
     }, []);
-
-    // useEffect(() => {
-    //     if (loadingState[ROUTES.LLM_CONTEXT_V2]) {
-    //         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
-    //     }
-    // }, [loadingState]);
 
     const handleSelectFiles = async () => {
         const files: { filePath: string; fileName: string }[] =
@@ -155,13 +181,9 @@ const ContextPage = () => {
                 "You have an unsaved research question. Please click 'Add' to include it or clear the text before proceeding."
             );
             throw new Error('Unsaved research question');
-            // return;
         }
         e.preventDefault();
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.KEYWORD_CLOUD
-        });
+        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.KEYWORD_CLOUD });
         await logger.info('Starting Theme Cloud Generation');
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
 
@@ -172,25 +194,22 @@ const ContextPage = () => {
             formData.append('contextFiles', blob, contextFiles[filePath]);
         });
         formData.append('model', settings.ai.model);
-        formData.append('mainTopic', mainTopic);
-        formData.append('additionalInfo', additionalInfo ?? '');
-        formData.append('retry', 'false');
-        formData.append('researchQuestions', JSON.stringify(researchQuestions));
-        formData.append('datasetId', datasetId);
+        // formData.append('mainTopic', localMainTopic); // Use local state
+        // formData.append('additionalInfo', localAdditionalInfo ?? ''); // Use local state
+        // formData.append('retry', 'false');
+        // formData.append('researchQuestions', JSON.stringify(localResearchQuestions)); // Use local state
+        // formData.append('datasetId', datasetId);
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
-            keywords: {
-                id: string;
-                word: string;
-                description: string;
-                inclusion_criteria: string[];
-                exclusion_criteria: string[];
-            }[];
-        }>(REMOTE_SERVER_ROUTES.BUILD_CONTEXT, {
-            method: 'POST',
-            body: formData
-        });
+            // keywords: {
+            //     id: string;
+            //     word: string;
+            //     description: string;
+            //     inclusion_criteria: string[];
+            //     exclusion_criteria: string[];
+            // }[];
+        }>(REMOTE_SERVER_ROUTES.BUILD_CONTEXT, { method: 'POST', body: formData });
 
         if (error) {
             console.error('Error building context:', error);
@@ -207,70 +226,17 @@ const ContextPage = () => {
         }
         console.log('Response from remote server', results);
 
-        if (results.keywords.length > 0) {
-            setKeywords((prev) => {
-                console.log(
-                    'Previous keywords',
-                    prev,
-                    results.keywords.filter(
-                        (keyword) => !prev.find((k) => k.word === keyword.word)
-                    ),
-                    results.keywords
-                        .filter((keyword) => !prev.find((k) => k.word === keyword.word))
-                        .map((keyword) => ({
-                            id: keyword.id,
-                            word: keyword.word
-                        }))
-                );
-                return results.keywords
-                    .filter((keyword) => prev.find((k) => k.word === keyword.word) === undefined)
-                    .map((keyword) => ({
-                        id: keyword.id,
-                        word: keyword.word
-                    }));
-            });
-        }
-        // dispatchKeywordsTable({
-        //     type: 'INITIALIZE',
-        //     entries: results.keywords.map((r) => ({ ...r, isMarked: true }))
-        // });
+        // if (results.keywords.length > 0) {
+        //     setKeywords((prev) =>
+        //         results.keywords
+        //             .filter((keyword) => prev.find((k) => k.word === keyword.word) === undefined)
+        //             .map((keyword) => ({ id: keyword.id, word: keyword.word }))
+        //     );
+        // }
         await logger.info('Theme Cloud generated');
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.KEYWORD_CLOUD
-        });
+        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.KEYWORD_CLOUD });
         navigate(PAGE_ROUTES.KEYWORD_CLOUD);
     };
-
-    // useEffect(() => {
-    //     const stepRoute = location.pathname;
-    //     registerStepRef(stepRoute, internalRef);
-    // }, []);
-
-    // Expose the imperative methods for this step via the forwarded ref.
-    // useImperativeHandle(loadingState[location.pathname].stepRef, () => ({
-    //     validateStep: () => {
-    //         if (Object.keys(contextFiles).length === 0) {
-    //             alert('Please add at least one context file.');
-    //             return false;
-    //         }
-    //         if (mainTopic.trim() === '') {
-    //             alert('Main topic is required.');
-    //             return false;
-    //         }
-    //         return true;
-    //     },
-    //     resetStep: () => {
-    //         // Reset context files
-    //         Object.keys(contextFiles).forEach((filePath) => {
-    //             removeContextFile(filePath);
-    //         });
-    //         // Reset main topic, additional info, and research questions
-    //         setMainTopic('');
-    //         setAdditionalInfo('');
-    //         setResearchQuestions([]);
-    //     }
-    // }));
 
     return (
         <>
@@ -313,8 +279,8 @@ const ContextPage = () => {
                                         maxLength={32}
                                         placeholder="Max 32 characters"
                                         className="p-2 border border-gray-300 rounded w-96"
-                                        value={mainTopic}
-                                        onChange={(e) => setMainTopic(e.target.value)}
+                                        value={localMainTopic}
+                                        onChange={(e) => handleMainTopicChange(e.target.value)}
                                     />
                                 </div>
                                 <div>
@@ -324,8 +290,8 @@ const ContextPage = () => {
                                     </p>
                                     <textarea
                                         className="p-2 border border-gray-300 rounded w-96 resize-none"
-                                        value={additionalInfo}
-                                        onChange={(e) => setAdditionalInfo(e.target.value)}
+                                        value={localAdditionalInfo}
+                                        onChange={(e) => handleAdditionalInfoChange(e.target.value)}
                                     />
                                 </div>
                             </section>
@@ -350,10 +316,10 @@ const ContextPage = () => {
                                         )}
                                     </div>
                                     <ul className="mt-4">
-                                        {researchQuestions.map((question, index) => (
+                                        {localResearchQuestions.map((question, index) => (
                                             <li key={index} className="flex items-start mb-4">
                                                 <textarea
-                                                    className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none"
+                                                    className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none auto-height"
                                                     value={question}
                                                     onChange={(e) =>
                                                         updateQuestion(index, e.target.value)

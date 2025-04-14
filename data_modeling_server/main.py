@@ -18,7 +18,8 @@ from database import (
     SubcodesRepository, SelectedPostIdsRepository,
     GroupedCodesRepository, GroupedCodeSubcodesRepository,
     ThemeCodesRepository, ThemesRepository,
-    ErrorLogRepository
+    ErrorLogRepository, CodingContextRepository,
+    ContextFilesRepository, ResearchQuestionsRepository,
 )
 from database.full_qect_table import FullQectRepository
 from database.initialize import initialize_study_database
@@ -110,7 +111,10 @@ if __name__ == "__main__":
         GroupedCodesRepository,
         GroupedCodeSubcodesRepository,
         ThemeCodesRepository,
-        ThemesRepository
+        ThemesRepository,
+        CodingContextRepository,
+        ContextFilesRepository,
+        ResearchQuestionsRepository,
     ])
 
     initialize_study_database([

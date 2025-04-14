@@ -60,26 +60,26 @@ const useWorkspaceUtils = () => {
                 models: modelingContext.models || []
             },
             coding_context: {
-                context_files: codingContext.contextFiles || {},
-                main_topic: codingContext.mainTopic || '',
-                additional_info: codingContext.additionalInfo || '',
-                research_questions: codingContext.researchQuestions || [],
-                keywords: codingContext.keywords || [],
-                selected_keywords: codingContext.selectedKeywords || [],
-                keyword_table: codingContext.keywordTable || [],
-                references: codingContext.references || {},
-                sampled_post_responses: codingContext.sampledPostResponse || [],
-                themes: codingContext.themes || [],
-                grouped_codes: codingContext.groupedCodes || [],
-                unplaced_codes: codingContext.unplacedCodes || [],
-                unplaced_subcodes: codingContext.unplacedSubCodes || [],
-                sampled_post_with_themes_responses:
-                    codingContext.sampledPostWithThemeResponse || [],
-                unseen_post_response: codingContext.unseenPostResponse || [],
-                sampled_post_ids: codingContext.sampledPostIds || [],
-                unseen_post_ids: codingContext.unseenPostIds || [],
-                conflicting_responses: codingContext.conflictingResponses || [],
-                initial_codebook: codingContext.initialCodebookTable || {}
+                // context_files: codingContext.contextFiles || {},
+                // main_topic: codingContext.mainTopic || '',
+                // additional_info: codingContext.additionalInfo || '',
+                // research_questions: codingContext.researchQuestions || [],
+                // keywords: codingContext.keywords || [],
+                // selected_keywords: codingContext.selectedKeywords || [],
+                // keyword_table: codingContext.keywordTable || [],
+                // references: codingContext.references || {},
+                // sampled_post_responses: codingContext.sampledPostResponse || [],
+                // themes: codingContext.themes || [],
+                // grouped_codes: codingContext.groupedCodes || [],
+                // unplaced_codes: codingContext.unplacedCodes || [],
+                // unplaced_subcodes: codingContext.unplacedSubCodes || [],
+                // sampled_post_with_themes_responses:
+                //     codingContext.sampledPostWithThemeResponse || [],
+                // unseen_post_response: codingContext.unseenPostResponse || [],
+                // sampled_post_ids: codingContext.sampledPostIds || [],
+                // unseen_post_ids: codingContext.unseenPostIds || [],
+                // conflicting_responses: codingContext.conflictingResponses || [],
+                // initial_codebook: codingContext.initialCodebookTable || {}
             },
             loading_context: {
                 page_state:
@@ -149,7 +149,7 @@ const useWorkspaceUtils = () => {
         console.log('Updating context data:', data);
         if (!data) {
             collectionContext.resetContext();
-            codingContext.resetContext();
+            // codingContext.resetContext();
             modelingContext.resetContext();
             loadingContext.resetContext();
             manualCodingContext.resetContext();
@@ -173,27 +173,27 @@ const useWorkspaceUtils = () => {
         });
 
         // Update coding context.
-        codingContext.updateContext({
-            mainTopic: data.main_topic ?? '',
-            additionalInfo: data.additional_info ?? '',
-            contextFiles: data.context_files ?? {},
-            keywords: data.keywords ?? [],
-            selectedKeywords: data.selected_keywords ?? [],
-            keywordTable: data.keyword_table ?? [],
-            references: data.references ?? {},
-            themes: data.themes ?? [],
-            groupedCodes: data.grouped_codes ?? [],
-            researchQuestions: data.research_questions ?? [],
-            sampledPostResponse: data.sampled_post_responses ?? [],
-            sampledPostWithThemeResponse: data.sampled_post_with_themes_responses ?? [],
-            unseenPostResponse: data.unseen_post_response ?? [],
-            unplacedCodes: data.unplaced_codes ?? [],
-            unplacedSubCodes: data.unplaced_subcodes ?? [],
-            sampledPostIds: data.sampled_post_ids ?? [],
-            unseenPostIds: data.unseen_post_ids ?? [],
-            conflictingResponses: data.conflicting_responses ?? [],
-            initialCodebookTable: data.initial_codebook ?? []
-        });
+        // codingContext.updateContext({
+        //     mainTopic: data.main_topic ?? '',
+        //     additionalInfo: data.additional_info ?? '',
+        //     contextFiles: data.context_files ?? {},
+        //     keywords: data.keywords ?? [],
+        //     selectedKeywords: data.selected_keywords ?? [],
+        //     keywordTable: data.keyword_table ?? [],
+        //     references: data.references ?? {},
+        //     themes: data.themes ?? [],
+        //     groupedCodes: data.grouped_codes ?? [],
+        //     researchQuestions: data.research_questions ?? [],
+        //     sampledPostResponse: data.sampled_post_responses ?? [],
+        //     sampledPostWithThemeResponse: data.sampled_post_with_themes_responses ?? [],
+        //     unseenPostResponse: data.unseen_post_response ?? [],
+        //     unplacedCodes: data.unplaced_codes ?? [],
+        //     unplacedSubCodes: data.unplaced_subcodes ?? [],
+        //     sampledPostIds: data.sampled_post_ids ?? [],
+        //     unseenPostIds: data.unseen_post_ids ?? [],
+        //     conflictingResponses: data.conflicting_responses ?? [],
+        //     initialCodebookTable: data.initial_codebook ?? []
+        // });
 
         loadingContext.updateContext({
             pageState: data.page_state ?? {}
@@ -219,7 +219,7 @@ const useWorkspaceUtils = () => {
             if (fetchResponse.error) {
                 resetContextData(
                     collectionContext,
-                    codingContext,
+                    // codingContext,
                     modelingContext,
                     loadingContext,
                     manualCodingContext
@@ -243,7 +243,7 @@ const useWorkspaceUtils = () => {
             } else {
                 resetContextData(
                     collectionContext,
-                    codingContext,
+                    // codingContext,
                     modelingContext,
                     loadingContext,
                     manualCodingContext
@@ -258,7 +258,7 @@ const useWorkspaceUtils = () => {
         } catch (error) {
             resetContextData(
                 collectionContext,
-                codingContext,
+                // codingContext,
                 modelingContext,
                 loadingContext,
                 manualCodingContext

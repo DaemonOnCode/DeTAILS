@@ -29,5 +29,10 @@ from .table_dataclasses import (
     Subcode,
     ErrorLog,
     StateDump,
-    BackgroundJob
+    BackgroundJob,
+    CodingContext,
+    ContextFile,
+    ResearchQuestion,
+    Keyword,
+    SelectedKeyword
 )
