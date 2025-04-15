@@ -9,7 +9,6 @@ const { ipcRenderer } = window.require('electron');
 const fs = window.require('fs');
 const path = window.require('path');
 
-// Define your interview data type, or replace 'any' with a proper interface
 type InterviewData = any;
 
 const useInterviewData = () => {
@@ -17,22 +16,20 @@ const useInterviewData = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
 
-    const { modeInput, setModeInput } = useCollectionContext();
+    const { modeInput } = useCollectionContext();
     const { currentWorkspace } = useWorkspaceContext();
     const { fetchData } = useApi();
 
-    // Reset data if there's no interview input
     useEffect(() => {
         if (!modeInput) {
             setData({});
         }
     }, [modeInput]);
 
-    // Helper function to send file data to the backend
     const sendInterviewFileToBackend = async (filePath: string): Promise<string> => {
         try {
             const fileContent = fs.readFileSync(filePath);
-            const blob = new Blob([fileContent]); // Create a Blob for FormData compatibility
+            const blob = new Blob([fileContent]);
             const formData = new FormData();
 
             formData.append('file', blob, path.basename(filePath));
@@ -48,14 +45,13 @@ const useInterviewData = () => {
                 throw new Error(`Failed to upload file: ${uploadResponse.error.message}`);
             }
             const result = uploadResponse.data;
-            return result.dataset_id; // Assuming the backend returns a dataset_id
+            return result.dataset_id;
         } catch (error) {
             console.error('Error uploading interview file:', error);
             throw error;
         }
     };
 
-    // Helper function to send raw text to the backend
     const sendInterviewTextToBackend = async (textData: string): Promise<string> => {
         try {
             const textResponse = await fetchData(REMOTE_SERVER_ROUTES.UPLOAD_INTERVIEW_DATA, {
@@ -74,7 +70,6 @@ const useInterviewData = () => {
         }
     };
 
-    // Main function to load interview data
     const loadInterviewData = async () => {
         setLoading(true);
         try {
@@ -86,17 +81,13 @@ const useInterviewData = () => {
             }
 
             let dataset_id = '';
-            // Check if modeInput points to a file by examining its extension.
             const ext = path.extname(modeInput).toLowerCase();
             if (['.txt', '.pdf', '.docx'].includes(ext)) {
-                // modeInput is assumed to be a file path.
                 dataset_id = await sendInterviewFileToBackend(modeInput);
             } else {
-                // Otherwise, assume it's raw text data.
                 dataset_id = await sendInterviewTextToBackend(modeInput);
             }
 
-            // After uploading, trigger parsing of the interview data.
             const parseResponse = await fetchData(REMOTE_SERVER_ROUTES.PARSE_INTERVIEW_DATA, {
                 method: 'POST',
                 body: JSON.stringify({ dataset_id })

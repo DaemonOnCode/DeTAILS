@@ -5,7 +5,6 @@ import 'react-toastify/dist/ReactToastify.css';
 
 type StateSetter<T> = (value: T) => void;
 
-// Custom toast component with an undo button
 interface UndoToastProps {
     undo: () => void;
     closeToast: () => void;
@@ -46,18 +45,16 @@ export function useUndo() {
                 batchUndoFunctions.current.push(undoFn);
             } else {
                 logOperation(undoFn);
-                // Show toast notification with undo button
                 toast.info(<UndoToast undo={undo} closeToast={() => toast.dismiss()} />, {
-                    autoClose: 5000, // Toast disappears after 5 seconds
-                    closeOnClick: false, // Prevent closing on click outside the button
-                    draggable: false // Prevent dragging
+                    autoClose: 5000,
+                    closeOnClick: false,
+                    draggable: false
                 });
             }
         },
         [logOperation, undo]
     );
 
-    // Start a batch
     const beginBatch = useCallback(() => {
         isBatching.current = true;
         batchUndoFunctions.current = [];
@@ -70,7 +67,6 @@ export function useUndo() {
             batchUndos.forEach((undoFn) => undoFn());
         };
         logOperation(batchUndoFn);
-        // Show toast for batch operation
         toast.info(<UndoToast undo={undo} closeToast={() => toast.dismiss()} />, {
             autoClose: 5000,
             closeOnClick: false,
@@ -153,7 +149,6 @@ export function useUndo() {
         dispatch(action);
     }
 
-    // Handle Ctrl + Z for undo
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.ctrlKey && event.key === 'z') {

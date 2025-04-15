@@ -87,8 +87,6 @@ export const useApi = (): UseApiResult => {
                 headers: mergedHeaders,
                 signal: controller.signal
             };
-            // console.log('Fetching data:', url, mergedOptions);
-
             if (route === REMOTE_SERVER_ROUTES.SAVE_STATE) {
                 console.log('Saving state:', location.pathname);
             } else {

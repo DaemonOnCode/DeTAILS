@@ -29,12 +29,6 @@ export function useLoadingSteps(
 ) {
     const { loadingState } = useLoadingContext();
 
-    // const handlerRef = useRef<LoadingHandlerRef>({
-    //     resetStep: () => {},
-    //     checkDataExistence: () => false,
-    //     downloadData: async () => {}
-    // });
-
     useImperativeHandle(
         pathRef,
         () => ({

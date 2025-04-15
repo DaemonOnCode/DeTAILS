@@ -1,25 +1,20 @@
 import { FC } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
-import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import { useNavigate } from 'react-router-dom';
-import { DetailsIcon } from '../../components/Shared/Icons';
+import { PAGE_ROUTES } from '../../constants/Coding/shared';
 
 interface HomeCard {
     title: string;
     description: string;
     steps: string[];
-    route?: string; // If you want to navigate to a specific route for each card
+    route?: string;
 }
 
 const HomePage: FC = () => {
-    const navigate = useNavigate();
-
     const cards: HomeCard[] = [
         {
             title: 'Background Research',
             description:
-                'Provide context and background to guide your thematic analysis. Includes LLM Context, Keyword Cloud, and Keyword Table.',
+                'Provide context and background to guide your thematic analysis. Includes Context, Related Concepts, and Concept Outline.',
             steps: ['Context', 'Related Concepts', 'Concept Outline']
         },
         {
@@ -31,7 +26,7 @@ const HomePage: FC = () => {
         {
             title: 'Coding',
             description:
-                'Create a codebook from a sample of your data. Add, update, or delete codes suggested by the LLM or created manually.',
+                'Perform coding and create a codebook from your data. Add, update, or delete codes suggested by the LLM or created manually.',
             steps: ['Initial Coding', 'Initial Codebook', 'Final Coding']
         },
         {
@@ -56,7 +51,6 @@ const HomePage: FC = () => {
 
     return (
         <div className="w-full min-h-page flex flex-col justify-between">
-            {/* Main content container */}
             <div className="flex-grow flex flex-col">
                 <h1 className="flex text-2xl font-bold p-4 text-center justify-center gap-1">
                     Welcome to{' '}
@@ -66,7 +60,6 @@ const HomePage: FC = () => {
                     Deep Thematic Analysis with Iterative LLM Support
                 </p>
 
-                {/* Card grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4 flex-grow">
                     {cards.map((card, idx) => (
                         <div
@@ -83,29 +76,11 @@ const HomePage: FC = () => {
                                     ))}
                                 </ul>
                             </div>
-
-                            {/* Example button linking to next route */}
-                            {/* <div className="mt-4">
-                                <button
-                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                                    onClick={() => {
-                                        // For example, navigate to the card.route
-                                        if (card.route) {
-                                            // e.g., if using next/router:
-                                            // router.push(card.route);
-                                            console.log(`Navigate to ${card.route}`);
-                                            navigate(`/${SHARED_ROUTES.CODING}/${card.route}`);
-                                        }
-                                    }}>
-                                    Go to {card.title}
-                                </button>
-                            </div> */}
                         </div>
                     ))}
                 </div>
             </div>
 
-            {/* Bottom navigation bar as per your example */}
             <NavigationBottomBar nextPage={PAGE_ROUTES.CONTEXT_V2} isReady={true} />
         </div>
     );

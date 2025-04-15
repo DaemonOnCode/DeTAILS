@@ -25,22 +25,18 @@ const useTxtImage = (txtUrl: string, scale: number = 1): UseTxtImageResult => {
                     throw new Error('Could not get canvas context');
                 }
 
-                // Set dimensions based on scale
                 const width = 600 * scale;
                 const height = 800 * scale;
                 canvas.width = width;
                 canvas.height = height;
 
-                // Fill background
                 context.fillStyle = '#fff';
                 context.fillRect(0, 0, width, height);
 
-                // Setup text style
                 context.fillStyle = '#000';
                 context.font = `${16 * scale}px Arial`;
                 const lineHeight = 20 * scale;
 
-                // Render only a portion of the text (first page)
                 const lines = text.split('\n').slice(0, 60);
                 let y = 20 * scale;
                 for (const line of lines) {
@@ -49,7 +45,6 @@ const useTxtImage = (txtUrl: string, scale: number = 1): UseTxtImageResult => {
                     if (y > height - lineHeight) break;
                 }
 
-                // Convert canvas content to data URL
                 const dataUrl = canvas.toDataURL();
                 setImgSrc(dataUrl);
             } catch (err: any) {

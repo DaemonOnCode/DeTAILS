@@ -3,7 +3,6 @@ import { RedditPosts } from '../../types/Coding/shared';
 import { DB_PATH } from '../../constants/Coding/shared';
 import { useCollectionContext } from '../../context/collection-context';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import getServerUtils from '../Shared/get-server-url';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { useApi } from '../Shared/use-api';
 
@@ -25,16 +24,6 @@ const useRedditData = () => {
             setData({});
         }
     }, [modeInput, datasetId]);
-
-    const omitFirstIfMatchesStructure = (dataArr: any[]) => {
-        if (Array.isArray(dataArr) && dataArr.length > 0) {
-            const firstElement = dataArr[0];
-            if (!firstElement.hasOwnProperty('id')) {
-                return dataArr.slice(1);
-            }
-        }
-        return dataArr;
-    };
 
     const sendFolderToBackendServer = async (folderPath: string) => {
         const files: string[] = fs.readdirSync(folderPath);
@@ -115,7 +104,6 @@ const useRedditData = () => {
             itemsPerPage
         });
 
-        // Prepare the request body with all parameters
         const requestBody = {
             workspace_id: workspaceId,
             dataset_id: datasetId,
@@ -145,16 +133,6 @@ const useRedditData = () => {
         return batchResponse.data;
     };
 
-    const loadRedditDataInBackground = useCallback(
-        async (folderPath: string, parsedData: RedditPosts) => {
-            if (!folderPath || Object.keys(parsedData).length === 0) return;
-            console.log('load-comments called');
-            const result = await ipcRenderer.invoke('load-data', folderPath, parsedData, DB_PATH);
-            console.log(result, 'load-data');
-        },
-        []
-    );
-
     const loadFolderData = async (addToDb: boolean = false, changeModeInput = false) => {
         setLoading(true);
         try {
@@ -162,11 +140,6 @@ const useRedditData = () => {
                 throw new Error('Workspace not found');
             }
             let folderPath = modeInput.split('|')?.[2];
-            // Uncomment and modify if you want to prompt for a folder:
-            // if (!modeInput && changeModeInput) {
-            //     folderPath = await ipcRenderer.invoke('select-folder-reddit');
-            //     setModeInput(`reddit:upload:${folderPath}`);
-            // }
 
             let currentDatasetId = datasetId;
             if (addToDb) {
@@ -235,19 +208,6 @@ const useRedditData = () => {
                 setModeInput(
                     `reddit|torrent|${torrentSubreddit}|${torrentStart}|${torrentEnd}|${torrentPostsOnly}|${useFallback}|${downloadDirectory}`
                 );
-                // const { data: checkResponse, error: checkError } = await fetchData<{
-                //     status: boolean;
-                //     files: string[];
-                // }>(REMOTE_SERVER_ROUTES.CHECK_PRIMARY_TORRENT, {
-                //     method: 'POST',
-                //     body: JSON.stringify({
-                //         subreddit: torrentSubreddit,
-                //         dataset_id: datasetId,
-                //         workspace_id: currentWorkspace.id
-                //     })
-                // });
-
-                // console.log('Check response:', checkResponse);
 
                 const torrentResponse = await fetchData(
                     REMOTE_SERVER_ROUTES.DOWNLOAD_REDDIT_DATA_FROM_TORRENT,
@@ -268,7 +228,6 @@ const useRedditData = () => {
 
                 if (torrentResponse.error) {
                     console.error('Failed to load torrent data:', torrentResponse.error);
-                    // setError('Failed to load torrent data.');
                     setError(torrentResponse.error.name);
                     throw new Error(torrentResponse.error.message.error_message);
                 } else {
