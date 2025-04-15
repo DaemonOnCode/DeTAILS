@@ -1,59 +1,39 @@
-import { useRef, useEffect, useImperativeHandle } from 'react';
+import { useEffect, useRef } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-coding-section';
-import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
+import { LOADER_ROUTES, PAGE_ROUTES } from '../../constants/Coding/shared';
 import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
-import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';
+import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
-import { useCollectionContext } from '../../context/collection-context';
-import useServerUtils from '../../hooks/Shared/get-server-url';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
-import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
-import { StepHandle } from '../../types/Shared';
+import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { useLoadingContext } from '../../context/loading-context';
-import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { toast } from 'react-toastify';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
-import { useWorkspaceContext } from '../../context/workspace-context';
 
-const CodebookCreation = () => {
+const DeductiveCodingPage = () => {
     const [searchParams] = useSearchParams();
     const reviewParam = searchParams.get('review') !== 'false';
 
+    const { unseenPostResponse, dispatchUnseenPostResponse, unseenPostIds } = useCodingContext();
     const { settings } = useSettings();
-
-    const {
-        sampledPostResponse,
-        dispatchSampledPostResponse,
-        sampledPostIds,
-        unseenPostIds,
-        mainTopic,
-        additionalInfo,
-        researchQuestions,
-        keywordTable,
-        dispatchInitialCodebookTable
-    } = useCodingContext();
     const location = useLocation();
-
     const logger = useLogger();
-    const { currentWorkspace } = useWorkspaceContext();
-    const { saveWorkspaceData } = useWorkspaceUtils();
     const navigate = useNavigate();
-    const { getServerUrl } = useServerUtils();
-    const { datasetId } = useCollectionContext();
+    const { saveWorkspaceData } = useWorkspaceUtils();
     const { fetchLLMData } = useApi();
 
-    const { loadingState, loadingDispatch, checkIfDataExists, resetDataAfterPage, openModal } =
+    const { loadingState, loadingDispatch, openModal, resetDataAfterPage, checkIfDataExists } =
         useLoadingContext();
     const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
-        logger.info('Code Creation Page Loaded');
+        logger.info('Deductive coding Page Loaded');
 
         return () => {
             if (!hasSavedRef.current) {
@@ -62,8 +42,8 @@ const CodebookCreation = () => {
                     hasSavedRef.current = false;
                 });
             }
-            logger.info('Code Creation Page Unloaded').then(() => {
-                logger.time('Code Creation Page stay time', { time: timer.end() });
+            logger.info('Deductive coding Page Unloaded').then(() => {
+                logger.time('Deductive coding Page stay time', { time: timer.end() });
             });
         };
     }, []);
@@ -71,17 +51,20 @@ const CodebookCreation = () => {
     const stepRoute = location.pathname;
 
     const handleRedoCoding = async () => {
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.CODEBOOK_CREATION
-        });
         navigate(
             getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
-                text: 'Initial Coding in Progress'
+                text: 'Final Coding in Progress'
             })
         );
 
-        const { data: results, error } = await fetchLLMData(REMOTE_SERVER_ROUTES.REMAKE_CODEBOOK, {
+        loadingDispatch({
+            type: 'SET_LOADING_ROUTE',
+            route: PAGE_ROUTES.DEDUCTIVE_CODING
+        });
+
+        const { data: results, error } = await fetchLLMData<{
+            message: string;
+        }>(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING, {
             method: 'POST',
             body: JSON.stringify({
                 model: settings.ai.model
@@ -90,10 +73,12 @@ const CodebookCreation = () => {
 
         if (error) {
             console.error('Error in handleRedoCoding:', error);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: PAGE_ROUTES.CODEBOOK_CREATION
-            });
+            if (error.name) {
+                loadingDispatch({
+                    type: 'SET_LOADING_DONE_ROUTE',
+                    route: PAGE_ROUTES.DEDUCTIVE_CODING
+                });
+            }
             return;
         }
 
@@ -101,25 +86,25 @@ const CodebookCreation = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.CODEBOOK_CREATION
+            route: PAGE_ROUTES.DEDUCTIVE_CODING
         });
-        navigate(PAGE_ROUTES.CODEBOOK_CREATION);
+        navigate(PAGE_ROUTES.DEDUCTIVE_CODING);
     };
 
     const handleNextClick = async () => {
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
-
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.INITIAL_CODEBOOK
+            route: PAGE_ROUTES.FINALIZING_CODES
         });
+        navigate(
+            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
+                text: 'Reviewing codes'
+            })
+        );
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
-            data: {
-                [code: string]: string;
-            };
-        }>(REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK_WITHOUT_QUOTES, {
+        }>(REMOTE_SERVER_ROUTES.GROUP_CODES, {
             method: 'POST',
             body: JSON.stringify({
                 model: settings.ai.model
@@ -127,13 +112,13 @@ const CodebookCreation = () => {
         });
 
         if (error) {
-            console.error('Error in handleNextClick:', error);
+            console.error('Error refreshing themes:', error);
             if (error.name !== 'AbortError') {
-                toast.error('Error generating codebook. Please try again.');
-                navigate(PAGE_ROUTES.CODEBOOK_CREATION);
+                toast.error('Error finalizing codes ' + (error.message ?? ''));
+                navigate(PAGE_ROUTES.DEDUCTIVE_CODING);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.INITIAL_CODEBOOK
+                    route: PAGE_ROUTES.FINALIZING_CODES
                 });
                 throw new Error(error.message);
             }
@@ -144,29 +129,27 @@ const CodebookCreation = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.INITIAL_CODEBOOK
+            route: PAGE_ROUTES.FINALIZING_CODES
         });
     };
 
-    // Define tutorial steps for Codebook Creation.
-    // Note that some targets are rendered in UnifiedCodingPage.
     const steps: TutorialStep[] = [
         {
             target: '#unified-coding-page',
             content:
-                'This area shows your unified coding interface with all your posts and coding responses for Codebook.',
+                'This area shows your unified coding interface with all your posts and coding responses for Final coding.',
             placement: 'bottom'
         },
         {
             target: '#coding-controls',
             content:
-                'Use these controls to download the codebook or toggle review mode for coding responses.',
+                'Use these controls to download the generated final codes or toggle review mode for coding responses.',
             placement: 'bottom'
         },
         {
             target: '#redo-coding-btn',
             content:
-                'Use this button to create a new codebook based on the previous codebook and some optional feedback.',
+                'Use this button to redo final coding based on the previously generated codes and some optional feedback.',
             placement: 'top'
         },
         {
@@ -178,11 +161,7 @@ const CodebookCreation = () => {
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
-            navigate(
-                getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
-                    text: 'Initial Coding in Progress'
-                })
-            );
+            navigate(getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER));
         }
     }, []);
 
@@ -198,22 +177,24 @@ const CodebookCreation = () => {
         <TutorialWrapper
             steps={steps}
             pageId={location.pathname}
-            excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.INITIAL_CODING_CODEBOOK}`}>
+            excludedTarget={`#route-${PAGE_ROUTES.DEDUCTIVE_CODING}`}>
             <div className="h-page flex flex-col">
                 <div className="flex-1 overflow-hidden">
-                    {/* Add an id to the container for tutorial targeting */}
-                    {/* <div id="unified-coding-page"> */}
                     <UnifiedCodingPage
-                        postIds={sampledPostIds}
-                        data={sampledPostResponse}
-                        dispatchFunction={dispatchSampledPostResponse}
-                        review={reviewParam}
-                        showCoderType={false}
-                        showCodebook={true}
+                        postIds={unseenPostIds}
+                        data={unseenPostResponse}
+                        dispatchFunction={dispatchUnseenPostResponse}
+                        // showThemes
                         showRerunCoding
+                        // split
+                        review={reviewParam}
+                        showCodebook
+                        showFilterDropdown
+                        applyFilters
+                        coderType="LLM"
                         handleRerun={() => {
                             if (checkIfDataExists(location.pathname)) {
-                                openModal('codebook-redo', async () => {
+                                openModal('deductive-coding-redo', async () => {
                                     await resetDataAfterPage(location.pathname);
                                     await handleRedoCoding();
                                 });
@@ -226,18 +207,16 @@ const CodebookCreation = () => {
                             }
                         }}
                     />
-                    {/* </div> */}
                 </div>
                 <NavigationBottomBar
-                    previousPage={PAGE_ROUTES.DATASET_CREATION}
-                    nextPage={PAGE_ROUTES.INITIAL_CODEBOOK}
+                    previousPage={PAGE_ROUTES.INITIAL_CODEBOOK}
+                    nextPage={PAGE_ROUTES.FINALIZING_CODES}
                     isReady={true}
                     onNextClick={handleNextClick}
-                    // autoNavigateToNext={!settings.general.manualCoding}
                 />
             </div>
         </TutorialWrapper>
     );
 };
 
-export default CodebookCreation;
+export default DeductiveCodingPage;

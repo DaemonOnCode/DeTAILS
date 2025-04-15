@@ -41,7 +41,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     clearedToLeaveRef,
     showBackButton = true
 }) => {
-    // Get common state and helpers from the Transcript Context.
     const {
         selectedText,
         setSelectedText,
@@ -77,8 +76,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         }
     }, [codeSet]);
 
-    // console.log(processedSegments, codeSet);
-
     const [selectedCode, setSelectedCode] = useState<string>('');
     const [reasoning, setReasoning] = useState<string>('');
 
@@ -103,10 +100,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     console.log('Current References:', currentReferences, codeResponses);
 
     const [references, setReferences] = useState<Record<string, IReference[]>>(currentReferences);
-
-    // useEffect(() => {
-    //     setReferences(currentReferences);
-    // }, [codeResponses]);
 
     useEffect(() => {
         console.log('Current config:', currentReferences, references);
@@ -171,7 +164,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         setSelectedCode('null');
     };
 
-    // Helper to detect a single key difference between two reference maps.
     function findSingleKeyDifference(
         oldReferences: Record<string, IReference[]>,
         newReferences: Record<string, IReference[]>,
@@ -213,7 +205,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         return null;
     }
 
-    // Apply code actions (add/edit/delete highlight) to the selected text.
     const applyCodeToSelection = (type: string, extra?: any) => {
         if (!isActive) return;
         console.log('Applying code to selection:', selectedText, selectedCode, type);
@@ -249,7 +240,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             rangeMarker: selectedTextMarker
                         }
                     });
-                    // Include state resets in the batch so they’re undone together
                     performWithUndo(
                         [selectedCode, reasoning],
                         [setSelectedCode, setReasoning],
@@ -261,7 +251,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 });
                 break;
             case 'EDIT_HIGHLIGHT':
-                // difference = findSingleKeyDifference(currentReferences, references, 'modified');
                 batch(() => {
                     console.log('Edit Difference:', difference, extra);
                     performWithUndoForReducer(codeResponses, dispatchCodeResponse, {
@@ -278,8 +267,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 difference = findSingleKeyDifference(currentReferences, references, 'removed');
                 console.log('Delete Difference:', difference, extra);
                 batch(() => {
-                    // difference = findSingleKeyDifference(currentReferences, references, 'removed');
-                    // console.log('Delete Difference:', difference, extra);
                     performWithUndoForReducer(codeResponses, dispatchCodeResponse, {
                         type: 'DELETE_HIGHLIGHT',
                         postId: post.id,
@@ -331,7 +318,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     ) : (
         <div className="flex flex-col h-full overflow-hidden">
             <div className="flex flex-1 overflow-hidden m-6">
-                {/* Left Section: Transcript */}
                 <div className="flex-1 flex flex-col overflow-hidden">
                     {showBackButton && (
                         <button
@@ -375,7 +361,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                                     ))}
                             </p>
                         </div>
-                        {/* Comments Section */}
                         <h2 className="text-lg font-semibold mb-2">Comments</h2>
                         <div className="max-h-full">
                             <RedditComments
@@ -388,7 +373,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         </div>
                     </div>
                 </div>
-                {/* Right Section: Related Codes */}
                 <div className="w-1/3 pl-4 flex flex-col overflow-hidden">
                     <div className="flex-1 overflow-y-auto">
                         <RelatedCodes
@@ -407,13 +391,11 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                                 },
                                 {} as Record<string, number>
                             )}
-                            // selectedExplanationsWithCode={selectedExplanations}
                             dispatchFunction={dispatchCodeResponse}
                             conflictingCodes={conflictingCodes}
                         />
                     </div>
                 </div>
-                {/* Modals */}
                 {isAddCodeModalOpen && isActive && (
                     <AddCodeModal
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}

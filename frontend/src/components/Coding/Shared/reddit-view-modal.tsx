@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { RedditViewModalProps } from '../../../types/Coding/props';
 import { useCollectionContext } from '../../../context/collection-context';
 import { motion } from 'framer-motion';
+import { useWorkspaceContext } from '../../../context/workspace-context';
 const { ipcRenderer } = window.require('electron');
 
 const RedditViewModal = ({
@@ -18,7 +19,7 @@ const RedditViewModal = ({
         height: 400
     });
 
-    const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
 
     useEffect(() => {
         if (isViewOpen) {
@@ -30,17 +31,16 @@ const RedditViewModal = ({
                 closeBrowserView();
             }
         };
-    }, [isViewOpen, postLink, postText]); // Added dependencies to prevent unnecessary cleanup
+    }, [isViewOpen, postLink, postText]);
 
     const openBrowserView = async (postLink: string, postText?: string) => {
-        // if (!postLink) return; // Avoid running if postLink is missing
         try {
             const result = await ipcRenderer.invoke(
                 'render-reddit-webview',
                 postLink,
                 postText,
                 postId,
-                datasetId
+                currentWorkspace!.id
             );
             console.log(result);
             setBrowserViewBounds(result);
@@ -62,14 +62,13 @@ const RedditViewModal = ({
 
     return (
         <>
-            {/* Modal Overlay */}
             {isViewOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50">
                     <div
-                        className="relative bg-white rounded-lg shadow-lg p-8" // Increased padding
+                        className="relative bg-white rounded-lg shadow-lg p-8"
                         style={{
-                            width: `${browserViewBounds.width + 120}px`, // Adjusted width to add padding for close button
-                            height: `${browserViewBounds.height + 120}px` // Adjusted height to add padding for close button
+                            width: `${browserViewBounds.width + 120}px`,
+                            height: `${browserViewBounds.height + 120}px`
                         }}>
                         <button
                             onClick={closeBrowserView}

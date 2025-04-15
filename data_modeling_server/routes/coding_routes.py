@@ -1030,6 +1030,9 @@ async def theme_generation_endpoint(
     grouped_qec = defaultdict(list)
     for row in rows:
         higher_code = grouped_codes_repo.find_one({"coding_context_id": dataset_id, "code": row["code"]})
+        if not higher_code:
+            continue
+        print("Higher code:", higher_code)
         row["code"] = higher_code.higher_level_code
         grouped_qec[higher_code.higher_level_code].append({
             "quote": row["quote"],
@@ -1163,7 +1166,11 @@ async def redo_theme_generation_endpoint(
 
     grouped_qec = defaultdict(list)
     for row in rows:
-        higher_code = grouped_codes_repo.find_one({"dataset_id": dataset_id, "code": row["code"]})
+        higher_code = grouped_codes_repo.find_one({"coding_context_id": dataset_id, "code": row["code"]})
+        if not higher_code:
+            continue
+        print("Higher code:", higher_code)
+        row["code"] = higher_code.higher_level_code
         grouped_qec[higher_code.higher_level_code].append({
             "quote": row["quote"],
             "explanation": row["explanation"]
@@ -1225,6 +1232,27 @@ async def redo_theme_generation_endpoint(
     placed_codes = {code for theme in themes for code in theme["codes"]}
     unplaced_codes = list(set(summaries.keys()) - placed_codes)
 
+    themes_repo.insert_batch([
+        ThemeEntry(
+            higher_level_code=code, 
+            theme=theme["theme"], 
+            theme_id=theme["id"],
+            coding_context_id=dataset_id,
+        ) 
+        for theme in themes for code in theme["codes"] 
+    ])
+
+    themes_repo.insert_batch([
+        ThemeEntry(
+            higher_level_code=code, 
+            theme=None,
+            theme_id=None,
+            coding_context_id=dataset_id,
+        ) 
+        for code in unplaced_codes
+    ])
+
+
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation redo completed.")
 
     await asyncio.sleep(5)
@@ -1247,10 +1275,6 @@ async def redo_theme_generation_endpoint(
 
     return {
         "message": "Themes regenerated successfully!",
-        "data": {
-            "themes": themes,
-            "unplaced_codes": unplaced_codes
-        }
     }
 
 
@@ -2076,7 +2100,7 @@ async def generate_codebook_without_quotes_endpoint(
 
     return {
         "message": "Codebook generated successfully!",
-        # "data": parsed_response if not (isinstance(parsed_response, list) and len(parsed_response) == 0) else {}
+        "data": parsed_response if manual_coding else {}
     }
     
 @router.post("/regenerate-codebook-without-quotes")
@@ -2141,6 +2165,18 @@ async def regenerate_codebook_without_quotes_endpoint(
         feedback = request_body.feedback
     )
 
+    initial_codebook_repo.insert_batch(
+            [
+                InitialCodebookEntry(
+                    id=str(uuid4()),
+                    coding_context_id=request.headers.get("x-workspace-id"),
+                    code= pr[0],
+                    definition= pr[1],
+                    manual_coding=False
+                ) for pr in  parsed_response.items() 
+            ]
+        )
+
     state_dump_repo.insert(
             StateDump(
                 state=json.dumps({
@@ -2168,7 +2204,7 @@ async def generate_deductive_codes_endpoint(
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request_body.dataset_id
-    batch_size = 1000
+    batch_size = 100
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 

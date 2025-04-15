@@ -378,7 +378,8 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
                 "explanation": qr["explanation"],
                 "postId": qr["post_id"],
                 "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else None,
-                "isMarked": bool(qr["is_marked"])
+                "isMarked": bool(qr["is_marked"]),
+                "rangeMarker": json.loads(qr["range_marker"]) if qr["range_marker"] else None,
             }
             for qr in qect_responses
         ]
@@ -413,7 +414,8 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
                 "explanation": qr["explanation"],
                 "postId": qr["post_id"],
                 "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else None,
-                "isMarked": bool(qr["is_marked"])
+                "isMarked": bool(qr["is_marked"]),
+                "rangeMarker": json.loads(qr["range_marker"]) if qr["range_marker"] else None,
             }
             for qr in qect_responses
         ]
@@ -447,8 +449,12 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
         ]
 
     if "unplacedSubCodes" in states:
-        unplaced_entries = grouped_codes_repo.find({"coding_context_id": workspace_id, "higher_level_code": None})
-        response["unplacedSubCodes"] = [entry.code for entry in unplaced_entries]
+        unplaced_entries = grouped_codes_repo.execute_raw_query(
+            "SELECT * FROM grouped_code_entries WHERE coding_context_id = ? AND higher_level_code IS NULL",
+            (workspace_id,),
+            keys=True
+        )
+        response["unplacedSubCodes"] = [entry["code"] for entry in unplaced_entries]
     
     if "themes" in states:
         theme_entries = themes_repo.execute_raw_query(
@@ -468,9 +474,14 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
         ]
 
     if "unplacedCodes" in states:
-        unplaced_entries = themes_repo.find({"coding_context_id": workspace_id, "theme": None})
-        response["unplacedCodes"] = [entry.higher_level_code for entry in unplaced_entries]
+        unplaced_entries = themes_repo.execute_raw_query(
+            "SELECT * FROM theme_entries WHERE coding_context_id = ? AND theme IS NULL",
+            (workspace_id,),
+            keys=True
+        )
+        response["unplacedCodes"] = [entry["higher_level_code"] for entry in unplaced_entries]
 
+    print(f"Loaded coding context for workspace {workspace_id}: {response}")
     return response
 
 @router.post("/load-state")

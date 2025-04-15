@@ -2,34 +2,25 @@ import { RouteObject } from 'react-router-dom';
 import HomePage from '../pages/Coding/home';
 import {
     CodeBookLoaderPage,
-    CodingValidationLoaderPage,
     DataLoadingLoaderPage,
     DeductiveCodingLoaderPage,
-    FinalLoaderPage,
-    FlashcardsLoaderPage,
     ThemeGenerationLoaderPage,
     ThemeLoaderPage,
-    TorrentLoaderPage,
-    WordCloudLoaderPage
+    TorrentLoaderPage
 } from '../pages/Coding/Loader';
 import {
-    ContextV2Page,
-    KeywordTablePage,
-    KeywordCloudPage,
     TranscriptPage,
     ThemesPage,
-    SplitCheckPage,
-    EncodedDataPage,
-    TranscriptsPage,
-    LoadDataPage,
-    AnalysisPage,
-    CodebookCreationPage,
     ManualCodingPage,
-    DeductiveCodingPage,
     FinalizingCodesPage,
-    InitialCodeBookPage
+    InitialCodeBookPage,
+    ContextPage,
+    ConceptOutlinePage,
+    FinalCodingPage,
+    InitialCodingPage,
+    RelevantConceptsPage,
+    ReportPage
 } from '../pages/Coding';
-import { ROUTES as COLLECTION_ROUTES } from '../constants/DataCollection/shared';
 import {
     HomePage as CollectionHomePage,
     DataViewerPage,
@@ -43,9 +34,9 @@ export const CodingRouter: RouteObject[] = [
     {
         path: ROUTES.BACKGROUND_RESEARCH,
         children: [
-            { path: ROUTES.LLM_CONTEXT_V2, element: <ContextV2Page />, index: true },
-            { path: ROUTES.KEYWORD_CLOUD, element: <KeywordCloudPage /> },
-            { path: ROUTES.KEYWORD_TABLE, element: <KeywordTablePage /> }
+            { path: ROUTES.LLM_CONTEXT_V2, element: <ContextPage />, index: true },
+            { path: ROUTES.KEYWORD_CLOUD, element: <RelevantConceptsPage /> },
+            { path: ROUTES.KEYWORD_TABLE, element: <ConceptOutlinePage /> }
         ]
     },
     {
@@ -59,36 +50,16 @@ export const CodingRouter: RouteObject[] = [
             {
                 path: ROUTES.DATA_VIEWER,
                 element: <DataViewerPage />
-            },
-            {
-                path: ROUTES.TRANSCRIPTS,
-                element: <TranscriptsPage />
             }
         ]
-        // element: <LoadDataPage />
     },
     {
         path: ROUTES.INITIAL_CODING_CODEBOOK,
         children: [
             {
                 path: ROUTES.CODEBOOK_CREATION,
-                element: <CodebookCreationPage />,
+                element: <InitialCodingPage />,
                 index: true
-                // children: [
-                //     {
-                //         path: ROUTES.CODES_REVIEW,
-                //         element: <CodeReviewPage />,
-                //         index: true
-                //     },
-                //     {
-                //         path: ROUTES.CODEBOOK_REFINEMENT,
-                //         element: <CodebookRefinementPage />
-                //     },
-                //     {
-                //         path: ROUTES.FINAL_CODEBOOK,
-                //         element: <FinalCodebookPage />
-                //     }
-                // ]
             },
             {
                 path: ROUTES.INITIAL_CODEBOOK,
@@ -96,18 +67,7 @@ export const CodingRouter: RouteObject[] = [
             },
             {
                 path: ROUTES.DEDUCTIVE_CODING,
-                element: <DeductiveCodingPage />
-                // children: [
-                //     {
-                //         path: ROUTES.SPLIT_CHECK,
-                //         element: <SplitCheckPage />,
-                //         index: true
-                //     },
-                //     {
-                //         path: ROUTES.ENCODED_DATA,
-                //         element: <EncodedDataPage />
-                //     }
-                // ]
+                element: <FinalCodingPage />
             }
         ]
     },
@@ -121,20 +81,10 @@ export const CodingRouter: RouteObject[] = [
         element: <FinalizingCodesPage />
     },
     {
-        // index: true,
         path: ROUTES.THEMES,
         element: <ThemesPage />
     },
-    { path: ROUTES.ANALYSIS, element: <AnalysisPage /> },
-    // {
-    //     path: ROUTES.THEMATIC_ANALYSIS,
-    //     children: [
-    //     ]
-    // },
-    {
-        path: ROUTES.TRANSCRIPTS,
-        element: <TranscriptsPage />
-    },
+    { path: ROUTES.ANALYSIS, element: <ReportPage /> },
     {
         path: ROUTES.MANUAL_CODING,
         element: <ManualCodingPage />
@@ -143,28 +93,12 @@ export const CodingRouter: RouteObject[] = [
         path: 'loader',
         children: [
             {
-                path: LOADER_ROUTES.FLASHCARDS_LOADER,
-                element: <FlashcardsLoaderPage />
-            },
-            {
                 path: LOADER_ROUTES.THEME_LOADER,
                 element: <ThemeLoaderPage />
             },
             {
-                path: LOADER_ROUTES.WORD_CLOUD_LOADER,
-                element: <WordCloudLoaderPage />
-            },
-            {
                 path: LOADER_ROUTES.CODEBOOK_LOADER,
                 element: <CodeBookLoaderPage />
-            },
-            {
-                path: LOADER_ROUTES.CODING_VALIDATION_LOADER,
-                element: <CodingValidationLoaderPage />
-            },
-            {
-                path: LOADER_ROUTES.FINAL_LOADER,
-                element: <FinalLoaderPage />
             },
             {
                 path: LOADER_ROUTES.DEDUCTIVE_CODING_LOADER,

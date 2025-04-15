@@ -1,6 +1,6 @@
 export const generateColor = (key: string): string => {
     key = `${key}`;
-    // Use the djb2 algorithm for a better hash distribution.
+    // djb2 algorithm for a better hash distribution.
     let hash = 5381;
     for (let i = 0; i < key.length; i++) {
         hash = (hash << 5) + hash + key.charCodeAt(i); // hash * 33 + charCode

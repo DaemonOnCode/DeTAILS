@@ -79,7 +79,6 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
         });
     };
 
-    // Filter out codes that appear in conflictingCodes.
     const agreedCodes = useMemo(
         () =>
             codeSet.filter((code) => conflictingCodes.every((conflict) => conflict.code !== code)),
@@ -87,8 +86,6 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     );
 
     return (
-        // This parent container is set up as a flex column with a fixed height.
-        // Adjust the height as needed (e.g., using h-screen or a specific pixel value).
         <div className="flex flex-col h-full gap-4" id="transcript-metadata">
             <h3 className="text-lg font-bold">Codes</h3>
             <div className="flex-1 overflow-y-auto" ref={subcodeRef}>
@@ -106,7 +103,6 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                 </ul>
             </div>
 
-            {/* Explanations Section */}
             <h3 className="text-lg font-bold">Explanations</h3>
             <div className="flex-1 overflow-y-auto" ref={explanationRef}>
                 {selectedExplanations.map((explanationItem) => {
@@ -128,71 +124,6 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                     );
                 })}
             </div>
-
-            {/* Conflicting Codes Section (only rendered if present) */}
-            {conflictingCodes.length > 0 && (
-                <div className="flex-1 overflow-y-auto">
-                    <h3 className="text-lg font-bold mb-2">Conflicting Codes</h3>
-                    <ul className="space-y-4">
-                        {conflictingCodes.map((conflict, index) => (
-                            <li
-                                key={index}
-                                className="p-3 rounded bg-gray-200 flex flex-col space-y-2"
-                                style={{ backgroundColor: codeColors[conflict.code] || '#ddd' }}>
-                                <div className="flex justify-between items-center">
-                                    <span className="font-bold">{conflict.code}</span>
-                                </div>
-                                <p>Quote: {conflict.quote}</p>
-                                <p>Disagreement Explanation: {conflict.explanation}</p>
-                                <button
-                                    className="w-full bg-blue-500 p-4 rounded text-white"
-                                    onClick={() => onAgreeWithLLM(conflict.code, conflict.quote)}>
-                                    Agree with LLM
-                                </button>
-                                <div className="mt-2">
-                                    <textarea
-                                        placeholder="New code..."
-                                        className="w-full p-2 border rounded resize-y"
-                                        value={
-                                            comments[
-                                                JSON.stringify({
-                                                    code: conflict.code,
-                                                    quote: conflict.quote
-                                                })
-                                            ] || ''
-                                        }
-                                        onChange={(e) =>
-                                            handleCommentChange(
-                                                JSON.stringify({
-                                                    code: conflict.code,
-                                                    quote: conflict.quote
-                                                }),
-                                                e.target.value
-                                            )
-                                        }
-                                    />
-                                </div>
-                                <button
-                                    className="w-full bg-blue-500 p-4 rounded text-white"
-                                    onClick={() =>
-                                        onAddOwnCode(
-                                            comments[
-                                                JSON.stringify({
-                                                    code: conflict.code,
-                                                    quote: conflict.quote
-                                                })
-                                            ],
-                                            conflict.code,
-                                            index
-                                        )
-                                    }>
-                                    Add Own Code
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
         </div>
     );
 };

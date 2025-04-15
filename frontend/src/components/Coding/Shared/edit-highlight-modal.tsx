@@ -9,10 +9,6 @@ const EditHighlightModal: FC<EditHighlightModalProps> = ({
     selectedText,
     setSelectedText
 }) => {
-    // Define three phases:
-    // "selectHighlight": Choose the quote to edit.
-    // "waiting": Temporarily hide the modal while the user selects a new region.
-    // "selectReplacement": Confirm the new text region.
     const [phase, setPhase] = useState<'selectHighlight' | 'waiting' | 'selectReplacement'>(
         'selectHighlight'
     );
@@ -31,17 +27,14 @@ const EditHighlightModal: FC<EditHighlightModalProps> = ({
         }
     }, [selectedText, setIsHighlightModalOpen]);
 
-    // Flatten the references into an array.
     const allHighlights = Object.entries(references).flatMap(([code, refs]) =>
         refs.map((ref) => ({ code, reference: ref }))
     );
 
-    // Filter highlights by the search term.
     const filteredHighlights = allHighlights.filter((item) =>
         item.reference.text.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // During the waiting phase, render nothing (modal is hidden)
     if (phase === 'waiting') {
         return null;
     }
@@ -49,7 +42,6 @@ const EditHighlightModal: FC<EditHighlightModalProps> = ({
     return (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
             <div className="bg-white p-6 rounded shadow-lg w-1/2 relative">
-                {/* Close Button */}
                 <button
                     className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
                     onClick={() => {
@@ -131,7 +123,6 @@ const EditHighlightModal: FC<EditHighlightModalProps> = ({
                             <button
                                 className="bg-yellow-500 text-white px-4 py-2 rounded"
                                 onClick={() => {
-                                    // Allow the user to redo the selection.
                                     setSelectedText(null);
                                     setPhase('waiting');
                                 }}>

@@ -19,9 +19,7 @@ const SwitchModal: React.FC<SwitchModalProps> = ({
 }) => {
     return (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-            {/* Overlay */}
             <div className="absolute inset-0 bg-gray-900 opacity-50"></div>
-            {/* Modal Container */}
             <div className="relative bg-white rounded-lg shadow-lg p-6 max-w-md w-full z-50">
                 {title && <h3 className="text-xl font-bold mb-4">{title}</h3>}
                 <div className="mb-6 text-gray-700">{message}</div>

@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCodingContext } from '../../../context/coding-context';
@@ -14,23 +14,19 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
     console.log('searchParams:', Object.fromEntries(searchParams.entries()));
     const selectedTypeFilter = searchParams.get('selectedTypeFilter') || 'All';
 
-    // State for post data and loading status
     const [post, setPost] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // State for transcript interaction
     const [activeTranscript, setActiveTranscript] = useState<'top' | 'bottom' | null>(null);
     const [selectedText, setSelectedText] = useState<string | null>(null);
     const topSelectionRef = useRef<Range | null>(null);
     const bottomSelectionRef = useRef<Range | null>(null);
 
-    // Context hooks
     const { fetchData } = useApi();
     const { datasetId } = useCollectionContext();
     const { unseenPostResponse } = useCodingContext();
     const { manualCodingResponses } = useManualCodingContext();
 
-    // Fetch post data when ID or dataset changes
     const fetchPostById = async (postId: string, datasetId: string) => {
         if (!postId || !datasetId) return;
         setLoading(true);
@@ -60,11 +56,9 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
         }
     }, [id, datasetId]);
 
-    // Filter responses for human and LLM coding
     const humanResponses = manualCodingResponses.filter((response) => response.type === 'Human');
     const llmResponses = manualCodingResponses.filter((response) => response.type === 'LLM');
 
-    // Loading and error states
     if (loading) {
         return (
             <div className="w-full h-screen flex flex-col justify-center items-center">
@@ -83,11 +77,7 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
     }
 
     return (
-        <div
-            className="flex flex-col h-full"
-            onClick={() => setActiveTranscript(null)} // Reset active transcript on outside click
-        >
-            {/* Dynamic Header based on selectedTypeFilter */}
+        <div className="flex flex-col h-full" onClick={() => setActiveTranscript(null)}>
             <div className="p-4 text-center bg-gray-100 text-lg font-bold text-[#203636]">
                 {selectedTypeFilter === 'All'
                     ? 'Split Check: Human vs. LLM Coding Comparison'
@@ -102,9 +92,7 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                 ← <span className="underline">Back to Posts</span>
             </button>
 
-            {/* Split view layout */}
             <div className="h-full flex flex-col gap-2 overflow-hidden">
-                {/* LLM Coding Transcript */}
                 {(selectedTypeFilter === 'All' || selectedTypeFilter === 'LLM') && (
                     <div
                         className={`h-${selectedTypeFilter === 'All' ? '1/2' : 'full'} ${
@@ -150,7 +138,6 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                     </div>
                 )}
 
-                {/* Human Coding Transcript */}
                 {(selectedTypeFilter === 'All' || selectedTypeFilter === 'Human') && (
                     <div
                         className={`h-${selectedTypeFilter === 'All' ? '1/2' : 'full'} ${

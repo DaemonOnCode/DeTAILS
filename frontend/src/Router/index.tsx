@@ -1,5 +1,5 @@
 import { FC } from 'react';
-import { RouteObject, RouterProvider, createHashRouter, useRoutes } from 'react-router-dom';
+import { RouteObject, RouterProvider, createHashRouter } from 'react-router-dom';
 import { protectRoutes } from '../utility/protect-routes';
 import { ROUTES } from '../constants/Shared';
 import { SharedRouter } from './shared-router';
@@ -16,7 +16,6 @@ import { WorkspaceProvider } from '../context/workspace-context';
 import { WorkspaceProtectedRoute } from '../components/Shared/workpace-protected-routes';
 import { SettingsPage } from '../pages/Settings';
 import { ErrorBoundary } from '../pages/Shared/error-boundary';
-import { SettingsProvider } from '../context/settings-context';
 
 export const AppRoutes: RouteObject[] = [
     {

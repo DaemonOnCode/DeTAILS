@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCodingContext } from '../../../context/coding-context';
 import { useCollectionContext } from '../../../context/collection-context';
@@ -9,7 +9,6 @@ import useWorkspaceUtils from '../../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../../utility/timer';
 import TopToolbar from '../Shared/top-toolbar';
 import PostTranscript from '../CodingTranscript/post-transcript';
-import ValidationTable from '../UnifiedCoding/validation-table';
 import { TranscriptContextProvider } from '../../../context/transcript-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { useManualCodingContext } from '../../../context/manual-coding-context';
@@ -26,12 +25,6 @@ const TranscriptPage = ({
     updatePostState: (postId: string, state: boolean) => void;
 }) => {
     const {
-        unseenPostResponse,
-        dispatchUnseenPostResponse,
-        sampledPostResponse,
-        dispatchSampledPostResponse
-    } = useCodingContext();
-    const {
         manualCodingResponses,
         dispatchManualCodingResponses,
         codebook,
@@ -41,9 +34,7 @@ const TranscriptPage = ({
     const { datasetId } = useCollectionContext();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { getServerUrl } = useServerUtils();
     const hasSavedRef = useRef(false);
-    const navigate = useNavigate();
     const { fetchData } = useApi();
 
     const currentConfig: {
@@ -71,10 +62,6 @@ const TranscriptPage = ({
             responses: manualCodingResponses,
             dispatchFunction: (...args: any) => {
                 console.log('Dispatching to Review with codebook:', args);
-                // dispatchSampledPostResponse({
-                //     type: 'SET_RESPONSES',
-                //     responses: args[0]
-                // });
             }
         },
         topTranscript: null,
@@ -125,7 +112,6 @@ const TranscriptPage = ({
 
         if (error) {
             console.error('Error fetching Reddit post:', error);
-            // Handle error as needed
         } else {
             setPost(data);
             console.log('Fetched post:', data);
@@ -167,16 +153,6 @@ const TranscriptPage = ({
         }
         setActiveTranscript(position);
     };
-
-    // useEffect(() => {
-    //     if (manualCodingResponses.length > 0) {
-    //         console.log('Manual coding responses:', manualCodingResponses);
-    //         setShowCodebook(true);
-    //         setTimeout(() => {
-    //             setShowCodebook(false);
-    //         }, 10);
-    //     }
-    // }, [manualCodingResponses]);
 
     if (loading) {
         return (

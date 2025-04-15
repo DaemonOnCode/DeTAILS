@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect } from 'react';
 import { HighlightModalProps } from '../../../types/Coding/props';
 
 const HighlightModal: FC<HighlightModalProps> = ({
@@ -43,7 +43,6 @@ const HighlightModal: FC<HighlightModalProps> = ({
                     onChange={(e) => {
                         if (e.target.value === 'addNewCode') {
                             setIsAddCodeModalOpen(true);
-                            // setIsHighlightModalOpen(false);
                             setHidden(true);
                         } else {
                             setSelectedCode(e.target.value);

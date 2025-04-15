@@ -2,12 +2,10 @@ import React, { useEffect, useRef } from 'react';
 import Card from '../../components/DataCollection/card';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import { ROUTES } from '../../constants/DataCollection/shared';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { useCollectionContext } from '../../context/collection-context';
 import { ROUTES as CODING_ROUTES, PAGE_ROUTES } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-// Import TutorialWrapper and TutorialStep from your shared components
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { useLoadingContext } from '../../context/loading-context';
@@ -18,9 +16,8 @@ const HomePage = () => {
     const hasSavedRef = useRef(false);
 
     const { loadingState, loadingDispatch } = useLoadingContext();
-    const { type, setType, modeInput } = useCollectionContext();
+    const { setType, modeInput } = useCollectionContext();
 
-    // Event Handlers
     const handleRedditRetrieval = () => {
         console.log('Retrieve Reddit clicked');
         if (!modeInput) setType('reddit');
@@ -41,19 +38,6 @@ const HomePage = () => {
         navigate(`${PAGE_ROUTES.DATA_SOURCE}?type=interview`);
     };
 
-    const handleCsvImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            console.log('Selected CSV file:', file);
-            // Add file parsing logic here
-        }
-    };
-
-    const handleModelImport = () => {
-        console.log('Import BerTopic Model clicked');
-        // Add BerTopic model import logic here
-    };
-
     const { saveWorkspaceData } = useWorkspaceUtils();
 
     useEffect(() => {
@@ -67,7 +51,6 @@ const HomePage = () => {
         };
     }, []);
 
-    // Define tutorial steps for the Home page.
     const steps: TutorialStep[] = [
         {
             target: '#homepage-header',
@@ -96,14 +79,11 @@ const HomePage = () => {
             excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${CODING_ROUTES.LOAD_DATA}`}
             pageId={location.pathname}>
             <div className="bg-white text-gray-800 h-page flex flex-col items-center space-y-8 w-full">
-                {/* Header */}
                 <h1 id="homepage-header" className="text-4xl font-bold text-center">
                     Data Import & Retrieval Tool
                 </h1>
 
-                {/* Cards Container */}
                 <div className="flex flex-1 justify-center items-start flex-wrap gap-8 w-full max-w-screen-sm lg:max-w-screen-xl">
-                    {/* Online Sources */}
                     <div id="card-container">
                         <Card
                             title="Online Sources"
@@ -113,33 +93,6 @@ const HomePage = () => {
                             onButtonClick={handleRedditRetrieval}
                         />
                     </div>
-
-                    {/* You can uncomment and add more cards as needed */}
-
-                    {/* <Card
-                        title="Interview Transcripts"
-                        description="Retrieve interview transcripts from folder."
-                        buttonText="Retrieve Interviews"
-                        buttonColor="bg-blue-500 hover:bg-blue-600"
-                        onButtonClick={handleInterviewImport}
-                    /> */}
-                    {/*
-                    <Card
-                        title="Local Sources"
-                        description="Import datasets created outside of this toolkit. The CSV files must be encoded using UTF-8."
-                        inputType="file"
-                        inputAccept=".csv"
-                        onInputChange={handleCsvImport}
-                    />
-
-                    <Card
-                        title="Model Sources"
-                        description="Import a pre-trained BerTopic model for advanced text analysis."
-                        buttonText="Import BerTopic Model"
-                        buttonColor="bg-green-500 hover:bg-green-600"
-                        onButtonClick={handleModelImport}
-                    />
-                    */}
                 </div>
 
                 <footer className="w-full">

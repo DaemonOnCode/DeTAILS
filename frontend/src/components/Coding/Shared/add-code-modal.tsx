@@ -30,7 +30,6 @@ const AddCodeModal: FC<AddCodeModalProps> = ({
                     onClick={() => {
                         if (newCode) {
                             setCodes((prevCodes) => [...prevCodes, newCode]);
-                            // setSelectedCode(newCode);
                             setNewCode('');
                             setIsAddCodeModalOpen(false);
                             setAddHighlightModalHidden(false);

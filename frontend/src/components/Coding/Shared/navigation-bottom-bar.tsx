@@ -17,25 +17,8 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     const location = useLocation();
     const navigate = useNavigate();
 
-    const {
-        resetDataAfterPage,
-        showProceedConfirmModal,
-        setShowProceedConfirmModal,
-        loadingDispatch,
-        abortRequests,
-        loadingState,
-        checkIfDataExists,
-        openModal
-    } = useLoadingContext();
-
-    // Handler for confirming the proceed action.
-    // const handleConfirmProceed = async (e: any) => {
-    //     setShowProceedConfirmModal(false);
-    //     // await loadingState[location.pathname]?.stepRef.current?.downloadData?.();
-    //     await resetDataAfterPage(location.pathname);
-    //     onNextClick && (await onNextClick(e));
-    //     autoNavigateToNext && navigate('/coding/' + nextPage);
-    // };
+    const { resetDataAfterPage, loadingDispatch, abortRequests, checkIfDataExists, openModal } =
+        useLoadingContext();
 
     return (
         <div className="flex justify-between mt-6">
@@ -66,15 +49,12 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                         e.preventDefault();
                         if (!isReady) {
                         } else {
-                            // If unsaved data exists, show a confirmation modal on Proceed.
-                            // e.preventDefault();
                             const dataExists = checkIfDataExists(location.pathname);
                             console.log('Data exists:', dataExists);
                             const nextPageFull = nextPage;
                             try {
                                 if (dataExists) {
                                     openModal('nav-proceed-btn', async (e: any) => {
-                                        // setShowProceedConfirmModal(false);
                                         try {
                                             abortRequests(location.pathname);
                                         } catch (e) {

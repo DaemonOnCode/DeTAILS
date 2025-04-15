@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useCollectionContext } from '../../context/collection-context';
-import { useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom';
-import LoadInterview from '../../components/DataCollection/load-interviews';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import {
     LOADER_ROUTES,
@@ -9,22 +8,17 @@ import {
     ROUTES,
     SELECTED_POSTS_MIN_THRESHOLD
 } from '../../constants/Coding/shared';
-import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useLogger } from '../../context/logging-context';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
-import CustomTutorialOverlay, {
-    TutorialStep
-} from '../../components/Shared/custom-tutorial-overlay';
+import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
-import LoadReddit from '../../components/DataCollection/load-reddit';
 import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import { useLoadingContext } from '../../context/loading-context';
-import { StepHandle } from '../../types/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { toast } from 'react-toastify';
@@ -34,28 +28,17 @@ import { useManualCodingContext } from '../../context/manual-coding-context';
 const DataViewerPage = () => {
     const { type, datasetId, selectedData, setSelectedData, modeInput, isLocked } =
         useCollectionContext();
-    const [searchParams] = useSearchParams();
-    const datasetType = searchParams.get('type') ?? modeInput.split('|')[0];
     const navigate = useNavigate();
-    const {
-        setSampledPostIds,
-        setUnseenPostIds,
-        keywordTable,
-        mainTopic,
-        additionalInfo,
-        researchQuestions,
-        dispatchSampledPostResponse
-    } = useCodingContext();
+    const { setSampledPostIds, setUnseenPostIds, keywordTable } = useCodingContext();
     const { settings } = useSettings();
-    const { data, loadFolderData, loadTorrentData, error, loading } = useRedditData();
+    const { loadFolderData, loadTorrentData } = useRedditData();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { fetchData, fetchLLMData } = useApi();
     const hasSavedRef = useRef(false);
     const location = useLocation();
     const { currentWorkspace } = useWorkspaceContext();
-    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
-    // const [selectedData, setSelectedData] = useState<string[]>([]);
+    const { loadingState, loadingDispatch } = useLoadingContext();
 
     const postIds: string[] = selectedData;
     const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD && isLocked;
@@ -107,11 +90,6 @@ const DataViewerPage = () => {
     const stepRoute = location.pathname;
 
     const steps: TutorialStep[] = [
-        // {
-        //     target: '#viewer-header',
-        //     content: 'Welcome to the View Dataset Page. Here you can select and load your data.',
-        //     placement: 'bottom'
-        // },
         {
             target: '#viewer-main',
             content:
@@ -142,7 +120,6 @@ const DataViewerPage = () => {
 
     const handleSamplingPosts = async () => {
         if (!datasetId) return;
-        // Navigate to the codebook loader page.
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
             route: PAGE_ROUTES.CODEBOOK_CREATION
@@ -155,7 +132,6 @@ const DataViewerPage = () => {
         console.log('Sampling posts:', postIds);
 
         await new Promise((resolve) => setTimeout(resolve, 5000));
-        // Sample posts from the backend.
         const { data: sampleData, error: sampleError } = await fetchData<
             | {
                   message: string;
@@ -188,7 +164,6 @@ const DataViewerPage = () => {
                     type: 'SET_LOADING_DONE_ROUTE',
                     route: PAGE_ROUTES.CODEBOOK_CREATION
                 });
-                // navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`);
                 throw new Error(sampleError.message.error_message);
             }
             return;
@@ -215,14 +190,7 @@ const DataViewerPage = () => {
         }>(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES, {
             method: 'POST',
             body: JSON.stringify({
-                // dataset_id: datasetId,
-                // keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
                 model: settings.ai.model
-                // workspace_id: currentWorkspace!.id,
-                // main_topic: mainTopic,
-                // additional_info: additionalInfo,
-                // research_questions: researchQuestions,
-                // sampled_post_ids: sampleData.sampled ?? []
             })
         });
 
@@ -247,21 +215,11 @@ const DataViewerPage = () => {
 
         console.log('Results:', codeData);
 
-        // dispatchSampledPostResponse({
-        //     type: 'SET_RESPONSES',
-        //     responses: codeData['data'].map((response: any) => ({ ...response, isMarked: true }))
-        // });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: PAGE_ROUTES.CODEBOOK_CREATION
         });
     };
-
-    // useEffect(() => {
-    //     if (loadingState[stepRoute]?.isLoading) {
-    //         navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
-    //     }
-    // }, []);
 
     if (loadingState[stepRoute]?.isFirstRun) {
         return (
@@ -273,7 +231,6 @@ const DataViewerPage = () => {
 
     const isDataLoaded = Boolean(modeInput);
 
-    // If no type is selected, prompt user to go back to home
     if (!type || !modeInput) {
         return (
             <div className="flex flex-col items-center justify-center h-page">

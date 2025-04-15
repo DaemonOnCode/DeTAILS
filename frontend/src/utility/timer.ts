@@ -1,6 +1,4 @@
-// Helper to get the current timestamp, compatible with both React and Electron
 function getTimestamp() {
-    // Use performance.now() for high-resolution time
     if (typeof performance !== 'undefined' && performance.now) {
         return performance.now() / 1000;
     }

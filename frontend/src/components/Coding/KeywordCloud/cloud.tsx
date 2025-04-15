@@ -114,7 +114,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
     };
 
     const handleDragStart = (e: React.MouseEvent, keyword: IKeywordBox & { rotation: number }) => {
-        if (keyword.text.word === mainTopic) return; // Main topic is not draggable
+        if (keyword.text.word === mainTopic) return; // Prevent dragging main topic
         e.preventDefault();
         e.stopPropagation();
         if (svgRef.current) {
@@ -289,16 +289,14 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
         });
 
         setPlacedKeywords(placedPhrases);
-    }, [keywords, mainTopic]); // *** Updated dependency ***
+    }, [keywords, mainTopic]);
 
-    // Sort keywords to render hovered one last (unchanged)
     const sortedKeywords = [...placedKeywords].sort((a, b) => {
         if (a.text.id === hoveredKeyword) return 1;
         if (b.text.id === hoveredKeyword) return -1;
         return 0;
     });
 
-    // Render (updated to use mainTopicString)
     return (
         <div
             style={{
@@ -308,7 +306,6 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                 maxHeight: 'calc(100vh - 11rem)',
                 margin: '0 auto'
             }}>
-            {/* Editing Modal (unchanged) */}
             {editingWordId && (
                 <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
                     <div className="bg-white p-4 rounded shadow">
@@ -342,9 +339,8 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                 style={{ display: 'block', borderRadius: '50%' }}>
                 <circle cx="0" cy="0" r={radius} className="fill-gray-100" stroke="#ccc" />
 
-                {/* Lines connecting center to keywords (unchanged) */}
                 {sortedKeywords.map((kw) => {
-                    if (kw.text.word === mainTopic) return null; // Updated here
+                    if (kw.text.word === mainTopic) return null;
                     const centerX = kw.x + kw.width / 2;
                     const centerY = kw.y + kw.height / 2;
                     return (
@@ -360,10 +356,8 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                     );
                 })}
 
-                {/* Render keywords (updated to use mainTopicString) */}
                 {sortedKeywords.map((kw, idx) => {
-                    // console.log('Rendering keyword:', kw, mainTopic);
-                    const isMain = kw.text.word === mainTopic; // Updated here
+                    const isMain = kw.text.word === mainTopic;
                     const isSelected = selectedKeywords.some((sk) => sk === kw.text.id || isMain);
                     const bgClass = isSelected
                         ? 'bg-blue-200 text-blue-700'

@@ -36,11 +36,9 @@ const DeleteCodeModal: FC<DeleteCodeModalProps> = ({
                     className="bg-red-500 text-white px-4 py-2 rounded"
                     onClick={() => {
                         if (selectedCodeToDelete) {
-                            // console.log(typeof setCodes);
                             setCodes((prevCodes) =>
                                 prevCodes.filter((code) => code !== selectedCodeToDelete)
                             );
-                            // setSelectedCode('');
                             setSelectedCodeToDelete('');
                             setIsDeleteCodeModalOpen(false);
                         }

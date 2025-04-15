@@ -4,7 +4,7 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation-botto
 import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLogger } from '../../context/logging-context';
-import { MODEL_LIST, REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding-context';
 import { useCollectionContext } from '../../context/collection-context';

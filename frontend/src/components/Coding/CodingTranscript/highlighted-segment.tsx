@@ -2,7 +2,6 @@ import { FC, memo, useRef } from 'react';
 import { useTranscriptContext } from '../../../context/transcript-context';
 import { generateColor } from '../../../utility/color-generator';
 import type { Segment } from '../../../types/Coding/shared';
-import { useIntersectionObserver } from '../../../hooks/Shared/use-intersection-observer';
 
 interface HighlightedSegmentProps {
     segment: Segment;
@@ -10,35 +9,14 @@ interface HighlightedSegmentProps {
 
 const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
     const {
-        containerRef,
-        selectedText,
         activeSegment,
         handleSegmentInteraction,
         handleSegmentLeave,
         hoveredCode,
-        setHoveredCodeText,
         selectedSegment,
         setSelectedSegment
     } = useTranscriptContext();
     const segmentRef = useRef<HTMLSpanElement>(null);
-
-    // const isVisible = useIntersectionObserver(segmentRef, {
-    //     root: containerRef.current,
-    //     rootMargin: '100px'
-    // });
-
-    // if (!isVisible) {
-    //     return (
-    //         <span
-    //             ref={segmentRef}
-    //             style={{
-    //                 display: 'inline-block',
-    //                 height: '1.5em',
-    //                 width: '100%'
-    //             }}
-    //         />
-    //     );
-    // }
 
     const isActive = activeSegment?.index === segment.index;
 

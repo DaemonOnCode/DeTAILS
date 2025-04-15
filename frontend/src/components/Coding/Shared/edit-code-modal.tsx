@@ -46,14 +46,11 @@ const EditCodeModal: FC<EditCodeModalProps> = ({
                     className="bg-blue-500 text-white px-4 py-2 rounded"
                     onClick={() => {
                         if (selectedCodeToEdit && editedCode) {
-                            // console.log(typeof setCodes);
-                            // console.log(Object.arguments(setCodes));
                             setCodes((prevCodes) =>
                                 prevCodes.map((code) =>
                                     code === selectedCodeToEdit ? editedCode : code
                                 )
                             );
-                            // setSelectedCode(editedCode);
                             setEditedCode('');
                             setSelectedCodeToEdit('');
                             setIsEditCodeModalOpen(false);

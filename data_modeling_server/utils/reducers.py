@@ -311,7 +311,7 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
         range_marker = action.get("rangeMarker")
         updates = {"quote": new_sentence}
         if range_marker is not None:
-            updates["range_marker"] = range_marker
+            updates["range_marker"] = json.dumps(range_marker)
         qect_repo.update(
             {**base_filters, "post_id": post_id, "quote": sentence, "code": code},
             updates

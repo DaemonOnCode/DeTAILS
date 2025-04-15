@@ -17,13 +17,11 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
     onToggleMark,
     onDeleteRow
 }) => {
-    // Local state for text fields
     const [localWord, setLocalWord] = useState(entry.word);
     const [localDescription, setLocalDescription] = useState(entry.description);
     const [localInclusion, setLocalInclusion] = useState(entry.inclusion_criteria);
     const [localExclusion, setLocalExclusion] = useState(entry.exclusion_criteria);
 
-    // Sync local state with parent state when entry changes (e.g., due to undo)
     useEffect(() => {
         setLocalWord(entry.word);
         setLocalDescription(entry.description);
@@ -31,7 +29,6 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
         setLocalExclusion(entry.exclusion_criteria);
     }, [entry]);
 
-    // Debounce updates and notify parent
     useEffect(() => {
         const timer = setTimeout(() => {
             if (localWord !== entry.word) {
@@ -46,7 +43,7 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
             if (localExclusion !== entry.exclusion_criteria) {
                 onFieldChange(index, 'exclusion_criteria', localExclusion);
             }
-        }, 500); // 500ms debounce delay
+        }, 500);
         return () => clearTimeout(timer);
     }, [localWord, localDescription, localInclusion, localExclusion, entry, index, onFieldChange]);
 

@@ -8,20 +8,17 @@ import {
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import KeywordCloud from '../../components/Coding/KeywordCloud/cloud';
 import { useLogger } from '../../context/logging-context';
-import { MODEL_LIST, REMOTE_SERVER_ROUTES, TooltipMessages } from '../../constants/Shared';
+import { REMOTE_SERVER_ROUTES, TooltipMessages } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding-context';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import getServerUtils from '../../hooks/Shared/get-server-url';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
-import { DetailsLLMIcon, GeminiIcon } from '../../components/Shared/Icons';
-// Import the TutorialWrapper and TutorialStep types
+import { DetailsLLMIcon } from '../../components/Shared/Icons';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { useLoadingContext } from '../../context/loading-context';
-import { Keyword, StepHandle } from '../../types/Shared';
+import { Keyword } from '../../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
@@ -33,24 +30,12 @@ const KeywordCloudPage: FC = () => {
     const logger = useLogger();
     const navigate = useNavigate();
 
-    const {
-        mainTopic,
-        additionalInfo,
-        selectedKeywords,
-        setSelectedKeywords,
-        setKeywords,
-        keywords,
-        keywordTable,
-        dispatchKeywordsTable,
-        researchQuestions,
-        selectedWords
-    } = useCodingContext();
+    const { mainTopic, selectedKeywords, setSelectedKeywords, setKeywords, keywords } =
+        useCodingContext();
     const { settings } = useSettings();
     const location = useLocation();
-    const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
 
-    const { getServerUrl } = getServerUtils();
     const { fetchLLMData } = useApi();
     const hasSavedRef = useRef(false);
 
@@ -91,7 +76,7 @@ const KeywordCloudPage: FC = () => {
     const submitFeedback = () => {
         console.log('User feedback:', feedback);
         setFeedback('');
-        setIsFeedbackOpen(false); // Close the modal
+        setIsFeedbackOpen(false);
 
         if (checkIfDataExists(location.pathname)) {
             openModal('keyword-feedback-submitted', async () => {
@@ -149,7 +134,6 @@ const KeywordCloudPage: FC = () => {
     };
 
     const refreshKeywords = () => {
-        // Open the feedback modal
         setIsFeedbackOpen(true);
     };
 
@@ -157,7 +141,6 @@ const KeywordCloudPage: FC = () => {
         e.preventDefault();
         await logger.info('Starting Codebook Generation');
         console.log('Navigating to codebook');
-        // navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
 
         console.log('response', selectedKeywords);
 
@@ -222,7 +205,6 @@ const KeywordCloudPage: FC = () => {
         keywords
     );
 
-    // Define tutorial steps for the Keyword Cloud page.
     const steps: TutorialStep[] = [
         {
             target: '#keyword-cloud',

@@ -1,56 +1,30 @@
-import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useCollectionContext } from '../../context/collection-context';
 import { useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom';
 import LoadInterview from '../../components/DataCollection/load-interviews';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import {
-    LOADER_ROUTES,
-    PAGE_ROUTES,
-    ROUTES,
-    SELECTED_POSTS_MIN_THRESHOLD,
-    WORD_CLOUD_MIN_THRESHOLD
-} from '../../constants/Coding/shared';
-import { REMOTE_SERVER_ROUTES, MODEL_LIST } from '../../constants/Shared';
-import { useCodingContext } from '../../context/coding-context';
+import { PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useLogger } from '../../context/logging-context';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import { getCodingLoaderUrl } from '../../utility/get-loader-url';
-import CustomTutorialOverlay, {
-    TutorialStep
-} from '../../components/Shared/custom-tutorial-overlay';
+import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import LoadReddit from '../../components/DataCollection/load-reddit';
 import { useLoadingContext } from '../../context/loading-context';
-import { StepHandle } from '../../types/Shared';
 
 const UploadDataPage = () => {
-    const { type, datasetId, selectedData, setModeInput, modeInput } = useCollectionContext();
+    const { type, modeInput } = useCollectionContext();
     const [searchParams] = useSearchParams();
-    // Determine dataset type from query parameter "type". If not provided, fallback to the modeInput's prefix.
     console.log('Selected mode:', modeInput);
     const datasetType = searchParams.get('type') ?? modeInput.split('|')[0];
 
     console.log('Selected data:', datasetType);
     const navigate = useNavigate();
-    const {
-        setSampledPostIds,
-        setUnseenPostIds,
-        keywordTable,
-        mainTopic,
-        additionalInfo,
-        researchQuestions,
-        dispatchSampledPostResponse
-    } = useCodingContext();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { getServerUrl } = useServerUtils();
     const { loadingState, loadingDispatch } = useLoadingContext();
     const location = useLocation();
     const hasSavedRef = useRef(false);
-
-    const postIds: string[] = selectedData;
 
     const steps: TutorialStep[] =
         datasetType === 'reddit'

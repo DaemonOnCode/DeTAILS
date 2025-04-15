@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import Bucket from '../../components/Coding/Themes/bucket';
 import UnplacedCodesBox from '../../components/Coding/Themes/unplaced-box';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
-import { MODEL_LIST, REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
 import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
@@ -13,38 +13,21 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { useLoadingContext } from '../../context/loading-context';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { useLocation, useNavigate } from 'react-router-dom';
-import CustomTutorialOverlay, {
-    TutorialStep
-} from '../../components/Shared/custom-tutorial-overlay';
+import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
-import { DetailsLLMIcon, GeminiIcon } from '../../components/Shared/Icons';
-import getServerUrl from '../../hooks/Shared/get-server-url';
-import useServerUtils from '../../hooks/Shared/get-server-url';
-import { useCollectionContext } from '../../context/collection-context';
-import { StepHandle } from '../../types/Shared';
+import { DetailsLLMIcon } from '../../components/Shared/Icons';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
-import { getGroupedCodeOfSubCode } from '../../utility/theme-finder';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 
 const ThemesPage = () => {
-    const {
-        themes,
-        setThemes,
-        sampledPostResponse,
-        unseenPostResponse,
-        unplacedCodes,
-        setUnplacedCodes,
-        dispatchSampledPostWithThemeResponse,
-        groupedCodes
-    } = useCodingContext();
+    const { themes, setThemes, unplacedCodes, setUnplacedCodes } = useCodingContext();
     const location = useLocation();
     const { performWithUndo } = useUndo();
 
     const { loadingState, openModal, resetDataAfterPage, checkIfDataExists, loadingDispatch } =
         useLoadingContext();
-    const { datasetId } = useCollectionContext();
     const { settings } = useSettings();
     const navigate = useNavigate();
     const logger = useLogger();
@@ -52,10 +35,9 @@ const ThemesPage = () => {
     const hasSavedRef = useRef(false);
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [noResults, setNoResults] = useState(false);
+    const [_, setNoResults] = useState(false);
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
-    // Ref to store DOM elements of codes
     const codeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
     const setCodeRef = useCallback((code: string, node: HTMLDivElement | null) => {
@@ -74,7 +56,6 @@ const ThemesPage = () => {
             return trimmedCode.includes(trimmedQuery);
         });
 
-        // Clear previous highlights
         codeRefs.current.forEach((el) => {
             if (el) el.classList.remove('highlight');
         });
@@ -188,7 +169,6 @@ const ThemesPage = () => {
     }, []);
 
     const { fetchLLMData } = useApi();
-    const { getServerUrl } = useServerUtils();
 
     const stepRoute = location.pathname;
 
@@ -265,13 +245,6 @@ const ThemesPage = () => {
         });
     };
 
-    useEffect(() => {
-        dispatchSampledPostWithThemeResponse({
-            type: 'UPDATE_THEMES',
-            themes: themes ?? []
-        });
-    }, [themes]);
-
     const handleRefreshThemes = async (extraFeedback = '') => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
@@ -281,35 +254,11 @@ const ThemesPage = () => {
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
-            data: {
-                themes: any[];
-                unplaced_codes: any[];
-            };
         }>(REMOTE_SERVER_ROUTES.REDO_THEME_GENERATION, {
             method: 'POST',
             body: JSON.stringify({
-                dataset_id: datasetId,
                 model: settings.ai.model,
-                unseen_post_responses: unseenPostResponse.map((r) => ({
-                    postId: r.postId,
-                    id: r.id,
-                    code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                    quote: r.quote,
-                    explanation: r.explanation,
-                    comment: r.comment
-                    // subCode: r.code
-                })),
-                sampled_post_responses: sampledPostResponse.map((r) => ({
-                    postId: r.postId,
-                    id: r.id,
-                    code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                    quote: r.quote,
-                    explanation: r.explanation,
-                    comment: r.comment
-                    // subCode: r.code
-                })),
-                feedback: extraFeedback,
-                previous_themes: themes
+                feedback: extraFeedback
             })
         });
 
@@ -325,9 +274,6 @@ const ThemesPage = () => {
         }
 
         console.log('Results:', results);
-
-        setThemes(results.data.themes.map((theme: any) => ({ ...theme, name: theme.theme })));
-        setUnplacedCodes(results.data.unplaced_codes);
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
@@ -454,18 +400,6 @@ const ThemesPage = () => {
                         <button
                             id="refresh-themes-button"
                             onClick={() => {
-                                // if (checkIfDataExists(location.pathname)) {
-                                //     openModal('refresh-themes-submitted', async () => {
-                                //         await resetDataAfterPage(location.pathname);
-                                //         await handleRefreshThemes();
-                                //     });
-                                // } else {
-                                //     loadingDispatch({
-                                //         type: 'SET_REST_UNDONE',
-                                //         route: location.pathname
-                                //     });
-                                //     handleRefreshThemes();
-                                // }
                                 setIsFeedbackModalOpen(true);
                             }}
                             className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">

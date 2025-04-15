@@ -6,7 +6,6 @@ import { useTranscriptContext } from '../../../context/transcript-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { useSettings } from '../../../context/settings-context';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import { v4 } from 'uuid';
 
 interface ChatExplanationProps {
     initialExplanationWithCode: {

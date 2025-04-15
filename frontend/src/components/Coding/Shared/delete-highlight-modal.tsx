@@ -14,12 +14,10 @@ const DeleteHighlightModal: FC<DeleteHighlightModalProps> = ({
     }>();
     const [searchTerm, setSearchTerm] = useState<string>('');
 
-    // Flatten the references into an array of objects.
     const allHighlights = Object.entries(references).flatMap(([code, refs]) =>
         refs.map((ref) => ({ code, reference: ref }))
     );
 
-    // Filter highlights by the search term (case-insensitive).
     const filteredHighlights = allHighlights.filter((item) =>
         item.reference.text.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -34,7 +32,6 @@ const DeleteHighlightModal: FC<DeleteHighlightModalProps> = ({
                 </button>
                 <h2 className="text-xl font-semibold mb-4">Delete Highlight</h2>
 
-                {/* Search Input */}
                 <input
                     type="text"
                     value={searchTerm}
@@ -43,7 +40,6 @@ const DeleteHighlightModal: FC<DeleteHighlightModalProps> = ({
                     className="w-full p-2 border rounded mb-4"
                 />
 
-                {/* Scrollable list of highlights */}
                 <div className="max-h-64 overflow-y-auto border border-gray-200 rounded p-2">
                     {filteredHighlights.length > 0 ? (
                         filteredHighlights.map((item, idx) => {
@@ -59,7 +55,6 @@ const DeleteHighlightModal: FC<DeleteHighlightModalProps> = ({
                                         isSelected ? 'bg-blue-100' : ''
                                     }`}
                                     onClick={() => setSelectedReference(item)}>
-                                    {/* Display a truncated preview of the paragraph */}
                                     <p
                                         className="text-sm text-gray-800 overflow-hidden text-ellipsis whitespace-normal"
                                         style={{
@@ -84,7 +79,6 @@ const DeleteHighlightModal: FC<DeleteHighlightModalProps> = ({
                         if (selectedReference) {
                             const { code, reference } = selectedReference;
 
-                            // Remove the selected reference from the references.
                             setReferences((prevReferences) => ({
                                 ...prevReferences,
                                 [code]: prevReferences[code].filter((ref) => ref !== reference)

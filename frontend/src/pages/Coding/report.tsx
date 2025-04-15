@@ -5,11 +5,9 @@ import RedditViewModal from '../../components/Coding/Shared/reddit-view-modal';
 import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding-context';
-import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import PostView from '../../components/Coding/Analysis/post-view';
-import CodeView from '../../components/Coding/Analysis/code-view';
-import { downloadCodebook } from '../../utility/codebook-downloader';
+import PostView from '../../components/Coding/Report/post-view';
+import CodeView from '../../components/Coding/Report/code-view';
 import { groupByCode, groupByPostId } from '../../utility/group-items';
 import { getGroupedCodeOfSubCode, getThemeByCode } from '../../utility/theme-finder';
 import { toast } from 'react-toastify';
@@ -19,7 +17,6 @@ import { useLoadingContext } from '../../context/loading-context';
 const { ipcRenderer } = window.require('electron');
 
 const FinalPage = () => {
-    const { datasetId } = useCollectionContext();
     const { themes, sampledPostResponse, unseenPostResponse, groupedCodes } = useCodingContext();
     const [renderedPost, setRenderedPost] = useState<{
         id: string;
@@ -39,31 +36,20 @@ const FinalPage = () => {
         logger.info('Loaded Final Page');
 
         return () => {
-            // if (!hasSavedRef.current) {
             if (!hasSavedRef.current) {
                 hasSavedRef.current = true;
                 saveWorkspaceData().finally(() => {
                     hasSavedRef.current = false;
                 });
             }
-            //     hasSavedRef.current = true;
-            // }
             logger.info('Unloaded Final Page').then(() => {
                 logger.time('Final Page stay time', { time: timer.end() });
             });
         };
     }, []);
 
-    // For "View Post" (Reddit Modal)
     const handleViewPost = async (postId: string, sentence: string) => {
         const link = undefined;
-        // await ipcRenderer.invoke(
-        //     'get-link-from-post',
-        //     postId,
-        //     sentence,
-        //     datasetId,
-        //     DB_PATH
-        // );
 
         console.log('Viewing post:', postId, link, sentence);
         setRenderedPost({
@@ -81,7 +67,6 @@ const FinalPage = () => {
         else setIsCodeView((prev) => !prev);
     };
 
-    // Combine sampled & unseen post data
     const finalCodeResponses = useMemo(
         () => [
             ...sampledPostResponse.map((post) => ({
@@ -92,43 +77,23 @@ const FinalPage = () => {
                 theme: getThemeByCode(post.code, themes, groupedCodes),
                 id: post.id
             })),
-            ...unseenPostResponse
-                // .filter((post) => post.type === 'LLM')
-                .map((post) => ({
-                    postId: post.postId,
-                    quote: post.quote,
-                    coded_word: getGroupedCodeOfSubCode(post.code, groupedCodes),
-                    reasoning: post.explanation,
-                    theme: getThemeByCode(post.code, themes, groupedCodes),
-                    id: post.id
-                }))
+            ...unseenPostResponse.map((post) => ({
+                postId: post.postId,
+                quote: post.quote,
+                coded_word: getGroupedCodeOfSubCode(post.code, groupedCodes),
+                reasoning: post.explanation,
+                theme: getThemeByCode(post.code, themes, groupedCodes),
+                id: post.id
+            }))
         ],
         [sampledPostResponse, unseenPostResponse, themes, groupedCodes]
     );
 
-    // Group by postId
     const grouped = useMemo(() => groupByPostId(finalCodeResponses), [finalCodeResponses]);
     const allPostIds = Object.keys(grouped);
 
     const groupedByCode = useMemo(() => groupByCode(finalCodeResponses), [finalCodeResponses]);
     const allCodes = Object.keys(groupedByCode);
-
-    // const handleDownloadCodebook = async () => {
-    //     const success = await downloadCodebook(
-    //         finalCodeResponses.map((item) => ({
-    //             postId: item.postId,
-    //             quote: item.quote,
-    //             coded_word: item.coded_word,
-    //             explanation: item.reasoning,
-    //             theme: item.theme
-    //         }))
-    //     );
-    //     if (success) {
-    //         toast.success('Codebook downloaded successfully');
-    //     } else {
-    //         toast.error('Download cancelled or failed');
-    //     }
-    // };
 
     const getDetailedCodeData = useCallback(() => {
         const data = [];
@@ -192,7 +157,7 @@ const FinalPage = () => {
         return [
             ['Theme Name', 'Unique Posts Count', 'Unique Codes Count', 'Total Quote Count'],
             ...summaryRows,
-            [], // Empty row for separation
+            [],
             ...overallStats
         ];
     }, [allCodes, groupedByCode]);
@@ -245,7 +210,7 @@ const FinalPage = () => {
         return [
             ['Post ID', 'Unique Theme Count', 'Unique Code Count', 'Total Quote Count'],
             ...summaryRows,
-            [], // Empty row for separation
+            [],
             ...overallStats
         ];
     }, [allPostIds, grouped]);
@@ -314,7 +279,6 @@ const FinalPage = () => {
                 <h2 className="text-xl font-bold mb-4">Analysis Page</h2>
                 <div className="flex flex-col sm:flex-row justify-evenly items-center mb-4 ">
                     <div className="flex text-center justify-center items-center p-2 lg:p-4 gap-x-2">
-                        {/* Left Label: Post View */}
                         <span
                             className={`cursor-pointer select-none ${
                                 !isCodeView ? 'font-bold text-blue-500' : 'text-gray-700'
@@ -323,7 +287,6 @@ const FinalPage = () => {
                             Post View
                         </span>
 
-                        {/* Toggle Switch */}
                         <label
                             htmlFor="toggleViewCode"
                             className="relative inline-block w-6 lg:w-12 h-3 lg:h-6 cursor-pointer">
@@ -341,7 +304,6 @@ const FinalPage = () => {
                                 }`}></div>
                         </label>
 
-                        {/* Right Label: Code View */}
                         <span
                             className={`cursor-pointer select-none ${
                                 isCodeView ? 'font-bold text-blue-500' : 'text-gray-700'
@@ -358,7 +320,6 @@ const FinalPage = () => {
                     </button>
 
                     <div className="flex text-center justify-center items-center p-2 lg:p-4 gap-x-2">
-                        {/* Left Label: Detailed View */}
                         <span
                             className={`cursor-pointer select-none ${
                                 !isSummaryView ? 'font-bold text-blue-500' : 'text-gray-700'
@@ -367,7 +328,6 @@ const FinalPage = () => {
                             Detailed View
                         </span>
 
-                        {/* Toggle Switch */}
                         <label
                             htmlFor="toggleViewDetails"
                             className="relative inline-blockw-6 lg:w-12 h-3 lg:h-6  cursor-pointer">
@@ -387,7 +347,6 @@ const FinalPage = () => {
                                 }`}></div>
                         </label>
 
-                        {/* Right Label: Summary View */}
                         <span
                             className={`cursor-pointer select-none ${
                                 isSummaryView ? 'font-bold text-blue-500' : 'text-gray-700'
@@ -416,7 +375,6 @@ const FinalPage = () => {
                 )}
             </main>
 
-            {/* Reddit Post Modal */}
             {renderedPost.id !== '' && (
                 <RedditViewModal
                     isViewOpen={renderedPost.id !== ''}

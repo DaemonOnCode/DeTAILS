@@ -24,11 +24,8 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
     return (
         <>
             {comments.map((comment) => {
-                // For indentation, we add `ml-4` if level > 0.
                 const indentClass = level > 0 ? 'ml-4' : '';
-
-                // We'll conditionally add a special class that applies the pseudo-element for the elbow.
-                // We only want that elbow if level > 0 AND showHorizontalConnector = true.
+                // Elbow connector for comment threads
                 const elbowClass =
                     showHorizontalConnector && level > 0
                         ? "before:content-[''] before:absolute before:top-3 before:left-0 before:w-4 before:border-t before:border-gray-300 before:-ml-4"
@@ -46,7 +43,6 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
               ${indentClass}
               ${elbowClass}
             `}>
-                        {/* The actual comment text using processedSegments */}
                         <div className="text-gray-700 leading-relaxed overflow-wrap py-2 relative  min-w-96">
                             {processedSegments
                                 .filter(
@@ -58,7 +54,6 @@ const RedditComments: React.FC<RedditCommentsProps> = ({
                                 ))}
                         </div>
 
-                        {/* Recursive call for children */}
                         <RedditComments
                             comments={comment.comments || []}
                             hoveredCode={hoveredCode}

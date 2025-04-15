@@ -1,36 +1,31 @@
 import { FC, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
-import { useCollectionContext } from '../../context/collection-context';
 import { useLogger } from '../../context/logging-context';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { saveCSV, saveExcel } from '../../utility/convert-js-object';
-import { KeywordEntry } from '../../types/Coding/shared';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { useLoadingContext } from '../../context/loading-context';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
-import KeywordTableRow from '../../components/Coding/KeywordTable/keyword-table-row';
+import ConceptOutlineRow from '../../components/Coding/ConceptOutline/concept-outline-row';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const { ipcRenderer } = window.require('electron');
 
 const KeywordsTablePage: FC = () => {
-    const { keywordTable, dispatchKeywordsTable, selectedKeywords } = useCodingContext();
-    const { datasetId } = useCollectionContext();
+    const { keywordTable, dispatchKeywordsTable } = useCodingContext();
     const [saving, setSaving] = useState(false);
     const { loadingState } = useLoadingContext();
-    const { performWithUndoForReducer } = useUndo(); // Hook providing performWithUndoForReducer
+    const { performWithUndoForReducer } = useUndo();
 
     const navigate = useNavigate();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { getServerUrl } = useServerUtils();
 
     const hasSavedRef = useRef(false);
     const location = useLocation();
@@ -109,25 +104,21 @@ const KeywordsTablePage: FC = () => {
         }
     }, [keywordTable, tableRef, storageKey]);
 
-    // Handler for text field changes with undo support
     const onFieldChange = (index: number, field: string, value: any) => {
         const action = { type: 'UPDATE_FIELD', index, field, value };
         performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
     };
 
-    // Handler for toggling mark with undo support
     const onToggleMark = (index: number, isMarked: boolean | undefined) => {
         const action = { type: 'TOGGLE_MARK', index, isMarked };
         performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
     };
 
-    // Handler for deleting a row with undo support
     const onDeleteRow = (index: number) => {
         const action = { type: 'DELETE_ROW', index };
         performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
     };
 
-    // Handler for toggling all rows with undo support
     const handleToggleAllSelectOrReject = (isSelect: boolean) => {
         const allAlreadySetTo = keywordTable.every((r) => r.isMarked === isSelect);
         const finalDecision = allAlreadySetTo ? undefined : isSelect;
@@ -141,7 +132,6 @@ const KeywordsTablePage: FC = () => {
         performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
     };
 
-    // Handler for adding a new row with undo support
     const handleAddNewRow = () => {
         const action = { type: 'ADD_ROW' };
         performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
@@ -171,11 +161,6 @@ const KeywordsTablePage: FC = () => {
             </p>
         );
     }
-
-    const filteredKeywordTable = keywordTable;
-    // .filter((entry) =>
-    //     selectedKeywords.includes(entry.word)
-    // );
 
     const isReadyCheck = keywordTable.some((entry) => entry.isMarked === true);
 
@@ -230,8 +215,8 @@ const KeywordsTablePage: FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredKeywordTable.map((entry, index) => (
-                                        <KeywordTableRow
+                                    {keywordTable.map((entry, index) => (
+                                        <ConceptOutlineRow
                                             key={index}
                                             entry={entry}
                                             index={index}

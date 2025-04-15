@@ -69,7 +69,7 @@ const DeductiveCoding = () => {
         }>(REMOTE_SERVER_ROUTES.CHECK_FUNCTION_PROGRESS, {
             method: 'POST',
             body: JSON.stringify({
-                name: 'deductive',
+                name: headingText.includes('Final') ? 'deductive' : 'initial',
                 dataset_id: datasetId,
                 workspace_id: currentWorkspace!.id
             })
@@ -163,16 +163,6 @@ const DeductiveCoding = () => {
                     </p>
                 </div>
             </div>
-
-            {/* {settings.general.manualCoding && (
-                <div className="mt-4 self-end">
-                    <button
-                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                        onClick={() => navigate(`/coding/${ROUTES.MANUAL_CODING}`)}>
-                        Go to Manual Coding →
-                    </button>
-                </div>
-            )} */}
         </div>
     );
 };
