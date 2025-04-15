@@ -49,16 +49,7 @@ const KeywordCloudPage: FC = () => {
     const location = useLocation();
     const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const [response, setResponse] = useState<Keyword[]>(
-        // keywordTable.map((keyword) => ({
-        //     word: keyword.word,
-        //     description: keyword.description,
-        //     inclusion_criteria: keyword.inclusion_criteria,
-        //     exclusion_criteria: keyword.exclusion_criteria,
-        //     isMarked: true
-        // }))
-        keywords
-    );
+
     const { getServerUrl } = getServerUtils();
     const { fetchLLMData } = useApi();
     const hasSavedRef = useRef(false);
@@ -126,28 +117,11 @@ const KeywordCloudPage: FC = () => {
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
-            keywords: {
-                id: string;
-                word: string;
-                description: string;
-                inclusion_criteria: string[];
-                exclusion_criteria: string[];
-            }[];
         }>(REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS, {
             method: 'POST',
             body: JSON.stringify({
                 model: settings.ai.model,
-                // mainTopic,
-                // additionalInfo,
-                // researchQuestions,
-                // unselectedKeywords: keywords
-                //     .filter((k) => !selectedKeywords.some((sk) => sk === k.id))
-                //     .map((k) => k.word),
-                // selectedKeywords: keywords.filter((k) =>
-                //     selectedKeywords.some((sk) => sk === k.id)
-                // ),
                 extraFeedback: feedback
-                // datasetId
             })
         });
 
@@ -164,39 +138,6 @@ const KeywordCloudPage: FC = () => {
         }
         console.log(results, 'Keyword Cloud Page');
 
-        const newKeywords: {
-            id: string;
-            word: string;
-            description: string;
-            inclusion_criteria: string[];
-            exclusion_criteria: string[];
-        }[] = results.keywords ?? [];
-
-        setResponse((prevResponse) => [
-            ...prevResponse,
-            ...newKeywords.map((k) => ({ id: k.id, word: k.word }))
-        ]);
-
-        // dispatchKeywordsTable({
-        //     type: 'ADD_MANY',
-        //     entries: newKeywords.map((keyword) => ({
-        //         word: keyword.word,
-        //         description: keyword.description,
-        //         inclusion_criteria: keyword.inclusion_criteria,
-        //         exclusion_criteria: keyword.exclusion_criteria,
-        //         isMarked: true
-        //     }))
-        // });
-
-        setKeywords((prevKeywords) => {
-            const filteredPrevKeywords = prevKeywords.filter((k) =>
-                selectedKeywords.some((sk) => sk === k.id)
-            );
-            const filteredNewKeywords = newKeywords.filter(
-                (nk) => !filteredPrevKeywords.some((pk) => pk.id === nk.id)
-            );
-            return [...filteredPrevKeywords, ...filteredNewKeywords];
-        });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: PAGE_ROUTES.KEYWORD_CLOUD
@@ -218,7 +159,7 @@ const KeywordCloudPage: FC = () => {
         console.log('Navigating to codebook');
         // navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
 
-        console.log('response', response, selectedKeywords);
+        console.log('response', selectedKeywords);
 
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
@@ -232,23 +173,10 @@ const KeywordCloudPage: FC = () => {
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
-            results: {
-                word: string;
-                description: string;
-                inclusion_criteria: string[];
-                exclusion_criteria: string[];
-            }[];
         }>(REMOTE_SERVER_ROUTES.GENERATE_KEYWORD_DEFINITIONS, {
             method: 'POST',
             body: JSON.stringify({
                 model: settings.ai.model
-                // main_topic: mainTopic,
-                // additional_info: additionalInfo,
-                // research_questions: researchQuestions,
-                // selected_words: [
-                //     ...new Set(keywords.filter((k) => selectedKeywords.some((sk) => sk === k.id)))
-                // ],
-                // dataset_id: datasetId
             })
         });
 
@@ -264,11 +192,6 @@ const KeywordCloudPage: FC = () => {
             return;
         }
         console.log(results, 'Keyword Table Page');
-
-        // dispatchKeywordsTable({
-        //     type: 'INITIALIZE',
-        //     entries: results.results.map((res) => ({ ...res, isMarked: true }))
-        // });
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',

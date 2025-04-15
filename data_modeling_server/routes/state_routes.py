@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime
 import json
 import os
@@ -10,6 +11,7 @@ from fastapi.responses import FileResponse
 from controllers.state_controller import delete_state, export_workspace, import_workspace, load_state, save_state
 from database.coding_context_table import CodingContextRepository
 from database.context_file_table import ContextFilesRepository
+from database.grouped_code_table import GroupedCodeEntriesRepository
 from database.initial_codebook_table import InitialCodebookEntriesRepository
 from database.keyword_entry_table import KeywordEntriesRepository
 from database.keyword_table import KeywordsRepository
@@ -17,6 +19,7 @@ from database.qect_table import QectRepository
 from database.research_question_table import ResearchQuestionsRepository
 from database.selected_keywords_table import SelectedKeywordsRepository
 from database.selected_post_ids_table import SelectedPostIdsRepository
+from database.theme_table import ThemeEntriesRepository
 from models.state_models import LoadStateRequest, SaveStateRequest
 from models.table_dataclasses import CodebookType, CodingContext, ContextFile, GenerationType, Keyword, ResearchQuestion, SelectedKeyword, SelectedPostId
 from utils.reducers import process_initial_codebook_table_action, process_keyword_table_action, process_sampled_post_response_action, process_unseen_post_response_action
@@ -45,6 +48,8 @@ keyword_entries_repo = KeywordEntriesRepository()
 qect_repo = QectRepository()
 selected_posts_repo = SelectedPostIdsRepository()
 initial_codebook_repo = InitialCodebookEntriesRepository()
+grouped_codes_repo = GroupedCodeEntriesRepository()
+themes_repo = ThemeEntriesRepository()
 
 @router.post("/save-coding-context")
 async def save_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
@@ -52,7 +57,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
     if not workspace_id:
         raise HTTPException(status_code=400, detail="workspaceId is required")
 
-    
     try:
         coding_context = coding_context_repo.find_one({"id": workspace_id})
     except:
@@ -164,7 +168,17 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             "workspace_id": workspace_id,
             "codebook_type": CodebookType.INITIAL.value
         })
-        return {"success": True, "sampledPostResponse": [response.to_dict() for response in sampled_responses]}
+        return {"success": True, "sampledPostResponse": [{
+            "id": response.id,
+            "quote": response.quote,
+            "code": response.code,
+            "explanation": response.explanation,
+            "postId": response.post_id,
+            "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
+            "isMarked": bool(response.is_marked),
+            "comment": "",
+            "rangeMarker": response.range_marker if response.range_marker else None,
+        } for response in sampled_responses]}
     
     elif operation_type == "dispatchInitialCodebookTable":
         action = request_body.get("action")
@@ -193,7 +207,86 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             "workspace_id": workspace_id,
             "codebook_type": CodebookType.DEDUCTIVE.value,
         })
-        return {"success": True, "unseenPostResponse": [response.to_dict() for response in unseen_responses]}
+        return {"success": True, "unseenPostResponse": [{
+            "id": response.id,
+            "quote": response.quote,
+            "code": response.code,
+            "explanation": response.explanation,
+            "postId": response.post_id,
+            "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
+            "isMarked": bool(response.is_marked),
+            "comment": "",
+            "rangeMarker": response.range_marker if response.range_marker else None,
+            "type": response.response_type,
+        } for response in unseen_responses]}
+    
+    elif operation_type == "setGroupedCodes":
+        grouped_codes = request_body.get("groupedCodes")
+        if not isinstance(grouped_codes, list):
+            raise HTTPException(status_code=400, detail="groupedCodes must be a list")
+        for group in grouped_codes:
+            higher_level_code_id = group.get("id")
+            higher_level_code_name = group.get("name")
+            codes = group.get("codes", [])
+            if not higher_level_code_id or not higher_level_code_name or not isinstance(codes, list):
+                raise HTTPException(status_code=400, detail="Invalid groupedCodes format")
+            for code in codes:
+                grouped_codes_repo.update(
+                    {"coding_context_id": workspace_id, "code": code},
+                    {
+                        "higher_level_code": higher_level_code_name,
+                        "higher_level_code_id": higher_level_code_id
+                    }
+                )
+        return {"success": True, "groupedCodes": grouped_codes}
+
+    elif operation_type == "setUnplacedSubCodes":
+        unplaced_subcodes = request_body.get("unplacedSubCodes")
+        if not isinstance(unplaced_subcodes, list):
+            raise HTTPException(status_code=400, detail="unplacedSubCodes must be a list")
+        for code in unplaced_subcodes:
+            grouped_codes_repo.update(
+                {"coding_context_id": workspace_id, "code": code},
+                {
+                    "higher_level_code": None,
+                    "higher_level_code_id": None
+                }
+            )
+        return {"success": True, "unplacedSubCodes": unplaced_subcodes}
+    
+    elif operation_type == "setThemes":
+        themes = request_body.get("themes")
+        if not isinstance(themes, list):
+            raise HTTPException(status_code=400, detail="themes must be a list")
+        for theme in themes:
+            theme_id = theme.get("id")
+            theme_name = theme.get("name")
+            codes = theme.get("codes", [])
+            if not theme_id or not theme_name or not isinstance(codes, list):
+                raise HTTPException(status_code=400, detail="Invalid themes format")
+            for higher_level_code in codes:
+                themes_repo.update(
+                    {"coding_context_id": workspace_id, "higher_level_code": higher_level_code},
+                    {
+                        "theme": theme_name,
+                        "theme_id": theme_id
+                    }
+                )
+        return {"success": True, "themes": themes}
+
+    elif operation_type == "setUnplacedCodes":
+        unplaced_codes = request_body.get("unplacedCodes")
+        if not isinstance(unplaced_codes, list):
+            raise HTTPException(status_code=400, detail="unplacedCodes must be a list")
+        for higher_level_code in unplaced_codes:
+            themes_repo.update(
+                {"coding_context_id": workspace_id, "higher_level_code": higher_level_code},
+                {
+                    "theme": None,
+                    "theme_id": None
+                }
+            )
+        return {"success": True, "unplacedCodes": unplaced_codes}
 
     else:
         print(f"Unknown operation type: {operation_type}")
@@ -284,8 +377,8 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
                 "code": qr["code"],
                 "explanation": qr["explanation"],
                 "postId": qr["post_id"],
-                "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else [],
-                "isMarked": qr["is_marked"]
+                "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else None,
+                "isMarked": bool(qr["is_marked"])
             }
             for qr in qect_responses
         ]
@@ -319,8 +412,8 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
                 "type": qr["response_type"],
                 "explanation": qr["explanation"],
                 "postId": qr["post_id"],
-                "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else [],
-                "isMarked": qr["is_marked"]
+                "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else None,
+                "isMarked": bool(qr["is_marked"])
             }
             for qr in qect_responses
         ]
@@ -335,6 +428,48 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
             }
             for entry in initial_codebook_entries
         ]
+
+    if "groupedCodes" in states:
+        grouped_entries = grouped_codes_repo.execute_raw_query(
+            "SELECT * FROM grouped_code_entries WHERE coding_context_id = ? AND higher_level_code IS NOT NULL",
+            (workspace_id,),
+            keys=True
+        )
+        grouped_codes_dict = defaultdict(list)
+        higher_level_codes = {}
+        for entry in grouped_entries:
+            grouped_codes_dict[entry["higher_level_code_id"]].append(entry["code"])
+            if entry["higher_level_code_id"] not in higher_level_codes:
+                higher_level_codes[entry["higher_level_code_id"]] = entry["higher_level_code"]
+        response["groupedCodes"] = [
+            {"id": hid, "name": higher_level_codes[hid], "codes": codes}
+            for hid, codes in grouped_codes_dict.items()
+        ]
+
+    if "unplacedSubCodes" in states:
+        unplaced_entries = grouped_codes_repo.find({"coding_context_id": workspace_id, "higher_level_code": None})
+        response["unplacedSubCodes"] = [entry.code for entry in unplaced_entries]
+    
+    if "themes" in states:
+        theme_entries = themes_repo.execute_raw_query(
+            "SELECT * FROM theme_entries WHERE coding_context_id = ? AND theme IS NOT NULL",
+            (workspace_id,),
+            keys=True
+        )
+        themes_dict = defaultdict(list)
+        theme_names = {}
+        for entry in theme_entries:
+            themes_dict[entry["theme_id"]].append(entry["higher_level_code"])
+            if entry["theme_id"] not in theme_names:
+                theme_names[entry["theme_id"]] = entry["theme"]
+        response["themes"] = [
+            {"id": tid, "name": theme_names[tid], "codes": codes}
+            for tid, codes in themes_dict.items()
+        ]
+
+    if "unplacedCodes" in states:
+        unplaced_entries = themes_repo.find({"coding_context_id": workspace_id, "theme": None})
+        response["unplacedCodes"] = [entry.higher_level_code for entry in unplaced_entries]
 
     return response
 

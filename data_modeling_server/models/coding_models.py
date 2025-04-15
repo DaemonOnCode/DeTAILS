@@ -35,32 +35,32 @@ class GenerateInitialCodesRequest(BaseModel):
 
     
 class CodebookRefinementRequest(BaseModel):
-    dataset_id: str
+    # dataset_id: str
     model: str
-    prevCodebook: list
-    currentCodebook: list
+    # prevCodebook: list
+    # currentCodebook: list
 
 
 class DeductiveCodingRequest(BaseModel):
-    dataset_id: str
+    # dataset_id: str
     model: str
-    final_codebook: list
-    keyword_table: list
-    main_topic: str
-    additional_info: Optional[str] = ""
-    research_questions: Optional[list] = []
-    unseen_post_ids: list
+    # final_codebook: list
+    # keyword_table: list
+    # main_topic: str
+    # additional_info: Optional[str] = ""
+    # research_questions: Optional[list] = []
+    # unseen_post_ids: list
 
   
 class ThemeGenerationRequest(BaseModel):
-    dataset_id: str
+    # dataset_id: str
     model: str
-    sampled_post_responses: list
-    unseen_post_responses: list
+    # sampled_post_responses: list
+    # unseen_post_responses: list
 
 class RedoThemeGenerationRequest(ThemeGenerationRequest):
     feedback: str = ""
-    previous_themes: list = []
+    # previous_themes: list = []
 
 
 class RefineCodeRequest(BaseModel):
@@ -73,12 +73,12 @@ class RefineCodeRequest(BaseModel):
 
 
 class RemakeCodebookRequest(GenerateInitialCodesRequest):
-    codebook: list
+    # codebook: list
     feedback: str = ""
 
 
 class RemakeDeductiveCodesRequest(DeductiveCodingRequest):
-    current_codebook: list
+    # current_codebook: list
     feedback: str = ""
 
 class GroupCodesRequest(BaseModel):
@@ -92,14 +92,14 @@ class RegroupCodesRequest(GroupCodesRequest):
     previous_codes: list = []
 
 class GenerateCodebookWithoutQuotesRequest(BaseModel):
-    dataset_id: str
+    # dataset_id: str
     model: str
-    sampled_post_responses: list
-    unseen_post_responses: list
+    # sampled_post_responses: list
+    # unseen_post_responses: list
 
 class RegenerateCodebookWithoutQuotesRequest(GenerateCodebookWithoutQuotesRequest):
     feedback: str = ""
-    previous_codebook: list = []
+    # previous_codebook: list = []
 
 
 class GenerateDeductiveCodesRequest(BaseModel):

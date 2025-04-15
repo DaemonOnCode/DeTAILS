@@ -22,11 +22,8 @@ from .qect_table import QectRepository
 from .llm_pending_tasks import LlmPendingTaskRepository
 from .llm_function_args_table import LlmFunctionArgsRepository
 from .selected_post_ids_table import SelectedPostIdsRepository
-from .grouped_code_table import GroupedCodesRepository
-from .grouped_subcode_code_table import GroupedCodeSubcodesRepository
-from .theme_subcode_table import ThemeCodesRepository
-from .theme_table import ThemesRepository
-from .subcode_table import SubcodesRepository
+from .grouped_code_table import GroupedCodeEntriesRepository
+from .theme_table import ThemeEntriesRepository
 from .error_table import ErrorLogRepository
 from .background_job import BackgroundJobsRepository
 from .coding_context_table import CodingContextRepository
@@ -61,10 +58,6 @@ __all__ = [
     "FunctionProgressRepository",
     "QectRepository",
     "SelectedPostIdsRepository",
-    "GroupedCodesRepository",
-    "GroupedCodeSubcodesRepository",
-    "ThemeCodesRepository",
-    "ThemesRepository",
     "SubcodesRepository",
     "LlmPendingTaskRepository",
     "LlmFunctionArgsRepository",
@@ -76,6 +69,8 @@ __all__ = [
     "KeywordsRepository",
     "SelectedKeywordsRepository",
     "KeywordEntriesRepository",
+    "GroupedCodeEntriesRepository",
+    "ThemeEntriesRepository",
     "initialize_database",
     "initialize_study_database",
     "execute_query",

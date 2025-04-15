@@ -83,43 +83,10 @@ const DeductiveCodingPage = () => {
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
-            data: {
-                id: string;
-                postId: string;
-                quote: string;
-                explanation: string;
-                code: string;
-            }[];
         }>(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING, {
             method: 'POST',
             body: JSON.stringify({
-                dataset_id: datasetId,
-                model: settings.ai.model,
-                workspace_id: currentWorkspace!.id,
-                final_codebook: sampledPostResponse
-                    .filter((response) => response.isMarked === true)
-                    .map((response) => ({
-                        post_id: response.postId,
-                        quote: response.quote,
-                        explanation: response.explanation,
-                        code: response.code,
-                        id: response.id
-                    })),
-                main_topic: mainTopic,
-                additional_info: additionalInfo,
-                research_questions: researchQuestions,
-                keyword_table: keywordTable.filter(
-                    (keywordRow) => keywordRow.isMarked !== undefined
-                ),
-                unseen_post_ids: unseenPostIds,
-                current_codebook: unseenPostResponse.map((response) => ({
-                    post_id: response.postId,
-                    quote: response.quote,
-                    explanation: response.explanation,
-                    code: response.code,
-                    id: response.id,
-                    is_marked: response.isMarked
-                }))
+                model: settings.ai.model
             })
         });
 
@@ -136,25 +103,6 @@ const DeductiveCodingPage = () => {
 
         console.log('Results:', results);
 
-        // if (settings.general.manualCoding) {
-        //     toast.info(
-        //         'LLM has finished coding data. You can head back to Deductive Coding page to see the results',
-        //         {
-        //             autoClose: false
-        //         }
-        //     );
-        // }
-
-        dispatchUnseenPostResponse({
-            type: 'SET_RESPONSES',
-            responses: results['data'].map((response) => ({
-                ...response,
-                isMarked: true,
-                type: 'LLM',
-                comment: '',
-                theme: ''
-            }))
-        });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: PAGE_ROUTES.DEDUCTIVE_CODING
@@ -175,17 +123,10 @@ const DeductiveCodingPage = () => {
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
-            data: {
-                higher_level_codes: any[];
-                unplaced_codes: any[];
-            };
         }>(REMOTE_SERVER_ROUTES.GROUP_CODES, {
             method: 'POST',
             body: JSON.stringify({
-                dataset_id: datasetId,
-                model: settings.ai.model,
-                unseen_post_responses: unseenPostResponse,
-                sampled_post_responses: sampledPostResponse
+                model: settings.ai.model
             })
         });
 
@@ -204,8 +145,6 @@ const DeductiveCodingPage = () => {
         }
 
         console.log('Results:', results);
-        setGroupedCodes(results.data.higher_level_codes);
-        setUnplacedSubCodes(results.data.unplaced_codes);
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',

@@ -15,16 +15,18 @@ from controllers.coding_controller import cluster_words_with_llm, filter_codes_b
 from controllers.collection_controller import count_comments, get_reddit_post_by_id
 from database.coding_context_table import CodingContextRepository
 from database.context_file_table import ContextFilesRepository
+from database.grouped_code_table import GroupedCodeEntriesRepository
 from database.initial_codebook_table import InitialCodebookEntriesRepository
 from database.keyword_entry_table import KeywordEntriesRepository
 from database.keyword_table import KeywordsRepository
 from database.research_question_table import ResearchQuestionsRepository
 from database.selected_keywords_table import SelectedKeywordsRepository
 from database.state_dump_table import StateDumpsRepository
+from database.theme_table import ThemeEntriesRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from models.coding_models import CodebookRefinementRequest, DeductiveCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GenerateKeywordDefinitionsRequest, GetCodedDataRequest, GroupCodesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeDeductiveCodesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
-from models.table_dataclasses import CodebookType, GenerationType, InitialCodebookEntry, Keyword, KeywordEntry, ResponseCreatorType, SelectedKeyword, SelectedPostId, StateDump
+from models.table_dataclasses import CodebookType, GenerationType, GroupedCodeEntry, InitialCodebookEntry, Keyword, KeywordEntry, ResponseCreatorType, SelectedKeyword, SelectedPostId, StateDump, ThemeEntry
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository, QectRepository, SelectedPostIdsRepository
 from services.langchain_llm import LangchainLLMService, get_llm_service
@@ -48,6 +50,8 @@ keywords_repo = KeywordsRepository()
 selected_keywords_repo = SelectedKeywordsRepository()
 keyword_entries_repo = KeywordEntriesRepository()
 initial_codebook_repo = InitialCodebookEntriesRepository()
+grouped_codes_repo = GroupedCodeEntriesRepository()
+themes_repo = ThemeEntriesRepository()
 
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
@@ -383,7 +387,6 @@ async def build_context_from_interests_endpoint(
     }
 
 def batch_list(lst, batch_size):
-    """Split a list into batches of size batch_size using slicing."""
     for i in range(0, len(lst), batch_size):
         yield lst[i:i + batch_size]
 
@@ -824,7 +827,7 @@ async def generate_codes_endpoint(request: Request,
                 state=json.dumps({
                     "dataset_id": dataset_id,
                     "post_ids": sampled_post_ids,
-                    "results": res,
+                    "results": qect_repo.find({"dataset_id": dataset_id, "codebook_type": CodebookType.INITIAL.value}, map_to_model=False),
                 }),
                 context=json.dumps({
                     "function": "initial_codes",
@@ -867,11 +870,12 @@ async def deductive_coding_endpoint(
     additional_info = coding_context.additional_info or ""
     research_questions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
     keyword_table = keyword_entries_repo.find({"coding_context_id": workspace_id}, map_to_model=False)
+    unseen_post_ids = list(map(lambda x: x["post_id"], selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "unseen"}, ["post_id"], map_to_model=False)))
 
     start_time = time.time()
 
     function_id = str(uuid4())
-    total_posts = len(request_body.unseen_post_ids)
+    total_posts = len(unseen_post_ids)
 
     try:
         print(function_progress_repo.find())
@@ -892,7 +896,7 @@ async def deductive_coding_endpoint(
 
     try:
         final_results = []
-        posts = request_body.unseen_post_ids
+        posts = unseen_post_ids
         llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
         try:
@@ -974,8 +978,8 @@ async def deductive_coding_endpoint(
             StateDump(
                 state=json.dumps({
                     "dataset_id": dataset_id,
-                    "post_ids": request_body.unseen_post_ids,
-                    "results": final_results,
+                    "post_ids": posts,
+                    "results": qect_repo.find({"dataset_id": dataset_id, "codebook_type": CodebookType.DEDUCTIVE.value}, map_to_model=False),
                 }),
                 context=json.dumps({
                     "function": "deductive_codes",
@@ -1004,7 +1008,7 @@ async def theme_generation_endpoint(
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    dataset_id = request_body.dataset_id
+    dataset_id = request.headers.get("x-workspace-id")
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
@@ -1015,14 +1019,24 @@ async def theme_generation_endpoint(
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
-    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
+    rows = qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.INITIAL.value,
+    }, map_to_model=False) + qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.DEDUCTIVE.value,
+    }, map_to_model=False)
 
     grouped_qec = defaultdict(list)
     for row in rows:
-        grouped_qec[row["code"]].append({
+        higher_code = grouped_codes_repo.find_one({"coding_context_id": dataset_id, "code": row["code"]})
+        row["code"] = higher_code.higher_level_code
+        grouped_qec[higher_code.higher_level_code].append({
             "quote": row["quote"],
             "explanation": row["explanation"]
         })
+
+    print("Grouped QEC:", grouped_qec)
     
     summaries = await summarize_codebook_explanations(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -1043,6 +1057,11 @@ async def theme_generation_endpoint(
     ]
 
     print(qec_table)
+
+    try:
+        themes_repo.delete({"coding_context_id": dataset_id})
+    except Exception as e:
+        print(e)
 
     parsed_response = await process_llm_task(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -1071,6 +1090,26 @@ async def theme_generation_endpoint(
     placed_codes = {code for theme in themes for code in theme["codes"]}
     unplaced_codes = list(set(summaries.keys()) - placed_codes)
 
+    themes_repo.insert_batch([
+        ThemeEntry(
+            higher_level_code=code, 
+            theme=theme["theme"], 
+            theme_id=theme["id"],
+            coding_context_id=dataset_id,
+        ) 
+        for theme in themes for code in theme["codes"] 
+    ])
+
+    themes_repo.insert_batch([
+        ThemeEntry(
+            higher_level_code=code, 
+            theme=None,
+            theme_id=None,
+            coding_context_id=dataset_id,
+        ) 
+        for code in unplaced_codes
+    ])
+
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation completed.")
 
     await asyncio.sleep(5)
@@ -1093,10 +1132,6 @@ async def theme_generation_endpoint(
 
     return {
         "message": "Themes generated successfully!",
-        "data": {
-            "themes": themes,
-            "unplaced_codes": unplaced_codes
-        }
     }
 
 
@@ -1107,7 +1142,7 @@ async def redo_theme_generation_endpoint(
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    dataset_id = request_body.dataset_id
+    dataset_id = request.headers.get("x-workspace-id")
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
@@ -1118,11 +1153,18 @@ async def redo_theme_generation_endpoint(
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
-    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
+    rows = qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.INITIAL.value,
+    }, map_to_model=False) + qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.DEDUCTIVE.value,
+    }, map_to_model=False)
 
     grouped_qec = defaultdict(list)
     for row in rows:
-        grouped_qec[row["code"]].append({
+        higher_code = grouped_codes_repo.find_one({"dataset_id": dataset_id, "code": row["code"]})
+        grouped_qec[higher_code.higher_level_code].append({
             "quote": row["quote"],
             "explanation": row["explanation"]
         })
@@ -1145,7 +1187,14 @@ async def redo_theme_generation_endpoint(
         for code in summaries
     ]
 
+    previous_themes = themes_repo.find({"coding_context_id": dataset_id}, map_to_model=False)
+
     print(qec_table)
+
+    try:
+        themes_repo.delete({"coding_context_id": dataset_id})
+    except Exception as e:
+        print(e)
 
     parsed_response = await process_llm_task(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -1160,7 +1209,7 @@ async def redo_theme_generation_endpoint(
         llm_queue_manager=llm_queue_manager,
         qec_table=json.dumps({"codes": qec_table}),
         unique_codes=json.dumps(list(summaries.keys())),
-        previous_themes=json.dumps(request_body.previous_themes),
+        previous_themes=json.dumps(previous_themes),
         feedback=request_body.feedback
     )
 
@@ -1267,16 +1316,14 @@ async def refine_single_code_endpoint(
 
 
 @router.post("/remake-codebook")
-async def generate_codes_endpoint(request: Request,
+async def generate_codes_endpoint(
+    request: Request,
     request_body: RemakeCodebookRequest,
     batch_size: int = 100,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    dataset_id = request_body.dataset_id
-    if not dataset_id or len(request_body.sampled_post_ids) == 0:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
+    dataset_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
@@ -1285,7 +1332,22 @@ async def generate_codes_endpoint(request: Request,
 
 
     function_id = str(uuid4())
-    total_posts = len(request_body.sampled_post_ids)
+    sampled_post_ids = list(map(lambda x: x["post_id"], selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "sampled"}, ["post_id"], map_to_model=False)))
+    total_posts = len(sampled_post_ids)
+
+    coding_context = coding_context_repo.find_one({"id": workspace_id})
+    if not coding_context:
+        raise HTTPException(status_code=404, detail="Coding context not found for the workspace.")
+    mainTopic = coding_context.main_topic
+    additionalInfo = coding_context.additional_info or ""
+    researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
+    keyword_table = keyword_entries_repo.find({"coding_context_id": workspace_id}, map_to_model=False)
+
+
+    codebook = qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.INITIAL.value,
+    }, map_to_model=False)
 
     function_progress_repo.insert(FunctionProgress(
         workspace_id=workspace_id,
@@ -1304,7 +1366,7 @@ async def generate_codes_endpoint(request: Request,
 
         summarized_codebook_dict = await summarize_codebook_explanations(
             workspace_id=request.headers.get("x-workspace-id"),
-            responses=request_body.codebook,
+            responses=codebook,
             llm_model=request_body.model,
             app_id=app_id,
             dataset_id=dataset_id,
@@ -1317,6 +1379,11 @@ async def generate_codes_endpoint(request: Request,
         
         summarized_codebook = [{"code": code, "explanation": summary} 
                               for code, summary in summarized_codebook_dict.items()]
+
+        try:
+            qect_repo.delete({"dataset_id": dataset_id, "codebook_type": CodebookType.INITIAL.value})
+        except Exception as e:
+            print(e)
 
         async def process_post(post_id: str):
             try:
@@ -1338,10 +1405,10 @@ async def generate_codes_endpoint(request: Request,
                     llm_instance=llm,
                     parent_function_name="remake-codebook",
                     llm_queue_manager=llm_queue_manager,
-                    main_topic=request_body.main_topic,
-                    additional_info=request_body.additional_info,
-                    research_questions=request_body.research_questions,
-                    keyword_table=json.dumps(request_body.keyword_table),
+                    main_topic=mainTopic,
+                    additional_info=additionalInfo,
+                    research_questions=researchQuestions,
+                    keyword_table=json.dumps(keyword_table),
                     function_id=function_id,
                     post_transcript=transcript,
                     current_codebook=json.dumps(summarized_codebook),
@@ -1380,7 +1447,7 @@ async def generate_codes_endpoint(request: Request,
                 return []
 
         
-        sampled_posts = request_body.sampled_post_ids
+        sampled_posts = sampled_post_ids
         batches = [sampled_posts[i:i + batch_size] for i in range(0, len(sampled_posts), batch_size)]
 
         for batch in batches:
@@ -1394,7 +1461,17 @@ async def generate_codes_endpoint(request: Request,
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
-        unique_codes = list(set(row["code"] for row in final_results))
+        unique_codes_query = """
+            SELECT DISTINCT code 
+            FROM qect 
+            WHERE dataset_id = ? AND codebook_type = ?
+        """
+        unique_codes_result = qect_repo.execute_raw_query(
+            unique_codes_query,
+            (dataset_id, CodebookType.INITIAL.value),
+            keys=True
+        )
+        unique_codes = [row["code"] for row in unique_codes_result]
 
         res = await cluster_words_with_llm(
             workspace_id,
@@ -1418,16 +1495,34 @@ async def generate_codes_endpoint(request: Request,
                 
                 if subtopic not in reverse_map_one_to_one:
                     reverse_map_one_to_one[subtopic] = topic_head
+        
+        for subtopic, topic_head in reverse_map_one_to_one.items():
+            update_query = """
+                UPDATE qect 
+                SET code = ? 
+                WHERE code = ? AND dataset_id = ? AND codebook_type = ?
+            """
+            qect_repo.execute_raw_query(
+                update_query,
+                (topic_head, subtopic, dataset_id, CodebookType.INITIAL.value)
+            )
 
         for row in final_results:
             row["code"] = reverse_map_one_to_one.get(row["code"], row["code"])
 
-        filter_duplicate_codes(final_results, parent_function_name="remake-initial-codes", workspace_id=workspace_id)
+        # filter_duplicate_codes(final_results, parent_function_name="remake-initial-codes", workspace_id=workspace_id)
+        filter_duplicate_codes_in_db(
+            dataset_id=dataset_id,
+            codebook_type=CodebookType.INITIAL.value,
+            generation_type=GenerationType.LATEST.value,
+            workspace_id=workspace_id,
+            parent_function_name="initial-codes"
+        )
         state_dump_repo.insert(
             StateDump(
                 state=json.dumps({
                     "dataset_id": dataset_id,
-                    "post_ids": request_body.sampled_post_ids,
+                    "post_ids": sampled_post_ids,
                     "results": final_results,
                     "feedback": request_body.feedback
                 }),
@@ -1459,18 +1554,27 @@ async def redo_deductive_coding_endpoint(
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    dataset_id = request_body.dataset_id
-    if not dataset_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
+    dataset_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
     await manager.send_message(app_id, f"Dataset {dataset_id}: Deductive coding process started.")
 
+    coding_context = coding_context_repo.find_one({"id": workspace_id})
+    if not coding_context:
+        raise HTTPException(status_code=404, detail="Coding context not found for the workspace.")
+
+    final_codebook = initial_codebook_repo.find_one({"coding_context_id": workspace_id}, map_to_model=False)
+    main_topic = coding_context.main_topic
+    additional_info = coding_context.additional_info or ""
+    research_questions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
+    keyword_table = keyword_entries_repo.find({"coding_context_id": workspace_id}, map_to_model=False)
+    unseen_post_ids = list(map(lambda x: x["post_id"], selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "unseen"}, ["post_id"], map_to_model=False)))
+
+
     start_time = time.time()
 
     function_id = str(uuid4())
-    total_posts = len(request_body.unseen_post_ids)
+    total_posts = len(unseen_post_ids)
 
     function_progress_repo.insert(FunctionProgress(
         workspace_id=workspace_id,
@@ -1481,15 +1585,19 @@ async def redo_deductive_coding_endpoint(
         current=0,
         total=total_posts
     ))
+    current_codebook = qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.DEDUCTIVE.value,
+    }, map_to_model=False)
 
     try:
         final_results = []
-        posts = request_body.unseen_post_ids
+        posts = unseen_post_ids
         llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
         summarized_current_codebook_dict = await summarize_codebook_explanations(
             workspace_id=request.headers.get("x-workspace-id"),
-            responses=request_body.current_codebook,
+            responses=current_codebook,
             llm_model=request_body.model,
             app_id=app_id,
             dataset_id=dataset_id,
@@ -1501,6 +1609,11 @@ async def redo_deductive_coding_endpoint(
         )
         summarized_current_codebook = [{"code": code, "explanation": summary} 
                                       for code, summary in summarized_current_codebook_dict.items()]
+        
+        try:
+            qect_repo.delete({"dataset_id": dataset_id, "codebook_type": CodebookType.DEDUCTIVE.value})
+        except Exception as e:
+            print(e)
 
         async def process_post(post_id: str):
             await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
@@ -1521,11 +1634,11 @@ async def redo_deductive_coding_endpoint(
                 llm_instance=llm,
                 parent_function_name="redo-deductive-coding",
                 llm_queue_manager=llm_queue_manager,
-                final_codebook=json.dumps(request_body.final_codebook, indent=2),
-                keyword_table=json.dumps(request_body.keyword_table, indent=2),
-                main_topic=request_body.main_topic,
-                additional_info=request_body.additional_info,
-                research_questions=json.dumps(request_body.research_questions),
+                final_codebook=json.dumps(final_codebook, indent=2),
+                keyword_table=json.dumps(keyword_table, indent=2),
+                main_topic=main_topic,
+                additional_info=additional_info,
+                research_questions=json.dumps(research_questions),
                 post_transcript=transcript,
                 current_codebook=json.dumps(summarized_current_codebook),
                 store_response=True,
@@ -1562,10 +1675,7 @@ async def redo_deductive_coding_endpoint(
         for batch in batches:
             await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
             
-            batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
-            
-            for codes in batch_results:
-                final_results.extend(codes)
+            await asyncio.gather(*(process_post(post_id) for post_id in batch))
 
 
         await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
@@ -1574,8 +1684,8 @@ async def redo_deductive_coding_endpoint(
             StateDump(
                 state=json.dumps({
                     "dataset_id": dataset_id,
-                    "post_ids": request_body.unseen_post_ids,
-                    "results": final_results,
+                    "post_ids": unseen_post_ids,
+                    "results": qect_repo.find({"dataset_id": dataset_id, "codebook_type": CodebookType.DEDUCTIVE.value}, map_to_model=False),
                     "feedback": request_body.feedback
                 }),
                 context=json.dumps({
@@ -1616,7 +1726,13 @@ async def group_codes_endpoint(
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
-    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
+    rows = qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.INITIAL.value,
+    }, map_to_model=False) + qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.DEDUCTIVE.value,
+    }, map_to_model=False)
 
     grouped_qec = defaultdict(list)
     for row in rows:
@@ -1629,8 +1745,6 @@ async def group_codes_endpoint(
         {"code": code, "instances": instances}
         for code, instances in grouped_qec.items()
     ]
-
-    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
 
     summarized_explanations = await summarize_codebook_explanations(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -1651,6 +1765,11 @@ async def group_codes_endpoint(
     ]
 
     print(qec_table, grouped_qec)
+
+    try:
+        grouped_codes_repo.delete({"coding_context_id": dataset_id})
+    except Exception as e:
+        print(e)
 
     parsed_response = await process_llm_task(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -1679,6 +1798,27 @@ async def group_codes_endpoint(
     placed_codes = {code for higher_level_code in higher_level_codes for code in higher_level_code["codes"]}
     unplaced_codes = list(set(row["code"] for row in qec_table) - placed_codes)
 
+    grouped_codes_repo.insert_batch([
+        GroupedCodeEntry(
+            id=str(uuid4()),
+            code=code, 
+            higher_level_code = higher_level_code["name"],
+            higher_level_code_id = higher_level_code["id"],
+            coding_context_id=dataset_id,
+        ) 
+        for higher_level_code in higher_level_codes for code in higher_level_code["codes"]
+    ])
+
+    grouped_codes_repo.insert_batch([
+        GroupedCodeEntry(
+            id=str(uuid4()),
+            code=code, 
+            higher_level_code = None,
+            higher_level_code_id = None,
+            coding_context_id=dataset_id,
+        ) 
+        for code in unplaced_codes
+    ])
 
     state_dump_repo.insert(
             StateDump(
@@ -1698,10 +1838,6 @@ async def group_codes_endpoint(
 
     return {
         "message": "Codes grouped successfully!",
-        "data": {
-            "higher_level_codes": higher_level_codes,
-            "unplaced_codes": unplaced_codes
-        }
     }
 
 @router.post("/regroup-codes")
@@ -1711,16 +1847,23 @@ async def regroup_codes_endpoint(
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    dataset_id = request_body.dataset_id
+    dataset_id = request.headers.get("x-workspace-id")
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+
     start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
-    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
+    rows = qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.INITIAL.value,
+    }, map_to_model=False) + qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.DEDUCTIVE.value,
+    }, map_to_model=False)
 
     grouped_qec = defaultdict(list)
     for row in rows:
@@ -1754,7 +1897,13 @@ async def regroup_codes_endpoint(
 
     print(qec_table, grouped_qec)
 
-    previous_codes_json = json.dumps(request_body.previous_codes)
+    previous_codes = grouped_codes_repo.find({"coding_context_id": dataset_id}, map_to_model=False)
+    previous_codes_json = json.dumps(previous_codes)
+
+    try:
+        grouped_codes_repo.delete({"coding_context_id": dataset_id})
+    except Exception as e:
+        print(e)
 
     parsed_response = await process_llm_task(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -1785,6 +1934,28 @@ async def regroup_codes_endpoint(
     placed_codes = {code for higher_level_code in higher_level_codes for code in higher_level_code["codes"]}
     unplaced_codes = list(set(row["code"] for row in qec_table) - placed_codes)
 
+    grouped_codes_repo.insert_batch([
+        GroupedCodeEntry(
+            id=str(uuid4()),
+            code=code, 
+            higher_level_code = higher_level_code["name"],
+            higher_level_code_id = higher_level_code["id"],
+            coding_context_id=dataset_id,
+        ) 
+        for higher_level_code in higher_level_codes for code in higher_level_code["codes"]
+    ])
+
+    grouped_codes_repo.insert_batch([
+        GroupedCodeEntry(
+            id=str(uuid4()),
+            code=code, 
+            higher_level_code = None,
+            higher_level_code_id = None,
+            coding_context_id=dataset_id,
+        ) 
+        for code in unplaced_codes
+    ])
+
     state_dump_repo.insert(
             StateDump(
                 state=json.dumps({
@@ -1804,10 +1975,6 @@ async def regroup_codes_endpoint(
 
     return {
         "message": "Codes regrouped successfully!",
-        "data": {
-            "higher_level_codes": higher_level_codes,
-            "unplaced_codes": unplaced_codes
-        }
     }
 
 
@@ -1818,19 +1985,31 @@ async def generate_codebook_without_quotes_endpoint(
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    dataset_id = request_body.dataset_id
-    if not dataset_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
+    dataset_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
 
     start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
-    
-    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
+    manual_coding = False
+    if qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.DEDUCTIVE.value,
+    }, map_to_model=False, limit=1):
+        manual_coding = True
+        
 
+    rows = qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.INITIAL.value,
+    }, map_to_model=False) 
+
+    if manual_coding:
+        rows += qect_repo.find({
+            "dataset_id": dataset_id,
+            "codebook_type": CodebookType.DEDUCTIVE.value,
+        }, map_to_model=False)
     
     summarized_dict = await summarize_codebook_explanations(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -1848,6 +2027,10 @@ async def generate_codebook_without_quotes_endpoint(
     
     summarized_grouped_ec = {code: [summary] for code, summary in summarized_dict.items()}
 
+    try:
+        initial_codebook_repo.delete({"coding_context_id": dataset_id})
+    except Exception as e:
+        print(e)
     
     parsed_response = await process_llm_task(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -1885,6 +2068,7 @@ async def generate_codebook_without_quotes_endpoint(
                     coding_context_id=request.headers.get("x-workspace-id"),
                     code= pr[0],
                     definition= pr[1],
+                    manual_coding=manual_coding
                 ) for pr in  parsed_response.items() 
             ]
         )
@@ -1892,7 +2076,7 @@ async def generate_codebook_without_quotes_endpoint(
 
     return {
         "message": "Codebook generated successfully!",
-        "data": parsed_response if not (isinstance(parsed_response, list) and len(parsed_response) == 0) else {}
+        # "data": parsed_response if not (isinstance(parsed_response, list) and len(parsed_response) == 0) else {}
     }
     
 @router.post("/regenerate-codebook-without-quotes")
@@ -1902,7 +2086,7 @@ async def regenerate_codebook_without_quotes_endpoint(
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
-    dataset_id = request_body.dataset_id
+    dataset_id = request.headers.get("x-workspace-id")
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
@@ -1912,7 +2096,10 @@ async def regenerate_codebook_without_quotes_endpoint(
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
-    rows = request_body.sampled_post_responses + request_body.unseen_post_responses
+    rows = qect_repo.find({
+        "dataset_id": dataset_id,
+        "codebook_type": CodebookType.INITIAL.value,
+    }, map_to_model=False) 
 
     summarized_dict = await summarize_codebook_explanations(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -1929,7 +2116,14 @@ async def regenerate_codebook_without_quotes_endpoint(
 
     summarized_grouped_ec = {code: [summary] for code, summary in summarized_dict.items()}
 
-    previous_codebook_json = json.dumps(request_body.previous_codebook)
+    previous_codebook = initial_codebook_repo.find_one({"coding_context_id": dataset_id}, map_to_model=False)
+
+    previous_codebook_json = json.dumps(previous_codebook)
+
+    try:
+        initial_codebook_repo.delete({"coding_context_id": dataset_id})
+    except Exception as e:
+        print(e)
 
     parsed_response = await process_llm_task(
         workspace_id=request.headers.get("x-workspace-id"),
@@ -1964,7 +2158,6 @@ async def regenerate_codebook_without_quotes_endpoint(
 
     return {
         "message": "Codebook regenerated successfully!",
-        "data": parsed_response if not (isinstance(parsed_response, list) and len(parsed_response) == 0) else {}
     }
 
 @router.post("/generate-deductive-codes")

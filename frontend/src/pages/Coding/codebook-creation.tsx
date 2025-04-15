@@ -84,22 +84,7 @@ const CodebookCreation = () => {
         const { data: results, error } = await fetchLLMData(REMOTE_SERVER_ROUTES.REMAKE_CODEBOOK, {
             method: 'POST',
             body: JSON.stringify({
-                dataset_id: datasetId,
-                keyword_table: keywordTable.filter((keyword) => keyword.isMarked !== undefined),
-                model: settings.ai.model,
-                workspace_id: currentWorkspace!.id,
-                main_topic: mainTopic,
-                additional_info: additionalInfo,
-                research_questions: researchQuestions,
-                sampled_post_ids: sampledPostIds ?? [],
-                codebook: sampledPostResponse.map((response) => ({
-                    post_id: response.postId,
-                    quote: response.quote,
-                    explanation: response.explanation,
-                    code: response.code,
-                    id: response.id,
-                    is_marked: response.isMarked
-                }))
+                model: settings.ai.model
             })
         });
 
@@ -114,10 +99,6 @@ const CodebookCreation = () => {
 
         console.log('Results:', results);
 
-        dispatchSampledPostResponse({
-            type: 'SET_RESPONSES',
-            responses: results['data'].map((response: any) => ({ ...response, isMarked: true }))
-        });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: PAGE_ROUTES.CODEBOOK_CREATION
@@ -141,10 +122,7 @@ const CodebookCreation = () => {
         }>(REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK_WITHOUT_QUOTES, {
             method: 'POST',
             body: JSON.stringify({
-                dataset_id: datasetId,
-                model: settings.ai.model,
-                sampled_post_responses: sampledPostResponse,
-                unseen_post_responses: []
+                model: settings.ai.model
             })
         });
 
@@ -163,14 +141,6 @@ const CodebookCreation = () => {
         }
 
         console.log('Results:', results);
-
-        dispatchInitialCodebookTable({
-            type: 'INITIALIZE',
-            entries: Object.entries(results.data).map(([code, definition]) => ({
-                code,
-                definition
-            }))
-        });
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',

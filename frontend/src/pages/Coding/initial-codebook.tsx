@@ -108,17 +108,7 @@ const InitialCodeBook = () => {
         }>(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING, {
             method: 'POST',
             body: JSON.stringify({
-                dataset_id: datasetId,
-                model: settings.ai.model,
-                workspace_id: currentWorkspace!.id,
-                final_codebook: initialCodebookTable,
-                main_topic: mainTopic,
-                additional_info: additionalInfo,
-                research_questions: researchQuestions,
-                keyword_table: keywordTable.filter(
-                    (keywordRow) => keywordRow.isMarked !== undefined
-                ),
-                unseen_post_ids: unseenPostIds
+                model: settings.ai.model
             })
         });
 
@@ -140,26 +130,6 @@ const InitialCodeBook = () => {
 
         console.log('Results:', results);
 
-        // if (settings.general.manualCoding) {
-        //     toast.info(
-        //         'LLM has finished coding data. You can head back to Deductive Coding page to see the results',
-        //         {
-        //             autoClose: false
-        //         }
-        //     );
-        // }
-
-        // dispatchUnseenPostResponse({
-        //     type: 'SET_RESPONSES',
-        //     responses: results['data'].map((response) => ({
-        //         ...response,
-        //         isMarked: true,
-        //         type: 'LLM',
-        //         comment: '',
-        //         theme: ''
-        //     }))
-        // });
-        // setSampledPostResponseCopy([...sampledPostResponse]);
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: PAGE_ROUTES.DEDUCTIVE_CODING
@@ -176,12 +146,8 @@ const InitialCodeBook = () => {
         }>(REMOTE_SERVER_ROUTES.REGENERATE_CODEBOOK_WITHOUT_QUOTES, {
             method: 'POST',
             body: JSON.stringify({
-                dataset_id: datasetId,
                 model: settings.ai.model,
-                sampled_post_responses: sampledPostResponse,
-                unseen_post_responses: [],
-                feedback: extraFeedback,
-                previous_codebook: initialCodebookTable
+                feedback: extraFeedback
             })
         });
 
@@ -200,13 +166,7 @@ const InitialCodeBook = () => {
         }
 
         console.log('Results:', results);
-        dispatchInitialCodebookTable({
-            type: 'INITIALIZE',
-            entries: Object.entries(results.data).map(([code, definition]) => ({
-                code,
-                definition
-            }))
-        });
+
         loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.INITIAL_CODEBOOK });
         navigate(PAGE_ROUTES.INITIAL_CODEBOOK);
     };
@@ -222,7 +182,7 @@ const InitialCodeBook = () => {
             loadingDispatch({ type: 'SET_REST_UNDONE', route: location.pathname });
             handleRegenerateCodebook(feedback);
         }
-        setFeedback(''); // Clear feedback after submission
+        setFeedback('');
     };
 
     const steps: TutorialStep[] = [

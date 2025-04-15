@@ -1,10 +1,9 @@
-from typing import List
 from .base_class import BaseRepository
-from models import GroupedCode
+from models import GroupedCodeEntry
 
-class GroupedCodesRepository(BaseRepository[GroupedCode]):
-    model = GroupedCode
+class GroupedCodeEntriesRepository(BaseRepository[GroupedCodeEntry]):
+    model = GroupedCodeEntry
     def __init__(self, *args, **kwargs):
-        super().__init__("grouped_codes", GroupedCode, *args, **kwargs)
+        super().__init__("grouped_code_entries", GroupedCodeEntry, *args, **kwargs)
     
 

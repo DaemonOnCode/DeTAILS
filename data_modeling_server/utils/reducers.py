@@ -3,6 +3,7 @@ from http.client import HTTPException
 import json
 from typing import Any, Dict, List
 from uuid import uuid4
+from config import CustomSettings
 from database.initial_codebook_table import InitialCodebookEntriesRepository
 from database.keyword_entry_table import KeywordEntriesRepository
 from database.qect_table import QectRepository
@@ -144,6 +145,7 @@ def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> N
 
 def process_sampled_post_response_action(workspace_id: str, action: Dict[str, Any]) -> None:
     """Processes frontend actions and updates the QectResponse table to match frontend logic."""
+    settings = CustomSettings()
     action_type = action["type"]
     
     # Common filters to scope operations to the workspace and initial codebook/generation
@@ -212,14 +214,14 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
                 id=str(uuid4()),
                 dataset_id=response_data["datasetId"],
                 workspace_id=workspace_id,
-                model=response_data["model"],
+                model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
                 code=response_data["code"],
                 explanation=response_data["explanation"],
                 post_id=response_data["postId"],
                 codebook_type=CodebookType.INITIAL.value,
                 response_type=ResponseCreatorType.LLM.value,
-                chat_history=json.dumps(response_data.get("chatHistory", [])),
+                chat_history=json.dumps(response_data.get("chatHistory")),
                 is_marked=response_data.get("isMarked", None),
                 created_at=datetime.now()
             )
@@ -236,16 +238,16 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
         for response_data in new_responses:
             new_response = QectResponse(
                 id=str(uuid4()),
-                dataset_id=response_data["datasetId"],
+                dataset_id=workspace_id,
                 workspace_id=workspace_id,
-                model=response_data["model"],
+                model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
                 code=response_data["code"],
                 explanation=response_data["explanation"],
                 post_id=response_data["postId"],
                 codebook_type=CodebookType.INITIAL.value,
                 response_type=ResponseCreatorType.LLM.value,
-                chat_history=json.dumps(response_data.get("chatHistory", [])),
+                chat_history=json.dumps(response_data.get("chatHistory")),
                 is_marked=response_data.get("isMarked", None),
                 created_at=datetime.now()
             )
@@ -259,16 +261,16 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
         for response_data in new_responses:
             new_response = QectResponse(
                 id=str(uuid4()),
-                dataset_id=response_data["datasetId"],
+                dataset_id=workspace_id,
                 workspace_id=workspace_id,
-                model=response_data["model"],
+                model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
                 code=response_data["code"],
                 explanation=response_data["explanation"],
                 post_id=response_data["postId"],
                 codebook_type=CodebookType.INITIAL.value,
                 response_type=ResponseCreatorType.LLM.value,
-                chat_history=json.dumps(response_data.get("chatHistory", [])),
+                chat_history=json.dumps(response_data.get("chatHistory")),
                 is_marked=response_data.get("isMarked", None),
                 created_at=datetime.now()
             )
@@ -393,16 +395,16 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
             if response_data["code"].strip() and response_data["quote"].strip():
                 new_response = QectResponse(
                     id=str(uuid4()),
-                    dataset_id=response_data["datasetId"],
+                    dataset_id=workspace_id,
                     workspace_id=workspace_id,
-                    model=response_data["model"],
+                    model=response_data.get("model", settings.ai.model),
                     quote=response_data["quote"],
                     code=response_data["code"],
                     explanation=response_data["explanation"],
                     post_id=response_data["postId"],
                     codebook_type=CodebookType.INITIAL.value,
                     response_type=ResponseCreatorType.LLM.value,
-                    chat_history=json.dumps(response_data.get("chatHistory", [])),
+                    chat_history=json.dumps(response_data.get("chatHistory")),
                     is_marked=response_data.get("isMarked", None),
                     created_at=datetime.now()
                 )
@@ -428,6 +430,7 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
         HTTPException: If the action is invalid or missing required fields.
     """
     action_type = action.get("type")
+    settings = CustomSettings()
     if not action_type:
         raise HTTPException(status_code=400, detail="Action type is required")
 
@@ -487,10 +490,10 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
             code=response_data["code"],
             quote=response_data["quote"],
             explanation=response_data["explanation"],
-            model=response_data["model"],
+            model=response_data.get("model", settings.ai.model),
             codebook_type=CodebookType.DEDUCTIVE,
             response_type=ResponseCreatorType.LLM,
-            chat_history=json.dumps(response_data.get("chatHistory", [])),
+            chat_history=json.dumps(response_data.get("chatHistory")),
             is_marked=response_data.get("isMarked", True)
         )
         qect_repo.insert(new_response)
@@ -506,10 +509,10 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
                 code=response_data["code"],
                 quote=response_data["quote"],
                 explanation=response_data["explanation"],
-                model=response_data["model"],
+                model=response_data.get("model", settings.ai.model),
                 codebook_type=CodebookType.DEDUCTIVE,
                 response_type=ResponseCreatorType.LLM,
-                chat_history=json.dumps(response_data.get("chatHistory", [])),
+                chat_history=json.dumps(response_data.get("chatHistory")),
                 is_marked=response_data.get("isMarked", True)
             )
             qect_repo.insert(new_response)
@@ -524,10 +527,10 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
                 code=response_data["code"],
                 quote=response_data["quote"],
                 explanation=response_data["explanation"],
-                model=response_data["model"],
+                model=response_data.get("model", settings.ai.model),
                 codebook_type=CodebookType.DEDUCTIVE,
                 response_type=ResponseCreatorType.LLM,
-                chat_history=json.dumps(response_data.get("chatHistory", [])),
+                chat_history=json.dumps(response_data.get("chatHistory")),
                 is_marked=response_data.get("isMarked", True)
             )
             qect_repo.insert(new_response)
@@ -633,10 +636,10 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
                 code=response_data["code"],
                 quote=response_data["quote"],
                 explanation=response_data["explanation"],
-                model=response_data["model"],
+                model=response_data.get("model", settings.ai.model),
                 codebook_type=CodebookType.DEDUCTIVE,
                 response_type=ResponseCreatorType.LLM,
-                chat_history=json.dumps(response_data.get("chatHistory", [])),
+                chat_history=json.dumps(response_data.get("chatHistory")),
                 is_marked=response_data.get("isMarked", True)
             )
             qect_repo.insert(new_response)

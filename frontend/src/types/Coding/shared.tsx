@@ -73,10 +73,10 @@ export interface ChatMessage {
     id: number;
     text: string;
     sender: 'LLM' | 'Human';
-    reaction?: boolean; // true for tick, false for cross, undefined for no reaction
-    isEditable?: boolean; // true if a comment is being composed
-    isThinking?: boolean; // true if waiting for a backend response
-    code?: string; // Only the first message might have code
+    reaction?: boolean;
+    isEditable?: boolean;
+    isThinking?: boolean;
+    code?: string;
     command?: keyof typeof ChatCommands;
     alternate_codes?: string[];
     isCurrentCode?: boolean;

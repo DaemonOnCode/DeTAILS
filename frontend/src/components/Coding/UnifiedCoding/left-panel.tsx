@@ -187,7 +187,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
         <div className="h-full flex flex-col">
             {showTypeFilterDropdown && (
                 <div className="mb-4">
-                    <label className="block text-gray-700 font-bold mb-2">Load sub-codes of:</label>
+                    <label className="block text-gray-700 font-bold mb-2">Load Codes of:</label>
                     <select
                         value={selectedTypeFilter}
                         onChange={(e) => handleSelectedTypeFilter?.(e.target.value)}
@@ -227,7 +227,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                         setActiveTab('codes');
                         handleSelect(null);
                     }}>
-                    Sub-codes
+                    Codes
                 </button>
             </div>
 

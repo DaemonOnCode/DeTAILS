@@ -150,36 +150,6 @@ class SelectedPostId(BaseDataclass):
     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
     type: str = field(metadata={"not_null": True})  # "sampled" or "unseen" or "test" corresponding to sampledPostReposne, UnseenPostResponse, and manualCoding Responses
 
-@dataclass
-class Theme(BaseDataclass):
-    id: str = field(metadata={"primary_key": True})
-    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
-    name: str = field(metadata={"not_null": True})
-    description: Optional[str] = None
-
-@dataclass
-class ThemeCode(BaseDataclass):
-    theme_id: str = field(metadata={"primary_key": True, "foreign_key": "themes(id)"})
-    code_id: str = field(metadata={"primary_key": True, "foreign_key": "grouped_codes(id)"})
-
-@dataclass
-class GroupedCode(BaseDataclass):
-    id: str = field(metadata={"primary_key": True})
-    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
-    name: str = field(metadata={"not_null": True})
-    description: Optional[str] = None
-
-@dataclass
-class GroupedCodeSubcode(BaseDataclass):
-    grouped_code_id: str = field(metadata={"primary_key": True, "foreign_key": "grouped_codes(id)"})
-    subcode_id: str = field(metadata={"foreign_key": "subcodes(id)", "primary_key": True})
-
-@dataclass
-class Subcode(BaseDataclass):
-    id: str = field(metadata={"primary_key": True})
-    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
-    name: str = field(metadata={"not_null": True})
-    description: Optional[str] = None
 
 @dataclass
 class Rule(BaseDataclass):
@@ -405,6 +375,7 @@ class QectResponse(BaseDataclass):
     chat_history: Optional[str] = field(default="[]")
     created_at: Optional[datetime] = field(default_factory=datetime.now)
     is_marked: Optional[bool] = field(default=True)
+    range_marker: Optional[str] = field(default="[]")
 
     
 @dataclass
@@ -504,9 +475,20 @@ class InitialCodebookEntry(BaseDataclass):
     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
     code: str = field(metadata={"not_null": True})
     definition: Optional[str] = None
-# @dataclass
-# class SelectedPostId(BaseDataclass):
-#     dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
-#     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
-#     type: str = field(metadata={"not_null": True}) 
+    manual_coding: Optional[bool] = False
 
+@dataclass
+class GroupedCodeEntry(BaseDataclass):
+    coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
+    code: str = field(metadata={"not_null": True})
+    higher_level_code: Optional[str] = None
+    higher_level_code_id: Optional[str] = ""
+    id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
+
+@dataclass
+class ThemeEntry(BaseDataclass):
+    coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
+    higher_level_code: str = field(metadata={"not_null": True})
+    theme: Optional[str] = None
+    theme_id: Optional[str] = ""
+    id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})

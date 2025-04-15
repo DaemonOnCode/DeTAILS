@@ -20,43 +20,37 @@ const HomePage: FC = () => {
             title: 'Background Research',
             description:
                 'Provide context and background to guide your thematic analysis. Includes LLM Context, Keyword Cloud, and Keyword Table.',
-            steps: ['LLM Context', 'Keyword Cloud', 'Keyword Table'],
-            route: `${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}` // update if needed
+            steps: ['Context', 'Related Concepts', 'Concept Outline']
         },
         {
-            title: 'Load Data',
+            title: 'Loading Data',
             description:
                 'Load and parse data from various sources. Includes Data Type selection, Data Source setup, and Dataset Creation.',
-            steps: ['Data Type', 'Data Source', 'Dataset Creation'],
-            route: `${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}` // update if needed
+            steps: ['Data Type', 'Data Source', 'Dataset Creation']
         },
         {
-            title: 'Codebook Creation',
+            title: 'Coding',
             description:
-                'Create a codebook from a sample of your data. Add, update, or delete sub-codes suggested by the LLM or created manually.',
-            steps: ['Review LLM Sub-codes', 'Add Custom Sub-codes', 'Refine Codebook'],
-            route: `${ROUTES.CODEBOOK_CREATION}` // update if needed
+                'Create a codebook from a sample of your data. Add, update, or delete codes suggested by the LLM or created manually.',
+            steps: ['Initial Coding', 'Initial Codebook', 'Final Coding']
         },
         {
-            title: 'Deductive Coding',
+            title: 'Reviewing Codes',
             description:
-                'Apply your finalized codebook to the remaining data for a thorough, deductive thematic analysis.',
-            steps: ['Apply Sub-codes', 'Review Results'],
-            route: `${ROUTES.DEDUCTIVE_CODING}` // update if needed
+                'Consolidate Codes into higher-level codes, ensuring your codebook is organized and ready for theme generation.',
+            steps: []
         },
         {
-            title: 'Finalizing Codes',
+            title: 'Generating Themes',
             description:
-                'Consolidate sub-codes into higher-level codes, ensuring your codebook is organized and ready for theme generation.',
-            steps: ['Review Sub-codes', 'Group & Merge', 'Finalize Code Hierarchy'],
-            route: `${ROUTES.FINALIZING_CODES}` // update if needed
+                'Identify and refine themes from the final code set. Generate high-level themes.',
+            steps: []
         },
         {
-            title: 'Thematic Analysis',
+            title: 'Report',
             description:
-                'Identify and refine themes from the final code set. Generate high-level themes and analyze data summaries.',
-            steps: ['Themes', 'Analysis'],
-            route: `${ROUTES.THEMATIC_ANALYSIS}/${ROUTES.THEMES}` // update if needed
+                'Generate a report of your analysis, including themes, codes, and relevant quotes.',
+            steps: []
         }
     ];
 

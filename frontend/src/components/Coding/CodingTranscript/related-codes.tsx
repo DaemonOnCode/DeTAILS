@@ -90,8 +90,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
         // This parent container is set up as a flex column with a fixed height.
         // Adjust the height as needed (e.g., using h-screen or a specific pixel value).
         <div className="flex flex-col h-full gap-4" id="transcript-metadata">
-            {/* Sub-codes Section */}
-            <h3 className="text-lg font-bold">Sub-codes</h3>
+            <h3 className="text-lg font-bold">Codes</h3>
             <div className="flex-1 overflow-y-auto" ref={subcodeRef}>
                 <ul className="space-y-2">
                     {(hoveredCodeText || agreedCodes).map((code, index) => (

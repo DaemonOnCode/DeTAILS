@@ -194,21 +194,9 @@ const ContextPage = () => {
             formData.append('contextFiles', blob, contextFiles[filePath]);
         });
         formData.append('model', settings.ai.model);
-        // formData.append('mainTopic', localMainTopic); // Use local state
-        // formData.append('additionalInfo', localAdditionalInfo ?? ''); // Use local state
-        // formData.append('retry', 'false');
-        // formData.append('researchQuestions', JSON.stringify(localResearchQuestions)); // Use local state
-        // formData.append('datasetId', datasetId);
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
-            // keywords: {
-            //     id: string;
-            //     word: string;
-            //     description: string;
-            //     inclusion_criteria: string[];
-            //     exclusion_criteria: string[];
-            // }[];
         }>(REMOTE_SERVER_ROUTES.BUILD_CONTEXT, { method: 'POST', body: formData });
 
         if (error) {
@@ -226,13 +214,6 @@ const ContextPage = () => {
         }
         console.log('Response from remote server', results);
 
-        // if (results.keywords.length > 0) {
-        //     setKeywords((prev) =>
-        //         results.keywords
-        //             .filter((keyword) => prev.find((k) => k.word === keyword.word) === undefined)
-        //             .map((keyword) => ({ id: keyword.id, word: keyword.word }))
-        //     );
-        // }
         await logger.info('Theme Cloud generated');
         loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.KEYWORD_CLOUD });
         navigate(PAGE_ROUTES.KEYWORD_CLOUD);

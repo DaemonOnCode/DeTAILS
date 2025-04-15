@@ -264,7 +264,6 @@ const FinalzingCodes = () => {
         setFeedback('');
     };
 
-    // Placeholder for next button click
     const handleNextClick = async () => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
@@ -281,26 +280,7 @@ const FinalzingCodes = () => {
         }>(REMOTE_SERVER_ROUTES.THEME_GENERATION, {
             method: 'POST',
             body: JSON.stringify({
-                dataset_id: datasetId,
-                model: settings.ai.model,
-                unseen_post_responses: unseenPostResponse.map((r) => ({
-                    postId: r.postId,
-                    id: r.id,
-                    code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                    quote: r.quote,
-                    explanation: r.explanation,
-                    comment: r.comment,
-                    subCode: r.code
-                })),
-                sampled_post_responses: sampledPostResponse.map((r) => ({
-                    postId: r.postId,
-                    id: r.id,
-                    code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                    quote: r.quote,
-                    explanation: r.explanation,
-                    comment: r.comment,
-                    subCode: r.code
-                }))
+                model: settings.ai.model
             })
         });
 
@@ -319,8 +299,6 @@ const FinalzingCodes = () => {
         }
         console.log('Results:', results);
 
-        setThemes(results.data.themes.map((theme: any) => ({ ...theme, name: theme.theme })));
-        setUnplacedCodes(results.data.unplaced_codes);
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: PAGE_ROUTES.THEMES
@@ -347,12 +325,8 @@ const FinalzingCodes = () => {
         }>(REMOTE_SERVER_ROUTES.REGROUP_CODES, {
             method: 'POST',
             body: JSON.stringify({
-                dataset_id: datasetId,
                 model: settings.ai.model,
-                unseen_post_responses: unseenPostResponse,
-                sampled_post_responses: sampledPostResponse,
-                feedback: extraFeedback,
-                previous_codes: groupedCodes
+                feedback: extraFeedback
             })
         });
 
@@ -368,8 +342,6 @@ const FinalzingCodes = () => {
         }
 
         console.log('Results:', results);
-        setGroupedCodes(results.data.higher_level_codes);
-        setUnplacedSubCodes(results.data.unplaced_codes);
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
@@ -446,7 +418,7 @@ const FinalzingCodes = () => {
         {
             target: '#review-edit-pill',
             content:
-                'Click this button to toggle between review, where you can analyze the LLM generated codes and edit mode, where you can update the higher level codes formed from sub-codes.',
+                'Click this button to toggle between review, where you can analyze the LLM generated codes and edit mode, where you can update the higher level codes formed from codes.',
             placement: 'bottom'
         },
         {
@@ -479,7 +451,7 @@ const FinalzingCodes = () => {
                 {/* Toggle at the top (Review vs. Edit) */}
                 {unplacedSubCodes.length > 0 && (
                     <p className="mb-4 text-red-500 text-center">
-                        Go into edit mode, place unplaced sub-codes into code buckets to proceed.
+                        Go into edit mode, place unplaced codes into code buckets to proceed.
                     </p>
                 )}
                 <ReviewToggle review={review} setReview={setReview} />
@@ -489,7 +461,7 @@ const FinalzingCodes = () => {
                         <div className="flex justify-end items-center">
                             <input
                                 type="text"
-                                placeholder="Search sub-codes..."
+                                placeholder="Search codes..."
                                 className="p-2 border rounded"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}

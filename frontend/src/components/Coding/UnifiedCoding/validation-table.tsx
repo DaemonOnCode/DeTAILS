@@ -175,11 +175,13 @@ const ValidationTable: FC<ValidationTableProps> = ({
                     <thead className="sticky top-0 z-30 bg-gray-100">
                         <tr>
                             <th className="max-w-48 p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
-                                {codeResponses.some((r) => 'subCode' in r) ? 'Code' : 'Sub-code'}
+                                {codeResponses.some((r) => 'subCode' in r)
+                                    ? 'Reviewed Code'
+                                    : 'Code'}
                             </th>
                             {showCoderType && codeResponses.some((r) => 'subCode' in r) && (
                                 <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
-                                    Sub-code
+                                    Code
                                 </th>
                             )}
                             <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
@@ -296,7 +298,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                                     <>{row.subCode}</>
                                                 ) : (
                                                     <span className="text-gray-400 italic">
-                                                        No sub-code
+                                                        No Code
                                                     </span>
                                                 )}
                                             </td>

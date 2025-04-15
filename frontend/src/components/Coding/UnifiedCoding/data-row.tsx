@@ -67,7 +67,7 @@ const DataRow: FC<DataRowProps> = memo(
                         ) : row.subCode ? (
                             <>{row.subCode}</>
                         ) : (
-                            <span className="text-gray-400 italic">No sub-code</span>
+                            <span className="text-gray-400 italic">No Code</span>
                         )}
                     </td>
                 )}
