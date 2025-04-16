@@ -98,9 +98,9 @@ const ThemesPage = () => {
         }
     }, [searchQuery]);
 
-    const handleFeedbackSubmit = () => {
+    const handleFeedbackSubmit = async () => {
         setIsFeedbackModalOpen(false);
-        if (checkIfDataExists(location.pathname)) {
+        if (await checkIfDataExists(location.pathname)) {
             openModal('refresh-themes-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
                 await handleRefreshThemes(feedback);
@@ -248,7 +248,7 @@ const ThemesPage = () => {
     const handleRefreshThemes = async (extraFeedback = '') => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.THEMES
+            route: PAGE_ROUTES.GENERATING_THEMES
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
@@ -267,7 +267,7 @@ const ThemesPage = () => {
             if (error.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.THEMES
+                    route: PAGE_ROUTES.GENERATING_THEMES
                 });
             }
             return;
@@ -277,9 +277,9 @@ const ThemesPage = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.THEMES
+            route: PAGE_ROUTES.GENERATING_THEMES
         });
-        navigate(PAGE_ROUTES.THEMES);
+        navigate(PAGE_ROUTES.GENERATING_THEMES);
     };
 
     const handleMoveToMiscellaneous = useCallback(() => {
@@ -409,8 +409,8 @@ const ThemesPage = () => {
                     </div>
                     <footer id="bottom-navigation">
                         <NavigationBottomBar
-                            previousPage={PAGE_ROUTES.FINALIZING_CODES}
-                            nextPage={PAGE_ROUTES.ANALYSIS}
+                            previousPage={PAGE_ROUTES.REVIEWING_CODES}
+                            nextPage={PAGE_ROUTES.REPORT}
                             isReady={unplacedCodes.length === 0}
                         />
                     </footer>

@@ -96,7 +96,7 @@ const HomePage = () => {
                 </div>
 
                 <footer className="w-full">
-                    <NavigationBottomBar previousPage={PAGE_ROUTES.KEYWORD_TABLE} />
+                    <NavigationBottomBar previousPage={PAGE_ROUTES.CONCEPT_OUTLINE} />
                 </footer>
             </div>
         </TutorialWrapper>

@@ -122,7 +122,7 @@ const DataViewerPage = () => {
         if (!datasetId) return;
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.CODEBOOK_CREATION
+            route: PAGE_ROUTES.INITIAL_CODING
         });
         navigate(
             getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
@@ -162,7 +162,7 @@ const DataViewerPage = () => {
             if (sampleError.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.CODEBOOK_CREATION
+                    route: PAGE_ROUTES.INITIAL_CODING
                 });
                 throw new Error(sampleError.message.error_message);
             }
@@ -201,7 +201,7 @@ const DataViewerPage = () => {
                 navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.CODEBOOK_CREATION
+                    route: PAGE_ROUTES.INITIAL_CODING
                 });
                 console.error(
                     'Error generating initial codes:',
@@ -217,7 +217,7 @@ const DataViewerPage = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.CODEBOOK_CREATION
+            route: PAGE_ROUTES.INITIAL_CODING
         });
     };
 
@@ -263,7 +263,7 @@ const DataViewerPage = () => {
                         <NavigationBottomBar
                             disabledTooltipText="Please select at least 5 posts to proceed and lock the dataset to proceed."
                             previousPage={PAGE_ROUTES.DATA_SOURCE}
-                            nextPage={PAGE_ROUTES.CODEBOOK_CREATION}
+                            nextPage={PAGE_ROUTES.INITIAL_CODING}
                             isReady={isReadyCheck}
                             onNextClick={handleSamplingPosts}
                         />

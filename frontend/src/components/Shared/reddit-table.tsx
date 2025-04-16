@@ -18,7 +18,6 @@ const RedditTable: FC<RedditTableProps> = ({
     const { isLocked } = useCollectionContext();
     const [selectedPost, setSelectedPost] = useState<(typeof data)[number] | null>(null);
 
-    // Check if all posts on the current page are selected
     const areAllPagePostsSelected = data.every(([id]) => selectedPosts.includes(id));
 
     return (
@@ -27,7 +26,6 @@ const RedditTable: FC<RedditTableProps> = ({
                 <thead className="bg-gray-100 sticky top-0">
                     <tr>
                         <th className="px-4 py-4 border">
-                            {/* Disable the "select all" checkbox if locked */}
                             {!isLoading && (
                                 <input
                                     type="checkbox"
@@ -48,8 +46,7 @@ const RedditTable: FC<RedditTableProps> = ({
                 </thead>
                 <tbody>
                     {isLoading
-                        ? // Render skeleton rows if loading
-                          [...Array(itemsPerPage)].map((_, index) => (
+                        ? [...Array(itemsPerPage)].map((_, index) => (
                               <tr key={index} className="hover:bg-gray-50">
                                   <td className="px-4 py-6 border">
                                       <div className="h-6 w-6 bg-gray-200 rounded-full animate-pulse"></div>
@@ -68,8 +65,7 @@ const RedditTable: FC<RedditTableProps> = ({
                                   </td>
                               </tr>
                           ))
-                        : // Render actual data rows when not loading
-                          data.map((post, index) => (
+                        : data.map((post, index) => (
                               <tr key={index} className="hover:bg-gray-50">
                                   <td className="px-4 py-6 border">
                                       <input
@@ -77,7 +73,7 @@ const RedditTable: FC<RedditTableProps> = ({
                                           type="checkbox"
                                           checked={selectedPosts.includes(post[0])}
                                           onChange={() => togglePostSelection(post[0])}
-                                          disabled={isLocked} // <-- Disable if isLocked
+                                          disabled={isLocked}
                                       />
                                   </td>
                                   <td className="px-4 py-6 border">

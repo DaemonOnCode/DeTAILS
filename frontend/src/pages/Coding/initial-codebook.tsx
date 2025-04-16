@@ -93,7 +93,7 @@ const InitialCodeBook = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.DEDUCTIVE_CODING
+            route: PAGE_ROUTES.FINAL_CODING
         });
 
         const { data: results, error } = await fetchLLMData<{
@@ -121,7 +121,7 @@ const InitialCodeBook = () => {
                 navigate(PAGE_ROUTES.INITIAL_CODEBOOK);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.DEDUCTIVE_CODING
+                    route: PAGE_ROUTES.FINAL_CODING
                 });
                 throw new Error(error.message);
             }
@@ -132,7 +132,7 @@ const InitialCodeBook = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.DEDUCTIVE_CODING
+            route: PAGE_ROUTES.FINAL_CODING
         });
     };
 
@@ -171,9 +171,9 @@ const InitialCodeBook = () => {
         navigate(PAGE_ROUTES.INITIAL_CODEBOOK);
     };
 
-    const handleFeedbackSubmit = () => {
+    const handleFeedbackSubmit = async () => {
         setIsFeedbackModalOpen(false);
-        if (checkIfDataExists(location.pathname)) {
+        if (await checkIfDataExists(location.pathname)) {
             openModal('refresh-codebook-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
                 await handleRegenerateCodebook(feedback);
@@ -301,8 +301,8 @@ const InitialCodeBook = () => {
 
                 <footer id="bottom-navigation" className="flex-none">
                     <NavigationBottomBar
-                        previousPage={PAGE_ROUTES.CODEBOOK_CREATION}
-                        nextPage={PAGE_ROUTES.DEDUCTIVE_CODING}
+                        previousPage={PAGE_ROUTES.INITIAL_CODING}
+                        nextPage={PAGE_ROUTES.FINAL_CODING}
                         isReady={true}
                         onNextClick={handleNextClick}
                     />

@@ -35,8 +35,6 @@ const useWorkspaceUtils = () => {
     const getPayload = (
         currentWorkspace: IWorkspaceContext['currentWorkspace'],
         user: AuthContextType['user'],
-        collectionContext: ExtendedICollectionContext,
-        codingContext: ICodingContext,
         modelingContext: IModelingContext,
         loadingContext: ILoadingContext,
         manualCodingContext: IManualCodingContext
@@ -45,15 +43,8 @@ const useWorkspaceUtils = () => {
             workspace_id: currentWorkspace?.id || '',
             user_email: user?.email || '',
             page_url: `${location.pathname}${location.search}`,
-            dataset_id: collectionContext.datasetId || '',
-            collection_context: {
-                type: collectionContext.type || '',
-                metadata: collectionContext.metadata || {},
-                mode_input: collectionContext.modeInput || '',
-                selected_data: collectionContext.selectedData || [],
-                data_filters: collectionContext.dataFilters || {},
-                is_locked: collectionContext.isLocked || false
-            },
+            dataset_id: '',
+            collection_context: {},
             modeling_context: {
                 models: modelingContext.models || []
             },
@@ -77,8 +68,6 @@ const useWorkspaceUtils = () => {
     const contextRef = useRef({
         currentWorkspace,
         user,
-        collectionContext,
-        codingContext,
         modelingContext,
         loadingContext,
         manualCodingContext
@@ -88,30 +77,17 @@ const useWorkspaceUtils = () => {
         contextRef.current = {
             currentWorkspace,
             user,
-            collectionContext,
-            codingContext,
             modelingContext,
             loadingContext,
             manualCodingContext
         };
-    }, [
-        currentWorkspace,
-        user,
-        collectionContext,
-        codingContext,
-        modelingContext,
-        loadingContext,
-        manualCodingContext
-    ]);
+    }, [currentWorkspace, user, modelingContext, loadingContext, manualCodingContext]);
 
     const getWorkspaceData = () => {
-        const { currentWorkspace, user, collectionContext, codingContext, modelingContext } =
-            contextRef.current;
+        const { currentWorkspace, user, modelingContext } = contextRef.current;
         return getPayload(
             currentWorkspace,
             user,
-            collectionContext,
-            codingContext,
             modelingContext,
             loadingContext,
             manualCodingContext
@@ -125,22 +101,11 @@ const useWorkspaceUtils = () => {
     const updateContextData = (data: Record<string, any>) => {
         console.log('Updating context data:', data);
         if (!data) {
-            collectionContext.resetContext();
             modelingContext.resetContext();
             loadingContext.resetContext();
             manualCodingContext.resetContext();
             return;
         }
-
-        collectionContext.updateContext({
-            datasetId: data.dataset_id ?? '',
-            modeInput: data.mode_input ?? '',
-            metadata: data.metadata,
-            type: data.type ?? '',
-            selectedData: data.selected_data ?? [],
-            dataFilters: data.data_filters ?? {},
-            isLocked: data.is_locked ?? false
-        });
 
         modelingContext.updateContext({
             models: data.models ?? []
@@ -168,12 +133,7 @@ const useWorkspaceUtils = () => {
             });
 
             if (fetchResponse.error) {
-                resetContextData(
-                    collectionContext,
-                    modelingContext,
-                    loadingContext,
-                    manualCodingContext
-                );
+                resetContextData(modelingContext, loadingContext, manualCodingContext);
                 showToast({
                     type: 'error',
                     message: 'Error loading workspace data'
@@ -191,12 +151,7 @@ const useWorkspaceUtils = () => {
                 });
                 console.log('Workspace data loaded successfully');
             } else {
-                resetContextData(
-                    collectionContext,
-                    modelingContext,
-                    loadingContext,
-                    manualCodingContext
-                );
+                resetContextData(modelingContext, loadingContext, manualCodingContext);
                 showToast({
                     type: 'error',
                     message: 'Error loading workspace data'
@@ -205,12 +160,7 @@ const useWorkspaceUtils = () => {
             }
             console.log('Loading workspace data:', parsedResults.data);
         } catch (error) {
-            resetContextData(
-                collectionContext,
-                modelingContext,
-                loadingContext,
-                manualCodingContext
-            );
+            resetContextData(modelingContext, loadingContext, manualCodingContext);
             console.error('Error in loadWorkspaceData:', error);
         }
     };

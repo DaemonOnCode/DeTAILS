@@ -56,7 +56,7 @@ const CodebookCreation = () => {
     const handleRedoCoding = async () => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.CODEBOOK_CREATION
+            route: PAGE_ROUTES.INITIAL_CODING
         });
         navigate(
             getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
@@ -75,7 +75,7 @@ const CodebookCreation = () => {
             console.error('Error in handleRedoCoding:', error);
             loadingDispatch({
                 type: 'SET_LOADING_DONE_ROUTE',
-                route: PAGE_ROUTES.CODEBOOK_CREATION
+                route: PAGE_ROUTES.INITIAL_CODING
             });
             return;
         }
@@ -84,9 +84,9 @@ const CodebookCreation = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.CODEBOOK_CREATION
+            route: PAGE_ROUTES.INITIAL_CODING
         });
-        navigate(PAGE_ROUTES.CODEBOOK_CREATION);
+        navigate(PAGE_ROUTES.INITIAL_CODING);
     };
 
     const handleNextClick = async () => {
@@ -113,7 +113,7 @@ const CodebookCreation = () => {
             console.error('Error in handleNextClick:', error);
             if (error.name !== 'AbortError') {
                 toast.error('Error generating codebook. Please try again.');
-                navigate(PAGE_ROUTES.CODEBOOK_CREATION);
+                navigate(PAGE_ROUTES.INITIAL_CODING);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
                     route: PAGE_ROUTES.INITIAL_CODEBOOK
@@ -190,8 +190,8 @@ const CodebookCreation = () => {
                         showCoderType={false}
                         showCodebook={true}
                         showRerunCoding
-                        handleRerun={() => {
-                            if (checkIfDataExists(location.pathname)) {
+                        handleRerun={async () => {
+                            if (await checkIfDataExists(location.pathname)) {
                                 openModal('codebook-redo', async () => {
                                     await resetDataAfterPage(location.pathname);
                                     await handleRedoCoding();

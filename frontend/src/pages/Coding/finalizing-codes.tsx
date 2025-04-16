@@ -247,9 +247,9 @@ const FinalzingCodes = () => {
         );
     };
 
-    const handleFeedbackSubmit = () => {
+    const handleFeedbackSubmit = async () => {
         setIsFeedbackModalOpen(false);
-        if (checkIfDataExists(location.pathname)) {
+        if (await checkIfDataExists(location.pathname)) {
             openModal('refresh--finalizing-codes-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
                 await handleRefreshCodes(feedback);
@@ -267,7 +267,7 @@ const FinalzingCodes = () => {
     const handleNextClick = async () => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.THEMES
+            route: PAGE_ROUTES.GENERATING_THEMES
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
@@ -288,10 +288,10 @@ const FinalzingCodes = () => {
             console.error('Error in handleNextClick:', error);
             if (error.name !== 'AbortError') {
                 toast.error('Error generating themes. Please try again. ' + (error.message ?? ''));
-                navigate(PAGE_ROUTES.FINALIZING_CODES);
+                navigate(PAGE_ROUTES.REVIEWING_CODES);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.THEMES
+                    route: PAGE_ROUTES.GENERATING_THEMES
                 });
                 throw new Error(error.message);
             }
@@ -301,14 +301,14 @@ const FinalzingCodes = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.THEMES
+            route: PAGE_ROUTES.GENERATING_THEMES
         });
     };
 
     const handleRefreshCodes = async (extraFeedback = '') => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.FINALIZING_CODES
+            route: PAGE_ROUTES.REVIEWING_CODES
         });
         navigate(
             getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
@@ -335,7 +335,7 @@ const FinalzingCodes = () => {
             if (error.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.FINALIZING_CODES
+                    route: PAGE_ROUTES.REVIEWING_CODES
                 });
             }
             return;
@@ -345,9 +345,9 @@ const FinalzingCodes = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.FINALIZING_CODES
+            route: PAGE_ROUTES.REVIEWING_CODES
         });
-        navigate(PAGE_ROUTES.FINALIZING_CODES);
+        navigate(PAGE_ROUTES.REVIEWING_CODES);
     };
 
     useEffect(() => {
@@ -446,7 +446,7 @@ const FinalzingCodes = () => {
         <TutorialWrapper
             steps={steps}
             pageId={location.pathname}
-            excludedTarget={`#route-${PAGE_ROUTES.FINALIZING_CODES}`}>
+            excludedTarget={`#route-${PAGE_ROUTES.REVIEWING_CODES}`}>
             <main className="h-page w-full flex flex-col" id="finalized-main">
                 {/* Toggle at the top (Review vs. Edit) */}
                 {unplacedSubCodes.length > 0 && (
@@ -591,8 +591,8 @@ const FinalzingCodes = () => {
 
                 {/* Navigation at the bottom */}
                 <NavigationBottomBar
-                    previousPage={PAGE_ROUTES.DEDUCTIVE_CODING}
-                    nextPage={PAGE_ROUTES.THEMES}
+                    previousPage={PAGE_ROUTES.FINAL_CODING}
+                    nextPage={PAGE_ROUTES.GENERATING_THEMES}
                     isReady={unplacedSubCodes.length === 0}
                     onNextClick={handleNextClick}
                 />

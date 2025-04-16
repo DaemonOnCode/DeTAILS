@@ -1,4 +1,12 @@
-import React, { createContext, useState, useEffect, useContext, FC } from 'react';
+import React, {
+    createContext,
+    useState,
+    useEffect,
+    useContext,
+    FC,
+    Dispatch,
+    useMemo
+} from 'react';
 import { useLocation } from 'react-router-dom';
 import { useLoadingContext } from './loading-context';
 import { PAGE_ROUTES } from '../constants/Coding/shared';
@@ -17,12 +25,14 @@ import {
     SampleDataResponseReducerActions,
     SampleDataWithThemeResponseReducerActions,
     BaseResponseHandlerActions,
-    InitialCodebookTableAction
+    InitialCodebookTableAction,
+    SetState
 } from '../types/Coding/shared';
 import { useApi } from '../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
+import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
+import { getGroupedCodeOfSubCode, getThemeByCode } from '../utility/theme-finder';
 
-// Define the CodingContext with default values
 export const CodingContext = createContext<ICodingContext>({
     contextFiles: {},
     addContextFile: async () => {},
@@ -67,19 +77,15 @@ export const CodingContext = createContext<ICodingContext>({
     setSampledPostIds: async () => {},
     unseenPostIds: [],
     setUnseenPostIds: async () => {},
-    conflictingResponses: [],
-    setConflictingResponses: async () => {},
     initialCodebookTable: [],
     dispatchInitialCodebookTable: async () => {}
 });
 
-// CodingProvider component
 export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
     const location = useLocation();
     const { loadingState, loadingDispatch } = useLoadingContext();
     const { fetchData } = useApi();
 
-    // State declarations with initial values and renamed setters
     const [contextFiles, setContextFilesState] = useState<IFile>({});
     const [mainTopic, setMainTopicState] = useState<string>('');
     const [additionalInfo, setAdditionalInfoState] = useState<string>('');
@@ -102,12 +108,10 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
     const [unplacedSubCodes, setUnplacedSubCodesState] = useState<string[]>([]);
     const [sampledPostIds, setSampledPostIdsState] = useState<string[]>([]);
     const [unseenPostIds, setUnseenPostIdsState] = useState<string[]>([]);
-    const [conflictingResponses, setConflictingResponsesState] = useState<IQECResponse[]>([]);
     const [initialCodebookTable, setInitialCodebookTableState] = useState<InitialCodebookCode[]>(
         []
     );
 
-    // Helper function to save context to the backend
     const saveCodingContext = async (operationType: string, payload: object) => {
         try {
             const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.SAVE_CODING_CONTEXT, {
@@ -143,7 +147,6 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         unplacedSubCodes: setUnplacedSubCodesState,
         sampledPostIds: setSampledPostIdsState,
         unseenPostIds: setUnseenPostIdsState,
-        conflictingResponses: setConflictingResponsesState,
         initialCodebookTable: setInitialCodebookTableState
     };
 
@@ -168,11 +171,9 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         unplacedSubCodes: () => setUnplacedSubCodesState([]),
         sampledPostIds: () => setSampledPostIdsState([]),
         unseenPostIds: () => setUnseenPostIdsState([]),
-        conflictingResponses: () => setConflictingResponsesState([]),
         initialCodebookTable: () => setInitialCodebookTableState([])
     };
 
-    // Helper function to fetch states from the backend
     const fetchStates = async (stateNames: string[]) => {
         try {
             if (stateNames.length === 0) return;
@@ -189,32 +190,159 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         }
     };
 
-    // Fetch states based on the current page when location changes
+    const loadingStateInitialization: Record<
+        string,
+        {
+            relatedStates: {
+                name: string;
+            }[];
+            downloadData?: { name: string; condition?: boolean };
+        }
+    > = useMemo(
+        () => ({
+            [PAGE_ROUTES.CONTEXT]: {
+                relatedStates: [
+                    {
+                        name: 'setContextFiles'
+                    },
+                    { name: 'setMainTopic' },
+                    { name: 'setAdditionalInfo' },
+                    {
+                        name: 'setResearchQuestions'
+                    }
+                ]
+            },
+            [PAGE_ROUTES.RELATED_CONCEPTS]: {
+                relatedStates: [
+                    {
+                        name: 'setKeywords'
+                    },
+                    {
+                        name: 'selectedKeywords'
+                    }
+                ]
+            },
+            [PAGE_ROUTES.CONCEPT_OUTLINE]: {
+                relatedStates: [
+                    {
+                        name: 'dispatchKeywordsTable'
+                    }
+                ]
+            },
+            [PAGE_ROUTES.INITIAL_CODING]: {
+                relatedStates: [
+                    {
+                        name: 'dispatchSampledPostResponse'
+                    },
+                    {
+                        name: 'setSampledPostResponseCopy'
+                    },
+                    {
+                        name: 'setSampledPostIds'
+                    },
+                    {
+                        name: 'setUnseenPostIds'
+                    }
+                ],
+                downloadData: { name: 'codebook', data: sampledPostResponse }
+            },
+            [PAGE_ROUTES.INITIAL_CODEBOOK]: {
+                relatedStates: [
+                    {
+                        name: 'dispatchInitialCodebookTable'
+                    }
+                ]
+            },
+            [PAGE_ROUTES.FINAL_CODING]: {
+                relatedStates: [
+                    {
+                        name: 'dispatchUnseenPostResponse'
+                    }
+                ],
+                downloadData: { name: 'deductive_codebook' }
+            },
+            [PAGE_ROUTES.REVIEWING_CODES]: {
+                relatedStates: [
+                    { name: 'setGroupedCodes' },
+                    {
+                        name: 'setUnplacedSubCodes'
+                    }
+                ],
+                downloadData: {
+                    name: 'codebook_with_grouped_codes'
+                }
+            },
+            [PAGE_ROUTES.GENERATING_THEMES]: {
+                relatedStates: [{ name: 'setThemes' }, { name: 'setUnplacedCodes' }],
+                downloadData: {
+                    name: 'codebook_with_themes',
+                    condition: themes.length > 0
+                }
+            }
+        }),
+        [
+            contextFiles,
+            mainTopic,
+            additionalInfo,
+            keywords,
+            selectedKeywords,
+            keywordTable,
+            sampledPostResponse,
+            unseenPostResponse,
+            themes,
+            unplacedCodes
+        ]
+    );
+
+    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.CONTEXT]?.stepRef);
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[PAGE_ROUTES.RELATED_CONCEPTS]?.stepRef
+    );
+    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.CONCEPT_OUTLINE]?.stepRef);
+    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.INITIAL_CODING]?.stepRef);
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[PAGE_ROUTES.INITIAL_CODEBOOK]?.stepRef
+    );
+    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.FINAL_CODING]?.stepRef);
+    useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.REVIEWING_CODES]?.stepRef);
+    useLoadingSteps(
+        loadingStateInitialization,
+        loadingState[PAGE_ROUTES.GENERATING_THEMES]?.stepRef
+    );
+
     useEffect(() => {
         const page = location.pathname;
         const stateMap: Record<string, string[]> = {
-            [PAGE_ROUTES.CONTEXT_V2]: [
+            [PAGE_ROUTES.HOME]: [
+                'contextFiles',
+                'mainTopic',
+                'additionalInfo',
+                'researchQuestions',
+                'keywords',
+                'selectedKeywords'
+            ],
+            [PAGE_ROUTES.CONTEXT]: [
                 'contextFiles',
                 'mainTopic',
                 'additionalInfo',
                 'researchQuestions'
             ],
-            [PAGE_ROUTES.KEYWORD_CLOUD]: ['mainTopic', 'keywords', 'selectedKeywords'],
-            [PAGE_ROUTES.KEYWORD_TABLE]: ['keywordTable'],
-            [PAGE_ROUTES.CODEBOOK_CREATION]: ['sampledPostResponse', 'sampledPostIds'],
+            [PAGE_ROUTES.RELATED_CONCEPTS]: ['keywords', 'selectedKeywords'],
+            [PAGE_ROUTES.CONCEPT_OUTLINE]: ['keywordTable'],
+            [PAGE_ROUTES.INITIAL_CODING]: ['sampledPostResponse', 'sampledPostIds'],
             [PAGE_ROUTES.INITIAL_CODEBOOK]: ['initialCodebookTable'],
-            [PAGE_ROUTES.DEDUCTIVE_CODING]: ['unseenPostResponse', 'unseenPostIds'],
-            [PAGE_ROUTES.FINALIZING_CODES]: ['groupedCodes', 'unplacedSubCodes'],
-            [PAGE_ROUTES.THEMES]: ['themes', 'unplacedCodes']
+            [PAGE_ROUTES.FINAL_CODING]: ['unseenPostResponse', 'unseenPostIds'],
+            [PAGE_ROUTES.REVIEWING_CODES]: ['groupedCodes', 'unplacedSubCodes'],
+            [PAGE_ROUTES.GENERATING_THEMES]: ['themes', 'unplacedCodes']
         };
         const statesToFetch = stateMap[page] || [];
         if (statesToFetch.length > 0) {
             (async () => {
                 try {
-                    // Fetch only the required states
                     const fetchedData = await fetchStates(statesToFetch);
                     if (fetchedData) {
-                        // Update the required states with fetched data
                         statesToFetch.forEach((stateName) => {
                             console.log(`Setting state: ${stateName}`, fetchedData[stateName]);
                             if (
@@ -224,13 +352,6 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                                 setterFunctions[stateName](fetchedData[stateName]);
                             }
                         });
-
-                        // Reset only the unused states
-                        // const allStates = Object.keys(setterFunctions);
-                        // const statesToReset = allStates.filter(
-                        //     (state) => !statesToFetch.includes(state)
-                        // );
-                        // statesToReset.forEach((state) => resetFunctions[state]());
                     }
                 } catch (error) {
                     console.error('Error in state fetching effect:', error);
@@ -239,7 +360,6 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         }
     }, [location.pathname]);
 
-    // Context value with updated setters
     const value: ICodingContext = {
         contextFiles,
         addContextFile: async (filePath: string, fileName: string) => {
@@ -312,7 +432,6 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         },
         updateContext: async (updates: Partial<ICodingContext>) => {
             const data = await saveCodingContext('updateContext', updates);
-            // Assuming the backend returns the updated states, update them accordingly
             if (data.contextFiles) setContextFilesState(data.contextFiles);
             if (data.mainTopic) setMainTopicState(data.mainTopic);
             if (data.additionalInfo) setAdditionalInfoState(data.additionalInfo);
@@ -335,7 +454,6 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
             if (data.unplacedSubCodes) setUnplacedSubCodesState(data.unplacedSubCodes);
             if (data.sampledPostIds) setSampledPostIdsState(data.sampledPostIds);
             if (data.unseenPostIds) setUnseenPostIdsState(data.unseenPostIds);
-            if (data.conflictingResponses) setConflictingResponsesState(data.conflictingResponses);
             if (data.initialCodebookTable) setInitialCodebookTableState(data.initialCodebookTable);
         },
         resetContext: async () => {
@@ -361,13 +479,13 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 setUnplacedSubCodesState([]);
                 setSampledPostIdsState([]);
                 setUnseenPostIdsState([]);
-                setConflictingResponsesState([]);
                 setInitialCodebookTableState([]);
             }
         },
         sampledPostResponse,
         dispatchSampledPostResponse: async (action: SampleDataResponseReducerActions) => {
             const data = await saveCodingContext('dispatchSampledPostResponse', { action });
+            console.log('Sampled Post Response:', data);
             if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
         },
         sampledPostResponseCopy,
@@ -447,26 +565,13 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         setSampledPostIds: async (idsOrUpdater) => {
             const newIds =
                 typeof idsOrUpdater === 'function' ? idsOrUpdater(sampledPostIds) : idsOrUpdater;
-            // const data = await saveCodingContext('setSampledPostIds', { sampledPostIds: newIds });
             if (newIds) setSampledPostIdsState(newIds);
         },
         unseenPostIds,
         setUnseenPostIds: async (idsOrUpdater) => {
             const newIds =
                 typeof idsOrUpdater === 'function' ? idsOrUpdater(unseenPostIds) : idsOrUpdater;
-            // const data = await saveCodingContext('setUnseenPostIds', { unseenPostIds: newIds });
             if (newIds) setUnseenPostIdsState(newIds);
-        },
-        conflictingResponses,
-        setConflictingResponses: async (crsOrUpdater) => {
-            const newConflictingResponses =
-                typeof crsOrUpdater === 'function'
-                    ? crsOrUpdater(conflictingResponses)
-                    : crsOrUpdater;
-            const data = await saveCodingContext('setConflictingResponses', {
-                conflictingResponses: newConflictingResponses
-            });
-            if (data.conflictingResponses) setConflictingResponsesState(data.conflictingResponses);
         },
         initialCodebookTable,
         dispatchInitialCodebookTable: async (action: InitialCodebookTableAction) => {

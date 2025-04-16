@@ -11,7 +11,9 @@ from chromadb import HttpClient
 from fastapi import HTTPException, UploadFile
 from constants import STUDY_DATABASE_PATH
 from controllers.workspace_controller import upgrade_workspace_from_temp
+from database.grouped_code_table import GroupedCodeEntriesRepository
 from database.state_dump_table import StateDumpsRepository
+from database.theme_table import ThemeEntriesRepository
 from models import WorkspaceState, Workspace
 from database import WorkspaceStatesRepository, WorkspacesRepository
 from models.state_models import CodingContext, CollectionContext, LoadingContext, ManualCodingContext, ModelingContext
@@ -427,3 +429,24 @@ async def import_workspace(user_email: str, file: UploadFile):
         chroma_import(collection=file_name, import_file=jsonl_file, model=model_name, embedding_function="ollama")
 
     return workspace_id, workspace_name, workspace_description
+
+grouped_code_repo = GroupedCodeEntriesRepository()
+def get_grouped_code(code, workspace_id):
+    grouped_code = grouped_code_repo.find_one({"code": code, "coding_context_id": workspace_id }, map_to_model=False)
+
+    if not grouped_code:
+        raise HTTPException(status_code=404, detail="Grouped code not found.")
+
+    return grouped_code
+
+themes_repo = ThemeEntriesRepository()
+def get_theme_by_code(code, workspace_id):
+    grouped_code = grouped_code_repo.find_one({"code": code, "coding_context_id": workspace_id })
+    if not grouped_code:
+        raise HTTPException(status_code=404, detail="Grouped code not found.")
+
+    theme = themes_repo.find_one({"higher_level_code": grouped_code.higher_level_code, "coding_context_id": workspace_id }, map_to_model=False)
+    if not theme:
+        raise HTTPException(status_code=404, detail="Theme not found.")
+
+    return theme

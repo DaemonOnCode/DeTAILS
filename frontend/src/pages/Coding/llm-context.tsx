@@ -183,7 +183,7 @@ const ContextPage = () => {
             throw new Error('Unsaved research question');
         }
         e.preventDefault();
-        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.KEYWORD_CLOUD });
+        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.RELATED_CONCEPTS });
         await logger.info('Starting Theme Cloud Generation');
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
 
@@ -203,10 +203,10 @@ const ContextPage = () => {
             console.error('Error building context:', error);
             if (error.name !== 'AbortError') {
                 toast.error('Error building context. Please try again. ' + (error.message ?? ''));
-                navigate(PAGE_ROUTES.CONTEXT_V2);
+                navigate(PAGE_ROUTES.CONTEXT);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.KEYWORD_CLOUD
+                    route: PAGE_ROUTES.RELATED_CONCEPTS
                 });
                 throw new Error(error.message);
             }
@@ -215,8 +215,8 @@ const ContextPage = () => {
         console.log('Response from remote server', results);
 
         await logger.info('Theme Cloud generated');
-        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.KEYWORD_CLOUD });
-        navigate(PAGE_ROUTES.KEYWORD_CLOUD);
+        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.RELATED_CONCEPTS });
+        navigate(PAGE_ROUTES.RELATED_CONCEPTS);
     };
 
     return (
@@ -320,7 +320,7 @@ const ContextPage = () => {
                     </div>
                     <NavigationBottomBar
                         previousPage={PAGE_ROUTES.HOME}
-                        nextPage={PAGE_ROUTES.KEYWORD_CLOUD}
+                        nextPage={PAGE_ROUTES.RELATED_CONCEPTS}
                         isReady={checkIfReady}
                         onNextClick={handleOnNextClick}
                         autoNavigateToNext={false}

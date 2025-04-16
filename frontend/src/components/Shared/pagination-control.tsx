@@ -49,7 +49,7 @@ const PaginationControls: FC<PaginationControlsProps> = ({
 
                 {/* If locked, show "Unlock" button; if unlocked, show "Lock" button */}
                 <button
-                    onClick={() => {
+                    onClick={async () => {
                         console.log('loading reddit data', loading);
                         if (loading) return;
                         // setIsLocked((locked) => {
@@ -60,7 +60,7 @@ const PaginationControls: FC<PaginationControlsProps> = ({
                             setIsLocked(true);
                             return;
                         }
-                        if (checkIfDataExists(location.pathname)) {
+                        if (await checkIfDataExists(location.pathname)) {
                             openModal('reddit-lock-btn', async (e: any) => {
                                 // setShowProceedConfirmModal(false);
                                 abortRequests(location.pathname);

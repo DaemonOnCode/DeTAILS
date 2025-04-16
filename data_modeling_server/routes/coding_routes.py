@@ -11,7 +11,7 @@ import pandas as pd
 
 from config import Settings, CustomSettings
 from constants import STUDY_DATABASE_PATH
-from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, filter_duplicate_codes, filter_duplicate_codes_in_db, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
+from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, filter_duplicate_codes_in_db, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
 from controllers.collection_controller import count_comments, get_reddit_post_by_id
 from database.coding_context_table import CodingContextRepository
 from database.context_file_table import ContextFilesRepository
@@ -83,9 +83,6 @@ async def sample_posts_endpoint(
     sample_size = request_body.sample_size
     divisions = request_body.divisions
     workspace_id = request.headers.get("x-workspace-id")
-
-    if len(selected_post_ids_repo.find({"dataset_id": dataset_id}))!=0:
-        selected_post_ids_repo.delete({"dataset_id": dataset_id})
 
     start_time = time.time()
 
@@ -237,38 +234,12 @@ async def sample_posts_endpoint(
         )
     )
 
-    if result.get("sampled"):
-        selected_post_ids_repo.insert_batch(
-            list(map(
-                lambda post_id: SelectedPostId(
-                    dataset_id=dataset_id,
-                    post_id=post_id,
-                    type="sampled"
-                ),
-                result["sampled"]
-            ))
-        )
-    if result.get("unseen"):
-        selected_post_ids_repo.insert_batch(
-            list(map(
-                lambda post_id: SelectedPostId(
-                    dataset_id=dataset_id,
-                    post_id=post_id,
-                    type="unseen"
-                ),
-                result["unseen"]
-            ))
-        )
-    if result.get("test"):
-        selected_post_ids_repo.insert_batch(
-            list(map(
-                lambda post_id: SelectedPostId(
-                    dataset_id=dataset_id,
-                    post_id=post_id,
-                    type="test"
-                ),
-                result["test"]
-            ))
+    for group_name, post_ids in result.items():
+        selected_post_ids_repo.bulk_update(
+            [
+                {"type": group_name} for _ in post_ids
+            ],
+            [{"dataset_id": dataset_id, "post_id": post_id} for post_id in post_ids],
         )
     return result
 
@@ -1824,7 +1795,6 @@ async def group_codes_endpoint(
 
     grouped_codes_repo.insert_batch([
         GroupedCodeEntry(
-            id=str(uuid4()),
             code=code, 
             higher_level_code = higher_level_code["name"],
             higher_level_code_id = higher_level_code["id"],
@@ -1835,7 +1805,6 @@ async def group_codes_endpoint(
 
     grouped_codes_repo.insert_batch([
         GroupedCodeEntry(
-            id=str(uuid4()),
             code=code, 
             higher_level_code = None,
             higher_level_code_id = None,
@@ -1960,7 +1929,6 @@ async def regroup_codes_endpoint(
 
     grouped_codes_repo.insert_batch([
         GroupedCodeEntry(
-            id=str(uuid4()),
             code=code, 
             higher_level_code = higher_level_code["name"],
             higher_level_code_id = higher_level_code["id"],
@@ -1971,7 +1939,6 @@ async def regroup_codes_endpoint(
 
     grouped_codes_repo.insert_batch([
         GroupedCodeEntry(
-            id=str(uuid4()),
             code=code, 
             higher_level_code = None,
             higher_level_code_id = None,

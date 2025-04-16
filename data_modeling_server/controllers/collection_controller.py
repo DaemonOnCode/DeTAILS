@@ -586,6 +586,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
     all_files = []
     try:
         files = os.listdir(dataset_path)
+        print("Files in dataset directory:", files, dataset_path)
     except FileNotFoundError:
         print(f"Directory not found: {dataset_path}")
         return {"error": f"Directory not found: {dataset_path}"}
@@ -705,6 +706,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     subreddit_id=p.get("subreddit_id", ""),
                     dataset_id=dataset_id
                 ))
+            print("Number of posts to insert:", len(posts))
             post_repo.insert_batch(posts)
 
         elif file["type"] == "comments":
@@ -766,6 +768,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     unique_comments.append(comment)
                 else:
                     print(f"Skipping duplicate comment with key: {key}")
+            print("Number of posts to insert:", len(unique_comments))
             comment_repo.insert_batch(unique_comments)
 
     update_dataset(dataset_id, name=subreddit)

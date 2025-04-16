@@ -49,7 +49,7 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                         e.preventDefault();
                         if (!isReady) {
                         } else {
-                            const dataExists = checkIfDataExists(location.pathname);
+                            const dataExists = await checkIfDataExists(location.pathname);
                             console.log('Data exists:', dataExists);
                             const nextPageFull = nextPage;
                             try {

@@ -1,15 +1,12 @@
-import React, { FC, RefObject, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { FC, RefObject, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import useRedditData from '../../hooks/DataCollection/use-reddit-data';
-import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import useServerUtils from '../../hooks/Shared/get-server-url';
-import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import TorrentDataTab from '../../components/DataCollection/load-torrent-data';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
-import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
 import { useLoadingContext } from '../../context/loading-context';
 import { TORRENT_END_DATE, TORRENT_START_DATE } from '../../constants/DataCollection/shared';
 import { useSettings } from '../../context/settings-context';
@@ -21,8 +18,7 @@ const LoadReddit: FC<{
     processRef: RefObject<{ run: () => Promise<void> } | null>;
 }> = ({ processRef }) => {
     const location = useLocation();
-    const { modeInput, setModeInput, metadata, metadataDispatch, type, datasetId } =
-        useCollectionContext();
+    const { modeInput, setModeInput, type } = useCollectionContext();
     const {
         data,
         loadFolderData,
@@ -297,7 +293,7 @@ const LoadReddit: FC<{
                         </p>
                         <button
                             onClick={async () => {
-                                if (checkIfDataExists(location.pathname)) {
+                                if (await checkIfDataExists(location.pathname)) {
                                     openModal('deductive-coding-redo', async () => {
                                         await resetDataAfterPage(location.pathname);
                                         let folderPath = await ipcRenderer.invoke('select-folder');
@@ -335,7 +331,7 @@ const LoadReddit: FC<{
                         downloadPath={downloadPath}
                         setDownloadPath={setDownloadPath}
                         handleLoadTorrent={async () => {
-                            if (checkIfDataExists(location.pathname)) {
+                            if (await checkIfDataExists(location.pathname)) {
                                 openModal('load-reddit-torrent', async () => {
                                     await resetDataAfterPage(location.pathname);
                                     await handleLoadTorrent();

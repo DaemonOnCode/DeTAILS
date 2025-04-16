@@ -51,19 +51,22 @@ async def parse_reddit_dataset_endpoint(
 
 
 @router.post("/reddit-posts-by-batch")
-async def get_reddit_posts_endpoint(request: ParseRedditPostsRequest = Body(...)):
+async def get_reddit_posts_endpoint(
+    request: Request,
+    request_body: ParseRedditPostsRequest = Body(...)
+):
     results = await asyncio.to_thread(get_reddit_posts_by_batch,
-        request.dataset_id,
-        request.batch,
-        request.offset,
-        request.all,
-        request.search_term,
-        request.start_time,
-        request.end_time,
-        request.hide_removed,
-        request.page,
-        request.items_per_page,
-        request.get_all_ids
+        request.headers.get("x-workspace-id"),
+        request_body.batch,
+        request_body.offset,
+        request_body.all,
+        request_body.search_term,
+        request_body.start_time,
+        request_body.end_time,
+        request_body.hide_removed,
+        request_body.page,
+        request_body.items_per_page,
+        request_body.get_all_ids
     )
     return results
 
@@ -326,10 +329,7 @@ async def prepare_torrent_data_from_files(
             detail="No matching files found in the torrent folder."
         )
 
-    if not dataset_id:
-        dataset_id = str(uuid4())
-
-    prepared_folder = os.path.join(DATASETS_DIR, f"prepared-torrent-{request.subreddit}-{dataset_id}")
+    prepared_folder = os.path.join(DATASETS_DIR, f"prepared-torrent-{request_body.subreddit}-{dataset_id}")
     os.makedirs(prepared_folder, exist_ok=True)
 
     for file_path in valid_files:

@@ -11,7 +11,6 @@ import { useCollectionContext } from '../../../context/collection-context';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 
-// Highlight colors
 const highlightColors = [
     'bg-yellow-300',
     'bg-green-300',

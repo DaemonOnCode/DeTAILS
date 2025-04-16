@@ -7,7 +7,7 @@ import { useCollectionContext } from '../../../context/collection-context';
 import useRedditData from '../../../hooks/DataCollection/use-reddit-data';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../../constants/Shared';
-import { ROUTES, LOADER_ROUTES } from '../../../constants/Coding/shared';
+import { ROUTES } from '../../../constants/Coding/shared';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 import { useLoadingContext } from '../../../context/loading-context';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -15,25 +15,22 @@ import { toast } from 'react-toastify';
 const path = window.require('path');
 const os = window.require('os');
 
-// Data model for pipeline steps
 interface PipelineStep {
     label: string;
     status: 'idle' | 'in-progress' | 'complete' | 'error';
-    progress: number; // 0 -> 100
+    progress: number;
     messages: string[];
 }
 
-// Data model for each file
 interface FileStatus {
     fileName: string;
     status: 'in-progress' | 'extracting' | 'complete' | 'error' | 'empty';
-    progress: number; // 0 -> 100
+    progress: number;
     completedBytes: number;
     totalBytes: number;
     messages: string[];
 }
 
-// Helper function to format bytes into human-readable strings
 function formatBytes(bytes: number, decimals = 2): string {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -43,9 +40,7 @@ function formatBytes(bytes: number, decimals = 2): string {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
-// Helper to parse the mode input string (if needed)
 function parseModeInput(modeInput: string) {
-    // Expected format: "reddit:torrent:subreddit|start|end|postsOnly|true|path"
     const parts = modeInput.split('|');
     console.log('Parsed mode input:', parts, modeInput);
     if (parts.length <= 3) {
@@ -63,7 +58,6 @@ function parseModeInput(modeInput: string) {
     };
 }
 
-// Updated initial steps with a new "Loading dataset" step
 const initialSteps: PipelineStep[] = [
     { label: 'Metadata', status: 'idle', progress: 0, messages: [] },
     { label: 'Verification', status: 'idle', progress: 0, messages: [] },
@@ -74,7 +68,6 @@ const initialSteps: PipelineStep[] = [
 ];
 
 const TorrentLoader: React.FC = () => {
-    // New state for torrent metadata
     const [torrentMetadata, setTorrentMetadata] = useState<{
         name: string;
         startDate: string;
@@ -88,7 +81,6 @@ const TorrentLoader: React.FC = () => {
     const [files, setFiles] = useState<Record<string, FileStatus>>({});
     const [messages, setMessages] = useState<string[]>([]);
     const [totalFiles, setTotalFiles] = useState<number>(0);
-    // New state for already downloaded files
     const [downloadedFiles, setDownloadedFiles] = useState<string[]>([]);
 
     const { currentWorkspace } = useWorkspaceContext();
@@ -99,7 +91,6 @@ const TorrentLoader: React.FC = () => {
     const logBottomRef = useRef<HTMLDivElement>(null);
     const fileBottomRef = useRef<HTMLDivElement>(null);
 
-    // Update total files ref
     const totalFilesRef = useRef(0);
     useEffect(() => {
         totalFilesRef.current = totalFiles;
@@ -111,7 +102,6 @@ const TorrentLoader: React.FC = () => {
     const logger = useLogger();
     const { registerCallback, unregisterCallback } = useWebSocket();
 
-    // Load initial run state including torrent metadata if available
     const loadRunState = async () => {
         const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.GET_TORRENT_STATUS, {
             method: 'POST',
@@ -125,7 +115,6 @@ const TorrentLoader: React.FC = () => {
             if (data.length !== 0 && data[0].run_state) {
                 const state = JSON.parse(data[0].run_state);
 
-                // If torrent metadata is provided in state.metadata, use it.
                 if (state.overall) {
                     setTorrentMetadata({
                         name: state.overall.subreddit || '',
@@ -136,11 +125,9 @@ const TorrentLoader: React.FC = () => {
                         JSON.parse(state.overall.filesAlreadyDownloaded ?? '[]') || []
                     );
                 } else {
-                    // Otherwise, fallback to a placeholder
                     setTorrentMetadata({ name: 'Unknown', startDate: 'N/A', endDate: 'N/A' });
                 }
 
-                // Parse steps and files
                 let parsedSteps: any[] = state.steps.map((step: any) => ({
                     ...step,
                     messages:
@@ -217,7 +204,6 @@ const TorrentLoader: React.FC = () => {
     useEffect(() => {
         setSteps((prevSteps) => {
             const updated = [...prevSteps];
-            // Update the Downloading step (index 2)
             updated[2] = {
                 ...updated[2],
                 status: overallProgress === 100 ? 'complete' : 'in-progress',
@@ -233,7 +219,6 @@ const TorrentLoader: React.FC = () => {
         fileBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // Retry logic
     const handleRetry = useCallback(async () => {
         logger.info('Retrying request...');
         try {
@@ -280,16 +265,12 @@ const TorrentLoader: React.FC = () => {
         }
     }, [modeInput]);
 
-    // WebSocket message handler – parse incoming messages to update steps, files, and downloaded files
     const handleWebSocketMessage = (message: string) => {
         setMessages((prev) => [...prev, message]);
         parseIncomingMessage(message);
     };
 
     const parseIncomingMessage = (msg: string) => {
-        // 0) Update torrent metadata from different message patterns
-
-        // Pattern 1: "Starting download for subreddit 'uwaterloo' ..."
         const subredditMatch = msg.match(/Starting download for subreddit\s+'([^']+)'/i);
         if (subredditMatch) {
             setTorrentMetadata((prev) => ({
@@ -298,7 +279,6 @@ const TorrentLoader: React.FC = () => {
             }));
         }
 
-        // Pattern 2: "Fetching torrent data for months 2012-03 through 2012-04..."
         const dateMatch = msg.match(
             /Fetching torrent data for months\s+([\d-]+)\s+through\s+([\d-]+)/i
         );
@@ -310,7 +290,6 @@ const TorrentLoader: React.FC = () => {
             }));
         }
 
-        // Pattern 3: "Torrent metadata: Name: <name>, Start Date: <date>, End Date: <date>"
         if (msg.includes('Torrent metadata:')) {
             const metaMatch = msg.match(
                 /Torrent metadata:\s*Name:\s*(.*?),\s*Start Date:\s*(.*?),\s*End Date:\s*(.*)/i
@@ -324,14 +303,12 @@ const TorrentLoader: React.FC = () => {
             }
         }
 
-        // 1) If "Files to process:" => set totalFiles
         if (msg.includes('Files to process:')) {
             const match = msg.match(/Files to process:\s*(\d+)/);
             if (match) {
                 setTotalFiles(parseInt(match[1], 10));
             }
         }
-        // 2) Capture already downloaded files
         if (msg.includes('Files already downloaded:')) {
             const match = msg.match(/Files already downloaded:\s*(.*)/);
             if (match) {
@@ -339,10 +316,8 @@ const TorrentLoader: React.FC = () => {
                 setDownloadedFiles(filesList);
             }
         }
-        // 3) Update pipeline steps
         setSteps((prevSteps) => {
             const updated = [...prevSteps];
-            // METADATA
             if (msg.includes('Metadata progress:')) {
                 const match = msg.match(/Metadata progress:\s+([\d.]+)/);
                 const percent = match ? parseFloat(match[1]) : 0;
@@ -361,7 +336,6 @@ const TorrentLoader: React.FC = () => {
                     messages: [...updated[0].messages, msg]
                 };
             }
-            // VERIFICATION
             if (msg.includes('Verification in progress:')) {
                 updated[1] = {
                     ...updated[1],
@@ -378,7 +352,6 @@ const TorrentLoader: React.FC = () => {
                     messages: [...updated[1].messages, msg]
                 };
             }
-            // DOWNLOADING
             if (
                 msg.includes('Finished downloading') ||
                 msg.includes('All wanted files have been processed')
@@ -402,26 +375,6 @@ const TorrentLoader: React.FC = () => {
                     };
                 }
             }
-            // SYMLINKS
-            // if (msg.includes('Symlink created:')) {
-            //     if (updated[3].status === 'idle') {
-            //         updated[3] = {
-            //             ...updated[3],
-            //             status: 'in-progress',
-            //             progress: 50,
-            //             messages: [...updated[3].messages, msg]
-            //         };
-            //     }
-            // }
-            // if (msg.includes('Parsing files into dataset')) {
-            //     updated[3] = {
-            //         ...updated[3],
-            //         status: 'complete',
-            //         progress: 100,
-            //         messages: [...updated[3].messages, msg]
-            //     };
-            // }
-            // PARSING
             if (msg.includes('Parsing files into dataset')) {
                 updated[4] = {
                     ...updated[4],
@@ -438,7 +391,6 @@ const TorrentLoader: React.FC = () => {
                     messages: [...updated[4].messages, msg]
                 };
             }
-            // LOADING DATASET (new step)
             if (msg.includes('Loading dataset, this may take a few moments')) {
                 updated[5] = {
                     ...updated[5],
@@ -455,7 +407,6 @@ const TorrentLoader: React.FC = () => {
                     messages: [...updated[5].messages, msg]
                 };
             }
-            // ERRORS
             if (msg.toLowerCase().includes('error')) {
                 const errIndex = updated.findIndex(
                     (s) => s.status === 'in-progress' || s.status === 'idle'
@@ -471,7 +422,6 @@ const TorrentLoader: React.FC = () => {
             return updated;
         });
 
-        // 4) Update file-specific info (unchanged)
         setFiles((prevFiles) => {
             const updated = { ...prevFiles };
             if (
@@ -629,14 +579,11 @@ const TorrentLoader: React.FC = () => {
             return updated;
         });
     };
-    // Create an array of file objects
     const fileList = Object.values(files);
 
     return (
         <div className="h-page w-full flex flex-col lg:flex-row gap-6 bg-white rounded-lg shadow-lg overflow-hidden">
-            {/* Left Panel: Steps + File List */}
             <div className="w-full lg:w-2/3 p-6 flex flex-col h-full">
-                {/* Torrent Pipeline Heading + Metadata */}
                 <div className="mb-4">
                     <h2 className="text-xl font-bold">Torrent Pipeline</h2>
                     <div className="flex justify-evenly w-full overflow-wrap text-sm text-gray-600 mt-1">
@@ -706,11 +653,8 @@ const TorrentLoader: React.FC = () => {
                             </motion.div>
                         );
                     })}
-                    {/* </div> */}
                 </div>
 
-                {/* File Downloads Heading + Already Downloaded Files */}
-                {/* <div className="mt-8 flex flex-col h-full"> */}
                 <h2 className="text-xl font-bold mb-2 mt-8">File Downloads</h2>
                 {downloadedFiles.length > 0 && (
                     <div className="text-sm text-gray-600 mb-4">
@@ -787,9 +731,7 @@ const TorrentLoader: React.FC = () => {
                     <div ref={fileBottomRef} />
                 </div>
             </div>
-            {/* </div> */}
 
-            {/* Right Panel: Detailed Log + Retry */}
             <div className="w-full lg:w-1/3 bg-gray-50 p-4 border-l border-gray-200 h-full flex flex-col min-h-0">
                 <h3 className="font-bold mb-2">Detailed Log</h3>
                 <div className="flex-1 overflow-y-auto text-xs leading-5 overflow-wrap">

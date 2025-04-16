@@ -3,9 +3,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional, get_type_hints
 
-
-# T = TypeVar("T", bound="BaseDataclass")
-
 @dataclass
 class BaseDataclass:
     """Base class for all dataclasses with dictionary-like behavior."""
@@ -72,7 +69,6 @@ class BaseDataclass:
         raise KeyError(f"{key} not found in {self.__class__.__name__}")
 
     def __eq__(self, other: Any) -> bool:
-        """Check if two dataclass instances are equal based on string values."""
         if not isinstance(other, self.__class__):
             return False
         for key in self.keys():
@@ -81,7 +77,6 @@ class BaseDataclass:
         return True
 
     def __ne__(self, other: Any) -> bool:
-        """Check if two dataclass instances are not equal."""
         return not self.__eq__(other)
 
 @dataclass
@@ -98,7 +93,6 @@ class Workspace(BaseDataclass):
 class WorkspaceState(BaseDataclass):
     user_email: str = field(metadata={"primary_key": True})
     workspace_id: str = field(metadata={"primary_key": True})
-    
     # Collection Context
     dataset_id: Optional[str] = field(metadata={"foreign_key": "datasets(id)"})
     mode_input: Optional[str] = None
@@ -107,39 +101,34 @@ class WorkspaceState(BaseDataclass):
     type: Optional[str] = None
     data_filters: Optional[str] = None
     is_locked: Optional[bool] = None
-
     # Modeling Context
-    models: Optional[str] = None  # JSON string for list
-
+    models: Optional[str] = None 
     # Coding Context
     main_topic: Optional[str] = None
     additional_info: Optional[str] = None
-    context_files: Optional[str] = None  # JSON string for dict
-    research_questions: Optional[str] = None  # JSON string for list
-    keywords: Optional[str] = None  # JSON string for list
-    selected_keywords: Optional[str] = None  # JSON string for list
-    keyword_table: Optional[str] = None  # JSON string for list
-    references_data: Optional[str] = None  # JSON string for dict
-    sampled_post_ids: Optional[str] = None  # JSON string for list
-    unseen_post_ids: Optional[str] = None  # JSON string for list
-    sampled_post_responses: Optional[str] = None  # JSON string for list
-    unseen_post_response: Optional[str] = None  # JSON string for list
-    grouped_codes: Optional[str] = None  # JSON string for list
-    unplaced_subcodes: Optional[str] = None  # JSON string for list
-    themes: Optional[str] = None  # JSON string for list
-    unplaced_codes: Optional[str] = None  # JSON string for list
-    sampled_post_with_themes_responses: Optional[str] = None  # JSON string for list
-    conflicting_responses: Optional[str] = None  # JSON string for list
-    initial_codebook: Optional[str] = None  # JSON string for dict
-
+    context_files: Optional[str] = None 
+    research_questions: Optional[str] = None 
+    keywords: Optional[str] = None 
+    selected_keywords: Optional[str] = None 
+    keyword_table: Optional[str] = None 
+    references_data: Optional[str] = None 
+    sampled_post_ids: Optional[str] = None 
+    unseen_post_ids: Optional[str] = None 
+    sampled_post_responses: Optional[str] = None 
+    unseen_post_response: Optional[str] = None 
+    grouped_codes: Optional[str] = None 
+    unplaced_subcodes: Optional[str] = None  
+    themes: Optional[str] = None 
+    unplaced_codes: Optional[str] = None 
+    sampled_post_with_themes_responses: Optional[str] = None  
+    conflicting_responses: Optional[str] = None  
+    initial_codebook: Optional[str] = None  
     # Loading Context
     page_state: Optional[str] = None
-
     # Manual Coding Context
-    post_states: Optional[str] = None  # JSON string for list
-    manual_coding_responses: Optional[str] = None  # JSON string for list
-    codebook: Optional[str] = None  # JSON string for dict
-
+    post_states: Optional[str] = None 
+    manual_coding_responses: Optional[str] = None  
+    codebook: Optional[str] = None 
     # Metadata
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
 
@@ -148,7 +137,7 @@ class WorkspaceState(BaseDataclass):
 class SelectedPostId(BaseDataclass):
     dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
-    type: str = field(metadata={"not_null": True})  # "sampled" or "unseen" or "test" corresponding to sampledPostReposne, UnseenPostResponse, and manualCoding Responses
+    type: Optional[str] = field(metadata={"not_null": True}, default="ungrouped")  # "sampled" or "unseen" or "test" corresponding to sampledPostReposne, UnseenPostResponse, and manualCoding Responses or "ungrouped"
 
 
 @dataclass
@@ -301,12 +290,12 @@ class TorrentDownloadProgress(BaseDataclass):
     subreddit: str = field(metadata={"not_null": True})
     start_month: str = field(metadata={"not_null": True})
     end_month: str = field(metadata={"not_null": True})
-    files_already_downloaded: Optional[str] = field(default="[]")  # JSON-encoded list of file names
+    files_already_downloaded: Optional[str] = field(default="[]") 
     status: str = field(metadata={"not_null": True}, default="idle")  # idle, in-progress, complete, error
-    progress: Optional[float] = field(default=0.0)  # Overall percentage
-    completed_files: Optional[int] = field(default=0)  # Number of completed files
-    total_files: Optional[int] = field(default=0)  # Total files to process
-    messages: Optional[str] = field(default="[]")  # JSON-encoded list of messages
+    progress: Optional[float] = field(default=0.0)  
+    completed_files: Optional[int] = field(default=0)  
+    total_files: Optional[int] = field(default=0)  
+    messages: Optional[str] = field(default="[]")  
     created_at: Optional[datetime] = field(default_factory=datetime.now)
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
 
@@ -317,8 +306,8 @@ class PipelineStep(BaseDataclass):
     dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
     step_label: str = field(metadata={"primary_key": True})  # e.g., Metadata, Downloading, Parsing
     status: str = field(default="idle")  # idle, in-progress, complete, error
-    progress: Optional[float] = field(default=0.0)  # 0 to 100
-    messages: Optional[str] = field(default="[]")  # JSON list of messages
+    progress: Optional[float] = field(default=0.0)
+    messages: Optional[str] = field(default="[]")  
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
 
 @dataclass
@@ -326,12 +315,12 @@ class FileStatus(BaseDataclass):
     run_id: str = field(metadata={"not_null": True, "primary_key": True})
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
     dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
-    file_name: str = field(metadata={"primary_key": True})  # Unique per run
-    status: str = field(default="in-progress")  # in-progress, extracting, complete, error
-    progress: Optional[float] = field(default=0.0)  # Percentage completed
-    completed_bytes: Optional[int] = field(default=0)  # Downloaded bytes
-    total_bytes: Optional[int] = field(default=0)  # Total file size
-    messages: Optional[str] = field(default="[]")  # JSON-encoded list of messages
+    file_name: str = field(metadata={"primary_key": True})  
+    status: str = field(default="in-progress") 
+    progress: Optional[float] = field(default=0.0)  
+    completed_bytes: Optional[int] = field(default=0)  
+    total_bytes: Optional[int] = field(default=0)  
+    messages: Optional[str] = field(default="[]") 
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
 
 @dataclass
@@ -360,7 +349,6 @@ class CodebookType(Enum):
 @dataclass
 class QectResponse(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
-    # generation_type: str = field(metadata={"not_null": True})
     dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
     model: str = field(metadata={"not_null": True})
@@ -375,20 +363,20 @@ class QectResponse(BaseDataclass):
     chat_history: Optional[str] = field(default="[]")
     created_at: Optional[datetime] = field(default_factory=datetime.now)
     is_marked: Optional[bool] = field(default=True)
-    range_marker: Optional[str] = field(default="[]")
+    range_marker: Optional[str] = None
 
     
 @dataclass
 class LlmPendingTask(BaseDataclass):
-    task_id: str = field(metadata={"primary_key": True})  # Unique identifier for the task
+    task_id: str = field(metadata={"primary_key": True})  
     status: str = field(metadata={"not_null": True})      # Status: 'pending', 'in-progress', 'completed', 'failed'
-    function_key: str = field(metadata={"not_null": True})  # Identifier for the function to execute
-    args_json: str = field(metadata={"not_null": True})     # JSON-serialized positional arguments
-    kwargs_json: str = field(metadata={"not_null": True})   # JSON-serialized keyword arguments
-    result_json: Optional[str] = None                       # JSON-serialized result, if completed
-    error: Optional[str] = None                             # Error message, if failed
-    created_at: datetime = field(default_factory=datetime.now)  # Task creation time
-    started_at: Optional[datetime] = None                       # Time when task processing started
+    function_key: str = field(metadata={"not_null": True})  
+    args_json: str = field(metadata={"not_null": True})     
+    kwargs_json: str = field(metadata={"not_null": True})   
+    result_json: Optional[str] = None                      
+    error: Optional[str] = None                            
+    created_at: datetime = field(default_factory=datetime.now)  
+    started_at: Optional[datetime] = None                      
     completed_at: Optional[datetime] = None
 
 @dataclass
@@ -429,8 +417,7 @@ class CodingContext(BaseDataclass):
     id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True, "primary_key": True})
     main_topic: Optional[str] = None
     additional_info: Optional[str] = None
-    created_at: Optional[datetime] = field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = field(default_factory=datetime.now)
+    
 
 @dataclass
 class ContextFile(BaseDataclass):
@@ -492,3 +479,13 @@ class ThemeEntry(BaseDataclass):
     theme: Optional[str] = None
     theme_id: Optional[str] = ""
     id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
+
+@dataclass
+class CollectionContext(BaseDataclass):
+    id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True, "primary_key": True})
+    type: Optional[str] = None
+    metadata: Optional[str] = None
+    mode_input: Optional[str] = None
+    data_filters: Optional[str] = None
+    is_locked: bool = False
+    

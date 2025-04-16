@@ -59,7 +59,7 @@ const DeductiveCodingPage = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.DEDUCTIVE_CODING
+            route: PAGE_ROUTES.FINAL_CODING
         });
 
         const { data: results, error } = await fetchLLMData<{
@@ -76,7 +76,7 @@ const DeductiveCodingPage = () => {
             if (error.name) {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.DEDUCTIVE_CODING
+                    route: PAGE_ROUTES.FINAL_CODING
                 });
             }
             return;
@@ -86,15 +86,15 @@ const DeductiveCodingPage = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.DEDUCTIVE_CODING
+            route: PAGE_ROUTES.FINAL_CODING
         });
-        navigate(PAGE_ROUTES.DEDUCTIVE_CODING);
+        navigate(PAGE_ROUTES.FINAL_CODING);
     };
 
     const handleNextClick = async () => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.FINALIZING_CODES
+            route: PAGE_ROUTES.REVIEWING_CODES
         });
         navigate(
             getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
@@ -115,10 +115,10 @@ const DeductiveCodingPage = () => {
             console.error('Error refreshing themes:', error);
             if (error.name !== 'AbortError') {
                 toast.error('Error finalizing codes ' + (error.message ?? ''));
-                navigate(PAGE_ROUTES.DEDUCTIVE_CODING);
+                navigate(PAGE_ROUTES.FINAL_CODING);
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.FINALIZING_CODES
+                    route: PAGE_ROUTES.REVIEWING_CODES
                 });
                 throw new Error(error.message);
             }
@@ -129,7 +129,7 @@ const DeductiveCodingPage = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.FINALIZING_CODES
+            route: PAGE_ROUTES.REVIEWING_CODES
         });
     };
 
@@ -177,7 +177,7 @@ const DeductiveCodingPage = () => {
         <TutorialWrapper
             steps={steps}
             pageId={location.pathname}
-            excludedTarget={`#route-${PAGE_ROUTES.DEDUCTIVE_CODING}`}>
+            excludedTarget={`#route-${PAGE_ROUTES.FINAL_CODING}`}>
             <div className="h-page flex flex-col">
                 <div className="flex-1 overflow-hidden">
                     <UnifiedCodingPage
@@ -192,8 +192,8 @@ const DeductiveCodingPage = () => {
                         showFilterDropdown
                         applyFilters
                         coderType="LLM"
-                        handleRerun={() => {
-                            if (checkIfDataExists(location.pathname)) {
+                        handleRerun={async () => {
+                            if (await checkIfDataExists(location.pathname)) {
                                 openModal('deductive-coding-redo', async () => {
                                     await resetDataAfterPage(location.pathname);
                                     await handleRedoCoding();
@@ -210,7 +210,7 @@ const DeductiveCodingPage = () => {
                 </div>
                 <NavigationBottomBar
                     previousPage={PAGE_ROUTES.INITIAL_CODEBOOK}
-                    nextPage={PAGE_ROUTES.FINALIZING_CODES}
+                    nextPage={PAGE_ROUTES.REVIEWING_CODES}
                     isReady={true}
                     onNextClick={handleNextClick}
                 />

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 class SamplePostsRequest(BaseModel):
     # dataset_id: str
     post_ids: list= []
-    sample_size: int = 0.5
+    sample_size: float = 0.5
     random_seed: int = 42
     divisions: int  = 2
 

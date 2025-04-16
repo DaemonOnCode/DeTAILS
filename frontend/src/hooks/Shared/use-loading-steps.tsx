@@ -2,11 +2,12 @@ import { useRef, useEffect, RefObject, useImperativeHandle, Dispatch } from 'rea
 import { useLoadingContext } from '../../context/loading-context';
 import { StepHandle } from '../../types/Shared';
 import { SetState } from '../../types/Coding/shared';
-const { ipcRenderer } = window.require('electron');
+import { useApi } from './use-api';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 
 export interface LoadingHandlerRef {
-    resetStep: (currentPath: string) => void;
-    checkDataExistence: (currentPath: string) => boolean;
+    resetStep: (currentPath: string) => Promise<void>;
+    checkDataExistence: (currentPath: string) => Promise<boolean>;
     downloadData: (currentPath: string) => Promise<void>;
 }
 
@@ -14,12 +15,9 @@ export type LoadingStateInitialization = Record<
     string,
     {
         relatedStates: {
-            state: any;
-            func: SetState<any> | Dispatch<any>;
             name: string;
-            initValue?: any;
         }[];
-        downloadData?: { name: string; data: any[]; condition?: boolean };
+        downloadData?: { name: string; condition?: boolean };
     }
 >;
 
@@ -28,71 +26,109 @@ export function useLoadingSteps(
     pathRef: RefObject<StepHandle>
 ) {
     const { loadingState } = useLoadingContext();
+    const { fetchData } = useApi();
 
     useImperativeHandle(
         pathRef,
         () => ({
-            resetStep: (currentPath: string) => {
+            resetStep: async (currentPath: string) => {
                 console.log('Resetting states for path:', currentPath);
                 const config = loadingStateInitialization[currentPath];
                 if (!config) {
                     console.warn('No config found for path:', currentPath);
                     return;
                 }
-                config.relatedStates.forEach(({ state, func, name, initValue }: any) => {
-                    if (name.startsWith('set')) {
-                        const getDefaultValue = (val: unknown) => {
-                            if (initValue && typeof initValue === 'function') return initValue();
-                            if (initValue && typeof initValue === 'object') return initValue;
-                            if (Array.isArray(val)) return [];
-                            if (typeof val === 'string') return '';
-                            if (typeof val === 'number') return 0;
-                            if (typeof val === 'boolean') return false;
-                            return {};
-                        };
-                        func(initValue !== undefined ? initValue : getDefaultValue(state));
-                    } else {
-                        func({ type: 'RESET' });
-                    }
+                const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.RESET_CONTEXT_DATA, {
+                    method: 'POST',
+                    body: JSON.stringify({ page: currentPath })
                 });
             },
-
-            checkDataExistence: (currentPath: string) => {
+            checkDataExistence: async (currentPath: string) => {
                 console.log('Checking data existence for path:', currentPath);
                 const config = loadingStateInitialization[currentPath];
                 if (!config) return false;
-                return config.relatedStates.some(({ state, initValue, name }: any) => {
-                    console.log('Checking state:', state, initValue, name);
-                    if (initValue && typeof initValue === 'function') return false;
-                    if (initValue && typeof initValue === 'object') {
-                        console.log('Checking object w InitVal:', state, initValue);
-                        if (Array.isArray(initValue)) return state.length > initValue.length;
-                        return Object.keys(initValue).length < Object.keys(state).length;
+                const { data, error } = await fetchData(
+                    REMOTE_SERVER_ROUTES.CHECK_CONTEXT_DATA_EXISTS,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({ page: currentPath })
                     }
-                    if (Array.isArray(state)) return state.length > 0;
-                    if (typeof state === 'string') return state.trim() !== '';
-                    if (typeof state === 'number') return state !== 0;
-                    if (state && typeof state === 'object') return Object.keys(state).length > 0;
-                    if (typeof state === 'boolean') return state;
-                    return false;
-                });
-            },
+                );
 
+                console.log('Data existence check result:', data, error);
+
+                return data.exists ?? false;
+            },
             downloadData: async (currentPath: string) => {
                 console.log('Downloading data for path:', currentPath);
-                if (
-                    loadingState[currentPath]?.downloadData &&
-                    loadingStateInitialization[currentPath]?.downloadData
-                ) {
-                    const { data, name, condition } =
+                if (loadingStateInitialization[currentPath]?.downloadData) {
+                    const { name, condition } =
                         loadingStateInitialization[currentPath].downloadData!;
-                    if (data.length > 0 && condition !== false) {
-                        await ipcRenderer.invoke('save-csv', { data, fileName: name });
+                    if (condition !== false) {
+                        const { data, error } = await fetchData(
+                            REMOTE_SERVER_ROUTES.DOWNLOAD_CONTEXT_DATA,
+                            {
+                                method: 'POST',
+                                body: JSON.stringify({ page: currentPath }),
+                                rawResponse: true
+                            }
+                        );
+                        let filename = 'downloaded_file.csv';
+                        const contentDisposition = data.headers.get('Content-Disposition');
+                        if (contentDisposition) {
+                            const match = contentDisposition.match(/filename="?(.+)"?/);
+                            if (match && match[1]) {
+                                filename = match[1];
+                            }
+                        }
+                        if ('showSaveFilePicker' in window) {
+                            try {
+                                const fileHandle = await (window as any).showSaveFilePicker({
+                                    suggestedName: filename,
+                                    types: [
+                                        {
+                                            description: 'CSV Files',
+                                            accept: { 'text/csv': ['.csv'] }
+                                        }
+                                    ]
+                                });
+
+                                const writableStream = await fileHandle.createWritable();
+
+                                const reader = data.body.getReader();
+
+                                const pump = async () => {
+                                    const { done, value } = await reader.read();
+                                    if (done) {
+                                        await writableStream.close();
+                                        console.log('File streaming complete');
+                                        return;
+                                    }
+                                    await writableStream.write(value);
+                                    await pump();
+                                };
+
+                                await pump();
+                            } catch (error) {
+                                console.error('Error streaming file:', error);
+                            }
+                        } else {
+                            const blob = await data.blob();
+                            const downloadUrl = window.URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = downloadUrl;
+                            link.download = 'downloaded_file.csv';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(downloadUrl);
+                            console.log('File downloaded using fallback method');
+                        }
                         console.log(`Data downloaded for route: ${currentPath}`);
                     }
                 }
             }
         }),
-        [loadingStateInitialization]
+        [loadingStateInitialization, loadingState]
     );
 }

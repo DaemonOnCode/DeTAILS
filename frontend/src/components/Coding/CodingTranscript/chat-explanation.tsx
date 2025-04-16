@@ -31,14 +31,14 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
 
     const chatKey = `${postId}-${initialExplanationWithCode.code}-${initialExplanationWithCode.fullText}-${initialExplanationWithCode.explanation}`;
 
-    console.log(
-        'Chat Key:',
-        chatKey,
-        'Chat Histories:',
-        chatHistories,
-        chatHistories[chatKey],
-        existingChatHistory
-    );
+    // console.log(
+    //     'Chat Key:',
+    //     chatKey,
+    //     'Chat Histories:',
+    //     chatHistories,
+    //     chatHistories[chatKey],
+    //     existingChatHistory
+    // );
     const initialMessages = chatHistories[chatKey] ?? existingChatHistory;
 
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);

@@ -16,7 +16,7 @@ const UploadDataPage = () => {
     const { type, modeInput } = useCollectionContext();
     const [searchParams] = useSearchParams();
     console.log('Selected mode:', modeInput);
-    const datasetType = searchParams.get('type') ?? modeInput.split('|')[0];
+    const datasetType = searchParams.get('type') ?? type ?? modeInput.split('|')[0];
 
     console.log('Selected data:', datasetType);
     const navigate = useNavigate();

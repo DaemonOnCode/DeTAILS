@@ -4,7 +4,7 @@ from sqlite3 import Cursor, Row
 from dataclasses import fields, asdict
 
 from constants import DATABASE_PATH
-from database.initialize import SQLITE_TYPE_MAPPING
+from database.initialize import SQLITE_TYPE_MAPPING, generate_create_table_statement
 from database.query_builder import QueryBuilder
 from errors.database_errors import (
     RecordNotFoundError,
@@ -18,6 +18,7 @@ T = TypeVar("T")
 
 class BaseRepository(Generic[T]):
     def __init__(self, table_name: str, model: Type[T], database_path: str = DATABASE_PATH):
+        print(f"Initializing BaseRepository with table_name: {table_name}, model: {model}, database_path: {database_path}")
         self.table_name = table_name
         self.model = model
         self.query_builder_instance = QueryBuilder(table_name, model)
@@ -47,11 +48,8 @@ class BaseRepository(Generic[T]):
             cursor = conn.cursor()
             cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{self.table_name}'")
             if not cursor.fetchone():
-                model_fields = self.get_model_fields()
-                columns = ", ".join(f"{name} {SQLITE_TYPE_MAPPING.get(type_, 'TEXT')}"
-                                  for name, type_ in model_fields.items())
-                query = f"CREATE TABLE {self.table_name} ({columns})"
-                cursor.execute(query)
+                create_statement = generate_create_table_statement(model=self.model, table_name=self.table_name)
+                cursor.execute(create_statement)
                 conn.commit()
                 return
 

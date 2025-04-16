@@ -29,11 +29,8 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     codeColors,
     dispatchFunction
 }) => {
-    const { dispatchSampledPostResponse, conflictingResponses, setConflictingResponses } =
-        useCodingContext();
     const { chatHistories, hoveredCodeText, setHoveredCode, selectedExplanations } =
         useTranscriptContext();
-    const [comments, setComments] = useState<Record<string, string>>({});
 
     const { scrollRef: subcodeRef } = useScrollRestoration('subcodes-section');
     const { scrollRef: explanationRef } = useScrollRestoration('explanations-section');
@@ -58,39 +55,12 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
         return found?.chatHistory || [];
     }
 
-    const handleCommentChange = (code: string, comment: string) => {
-        setComments((prev) => ({ ...prev, [code]: comment }));
-    };
-
-    const onAgreeWithLLM = (code: string, quote: string) => {
-        setConflictingResponses(
-            conflictingResponses.filter(
-                (response) => response.code !== code || response.quote !== quote
-            )
-        );
-    };
-
-    const onAddOwnCode = (newCode: string, prevCode: string, index: number) => {
-        dispatchSampledPostResponse({
-            type: 'UPDATE_CODE',
-            prevCode,
-            newCode,
-            quote: conflictingCodes ? conflictingCodes[index].quote : ''
-        });
-    };
-
-    const agreedCodes = useMemo(
-        () =>
-            codeSet.filter((code) => conflictingCodes.every((conflict) => conflict.code !== code)),
-        [codeSet, conflictingCodes, codeResponses]
-    );
-
     return (
         <div className="flex flex-col h-full gap-4" id="transcript-metadata">
             <h3 className="text-lg font-bold">Codes</h3>
             <div className="flex-1 overflow-y-auto" ref={subcodeRef}>
                 <ul className="space-y-2">
-                    {(hoveredCodeText || agreedCodes).map((code, index) => (
+                    {(hoveredCodeText || codeSet).map((code, index) => (
                         <li
                             key={index}
                             className="p-2 rounded bg-gray-200 cursor-pointer"

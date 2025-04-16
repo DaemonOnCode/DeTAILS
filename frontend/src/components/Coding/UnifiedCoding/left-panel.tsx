@@ -5,6 +5,7 @@ import { useCollectionContext } from '../../../context/collection-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { SetState } from '../../../types/Coding/shared';
 import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
+import { useWorkspaceContext } from '../../../context/workspace-context';
 
 interface LeftPanelProps {
     totalPosts: number;
@@ -44,18 +45,17 @@ const LeftPanel: FC<LeftPanelProps> = ({
     selectedItem,
     setSelectedItem
 }) => {
-    // States for infinite scrolling
     const [fetchedPostTitles, setFetchedPostTitles] = useState<{ id: string; title: string }[]>([]);
     const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(false);
-    const batchSize = 20; // Number of posts to fetch per batch
-    const sentinelRef = useRef<HTMLDivElement>(null); // Ref for the sentinel element
+    const batchSize = 20;
+    const sentinelRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLUListElement>(null);
     const { fetchData } = useApi();
     const { datasetId } = useCollectionContext();
     const { scrollRef: listRef, storageKey } = useScrollRestoration('left-panel');
+    const { currentWorkspace } = useWorkspaceContext();
 
-    // Fetch initial batch of post titles
     useEffect(() => {
         const fetchInitialBatch = async () => {
             if (!postIds.length || !datasetId) {
@@ -69,7 +69,10 @@ const LeftPanel: FC<LeftPanelProps> = ({
                 REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH,
                 {
                     method: 'POST',
-                    body: JSON.stringify({ post_ids: initialBatch, dataset_id: datasetId })
+                    body: JSON.stringify({
+                        post_ids: initialBatch,
+                        dataset_id: currentWorkspace?.id
+                    })
                 }
             );
             if (error) {
@@ -85,7 +88,6 @@ const LeftPanel: FC<LeftPanelProps> = ({
         fetchInitialBatch();
     }, [postIds, datasetId, fetchData]);
 
-    // Load more posts when reaching the end
     const loadMore = useCallback(async () => {
         if (!hasMore || loading) return;
         const nextBatch = postIds.slice(

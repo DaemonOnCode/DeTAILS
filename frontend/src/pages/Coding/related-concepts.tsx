@@ -73,12 +73,12 @@ const KeywordCloudPage: FC = () => {
         setFeedback(event.target.value);
     };
 
-    const submitFeedback = () => {
+    const submitFeedback = async () => {
         console.log('User feedback:', feedback);
         setFeedback('');
         setIsFeedbackOpen(false);
 
-        if (checkIfDataExists(location.pathname)) {
+        if (await checkIfDataExists(location.pathname)) {
             openModal('keyword-feedback-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
                 await refreshKeywordCloud();
@@ -96,7 +96,7 @@ const KeywordCloudPage: FC = () => {
         await logger.info('Regenerating Keyword Cloud');
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.KEYWORD_CLOUD
+            route: PAGE_ROUTES.RELATED_CONCEPTS
         });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
 
@@ -115,20 +115,20 @@ const KeywordCloudPage: FC = () => {
             if (error.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.KEYWORD_CLOUD
+                    route: PAGE_ROUTES.RELATED_CONCEPTS
                 });
             }
-            navigate(PAGE_ROUTES.KEYWORD_CLOUD);
+            navigate(PAGE_ROUTES.RELATED_CONCEPTS);
             return;
         }
         console.log(results, 'Keyword Cloud Page');
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.KEYWORD_CLOUD
+            route: PAGE_ROUTES.RELATED_CONCEPTS
         });
 
-        navigate(PAGE_ROUTES.KEYWORD_CLOUD);
+        navigate(PAGE_ROUTES.RELATED_CONCEPTS);
         await logger.info('Keyword Cloud refreshed');
         console.log('Keyword Cloud refreshed');
     };
@@ -146,7 +146,7 @@ const KeywordCloudPage: FC = () => {
 
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.KEYWORD_TABLE
+            route: PAGE_ROUTES.CONCEPT_OUTLINE
         });
         navigate(
             getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
@@ -168,17 +168,17 @@ const KeywordCloudPage: FC = () => {
             if (error.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.KEYWORD_TABLE
+                    route: PAGE_ROUTES.CONCEPT_OUTLINE
                 });
             }
-            navigate(PAGE_ROUTES.KEYWORD_CLOUD);
+            navigate(PAGE_ROUTES.RELATED_CONCEPTS);
             return;
         }
         console.log(results, 'Keyword Table Page');
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.KEYWORD_TABLE
+            route: PAGE_ROUTES.CONCEPT_OUTLINE
         });
         await logger.info('Codebook Generation completed');
     };
@@ -294,8 +294,8 @@ const KeywordCloudPage: FC = () => {
                 </div>
 
                 <NavigationBottomBar
-                    previousPage={PAGE_ROUTES.CONTEXT_V2}
-                    nextPage={PAGE_ROUTES.KEYWORD_TABLE}
+                    previousPage={PAGE_ROUTES.CONTEXT}
+                    nextPage={PAGE_ROUTES.CONCEPT_OUTLINE}
                     isReady={checkIfReady}
                     onNextClick={(e) => handleNextClick(e)}
                     disabledTooltipText="Select atleast 5 keywords"

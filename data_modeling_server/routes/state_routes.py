@@ -3,13 +3,17 @@ from datetime import datetime
 import json
 import os
 import shutil
+import tempfile
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Body, Request
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile, Body, Request
 from fastapi.responses import FileResponse
+import pandas as pd
 
-from controllers.state_controller import delete_state, export_workspace, import_workspace, load_state, save_state
+from constants import FRONTEND_PAGE_MAPPER, PAGE_TO_STATES, TEMP_DIR
+from controllers.state_controller import delete_state, export_workspace, get_grouped_code, get_theme_by_code, import_workspace, load_state, save_state
 from database.coding_context_table import CodingContextRepository
+from database.collection_context_table import CollectionContextRepository
 from database.context_file_table import ContextFilesRepository
 from database.grouped_code_table import GroupedCodeEntriesRepository
 from database.initial_codebook_table import InitialCodebookEntriesRepository
@@ -21,7 +25,7 @@ from database.selected_keywords_table import SelectedKeywordsRepository
 from database.selected_post_ids_table import SelectedPostIdsRepository
 from database.theme_table import ThemeEntriesRepository
 from models.state_models import LoadStateRequest, SaveStateRequest
-from models.table_dataclasses import CodebookType, CodingContext, ContextFile, GenerationType, Keyword, ResearchQuestion, SelectedKeyword, SelectedPostId
+from models.table_dataclasses import CodebookType, CodingContext, CollectionContext, ContextFile, GenerationType, Keyword, ResearchQuestion, SelectedKeyword, SelectedPostId
 from utils.reducers import process_initial_codebook_table_action, process_keyword_table_action, process_sampled_post_response_action, process_unseen_post_response_action
 
 
@@ -89,14 +93,14 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         main_topic = request_body.get("mainTopic")
         if main_topic is None:
             raise HTTPException(status_code=400, detail="mainTopic is required")
-        coding_context_repo.update({"id": workspace_id}, {"main_topic": main_topic, "updated_at": datetime.now()})
+        coding_context_repo.update({"id": workspace_id}, {"main_topic": main_topic})
         return {"success": True, "mainTopic": main_topic}
 
     elif operation_type == "setAdditionalInfo":
         additional_info = request_body.get("additionalInfo")
         if additional_info is None:
             raise HTTPException(status_code=400, detail="additionalInfo is required")
-        coding_context_repo.update({"id": workspace_id}, {"additional_info": additional_info, "updated_at": datetime.now()})
+        coding_context_repo.update({"id": workspace_id}, {"additional_info": additional_info})
         return {"success": True, "additionalInfo": additional_info}
 
     elif operation_type == "setResearchQuestions":
@@ -136,7 +140,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         selected_keywords_repo.delete({"coding_context_id": workspace_id})
         coding_context_repo.update(
             {"id": workspace_id},
-            {"main_topic": None, "additional_info": None, "updated_at": datetime.now()}
+            {"main_topic": None, "additional_info": None}
         )
         return {"success": True, "message": "Context reset successfully"}
 
@@ -177,7 +181,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
             "isMarked": bool(response.is_marked),
             "comment": "",
-            "rangeMarker": response.range_marker if response.range_marker else None,
+            "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
         } for response in sampled_responses]}
     
     elif operation_type == "dispatchInitialCodebookTable":
@@ -216,7 +220,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
             "isMarked": bool(response.is_marked),
             "comment": "",
-            "rangeMarker": response.range_marker if response.range_marker else None,
+            "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
             "type": response.response_type,
         } for response in unseen_responses]}
     
@@ -483,6 +487,429 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
 
     print(f"Loaded coding context for workspace {workspace_id}: {response}")
     return response
+
+
+collection_context_repo = CollectionContextRepository()
+
+@router.post("/save-collection-context")
+async def save_collection_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    workspace_id = request.headers.get("x-workspace-id")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspaceId is required")
+
+    operation_type = request_body.get("type")
+    if not operation_type:
+        raise HTTPException(status_code=400, detail="Operation type is required")
+
+    try:
+        collection_context = collection_context_repo.find_one({"id": workspace_id})
+    except Exception:
+        collection_context = CollectionContext(id=workspace_id)
+        collection_context_repo.insert(collection_context)
+
+    if operation_type == "setType":
+        new_type = request_body.get("newType") or "reddit"
+        collection_context.type = new_type
+        collection_context_repo.update({"id": workspace_id}, {
+            "type": new_type
+        })
+        return {"success": True, "type": new_type}
+
+    elif operation_type == "setMetadataSource":
+        source = request_body.get("source")
+        if source not in ["folder", "url"]:
+            raise HTTPException(status_code=400, detail="Invalid source")
+        if collection_context.type == "interview" and source == "url":
+            raise HTTPException(status_code=400, detail="Interview type only allows 'folder' source")
+        metadata = json.loads(collection_context.metadata)
+        metadata["source"] = source
+        collection_context_repo.update({"id": workspace_id}, {"metadata": json.dumps(metadata)})
+        return {"success": True, "source": source}
+
+    elif operation_type == "setMetadataSubreddit":
+        if collection_context.type != "reddit":
+            raise HTTPException(status_code=400, detail="Subreddit can only be set for reddit type")
+        subreddit = request_body.get("subreddit")
+        metadata = json.loads(collection_context.metadata)
+        metadata["subreddit"] = subreddit
+        collection_context_repo.update({"id": workspace_id}, {"metadata": json.dumps(metadata)})
+        return {"success": True, "subreddit": subreddit}
+
+    elif operation_type == "setModeInput":
+        mode_input = request_body.get("modeInput")
+        collection_context_repo.update({"id": workspace_id}, {"mode_input": mode_input})
+        return {"success": True, "modeInput": mode_input}
+
+    elif operation_type == "setSelectedData":
+        selected_data = request_body.get("selectedData")
+        print(f"Selected data: {selected_data}")
+        if not isinstance(selected_data, list):
+            raise HTTPException(status_code=400, detail="selectedData must be a list")
+        values = [(workspace_id, post_id) for post_id in selected_data]
+        selected_posts_repo.execute_many_query(
+            "INSERT OR REPLACE INTO selected_post_ids (dataset_id, post_id) VALUES (?, ?)",
+            values,
+        )
+        return {"success": True, "selectedData": selected_data}
+
+    elif operation_type == "setDataFilters":
+        data_filters = request_body.get("dataFilters")
+        print(f"Data filters: {data_filters}")
+        if not isinstance(data_filters, dict):
+            raise HTTPException(status_code=400, detail="dataFilters must be a dictionary")
+        collection_context_repo.update({"id": workspace_id}, {"data_filters": json.dumps(data_filters)})
+        return {"success": True, "dataFilters": data_filters}
+
+    elif operation_type == "setIsLocked":
+        is_locked = request_body.get("isLocked")
+        print(f"Is locked: {is_locked}")
+        collection_context_repo.update({"id": workspace_id}, {"is_locked": bool(is_locked)})
+        return {"success": True, "isLocked": is_locked}
+
+    elif operation_type == "resetContext":
+        print("Resetting context")
+        collection_context_repo.update(
+            {"id": workspace_id},
+            {
+                "type": None,
+                "metadata": json.dumps({}),
+                "mode_input": None,
+                "data_filters": json.dumps({}),
+                "is_locked": False
+            }
+        )
+        selected_posts_repo.delete({"dataset_id": workspace_id})
+        return {"success": True}
+
+    else:
+        print(f"Unknown operation type: {operation_type}")
+        return {"success": False}
+
+@router.post("/load-collection-context")
+async def load_collection_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    workspace_id = request.headers.get("x-workspace-id")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspaceId is required")
+
+    states = request_body.get("states", [])
+    if not states:
+        states = ["type", "metadata", "dataset", "modeInput", "selectedData", "dataFilters", "isLocked"]
+
+    collection_context = collection_context_repo.find_one({"id": workspace_id})
+    if not collection_context:
+        return {}
+
+    response = {}
+    if "type" in states:
+        response["type"] = collection_context.type
+    if "metadata" in states:
+        response["metadata"] = collection_context.metadata
+    if "modeInput" in states:
+        response["modeInput"] = collection_context.mode_input
+    if "selectedData" in states:
+        response["selectedData"] = list(map(lambda x: x["post_id"], selected_posts_repo.find({"dataset_id": workspace_id}, columns=["post_id"], map_to_model=False))) or []
+    if "dataFilters" in states:
+        response["dataFilters"] = json.loads(collection_context.data_filters)
+    if "isLocked" in states:
+        response["isLocked"] = bool(collection_context.is_locked)
+
+    return response
+
+
+@router.post("/reset-context-data")
+async def reset_context_data_endpoint(
+    request: Request,
+    request_body: Any = Body(...),
+):
+    workspace_id = request.headers.get("x-workspace-id")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspaceId is required")
+
+    request_body = request_body or {}
+    page = FRONTEND_PAGE_MAPPER.get(request_body.get("page"), None)
+
+    print(f"Resetting context data for workspace {workspace_id} on page {page}")
+    
+    if not page or page == "all":
+        coding_context_repo.update(
+            {"id": workspace_id},
+            {"main_topic": None, "additional_info": None}
+        )
+        context_files_repo.delete({"coding_context_id": workspace_id})
+        research_question_repo.delete({"coding_context_id": workspace_id})
+        keywords_repo.delete({"coding_context_id": workspace_id})
+        selected_keywords_repo.delete({"coding_context_id": workspace_id})
+        keyword_entries_repo.delete({"coding_context_id": workspace_id})
+        qect_repo.delete({"workspace_id": workspace_id})
+        initial_codebook_repo.delete({"coding_context_id": workspace_id})
+        grouped_codes_repo.delete({"coding_context_id": workspace_id})
+        themes_repo.delete({"coding_context_id": workspace_id})
+        collection_context_repo.update(
+            {"id": workspace_id},
+            {
+                "type": None,
+                "metadata": json.dumps({}),
+                "mode_input": None,
+                "data_filters": json.dumps({}),
+                "is_locked": False
+            }
+        )
+        selected_posts_repo.delete({"dataset_id": workspace_id})
+        return {"success": True, "message": "All context data reset successfully"}
+    
+    if page == "context":
+        coding_context_repo.update(
+            {"id": workspace_id},
+            {"main_topic": None, "additional_info": None}
+        )
+        context_files_repo.delete({"coding_context_id": workspace_id})
+        research_question_repo.delete({"coding_context_id": workspace_id})
+    elif page ==  "related_concepts":
+        keywords_repo.delete({"coding_context_id": workspace_id})
+        selected_keywords_repo.delete({"coding_context_id": workspace_id})
+    elif page == "concept_outline":
+        keyword_entries_repo.delete({"coding_context_id": workspace_id})
+    elif page == "initial_coding":
+        qect_repo.delete({
+            "workspace_id": workspace_id,
+            "codebook_type": CodebookType.INITIAL.value
+        })
+        selected_posts_repo.delete({
+            "dataset_id": workspace_id,
+            "type": "sampled"
+        })
+        selected_posts_repo.delete({
+            "dataset_id": workspace_id,
+            "type": "unseen"
+        })
+    elif page == "initial_codebook":
+        initial_codebook_repo.delete({"coding_context_id": workspace_id})
+    elif page == "final_coding":
+        qect_repo.delete({
+            "workspace_id": workspace_id,
+            "codebook_type": CodebookType.DEDUCTIVE.value
+        })
+    elif page == "reviewing_codes":
+        grouped_codes_repo.delete({"coding_context_id": workspace_id})
+    elif page == "generating_themes":
+        themes_repo.delete({"coding_context_id": workspace_id})
+    elif page == "data_type":
+        collection_context_repo.update(
+            {"id": workspace_id},
+            {"type": None}
+        )
+    elif page == "data_source":
+        collection_context_repo.update(
+            {"id": workspace_id},
+            {"mode_input": None}
+        )
+    elif page == "dataset_creation":
+        selected_posts_repo.delete({"dataset_id": workspace_id})
+        collection_context_repo.update(
+            {"id": workspace_id},
+            {"data_filters": json.dumps({}), "is_locked": False}
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid page")
+    
+    return {"success": True, "message": f"Context data for {page} reset successfully"}
+
+
+@router.post("/check-data-existence")
+async def check_data_existence(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, bool]:
+    workspace_id = request.headers.get("x-workspace-id")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspaceId is required")
+
+    page = request_body.get("page")
+    if not page:
+        raise HTTPException(status_code=400, detail="page is required")
+    
+    print(f"Checking data existence for workspace {workspace_id} on page {page}")
+
+    states = PAGE_TO_STATES.get(FRONTEND_PAGE_MAPPER.get(page), [])
+    print(f"States to check: {states}")
+    if not states:
+        return {"exists": False}
+
+    exists = False
+
+    for state in states:
+        if state == "contextFiles":
+            exists = exists or context_files_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Context files exist: {exists}, context file")
+        elif state == "mainTopic":
+            coding_context = coding_context_repo.find_one({"id": workspace_id})
+            exists = exists or (coding_context and coding_context.get("main_topic") is not None)
+            print(f"Main topic exists: {exists}, main topic")
+        elif state == "additionalInfo":
+            coding_context = coding_context_repo.find_one({"id": workspace_id})
+            exists = exists or (coding_context and coding_context.get("additional_info") is not None)
+            print(f"Additional info exists: {exists}, additional info")
+        elif state == "researchQuestions":
+            exists = exists or research_question_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Research questions exist: {exists}, research questions")
+        elif state == "keywords":
+            exists = exists or keywords_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Keywords exist: {exists}, keywords")
+        elif state == "selectedKeywords":
+            exists = exists or selected_keywords_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Selected keywords exist: {exists}, selected keywords")
+        elif state == "keywordTable":
+            exists = exists or keyword_entries_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Keyword table exist: {exists}, keyword table")
+        elif state == "sampledPostResponse":
+            exists = exists or qect_repo.count({
+                "workspace_id": workspace_id,
+                "codebook_type": CodebookType.INITIAL.value
+            }) > 0
+            print(f"Sampled post response exist: {exists}, sampled post response")
+        elif state == "sampledPostIds":
+            exists = exists or selected_posts_repo.count({
+                "dataset_id": workspace_id,
+                "type": "sampled"
+            }) > 0
+            print(f"Sampled post ids exist: {exists}, sampled post ids")
+        elif state == "unseenPostIds":
+            exists = exists or selected_posts_repo.count({
+                "dataset_id": workspace_id,
+                "type": "unseen"
+            }) > 0
+            print(f"Unseen post ids exist: {exists}, unseen post ids")
+        elif state == "unseenPostResponse":
+            exists = exists or qect_repo.count({
+                "workspace_id": workspace_id,
+                "codebook_type": CodebookType.DEDUCTIVE.value
+            }) > 0
+            print(f"Unseen post response exist: {exists}, unseen post response")
+        elif state == "initialCodebookTable":
+            exists = exists or initial_codebook_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Initial codebook table exist: {exists}, initial codebook table")
+        elif state == "groupedCodes":
+            exists = exists or grouped_codes_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Grouped codes exist: {exists}, grouped codes")
+        elif state == "unplacedSubCodes":
+            exists = exists or grouped_codes_repo.count({
+                "coding_context_id": workspace_id,
+                "higher_level_code": None
+            }) > 0
+            print(f"Unplaced subcodes exist: {exists}, unplaced subcodes")
+        elif state == "themes":
+            exists = exists or themes_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Themes exist: {exists}, themes")
+        elif state == "unplacedCodes":
+            exists = exists or themes_repo.count({
+                "coding_context_id": workspace_id,
+                "theme": None
+            }) > 0
+            print(f"Unplaced codes exist: {exists}, unplaced codes")
+        elif state == "type":
+            collection_context = collection_context_repo.find_one({"id": workspace_id})
+            exists = exists or (collection_context and collection_context.get("type") is not None)
+            print(f"Type exist: {exists}, type")
+        elif state == "modeInput":
+            collection_context = collection_context_repo.find_one({"id": workspace_id})
+            exists = exists or (collection_context and collection_context.get("mode_input") is not None)
+            print(f"Mode input exist: {exists}, mode input")
+        elif state == "selectedData":
+            exists = exists or selected_posts_repo.count({"dataset_id": workspace_id}) > 0
+            print(f"Selected data exist: {exists}, selected data")
+        elif state == "dataFilters":
+            collection_context = collection_context_repo.find_one({"id": workspace_id})
+            exists = exists or (collection_context and collection_context.get("data_filters") != json.dumps({}))
+            print(f"Data filters exist: {exists}, data filters")
+        elif state == "isLocked":
+            collection_context = collection_context_repo.find_one({"id": workspace_id})
+            exists = exists or (collection_context and collection_context.get("is_locked"))
+            print(f"Is locked exist: {exists}, is locked")
+    print(f"Data existence check for workspace {workspace_id} on page {page}: {exists}")
+    return {"exists": exists}
+
+@router.post("/download-context-data")
+async def download_data(
+    request: Request, 
+    background_tasks: BackgroundTasks,
+    request_body: Dict[str, Any] = Body(...),
+):
+    workspace_id = request.headers.get("x-workspace-id")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspaceId is required")
+
+    page = request_body.get("page")
+
+    print(f"Downloading data for workspace {workspace_id} on page {page}")
+
+    mapped_page = FRONTEND_PAGE_MAPPER.get(page, page)
+    if not page:
+        raise HTTPException(status_code=400, detail="page is required")
+
+    download_configs = {
+        "initial_coding": {
+            "name": "initial_coding",
+            "data_func": lambda: qect_repo.find({
+                "workspace_id": workspace_id,
+                "codebook_type": CodebookType.INITIAL.value
+            })
+        },
+        "initial_codebook": {
+            "name": "initial_codebook",
+            "data_func": lambda: initial_codebook_repo.find({"coding_context_id": workspace_id})
+        },
+        "final_coding": {
+            "name": "final_codebook",
+            "data_func": lambda: qect_repo.find({
+                "workspace_id": workspace_id,
+                "codebook_type": CodebookType.DEDUCTIVE.value
+            })
+        },
+        "reviewing_codes": {
+            "name": "codebook_with_grouped_codes",
+            "data_func": lambda: [
+                {**post, "code": get_grouped_code(post.get("code", ""), workspace_id)}
+                for post in qect_repo.find({"workspace_id": workspace_id})
+            ]
+        },
+        "generating_themes": {
+            "name": "codebook_with_themes",
+            "data_func": lambda: [
+                {**post, "theme": get_theme_by_code(post.get("code", ""), workspace_id)}
+                for post in qect_repo.find({"workspace_id": workspace_id})
+            ]
+        },
+    }
+
+    config = download_configs.get(mapped_page)
+    if not config:
+        raise HTTPException(status_code=404, detail="No download config for this path")
+
+    data = config["data_func"]()
+    if not data:
+        raise HTTPException(status_code=404, detail="No data found for download")
+
+    df = pd.DataFrame([d if isinstance(d, dict) else d.__dict__ for d in data])
+    csv_data = df.to_csv(index=False)
+    os.makedirs(TEMP_DIR, exist_ok=True)
+
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=TEMP_DIR, suffix='.csv') as temp_file:
+        temp_file.write(csv_data)
+        temp_file_path = temp_file.name
+
+    def delete_temp_file(path: str):
+        try:
+            os.remove(path)
+            print(f"Temporary file {path} deleted.")
+        except Exception as e:
+            print(f"Error deleting temporary file {path}: {e}")
+
+    background_tasks.add_task(delete_temp_file, temp_file_path)
+
+    return FileResponse(
+        path=temp_file_path,
+        media_type="text/csv",
+        filename=f"{config['name']}.csv",
+        background=background_tasks
+    )
+
 
 @router.post("/load-state")
 async def load_state_endpoint(request: LoadStateRequest):

@@ -79,6 +79,12 @@ const config = {
 
             SAVE_CODING_CONTEXT: 'state/save-coding-context',
             LOAD_CODING_CONTEXT: 'state/load-coding-context',
+            SAVE_COLLECTION_CONTEXT: 'state/save-collection-context',
+            LOAD_COLLECTION_CONTEXT: 'state/load-collection-context',
+
+            RESET_CONTEXT_DATA: 'state/reset-context-data',
+            CHECK_CONTEXT_DATA_EXISTS: 'state/check-data-existence',
+            DOWNLOAD_CONTEXT_DATA: 'state/download-context-data',
 
             GET_MODEL_METADATA: 'data-modeling/metadata',
             GET_MODEL_SAMPLES: 'data-modeling/samples',

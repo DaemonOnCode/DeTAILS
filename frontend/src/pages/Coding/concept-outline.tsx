@@ -256,7 +256,7 @@ const KeywordsTablePage: FC = () => {
 
                     <footer id="bottom-navigation" className="flex-none">
                         <NavigationBottomBar
-                            previousPage={PAGE_ROUTES.KEYWORD_CLOUD}
+                            previousPage={PAGE_ROUTES.RELATED_CONCEPTS}
                             nextPage={PAGE_ROUTES.DATA_TYPE}
                             isReady={isReadyCheck}
                             disabledTooltipText="Mark at least one entry as correct"

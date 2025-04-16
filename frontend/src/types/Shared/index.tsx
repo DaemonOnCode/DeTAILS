@@ -132,8 +132,6 @@ export interface ICodingContext {
     setSampledPostIds: SetState<string[]>;
     unseenPostIds: string[];
     setUnseenPostIds: SetState<string[]>;
-    conflictingResponses: IQECResponse[];
-    setConflictingResponses: SetState<IQECResponse[]>;
     initialCodebookTable: InitialCodebookCode[];
     dispatchInitialCodebookTable: Dispatch<InitialCodebookTableAction>;
 }
@@ -171,9 +169,9 @@ export interface ILoadingState {
 
 export interface StepHandle {
     validateStep?: () => boolean;
-    resetStep: (currentPage: string) => void;
+    resetStep: (currentPage: string) => Promise<void>;
     downloadData?: (currentPage: string) => Promise<void>;
-    checkDataExistence?: (currentPage: string) => boolean;
+    checkDataExistence?: (currentPage: string) => Promise<boolean>;
 }
 
 export type LoadingAction =
@@ -212,7 +210,7 @@ export interface ILoadingContext {
     loadingDispatch: Dispatch<LoadingAction>;
     registerStepRef: (route: string, refObj: RefObject<StepHandle>) => void;
     resetDataAfterPage: (page: string) => Promise<void>;
-    checkIfDataExists: (page: string) => boolean;
+    checkIfDataExists: (page: string) => Promise<boolean>;
     requestArrayRef: RefObject<Record<string, ((...e: any) => void)[]> | null>;
     showProceedConfirmModal: boolean;
     setShowProceedConfirmModal: SetState<boolean>;

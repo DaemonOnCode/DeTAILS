@@ -38,5 +38,6 @@ from .table_dataclasses import (
     KeywordEntry,
     InitialCodebookEntry,
     GroupedCodeEntry,
-    ThemeEntry
+    ThemeEntry,
+    CollectionContext
 )

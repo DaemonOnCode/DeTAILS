@@ -67,3 +67,36 @@ def get_default_transmission_cmd():
             "--foreground",
             # "--config-dir", os.path.expanduser("~/.config/transmission/")
         ]
+    
+FRONTEND_PAGE_MAPPER = {
+    "/code/home": "home",
+    "/code/transcripts": "transcripts",
+    "/code/transcript/:id/:state": "transcript",
+    "/code/manual-coding": "manual_coding",
+    "/code/background-research/context": "context",
+    "/code/background-research/related-concepts": "related_concepts",
+    "/code/background-research/concept-outline": "concept_outline",
+    "/code/loading-data/data-type": "data_type",
+    "/code/loading-data/data-source": "data_source",
+    "/code/loading-data/dataset-creation": "dataset_creation",
+    "/code/coding/initial-coding": "initial_coding",
+    "/code/coding/initial-codebook": "initial_codebook",
+    "/code/coding/final-coding": "final_coding",
+    "/code/reviewing-codes": "reviewing_codes",
+    "/code/generating-themes": "generating_themes",
+    "/code/report": "report"
+}
+
+PAGE_TO_STATES = {
+    "context": ["contextFiles", "mainTopic", "additionalInfo", "researchQuestions"],
+    "related_concepts": ["keywords", "selectedKeywords"],
+    "concept_outline": ["keywordTable"],
+    "initial_coding": ["sampledPostResponse", "sampledPostIds", "unseenPostIds"],
+    "initial_codebook": ["initialCodebookTable"],
+    "final_coding": ["unseenPostResponse"],
+    "reviewing_codes": ["groupedCodes", "unplacedSubCodes"],
+    "generating_themes": ["themes", "unplacedCodes"],
+    "data_type": ["type"],
+    "data_source": ["modeInput"],
+    "dataset_creation": ["selectedData", "dataFilters", "isLocked"],
+}

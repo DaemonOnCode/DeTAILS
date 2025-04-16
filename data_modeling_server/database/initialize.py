@@ -4,6 +4,7 @@ import re
 import sqlite3
 from dataclasses import fields
 from datetime import datetime
+from typing import Optional, Type
 
 from constants import DATABASE_PATH, STUDY_DATABASE_PATH, DATABASE_DIR
 from database.constants import SQLITE_TYPE_MAPPING
@@ -12,17 +13,29 @@ def camel_to_snake(name: str) -> str:
     name = name.replace("Repository", "")
     return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
 
-def generate_create_table_statement(dataclass_obj):
-    table_name = camel_to_snake(dataclass_obj.__name__)
+def generate_create_table_statement(
+    dataclass_obj: Optional[object] = None,
+    table_name: Optional[str] = None,
+    model: Optional[Type] = None
+):
+    
+    if dataclass_obj is not None:
+        # Use dataclass_obj to derive table_name and model
+        table_name = getattr(dataclass_obj, 'table_name', camel_to_snake(dataclass_obj.__class__.__name__))
+        model = dataclass_obj.model
+    elif table_name is None or model is None:
+        raise ValueError("Either dataclass_obj or both table_name and model must be provided.")
+
+    model = model if model is not None else dataclass_obj.model
     columns = []
     primary_keys = []
     foreign_keys = []
     
-    for field in fields(dataclass_obj.model):
+    for field in fields(model):
         if field.metadata.get("primary_key"):
             primary_keys.append(field.name)
 
-    for field in fields(dataclass_obj.model):
+    for field in fields(model):
         column_name = field.name
 
         if isinstance(field.type, type) and issubclass(field.type, Enum):
@@ -74,14 +87,14 @@ def generate_create_table_statement(dataclass_obj):
 
     return f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(columns)}{primary_key_clause}{foreign_key_clause});"
 
-def initialize_database(dataclasses):
+def initialize_database(dataclasses, database_path=DATABASE_PATH):
     os.makedirs(DATABASE_DIR, exist_ok=True)
     print(os.path.exists(DATABASE_DIR))
-    with sqlite3.connect(DATABASE_PATH) as conn:
+    with sqlite3.connect(database_path) as conn:
         cursor = conn.cursor()
         for dataclass_obj in dataclasses:
             print(f"Initializing table for {dataclass_obj.__name__}...")
-            create_statement = generate_create_table_statement(dataclass_obj)
+            create_statement = generate_create_table_statement(dataclass_obj=dataclass_obj)
             cursor.execute(create_statement)
             print(f"Table for {dataclass_obj.__name__} initialized!")
         conn.commit()
@@ -92,7 +105,7 @@ def initialize_study_database(dataclasses):
         cursor = conn.cursor()
         for dataclass_obj in dataclasses:
             print(f"Initializing table for {dataclass_obj.__name__}...")
-            create_statement = generate_create_table_statement(dataclass_obj)
+            create_statement = generate_create_table_statement(dataclass_obj=dataclass_obj)
             cursor.execute(create_statement)
             print(f"Table for {dataclass_obj.__name__} initialized!")
         conn.commit()

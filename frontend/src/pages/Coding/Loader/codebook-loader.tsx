@@ -189,13 +189,6 @@ const CodebookAnimation: React.FC = () => {
     return (
         <div className="min-h-page w-full flex flex-col items-center justify-center">
             <h1 className="text-3xl font-bold mb-24 text-gray-900">Generating Codebook</h1>
-            {/* <p className=" mb-16">
-                {!!sampledPostIds?.length &&
-                    `${postsFinished}/${sampledPostIds.length} completed. `}
-                Please wait, this may take a moment...
-            </p> */}
-
-            {/* Stacking Phase */}
             {isStacking && (
                 <div className="relative w-56 h-72">
                     {unflippedPages.map((index) => (
@@ -216,7 +209,6 @@ const CodebookAnimation: React.FC = () => {
                 </div>
             )}
 
-            {/* Transition Phase */}
             {isTransitioning && (
                 <div className="relative w-56 h-72">
                     {unflippedPages.map((index) => (
@@ -237,7 +229,6 @@ const CodebookAnimation: React.FC = () => {
                 </div>
             )}
 
-            {/* Moving Right Phase */}
             {isMovingRight && (
                 <motion.div
                     className="relative w-56 h-72"
@@ -258,10 +249,8 @@ const CodebookAnimation: React.FC = () => {
                 </motion.div>
             )}
 
-            {/* Flip Phase */}
             {isFlipping && (
                 <div className="relative w-[450px] h-72 gap-x-0.5 flex items-center justify-center">
-                    {/* Left Stack */}
                     <div className="relative w-56 h-full">
                         {flippedPages.map((index, i) => (
                             <motion.div
@@ -270,13 +259,10 @@ const CodebookAnimation: React.FC = () => {
                                 style={{
                                     backgroundColor: colors[index % colors.length],
                                     zIndex: -i
-                                }}>
-                                {/* {typingTexts[index]} */}
-                            </motion.div>
+                                }}></motion.div>
                         ))}
                     </div>
 
-                    {/* Right Stack */}
                     <div className="relative w-56 h-full">
                         {unflippedPages.map((index, i) => (
                             <motion.div

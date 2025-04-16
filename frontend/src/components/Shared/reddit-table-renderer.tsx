@@ -41,9 +41,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [minDate, setMinDate] = useState('');
     const [maxDate, setMaxDate] = useState('');
-    // const [appliedStartTime, setAppliedStartTime] = useState('');
-    // const [appliedEndTime, setAppliedEndTime] = useState('');
-    // const [appliedHideRemoved, setAppliedHideRemoved] = useState(false);
 
     const [isLoading, setIsLoading] = useState(false);
 
@@ -54,7 +51,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const { checkIfDataExists, openModal, abortRequests, resetDataAfterPage } = useLoadingContext();
     const { currentWorkspace } = useWorkspaceContext();
 
-    // Function to format a Date object to YYYY-MM-DD
     function formatDate(date) {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-based, so +1
@@ -62,40 +58,17 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         return `${year}-${month}-${day}`;
     }
 
-    // Function to get the first day of the month from <year>-<month>
     function getStartDate(yearMonth) {
         const [year, month] = yearMonth.split('-').map(Number);
-        const date = new Date(year, month - 1, 1); // month - 1 because Date months are 0-based
+        const date = new Date(year, month - 1, 1);
         return formatDate(date);
     }
 
-    // Function to get the last day of the month from <year>-<month>
     function getEndDate(yearMonth) {
         const [year, month] = yearMonth.split('-').map(Number);
-        const date = new Date(year, month, 0); // Day 0 of next month is the last day of current month
+        const date = new Date(year, month, 0);
         return formatDate(date);
     }
-
-    // let torrentStartDate = TORRENT_START_DATE;
-    // let torrentEndDate = TORRENT_END_DATE;
-
-    // if (modeInput && typeof modeInput === 'string') {
-    //     const modeSplits = modeInput.split(':');
-    //     if (modeSplits.length >= 3 && modeSplits[0] === 'reddit' && modeSplits[1] === 'torrent') {
-    //         const torrentParams = modeSplits[2].split('|');
-    //         if (torrentParams.length >= 4) {
-    //             torrentStartDate = torrentParams[1] || torrentStartDate;
-    //             torrentEndDate = torrentParams[2] || torrentEndDate;
-    //         }
-    //     }
-    // }
-
-    // if (/^\d{4}-\d{2}$/.test(torrentStartDate)) {
-    //     torrentStartDate = getStartDate(torrentStartDate);
-    // }
-    // if (/^\d{4}-\d{2}$/.test(torrentEndDate)) {
-    //     torrentEndDate = getEndDate(torrentEndDate);
-    // }
 
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [pendingFilterStartTime, setPendingFilterStartTime] = useState(
@@ -145,14 +118,11 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         if (response.error) {
             console.error('Error fetching posts:', response.error);
             setPosts({});
-            // setSelectedData([]);
             setTotalCount(0);
             setMinDate(getStartDate(TORRENT_START_DATE));
             setMaxDate(getEndDate(TORRENT_END_DATE));
         } else {
             setPosts(response.data.posts || {});
-            if (selectedData.length === 0) setSelectedData(response.data.selected_post_ids || []);
-            // setSelectedData(response.data.selected_post_ids || []);
             setTotalCount(response.data.total_count || 0);
             setMinDate(response.data.start_date || getStartDate(TORRENT_START_DATE));
             setMaxDate(response.data.end_date || getEndDate(TORRENT_END_DATE));
@@ -263,9 +233,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 hide_removed: pendingFilterHideRemoved
             }
         }));
-        // setAppliedStartTime(pendingFilterStartTime);
-        // setAppliedEndTime(pendingFilterEndTime);
-        // setAppliedHideRemoved(pendingFilterHideRemoved);
         setIsFilterModalOpen(false);
         setCurrentPage(1);
     };
@@ -275,9 +242,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setPendingFilterStartTime('');
         setPendingFilterEndTime('');
         setPendingFilterHideRemoved(false);
-        // setAppliedStartTime('');
-        // setAppliedEndTime('');
-        // setAppliedHideRemoved(false);
         setCurrentPage(1);
     };
 
@@ -286,7 +250,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     };
 
     const handleUnlockDataset = async () => {
-        const dataExists = checkIfDataExists(location.pathname);
+        const dataExists = await checkIfDataExists(location.pathname);
         if (dataExists) {
             openModal('unlock-dataset-btn', async () => {
                 abortRequests(location.pathname);
@@ -305,7 +269,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
     return (
         <div className={`flex flex-col h-full`}>
-            {/* Top Bar */}
             <div className="mb-4 flex items-center justify-between bg-gray-100 p-4 rounded">
                 <input
                     id="reddit-table-search"
@@ -360,7 +323,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 </div>
             </div>
 
-            {/* Filter Modal */}
             {isFilterModalOpen && (
                 <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
                     <div className="bg-white p-6 rounded shadow-lg w-11/12 sm:w-1/2 relative">
@@ -421,7 +383,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 </div>
             )}
 
-            {/* Table */}
             <div className="flex-1 overflow-y-auto" ref={tableRef}>
                 <RedditTable
                     data={displayedData}
@@ -433,7 +394,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 />
             </div>
 
-            {/* Pagination Controls */}
             <PaginationControls
                 currentPage={currentPage}
                 totalPages={totalPages}

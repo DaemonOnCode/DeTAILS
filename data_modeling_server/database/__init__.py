@@ -32,6 +32,7 @@ from .research_question_table import ResearchQuestionsRepository
 from .keyword_table import KeywordsRepository
 from .selected_keywords_table import SelectedKeywordsRepository
 from .keyword_entry_table import KeywordEntriesRepository
+from .collection_context_table import CollectionContextRepository
 from .initialize import initialize_database, initialize_study_database
 from .db_helpers import execute_query, execute_query_with_retry
 
@@ -71,6 +72,7 @@ __all__ = [
     "KeywordEntriesRepository",
     "GroupedCodeEntriesRepository",
     "ThemeEntriesRepository",
+    "CollectionContextRepository",
     "initialize_database",
     "initialize_study_database",
     "execute_query",

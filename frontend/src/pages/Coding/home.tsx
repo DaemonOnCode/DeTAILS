@@ -81,7 +81,7 @@ const HomePage: FC = () => {
                 </div>
             </div>
 
-            <NavigationBottomBar nextPage={PAGE_ROUTES.CONTEXT_V2} isReady={true} />
+            <NavigationBottomBar nextPage={PAGE_ROUTES.CONTEXT} isReady={true} />
         </div>
     );
 };

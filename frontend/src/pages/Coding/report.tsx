@@ -268,7 +268,7 @@ const FinalPage = () => {
                     <h2 className="text-xl font-bold mb-4">Final Page</h2>
                     <p className="mb-6">No data found.</p>
                 </div>
-                <NavigationBottomBar previousPage={PAGE_ROUTES.THEMES} />
+                <NavigationBottomBar previousPage={PAGE_ROUTES.GENERATING_THEMES} />
             </div>
         );
     }
@@ -386,7 +386,7 @@ const FinalPage = () => {
             )}
 
             <footer>
-                <NavigationBottomBar previousPage={PAGE_ROUTES.THEMES} />
+                <NavigationBottomBar previousPage={PAGE_ROUTES.GENERATING_THEMES} />
             </footer>
         </div>
     );
