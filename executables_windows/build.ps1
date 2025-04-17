@@ -16,10 +16,10 @@ function Invoke-ComponentBuild {
         Write-Host "Current directory: $(Get-Location)"
 
         Write-Host "Entering the $folderName folder..."
-        if (-not (Test-Path -Path $folderName)) {
-            throw "The '$folderName' folder does not exist in the root directory."
+        if (-not (Test-Path -Path ".\backend\$folderName")) {
+            throw "The 'backend/$folderName' folder does not exist in the root directory."
         }
-        Set-Location -Path $folderName -ErrorAction Stop
+        Set-Location -Path ".\backend\$folderName" -ErrorAction Stop
         Write-Host "Current directory: $(Get-Location)"
 
         # Activate environment if needed
@@ -47,18 +47,6 @@ function Invoke-ComponentBuild {
         }
 
         # Execute build commands
-        # Write-Host "Building $componentName..."
-        # $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $buildCommands" -NoNewWindow -Wait -PassThru
-        # if ($process.ExitCode -ne 0) {
-        #     throw "$componentName build failed with exit code $($process.ExitCode)."
-        # }
-        # Write-Host "$componentName built successfully."
-        # Write-Host "Building $componentName..."
-        # Invoke-Expression $buildCommands
-        # if ($LASTEXITCODE -ne 0) {
-        #     throw "$componentName build failed with exit code $LASTEXITCODE."
-        # }
-        # Write-Host "$componentName built successfully."
         Write-Host "Building $componentName..."
         if ($componentName -eq "ollama") {
             # Use Start-Process with -Wait for ollama to ensure the build completes
@@ -81,7 +69,6 @@ function Invoke-ComponentBuild {
             deactivate
         }
 
-        # Copy artifacts
         Write-Host "Copying built artifacts to $startDir\$destSubDir..."
         $destPath = Join-Path -Path $startDir -ChildPath $destSubDir
         if (-not (Test-Path -Path $destPath)) {

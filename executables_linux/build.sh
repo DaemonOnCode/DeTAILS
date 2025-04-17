@@ -1,163 +1,106 @@
 #!/bin/bash
 
-if [ $# -lt 2 ]; then
-    echo "Error: Please provide the path to abc_env as the first argument and the destination path as the second argument."
-    exit 1
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
 
-if ! ABC_ENV_PATH=$(cd "$1" && pwd); then
-    echo "Error: Provided path $1 does not exist or is not a directory."
-    exit 1
-fi
-
-if ! DEST_PATH=$(cd "$2" && pwd); then
-    echo "Error: Destination path $2 does not exist or is not a directory."
-    exit 1
-fi
-
-echo "Going to the root directory"
-cd ..
-echo "Current directory: $(pwd)"
-
-ROOT_DIR=$(pwd)
-EXEC_DIR=$ROOT_DIR/executables_linux
-
-if [ -d "$EXEC_DIR" ]; then
-    echo "executables_linux directory exists"
-    cd "$EXEC_DIR" || exit
+# Clean up previous builds
+if [ -d "./executables" ]; then
+    echo "executables directory exists"
+    cd executables
     echo "Cleaning up previous builds"
-    
     echo "Cleaning Chromadb"
     rm -rf ./chroma_data
-    cd ./chroma || exit
+    cd ./chroma
     rm -rf chroma_data
-    rm -rf cli
+    rm cli
     cd ..
     echo "Cleaned Chromadb"
-    
     echo "Cleaning ollama"
+    # cd ollama
+    # cd ..
     rm -rf ./ollama
     echo "Cleaned ollama"
-    
     echo "Cleaning backend server"
-    cd data-modeling-server || exit
-    rm -rf main
+    cd data-modeling-server
+    rm ./main
     rm -rf datasets
     rm -rf uploaded_jsons
     rm -f *.db
     cd ..
     echo "Cleaned backend server"
-    
-    cd "$ROOT_DIR" || exit
+    cd ..
 else
-    echo "executables_linux directory does not exist"
-    mkdir "$EXEC_DIR"
+    echo "executables directory does not exist"
+    mkdir executables
 fi
 
-
+# Build functions
 build_ripgrep() {
-    echo "Entering ripgrep"
-    cd "$ROOT_DIR/ripgrep" || exit
-    echo "Building ripgrep"
-    cargo build --release --features 'pcre2'
-    echo "Copying the built ripgrep"
-    mkdir -p "$EXEC_DIR/ripgrep"
-    cp ./target/release/rg "$EXEC_DIR/ripgrep/"
-    echo "Exiting ripgrep"
-    echo "Ripgrep built successfully"
+  echo "ripgrep Starting…"
+  cd "$PROJECT_ROOT/backend/ripgrep"
+  cargo build --release --features 'pcre2'
+  mkdir -p "$PROJECT_ROOT/executables/ripgrep"
+  cp target/release/rg "$PROJECT_ROOT/executables/ripgrep/"
+  echo "ripgrep Done."
 }
 
 build_zstd() {
-    echo "Entering zstd"
-    if [ ! -d "$ABC_ENV_PATH/zstd_tmp/zstd" ]; then
-        echo "Error: zstd directory does not exist at $ABC_ENV_PATH/zstd_tmp/zstd"
-        exit 1
-    fi
-    cd "$ABC_ENV_PATH/zstd_tmp/zstd" || exit
-    echo "Building zstd"
-    make
-    echo "Copying the built zstd"
-    mkdir -p "$EXEC_DIR/zstd"
-    cp ./programs/zstd "$EXEC_DIR/zstd/"
-    cp ./programs/zstdgrep "$EXEC_DIR/zstd/"
-    cp ./programs/zstdless "$EXEC_DIR/zstd/"
-    echo "Exiting zstd"
-    echo "Zstd built successfully"
+  echo "zstd Starting…"
+  cd "$PROJECT_ROOT/backend/zstd"
+  make
+  mkdir -p "$PROJECT_ROOT/executables/zstd"
+  cp programs/{zstd,zstdgrep,zstdless} "$PROJECT_ROOT/executables/zstd/"
+  echo "zstd Done."
 }
 
 build_backend() {
-    echo "Entering the backend"
-    if [ ! -f "$ABC_ENV_PATH/dms_env/linenv/bin/activate" ]; then
-        echo "Error: dms_env virtual environment does not exist at $ABC_ENV_PATH/dms_env/linenv/bin/activate"
-        exit 1
-    fi
-    source "$ABC_ENV_PATH/dms_env/linenv/bin/activate"
-    cd "$ROOT_DIR/data_modeling_server" || exit
-    echo "Removing the old buildup"
-    rm -rf ./dist
-    rm -rf ./build
-    echo "Building the backend"
-    pyinstaller main.spec
-    echo "Copying the built backend"
-    mkdir -p "$EXEC_DIR/data-modeling-server"
-    cp -r ./dist/main "$EXEC_DIR/data-modeling-server/"
-    echo "Deactivating the environment"
-    deactivate
-    echo "Exiting the backend"
-    echo "Backend built successfully"
+  echo "main server Starting…"
+  cd "$PROJECT_ROOT/backend/data_modeling_server"
+  rm -rf dist build
+  source ./.venv/bin/activate
+  pyinstaller main.spec
+  deactivate
+  mkdir -p "$PROJECT_ROOT/executables/data-modeling-server"
+  cp dist/main "$PROJECT_ROOT/executables/data-modeling-server/"
+  echo "main server Done."
 }
 
 build_ollama() {
-    echo "Entering ollama"
-    cd "$ROOT_DIR/ollama-0.4.2" || exit
-    echo "Building ollama"
-    make -j 8
-    go build -v -x .
-    echo "Copying the built ollama"
-    mkdir -p "$EXEC_DIR/ollama/"
-    cp .env "$EXEC_DIR/ollama/"
-    cp ./ollama "$EXEC_DIR/ollama/"
-    if [ -d "dist" ]; then
-        echo "Folder 'dist' exists. Proceeding with commands..."
-        cp -r dist/* "$EXEC_DIR/ollama/"
-    else
-        echo "Folder 'dist' does not exist. Exiting..."
-        exit 1
-    fi
-    echo "Exiting ollama"
-    echo "Ollama built successfully"
+  echo "ollama Starting…"
+  cd "$PROJECT_ROOT/backend/ollama-0.4.2"
+  ./scripts/build.sh 0.4.2
+  mkdir -p "$PROJECT_ROOT/executables/ollama"
+  cp .env ollama "$PROJECT_ROOT/executables/ollama/"
+  if [ -d dist ]; then
+    cp -r dist/* "$PROJECT_ROOT/executables/ollama/"
+    mkdir -p "$PROJECT_ROOT/executables/ollama/lib/ollama"
+    cp -r llama/make/build/darwin-arm64/* "$PROJECT_ROOT/executables/ollama/lib/ollama/"
+  else
+    echo "ollama ERROR: dist folder missing!"
+    exit 1
+  fi
+  echo "ollama Done."
 }
 
-build_chromadb() {
-    echo "Entering chromadb"
-    if [ ! -f "$ABC_ENV_PATH/chroma_env/linenv/bin/activate" ]; then
-        echo "Error: chroma_env virtual environment does not exist at $ABC_ENV_PATH/chroma_env/linenv/bin/activate"
-        exit 1
-    fi
-    source "$ABC_ENV_PATH/chroma_env/linenv/bin/activate"
-    cd "$ROOT_DIR/chroma/chromadb/cli" || exit
-    echo "Building chromadb"
-    pyinstaller cli.spec
-    echo "Copying the built chromadb"
-    mkdir -p "$EXEC_DIR/chroma"
-    cp -r dist/cli "$EXEC_DIR/chroma/"
-    echo "Deactivating the environment"
-    deactivate
-    echo "Exiting chromadb"
-    echo "Chromadb built successfully"
+build_chroma() {
+  echo "chromadb Starting…"
+  cd "$PROJECT_ROOT/backend/chroma"
+  source ./env/bin/activate
+  cd chromadb/cli
+  pyinstaller cli.spec
+  deactivate
+  mkdir -p "$PROJECT_ROOT/executables/chroma"
+  cp -r dist/cli "$PROJECT_ROOT/executables/chroma/"
+  echo "chromadb Done."
 }
 
-echo "Starting parallel builds..."
 build_ripgrep &
 build_zstd &
 build_backend &
 build_ollama &
-build_chromadb &
+build_chroma &
 
 wait
 
-echo "All builds completed"
-
-echo "Copying executables_linux to $DEST_PATH"
-cp -r "$EXEC_DIR" "$DEST_PATH"
-echo "Copy completed"
+echo "All builds completed. Executables are in $PROJECT_ROOT/executables."

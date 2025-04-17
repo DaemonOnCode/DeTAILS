@@ -1,18 +1,8 @@
-#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
 
-echo "Going to the root directory"
-cd ..
-echo "Current directory: $(pwd)"
-
-
-if [[ "$(uname)" == "Darwin" ]]; then
-  echo "macOS detected. Running dot_clean -m..."
-  dot_clean -m .
-else
-  echo "Not running on macOS. Skipping dot_clean."
-fi
-
-
+# Clean up previous builds
 if [ -d "./executables" ]; then
     echo "executables directory exists"
     cd executables
@@ -43,105 +33,78 @@ else
     mkdir executables
 fi
 
-
-
-# Build ripgrep
-echo "Entering ripgrep"
-cd ./ripgrep
-echo "Building ripgrep"
-cargo build --release --features 'pcre2'
-echo "Copying the built ripgrep"
-mkdir -p ../executables/ripgrep
-cp ./target/release/rg ../executables/ripgrep/
-echo "Exiting ripgrep"
-cd ..
-echo "Ripgrep built sucessfully"
-
-
-# Build zstd
-echo "Entering zstd"
-cd ./zstd
-echo "Building zstd"
-make
-echo "Copying the built zstd"
-mkdir -p ../executables/zstd
-cp ./programs/zstd ../executables/zstd/
-cp ./programs/zstdgrep ../executables/zstd/
-cp ./programs/zstdless ../executables/zstd/
-echo "Exiting zstd"
-cd ..
-echo "Zstd built sucessfully"
-
-
-# Build the backend
-echo "Entering the backend"
-cd ./data-modeling-server
-echo "Removing the old build"
-rm -rf ./dist
-rm -rf ./build
-echo "Setting environment"
-source ./.venv/bin/activate
-echo "Building the backend"
-pyinstaller main.spec
-echo "Copying the built backend"
-mkdir -p ../executables/data-modeling-server
-cp -r ./dist/main ../executables/data-modeling-server/
-# cp .env ../executables/data-modeling-server/
-echo "Deactivating the environment"
-deactivate
-echo "Exiting the backend"
-cd ..
-echo "Backend built sucessfully"
-
-# # Build the log-viewer
-# echo "Entering log-viewer"
-# cd ./log-viewer
-# echo "Building the log-viewer"
-# REACT_APP_ROUTER=hash npm run build
-# echo "Copying the built log-viewer"
-# cp -r ./build ../executables/log-viewer
-# echo "Exiting log-viewer"
-# cd ..
-# echo "Log-viewer built sucessfully"
-
-
-# Build ollama
-echo "Entering ollama"
-cd ./ollama-0.4.2
-echo "Building ollama"
-./scripts/build.sh 0.4.2
-echo "Copying the built ollama"
-mkdir -p ../executables/ollama/
-cp .env ../executables/ollama/
-cp ./ollama ../executables/ollama/
-
-if [ -d "dist" ]; then
-    echo "Folder 'dist' exists. Proceeding with commands..."
-    cp -r dist/* ../executables/ollama/
-
-    mkdir -p ../executables/ollama/lib/ollama
-    cp -r llama/make/build/darwin-arm64/* ../executables/ollama/lib/ollama
-else
-    echo "Folder 'dist' does not exist. Exiting..."
-    exit 1
+# macOS dotfile cleanup
+if [[ "$(uname)" == "Darwin" ]]; then
+  echo "macOS detected → running dot_clean -m…"
+  dot_clean -m "$PROJECT_ROOT"
 fi
-echo "Exiting ollama"
-cd ..
-echo "Ollama built sucessfully"
 
+# Build functions
+build_ripgrep() {
+  echo "ripgrep Starting…"
+  cd "$PROJECT_ROOT/backend/ripgrep"
+  cargo build --release --features 'pcre2'
+  mkdir -p "$PROJECT_ROOT/executables/ripgrep"
+  cp target/release/rg "$PROJECT_ROOT/executables/ripgrep/"
+  echo "ripgrep Done."
+}
 
-# Build chromadb
-echo "Entering chromadb"
-cd ./chroma
-echo "Setting environment"
-source ./env/bin/activate
-echo "Building chromadb"
-cd ./chromadb/cli
-pyinstaller cli.spec
-echo "Copying the built chromadb"
-cp -r ./dist/cli ../../../executables/chroma/
-echo "Deactivating the environment"
-deactivate
-echo "Exiting chromadb"
-cd ..
-echo "Chromadb built sucessfully"
+build_zstd() {
+  echo "zstd Starting…"
+  cd "$PROJECT_ROOT/backend/zstd"
+  make
+  mkdir -p "$PROJECT_ROOT/executables/zstd"
+  cp programs/{zstd,zstdgrep,zstdless} "$PROJECT_ROOT/executables/zstd/"
+  echo "zstd Done."
+}
+
+build_backend() {
+  echo "main server Starting…"
+  cd "$PROJECT_ROOT/backend/data_modeling_server"
+  rm -rf dist build
+  source ./.venv/bin/activate
+  pyinstaller main.spec
+  deactivate
+  mkdir -p "$PROJECT_ROOT/executables/data-modeling-server"
+  cp dist/main "$PROJECT_ROOT/executables/data-modeling-server/"
+  echo "main server Done."
+}
+
+build_ollama() {
+  echo "ollama Starting…"
+  cd "$PROJECT_ROOT/backend/ollama-0.4.2"
+  ./scripts/build.sh 0.4.2
+  mkdir -p "$PROJECT_ROOT/executables/ollama"
+  cp .env ollama "$PROJECT_ROOT/executables/ollama/"
+  if [ -d dist ]; then
+    cp -r dist/* "$PROJECT_ROOT/executables/ollama/"
+    mkdir -p "$PROJECT_ROOT/executables/ollama/lib/ollama"
+    cp -r llama/make/build/darwin-arm64/* "$PROJECT_ROOT/executables/ollama/lib/ollama/"
+  else
+    echo "ollama ERROR: dist folder missing!"
+    exit 1
+  fi
+  echo "ollama Done."
+}
+
+build_chroma() {
+  echo "chromadb Starting…"
+  cd "$PROJECT_ROOT/backend/chroma"
+  source ./env/bin/activate
+  cd chromadb/cli
+  pyinstaller cli.spec
+  deactivate
+  mkdir -p "$PROJECT_ROOT/executables/chroma"
+  cp -r dist/cli "$PROJECT_ROOT/executables/chroma/"
+  echo "chromadb Done."
+}
+
+build_ripgrep &
+build_zstd &
+build_backend &
+build_ollama &
+build_chroma &
+
+wait
+
+echo "All builds completed. Executables are in $PROJECT_ROOT/executables."
