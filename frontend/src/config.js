@@ -30,7 +30,6 @@ const config = {
             CHECK_PRIMARY_TORRENT: 'collections/check-reddit-torrent-availability',
             GET_TRANSCRIPTS_CSV: 'collections/get-transcripts-csv',
 
-            // ADD_DOCUMENTS_LANGCHAIN: 'coding/add-documents-langchain',
             REGENERATE_FLASHCARDS: 'coding/generate-additional-flashcards',
             GENERATE_WORDS: 'coding/generate-words',
             REGENERATE_WORDS: 'coding/regenerate-words',
@@ -45,13 +44,13 @@ const config = {
             GENERATE_CODES_WITH_THEMES_AND_FEEDBACK:
                 'coding/generate-codes-with-themes-and-feedback',
             REMAKE_CODEBOOK: 'coding/remake-codebook',
-            REDO_DEDUCTIVE_CODING: 'coding/remake-deductive-codes',
+            REDO_FINAL_CODING: 'coding/remake-final-codes',
             GENERATE_KEYWORD_DEFINITIONS: 'coding/generate-definitions',
 
             SAMPLE_POSTS: 'coding/sample-posts',
             BUILD_CONTEXT: 'coding/build-context-from-topic',
             GENERATE_INITIAL_CODES: 'coding/generate-initial-codes',
-            DEDUCTIVE_CODING: 'coding/deductive-coding',
+            FINAL_CODING: 'coding/final-coding',
             THEME_GENERATION: 'coding/theme-generation',
             REDO_THEME_GENERATION: 'coding/redo-theme-generation',
             REGENERATE_KEYWORDS: 'coding/regenerate-keywords',
@@ -110,7 +109,6 @@ const config = {
     react: {}
 };
 
-// Function to return only the relevant config
 const getConfig = (type) => {
     return {
         ...config.common,

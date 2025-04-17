@@ -1,19 +1,16 @@
 import time
 import httpx
 import requests
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Body
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Body
 from bs4 import BeautifulSoup
 import re
 
+from constants import OLLAMA_API_BASE
 from errors.ollama_errors import DeleteModelError, InvalidModelError, PullModelError
 from headers.app_id import get_app_id
 from routes.websocket_routes import manager
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
-
-
-OLLAMA_API_BASE = "http://localhost:11434"
 
 @router.get("/list-models")
 def list_local_models():

@@ -419,30 +419,15 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
         pass
 
 def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any]) -> None:
-    """
-    Process actions for unseenPostResponse, updating the qect_repo accordingly.
-    
-    Args:
-        workspace_id (str): The ID of the workspace.
-        action (Dict[str, Any]): The dispatched action from the frontend.
-    
-    Raises:
-        HTTPException: If the action is invalid or missing required fields.
-    """
     action_type = action.get("type")
     settings = CustomSettings()
     if not action_type:
         raise HTTPException(status_code=400, detail="Action type is required")
 
-    # Common filters for database queries
     filters = {
         "workspace_id": workspace_id,
-        "codebook_type": CodebookType.DEDUCTIVE,
+        "codebook_type": CodebookType.FINAL,
     }
-
-    # Placeholder for repository; replace with your actual database interface
-    # qect_repo = SomeRepository()
-
     if action_type == "SET_CORRECT":
         response_id = action.get("responseId")
         qect_repo.update({"id": response_id}, {"is_correct": True, "comment": ""})
@@ -491,7 +476,7 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
             quote=response_data["quote"],
             explanation=response_data["explanation"],
             model=response_data.get("model", settings.ai.model),
-            codebook_type=CodebookType.DEDUCTIVE,
+            codebook_type=CodebookType.FINAL,
             response_type=ResponseCreatorType.LLM,
             chat_history=json.dumps(response_data.get("chatHistory")),
             is_marked=response_data.get("isMarked", True)
@@ -510,7 +495,7 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
                 quote=response_data["quote"],
                 explanation=response_data["explanation"],
                 model=response_data.get("model", settings.ai.model),
-                codebook_type=CodebookType.DEDUCTIVE,
+                codebook_type=CodebookType.FINAL,
                 response_type=ResponseCreatorType.LLM,
                 chat_history=json.dumps(response_data.get("chatHistory")),
                 is_marked=response_data.get("isMarked", True)
@@ -528,7 +513,7 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
                 quote=response_data["quote"],
                 explanation=response_data["explanation"],
                 model=response_data.get("model", settings.ai.model),
-                codebook_type=CodebookType.DEDUCTIVE,
+                codebook_type=CodebookType.FINAL,
                 response_type=ResponseCreatorType.LLM,
                 chat_history=json.dumps(response_data.get("chatHistory")),
                 is_marked=response_data.get("isMarked", True)
@@ -637,7 +622,7 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
                 quote=response_data["quote"],
                 explanation=response_data["explanation"],
                 model=response_data.get("model", settings.ai.model),
-                codebook_type=CodebookType.DEDUCTIVE,
+                codebook_type=CodebookType.FINAL,
                 response_type=ResponseCreatorType.LLM,
                 chat_history=json.dumps(response_data.get("chatHistory")),
                 is_marked=response_data.get("isMarked", True)

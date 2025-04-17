@@ -10,7 +10,8 @@ EXECUTABLE_FOLDER = "../executables"
 TRANSMISSION_DOWNLOAD_DIR = "../transmission-downloads"
 ACADEMIC_TORRENT_MAGNET = "magnet:?xt=urn:btih:ba051999301b109eab37d16f027b3f49ade2de13&tr=https%3A%2F%2Facademictorrents.com%2Fannounce.php&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce"
 TRANSMISSION_RPC_URL = "http://localhost:9091/transmission/rpc"
-
+OLLAMA_API_BASE = "http://localhost:11434"
+CHROMA_PORT = 8000
 
 RANDOM_SEED = 42
 
@@ -99,4 +100,11 @@ PAGE_TO_STATES = {
     "data_type": ["type"],
     "data_source": ["modeInput"],
     "dataset_creation": ["selectedData", "dataFilters", "isLocked"],
+}
+
+
+CODEBOOK_TYPE_MAP = {
+    "sampled": "initial",
+    "unseen": "final",
+    "manual": "manual"
 }

@@ -59,7 +59,7 @@ const CodebookCreation = () => {
             route: PAGE_ROUTES.INITIAL_CODING
         });
         navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
+            getCodingLoaderUrl(LOADER_ROUTES.FINAL_CODING_LOADER, {
                 text: 'Initial Coding in Progress'
             })
         );
@@ -160,7 +160,7 @@ const CodebookCreation = () => {
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
             navigate(
-                getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
+                getCodingLoaderUrl(LOADER_ROUTES.FINAL_CODING_LOADER, {
                     text: 'Initial Coding in Progress'
                 })
             );

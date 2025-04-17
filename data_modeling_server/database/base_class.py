@@ -7,6 +7,7 @@ from constants import DATABASE_PATH
 from database.initialize import SQLITE_TYPE_MAPPING, generate_create_table_statement
 from database.query_builder import QueryBuilder
 from errors.database_errors import (
+    QueryExecutionError,
     RecordNotFoundError,
     InsertError,
     UpdateError,
@@ -225,12 +226,17 @@ class BaseRepository(Generic[T]):
     @handle_db_errors
     @auto_recover
     def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True, order_by: Optional[Dict[str, Any]] = None) -> T | Dict[str, Any] | None:
-        if order_by:
-            self.query_builder_instance.order_by(**order_by)
-        if columns:
-            self.query_builder_instance.select(*columns)
-        query, params = self.query_builder_instance.find(filters)
-        return self.fetch_one(query, params, map_to_model=map_to_model)
+        try:
+            if order_by:
+                self.query_builder_instance.order_by(**order_by)
+            if columns:
+                self.query_builder_instance.select(*columns)
+            query, params = self.query_builder_instance.find(filters)
+            return self.fetch_one(query, params, map_to_model=map_to_model)
+        except RecordNotFoundError:
+            return None
+        except QueryExecutionError:
+            return None
 
     @handle_db_errors
     @auto_recover

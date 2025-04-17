@@ -1,9 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { useNavigate } from 'react-router-dom';
-
-import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import { ROUTES } from '../../constants/Coding/shared';
 import UnifiedCodingPage from '../../components/Coding/UnifiedCoding/unified-coding-section';
 import { useCodingContext } from '../../context/coding-context';
 import TranscriptPage from '../../components/Coding/ManualCoding/post-transcript';
@@ -15,14 +11,7 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 const ManualCodingPage: React.FC = () => {
     const portalContainerRef = useRef<HTMLDivElement>(document.createElement('div'));
 
-    const navigate = useNavigate();
-    const {
-        unseenPostResponse,
-        dispatchUnseenPostResponse,
-        unseenPostIds,
-        sampledPostResponse,
-        groupedCodes
-    } = useCodingContext();
+    const { unseenPostResponse, sampledPostResponse, groupedCodes } = useCodingContext();
     const {
         postStates,
         addPostIds,
@@ -72,7 +61,6 @@ const ManualCodingPage: React.FC = () => {
         };
     }, []);
 
-    // Handler for tab switching
     const handleTabChange = async (newTab: string) => {
         setTab(newTab as typeof tab);
         if (!hasSavedRef.current) {
@@ -80,12 +68,8 @@ const ManualCodingPage: React.FC = () => {
             await saveWorkspaceData();
             hasSavedRef.current = false;
         }
-        // if (newTab !== 'transcript') {
-        //     setCurrentId(null);
-        // }
     };
 
-    // Define tab groups
     const postRelatedTabs = [
         { key: 'transcripts', label: 'All Posts' },
         { key: 'transcript', label: 'Manual Deductive Coding', disabled: true }
@@ -98,7 +82,6 @@ const ManualCodingPage: React.FC = () => {
 
     return ReactDOM.createPortal(
         <div className="h-screen w-screen p-6 flex flex-col">
-            {/* Header with navigation */}
             <div className="flex items-center space-x-4 border-b border-gray-200 w-full">
                 <button onClick={() => window.history.back()} className="text-blue-500">
                     ← <span className="underline">Back to Application</span>
@@ -130,15 +113,11 @@ const ManualCodingPage: React.FC = () => {
                     </button>
                 ))}
             </div>
-
-            {/* Loading overlay when codebook is being created */}
             {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50">
                     <p className="text-gray-700">Generating codebook...</p>
                 </div>
             )}
-
-            {/* Main content */}
             <div className="flex-1 overflow-hidden">
                 {tab === 'unified' ? (
                     <UnifiedCodingPage

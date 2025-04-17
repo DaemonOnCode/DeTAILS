@@ -3,7 +3,7 @@ import HomePage from '../pages/Coding/home';
 import {
     CodeBookLoaderPage,
     DataLoadingLoaderPage,
-    DeductiveCodingLoaderPage,
+    FinalCodingLoaderPage,
     ThemeGenerationLoaderPage,
     ThemeLoaderPage,
     TorrentLoaderPage
@@ -66,7 +66,7 @@ export const CodingRouter: RouteObject[] = [
                 element: <InitialCodeBookPage />
             },
             {
-                path: ROUTES.DEDUCTIVE_CODING,
+                path: ROUTES.FINAL_CODING,
                 element: <FinalCodingPage />
             }
         ]
@@ -101,8 +101,8 @@ export const CodingRouter: RouteObject[] = [
                 element: <CodeBookLoaderPage />
             },
             {
-                path: LOADER_ROUTES.DEDUCTIVE_CODING_LOADER,
-                element: <DeductiveCodingLoaderPage />
+                path: LOADER_ROUTES.FINAL_CODING_LOADER,
+                element: <FinalCodingLoaderPage />
             },
             {
                 path: LOADER_ROUTES.THEME_GENERATION_LOADER,

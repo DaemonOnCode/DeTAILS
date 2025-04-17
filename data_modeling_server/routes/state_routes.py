@@ -209,7 +209,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         process_unseen_post_response_action(workspace_id, action)
         unseen_responses = qect_repo.find({
             "workspace_id": workspace_id,
-            "codebook_type": CodebookType.DEDUCTIVE.value,
+            "codebook_type": CodebookType.FINAL.value,
         })
         return {"success": True, "unseenPostResponse": [{
             "id": response.id,
@@ -406,7 +406,7 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
         """, (
             workspace_id,
             *unseen_post_ids, 
-            CodebookType.DEDUCTIVE.value
+            CodebookType.FINAL.value
         ), True)
         response["unseenPostResponse"] = [
             {
@@ -503,6 +503,8 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
 
     try:
         collection_context = collection_context_repo.find_one({"id": workspace_id})
+        if not collection_context:
+            raise Exception("Collection context not found")
     except Exception:
         collection_context = CollectionContext(id=workspace_id)
         collection_context_repo.insert(collection_context)
@@ -609,7 +611,7 @@ async def load_collection_context(request: Request, request_body: Dict[str, Any]
     if "selectedData" in states:
         response["selectedData"] = list(map(lambda x: x["post_id"], selected_posts_repo.find({"dataset_id": workspace_id}, columns=["post_id"], map_to_model=False))) or []
     if "dataFilters" in states:
-        response["dataFilters"] = json.loads(collection_context.data_filters)
+        response["dataFilters"] = json.loads(collection_context.data_filters or "{}")
     if "isLocked" in states:
         response["isLocked"] = bool(collection_context.is_locked)
 
@@ -687,7 +689,7 @@ async def reset_context_data_endpoint(
     elif page == "final_coding":
         qect_repo.delete({
             "workspace_id": workspace_id,
-            "codebook_type": CodebookType.DEDUCTIVE.value
+            "codebook_type": CodebookType.FINAL.value
         })
     elif page == "reviewing_codes":
         grouped_codes_repo.delete({"coding_context_id": workspace_id})
@@ -779,7 +781,7 @@ async def check_data_existence(request: Request, request_body: Dict[str, Any] = 
         elif state == "unseenPostResponse":
             exists = exists or qect_repo.count({
                 "workspace_id": workspace_id,
-                "codebook_type": CodebookType.DEDUCTIVE.value
+                "codebook_type": CodebookType.FINAL.value
             }) > 0
             print(f"Unseen post response exist: {exists}, unseen post response")
         elif state == "initialCodebookTable":
@@ -816,14 +818,14 @@ async def check_data_existence(request: Request, request_body: Dict[str, Any] = 
             print(f"Selected data exist: {exists}, selected data")
         elif state == "dataFilters":
             collection_context = collection_context_repo.find_one({"id": workspace_id})
-            exists = exists or (collection_context and collection_context.get("data_filters") != json.dumps({}))
+            exists = exists or (collection_context and (collection_context.get("data_filters") and collection_context.get("data_filters") != json.dumps({})))
             print(f"Data filters exist: {exists}, data filters")
         elif state == "isLocked":
             collection_context = collection_context_repo.find_one({"id": workspace_id})
             exists = exists or (collection_context and collection_context.get("is_locked"))
             print(f"Is locked exist: {exists}, is locked")
     print(f"Data existence check for workspace {workspace_id} on page {page}: {exists}")
-    return {"exists": exists}
+    return {"exists": bool(exists)}
 
 @router.post("/download-context-data")
 async def download_data(
@@ -859,7 +861,7 @@ async def download_data(
             "name": "final_codebook",
             "data_func": lambda: qect_repo.find({
                 "workspace_id": workspace_id,
-                "codebook_type": CodebookType.DEDUCTIVE.value
+                "codebook_type": CodebookType.FINAL.value
             })
         },
         "reviewing_codes": {

@@ -1,15 +1,7 @@
 import useResponsiveColumns from '../../hooks/Login/use-responsive-columns';
 import { CardsGridBackground } from '.';
 
-const exampleWordList = [
-    'Deductive',
-    'Thematic',
-    'Analysis',
-    'with',
-    'Iterative',
-    'LLM',
-    'Support'
-];
+const exampleWordList = ['Deep', 'Thematic', 'Analysis', 'with', 'Iterative', 'LLM', 'Support'];
 function BackgroundWithCards() {
     const TOTAL_COLUMNS = useResponsiveColumns();
     return (

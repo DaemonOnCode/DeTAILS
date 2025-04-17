@@ -47,7 +47,7 @@ const KeywordsTablePage: FC = () => {
         {
             target: '#action-row-0',
             content:
-                'Use these buttons to filter out which rows are to be used to further building the context for deductive coding.',
+                'Use these buttons to filter out which rows are to be used to further building the context for final coding.',
             placement: 'bottom'
         },
         {

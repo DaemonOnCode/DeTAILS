@@ -137,7 +137,7 @@ class WorkspaceState(BaseDataclass):
 class SelectedPostId(BaseDataclass):
     dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
-    type: Optional[str] = field(metadata={"not_null": True}, default="ungrouped")  # "sampled" or "unseen" or "test" corresponding to sampledPostReposne, UnseenPostResponse, and manualCoding Responses or "ungrouped"
+    type: Optional[str] = field(metadata={"not_null": True}, default="ungrouped")  # "sampled" or "unseen" or "test" corresponding to sampledPostReponse, UnseenPostResponse, and manualCoding Responses or "ungrouped"
 
 
 @dataclass
@@ -343,7 +343,7 @@ class ResponseCreatorType(Enum):
 
 class CodebookType(Enum):
     INITIAL = "initial"
-    DEDUCTIVE = "deductive"
+    FINAL = "final"
     MANUAL = "manual"
 
 @dataclass

@@ -218,7 +218,7 @@ async def get_function_progress(
     request_body: FunctionProgressRequest
 ):
     workspace_id = request_body.workspace_id
-    dataset_id = request_body.dataset_id
+    dataset_id = request_body.workspace_id
     name = request_body.name
 
     try:

@@ -294,7 +294,7 @@ const LoadReddit: FC<{
                         <button
                             onClick={async () => {
                                 if (await checkIfDataExists(location.pathname)) {
-                                    openModal('deductive-coding-redo', async () => {
+                                    openModal('final-coding-redo', async () => {
                                         await resetDataAfterPage(location.pathname);
                                         let folderPath = await ipcRenderer.invoke('select-folder');
                                         setModeInput(`reddit|upload|${folderPath}`);

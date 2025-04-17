@@ -16,7 +16,7 @@ import { toast } from 'react-toastify';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 
-const DeductiveCodingPage = () => {
+const FinalCodingPage = () => {
     const [searchParams] = useSearchParams();
     const reviewParam = searchParams.get('review') !== 'false';
 
@@ -33,7 +33,7 @@ const DeductiveCodingPage = () => {
     const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
-        logger.info('Deductive coding Page Loaded');
+        logger.info('Final coding Page Loaded');
 
         return () => {
             if (!hasSavedRef.current) {
@@ -42,8 +42,8 @@ const DeductiveCodingPage = () => {
                     hasSavedRef.current = false;
                 });
             }
-            logger.info('Deductive coding Page Unloaded').then(() => {
-                logger.time('Deductive coding Page stay time', { time: timer.end() });
+            logger.info('Final coding Page Unloaded').then(() => {
+                logger.time('Final coding Page stay time', { time: timer.end() });
             });
         };
     }, []);
@@ -52,7 +52,7 @@ const DeductiveCodingPage = () => {
 
     const handleRedoCoding = async () => {
         navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
+            getCodingLoaderUrl(LOADER_ROUTES.FINAL_CODING_LOADER, {
                 text: 'Final Coding in Progress'
             })
         );
@@ -64,7 +64,7 @@ const DeductiveCodingPage = () => {
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
-        }>(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING, {
+        }>(REMOTE_SERVER_ROUTES.FINAL_CODING, {
             method: 'POST',
             body: JSON.stringify({
                 model: settings.ai.model
@@ -161,7 +161,7 @@ const DeductiveCodingPage = () => {
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
-            navigate(getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER));
+            navigate(getCodingLoaderUrl(LOADER_ROUTES.FINAL_CODING_LOADER));
         }
     }, []);
 
@@ -194,7 +194,7 @@ const DeductiveCodingPage = () => {
                         coderType="LLM"
                         handleRerun={async () => {
                             if (await checkIfDataExists(location.pathname)) {
-                                openModal('deductive-coding-redo', async () => {
+                                openModal('final-coding-redo', async () => {
                                     await resetDataAfterPage(location.pathname);
                                     await handleRedoCoding();
                                 });
@@ -219,4 +219,4 @@ const DeductiveCodingPage = () => {
     );
 };
 
-export default DeductiveCodingPage;
+export default FinalCodingPage;

@@ -4,7 +4,7 @@ export enum ROUTES {
     HOME = 'home',
     BACKGROUND_RESEARCH = 'background-research',
     CODEBOOK_CREATION = 'initial-coding',
-    DEDUCTIVE_CODING = 'final-coding',
+    FINAL_CODING = 'final-coding',
     // BASIS = 'basis',
     LLM_CONTEXT_V2 = 'context',
     // FLASHCARDS = 'flashcards',
@@ -54,15 +54,15 @@ export const PAGE_ROUTES = Object.freeze({
     DATA_SOURCE: `/${CODING_ROUTES}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`,
     DATASET_CREATION: `/${CODING_ROUTES}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`,
 
-    // Nested routes under INITIAL_CODING_CODEBOOK
+    // Nested routes under CODING
     INITIAL_CODING: `/${CODING_ROUTES}/${ROUTES.INITIAL_CODING_CODEBOOK}/${ROUTES.CODEBOOK_CREATION}`,
     INITIAL_CODEBOOK: `/${CODING_ROUTES}/${ROUTES.INITIAL_CODING_CODEBOOK}/${ROUTES.INITIAL_CODEBOOK}`,
-    FINAL_CODING: `/${CODING_ROUTES}/${ROUTES.INITIAL_CODING_CODEBOOK}/${ROUTES.DEDUCTIVE_CODING}`,
+    FINAL_CODING: `/${CODING_ROUTES}/${ROUTES.INITIAL_CODING_CODEBOOK}/${ROUTES.FINAL_CODING}`,
 
     REVIEWING_CODES: `/${CODING_ROUTES}/${ROUTES.FINALIZING_CODES}`,
 
     GENERATING_THEMES: `/${CODING_ROUTES}/${ROUTES.THEMES}`,
-    // Nested routes under THEMATIC_ANALYSIS
+
     REPORT: `/${CODING_ROUTES}/${ROUTES.ANALYSIS}`
 });
 
@@ -74,7 +74,7 @@ export enum LOADER_ROUTES {
     FINAL_LOADER = 'final-loader',
     THEME_LOADER = 'theme-loader',
     KEYWORD_TABLE_LOADER = 'keyword-table-loader',
-    DEDUCTIVE_CODING_LOADER = 'deductive-coding-loader',
+    FINAL_CODING_LOADER = 'final-coding-loader',
     THEME_GENERATION_LOADER = 'theme-generation-loader',
     DETAILS_LOADER = 'details-loader',
     DATA_LOADING_LOADER = 'data-loading-loader',

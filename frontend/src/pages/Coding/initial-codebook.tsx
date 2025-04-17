@@ -86,7 +86,7 @@ const InitialCodeBook = () => {
 
     const handleNextClick = async () => {
         navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
+            getCodingLoaderUrl(LOADER_ROUTES.FINAL_CODING_LOADER, {
                 text: 'Final Coding in Progress'
             })
         );
@@ -105,7 +105,7 @@ const InitialCodeBook = () => {
                 explanation: string;
                 code: string;
             }[];
-        }>(REMOTE_SERVER_ROUTES.DEDUCTIVE_CODING, {
+        }>(REMOTE_SERVER_ROUTES.FINAL_CODING, {
             method: 'POST',
             body: JSON.stringify({
                 model: settings.ai.model

@@ -93,7 +93,7 @@ const DataViewerPage = () => {
         {
             target: '#viewer-main',
             content:
-                'Welcome to the View Dataset Page. Here you can select your loaded data. The data you select here will be used for deductive coding.',
+                'Welcome to the View Dataset Page. Here you can select your loaded data. The data you select here will be used for coding.',
             placement: 'top'
         },
         {
@@ -125,7 +125,7 @@ const DataViewerPage = () => {
             route: PAGE_ROUTES.INITIAL_CODING
         });
         navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.DEDUCTIVE_CODING_LOADER, {
+            getCodingLoaderUrl(LOADER_ROUTES.FINAL_CODING_LOADER, {
                 text: 'Initial Coding in Progress'
             })
         );

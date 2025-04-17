@@ -19,7 +19,7 @@ const HomePage = () => {
     const { setType, modeInput } = useCollectionContext();
 
     const handleRedditRetrieval = () => {
-        console.log('Retrieve Reddit clicked');
+        console.log('Retrieve Reddit clicked', modeInput);
         if (!modeInput) setType('reddit');
         loadingDispatch({
             type: 'SET_FIRST_RUN_DONE',

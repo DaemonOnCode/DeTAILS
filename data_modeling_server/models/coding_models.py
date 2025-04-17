@@ -1,66 +1,38 @@
 
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel
 
 
+class BaseCodingRouteRequest(BaseModel):
+    model: str
+
+
 class SamplePostsRequest(BaseModel):
-    # dataset_id: str
     post_ids: list= []
     sample_size: float = 0.5
     random_seed: int = 42
     divisions: int  = 2
 
 class SelectedPostIdsRequest(BaseModel):
-    dataset_id: str
+    pass
     
-class RegenerateKeywordsRequest(BaseModel):
-    model: str
-    # mainTopic: str
-    # additionalInfo: str = ""
-    # researchQuestions: list
-    # selectedKeywords: list
-    # unselectedKeywords: list
+class RegenerateKeywordsRequest(BaseCodingRouteRequest):
     extraFeedback: str = ""
-    # datasetId: str 
 
 
-class GenerateInitialCodesRequest(BaseModel):
-    # dataset_id: str
-    # keyword_table: list
-    model: str
-    # main_topic: str
-    # additional_info: str
-    # research_questions: list
-    # sampled_post_ids: list
-
-    
-class CodebookRefinementRequest(BaseModel):
-    # dataset_id: str
-    model: str
-    # prevCodebook: list
-    # currentCodebook: list
+class GenerateInitialCodesRequest(BaseCodingRouteRequest):
+    pass
 
 
-class DeductiveCodingRequest(BaseModel):
-    # dataset_id: str
-    model: str
-    # final_codebook: list
-    # keyword_table: list
-    # main_topic: str
-    # additional_info: Optional[str] = ""
-    # research_questions: Optional[list] = []
-    # unseen_post_ids: list
+class FinalCodingRequest(BaseCodingRouteRequest):
+    pass
 
   
-class ThemeGenerationRequest(BaseModel):
-    # dataset_id: str
-    model: str
-    # sampled_post_responses: list
-    # unseen_post_responses: list
+class ThemeGenerationRequest(BaseCodingRouteRequest):
+    pass
 
 class RedoThemeGenerationRequest(ThemeGenerationRequest):
     feedback: str = ""
-    # previous_themes: list = []
 
 
 class RefineCodeRequest(BaseModel):
@@ -73,52 +45,55 @@ class RefineCodeRequest(BaseModel):
 
 
 class RemakeCodebookRequest(GenerateInitialCodesRequest):
-    # codebook: list
     feedback: str = ""
 
 
-class RemakeDeductiveCodesRequest(DeductiveCodingRequest):
-    # current_codebook: list
+class RemakeFinalCodesRequest(FinalCodingRequest):
     feedback: str = ""
 
-class GroupCodesRequest(BaseModel):
-    # dataset_id: str
-    model: str
-    # sampled_post_responses: list
-    # unseen_post_responses: list
+class GroupCodesRequest(BaseCodingRouteRequest):
+    pass
 
 class RegroupCodesRequest(GroupCodesRequest):
     feedback: str = ""
     previous_codes: list = []
 
-class GenerateCodebookWithoutQuotesRequest(BaseModel):
-    # dataset_id: str
-    model: str
-    # sampled_post_responses: list
-    # unseen_post_responses: list
+class GenerateCodebookWithoutQuotesRequest(BaseCodingRouteRequest):
+    pass
 
 class RegenerateCodebookWithoutQuotesRequest(GenerateCodebookWithoutQuotesRequest):
     feedback: str = ""
-    # previous_codebook: list = []
 
 
 class GenerateDeductiveCodesRequest(BaseModel):
-    dataset_id: str
     model: str
     codebook: dict
     post_ids: list
 
 class GenerateKeywordDefinitionsRequest(BaseModel):
-    # dataset_id: str
     model: str
-    # main_topic: str
-    # additional_info: str
-    # research_questions: list 
-    # selected_words: list
 
 class GetCodedDataRequest(BaseModel):
-    dataset_id: str
     codebook_names: list
     filters: dict
     batch_size: int = 20
     offset: int = 0
+
+
+class ResponsesRequest(BaseModel):
+    page: int
+    pageSize: int
+    responseTypes: List[str]
+    selectedTypeFilter: Optional[str] = None
+    filter: Optional[str] = None
+    filterType: Optional[str] = None
+
+class FilteredResponsesMetadataRequest(BaseModel):
+    selectedTypeFilter: str
+    filter: Optional[str] = None
+    filterType: Optional[str] = None
+    responseTypes: List[str]
+
+class PostResponsesRequest(BaseModel):
+    postId: str
+    responseTypes: List[str]

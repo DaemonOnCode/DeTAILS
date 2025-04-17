@@ -83,7 +83,7 @@ async def get_reddit_post_endpoint(
     request: Request,
     request_body: ParseRedditPostByIdRequest = Body(...)
 ):
-    dataset_id = request.headers.get("x-workspace-id")
+    dataset_id = request_body.datasetId or request.headers.get("x-workspace-id")
     post_id = request_body.postId
     return await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id)
 

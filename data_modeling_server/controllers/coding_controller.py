@@ -1,43 +1,36 @@
 import asyncio
 from collections import defaultdict
-from datetime import datetime
 import json
 import os
 import re
-import shutil
 import time
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 import unicodedata
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from chromadb import HttpClient
 from fastapi import UploadFile
 
 from chromadb.config import Settings as ChromaDBSettings
-from constants import CONTEXT_FILES_DIR, PATHS, RANDOM_SEED, STUDY_DATABASE_PATH
-from controllers.miscellaneous_controller import get_credential_path
+from constants import CHROMA_PORT, CODEBOOK_TYPE_MAP, CONTEXT_FILES_DIR, PATHS, STUDY_DATABASE_PATH
 from database.qect_table import QectRepository
 from database.state_dump_table import StateDumpsRepository
 from decorators import log_execution_time
-from models.table_dataclasses import GenerationType, LlmResponse, QectResponse, ResponseCreatorType, StateDump
+from models.table_dataclasses import CodebookType, LlmResponse, QectResponse, ResponseCreatorType, StateDump
 from routes.websocket_routes import ConnectionManager, manager
 
-from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain.chains.retrieval import create_retrieval_chain 
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.callbacks import StreamingStdOutCallbackHandler
-from langchain_ollama import OllamaLLM
 from starlette.concurrency import run_in_threadpool
 
 from services.llm_service import GlobalQueueManager
-from utils.coding_helpers import generate_transcript
 from database import LlmResponsesRepository
-from database.db_helpers import get_post_and_comments_from_id
-from utils.prompts_v2 import TopicClustering
+from database.db_helpers import execute_query
+from utils.prompts import TopicClustering
 
 llm_responses_repo = LlmResponsesRepository()
 qect_repo = QectRepository()
@@ -51,36 +44,9 @@ def get_temperature_and_random_seed():
         settings = json.load(f)
         return settings["ai"]["temperature"], settings["ai"]["randomSeed"]
 
-async def process_post_with_llm(app_id, dataset_id, post_id, llm, prompt, regex = r"\"codes\":\s*(\[.*?\])"):
-    try:
-        post_data = get_post_and_comments_from_id(post_id, dataset_id)
-        transcript = generate_transcript(post_data)
-        response = await asyncio.to_thread(llm.invoke, prompt.format(transcript=transcript))
-
-        codes_match = re.search(regex, response, re.DOTALL)
-        codes = json.loads(codes_match.group(1)) if codes_match else []
-
-        return [{"postId": post_id, "id": str(uuid4()), **code} for code in codes]
-    except Exception as e:
-        await manager.send_message(app_id, f"ERROR: {dataset_id}: Error processing post {post_id} - {str(e)}.")
-        return []
-    
-async def run_coding_pipeline(app_id, request_body, prompt_generator):
-    dataset_id, posts, model = request_body.dataset_id, request_body.unseen_post_ids, request_body.model
-    llm = OllamaLLM(model=model, num_ctx=30000, num_predict=30000, temperature=0.6, callbacks=[StreamingStdOutCallbackHandler()])
-
-    final_results = []
-    for post_id in posts:
-        await manager.send_message(app_id, f"Dataset {dataset_id}: Processing post {post_id}...")
-        prompt = prompt_generator(request_body, post_id)
-        final_results.extend(await process_post_with_llm(dataset_id, post_id, llm, prompt))
-
-    await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
-    return {"message": "Coding completed successfully!", "data": final_results}
-
 
 def initialize_vector_store(dataset_id: str, model: str, embeddings: Any):
-    chroma_client = HttpClient(host="localhost", port=8000)
+    chroma_client = HttpClient(host="localhost", port=CHROMA_PORT)
     vector_store = Chroma(
         embedding_function=embeddings,
         collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}"[:60],
@@ -125,7 +91,6 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
                 if not os.path.exists(temp_file_path):
                     print("File does not exist!")
 
-                # Determine loader based on file extension.
                 ext = file_name.split('.')[-1].lower()
                 if ext == "pdf":
                     loader = PyPDFLoader(temp_file_path)
@@ -136,7 +101,6 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
                 else:
                     raise ValueError(f"Unsupported file type: {ext}")
 
-                # Load and process the document
                 docs = await run_in_threadpool(loader.load)
                 chunks = await run_in_threadpool(text_splitter.split_documents, docs)
                 await run_in_threadpool(vector_store.add_documents, chunks)
@@ -185,8 +149,7 @@ async def process_llm_task(
     success = False
     extracted_data = None
     if not function_id:
-        function_id = str(uuid4())
-    # function_id = function_id or str(uuid4())  
+        function_id = str(uuid4()) 
 
     await manager.send_message(app_id, f"Dataset {dataset_id}: LLM process started...")
 
@@ -202,8 +165,6 @@ async def process_llm_task(
                     raise ValueError("RAG mode requires a 'rag_prompt_builder_func'.")
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Using Retrieval-Augmented Generation (RAG)...")
-
-                # retrieved_docs = retriever.invoke(input_text)
 
                 prompt_template = ChatPromptTemplate.from_messages([
                     ("system", rag_prompt_builder_func(**prompt_params)),  
@@ -234,7 +195,6 @@ async def process_llm_task(
 
             response = await response_future
 
-            # print("Response", response)
             response = response["answer"] if retriever else response.content
             state_dump_repo.insert(
                 StateDump(
@@ -283,35 +243,11 @@ async def process_llm_task(
             await manager.send_message(app_id, 
                 f"WARNING: Dataset {dataset_id}: Error processing LLM response - {str(e)}. Retrying... ({retries}/{max_retries})"
             )
-            # await asyncio.sleep(60)
             if retries == 0:
                 await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
                 extracted_data = []
-                # raise e
-            # print("Error, waiting for 60 seconds", e)
-            # await asyncio.sleep(60)
 
     return extracted_data
-
-
-# async def generate_keywords_with_context(model: str, dataset_id: str, mainTopic: str, researchQuestions: list[str], additionalInfo: str, retriever: Any, ):
-#     await manager.send_message(app_id, f"Dataset {dataset_id}: Generating keywords...")
-
-#     # **Invoke LLM using the common function**
-#     parsed_keywords = await process_llm_task(
-#         dataset_id=dataset_id,
-#         manager=manager,
-#         prompt_builder_func=ContextPrompt.BACKGROUND_RESEARCH,
-#         llm_model=model,
-#         regex_pattern=r"(?<!\S)(?:```(?:json)?\n)?\s*\{.*?\"keywords\"\s*:\s*\[.*?\]\s*\}",
-#         mainTopic=mainTopic,
-#         researchQuestions=researchQuestions,
-#         additionalInfo=additionalInfo
-#     )
-
-#     await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
-#     print(parsed_keywords)
-
 
 def normalize_text(text: str) -> str:
     text = text.lower()
@@ -321,10 +257,8 @@ def normalize_text(text: str) -> str:
     return text
 
 def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript: str, parent_function_name: str = "") -> list[dict]:
-    # Normalize the transcript once for efficiency
     normalized_transcript = normalize_text(transcript)
-    
-    # Step 1: Filter out hallucinations (quotes not in transcript)
+
     hallucination_filtered_codes = []
     for code in codes:
         quote = code.get("quote", "").strip()
@@ -333,8 +267,6 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
             hallucination_filtered_codes.append(code)
         else:
             print(f"Filtered out code entry, quote not found in transcript: {quote}")
-    
-    # State Dump 1: Log results after removing hallucinations
     state_dump_repo.insert(
         StateDump(
             state=json.dumps({
@@ -352,7 +284,6 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
         )
     )
     
-    # Step 2: Filter out duplicates (based on "code" and "quote")
     seen_pairs = set()
     duplicate_filtered_codes = []
     for code in hallucination_filtered_codes:
@@ -367,7 +298,6 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
         else:
             print(f"Filtered out duplicate code entry: code={code_value}, quote={quote}")
     
-    # State Dump 2: Log results after removing duplicates
     state_dump_repo.insert(
         StateDump(
             state=json.dumps({
@@ -385,7 +315,6 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
         )
     )
     
-    # Return the final filtered list
     return duplicate_filtered_codes
 
 
@@ -422,7 +351,6 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
     count_before = qect_repo.count({
         "dataset_id": dataset_id,
         "codebook_type": codebook_type,
-        # "generation_type": generation_type
     })
 
     delete_query = """
@@ -441,12 +369,12 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
     count_after = qect_repo.count({
         "dataset_id": dataset_id,
         "codebook_type": codebook_type,
-        # "generation_type": generation_type
     })
     
     duplicates_removed = count_before - count_after
+
+    print(f"Duplicates removed: {duplicates_removed}, Count before: {count_before}, Count after: {count_after}")
     
-    # Log the action
     state_dump_repo.insert(
         StateDump(
             state=json.dumps({
@@ -465,26 +393,6 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
 
 
 def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, workspace_id: str, model: str, codebook_type: str, parent_function_name: str = ""):
-#    for response in responses:
-#         if not (response["code"] and response["quote"] and response["explanation"]):
-#             print(f"Skipping invalid response: {response}")
-#             continue
-#         qect_repo.insert(
-#             QECTResponse(
-#                 id=response["id"],
-#                 generation_type=GenerationType.INITIAL.value,
-#                 dataset_id=dataset_id,
-#                 workspace_id=workspace_id,
-#                 model=model,
-#                 quote=response["quote"],
-#                 code=response["code"],
-#                 explanation=response["explanation"],
-#                 post_id=response["postId"],
-#                 response_type=response_type,
-#                 chat_history=chat_history,
-#                 codebook_type=codebook_type
-#             )
-#         )
     initial_responses = responses
     responses = list(filter(lambda response: response.get("code") and response.get("quote") and response.get("explanation"), responses))
     qect_repo.insert_batch(
@@ -492,7 +400,6 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
             map(
                 lambda code: QectResponse(
                     id=code["id"],
-                    # generation_type=GenerationType.INITIAL.value,
                     dataset_id=dataset_id,
                     workspace_id=workspace_id,
                     model=model,
@@ -528,145 +435,6 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
     )
     return responses
 
-
-# def get_num_tokens(text: str, llm_instance: Any) -> int:
-#     return llm_instance.get_num_tokens(text)
-
-# def divide_into_chunks(words: List[str], max_tokens: int, llm_instance: Any) -> List[List[str]]:
-#     chunks = []
-#     current_chunk = []
-#     current_tokens = 0
-#     for word in words:
-#         word_tokens = get_num_tokens(word, llm_instance)
-#         if current_tokens + word_tokens + 1 > max_tokens:  # +1 for comma or space
-#             if current_chunk:
-#                 chunks.append(current_chunk)
-#             current_chunk = [word]
-#             current_tokens = word_tokens
-#         else:
-#             current_chunk.append(word)
-#             current_tokens += word_tokens + 1
-#     if current_chunk:
-#         chunks.append(current_chunk)
-#     return chunks
-
-# async def cluster_words_with_llm(
-#     words: List[str],
-#     llm_model: str,
-#     app_id: str,
-#     dataset_id: str,
-#     manager: Any,  # ConnectionManager instance
-#     llm_instance: Any,  # LLM instance
-#     llm_queue_manager: Any,  # GlobalQueueManager instance
-#     store_response: bool = False,
-#     max_tokens: int = 8000,
-#     retries: int = 3,
-#     **kwargs
-# ) -> Dict[str, List[str]]:
-#     chunks = divide_into_chunks(words, max_tokens - 1000, llm_instance)
-#     if not chunks:
-#         return {}
-
-#     regex_pattern = r"```(?:json)?\s*(.*?)\s*```" 
-
-#     def beginning_prompt_builder(**params):
-#         words_list = '\n'.join([f"- {word}" for word in chunks[0]])
-#         return (
-#             "Cluster the following distinct words into an appropriate number of topics. "
-#             "Each word should be assigned to exactly one topic, and all words must be included in the output without duplication. "
-#             "Determine the optimal number of topics based on the words provided. "
-#             "Choose descriptive names for the topics that reflect the common theme or category of the words in each cluster. "
-#             "Provide only the JSON output in the following format, wrapped in markdown code blocks (```json ... ```): "
-#             "{ \"topic1\": [\"word1\", \"word2\", ...], \"topic2\": [\"word3\", \"word4\", ...], ... }. "
-#             "Do not include any additional text or explanations. "
-#             "Here are the words to cluster:\n\n" + words_list
-#         )
-
-#     extracted_data = await process_llm_task(
-#         app_id=app_id,
-#         dataset_id=dataset_id,
-#         manager=manager,
-#         llm_model=llm_model,
-#         regex_pattern=regex_pattern,
-#         prompt_builder_func=beginning_prompt_builder,
-#         llm_instance=llm_instance,
-#         llm_queue_manager=llm_queue_manager,
-#         store_response=store_response,
-#         retries=retries,
-#         **kwargs
-#     )
-#     if not isinstance(extracted_data, dict):
-#         raise ValueError("Failed to obtain valid clusters from the first chunk.")
-#     current_clusters = extracted_data
-
-#     for chunk in chunks[1:]:
-#         def continuation_prompt_builder(**params):
-#             existing_topics = list(current_clusters.keys())
-#             words_list = '\n'.join([f"- {word}" for word in chunk])
-#             return (
-#                 f"Given the existing topic names: {json.dumps(existing_topics)}, "
-#                 "assign the following distinct new words to the existing topics if they fit, "
-#                 "or create new topics with descriptive names if necessary. "
-#                 "Each new word should be assigned to exactly one topic, and all new words must be included in the output without duplication. "
-#                 "Provide only the JSON output containing only the new words, in the following format, "
-#                 "wrapped in markdown code blocks (```json ... ```): "
-#                 "{ \"topic1\": [\"new_word1\", \"new_word2\", ...], \"topic2\": [\"new_word3\", ...], ... }. "
-#                 "Do not include any additional text or explanations. "
-#                 "Here are the new words to assign:\n\n" + words_list
-#             )
-
-#         extracted_data = await process_llm_task(
-#             app_id=app_id,
-#             dataset_id=dataset_id,
-#             manager=manager,
-#             llm_model=llm_model,
-#             regex_pattern=regex_pattern,
-#             prompt_builder_func=continuation_prompt_builder,
-#             llm_instance=llm_instance,
-#             llm_queue_manager=llm_queue_manager,
-#             store_response=store_response,
-#             retries=retries,
-#             **kwargs
-#         )
-#         if not isinstance(extracted_data, dict):
-#             raise ValueError("Failed to update clusters for a subsequent chunk.")
-
-#         for topic, new_words in extracted_data.items():
-#             if topic in current_clusters:
-#                 current_clusters[topic].extend(new_words)
-#             else:
-#                 current_clusters[topic] = new_words
-
-#     def ending_prompt_builder(**params):
-#         return (
-#             disclaimer +
-#             f"Given the following clusters in JSON format: {json.dumps(current_clusters)}, "
-#             "refine these clusters into high-level topics. "
-#             "Determine the optimal number of high-level topics and assign each word to exactly one high-level topic, "
-#             "ensuring all words are included without duplication. "
-#             "Provide only the final JSON output in the following format, wrapped in markdown code blocks (```json ... ```): "
-#             "{ \"topic1\": [\"word1\", \"word2\", ...], \"topic2\": [\"word3\", \"word4\", ...], ... }. "
-#             "Do not include any additional text or explanations."
-#         )
-
-#     final_extracted_data = await process_llm_task(
-#         app_id=app_id,
-#         dataset_id=dataset_id,
-#         manager=manager,
-#         llm_model=llm_model,
-#         regex_pattern=regex_pattern,
-#         prompt_builder_func=ending_prompt_builder,
-#         llm_instance=llm_instance,
-#         llm_queue_manager=llm_queue_manager,
-#         store_response=store_response,
-#         retries=retries,
-#         **kwargs
-#     )
-#     if not isinstance(final_extracted_data, dict):
-#         raise ValueError("Failed to refine clusters into final topics.")
-
-#     return final_extracted_data
-
 def divide_into_fixed_chunks(words: List[str], chunk_size: int) -> List[List[str]]:
     return [words[i:i + chunk_size] for i in range(0, len(words), chunk_size)]
 
@@ -685,7 +453,6 @@ async def cluster_words_with_llm(
     retries: int = 3,
     **kwargs
 ) -> Dict[str, List[str]]:
-    # Split words into initial chunks
     chunks_to_process = divide_into_fixed_chunks(words, chunk_size)
     if not chunks_to_process:
         return {}
@@ -694,11 +461,9 @@ async def cluster_words_with_llm(
     current_clusters = None
     i = 0
 
-    # Process chunks dynamically
     while i < len(chunks_to_process):
         chunk = chunks_to_process[i]
         if current_clusters is None:
-            # First chunk, use beginning prompt
             extracted_data = await process_llm_task(
                 app_id=app_id,
                 workspace_id = workspace_id, 
@@ -716,7 +481,6 @@ async def cluster_words_with_llm(
                 **kwargs
             )
         else:
-            # Continuation chunk
             extracted_data = await process_llm_task(
                 app_id=app_id,
                 workspace_id = workspace_id,
@@ -736,7 +500,6 @@ async def cluster_words_with_llm(
             )
         
         if isinstance(extracted_data, dict):
-            # Success: update clusters
             if current_clusters is None:
                 current_clusters = extracted_data
             else:
@@ -745,20 +508,16 @@ async def cluster_words_with_llm(
                         current_clusters[topic].extend(new_words)
                     else:
                         current_clusters[topic] = new_words
-            i += 1  # Move to next chunk
+            i += 1  
         else:
-            # Failure: split chunk if possible
             if len(chunk) > 1:
                 mid = len(chunk) // 2
                 left = chunk[:mid]
                 right = chunk[mid:]
-                # Insert halves at current position
                 chunks_to_process = chunks_to_process[:i] + [left, right] + chunks_to_process[i+1:]
-                # Do not increment i, so next iteration processes 'left'
             else:
                 raise ValueError(f"Failed to process single word after retries: {chunk}")
 
-    # Store final state
     state_dump_repo.insert(
         StateDump(
             state=json.dumps({
@@ -778,248 +537,6 @@ async def cluster_words_with_llm(
 def get_num_tokens(text: str, llm_instance: Any) -> int:
     return llm_instance.get_num_tokens(text)
 
-# async def summarize_with_llm(
-#     texts: List[str],
-#     llm_model: str,
-#     app_id: str,
-#     dataset_id: str,
-#     manager: Any,
-#     llm_instance: Any,
-#     llm_queue_manager: Any,
-#     prompt_builder_func: Callable[[Dict[str, Any]], str],
-#     parent_function_name: str = "",
-#     store_response: bool = False,
-#     max_input_tokens: int = 128000,
-#     retries: int = 3,
-#     **kwargs
-# ) -> str:
-#     if not texts:
-#         return ""
-
-#     def generic_prompt_builder(**params) -> str:
-#         texts = params['texts']
-#         concatenated_text = "\n\n".join(texts)
-#         return (
-#             f"Provide a concise summary of the following texts. "
-#             f"Return the summary in JSON format as ```json{{ \"summary\": \"your summary here\" }}```.\n\n"
-#             f"Texts:\n{concatenated_text}"
-#         )
-
-#     def build_chunk(texts: List[str], max_tokens: int) -> tuple[List[str], List[str]]:
-#         chunk = []
-#         current_tokens = 0
-#         prompt_func = prompt_builder_func if 'code' in kwargs else generic_prompt_builder
-#         fixed_prompt = prompt_func(**{**kwargs, 'texts': []})
-#         fixed_prompt_tokens = llm_instance.get_num_tokens(fixed_prompt)
-#         separator = "\n\n"
-#         separator_tokens = llm_instance.get_num_tokens(separator)
-
-#         for text in texts:
-#             text_tokens = llm_instance.get_num_tokens(text)
-#             additional_tokens = separator_tokens + text_tokens if chunk else text_tokens
-#             if fixed_prompt_tokens + current_tokens + additional_tokens > max_tokens:
-#                 break
-#             chunk.append(text)
-#             current_tokens += additional_tokens
-
-#         remaining = texts[len(chunk):]
-#         return chunk, remaining
-
-#     async def summarize_chunk(chunk: List[str]) -> str:
-#         extracted_dict = await process_llm_task(
-#             app_id=app_id,
-#             dataset_id=dataset_id,
-#             manager=manager,
-#             llm_model=llm_model,
-#             regex_pattern=r"```json\s*(.*?)\s*```",
-#             prompt_builder_func=prompt_builder_func,
-#             llm_instance=llm_instance,
-#             parent_function_name=parent_function_name+" summarize chunk",
-#             llm_queue_manager=llm_queue_manager,
-#             store_response=store_response,
-#             retries=retries,
-#             texts=chunk,
-#             **kwargs
-#         )
-
-#         if not isinstance(extracted_dict, dict):
-#             raise ValueError(f"Expected dict, got {type(extracted_dict)}: {extracted_dict}")
-#         if "summary" not in extracted_dict:
-#             raise ValueError(f"Missing 'summary' key. Got: {extracted_dict}")
-#         summary = extracted_dict["summary"]
-#         if not isinstance(summary, str):
-#             raise ValueError(f"Summary must be a string, got {type(summary)}: {summary}")
-#         return summary
-
-#     remaining_texts = texts
-#     summaries = []
-#     while remaining_texts:
-#         chunk, remaining_texts = build_chunk(remaining_texts, max_input_tokens)
-#         if not chunk:
-#             break
-#         summary = await summarize_chunk(chunk)
-#         summaries.append(summary)
-
-#     if len(summaries) == 1:
-#         return summaries[0]
-#     return await summarize_with_llm(
-#         summaries,
-#         llm_model,
-#         app_id,
-#         dataset_id,
-#         manager,
-#         llm_instance,
-#         llm_queue_manager,
-#         parent_function_name=parent_function_name+" summarize summaries",
-#         prompt_builder_func=generic_prompt_builder,
-#         store_response=store_response,
-#         max_input_tokens=max_input_tokens,
-#         retries=retries,
-#         **{k: v for k, v in kwargs.items() if k != 'code'}
-#     )
-
-# def split_into_batches(
-#     codes_dict: Dict[str, List[str]],
-#     max_tokens: int,
-#     llm_instance: Any
-# ) -> List[List[str]]:
-#     batches = []
-#     current_batch = []
-#     fixed_prompt = (
-#         "Provide a concise summary of 1-2 lines for each of the following codes based on their explanations. "
-#         "Return all summaries in a single JSON object where each key is the code and each value is its summary, "
-#         "like {\"code1\": \"summary1\", \"code2\": \"summary2\", ...}. "
-#         "Ensure the entire JSON object is wrapped in triple backticks with json specifier (```json ... ```). "
-#         "Do not return multiple separate JSON objects.\n\n"
-#     )
-#     fixed_tokens = llm_instance.get_num_tokens(fixed_prompt)
-#     separator = "---\n"
-#     current_tokens = fixed_tokens
-
-#     for code, explanations in codes_dict.items():
-#         code_section = f"Code: {code}\nExplanations:\n" + "\n".join(f"- {exp}" for exp in explanations) + "\n" + separator
-#         code_section_tokens = llm_instance.get_num_tokens(code_section)
-
-#         if current_tokens + code_section_tokens > max_tokens:
-#             if current_batch:
-#                 batches.append(current_batch)
-#                 current_batch = []
-#                 current_tokens = fixed_tokens
-#             if fixed_tokens + code_section_tokens > max_tokens:
-#                 print(f"Single code '{code}' exceeds token limit: {fixed_tokens + code_section_tokens} > {max_tokens}")
-#                 batches.append([code])
-#             else:
-#                 current_batch.append(code)
-#                 current_tokens = fixed_tokens + code_section_tokens
-#         else:
-#             current_batch.append(code)
-#             current_tokens += code_section_tokens
-
-#     if current_batch:
-#         batches.append(current_batch)
-
-#     return batches
-
-# async def summarize_codebook_explanations(
-#     responses: List[Dict[str, Any]],
-#     llm_model: str,
-#     app_id: str,
-#     dataset_id: str,
-#     manager: Any,
-#     parent_function_name: str,
-#     llm_instance: Any,
-#     llm_queue_manager: Any,
-#     max_input_tokens: int = 128000,
-#     **kwargs
-# ) -> Dict[str, str]:
-#     grouped_explanations = defaultdict(list)
-#     for response in responses:
-#         code = response['code']
-#         explanation = response['explanation']
-#         grouped_explanations[code].append(explanation)
-
-#     batchable_codes = {code: exps for code, exps in grouped_explanations.items() if len(exps) < 4}
-#     individual_codes = [code for code, exps in grouped_explanations.items() if len(exps) >= 4]
-
-#     def prompt_builder(**params) -> str:
-#         texts = params['texts']
-#         code = params['code']
-#         concatenated_text = "\n\n".join(texts)
-#         return (
-#             f"Provide a concise summary of 1-2 lines for the explanations of code '{code}'. "
-#             f"Return the summary in JSON format as ```json{{ \"summary\": \"your summary here\" }}```.\n\n"
-#             f"Explanations:\n{concatenated_text}"
-#         )
-
-#     async def batch_multiple_codes_task(batch: List[str]) -> List[Tuple[str, str]]:
-#         if not batch:
-#             return []
-
-#         prompt = (
-#             "Provide a concise summary of 1-2 lines for each of the following codes based on their explanations. "
-#             "Return all summaries in a single JSON object where each key is the code and each value is its summary. "
-#             "The JSON object must be wrapped in ```json ... ```. Example:\n"
-#             "```json\n{\"codeA\": \"Summary A\", \"codeB\": \"Summary B\"}\n```\n\n"
-#             "Codes and explanations:\n"
-#         )
-#         for code in batch:
-#             explanations = batchable_codes[code]
-#             prompt += f"Code: {code}\nExplanations:\n" + "\n".join(f"- {exp}" for exp in explanations) + "\n---\n"
-
-#         extracted_dict = await process_llm_task(
-#             app_id=app_id,
-#             dataset_id=dataset_id,
-#             manager=manager,
-#             llm_model=llm_model,
-#             regex_pattern=r"```json\s*(.*?)\s*```",
-#             prompt_builder_func=lambda **_: prompt,
-#             parent_function_name=parent_function_name + " summarize_batch",
-#             llm_instance=llm_instance,
-#             llm_queue_manager=llm_queue_manager,
-#             store_response=kwargs.get('store_response', False),
-#             retries=kwargs.get('retries', 3),
-#             **kwargs
-#         )
-
-#         if not isinstance(extracted_dict, dict):
-#             raise ValueError(f"Expected dict, got {type(extracted_dict)}: {extracted_dict}")
-#         summaries = {}
-#         for code in batch:
-#             if code not in extracted_dict:
-#                 raise ValueError(f"Missing summary for '{code}'. Got: {extracted_dict}")
-#             summary = extracted_dict[code]
-#             if not isinstance(summary, str):
-#                 raise ValueError(f"Summary for '{code}' must be string, got {type(summary)}: {summary}")
-#             summaries[code] = summary
-#         return [(code, summaries[code]) for code in batch]
-
-#     async def summarize_individual_code(code: str) -> List[Tuple[str, str]]:
-#         summary = await summarize_with_llm(
-#             texts=grouped_explanations[code],
-#             llm_model=llm_model,
-#             app_id=app_id,
-#             dataset_id=dataset_id,
-#             manager=manager,
-#             parent_function_name=parent_function_name + " summarize_individual_code",
-#             llm_instance=llm_instance,
-#             llm_queue_manager=llm_queue_manager,
-#             prompt_builder_func=prompt_builder,
-#             code=code,
-#             max_input_tokens=max_input_tokens,
-#             **kwargs
-#         )
-#         return [(code, summary)]
-
-#     batches = split_into_batches(batchable_codes, max_input_tokens, llm_instance) if batchable_codes else []
-
-#     tasks = [batch_multiple_codes_task(batch) for batch in batches]
-#     tasks.extend(summarize_individual_code(code) for code in individual_codes)
-#     results = await asyncio.gather(*tasks)
-
-#     all_summaries = [item for sublist in results for item in sublist]
-#     return dict(all_summaries)
-
-# Helper function to truncate text to a specified token count
 def truncate_text(text: str, max_tokens: int, llm_instance: Any) -> str:
     tokens = llm_instance.tokenize(text)
     if len(tokens) <= max_tokens:
@@ -1027,9 +544,30 @@ def truncate_text(text: str, max_tokens: int, llm_instance: Any) -> str:
     truncated_tokens = tokens[:max_tokens]
     return llm_instance.detokenize(truncated_tokens)
 
-# Modified summarize_with_llm to handle oversized texts
+async def stream_qect_pages(
+    dataset_id: str,
+    codebook_types: List[int],
+    page_size: int = 500
+) -> AsyncGenerator[List[Dict[str, Any]], None]:
+    table = qect_repo.table_name
+    types_placeholders = ", ".join("?" for _ in codebook_types)
+    base_sql = (
+        f"SELECT * FROM {table} "
+        f"WHERE dataset_id = ? AND codebook_type IN ({types_placeholders}) "
+        f"ORDER BY rowid "
+        f"LIMIT ? OFFSET ?"
+    )
+    offset = 0
+    while True:
+        params = [dataset_id, *codebook_types, page_size, offset]
+        rows = qect_repo.execute_raw_query(base_sql, tuple(params), keys=True)
+        if not rows:
+            break
+        yield rows
+        offset += len(rows)
+
 async def summarize_with_llm(
-    workspace_id:str,
+    workspace_id: str,
     texts: List[str],
     llm_model: str,
     app_id: str,
@@ -1037,7 +575,7 @@ async def summarize_with_llm(
     manager: Any,
     llm_instance: Any,
     llm_queue_manager: Any,
-    prompt_builder_func: Callable[[Dict[str, Any]], str],
+    prompt_builder_func: Callable[..., str],
     parent_function_name: str = "",
     store_response: bool = False,
     max_input_tokens: int = 128000,
@@ -1046,159 +584,224 @@ async def summarize_with_llm(
 ) -> str:
     if not texts:
         return ""
-
     def generic_prompt_builder(**params) -> str:
-        texts = params['texts']
-        concatenated_text = "\n\n".join(texts)
+        docs = "\n\n".join(params['texts'])
         return (
-            f"Provide a concise summary of the following texts. "
-            f"Return the summary in JSON format as ```json{{ \"summary\": \"your summary here\" }}```.\n\n"
-            f"Texts:\n{concatenated_text}"
+            "Provide a concise summary (1-2 lines). Return JSON:\n"
+            "```json\n{\"summary\": \"...\"}\n```\n\n"
+            f"Texts:\n{docs}"
         )
-
     def build_chunk(texts: List[str], max_tokens: int) -> Tuple[List[str], List[str]]:
-        chunk = []
-        current_tokens = 0
-        prompt_func = prompt_builder_func if 'code' in kwargs else generic_prompt_builder
-        fixed_prompt = prompt_func(**{**kwargs, 'texts': []})
-        fixed_prompt_tokens = llm_instance.get_num_tokens(fixed_prompt)
-        separator = "\n\n"
-        separator_tokens = llm_instance.get_num_tokens(separator)
-
-        remaining_texts = texts
-        for text in remaining_texts:
-            text_tokens = llm_instance.get_num_tokens(text)
-            # Truncate if text is too long
-            if text_tokens > max_tokens - fixed_prompt_tokens - (separator_tokens if chunk else 0):
-                text = truncate_text(
-                    text,
-                    max_tokens - fixed_prompt_tokens - (separator_tokens if chunk else 0),
-                    llm_instance
-                )
-                text_tokens = llm_instance.get_num_tokens(text)
-            additional_tokens = separator_tokens + text_tokens if chunk else text_tokens
-            if fixed_prompt_tokens + current_tokens + additional_tokens > max_tokens:
+        chunk, used = [], 0
+        prompt_fn = prompt_builder_func if 'code' in kwargs else generic_prompt_builder
+        fixed = prompt_fn(**{**kwargs, 'texts': []})
+        fixed_tokens = llm_instance.get_num_tokens(fixed)
+        sep, sep_tokens = "\n\n", llm_instance.get_num_tokens("\n\n")
+        for txt in texts:
+            tkns = llm_instance.get_num_tokens(txt)
+            if tkns > max_tokens - fixed_tokens - (sep_tokens if chunk else 0):
+                txt = truncate_text(txt, max_tokens - fixed_tokens - (sep_tokens if chunk else 0), llm_instance)
+                tkns = llm_instance.get_num_tokens(txt)
+            need = tkns + (sep_tokens if chunk else 0)
+            if fixed_tokens + used + need > max_tokens:
                 break
-            chunk.append(text)
-            current_tokens += additional_tokens
-
-        remaining = remaining_texts[len(chunk):]
-        # If no chunk was formed and there are texts, force truncate the first one
-        if not chunk and remaining_texts:
-            text = remaining_texts[0]
-            truncated_text = truncate_text(text, max_tokens - fixed_prompt_tokens, llm_instance)
-            chunk = [truncated_text]
-            remaining = remaining_texts[1:]
-        return chunk, remaining
+            chunk.append(txt)
+            used += need
+        rest = texts[len(chunk):]
+        if not chunk and rest:
+            one = truncate_text(rest[0], max_tokens - fixed_tokens, llm_instance)
+            chunk, rest = [one], rest[1:]
+        return chunk, rest
 
     async def summarize_chunk(chunk: List[str]) -> str:
-        prompt_func = prompt_builder_func if 'code' in kwargs else generic_prompt_builder
-        prompt = prompt_func(**{**kwargs, 'texts': chunk})
-        for attempt in range(retries):
-            extracted_dict = await process_llm_task(
-                workspace_id = workspace_id,
+        prompt = (prompt_builder_func if 'code' in kwargs else generic_prompt_builder)(
+            **{**kwargs, 'texts': chunk}
+        )
+        for _ in range(retries):
+            out = await process_llm_task(
+                workspace_id=workspace_id,
                 app_id=app_id,
                 dataset_id=dataset_id,
                 manager=manager,
                 llm_model=llm_model,
                 regex_pattern=r"```json\s*(.*?)\s*```",
                 prompt_builder_func=lambda **_: prompt,
-                parent_function_name=parent_function_name + " summarize chunk",
+                parent_function_name=f"{parent_function_name} chunk",
                 llm_instance=llm_instance,
                 llm_queue_manager=llm_queue_manager,
                 store_response=store_response,
-                retries=1,  # Inner retries handled here
+                retries=1,
                 **kwargs
             )
+            if isinstance(out, dict) and isinstance(out.get("summary"), str):
+                return out["summary"]
+            if isinstance(out, str):
+                 return out
+            prompt += "\n\nPlease return valid JSON with key \"summary\"."
+        return "Summary unavailable"
 
-            if (isinstance(extracted_dict, dict) and 
-                "summary" in extracted_dict and 
-                isinstance(extracted_dict["summary"], str)):
-                return extracted_dict["summary"]
-            # Adjust prompt based on issue
-            if not isinstance(extracted_dict, dict):
-                prompt += "\n\nPlease provide the response in the correct JSON format: ```json{\"summary\": \"text\"}```."
-            elif "summary" not in extracted_dict:
-                prompt += "\n\nThe response is missing the 'summary' key. Please include it in the JSON."
-            elif not isinstance(extracted_dict["summary"], str):
-                prompt += "\n\nThe 'summary' must be a string. Please correct the format."
-        # If retries fail, return a default note
-        return "Summary unavailable due to repeated invalid responses from LLM."
-
-    remaining_texts = texts
-    summaries = []
-    while remaining_texts:
-        chunk, remaining_texts = build_chunk(remaining_texts, max_input_tokens)
+    parts: List[str] = []
+    remaining = texts
+    while remaining:
+        chunk, remaining = build_chunk(remaining, max_input_tokens)
         if not chunk:
             break
-        summary = await summarize_chunk(chunk)
-        summaries.append(summary)
+        parts.append(await summarize_chunk(chunk))
 
-    if len(summaries) == 1:
-        return summaries[0]
-    return await summarize_with_llm(
-        workspace_id,
-        summaries,
-        llm_model,
-        app_id,
-        dataset_id,
-        manager,
-        llm_instance,
-        llm_queue_manager,
-        parent_function_name=parent_function_name + " summarize summaries",
-        prompt_builder_func=generic_prompt_builder,
-        store_response=store_response,
-        max_input_tokens=max_input_tokens,
-        retries=retries,
-        **{k: v for k, v in kwargs.items() if k != 'code'}
-    )
+    if len(parts) > 1:
+        return await summarize_with_llm(
+            workspace_id=workspace_id,
+            texts=parts,
+            llm_model=llm_model,
+            app_id=app_id,
+            dataset_id=dataset_id,
+            manager=manager,
+            llm_instance=llm_instance,
+            llm_queue_manager=llm_queue_manager,
+            prompt_builder_func=generic_prompt_builder,
+            parent_function_name=f"{parent_function_name} recurse",
+            store_response=store_response,
+            max_input_tokens=max_input_tokens,
+            retries=retries
+        )
+    return parts[0] if parts else ""
 
-# Batch splitting function (unchanged)
 def split_into_batches(
-    codes_dict: Dict[str, List[str]],
+    codes: Dict[str, List[str]],
     max_tokens: int,
     llm_instance: Any
 ) -> List[List[str]]:
-    batches = []
-    current_batch = []
-    fixed_prompt = (
-        "Provide a concise summary of 1-2 lines for each of the following codes based on their explanations. "
-        "Return all summaries in a single JSON object where each key is the code and each value is its summary, "
-        "like {\"code1\": \"summary1\", \"code2\": \"summary2\", ...}. "
-        "Ensure the entire JSON object is wrapped in triple backticks with json specifier (```json ... ```). "
-        "Do not return multiple separate JSON objects.\n\n"
-    )
-    fixed_tokens = llm_instance.get_num_tokens(fixed_prompt)
-    separator = "---\n"
-    current_tokens = fixed_tokens
+    fixed = "Provide 1-2 line summaries for each code, return single JSON wrapped in ```json ... ```.\n\n"
+    fixed_t = llm_instance.get_num_tokens(fixed)
+    sep, sep_t = "---\n", llm_instance.get_num_tokens("---\n")
+    batches, cur, cur_t = [], [], fixed_t
 
-    for code, explanations in codes_dict.items():
-        code_section = f"Code: {code}\nExplanations:\n" + "\n".join(f"- {exp}" for exp in explanations) + "\n" + separator
-        code_section_tokens = llm_instance.get_num_tokens(code_section)
-
-        if current_tokens + code_section_tokens > max_tokens:
-            if current_batch:
-                batches.append(current_batch)
-                current_batch = []
-                current_tokens = fixed_tokens
-            if fixed_tokens + code_section_tokens > max_tokens:
-                print(f"Single code '{code}' exceeds token limit: {fixed_tokens + code_section_tokens} > {max_tokens}")
+    for code, exps in codes.items():
+        section = f"Code: {code}\n" + "\n".join(f"- {e}" for e in exps) + "\n" + sep
+        sec_t = llm_instance.get_num_tokens(section)
+        if cur_t + sec_t > max_tokens:
+            if cur:
+                batches.append(cur)
+                cur, cur_t = [], fixed_t
+            if fixed_t + sec_t > max_tokens:
                 batches.append([code])
-            else:
-                current_batch.append(code)
-                current_tokens = fixed_tokens + code_section_tokens
-        else:
-            current_batch.append(code)
-            current_tokens += code_section_tokens
+                continue
+        cur.append(code)
+        cur_t += sec_t
 
-    if current_batch:
-        batches.append(current_batch)
+    if cur:
+        batches.append(cur)
     return batches
 
-# Main function with improved error handling
+async def batch_multiple_codes_task(
+    batch: List[str],
+    codes_map: Dict[str, List[str]],
+    workspace_id: str,
+    app_id: str,
+    dataset_id: str,
+    manager: Any,
+    llm_model: str,
+    parent_function_name: str,
+    llm_instance: Any,
+    llm_queue_manager: Any,
+    retries: int = 3,
+    store_response: bool = False
+) -> List[Tuple[str, str]]:
+    if not batch:
+        return []
+    prompt = "Provide 1-2 line summaries for each code, return single JSON wrapped in ```json ... ```.\n\n"
+    for c in batch:
+        prompt += f"Code: {c}\n" + "\n".join(f"- {e}" for e in codes_map[c]) + "\n---\n"
+
+    for _ in range(retries):
+        out = await process_llm_task(
+            workspace_id=workspace_id,
+            app_id=app_id,
+            dataset_id=dataset_id,
+            manager=manager,
+            llm_model=llm_model,
+            regex_pattern=r"```json\s*(.*?)\s*```",
+            prompt_builder_func=lambda **_: prompt,
+            parent_function_name=f"{parent_function_name} batch",
+            llm_instance=llm_instance,
+            llm_queue_manager=llm_queue_manager,
+            store_response=store_response,
+            retries=1
+        )
+
+        if isinstance(out, dict):
+            missing = [c for c in batch if c not in out or not isinstance(out[c], str)]
+            if not missing:
+                return [(c, out[c]) for c in batch]
+            prompt += f"\n\nInclude missing codes: {missing}."
+            prompt += "\n\nEnsure all values are strings."
+
+        elif isinstance(out, list):
+            pairs = []
+            for item in out:
+                if isinstance(item, (list, tuple)) and len(item) == 2 and isinstance(item[0], str) and isinstance(item[1], str):
+                    pairs.append((item[0], item[1]))
+            if {c for c,_ in pairs} == set(batch):
+                return pairs
+        elif isinstance(out, str) and len(batch) == 1:
+            return [(batch[0], out)]
+
+        prompt += "\n\nReturn valid JSON as specified."
+
+    return [(c, "Summary unavailable") for c in batch]
+
+async def _flush_and_summarize(
+    grouped: Dict[str, List[str]],
+    interim: Dict[str, str],
+    workspace_id: str,
+    app_id: str,
+    dataset_id: str,
+    manager: Any,
+    llm_model: str,
+    parent_function_name: str,
+    llm_instance: Any,
+    llm_queue_manager: Any,
+    max_input_tokens: int = 128000,
+    retries: int = 3,
+    store_response: bool = False,
+    concurrency_limit: int = 4
+) -> Dict[str, str]:
+    todo = {c: exps for c, exps in grouped.items() if c not in interim}
+    batches = split_into_batches(todo, max_input_tokens, llm_instance)
+    sem = asyncio.Semaphore(concurrency_limit)
+
+    async def guarded(batch):
+        async with sem:
+            if len(batch) == 1:
+                code = batch[0]
+                return [(code, await summarize_with_llm(
+                    workspace_id=workspace_id,
+                    texts=todo[code],
+                    llm_model=llm_model,
+                    app_id=app_id,
+                    dataset_id=dataset_id,
+                    manager=manager,
+                    llm_instance=llm_instance,
+                    llm_queue_manager=llm_queue_manager,
+                    prompt_builder_func=lambda **p: f"Summarize code '{code}':\n\n" + "\n\n".join(p['texts']),
+                    parent_function_name=f"{parent_function_name} single",
+                    store_response=store_response,
+                    max_input_tokens=max_input_tokens,
+                    retries=retries
+                ))]
+            return await batch_multiple_codes_task(
+                batch, todo,
+                workspace_id, app_id, dataset_id,
+                manager, llm_model, parent_function_name,
+                llm_instance, llm_queue_manager,
+                retries, store_response
+            )
+
+    results = await asyncio.gather(*(guarded(b) for b in batches))
+    return {c: s for batch in results for c, s in batch}
+
 async def summarize_codebook_explanations(
-    workspace_id:str,
-    responses: List[Dict[str, Any]],
+    workspace_id: str,
     llm_model: str,
     app_id: str,
     dataset_id: str,
@@ -1206,104 +809,71 @@ async def summarize_codebook_explanations(
     parent_function_name: str,
     llm_instance: Any,
     llm_queue_manager: Any,
+    codebook_types: List[int] = [CodebookType.INITIAL.value, CodebookType.FINAL.value],
+    code_transform: Optional[Callable[[str], str]] = None,
     max_input_tokens: int = 128000,
     retries: int = 3,
-    **kwargs
+    flush_threshold: int = 200,
+    page_size: int = 500,
+    concurrency_limit: int = 4,
+    store_response: bool = False
 ) -> Dict[str, str]:
-    grouped_explanations = defaultdict(list)
-    for response in responses:
-        code = response['code']
-        explanation = response['explanation']
-        grouped_explanations[code].append(explanation)
+    grouped: Dict[str, List[str]] = defaultdict(list)
+    interim: Dict[str, str] = {}
 
-    batchable_codes = {code: exps for code, exps in grouped_explanations.items() if len(exps) < 4}
-    individual_codes = [code for code, exps in grouped_explanations.items() if len(exps) >= 4]
+    async for page in stream_qect_pages(dataset_id, codebook_types, page_size):
+        for row in page:
+            raw = row['code']
+            code = code_transform(raw) if code_transform else raw
+            grouped[code].append(row['explanation'])
 
-    def prompt_builder(**params) -> str:
-        texts = params['texts']
-        code = params['code']
-        concatenated_text = "\n\n".join(texts)
-        return (
-            f"Provide a concise summary of 1-2 lines for the explanations of code '{code}'. "
-            f"Return the summary in JSON format as ```json{{ \"summary\": \"your summary here\" }}```.\n\n"
-            f"Explanations:\n{concatenated_text}"
+        if len(grouped) >= flush_threshold:
+            new = await _flush_and_summarize(
+                grouped, interim,
+                workspace_id, app_id, dataset_id, manager,
+                llm_model, parent_function_name, llm_instance,
+                llm_queue_manager, max_input_tokens, retries,
+                store_response, concurrency_limit
+            )
+            interim.update(new)
+            grouped.clear()
+
+    if grouped:
+        new = await _flush_and_summarize(
+            grouped, interim,
+            workspace_id, app_id, dataset_id, manager,
+            llm_model, parent_function_name, llm_instance,
+            llm_queue_manager, max_input_tokens, retries,
+            store_response, concurrency_limit
         )
+        interim.update(new)
 
-    async def batch_multiple_codes_task(batch: List[str]) -> List[Tuple[str, str]]:
-        if not batch:
-            return []
+    grouped_summaries: Dict[str, List[str]] = defaultdict(list)
+    for key, summary in interim.items():
+        base = key.rsplit("_", 1)[0]
+        grouped_summaries[base].append(summary)
 
-        prompt = (
-            "Provide a concise summary of 1-2 lines for each of the following codes based on their explanations. "
-            "Return all summaries in a single JSON object where each key is the code and each value is its summary. "
-            "The JSON object must be wrapped in ```json ... ```. Example:\n"
-            "```json\n{\"codeA\": \"Summary A\", \"codeB\": \"Summary B\"}\n```\n\n"
-            "Codes and explanations:\n"
-        )
-        for code in batch:
-            explanations = batchable_codes[code]
-            prompt += f"Code: {code}\nExplanations:\n" + "\n".join(f"- {exp}" for exp in explanations) + "\n---\n"
-
-        for attempt in range(retries):
-            extracted_dict = await process_llm_task(
-                workspace_id = workspace_id,
+    final: Dict[str, str] = {}
+    for base, sums in grouped_summaries.items():
+        if len(sums) == 1:
+            final[base] = sums[0]
+        else:
+            final[base] = await summarize_with_llm(
+                workspace_id=workspace_id,
+                texts=sums,
+                llm_model=llm_model,
                 app_id=app_id,
                 dataset_id=dataset_id,
                 manager=manager,
-                llm_model=llm_model,
-                regex_pattern=r"```json\s*(.*?)\s*```",
-                prompt_builder_func=lambda **_: prompt,
-                parent_function_name=parent_function_name + " summarize_batch",
                 llm_instance=llm_instance,
                 llm_queue_manager=llm_queue_manager,
-                store_response=kwargs.get('store_response', False),
-                retries=1,
-                **kwargs
+                prompt_builder_func=lambda **p: "Combine these summaries into 1-2 lines:\n\n" + "\n\n".join(p["texts"]),
+                parent_function_name=f"{parent_function_name} collapse",
+                store_response=store_response,
+                max_input_tokens=max_input_tokens,
+                retries=retries
             )
-
-            if isinstance(extracted_dict, dict):
-                missing_codes = [code for code in batch if code not in extracted_dict]
-                all_strings = all(isinstance(extracted_dict.get(code, ""), str) for code in batch)
-                if not missing_codes and all_strings:
-                    return [(code, extracted_dict[code]) for code in batch]
-                # Adjust prompt for specific issues
-                if missing_codes:
-                    prompt += f"\n\nPlease include summaries for the following missing codes: {', '.join(missing_codes)}."
-                if not all_strings:
-                    prompt += "\n\nAll summaries must be strings. Please correct any non-string values."
-            else:
-                prompt += "\n\nPlease provide the response in the correct JSON format as shown in the example."
-        # Fallback after retries
-        summaries = {code: "Summary unavailable due to repeated invalid responses from LLM" for code in batch}
-        return [(code, summaries[code]) for code in batch]
-
-    async def summarize_individual_code(code: str) -> List[Tuple[str, str]]:
-        summary = await summarize_with_llm(
-            workspace_id = workspace_id,
-            texts=grouped_explanations[code],
-            llm_model=llm_model,
-            app_id=app_id,
-            dataset_id=dataset_id,
-            manager=manager,
-            parent_function_name=parent_function_name + " summarize_individual_code",
-            llm_instance=llm_instance,
-            llm_queue_manager=llm_queue_manager,
-            prompt_builder_func=prompt_builder,
-            code=code,
-            max_input_tokens=max_input_tokens,
-            retries=retries,
-            **kwargs
-        )
-        return [(code, summary)]
-
-    batches = split_into_batches(batchable_codes, max_input_tokens, llm_instance) if batchable_codes else []
-
-    tasks = [batch_multiple_codes_task(batch) for batch in batches]
-    tasks.extend(summarize_individual_code(code) for code in individual_codes)
-    results = await asyncio.gather(*tasks)
-
-    all_summaries = [item for sublist in results for item in sublist]
-    return dict(all_summaries)
+    return final
 
 
 def get_coded_data(
@@ -1313,35 +883,31 @@ def get_coded_data(
     batch_size: int,
     offset: int,
 ):
-    # Extract filter parameters
     show_coder_type = filters.get("showCoderType", False)
     selected_type_filter = filters.get("selectedTypeFilter", "All")
     filter_param = filters.get("filter")
     
-    # Build the base WHERE clause
     base_conditions = ["dataset_id = :dataset_id"]
     params = {"dataset_id": dataset_id}
-    
-    # Filter by codebook names if provided
+
     if codebook_names:
         placeholders = ", ".join([f":codebook_{i}" for i in range(len(codebook_names))])
         base_conditions.append(f"codebook_type IN ({placeholders})")
         for i, name in enumerate(codebook_names):
             params[f"codebook_{i}"] = name
-    
-    # Apply coder type and response type filters
+
     if not show_coder_type:
         if selected_type_filter == "All":
             base_conditions.append(
-                "(codebook_type = :initial OR (codebook_type = :deductive AND response_type = :llm))"
+                "(codebook_type = :initial OR (codebook_type = :final AND response_type = :llm))"
             )
             params["initial"] = "initial"
-            params["deductive"] = "deductive"
+            params["final"] = "final"
             params["llm"] = "LLM"
         elif selected_type_filter == "New Data":
-            base_conditions.append("codebook_type = :deductive")
+            base_conditions.append("codebook_type = :final")
             base_conditions.append("response_type = :llm")
-            params["deductive"] = "deductive"
+            params["final"] = "final"
             params["llm"] = "LLM"
         elif selected_type_filter == "Codebook":
             base_conditions.append("codebook_type = :initial")
@@ -1356,23 +922,18 @@ def get_coded_data(
             base_conditions.append("response_type = :llm")
             params["llm"] = "LLM"
     
-    # Combine conditions into WHERE clause
     base_where_clause = " AND ".join(base_conditions)
     
-    # Calculate total_ids using SQL COUNT(*)
     total_ids_query = f"SELECT COUNT(*) FROM qect WHERE {base_where_clause}"
     total_ids_result = qect_repo.execute_raw_query(total_ids_query, tuple(params.values()), keys=False)
     total_ids = total_ids_result.fetchone()[0]
     
-    # Fetch total_data for unique codes and filtering
     total_data_query = f"SELECT * FROM qect WHERE {base_where_clause}"
     total_data_rows = qect_repo.execute_raw_query(total_data_query, tuple(params.values()), keys=True)
     total_data = [QectResponse(**row) for row in total_data_rows]
-    
-    # Compute unique codes
+
     unique_codes = list(set(resp.code for resp in total_data))
-    
-    # Apply additional filtering based on filter_param
+
     if filter_param:
         if filter_param == "coded-data":
             filtered_data = total_data
@@ -1393,19 +954,81 @@ def get_coded_data(
         filtered_data = total_data
         filtered_post_ids = list(set(resp.post_id for resp in total_data))
     
-    # Apply batching and offsetting
     if batch_size is not None:
         filtered_data = filtered_data[offset:offset + batch_size]
     else:
         filtered_data = filtered_data[offset:]
-    
-    # Serialize filtered_data
     filtered_data_serialized = [resp.to_dict() for resp in filtered_data]
     
-    # Return the required values
     return {
         "filteredData": filtered_data_serialized,
         "filteredPostIds": filtered_post_ids,
         "totalIds": total_ids,
         "uniqueCodes": unique_codes
     }
+
+
+def build_where_clause_and_params(request, dataset_id):
+    conditions = ["p.dataset_id = ?", "r.dataset_id = ?"]
+    params = [dataset_id, dataset_id]
+    
+    # Apply selectedTypeFilter first
+    if hasattr(request, 'selectedTypeFilter') and request.selectedTypeFilter:
+        print(f"[build_where_clause] selectedTypeFilter: {request.selectedTypeFilter}")
+        if request.selectedTypeFilter == 'All':
+            if hasattr(request, 'responseTypes') and request.responseTypes:
+                mapped_types = [CODEBOOK_TYPE_MAP[t] for t in request.responseTypes if t in CODEBOOK_TYPE_MAP]
+                if 'manual' in request.responseTypes:
+                    conditions.append("r.codebook_type = 'manual'")
+                    print("[build_where_clause] Applying 'All' for manual: r.codebook_type = 'manual'")
+                elif mapped_types:
+                    placeholders = ','.join(['?' for _ in mapped_types])
+                    conditions.append(f"(r.codebook_type IN ({placeholders}) OR (r.codebook_type = 'final' AND r.response_type = 'LLM'))")
+                    params.extend(mapped_types)
+                    print(f"[build_where_clause] Applying 'All' for non-manual: r.codebook_type IN ({mapped_types}) OR (r.codebook_type = 'final' AND r.response_type = 'LLM')")
+            else:
+                conditions.append("(r.codebook_type = 'initial' OR (r.codebook_type = 'final' AND r.response_type = 'LLM'))")
+                print("[build_where_clause] Applying 'All' default: (r.codebook_type = 'initial' OR (r.codebook_type = 'final' AND r.response_type = 'LLM'))")
+        elif request.selectedTypeFilter == 'New Data':
+            conditions.append("r.codebook_type = 'final' AND r.response_type = 'LLM'")
+            print("[build_where_clause] Applying 'New Data': r.codebook_type = 'final' AND r.response_type = 'LLM'")
+        elif request.selectedTypeFilter == 'Codebook':
+            conditions.append("r.codebook_type = 'initial'")
+            print("[build_where_clause] Applying 'Codebook': r.codebook_type = 'initial'")
+        elif request.selectedTypeFilter == 'Human':
+            conditions.append("r.codebook_type = 'manual' AND r.response_type = 'Human'")
+            print("[build_where_clause] Applying 'Human': r.codebook_type = 'manual' AND r.response_type = 'Human'")
+        elif request.selectedTypeFilter == 'LLM':
+            conditions.append("r.codebook_type = 'manual' AND r.response_type = 'LLM'")
+            print("[build_where_clause] Applying 'LLM': r.codebook_type = 'manual' AND r.response_type = 'LLM'")
+    else:
+        if hasattr(request, 'responseTypes') and request.responseTypes:
+            mapped_types = [CODEBOOK_TYPE_MAP[t] for t in request.responseTypes if t in CODEBOOK_TYPE_MAP]
+            if mapped_types:
+                placeholders = ','.join(['?' for _ in mapped_types])
+                conditions.append(f"r.codebook_type IN ({placeholders})")
+                params.extend(mapped_types)
+                print(f"[build_where_clause] responseTypes: {request.responseTypes}, mapped_types: {mapped_types}, condition: r.codebook_type IN ({mapped_types})")
+
+    if hasattr(request, 'filter') and request.filter:
+        print(f"[build_where_clause] filter: {request.filter}")
+        if request.filter == 'coded-data':
+            print("[build_where_clause] Filter is 'coded-data', no additional condition")
+        else:
+            all_post_ids_query = "SELECT DISTINCT r.post_id FROM qect r WHERE r.dataset_id = ?"
+            print(f"[build_where_clause] Executing all_post_ids query: {all_post_ids_query}, params: {[dataset_id]}")
+            all_post_ids = execute_query(all_post_ids_query, [dataset_id], keys=True)
+            all_post_ids_list = [row['post_id'] for row in all_post_ids]
+            print(f"[build_where_clause] all_post_ids result: {all_post_ids_list}")
+            if request.filter in all_post_ids_list:
+                conditions.append("p.post_id = ?")
+                params.append(request.filter)
+                print(f"[build_where_clause] Filter by postId: p.post_id = {request.filter}")
+            else:
+                conditions.append("r.code = ?")
+                params.append(request.filter)
+                print(f"[build_where_clause] Filter by code: r.code = {request.filter}")
+    
+    where_clause = " AND ".join(conditions)
+    print(f"[build_where_clause] Final where_clause: {where_clause}, params: {params}")
+    return where_clause, params

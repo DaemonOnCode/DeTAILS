@@ -259,7 +259,7 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                         name: 'dispatchUnseenPostResponse'
                     }
                 ],
-                downloadData: { name: 'deductive_codebook' }
+                downloadData: { name: 'final_codebook' }
             },
             [PAGE_ROUTES.REVIEWING_CODES]: {
                 relatedStates: [

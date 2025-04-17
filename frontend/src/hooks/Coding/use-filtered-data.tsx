@@ -1,7 +1,4 @@
-import { useEffect, useMemo } from 'react';
-// import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-// import { useApi } from '../Shared/use-api';
-// import { useCollectionContext } from '../../context/collection-context';
+import { useMemo } from 'react';
 
 interface UseFilteredDataParams {
     data: any[];
@@ -18,13 +15,6 @@ interface UseFilteredDataParams {
     testPostIds: string[];
 }
 
-// interface CodedDataResponse {
-//     filteredData: { postId: string; code: string; type: string }[];
-//     filteredPostIds: string[];
-//     totalIds: number;
-//     uniqueCodes: string[];
-// }
-
 export function useFilteredData({
     data,
     postIds,
@@ -39,39 +29,6 @@ export function useFilteredData({
     unseenPostIds,
     testPostIds
 }: UseFilteredDataParams) {
-    // const { datasetId } = useCollectionContext();
-    // const { fetchData } = useApi();
-    // useEffect(() => {
-    //     async function fetchCodedData() {
-    //         const { data, error } = await fetchData<{ message: string; data: CodedDataResponse }>(
-    //             REMOTE_SERVER_ROUTES.GET_CODED_DATA,
-    //             {
-    //                 method: 'POST',
-    //                 body: JSON.stringify({
-    //                     codebook_names: ['initial', 'deductive', 'manual'],
-    //                     filters: {
-    //                         showCoderType,
-    //                         selectedTypeFilter,
-    //                         filter: applyFilters ? filter : null // Only send filter if applying filters
-    //                     },
-    //                     dataset_id: datasetId,
-    //                     batch_size: 20, // Fetch all data; adjust if pagination is needed
-    //                     offset: 0
-    //                 })
-    //             }
-    //         );
-
-    //         if (data) {
-    //             console.log('Fetched coded data:', data);
-    //         }
-    //         if (error) {
-    //             console.error('Error fetching coded data:', error);
-    //         }
-    //     }
-
-    //     fetchCodedData();
-    // }, [filter, showCoderType, applyFilters, selectedTypeFilter]);
-
     return useMemo(() => {
         let filteredData = data;
         let filteredPostIds = postIds;
@@ -85,7 +42,6 @@ export function useFilteredData({
         );
         const llmPostIds = llmFilteredResponses.map((r) => r.postId);
 
-        // Non-manual coding case
         if (!showCoderType && applyFilters) {
             if (selectedTypeFilter === 'All') {
                 filteredData = [...sampledPostResponse, ...llmFilteredResponses];
@@ -103,9 +59,7 @@ export function useFilteredData({
                 totalIds = filteredPostIds.length;
                 totalData = filteredData;
             }
-        }
-        // Manual coding case
-        else if (showCoderType && applyFilters) {
+        } else if (showCoderType && applyFilters) {
             if (selectedTypeFilter === 'All') {
                 totalData = manualCodingResponses;
                 filteredData = manualCodingResponses;
@@ -126,7 +80,6 @@ export function useFilteredData({
             }
         }
 
-        // Apply additional filtering based on filter parameter
         if (filter) {
             if (filter === 'coded-data') {
                 filteredPostIds = filteredPostIds.filter((postId) =>
@@ -139,21 +92,13 @@ export function useFilteredData({
                     totalData.some((item) => item.postId === postId)
                 );
             } else {
-                // Distinguish between postId and code filters
                 console.log('Filter:', filter);
                 const allPostIds = Array.from(new Set(totalData.map((item) => item.postId)));
                 if (allPostIds.includes(filter)) {
-                    // Filter by postId: show responses for this post, keep all relevant postIds
                     filteredData = filteredData.filter((response) => response.postId === filter);
-                    // filteredPostIds = postIds;
                 } else {
-                    // Filter by code: show only posts with responses matching the code
                     filteredData = filteredData.filter((response) => response.code === filter);
-                    // const postIdsWithCode = Array.from(new Set(filteredData.map((r) => r.postId)));
                     filteredPostIds = postIds;
-                    // filteredPostIds.filter((postId) =>
-                    // postIdsWithCode.includes(postId)
-                    // );
                     console.log('Filter: by postId:', filter, filteredPostIds, filteredData);
                 }
             }

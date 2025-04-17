@@ -1,6 +1,6 @@
 {
     "name": "details",
-    "description": "DeTAILS - Deductive Thematic Analysis with Iterative LLM Support",
+    "description": "DeTAILS - Deep Thematic Analysis with Iterative LLM Support",
     "version": "1.0.0",
     "author": "Ansh Sharma",
     "devDependencies": {

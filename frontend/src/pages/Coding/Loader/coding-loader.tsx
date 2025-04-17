@@ -21,7 +21,7 @@ const highlightColors = [
     'bg-indigo-300'
 ];
 
-const DeductiveCoding = () => {
+const FinalCoding = () => {
     const { registerCallback, unregisterCallback } = useWebSocket();
     const { unseenPostIds, sampledPostIds } = useCodingContext();
 
@@ -58,7 +58,6 @@ const DeductiveCoding = () => {
     };
 
     const { fetchData } = useApi();
-    const { datasetId } = useCollectionContext();
     const { currentWorkspace } = useWorkspaceContext();
 
     const getFunctionProgress = async () => {
@@ -68,21 +67,21 @@ const DeductiveCoding = () => {
         }>(REMOTE_SERVER_ROUTES.CHECK_FUNCTION_PROGRESS, {
             method: 'POST',
             body: JSON.stringify({
-                name: headingText.includes('Final') ? 'deductive' : 'initial',
-                dataset_id: datasetId,
+                name: headingText.includes('Final') ? 'final' : 'initial',
+                dataset_id: currentWorkspace!.id,
                 workspace_id: currentWorkspace!.id
             })
         });
         console.log('Function progress:', data, error);
-        if (!error) {
-            setPostsFinished(data.current);
+        if (!error && data?.current) {
+            setPostsFinished(data?.current ?? 0);
         }
     };
 
     useEffect(() => {
         getFunctionProgress();
-        registerCallback('deductive-coding-loader', handleWebsocketMessage);
-        return () => unregisterCallback('deductive-coding-loader');
+        registerCallback('final-coding-loader', handleWebsocketMessage);
+        return () => unregisterCallback('final-coding-loader');
     }, []);
 
     useEffect(() => {
@@ -166,4 +165,4 @@ const DeductiveCoding = () => {
     );
 };
 
-export default DeductiveCoding;
+export default FinalCoding;
