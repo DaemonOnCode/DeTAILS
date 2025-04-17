@@ -3,28 +3,16 @@ const { findContextByName } = require('./context');
 const { electronLogger } = require('./electron-logger');
 
 const menuTemplate = (state) => {
-    // Determine if a user is loaded.
     const isUserLoaded = state.userEmail && state.userEmail !== 'Anonymous';
 
     return [
         {
             label: 'File',
             submenu: [
-                // {
-                //     label: 'New File',
-                //     accelerator: 'CmdOrCtrl+N',
-                //     click: () => electronLogger.log('New File')
-                // },
-                // {
-                //     label: 'Open File',
-                //     accelerator: 'CmdOrCtrl+O',
-                //     click: () => electronLogger.log('Open File')
-                // },
-                // { type: 'separator' },
                 {
                     label: 'Save workspace',
                     accelerator: 'CmdOrCtrl+S',
-                    enabled: isUserLoaded, // Disabled if user not logged in.
+                    enabled: isUserLoaded,
                     click: () => {
                         electronLogger.log(
                             'Save workspace',
@@ -38,7 +26,7 @@ const menuTemplate = (state) => {
                 {
                     label: 'Import workspace',
                     accelerator: 'CmdOrCtrl+I',
-                    enabled: isUserLoaded, // Disabled if user not logged in.
+                    enabled: isUserLoaded,
                     click: async () => {
                         if (!isUserLoaded) return;
                         const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -55,7 +43,7 @@ const menuTemplate = (state) => {
                 {
                     label: 'Export workspace',
                     accelerator: 'CmdOrCtrl+E',
-                    enabled: isUserLoaded, // Disabled if user not logged in.
+                    enabled: isUserLoaded,
                     click: async () => {
                         if (!isUserLoaded) return;
                         state.mainWindow.webContents.send('menu-export-workspace');

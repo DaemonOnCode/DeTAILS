@@ -1,28 +1,21 @@
 const { ipcMain } = require('electron');
 const { electronLogger } = require('./electron-logger');
 
-// 🟢 Scoped Contexts Storage
 const contexts = {};
 
-// 🟢 Function to Create a New Context
 const createContext = (contextName, initialState = {}) => {
     contexts[contextName] = { ...initialState };
     const subscribers = [];
 
-    electronLogger.log(`✅ Electron Context "${contextName}" created.`);
+    electronLogger.log(`Electron Context "${contextName}" created.`);
 
     ipcMain.handle(`getContext_${contextName}`, () => contexts[contextName]);
 
     ipcMain.on(`updateContext_${contextName}`, (event, newState) => {
         contexts[contextName] = { ...contexts[contextName], ...newState };
-        event.sender.send(`contextUpdated_${contextName}`, contexts[contextName]); // Notify listeners
+        event.sender.send(`contextUpdated_${contextName}`, contexts[contextName]);
     });
 
-    // Object.keys(handlers).forEach((handlerName) => {
-    //     ipcMain.handle(`${contextName}_${handlerName}`, async (event, ...args) => {
-    //         return await handlers[handlerName](contexts[contextName].state, ...args);
-    //     });
-    // });
     return {
         name: contextName,
         getState: () => contexts[contextName],
@@ -49,9 +42,7 @@ const createContext = (contextName, initialState = {}) => {
 };
 
 const findContextByName = (contextName, ctxs) => {
-    // electronLogger.log(`🔍 Finding context "${contextName}"`, ctxs);
     return ctxs.find((ctx) => ctx.name === contextName);
 };
 
-// Export Functions
 module.exports = { createContext, findContextByName };

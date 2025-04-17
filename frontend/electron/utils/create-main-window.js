@@ -34,7 +34,6 @@ exports.createMainWindow = async (...ctxs) => {
             contextIsolation: false,
             webSecurity: false,
             nodeIntegrationInWorker: true
-            // sandbox: false
         },
         icon: getPlatformIcon(),
         title: globalState.appName
@@ -79,11 +78,10 @@ exports.createMainWindow = async (...ctxs) => {
             if (window.isFullScreen()) {
                 window.once('leave-full-screen', () => window.hide());
                 window.setFullScreen(false);
-                window.once('show', () => window.setFullScreen(true)); // when it's time to show the window again, some code will call window.show() and trigger this
+                window.once('show', () => window.setFullScreen(true));
             } else {
                 window.hide();
             }
-            // window.minimize();
         }
     });
 

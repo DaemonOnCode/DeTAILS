@@ -9,13 +9,11 @@ const { electronLogger } = require('../utils/electron-logger');
 const settingsFilePath = path.join(app.getPath('userData'), 'settings.json');
 electronLogger.log('Settings file path:', settingsFilePath);
 
-// Path to the default settings file bundled with your app.
+// Path to the default settings file bundled with the app.
 const defaultSettingsFilePath = path.join(__dirname, '..', '..', 'src', 'default-settings.json');
 
-// Load default settings from the default-settings.json file.
 let defaultSettings;
 try {
-    // Synchronously load default settings.
     defaultSettings = require(defaultSettingsFilePath);
 } catch (error) {
     electronLogger.log('Could not load default settings:', error);

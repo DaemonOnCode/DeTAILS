@@ -18,17 +18,14 @@ const webviewHandler = (...ctxs) => {
     ipcMain.handle('render-file-webview', async (event, filePath, options = {}) => {
         electronLogger.log('File rendering requested for:', filePath);
 
-        // Determine file type from options or file extension.
         const fileType = options.fileType || path.extname(filePath).toLowerCase();
 
-        // Remove any existing BrowserView.
         const currentView = globalCtx.getState().browserView;
         if (currentView) {
             globalCtx.getState().mainWindow.removeBrowserView(currentView);
             globalCtx.setState({ browserView: null });
         }
 
-        // Create a new BrowserView with nodeIntegration enabled for our injected scripts.
         const view = new BrowserView({
             webPreferences: {
                 contextIsolation: false,
@@ -40,7 +37,6 @@ const webviewHandler = (...ctxs) => {
         const mainWindow = globalCtx.getState().mainWindow;
         mainWindow.setBrowserView(view);
 
-        // Define the view dimensions and center the view.
         const viewWidth = 600;
         const viewHeight = 400;
         const [mainWidth, mainHeight] = mainWindow.getContentSize();
@@ -51,14 +47,12 @@ const webviewHandler = (...ctxs) => {
 
         try {
             if (fileType === '.pdf') {
-                // For PDFs, load directly.
                 const fileUrl =
                     filePath.startsWith('http://') || filePath.startsWith('https://')
                         ? filePath
                         : `file://${filePath}`;
                 await view.webContents.loadURL(fileUrl);
             } else if (fileType === '.txt') {
-                // For TXT files, load a custom HTML template and inject the file content.
                 const templatePath = path.join(__dirname, '..', 'templates', 'text-template.html');
                 await view.webContents.loadFile(templatePath);
                 const fileContent = fs.readFileSync(filePath, 'utf8');
@@ -93,22 +87,7 @@ const webviewHandler = (...ctxs) => {
                         `);
                     } catch (conversionError) {
                         electronLogger.error('Error converting DOCX to HTML:', conversionError);
-                        // Fallback to Google Docs viewer if conversion fails.
-                        const fileUrl =
-                            filePath.startsWith('http://') || filePath.startsWith('https://')
-                                ? filePath
-                                : `file://${filePath}`;
-                        const googleViewerUrl = `https://docs.google.com/gview?embedded=true&url=\${encodeURIComponent(fileUrl)}`;
-                        await view.webContents.loadURL(googleViewerUrl);
                     }
-                } else {
-                    // Fallback: use Google Docs viewer if mammoth is not available.
-                    const fileUrl =
-                        filePath.startsWith('http://') || filePath.startsWith('https://')
-                            ? filePath
-                            : `file://${filePath}`;
-                    const googleViewerUrl = `https://docs.google.com/gview?embedded=true&url=\${encodeURIComponent(fileUrl)}`;
-                    await view.webContents.loadURL(googleViewerUrl);
                 }
             } else {
                 throw new Error('Unsupported file type');
@@ -118,7 +97,6 @@ const webviewHandler = (...ctxs) => {
             throw error;
         }
 
-        // Inject custom CSS into the loaded template for TXT and DOCX.
         if (fileType === '.txt' || fileType === '.docx') {
             try {
                 await view.webContents.insertCSS(`
@@ -148,7 +126,6 @@ const webviewHandler = (...ctxs) => {
             }
         }
 
-        // Update the global state with the new BrowserView.
         globalCtx.setState({ browserView: view });
 
         return {

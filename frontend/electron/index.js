@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, dialog, session } = require('electron');
+const { app, ipcMain, session } = require('electron');
 
 if (require('electron-squirrel-startup')) app.quit();
 
@@ -13,23 +13,20 @@ const { spawnedProcesses } = require('./utils/spawn-services');
 const { createMenu } = require('./utils/menu');
 const { createContext } = require('./utils/context');
 const { electronLogger } = require('./utils/electron-logger');
-const { execSync } = require('child_process');
+const { killProcess } = require('./utils/kill-process');
 
 const newConfig = require('../src/config')('electron');
 
 electronLogger.log(newConfig);
 
-// Enable auto-reloading in development mode
 if (process.env.NODE_ENV === 'development') {
     require('electron-reloader')(module, {
         ignore: [/\.db$/]
     });
 }
 
-// Initialize Electron remote
 remote.initialize();
 
-// Configure auto-launch for production mode
 if (!process.env.NODE_ENV === 'development') {
     const autoStart = new AutoLaunch({
         name: config.appName
@@ -37,7 +34,6 @@ if (!process.env.NODE_ENV === 'development') {
     autoStart.enable();
 }
 
-// Function to clean up and gracefully exit
 const cleanupAndExit = async (globalCtx, signal) => {
     electronLogger.log('Cleaning up and exiting...');
     if (!globalCtx.getState().settings.general.keepSignedIn) {
@@ -53,24 +49,9 @@ const cleanupAndExit = async (globalCtx, signal) => {
 
     electronLogger.log(`Received signal: ${signal}`);
     await logger.info('Process exited', { signal });
-    // electronLogger.log('Closing spawned processes...', spawnedProcesses);
     for (const { name, process: child } of spawnedProcesses) {
         electronLogger.log(`Terminating process: ${name}`);
-        if (process.platform === 'win32') {
-            try {
-                execSync(`taskkill /F /T /PID ${child.pid}`);
-                electronLogger.log(`Successfully terminated ${name} and its subprocesses.`);
-            } catch (err) {
-                electronLogger.error(`Error terminating ${name}:`, err);
-            }
-        } else {
-            try {
-                child.kill();
-                electronLogger.log(`Successfully terminated ${name} and its subprocesses.`);
-            } catch (err) {
-                electronLogger.error(`Error terminating ${name}:`, err);
-            }
-        }
+        killProcess(child);
     }
     try {
         globalCtx.getState().websocket.close();
@@ -78,7 +59,7 @@ const cleanupAndExit = async (globalCtx, signal) => {
     } catch (e) {
         electronLogger.log('Error closing websocket');
     }
-    // Perform cleanup tasks here if needed
+
     if (!signal) {
         app.exit();
         return;
@@ -88,7 +69,6 @@ const cleanupAndExit = async (globalCtx, signal) => {
 
 app.commandLine.appendSwitch('force-color-profile', 'srgb');
 
-// Wait for the app to be ready
 app.whenReady().then(async () => {
     let globalCtx = createContext('global', {
         ...config
@@ -107,13 +87,6 @@ app.whenReady().then(async () => {
     // Log system and process metrics
     logger.logSystemAndProcessMetrics();
 
-    // // Listen for renderer events to send messages via WebSocket
-    // ipcMain.on('send-ws-message', (event, message) => {
-    //     if (ws.readyState === WebSocket.OPEN) {
-    //         ws.send(message);
-    //     }
-    // });
-
     // Register signal handlers
     ['SIGINT', 'SIGTERM', 'SIGABRT', 'SIGHUP', 'SIGSEGV'].forEach((signal) => {
         electronLogger.log(`Registering handler for signal: ${signal}`);
@@ -125,20 +98,15 @@ app.whenReady().then(async () => {
 
     // Handle app activation (specific to macOS)
     app.on('activate', async () => {
-        // if (BrowserWindow.getAllWindows().length === 0) {
-        //     globalCtx.getState().mainWindow = await createMainWindow();
-        // }
         if (globalCtx.getState().mainWindow) {
             globalCtx.getState().mainWindow.show();
         }
     });
 
-    // IPC listener for app version
     ipcMain.on('app_version', (event) => {
         event.sender.send('app_version', { version: app.getVersion() });
     });
 
-    // AutoUpdater events
     if (process.env.NODE_ENV === 'development') {
         autoUpdater.on('update-available', () => {
             logger.info('Update available');
@@ -151,18 +119,6 @@ app.whenReady().then(async () => {
         });
     }
 
-    // app.on('web-contents-created', (event, contents) => {
-    //     contents.session.webRequest.onHeadersReceived((details, callback) => {
-    //         callback({
-    //             responseHeaders: {
-    //                 ...details.responseHeaders,
-    //                 'Content-Security-Policy': ["default-src 'self' ws://localhost:8080"]
-    //             }
-    //         });
-    //     });
-    // });
-
-    // IPC listener for restarting the app to install updates
     ipcMain.on('restart_app', () => {
         logger.info('Restarting app to install updates');
         autoUpdater.quitAndInstall();
@@ -181,12 +137,10 @@ app.whenReady().then(async () => {
 
     app.on('will-quit', (event) => {
         electronLogger.log('will-quit event triggered');
-        // cleanupAndExit(globalCtx);
     });
 
     app.on('quit', async (event, exitCode) => {
         console.log('quit event triggered', 'cleaning up and exiting');
-        // await cleanupAndExit(globalCtx);
 
         electronLogger.log(`App is quitting with exit code: ${exitCode}`);
 
@@ -197,14 +151,6 @@ app.whenReady().then(async () => {
         console.log('window-all-closed');
         if (process.platform !== 'darwin') {
             cleanupAndExit(globalCtx);
-        } else {
-            // globalCtx.getState().mainWindow.hide();
-            // try {
-            //     globalCtx.getState().websocket.close();
-            //     globalCtx.setState({ websocket: null });
-            // } catch (e) {
-            //     electronLogger.log('Error closing websocket', e);
-            // }
         }
     });
 });

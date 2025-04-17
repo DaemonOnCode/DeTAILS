@@ -2,7 +2,6 @@ const ElectronGoogleOAuth2 = require('@getstation/electron-google-oauth2').defau
 const { ipcMain } = require('electron');
 
 const clientData = require('../../client_secret_311037134589-q63krfrlg9d2edp7gsnlbouivttk3cr7.apps.googleusercontent.com.json');
-// const config = require('../utils/config');
 const logger = require('../utils/logger');
 const { createMenu } = require('../utils/menu');
 const { findContextByName } = require('../utils/context');
@@ -40,7 +39,7 @@ const authHandler = (...ctxs) => {
 
             electronLogger.log('Ctx State:', globalCtx.getState());
 
-            const userInfo = await response.json(); // Contains user information including email
+            const userInfo = await response.json();
             electronLogger.log('User Info:', userInfo);
             await logger.info('Google OAuth successful:', { userInfo });
 
@@ -52,7 +51,6 @@ const authHandler = (...ctxs) => {
                 oauthWindow.close();
             }
             electronLogger.log('Google OAuth Token:', token);
-            // createMenu(...ctxs);
             return {
                 token,
                 user: userInfo

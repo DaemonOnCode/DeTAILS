@@ -1,17 +1,8 @@
-// const config = require('./config');
 let config;
 const { electronLogger } = require('./electron-logger');
 
-// try {
-//     config = require('./config');
-// } catch (e) {
-//     electronLogger.log('Error loading config: ', e);
-// }
-
 const LOGGING = false;
 
-// const LOGGING_SERVER_URL = 'http://20.51.212.222/logging/api/log';
-// Define log levels
 const LOG_LEVELS = ['info', 'warning', 'error', 'debug', 'health', 'time'];
 
 const sendLog = async (level, message, context, loggerContext) => {
@@ -61,14 +52,12 @@ const sendLog = async (level, message, context, loggerContext) => {
     }
 };
 
-// Simplified periodic logging
 const logSystemAndProcessMetrics = () => {
     const os = require('os');
 
-    // CPU Usage Function
     const getSystemCpuUsage = () => {
         const cpus = os.cpus();
-        const loadAverage = os.loadavg(); // 1, 5, and 15-minute load averages
+        const loadAverage = os.loadavg();
 
         let totalIdle = 0;
         let totalTick = 0;
@@ -87,7 +76,6 @@ const logSystemAndProcessMetrics = () => {
             totalIdle += coreTotalIdle;
             totalTick += coreTotalTick;
 
-            // Log or return per-core usage
             cpu.usage = ((1 - coreTotalIdle / coreTotalTick) * 100).toFixed(2);
         });
 
@@ -95,7 +83,7 @@ const logSystemAndProcessMetrics = () => {
 
         return {
             cores: cpus.length,
-            averageUsage: `${averageCpuUsage}%`, // Average usage across all cores
+            averageUsage: `${averageCpuUsage}%`,
             perCoreUsage: cpus.map((cpu, index) => ({
                 core: `Core ${index + 1}`,
                 usage: `${cpu.usage}%`
@@ -108,13 +96,11 @@ const logSystemAndProcessMetrics = () => {
         };
     };
 
-    // Memory Usage Function
     const getSystemMemoryUsage = () => {
         const totalMemory = os.totalmem();
         const freeMemory = os.freemem();
         const usedMemory = totalMemory - freeMemory;
 
-        // Get percentages
         const usedPercentage = ((usedMemory / totalMemory) * 100).toFixed(2);
         const freePercentage = ((freeMemory / totalMemory) * 100).toFixed(2);
 
@@ -127,7 +113,6 @@ const logSystemAndProcessMetrics = () => {
         };
     };
 
-    // Example usage
     electronLogger.log(getSystemCpuUsage());
     electronLogger.log(getSystemMemoryUsage());
 
@@ -138,10 +123,9 @@ const logSystemAndProcessMetrics = () => {
             systemMemoryUsage,
             systemCpuUsage
         });
-    }, 60 * 1000); // Log every 1 minute
+    }, 60 * 1000);
 };
 
-// Expose basic logging functions
 module.exports = {
     info: (message, context, loggerContext) => sendLog('info', message, context, loggerContext),
     warning: (message, context, loggerContext) =>

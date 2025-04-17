@@ -5,7 +5,6 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Reddit Viewer</title>
         <style>
-            /* Reddit Dark Mode Styling */
             body {
                 background-color: #1a1a1b;
                 color: #d7dadc;
@@ -25,7 +24,6 @@
                 font-size: 16px;
                 line-height: 1.5;
             }
-            /* Container for all comments. Each recursion adds another .comments wrapper */
             .comments {
                 padding: 20px;
             }
@@ -36,10 +34,11 @@
                 padding-left: 10px;
                 margin-bottom: 16px;
                 border-left: 2px solid #343536;
+                min-width: 300px;
             }
 
-            /* If it's NOT the first child in its parent .comments container,
-       we add a small horizontal connector at the *top* of this comment box. */
+            /* If it's not the first child in its parent .comments container,
+       we add a small horizontal connector at the top of this comment box. */
             .comment {
                 position: relative;
                 margin-left: 20px;

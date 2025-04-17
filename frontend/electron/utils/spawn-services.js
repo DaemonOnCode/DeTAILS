@@ -16,14 +16,12 @@ const servicesConfig = (executablesPath) => {
         chroma: {
             name: 'chroma',
             folder: path.join(executablesPath, 'chroma'),
-            // On Windows, use 'cli.exe'; on other platforms, use './cli'
             command: isWindows ? 'cli.exe' : './cli',
             args: ['run']
         },
         backend: {
             name: 'backend',
             folder: path.join(executablesPath, 'data-modeling-server'),
-            // Use 'main.exe' on Windows; './main' otherwise
             command: isWindows ? 'main.exe' : './main',
             args: []
         },
@@ -36,7 +34,6 @@ const servicesConfig = (executablesPath) => {
     };
 };
 
-// Helper function to spawn a process
 const spawnService = async (config, globalCtx) => {
     const isWindows = process.platform === 'win32';
     return new Promise((resolve, reject) => {
@@ -57,7 +54,6 @@ const spawnService = async (config, globalCtx) => {
             });
         }
 
-        // Capture stderr
         if (service.stderr) {
             service.stderr.on('data', (data) => {
                 electronLogger.error(`[${config.name} stderr]: ${data.toString()}`);
@@ -83,7 +79,7 @@ const spawnService = async (config, globalCtx) => {
                     electronLogger.log(
                         `The ${config.name} service may have failed due to port issues. Please check.`
                     );
-                    resolve(); // Resolve without rejecting
+                    resolve();
                 } else {
                     reject(new Error(`${config.name} exited with code ${code}`));
                 }
@@ -97,7 +93,7 @@ const spawnService = async (config, globalCtx) => {
                 electronLogger.log(
                     `The ${config.name} service failed to start due to port conflict.`
                 );
-                resolve(); // Graceful resolution
+                resolve();
             } else {
                 reject(err);
             }
@@ -105,13 +101,11 @@ const spawnService = async (config, globalCtx) => {
 
         service.on('disconnect', (code) => {
             electronLogger.log(`${config.name} disconnected with code ${code}`);
-            // globalCtx.getState().mainWindow.webContents.send('service-stopped', config.name);
             reject(new Error(`${config.name} disconnected with code ${code}`));
         });
     });
 };
 
-// Define resource paths per OS
 const osResourcePaths = Object.freeze({
     WIN32: path.join(app.getPath('appData'), 'DeTAILS', 'executables'),
     DARWIN: path.join(
@@ -132,7 +126,7 @@ const copyBinariesIfNotExists = (resourceBinariesPath, binariesPath) => {
     }
 
     if (!fs.existsSync(binariesPath)) {
-        fs.mkdirSync(binariesPath, { recursive: true }); // Ensure destination exists
+        fs.mkdirSync(binariesPath, { recursive: true });
     }
 
     const copyMissingFilesRecursively = (src, dest) => {
@@ -166,34 +160,26 @@ const copyBinariesIfNotExists = (resourceBinariesPath, binariesPath) => {
     electronLogger.log(`Binaries verification completed at: ${binariesPath}`);
 };
 
-// Function to spawn all services
 const spawnServices = async (globalCtx) => {
-    // process.resourcesPath;
-    // Get current platform and corresponding binaries path
     const platform = process.platform.toUpperCase(); // win32 -> WIN32, darwin -> DARWIN, linux -> LINUX
     const binariesPath = osResourcePaths[platform];
 
-    // Ensure the binaries directory exists
     if (!fs.existsSync(binariesPath)) {
         fs.mkdirSync(binariesPath, { recursive: true });
     }
 
-    // Get the path to packaged binaries
     let resourceBinariesPath = '';
     if (process.platform === 'win32') {
         resourceBinariesPath = path.join(process.resourcesPath, 'executables_windows');
     } else if (process.platform === 'darwin') {
-        resourceBinariesPath = path.join(process.resourcesPath, 'executables');
+        resourceBinariesPath = path.join(process.resourcesPath, 'executables_mac');
     } else if (process.platform === 'linux') {
         resourceBinariesPath = path.join(process.resourcesPath, 'executables_linux');
     }
 
     copyBinariesIfNotExists(resourceBinariesPath, binariesPath);
 
-    const executablesPath =
-        process.env.NODE_ENV === 'development'
-            ? binariesPath // path.join(__dirname, '..', '..', '..', 'executables') //
-            : binariesPath;
+    const executablesPath = binariesPath;
     const serviceConfig = servicesConfig(executablesPath);
 
     if (spawnedProcesses.length > 0) {
@@ -207,7 +193,6 @@ const spawnServices = async (globalCtx) => {
             spawnService(serviceConfig.chroma, globalCtx),
             spawnService(serviceConfig.backend, globalCtx),
             spawnService(serviceConfig.ollama, globalCtx)
-            // spawnService(serviceConfig.miscFrontend, globalCtx)
         ]);
         electronLogger.log('All services started successfully.');
     } catch (error) {

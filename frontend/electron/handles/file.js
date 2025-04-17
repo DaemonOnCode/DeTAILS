@@ -13,13 +13,10 @@ function flattenObjectExcel(obj, parentKey = '', separator = '.') {
             const newKey = parentKey ? `${parentKey}${separator}${key}` : key;
             const value = obj[key];
             if (Array.isArray(value)) {
-                // Join array values into a comma-separated string
                 flattened[newKey] = value.join(', ');
             } else if (typeof value === 'object' && value !== null) {
-                // Recursively flatten nested objects
                 Object.assign(flattened, flattenObjectExcel(value, newKey, separator));
             } else {
-                // Assign primitive values directly
                 flattened[newKey] = value;
             }
         }
@@ -27,7 +24,6 @@ function flattenObjectExcel(obj, parentKey = '', separator = '.') {
     return flattened;
 }
 
-// Escapes a value for CSV format (handles commas, quotes, and newlines)
 function escapeCSV(value) {
     if (typeof value === 'string') {
         if (value.includes(',') || value.includes('"') || value.includes('\n')) {
@@ -35,16 +31,15 @@ function escapeCSV(value) {
         }
         return value;
     }
-    return String(value); // Convert non-strings (e.g., numbers) to strings
+    return String(value);
 }
 
-// Flattens a nested object using dot notation, serializing arrays as comma-separated strings
 function flattenObject(obj, prefix = '') {
     let result = {};
     for (let key in obj) {
         if (obj.hasOwnProperty(key)) {
             if (Array.isArray(obj[key])) {
-                result[prefix + key] = obj[key].join(', '); // Serialize arrays
+                result[prefix + key] = obj[key].join(', ');
             } else if (typeof obj[key] === 'object' && obj[key] !== null) {
                 let nested = flattenObject(obj[key], `${prefix}${key}.`);
                 result = { ...result, ...nested };
@@ -56,14 +51,13 @@ function flattenObject(obj, prefix = '') {
     return result;
 }
 
-// Converts an array of objects to CSV
 function arrayOfObjectsToCSV(data) {
     const flattenedData = data.map((obj) => flattenObject(obj));
     const allKeys = new Set();
     flattenedData.forEach((obj) => {
         Object.keys(obj).forEach((key) => allKeys.add(key));
     });
-    const headers = Array.from(allKeys).sort(); // Sort for consistency
+    const headers = Array.from(allKeys).sort();
     const rows = flattenedData.map((obj) => {
         return headers.map((header) => escapeCSV(obj[header] ?? ''));
     });
@@ -72,12 +66,10 @@ function arrayOfObjectsToCSV(data) {
     return `${headerRow}\n${dataRows}`;
 }
 
-// Converts a 2D array to CSV
 function twoDArrayToCSV(data) {
     return data.map((row) => row.map(escapeCSV).join(',')).join('\n');
 }
 
-// Converts an object with array values to CSV (columns)
 function columnsToCSV(data) {
     const headers = Object.keys(data);
     const numRows = data[headers[0]].length;
@@ -90,32 +82,31 @@ function columnsToCSV(data) {
     return `${headerRow}\n${rows.join('\n')}`;
 }
 
-// Main function to convert data to CSV based on its type
 function toCSV(data) {
     if (typeof data === 'string') {
-        return data; // Use string directly as CSV content
+        return data;
     } else if (Array.isArray(data)) {
         if (data.length === 0) {
             return '';
         }
         if (typeof data[0] === 'object' && !Array.isArray(data[0])) {
-            return arrayOfObjectsToCSV(data); // Array of objects
+            return arrayOfObjectsToCSV(data);
         } else if (Array.isArray(data[0])) {
-            return twoDArrayToCSV(data); // 2D array
+            return twoDArrayToCSV(data);
         } else {
-            return data.map((item) => escapeCSV(item)).join('\n'); // Array of primitives
+            return data.map((item) => escapeCSV(item)).join('\n');
         }
     } else if (typeof data === 'object' && data !== null) {
         const values = Object.values(data);
         if (values.every((val) => Array.isArray(val))) {
             const lengths = values.map((val) => val.length);
             if (lengths.every((len) => len === lengths[0])) {
-                return columnsToCSV(data); // Object with arrays as columns
+                return columnsToCSV(data);
             }
         }
-        return arrayOfObjectsToCSV([data]); // Single object as one row
+        return arrayOfObjectsToCSV([data]);
     } else {
-        return escapeCSV(data); // Fallback for other types
+        return escapeCSV(data);
     }
 }
 
@@ -148,14 +139,11 @@ const fileHandler = (...ctxs) => {
         return fullResult; // Return the selected file paths
     });
 
-    // Handler for saving CSV
     ipcMain.handle('save-csv', async (event, { data, fileName }) => {
         electronLogger.log('Saving CSV:', { fileName });
         try {
-            // Convert data to CSV string
             const csvData = toCSV(data);
 
-            // Open Save Dialog
             const { filePath } = await dialog.showSaveDialog({
                 title: 'Save CSV File',
                 defaultPath: path.join(__dirname, `${fileName || 'data'}.csv`),
@@ -163,7 +151,6 @@ const fileHandler = (...ctxs) => {
             });
 
             if (filePath) {
-                // Write the CSV data to the file
                 fs.writeFileSync(filePath, csvData, 'utf8');
                 return { success: true, filePath };
             }
@@ -174,10 +161,8 @@ const fileHandler = (...ctxs) => {
         }
     });
 
-    // Handler for saving Excel
     ipcMain.handle('save-excel', async (event, { data, fileName }) => {
         try {
-            // Open Save Dialog
             const { filePath } = await dialog.showSaveDialog({
                 title: 'Save Excel File',
                 defaultPath: path.join(__dirname, `${fileName || 'data'}.xlsx`),
@@ -185,15 +170,12 @@ const fileHandler = (...ctxs) => {
             });
 
             if (filePath) {
-                // Preprocess data to flatten nested objects and arrays
                 const processedData = data.map((item) => flattenObjectExcel(item));
 
-                // Create an Excel Workbook
-                const worksheet = XLSX.utils.json_to_sheet(processedData); // Convert JSON to Worksheet
+                const worksheet = XLSX.utils.json_to_sheet(processedData);
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
 
-                // Write Excel file
                 XLSX.writeFile(workbook, filePath);
                 return { success: true, filePath };
             }
@@ -212,7 +194,7 @@ const fileHandler = (...ctxs) => {
             filters: [{ name: 'Text Files', extensions: ['txt'] }]
         });
         await logger.info('Saved file:', { filePath: result.filePath });
-        return result.filePath; // Return the saved file path
+        return result.filePath;
     });
 
     ipcMain.handle('select-file', async (event, extensions) => {
@@ -222,7 +204,7 @@ const fileHandler = (...ctxs) => {
             filters: [{ name: 'Documents', extensions: extensions }]
         });
         electronLogger.log('Selected file:', { filePath: result.filePaths[0] });
-        return result.filePaths[0] ?? ''; // Return the selected file path
+        return result.filePaths[0] ?? '';
     });
 };
 

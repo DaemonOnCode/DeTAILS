@@ -1,7 +1,5 @@
 const { fileHandler } = require('./file');
 const { redditHandler } = require('./reddit');
-// const { langchainHandler } = require('./langchain');
-const { dbHandler } = require('./db');
 const { authHandler } = require('./authentication');
 const { websocketHandler } = require('./websocket');
 const { workspaceHandler } = require('./workspace');
@@ -9,19 +7,8 @@ const { processingHandler } = require('./processing');
 const { interviewHandler } = require('./interview');
 const { webviewHandler } = require('./webview-render');
 const { settingsHandler } = require('./settings');
-// const { workerHandler } = require('./worker');
 
 const registerIpcHandlers = (...ctxs) => {
-    // authHandler();
-    // redditHandler();
-    // fileHandler();
-    // // langchainHandler();
-    // // workerHandler();
-    // dbHandler();
-    // websocketHandler();
-    // workspaceHandler();
-    // processingHandler();
-
     const handlerList = [
         settingsHandler,
         authHandler,
