@@ -1,4 +1,0 @@
-global-exclude ._*
-global-exclude *.pyc
-global-exclude __pycache__
-global-include *.yml
