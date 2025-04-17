@@ -1,6 +1,7 @@
 const { app, ipcMain, session } = require('electron');
 
 if (require('electron-squirrel-startup')) app.quit();
+require('dotenv').config();
 
 const { autoUpdater } = require('electron-updater');
 const AutoLaunch = require('auto-launch');

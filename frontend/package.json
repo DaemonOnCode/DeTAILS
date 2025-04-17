@@ -92,7 +92,7 @@
         "format": "prettier --write .",
         "update": "taze latest -w",
         "serve:chroma": "chroma run --path ${DB_PATH:-../chroma}",
-        "executable:build-mac": "cd ../executables && ./build.sh",
+        "executable:build-mac": "cd ../executables_mac && ./build.sh",
         "executable:build-win": "powershell -Command \"Set-Location -Path '..\\executables_windows'; if ($?) { .\\build.ps1 } else { Write-Error 'Failed to change directory'; exit 1 }\"",
         "executable:build-linux": "cd ../executables_linux && ./build.sh",
         "start": "cross-env NODE_ENV=production electron-forge start",

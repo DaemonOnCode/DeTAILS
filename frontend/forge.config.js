@@ -6,8 +6,9 @@ const fs = require('fs');
 const extraResourcePath =
     process.platform === 'win32'
         ? path.resolve(__dirname, '..', 'executables_windows')
-        : process.platform === 'darwin' ?path.resolve(__dirname, '..', 'executables')
-        : path.resolve(__dirname, '..', 'executables_linux');
+        : process.platform === 'darwin'
+          ? path.resolve(__dirname, '..', 'executables_mac')
+          : path.resolve(__dirname, '..', 'executables_linux');
 
 module.exports = {
     hooks: {
@@ -22,12 +23,6 @@ module.exports = {
                 fs.rmSync(makeDir, { recursive: true, force: true });
             }
         }
-        // packageAfterPrune: async (forgeConfig, buildPath, electronVersion, platform, arch) => {
-        //     forgeConfig.packagerConfig.extraResource =
-        //         platform === 'win32'
-        //             ? [path.resolve(__dirname, '..', 'executables_windows')]
-        //             : [path.resolve(__dirname, '..', 'executables')];
-        // }
     },
     packagerConfig: {
         name: 'DeTAILS',
@@ -38,14 +33,6 @@ module.exports = {
     },
     rebuildConfig: {},
     makers: [
-        // {
-        //     name: '@electron-forge/maker-wix',
-        //     platforms: ['win32'],
-        //     config: {
-        //         appIcon: 'public/favicon.ico',
-        //         setupIcon: 'public/favicon.ico'
-        //     }
-        // },
         {
             name: '@electron-forge/maker-squirrel',
             config: {
@@ -60,12 +47,11 @@ module.exports = {
         {
             name: '@electron-forge/maker-dmg',
             config: {
-                // background: './public/acqa-icon.icns',
                 format: 'ULFO',
                 icon: 'public/details-icon.icns',
                 overwrite: true,
                 additionalDMGOptions: {
-                    icon: 'public/details-icon.icns' // Volume icon
+                    icon: 'public/details-icon.icns'
                 }
             }
         },
@@ -98,8 +84,6 @@ module.exports = {
             name: '@electron-forge/plugin-auto-unpack-natives',
             config: {}
         },
-        // Fuses are used to enable/disable various Electron functionality
-        // at package time, before code signing the application
         new FusesPlugin({
             version: FuseVersion.V1,
             [FuseV1Options.RunAsNode]: false,

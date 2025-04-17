@@ -161,7 +161,7 @@ const copyBinariesIfNotExists = (resourceBinariesPath, binariesPath) => {
 };
 
 const spawnServices = async (globalCtx) => {
-    const platform = process.platform.toUpperCase(); // win32 -> WIN32, darwin -> DARWIN, linux -> LINUX
+    const platform = process.platform.toUpperCase();
     const binariesPath = osResourcePaths[platform];
 
     if (!fs.existsSync(binariesPath)) {
