@@ -23,27 +23,14 @@ import VirtualizedTableRow from '../../components/Coding/InitialCodebook/virtual
 import { DetailsLLMIcon } from '../../components/Shared/Icons';
 
 const InitialCodeBook = () => {
-    const {
-        initialCodebookTable,
-        dispatchInitialCodebookTable,
-        sampledPostResponse,
-        unseenPostIds,
-        researchQuestions,
-        mainTopic,
-        additionalInfo,
-        keywordTable,
-        dispatchUnseenPostResponse
-    } = useCodingContext();
+    const { initialCodebookTable, dispatchInitialCodebookTable } = useCodingContext();
 
     const location = useLocation();
     const { performWithUndoForReducer } = useUndo();
 
     const logger = useLogger();
-    const { currentWorkspace } = useWorkspaceContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const navigate = useNavigate();
-    const { getServerUrl } = useServerUtils();
-    const { datasetId } = useCollectionContext();
     const { fetchLLMData } = useApi();
     const { settings } = useSettings();
 
@@ -55,7 +42,7 @@ const InitialCodeBook = () => {
     const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
-        logger.info('Code Creation Page Loaded');
+        logger.info('Initial Codebook Page Loaded');
 
         return () => {
             if (!hasSavedRef.current) {
@@ -64,8 +51,8 @@ const InitialCodeBook = () => {
                     hasSavedRef.current = false;
                 });
             }
-            logger.info('Code Creation Page Unloaded').then(() => {
-                logger.time('Code Creation Page stay time', { time: timer.end() });
+            logger.info('Initial Codebook Page Unloaded').then(() => {
+                logger.time('Initial Codebook Page stay time', { time: timer.end() });
             });
         };
     }, []);

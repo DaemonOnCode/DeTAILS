@@ -36,7 +36,7 @@ const CodebookCreation = () => {
     const hasSavedRef = useRef(false);
     useEffect(() => {
         const timer = createTimer();
-        logger.info('Code Creation Page Loaded');
+        logger.info('Initial coding Page Loaded');
 
         return () => {
             if (!hasSavedRef.current) {
@@ -45,8 +45,8 @@ const CodebookCreation = () => {
                     hasSavedRef.current = false;
                 });
             }
-            logger.info('Code Creation Page Unloaded').then(() => {
-                logger.time('Code Creation Page stay time', { time: timer.end() });
+            logger.info('Initial coding Page Unloaded').then(() => {
+                logger.time('Initial coding Page stay time', { time: timer.end() });
             });
         };
     }, []);
@@ -135,7 +135,7 @@ const CodebookCreation = () => {
         {
             target: '#unified-coding-page',
             content:
-                'This area shows your unified coding interface with all your posts and coding responses for Codebook.',
+                'This area shows your unified coding interface with all your posts and coding responses for Initial coding.',
             placement: 'bottom'
         },
         {

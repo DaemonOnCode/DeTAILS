@@ -48,13 +48,11 @@ const ContextPage = () => {
     const { getServerUrl } = getServerUtils();
     const { fetchLLMData } = useApi();
 
-    // Local state for fields prone to frequent changes
     const [localMainTopic, setLocalMainTopic] = useState(globalMainTopic);
     const [localAdditionalInfo, setLocalAdditionalInfo] = useState(globalAdditionalInfo);
     const [localResearchQuestions, setLocalResearchQuestions] = useState(globalResearchQuestions);
     const [newQuestion, setNewQuestion] = useState<string>('');
 
-    // Debounced update functions using useRef to persist across renders
     const debouncedSetMainTopic = useRef(debounce((value) => setMainTopic(value), 500)).current;
     const debouncedSetAdditionalInfo = useRef(
         debounce((value) => setAdditionalInfo(value), 500)
@@ -63,7 +61,6 @@ const ContextPage = () => {
         debounce((value) => setResearchQuestions(value), 500)
     ).current;
 
-    // Sync local state with global state on mount or when global state changes
     useEffect(() => {
         setLocalMainTopic(globalMainTopic);
     }, [globalMainTopic]);

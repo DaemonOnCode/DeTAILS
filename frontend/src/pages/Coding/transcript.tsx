@@ -589,28 +589,6 @@ const TranscriptPage = () => {
         split
     });
 
-    // console.log(
-    //     config.keys(),
-    //     Array.from(config.keys()).forEach((key) =>
-    //         console.log(
-    //             key,
-    //             JSON.stringify({
-    //                 state: state ?? 'review',
-    //                 codebook: (codebook ?? 'false') as 'true' | 'false',
-    //                 type,
-    //                 split
-    //             }),
-    //             key ===
-    //                 JSON.stringify({
-    //                     state: state ?? 'review',
-    //                     codebook: (codebook ?? 'false') as 'true' | 'false',
-    //                     type,
-    //                     split
-    //                 })
-    //         )
-    //     )
-    // );
-
     const componentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -651,16 +629,11 @@ const TranscriptPage = () => {
     const topSelectionRef = useRef<Range | null>(null);
     const bottomSelectionRef = useRef<Range | null>(null);
 
-    // const [responses, setResponses] = useState<any[]>([
-    //     ...llmCodeResponses,
-    //     ...humanCodeResponses
-    // ]);
-
     const handleSetActiveTranscript = (
         e: React.MouseEvent<HTMLDivElement>,
         position: 'top' | 'bottom' | null
     ) => {
-        e.stopPropagation(); // Prevent the click from bubbling to the outer container
+        e.stopPropagation();
         console.log('position:', position, e);
         if (showCodebook && position === 'top') {
             setActiveTranscript(null);
@@ -780,11 +753,6 @@ const TranscriptPage = () => {
             steps={tutorialSteps}
             pageId={`/${SHARED_ROUTES.CODING}/transcript?review=${state === 'review'}`}>
             <main className="h-screen flex flex-col -m-6" id="transcript-main" ref={componentRef}>
-                {/* {splitIsTrue ? (
-                <div className="flex justify-center p-3">
-                    <button className="bg-blue-500 text-white rounded px-4 py-2">Split View</button>
-                </div>
-            ) : ( */}
                 <>
                     {state === 'refine' && (
                         <TopToolbar
@@ -806,7 +774,6 @@ const TranscriptPage = () => {
                                       : null
                             }
                             onShowCodebook={() => {
-                                // handleSetActiveTranscript(e, null);
                                 setActiveTranscript(null);
                                 setShowCodebook((prev) => !prev);
                             }}
@@ -997,7 +964,6 @@ const TranscriptPage = () => {
                         </div>
                     </div>
                 </>
-                {/* )} */}
             </main>
         </TutorialWrapper>
     );

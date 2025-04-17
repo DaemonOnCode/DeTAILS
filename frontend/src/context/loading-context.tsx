@@ -413,7 +413,6 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
                             <button
                                 onClick={async (e) => {
                                     if (credentialModalResolver) {
-                                        // await new Promise((resolve) => setTimeout(resolve, 1000));
                                         const newPath = await ipcRenderer.invoke('select-file', [
                                             'json'
                                         ]);
@@ -428,7 +427,6 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
                             <button
                                 onClick={(e) => {
                                     if (credentialModalResolver) {
-                                        // Signal cancellation by resolving with null.
                                         credentialModalResolver(null);
                                     }
                                     setShowCredentialModal(false);

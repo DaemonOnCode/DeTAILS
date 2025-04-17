@@ -67,12 +67,10 @@ export const ManualCodingContext = createContext<IManualCodingContext>({
     generateCodebook: () => {}
 });
 
-// Define props for the provider
 interface ManualCodingProviderProps extends ILayout {
     postIds: string[];
 }
 
-// Create the provider component
 export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
     children,
     postIds: initialPostIds
@@ -84,15 +82,11 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
         useCodingContext();
     const { currentWorkspace } = useWorkspaceContext();
     console.log('Initial postIds', initialPostIds);
-    // State for post states, initialized with initial postIds
     const [postStates, setPostStates] = useState<{ [postId: string]: boolean }>(
         initialPostIds.reduce((acc, id) => ({ ...acc, [id]: false }), {})
     );
-    // State for loading indicator
     const [isLoading, setIsLoading] = useState(false);
-    // State for the codebook
     const [codebook, setCodebook] = useState<CodebookType | null>(null);
-    // Ref to track previous postIds
     const prevPostIdsRef = useRef<string[]>([]);
 
     const [manualCodingResponses, dispatchManualCodingResponses] = useReducer(
@@ -152,7 +146,6 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
                 );
                 return {};
             }
-            // Call the backend API to generate the codebook
             const { data, error } = await fetchLLMData<{
                 message: string;
                 data: CodebookType;
@@ -191,13 +184,11 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
         [settings, datasetId, groupedCodes]
     );
 
-    // Function to add new postIds, avoiding overwrites of existing ones
     const addPostIds = useCallback((newPostIds: string[], initialState = false) => {
         setPostStates((prev) => {
             const newStates = newPostIds.reduce(
                 (acc, id) => {
                     if (!(id in prev)) {
-                        // Only add if not already present
                         acc[id] = initialState;
                     }
                     return acc;
@@ -208,12 +199,10 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
         });
     }, []);
 
-    // Function to update the state of an existing post
     const updatePostState = useCallback((postId: string, state: boolean) => {
         setPostStates((prev) => ({ ...prev, [postId]: state }));
     }, []);
 
-    // Function to create the codebook by calling the backend
     const createCodebook = useCallback(
         async (sampledPostResponses: any[], unseenPostResponses: any[], groupedCodes: any[]) => {
             setIsLoading(true);
@@ -255,7 +244,6 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
         dispatchManualCodingResponses({ type: 'RESET' });
     };
 
-    // Effect to trigger codebook creation when the set of postIds changes
     const generateCodebook = useCallback(
         (sampledPostResponse: any[], unseenPostResponse: any[], groupedCodes: any[]) => {
             console.log(
@@ -264,11 +252,7 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
                 Object.keys(codebook ?? {}).length !== 0
             );
             if (Object.keys(codebook ?? {}).length !== 0) return;
-            // const currentPostIds = Object.keys(postStates);
-            // if (currentPostIds.length > 0 && !setsEqual(currentPostIds, prevPostIdsRef.current)) {
             createCodebook(sampledPostResponse, unseenPostResponse, groupedCodes);
-            //     prevPostIdsRef.current = currentPostIds;
-            // }
         },
         [codebook, postStates, createCodebook]
     );
@@ -364,7 +348,6 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
 
     useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.MANUAL_CODING]?.stepRef);
 
-    // Memoize the context value
     const value = useMemo(
         () => ({
             postStates,

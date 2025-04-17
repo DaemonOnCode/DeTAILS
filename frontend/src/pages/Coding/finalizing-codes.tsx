@@ -49,7 +49,6 @@ const FinalzingCodes = () => {
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
-    // State for toggling review vs. edit mode
     const [review, setReview] = useState(true);
 
     const stepRoute = location.pathname;
@@ -76,7 +75,6 @@ const FinalzingCodes = () => {
             return trimmedCode.includes(trimmedQuery);
         });
 
-        // Clear previous highlights
         codeRefs.current.forEach((el) => {
             if (el) el.classList.remove('highlight');
         });
@@ -90,14 +88,13 @@ const FinalzingCodes = () => {
                 if (el) {
                     el.classList.add('highlight');
                     if (!firstMatchElement) {
-                        firstMatchElement = el; // el is HTMLDivElement here
+                        firstMatchElement = el;
                     }
                 } else {
                     console.log('Element not found for code:', code);
                 }
             });
 
-            // TypeScript should narrow firstMatchElement to HTMLDivElement here
             if (firstMatchElement) {
                 (firstMatchElement as HTMLDivElement).scrollIntoView({
                     behavior: 'smooth',
@@ -176,7 +173,6 @@ const FinalzingCodes = () => {
         }
     }, []);
 
-    // Handler for dropping a code into a bucket
     const handleDropToBucket = (bucketId: string, code: string) => {
         performWithUndo(
             [groupedCodes, unplacedSubCodes],
@@ -199,7 +195,6 @@ const FinalzingCodes = () => {
         );
     };
 
-    // Handler for dropping a code back into the unplaced box
     const handleDropToUnplaced = (code: string) => {
         performWithUndo(
             [groupedCodes, unplacedSubCodes],
@@ -218,7 +213,6 @@ const FinalzingCodes = () => {
         );
     };
 
-    // Add a new bucket for codes
     const handleAddBucket = () => {
         performWithUndo([groupedCodes], [setGroupedCodes], () => {
             const newBucket = {
@@ -230,7 +224,6 @@ const FinalzingCodes = () => {
         });
     };
 
-    // Delete a bucket and move its codes to unplaced
     const handleDeleteBucket = (bucketId: string) => {
         performWithUndo(
             [groupedCodes, unplacedSubCodes],
@@ -250,7 +243,7 @@ const FinalzingCodes = () => {
     const handleFeedbackSubmit = async () => {
         setIsFeedbackModalOpen(false);
         if (await checkIfDataExists(location.pathname)) {
-            openModal('refresh--finalizing-codes-submitted', async () => {
+            openModal('refresh--reviewing-codes-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
                 await handleRefreshCodes(feedback);
             });
@@ -312,7 +305,7 @@ const FinalzingCodes = () => {
         });
         navigate(
             getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                text: 'Finalizing codes'
+                text: 'reviewing codes'
             })
         );
 
@@ -354,7 +347,7 @@ const FinalzingCodes = () => {
         if (loadingState[stepRoute]?.isLoading) {
             navigate(
                 getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                    text: 'Finalizing codes'
+                    text: 'reviewing codes'
                 })
             );
         }
@@ -408,11 +401,10 @@ const FinalzingCodes = () => {
         );
     }, [unplacedSubCodes]);
 
-    // Optionally add tutorial steps if needed
     const steps: TutorialStep[] = [
         {
             target: '#finalized-main',
-            content: 'This is the finalizing codes page. Here you can review and edit your codes.',
+            content: 'This is the Reviewing codes page. Here you can review and edit your codes.',
             placement: 'bottom'
         },
         {
@@ -448,14 +440,12 @@ const FinalzingCodes = () => {
             pageId={location.pathname}
             excludedTarget={`#route-${PAGE_ROUTES.REVIEWING_CODES}`}>
             <main className="h-page w-full flex flex-col" id="finalized-main">
-                {/* Toggle at the top (Review vs. Edit) */}
                 {unplacedSubCodes.length > 0 && (
                     <p className="mb-4 text-red-500 text-center">
                         Go into edit mode, place unplaced codes into code buckets to proceed.
                     </p>
                 )}
                 <ReviewToggle review={review} setReview={setReview} />
-                {/* <div className="flex-1 overflow-hidden"> */}
                 {!review && (
                     <header className="py-4">
                         <div className="flex justify-end items-center">
@@ -486,7 +476,6 @@ const FinalzingCodes = () => {
                             <div className="flex flex-col size-full">
                                 <DndProvider backend={HTML5Backend} context={window}>
                                     <div className="flex flex-1 overflow-hidden size-full">
-                                        {/* Left Column: Buckets (70% width) */}
                                         <div
                                             className="w-[70%] flex-1 overflow-auto px-4"
                                             ref={codeRef}>
@@ -503,7 +492,6 @@ const FinalzingCodes = () => {
                                                 ))}
                                             </div>
                                         </div>
-                                        {/* Right Column: Unplaced Codes (30% width) */}
                                         <div className="flex flex-col h-full w-[30%] px-4 gap-2">
                                             <div className="flex-1 overflow-auto" ref={unplacedRef}>
                                                 <UnplacedCodesBox
@@ -533,18 +521,6 @@ const FinalzingCodes = () => {
                                     <button
                                         id="refresh-codes-button"
                                         onClick={() => {
-                                            // if (checkIfDataExists(location.pathname)) {
-                                            //     openModal('refresh-codes-submitted', async () => {
-                                            //         await resetDataAfterPage(location.pathname);
-                                            //         await handleRefreshCodes();
-                                            //     });
-                                            // } else {
-                                            //     loadingDispatch({
-                                            //         type: 'SET_REST_UNDONE',
-                                            //         route: location.pathname
-                                            //     });
-                                            //     handleRefreshCodes();
-                                            // }
                                             setIsFeedbackModalOpen(true);
                                         }}
                                         className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
@@ -587,9 +563,6 @@ const FinalzingCodes = () => {
                         </>
                     )}
                 </div>
-                {/* </div> */}
-
-                {/* Navigation at the bottom */}
                 <NavigationBottomBar
                     previousPage={PAGE_ROUTES.FINAL_CODING}
                     nextPage={PAGE_ROUTES.GENERATING_THEMES}

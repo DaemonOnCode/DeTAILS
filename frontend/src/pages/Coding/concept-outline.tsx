@@ -172,7 +172,7 @@ const KeywordsTablePage: FC = () => {
                 excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}`}>
                 <div className="h-page flex flex-col">
                     <header id="keywords-header" className="flex-none py-4">
-                        <p>Please validate and manage the keyword table entries below:</p>
+                        <p>Please validate and manage the Concept outline entries below:</p>
                     </header>
 
                     <main className="flex-1 overflow-hidden flex flex-col">

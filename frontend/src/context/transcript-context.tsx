@@ -132,9 +132,6 @@ export const TranscriptContextProvider: FC<{
                 fullText: r.quote
             }))
     );
-    // const [codes, setCodes] = useState<
-    //     { text: string; code: string; rangeMarker?: { itemId: string; range: [number, number] } }[]
-    // >([]);
 
     const codes: {
         id: string;
@@ -156,7 +153,7 @@ export const TranscriptContextProvider: FC<{
 
     useEffect(() => {
         console.log(
-            'codeResponses or postId changed – recalc explanations, codes, chat history.',
+            'codeResponses or postId changed - recalc explanations, codes, chat history.',
             codeResponses.filter((r) => r.postId === postId)
         );
 
@@ -417,20 +414,15 @@ export const TranscriptContextProvider: FC<{
 
     const processTranscript = useCallback(
         (post: any, extraCodes: string[] = []) => {
-            // Log the start of the function with the post ID
-            console.log(`[processTranscript] Starting processTranscript for post ${post.id}`);
+            console.log(` Starting processTranscript for post ${post.id}`);
 
-            // 1. Code Set Creation
             const codeSet = Array.from(new Set([...codes.map((c) => c.code), ...extraCodes]));
-            console.log(`[processTranscript: Code Set] Unique codes:`, codeSet);
 
             const codeColors: Record<string, string> = {};
             codeSet.forEach((code) => {
                 codeColors[code] = generateColor(code);
             });
-            console.log(`[processTranscript: Code Set] Code colors generated:`, codeColors);
 
-            // 2. Transcript Flat Map Creation
             const transcriptFlatMap = [
                 { id: post.id, text: displayText(post.title), type: 'title', parent_id: null },
                 {
@@ -441,31 +433,23 @@ export const TranscriptContextProvider: FC<{
                 },
                 ...post.comments.flatMap((comment: any) => traverseComments(comment, post.id))
             ];
-            console.log(
-                `[processTranscript: Flat Map] Transcript flat map created with ${transcriptFlatMap.length} items`
-            );
 
-            // 3. Code Filtering
             const codesWithMarker = codes.filter((c) => c.rangeMarker);
             console.log(
-                `[processTranscript: Code Filtering] Codes with marker:`,
+                ` Code Filtering: Codes with marker:`,
                 codesWithMarker.map((c) => c.id)
             );
 
             const codesWithoutMarker = codes.filter((c) => !c.rangeMarker);
             console.log(
-                `[processTranscript: Code Filtering] Codes without marker:`,
+                ` Code Filtering: Codes without marker:`,
                 codesWithoutMarker.map((c) => c.id)
             );
 
-            // 4. Segment Creation
             const segments = transcriptFlatMap.flatMap((data, dataIndex) => {
-                console.log(
-                    `[processTranscript: Segment Creation] Processing item ${dataIndex}:`,
-                    data
-                );
+                console.log(` Segment Creation: Processing item ${dataIndex}:`, data);
                 const text = data.text;
-                console.log(`[processTranscript: Segment Creation] Text:`, text);
+                console.log(` Segment Creation: Text:`, text);
 
                 // Marker-based intervals
                 const markerIntervals: CodeInterval[] = codesWithMarker
@@ -477,16 +461,13 @@ export const TranscriptContextProvider: FC<{
                         text: c.text
                     }));
                 console.log(
-                    `[processTranscript: Segment Creation] Marker intervals for item ${dataIndex}:`,
+                    ` Segment Creation: Marker intervals for item ${dataIndex}:`,
                     markerIntervals
                 );
 
                 // Fuzzy matching for codes without markers
                 const normalizedText = normalizeText(text);
-                console.log(
-                    `[processTranscript: Segment Creation] Normalized text:`,
-                    normalizedText
-                );
+                console.log(` Segment Creation: Normalized text:`, normalizedText);
 
                 const matchingIntervals: CodeInterval[] = codesWithoutMarker.flatMap((c) => {
                     const normalizedCodeText = normalizeText(c.text);
@@ -495,15 +476,12 @@ export const TranscriptContextProvider: FC<{
                         ? 100
                         : ratio(normalizedText, normalizedCodeText, { full_process: true });
                     console.log(
-                        `[processTranscript: Segment Creation] Code ${c.id}: exactMatch=${exactMatch}, fuzzyScore=${fuzzyScore}`
+                        ` Segment Creation: Code ${c.id}: exactMatch=${exactMatch}, fuzzyScore=${fuzzyScore}`
                     );
 
                     if (fuzzyScore >= 85) {
                         const positions = getAllPositions(text, c.text);
-                        console.log(
-                            `[processTranscript: Segment Creation] Positions for code ${c.id}:`,
-                            positions
-                        );
+                        console.log(` Segment Creation: Positions for code ${c.id}:`, positions);
                         return positions.map((pos) => ({
                             start: pos,
                             end: pos + c.text.length,
@@ -514,54 +492,44 @@ export const TranscriptContextProvider: FC<{
                     return [];
                 });
                 console.log(
-                    `[processTranscript: Segment Creation] Matching intervals for item ${dataIndex}:`,
+                    ` Segment Creation: Matching intervals for item ${dataIndex}:`,
                     matchingIntervals
                 );
 
                 // Combine all intervals
                 const allIntervals = [...markerIntervals, ...matchingIntervals];
                 console.log(
-                    `[processTranscript: Segment Creation] All intervals for item ${dataIndex}:`,
+                    ` Segment Creation: All intervals for item ${dataIndex}:`,
                     allIntervals
                 );
 
                 // If no intervals are found, create a single segment
                 if (allIntervals.length === 0) {
                     console.log(
-                        `[processTranscript: Segment Creation] No intervals found for item ${dataIndex}, creating single segment`
+                        ` Segment Creation: No intervals found for item ${dataIndex}, creating single segment`
                     );
                     return [createSegment(text, data, dataIndex, 0, [], codeColors, codes)];
                 }
 
-                // 5. Interval Processing
                 const events: TextEvent[] = [];
                 allIntervals.forEach(({ start, end, codeId }) => {
                     events.push({ position: start, type: 'start', codeId });
                     events.push({ position: end, type: 'end', codeId });
                 });
-                console.log(
-                    `[processTranscript: Interval Processing] Events for item ${dataIndex}:`,
-                    events
-                );
+                console.log(` Interval Processing: Events for item ${dataIndex}:`, events);
 
                 events.sort(
                     (a, b) =>
                         a.position - b.position || (a.type === 'end' && b.type === 'start' ? -1 : 1)
                 );
-                console.log(
-                    `[processTranscript: Interval Processing] Sorted events for item ${dataIndex}:`,
-                    events
-                );
+                console.log(` Interval Processing: Sorted events for item ${dataIndex}:`, events);
 
                 const itemSegments: Segment[] = [];
                 let currentPos = 0;
                 const currentCodeIds = new Set<string>();
 
                 events.forEach((event, eventIndex) => {
-                    console.log(
-                        `[processTranscript: Interval Processing] Processing event ${eventIndex}:`,
-                        event
-                    );
+                    console.log(` Interval Processing: Processing event ${eventIndex}:`, event);
 
                     if (event.position > currentPos) {
                         const segmentText = text.slice(currentPos, event.position);
@@ -576,10 +544,7 @@ export const TranscriptContextProvider: FC<{
                                 codes
                             );
                             itemSegments.push(segment);
-                            console.log(
-                                `[processTranscript: Interval Processing] Created segment:`,
-                                segment
-                            );
+                            console.log(` Interval Processing: Created segment:`, segment);
                         }
                         currentPos = event.position;
                     }
@@ -590,7 +555,7 @@ export const TranscriptContextProvider: FC<{
                         currentCodeIds.delete(event.codeId);
                     }
                     console.log(
-                        `[processTranscript: Interval Processing] Current code IDs:`,
+                        ` Interval Processing: Current code IDs:`,
                         Array.from(currentCodeIds)
                     );
                 });
@@ -607,17 +572,14 @@ export const TranscriptContextProvider: FC<{
                         codes
                     );
                     itemSegments.push(segment);
-                    console.log(
-                        `[processTranscript: Interval Processing] Created final segment:`,
-                        segment
-                    );
+                    console.log(` Interval Processing: Created final segment:`, segment);
                 }
 
                 return itemSegments;
             });
 
             // Log the completion and final segments
-            console.log(`[processTranscript] Processing complete. Segments:`, segments);
+            console.log(` Processing complete. Segments:`, segments);
             return { processedSegments: segments, codeSet, codeColors };
         },
         [codes]
