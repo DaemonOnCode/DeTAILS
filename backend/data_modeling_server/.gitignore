@@ -1,0 +1,13 @@
+datasets
+temp_files
+dist
+build
+env
+new_env
+.venv*
+import_temp
+basis_files
+context_files
+*.jsonl
+winenv
+linenv
