@@ -6,7 +6,7 @@ import {
     WORD_CLOUD_MIN_THRESHOLD
 } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import KeywordCloud from '../../components/Coding/KeywordCloud/cloud';
+import KeywordCloud from '../../components/Coding/RelevantConcepts/cloud';
 import { useLogger } from '../../context/logging-context';
 import { REMOTE_SERVER_ROUTES, TooltipMessages } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
@@ -45,7 +45,7 @@ const KeywordCloudPage: FC = () => {
 
     useEffect(() => {
         const timer = createTimer();
-        logger.info('Loaded Keyword cloud Page');
+        logger.info('Loaded Relevant concepts Page');
 
         return () => {
             if (!hasSavedRef.current) {
@@ -54,8 +54,8 @@ const KeywordCloudPage: FC = () => {
                     hasSavedRef.current = false;
                 });
             }
-            logger.info('Unloaded Keyword cloud Page').then(() => {
-                logger.time('Keyword cloud Page stay time', { time: timer.end() });
+            logger.info('Unloaded Relevant concepts Page').then(() => {
+                logger.time('Relevant concepts Page stay time', { time: timer.end() });
             });
         };
     }, []);
@@ -79,7 +79,7 @@ const KeywordCloudPage: FC = () => {
         setIsFeedbackOpen(false);
 
         if (await checkIfDataExists(location.pathname)) {
-            openModal('keyword-feedback-submitted', async () => {
+            openModal('relevant-concepts-feedback-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
                 await refreshKeywordCloud();
             });
@@ -93,7 +93,7 @@ const KeywordCloudPage: FC = () => {
     };
 
     const refreshKeywordCloud = async () => {
-        await logger.info('Regenerating Keyword Cloud');
+        await logger.info('Regenerating Relevant concepts');
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
             route: PAGE_ROUTES.RELATED_CONCEPTS
@@ -111,7 +111,7 @@ const KeywordCloudPage: FC = () => {
         });
 
         if (error) {
-            console.error('Error regenerating Keyword Cloud:', error);
+            console.error('Error regenerating Relevant concepts:', error);
             if (error.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
@@ -121,7 +121,7 @@ const KeywordCloudPage: FC = () => {
             navigate(PAGE_ROUTES.RELATED_CONCEPTS);
             return;
         }
-        console.log(results, 'Keyword Cloud Page');
+        console.log(results, 'Relevant concepts Page');
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
@@ -129,8 +129,8 @@ const KeywordCloudPage: FC = () => {
         });
 
         navigate(PAGE_ROUTES.RELATED_CONCEPTS);
-        await logger.info('Keyword Cloud refreshed');
-        console.log('Keyword Cloud refreshed');
+        await logger.info('Relevant concepts refreshed');
+        console.log('Relevant concepts refreshed');
     };
 
     const refreshKeywords = () => {
@@ -139,7 +139,7 @@ const KeywordCloudPage: FC = () => {
 
     const handleNextClick = async (e: any) => {
         e.preventDefault();
-        await logger.info('Starting Codebook Generation');
+        await logger.info('Starting concept outline generation');
         console.log('Navigating to codebook');
 
         console.log('response', selectedKeywords);
@@ -164,7 +164,7 @@ const KeywordCloudPage: FC = () => {
         });
 
         if (error) {
-            console.error('Error regenerating Keyword Cloud:', error);
+            console.error('Error regenerating Relevant concepts:', error);
             if (error.name !== 'AbortError') {
                 loadingDispatch({
                     type: 'SET_LOADING_DONE_ROUTE',
@@ -174,13 +174,13 @@ const KeywordCloudPage: FC = () => {
             navigate(PAGE_ROUTES.RELATED_CONCEPTS);
             return;
         }
-        console.log(results, 'Keyword Table Page');
+        console.log(results, 'Concept outline Page');
 
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: PAGE_ROUTES.CONCEPT_OUTLINE
         });
-        await logger.info('Codebook Generation completed');
+        await logger.info('concept outline generation completed');
     };
 
     const handleSelectAll = (selectAll: boolean) => {
@@ -209,19 +209,19 @@ const KeywordCloudPage: FC = () => {
         {
             target: '#keyword-cloud',
             content:
-                'This is your Keyword Cloud. Click on keywords to select or deselect them. The main topic is fixed. You can edit or delete the keywords as you wish.',
+                'This is your Relevant Concepts page. Click on concepts to select or deselect them. The main topic is fixed. You can edit or delete the keywords as you wish.',
             placement: 'bottom'
         },
         {
             target: '.keyword2',
             content:
-                'These are your keywords. Click on them to select or deselect them. You can also edit or delete by clicking on the respective icon when hovering.',
+                'These are your concepts. Click on them to select or deselect them. You can also edit or delete by clicking on the respective icon when hovering.',
             placement: 'right'
         },
         {
             target: '.refresh-keywords-btn',
             content:
-                'Click here to refresh the keyword cloud with new suggestions based on your feedback.',
+                'Click here to refresh the Relevant concepts with new suggestions based on your feedback.',
             placement: 'left'
         },
         {
@@ -256,7 +256,6 @@ const KeywordCloudPage: FC = () => {
                         These keywords are generated using the context you provided DeTAILS. Please
                         select 5 or more to proceed{' '}
                     </p>
-                    {/* Add an id for targeting the tutorial */}
                     <div id="keyword-cloud" className="w-full">
                         <KeywordCloud
                             mainTopic={mainTopic}
@@ -286,7 +285,6 @@ const KeywordCloudPage: FC = () => {
                         <button
                             title={TooltipMessages.RefreshKeywords}
                             onClick={refreshKeywords}
-                            // Add a CSS class for tutorial targeting
                             className="refresh-keywords-btn bg-gray-600 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
                             <DetailsLLMIcon className="h-6 w-6" /> Refresh keywords
                         </button>
@@ -299,7 +297,6 @@ const KeywordCloudPage: FC = () => {
                     isReady={checkIfReady}
                     onNextClick={(e) => handleNextClick(e)}
                     disabledTooltipText="Select atleast 5 keywords"
-                    // Add an id for targeting the tutorial
                 />
 
                 {isFeedbackOpen && (
