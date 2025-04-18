@@ -79,43 +79,40 @@ The application follows a multi-layered architecture designed for modularity and
   }
 }}%%
 flowchart LR
-  %% Project logo %%
-  Logo[<img src="./frontend/public/details-full-logo.svg" width="120"/>] --> App
-
-  %% Application boundary %%
   subgraph App["DeTAILS Application"]
     style App fill:#f5f5f5,stroke:#999999,stroke-width:2px,stroke-dasharray:5 5
     direction LR
 
-    %% UI Layer %%
     subgraph UI["UI Layer (React + Electron)"]
       style UI fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
       direction LR
 
-      R["<img src='https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg' width='24'/> React"]
-      E["<img src='https://cdn.jsdelivr.net/gh/devicons/devicon/icons/electron/electron-original.svg' width='24'/> Electron"]
+      R["React"]
+      E["Electron"]
 
       R -. IPC .-> E
     end
 
-    %% Backend layer %%
-    subgraph BE["Backend (FastAPI + Services)"]
+    subgraph BE["Backend (Server + Services)"]
       style BE fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
       direction LR
 
-      F["<img src='https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png' width='24'/> FastAPI"]
-      Transmission["📥 Transmission Daemon"]
-      Ollama["🤖 Ollama (Local LLM)"]
-      ChromaDB["🗄️ ChromaDB (Vector Store)"]
-      ripgrep["🔍 ripgrep (Text Search)"]
-      zstd["⚡ zstd (Compression)"]
-      SQLite["🗃️ SQLite (DB)"]
-      OpenAI["☁️ OpenAI API"]
-      Gemini["☁️ Gemini API"]
+      F["Data Modeling Server"]
+      Transmission["Transmission Daemon"]
+      Ollama["Ollama (Local LLM)"]
+      ripgrep["ripgrep (Text Search)"]
+      zstd["zstd (Compression/Decompression)"]
+      OpenAI["OpenAI API"]
+      Gemini["Gemini API"]
+
+      %% Datastores as cylinders %%
+      SQLite[("SQLite Database")]
+      ChromaDB[("ChromaDB Vector Store")]
     end
 
     %% Cross‑cluster interactions %%
     R -->|HTTP REST| F
+    E -->|HTTP REST| F
     E -->|Spawns & Manages| F
     E -->|Spawns & Manages| Ollama
     E -->|Spawns & Manages| ChromaDB
