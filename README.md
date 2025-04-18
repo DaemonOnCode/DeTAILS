@@ -1,6 +1,6 @@
 ![DeTAILS Icon](./frontend/public/details-full-logo.svg)
 
-# DeTAILS: Deep Thematic Analysis with Iterative LLM Support
+# Deep Thematic Analysis with Iterative LLM Support
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -62,29 +62,75 @@ The application follows a multi-layered architecture designed for modularity and
 **Communication Flow:**
 
 ```mermaid
-graph LR
-    subgraph Frontend
-        React -->|HTTP Request| FastAPI
-        React <-.->|IPC| Electron
-        Electron -->|Manages| Ollama[Ollama Service]
-        Electron -->|Manages| ChromaDB[ChromaDB Service]
-        Electron -->|Manages| FastAPI
+%%{init:{
+  "theme":"base",
+  "themeVariables":{
+    "background":"#fafafa",
+    "primaryColor":"#ffffff",
+    "clusterBkg":"#f8f9fa",
+    "clusterBorder":"#cccccc",
+    "edgeLabelBackground":"#ffffff",
+    "lineColor":"#444444",
+    "arrowheadColor":"#444444"
+  },
+  "flowchart":{
+    "nodeSpacing":80,
+    "rankSpacing":60
+  }
+}}%%
+flowchart LR
+  %% Project logo %%
+  Logo[<img src="./frontend/public/details-full-logo.svg" width="120"/>] --> App
+
+  %% Application boundary %%
+  subgraph App["DeTAILS Application"]
+    style App fill:#f5f5f5,stroke:#999999,stroke-width:2px,stroke-dasharray:5 5
+    direction LR
+
+    %% UI Layer %%
+    subgraph UI["UI Layer (React + Electron)"]
+      style UI fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+      direction LR
+
+      R["<img src='https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg' width='24'/> React"]
+      E["<img src='https://cdn.jsdelivr.net/gh/devicons/devicon/icons/electron/electron-original.svg' width='24'/> Electron"]
+
+      R -. IPC .-> E
     end
 
-    subgraph Backend
-        Electron -->|HTTP Request / WebSocket Connection| FastAPI
-        FastAPI -->|Uses| Transmission[Transmission Daemon]
-        FastAPI -->|Uses| Ollama[Ollama Service]
-        FastAPI -->|Uses| ChromaDB[ChromaDB Service]
-        FastAPI -->|Uses| Ripgrep[ripgrep Executable]
-        FastAPI -->|Uses| Zstd[zstd Executable]
-        FastAPI -->|Uses| SQLite[SQLite DB]
-        FastAPI -->|API Call| OpenAI_API[OpenAI API]
-        FastAPI -->|API Call| Gemini_API[Gemini API]
+    %% Backend layer %%
+    subgraph BE["Backend (FastAPI + Services)"]
+      style BE fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+      direction LR
+
+      F["<img src='https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png' width='24'/> FastAPI"]
+      Transmission["📥 Transmission Daemon"]
+      Ollama["🤖 Ollama (Local LLM)"]
+      ChromaDB["🗄️ ChromaDB (Vector Store)"]
+      ripgrep["🔍 ripgrep (Text Search)"]
+      zstd["⚡ zstd (Compression)"]
+      SQLite["🗃️ SQLite (DB)"]
+      OpenAI["☁️ OpenAI API"]
+      Gemini["☁️ Gemini API"]
     end
 
-    React <-.-|IPC - WebSocket Relay| Electron
-    FastAPI --o|WebSocket Push| Electron
+    %% Cross‑cluster interactions %%
+    R -->|HTTP REST| F
+    E -->|Spawns & Manages| F
+    E -->|Spawns & Manages| Ollama
+    E -->|Spawns & Manages| ChromaDB
+
+    F --> Transmission
+    F --> ripgrep
+    F --> zstd
+    F --> SQLite
+    F --> OpenAI
+    F --> Gemini
+    F --> Ollama
+    F --> ChromaDB
+
+    F ==>|WebSocket Push| E
+  end
 ```
 
 ## Technology Stack
