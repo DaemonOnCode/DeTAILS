@@ -3,19 +3,14 @@ import os
 from fastapi import APIRouter, Depends, HTTPException
 from google.oauth2 import service_account, credentials
 from google.auth.transport.requests import Request
-import google.auth.exceptions
-from langchain_google_vertexai import ChatVertexAI, VertexAI, VertexAIEmbeddings
-from google.auth import load_credentials_from_file
 import openai
 import requests
 
-import config
-from controllers.miscellaneous_controller import get_credential_path, link_creator, normalize_text, search_slice
+from controllers.miscellaneous_controller import link_creator, normalize_text, search_slice
 from database import PostsRepository, CommentsRepository, FunctionProgressRepository
 from database.db_helpers import get_post_and_comments_from_id
 from errors.credential_errors import InvalidCredentialError, MissingCredentialError
 from errors.llm_errors import UnsupportedEmbeddingModelError
-from errors.vertex_ai_errors import InvalidGenAIModelError, InvalidTextEmbeddingError
 from models.miscellaneous_models import EmbeddingTestRequest, FunctionProgressRequest, ModelTestRequest, RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest, UserCredentialTestRequest
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager

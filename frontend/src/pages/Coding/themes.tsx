@@ -404,7 +404,7 @@ const ThemesPage = () => {
                             }}
                             className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
                             <DetailsLLMIcon className="h-6 w-6" />
-                            Refresh Themes
+                            Redo with feedback
                         </button>
                     </div>
                     <footer id="bottom-navigation">

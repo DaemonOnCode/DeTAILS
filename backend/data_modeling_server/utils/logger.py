@@ -2,10 +2,12 @@ import logging
 import asyncio
 import aiohttp
 from typing import Optional, Dict
+import logging
 
 
 LOGGING = False  
 LOGGING_API_URL = ""  
+logging.basicConfig(level=logging.INFO)
 
 class Logger:
     def __init__(self):
@@ -33,8 +35,19 @@ class Logger:
             "context": context,
             "timestamp": asyncio.get_event_loop().time()  
         }
-        
-        print(f"[{level.upper()}]: {message}")
+
+        if level == "error":
+            logging.error(message)
+        elif level == "warning":
+            logging.warning(message)
+        elif level == "info":
+            logging.info(message)
+        elif level == "debug":
+            logging.debug(message)
+        elif level == "health":
+            logging.info(f"Health check: {message}")
+        elif level == "time":
+            logging.info(f"Execution time: {message}")
 
         if LOGGING:
             try:

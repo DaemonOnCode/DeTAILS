@@ -421,7 +421,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                                 onClick={handleReRunCoding}
                                 className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
                                 <DetailsLLMIcon className="h-6 w-6" />
-                                {coderType !== 'LLM' ? 'Redo Initial Coding' : 'Redo Final Coding'}
+                                Redo with feedback
                             </button>
                         </div>
                     )}

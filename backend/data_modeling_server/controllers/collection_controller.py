@@ -80,13 +80,9 @@ def get_file_key_full(msg: str, pattern: str, group_index: int = 2, current_down
     return None
 
 def update_run_progress(run_id: str, new_message: str, current_download_dir: str = None):
-    """
-    Updates the run's progress based on the received message.
-    Mirrors the logic of your TypeScript function, using full file keys for file-related updates.
-    """
     DOWNLOAD_DIR = current_download_dir or get_current_download_dir()
     print("download dir", DOWNLOAD_DIR)
-    # === Update Workspace Progress ===
+
     try:
         progress = progress_repo.get_progress(run_id)
     except Exception as e:
@@ -100,22 +96,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
         workspace_updates["progress"] = 100.0
     progress_repo.update_progress(run_id, workspace_updates)
 
-    # === Update Pipeline Steps ===
-    # -- DATA --
-    # if "Starting download" in new_message:
-    #     m = re.search(r"Starting download for subreddit\s+'([^']+)'", new_message)
-    #     if m:
-    #         subreddit = m.group(1)
-    #         progress_repo.update_progress(run_id, {"subreddit": subreddit})
-
-    # if "Fetching torrent data for months" in new_message:
-    #     m = re.search(r"Fetching torrent data for months\s+([\d-]+)\s+through\s+([\d-]+)", new_message)
-    #     if m:
-    #         start_month = m.group(1)
-    #         end_month = m.group(2)
-    #         progress_repo.update_progress(run_id, {"start_month": start_month, "end_month": end_month})
-
-    # -- METADATA --
     if "Metadata progress:" in new_message:
         m = re.search(r"Metadata progress:\s+([\d.]+)", new_message)
         if m:
@@ -137,7 +117,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
             {"messages": json.dumps(step_messages), "status": "complete", "progress": 100.0}
         )
 
-    # -- VERIFICATION --
     if "Verification in progress:" in new_message:
         step_data = pipeline_repo.get_step_progress(run_id, "Verification")
         step_messages = json.loads(step_data.messages) if step_data.messages else []
@@ -155,7 +134,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
             {"messages": json.dumps(step_messages), "status": "complete", "progress": 100.0}
         )
 
-    # -- DOWNLOADING --
     if "Finished downloading" in new_message or "All wanted files have been processed" in new_message:
         step_data = pipeline_repo.get_step_progress(run_id, "Downloading")
         step_messages = json.loads(step_data.messages) if step_data.messages else []
@@ -175,7 +153,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
             {"messages": json.dumps(step_messages), "status": "in-progress", "progress": new_progress}
         )
 
-    # -- SYMLINKS --
     if "Symlink created:" in new_message:
         step_data = pipeline_repo.get_step_progress(run_id, "Symlinks")
         step_messages = json.loads(step_data.messages) if step_data.messages else []
@@ -191,7 +168,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
                 {"messages": json.dumps(step_messages)}
             )
     if "Parsing files into dataset" in new_message:
-        # Mark Symlinks as complete.
         step_data = pipeline_repo.get_step_progress(run_id, "Symlinks")
         step_messages = json.loads(step_data.messages) if step_data.messages else []
         step_messages.append(new_message)
@@ -200,7 +176,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
             {"messages": json.dumps(step_messages), "status": "complete", "progress": 100.0}
         )
 
-    # -- PARSING --
     if "Parsing files into dataset" in new_message:
         step_data = pipeline_repo.get_step_progress(run_id, "Parsing")
         step_messages = json.loads(step_data.messages) if step_data.messages else []
@@ -218,7 +193,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
             {"messages": json.dumps(step_messages), "status": "complete", "progress": 100.0}
         )
 
-    # -- ERRORS --
     if "error" in new_message.lower():
         for step in ["Metadata", "Verification", "Downloading", "Symlinks", "Parsing"]:
             step_data = pipeline_repo.get_step_progress(run_id, step)
@@ -231,7 +205,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
                 )
                 break
 
-    # -- Processing/Processed File --
     if "processing file:" in new_message.lower() or "processed file:" in new_message.lower():
         key = get_file_key_full(new_message, r"(Processing|Processed)\s+file:\s+(.*?)(?:\s|\(|\.\.\.|$)", current_download_dir=DOWNLOAD_DIR)
         if key:
@@ -240,7 +213,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
             file_messages.append(new_message)
             file_repo.update_file_progress(run_id, key, {"messages": json.dumps(file_messages)})
 
-    # -- Downloading File Progress --
     if "downloading" in new_message.lower() and "%" in new_message:
         key = get_file_key_full(new_message, r"Downloading\s+(.*?):\s+([\d.]+)%\s+\((\d+)/(\d+)\s+bytes\)", group_index=1, current_download_dir=DOWNLOAD_DIR)
         if key:
@@ -257,7 +229,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
                  "progress": percent, "completed_bytes": completed, "total_bytes": total}
             )
 
-    # -- Fully Downloaded File --
     if "fully downloaded" in new_message.lower():
         key = get_file_key_full(new_message, r"File\s+(.*)\s+fully downloaded.*\((\d+)/(\d+)\s+bytes\)", group_index=1, current_download_dir=DOWNLOAD_DIR)
         if key:
@@ -273,7 +244,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
                  "progress": 100.0, "completed_bytes": completed, "total_bytes": total}
             )
 
-    # -- Extracting File --
     if "Extracting" in new_message:
         key = get_file_key_full(new_message, r"Extracting.*from\s+(.*?\.zst)(?:\.{3})?", group_index=1, current_download_dir=DOWNLOAD_DIR)
         if key:
@@ -282,7 +252,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
             file_messages.append(new_message)
             file_repo.update_file_progress(run_id, key, {"messages": json.dumps(file_messages), "status": "extracting"})
 
-    # -- JSON Extracted --
     if "JSON extracted:" in new_message:
         m = re.search(r"JSON extracted:\s+(.*)/(R[S|C]_[\d-]+)\.json", new_message, re.IGNORECASE)
         if m:
@@ -323,15 +292,10 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
                 {"messages": json.dumps(file_messages), "status": "empty", "progress": 100.0}
             )
 
-
-        # -- Files Already Downloaded --
     if "Files already downloaded" in new_message:
-        # Expecting message of the form:
-        # "Files already downloaded: file1, file2, file3"
         m = re.search(r"Files already downloaded:\s*(.*)", new_message)
         if m:
             file_list_str = m.group(1).strip()
-            # If no files are listed, default to an empty list.
             if file_list_str:
                 files_already_downloaded = [f.strip() for f in file_list_str.split(",")]
             else:
@@ -341,7 +305,6 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
                 {"files_already_downloaded": json.dumps(files_already_downloaded)}
             )
 
-    # -- Error Downloading File --
     if "error downloading" in new_message.lower():
         key = get_file_key_full(new_message, r"ERROR downloading\s+(.*?):", group_index=1, current_download_dir=DOWNLOAD_DIR)
         if key:
@@ -355,16 +318,12 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
 
     
 def delete_run(run_id: str):
-    """
-    Deletes all records associated with a run_id once it is completed.
-    """
     progress_repo.delete_progress_for_run(run_id)
     pipeline_repo.delete_steps_for_run(run_id)
     file_repo.delete_files_for_run(run_id)
     print(f"Run {run_id} deleted successfully.")
 
 def create_dataset(description: str, dataset_id: str = None, workspace_id: str = None):
-    """Create a new dataset entry."""
     dataset_id = dataset_id or str(uuid4())
     state_dump_repo.insert(
         StateDump(
@@ -406,8 +365,7 @@ def get_reddit_posts_by_batch(
     get_all_ids: bool = False
 ):
     params = [dataset_id]
-    
-    # Base query with or without filtering removed posts
+
     if hide_removed:
         base_query = """
         SELECT p.id, p.title, p.selftext, p.url, p.created_utc
@@ -445,7 +403,6 @@ def get_reddit_posts_by_batch(
         WHERE p.dataset_id = ?
         """
 
-    # Add conditions based on input parameters
     if search_term:
         base_query += " AND (p.title LIKE ? OR p.selftext LIKE ? OR p.url LIKE ?)"
         search_pattern = f"%{search_term}%"
@@ -459,7 +416,6 @@ def get_reddit_posts_by_batch(
         base_query += " AND p.created_utc <= ?"
         params.append(end_time)
 
-    # Single query to get total count and date range
     summary_query = f"""
     SELECT COUNT(*) as total_count, 
            MIN(created_utc) as start_date, 
@@ -471,11 +427,9 @@ def get_reddit_posts_by_batch(
     start_date = summary_result[1]
     end_date = summary_result[2]
 
-    # Convert timestamps to "YYYY-MM-DD" format, or None if no posts
     start_date_str = datetime.fromtimestamp(start_date).strftime('%Y-%m-%d') if start_date else None
     end_date_str = datetime.fromtimestamp(end_date).strftime('%Y-%m-%d') if end_date else None
 
-    # Case 1: Return all post IDs
     if get_all_ids:
         id_query = base_query.replace("SELECT p.id, p.title, p.selftext, p.url, p.created_utc", "SELECT p.id")
         ids = post_repo.execute_raw_query(id_query, params, keys=True)
@@ -487,7 +441,6 @@ def get_reddit_posts_by_batch(
             "end_date": end_date_str
         }
 
-    # Case 2: Return posts with or without pagination
     if not all:
         query_offset = (page - 1) * items_per_page
         base_query += " ORDER BY p.created_utc ASC LIMIT ? OFFSET ?"
@@ -529,7 +482,6 @@ def get_reddit_post_by_id(dataset_id: str, post_id: str, columns: list = None):
 def get_comments_recursive(post_id: str, dataset_id: str):
 
     comments = comment_repo.get_comments_by_post_optimized(dataset_id, post_id)
-    # comments = comment_repo.find({"post_id": post_id, "dataset_id": dataset_id}, map_to_model=False)
 
     comment_map = {comment["id"]: comment for comment in comments}
 
@@ -628,16 +580,6 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                 all_files.append({"type": "submissions", "path": full_path})
             elif f.endswith("_comments.json"):
                 all_files.append({"type": "comments", "path": full_path})
-        # if f.endswith(".json"):
-        #     full_path = os.path.join(dataset_path, f)
-        #     if f.endswith("_submissions.json"):
-        #         all_files.append({"type": "submissions", "path": full_path})
-        #     elif f.endswith("_comments.json"):
-        #         all_files.append({"type": "comments", "path": full_path})
-        #     elif f.startswith("RS"):
-        #         all_files.append({"type": "submissions", "path": full_path})
-        #     elif f.startswith("RC"):
-        #         all_files.append({"type": "comments", "path": full_path})
 
     start_ts = end_ts = None
     if date_filter:
@@ -666,8 +608,6 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
             print(f"Unexpected error reading file {file['path']}: {e}")
             raise e
         try:
-            # with open(file["path"], "r", encoding="utf-8") as f:
-            #     raw_data_str = f.read()
             raw_data = json.loads(raw_data_str, strict=False)
         except json.JSONDecodeError as e:
             print(f"Error decoding JSON in file {file['path']}: {e}")
@@ -706,7 +646,6 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     subreddit_id=p.get("subreddit_id", ""),
                     dataset_id=dataset_id
                 ))
-            print("Number of posts to insert:", len(posts))
             post_repo.insert_batch(posts)
 
         elif file["type"] == "comments":
@@ -768,7 +707,6 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     unique_comments.append(comment)
                 else:
                     print(f"Skipping duplicate comment with key: {key}")
-            print("Number of posts to insert:", len(unique_comments))
             comment_repo.insert_batch(unique_comments)
 
     update_dataset(dataset_id, name=subreddit)
@@ -805,51 +743,37 @@ async def run_command_async(command: str) -> str:
         print("Command executed successfully.")
     return stdout.decode()
 
-# def parse_json(line):
-#     """
-#     Parse a JSON line and handle errors gracefully.
 
-#     Args:
-#         line (bytes): A single line from the input file in bytes.
-
-#     Returns:
-#         dict or None: Parsed JSON object if successful, None if parsing fails.
-#     """
-#     try:
-#         return json.loads(line.decode('utf-8').strip())
-#     except json.JSONDecodeError:
-#         print(f"Invalid JSON line: {line[:100]}...")  # Truncate for brevity
-#         return None
-
-# async def convert_jsonl_to_json(jsonl_filename: str, json_filename: str, batch_size: int = 1000):
-#     """
-#     Convert a JSONL file to a JSON file with batched reading and writing.
-
-#     Args:
-#         jsonl_filename (str): Path to the input JSONL file.
-#         json_filename (str): Path to the output JSON file.
-#         batch_size (int): Number of lines to process per batch.
-#     """
-#     async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as infile:
-#         async with aiofiles.open(json_filename, "w", encoding="utf-8") as outfile:
-#             await outfile.write("[\n")
-#             first = True
-#             while True:
-#                 lines = []
-#                 for _ in range(batch_size):
-#                     line = await infile.readline()
-#                     if not line:
-#                         break
-#                     lines.append(line.strip())
-#                 if not lines:
-#                     break
-#                 objects = [json.loads(line) for line in lines if line]
-#                 for obj in objects:
-#                     if not first:
-#                         await outfile.write(",\n")
-#                     await outfile.write(json.dumps(obj))
-#                     first = False
-#             await outfile.write("\n]")
+async def run_command_and_stream(command):
+    process = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        limit=1024 * 1024 * 512 # 512 MB buffer size
+    )
+    buffer = bytearray()
+    try:
+        while True:
+            chunk = await process.stdout.read(65536)
+            if not chunk:
+                if buffer:
+                    yield buffer.decode('utf-8', errors='ignore').strip()
+                break
+            buffer.extend(chunk)
+            
+            while True:
+                newline_idx = buffer.find(b'\n')
+                if newline_idx == -1:
+                    break
+                line = buffer[:newline_idx].decode('utf-8', errors='ignore').strip()
+                buffer = buffer[newline_idx + 1:]
+                if line: 
+                    yield line
+    except Exception as e:
+        print(f"Error reading stream: {e}")
+        raise
+    finally:
+        await process.wait()
 
 async def process_reddit_data(
     manager: ConnectionManager,
@@ -868,7 +792,7 @@ async def process_reddit_data(
     zstd_executable = PATHS["executables"]["zstd"]
 
     if is_primary:
-        command = f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}" > "{intermediate_file}"'
+        command = f'"{zstd_executable}" -cdq --memory=2048MB -T8 "{zst_filename}"'
     else:
         ripgrep_executable = PATHS["executables"]["ripgrep"]
         regex = r'(?s)\{.*?"subreddit":\s*"' + subreddit + r'".*?\}'
@@ -889,8 +813,6 @@ async def process_reddit_data(
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
-    await run_command_async(command)
-
     if is_primary:
         print("Primary magnet link processed.")
 
@@ -900,48 +822,26 @@ async def process_reddit_data(
             data_type = "C"
         else:
             raise ValueError(f"Cannot determine data type from filename: {zst_filename}")
+        
+        data_type = "S" if "_submissions.zst" in zst_filename else "C" if "_comments.zst" in zst_filename else None
+        if not data_type:
+            raise ValueError(f"Cannot determine data type from filename: {zst_filename}")
 
         monthly_files = {}
-        print(f"Opening intermediate file for reading: {intermediate_file}")
-        try:
-            async with aiofiles.open(intermediate_file, "r", encoding="utf-8") as infile:
-                async for line in infile:
-                    try:
-                        obj = json.loads(line.strip())
-                        created_utc = obj.get("created_utc")
-                        if created_utc:
-                            created_utc_float = float(created_utc)
-                            dt = datetime.fromtimestamp(created_utc_float)
-                            year = dt.year
-                            month = dt.month
-                            key = f"{year}-{month:02d}"
-                            if key not in monthly_files:
-                                monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
-                                message = f"Creating monthly file for writing: {monthly_filename}"
-                                try:
-                                    monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
-                                    print(message)
-                                    await manager.send_message(app_id, message)
-                                except PermissionError:
-                                    print(f"Permission denied writing to {monthly_filename}")
-                                    raise e
-                                except IOError as e:
-                                    print(f"IO error opening {monthly_filename}: {e}")
-                                    raise e
-                            await monthly_files[key].write(line)
-                        else:
-                            print("Skipping object without 'created_utc' field.")
-                    except json.JSONDecodeError:
-                        print("Skipping invalid JSON line.")
-        except FileNotFoundError:
-            print(f"Intermediate file not found: {intermediate_file}")
-            return []
-        except PermissionError:
-            print(f"Permission denied: {intermediate_file}")
-            return []
-        except IOError as e:
-            print(f"IO error reading {intermediate_file}: {e}")
-            return []
+        async for line in run_command_and_stream(command):
+            try:
+                obj = json.loads(line)
+                created_utc = obj.get("created_utc")
+                if created_utc:
+                    dt = datetime.fromtimestamp(float(created_utc))
+                    key = f"{dt.year}-{dt.month:02d}"
+                    if key not in monthly_files:
+                        monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+                        monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
+                        await manager.send_message(app_id, f"Creating monthly file: {monthly_filename}")
+                    await monthly_files[key].write(line + "\n")
+            except json.JSONDecodeError:
+                print("Skipping invalid JSON line.")
         for key, file in monthly_files.items():
             print(f"Closing monthly file: R{data_type}_{key}.jsonl")
             await file.close()
@@ -953,46 +853,119 @@ async def process_reddit_data(
             message = f"Converting {jsonl_filename} to {json_filename}"
             print(message)
             await manager.send_message(app_id, message)
-            try:
-                async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as jsonl_file, \
-                        aiofiles.open(json_filename, "w", encoding="utf-8") as json_file:
-                    await json_file.write("[\n")
-                    first = True
-                    async for line in jsonl_file:
-                        if not first:
-                            await json_file.write(",\n")
-                        await json_file.write(line.strip())
-                        first = False
-                    await json_file.write("\n]")
-            except FileNotFoundError:
-                print(f"File not found: {jsonl_filename}")
-                raise e
-            except PermissionError:
-                print(f"Permission denied: {jsonl_filename} or {json_filename}")
-                raise e
-            except IOError as e:
-                print(f"IO error processing {jsonl_filename}: {e}")
-                raise e
+            async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as jsonl_file, \
+                    aiofiles.open(json_filename, "w", encoding="utf-8") as json_file:
+                await json_file.write("[\n")
+                first = True
+                async for line in jsonl_file:
+                    if not first:
+                        await json_file.write(",\n")
+                    await json_file.write(line.strip())
+                    first = False
+                await json_file.write("\n]")
             json_files.append(json_filename)
-
-        try:
-            print(f"Removing intermediate file: {intermediate_file}")
-            os.remove(intermediate_file)
-            for key in monthly_files:
-                monthly_jsonl = os.path.join(directory, f"R{data_type}_{key}.jsonl")
-                print(f"Intermediate file R{data_type}_{key}.jsonl removed.")
-                os.remove(monthly_jsonl)
-            print(f"Intermediate file {intermediate_filename} removed.")
-        except Exception as e:
-            print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
+            os.remove(jsonl_filename) 
 
         message = f"Processed data saved to monthly JSON files for {zst_filename}"
         await manager.send_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=current_download_dir)
-        
+
         return json_files
 
+        # monthly_files = {}
+        # print(f"Opening intermediate file for reading: {intermediate_file}")
+        # try:
+        #     async with aiofiles.open(intermediate_file, "r", encoding="utf-8") as infile:
+        #         async for line in infile:
+        #             try:
+        #                 obj = json.loads(line.strip())
+        #                 created_utc = obj.get("created_utc")
+        #                 if created_utc:
+        #                     created_utc_float = float(created_utc)
+        #                     dt = datetime.fromtimestamp(created_utc_float)
+        #                     year = dt.year
+        #                     month = dt.month
+        #                     key = f"{year}-{month:02d}"
+        #                     if key not in monthly_files:
+        #                         monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+        #                         message = f"Creating monthly file for writing: {monthly_filename}"
+        #                         try:
+        #                             monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
+        #                             print(message)
+        #                             await manager.send_message(app_id, message)
+        #                         except PermissionError:
+        #                             print(f"Permission denied writing to {monthly_filename}")
+        #                             raise e
+        #                         except IOError as e:
+        #                             print(f"IO error opening {monthly_filename}: {e}")
+        #                             raise e
+        #                     await monthly_files[key].write(line)
+        #                 else:
+        #                     print("Skipping object without 'created_utc' field.")
+        #             except json.JSONDecodeError:
+        #                 print("Skipping invalid JSON line.")
+        # except FileNotFoundError:
+        #     print(f"Intermediate file not found: {intermediate_file}")
+        #     return []
+        # except PermissionError:
+        #     print(f"Permission denied: {intermediate_file}")
+        #     return []
+        # except IOError as e:
+        #     print(f"IO error reading {intermediate_file}: {e}")
+        #     return []
+        # for key, file in monthly_files.items():
+        #     print(f"Closing monthly file: R{data_type}_{key}.jsonl")
+        #     await file.close()
+
+        # json_files = []
+        # for key in monthly_files:
+        #     jsonl_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+        #     json_filename = os.path.join(directory, f"R{data_type}_{key}.json")
+        #     message = f"Converting {jsonl_filename} to {json_filename}"
+        #     print(message)
+        #     await manager.send_message(app_id, message)
+        #     try:
+        #         async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as jsonl_file, \
+        #                 aiofiles.open(json_filename, "w", encoding="utf-8") as json_file:
+        #             await json_file.write("[\n")
+        #             first = True
+        #             async for line in jsonl_file:
+        #                 if not first:
+        #                     await json_file.write(",\n")
+        #                 await json_file.write(line.strip())
+        #                 first = False
+        #             await json_file.write("\n]")
+        #     except FileNotFoundError:
+        #         print(f"File not found: {jsonl_filename}")
+        #         raise e
+        #     except PermissionError:
+        #         print(f"Permission denied: {jsonl_filename} or {json_filename}")
+        #         raise e
+        #     except IOError as e:
+        #         print(f"IO error processing {jsonl_filename}: {e}")
+        #         raise e
+        #     json_files.append(json_filename)
+
+        # try:
+        #     print(f"Removing intermediate file: {intermediate_file}")
+        #     os.remove(intermediate_file)
+        #     for key in monthly_files:
+        #         monthly_jsonl = os.path.join(directory, f"R{data_type}_{key}.jsonl")
+        #         print(f"Intermediate file R{data_type}_{key}.jsonl removed.")
+        #         os.remove(monthly_jsonl)
+        #     print(f"Intermediate file {intermediate_filename} removed.")
+        # except Exception as e:
+        #     print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
+
+        # message = f"Processed data saved to monthly JSON files for {zst_filename}"
+        # await manager.send_message(app_id, message)
+        # update_run_progress(run_id, message, current_download_dir=current_download_dir)
+        
+        # return json_files
+
     else:
+        await run_command_async(command)
+
         print(f"Fallback magnet link processed for subreddit '{subreddit}'.")
         base = os.path.splitext(os.path.basename(zst_filename))[0]
         output_filename = os.path.join(directory, f"{base}.json")

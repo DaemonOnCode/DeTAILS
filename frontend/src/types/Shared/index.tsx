@@ -112,10 +112,10 @@ export interface ICodingContext {
     resetContext: () => void;
     sampledPostResponse: IQECResponse[];
     dispatchSampledPostResponse: Dispatch<SampleDataResponseReducerActions>;
-    sampledPostResponseCopy: IQECResponse[];
-    setSampledPostResponseCopy: SetState<IQECResponse[]>;
-    sampledPostWithThemeResponse: IQECTResponse[];
-    dispatchSampledPostWithThemeResponse: Dispatch<SampleDataWithThemeResponseReducerActions>;
+    // sampledPostResponseCopy: IQECResponse[];
+    // setSampledPostResponseCopy: SetState<IQECResponse[]>;
+    // sampledPostWithThemeResponse: IQECTResponse[];
+    // dispatchSampledPostWithThemeResponse: Dispatch<SampleDataWithThemeResponseReducerActions>;
     unseenPostResponse: IQECTTyResponse[];
     dispatchUnseenPostResponse: Dispatch<BaseResponseHandlerActions<IQECTTyResponse>>;
     themes: ThemeBucket[];

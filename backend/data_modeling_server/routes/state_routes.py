@@ -63,6 +63,8 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
 
     try:
         coding_context = coding_context_repo.find_one({"id": workspace_id})
+        if not coding_context:
+            raise Exception("Coding context not found")
     except:
         coding_context = CodingContext(id=workspace_id)
         coding_context_repo.insert(coding_context)
@@ -242,21 +244,32 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
                         "higher_level_code_id": higher_level_code_id
                     }
                 )
+        # unplaced_subcodes = grouped_codes_repo.execute_raw_query(
+        #     "SELECT * FROM grouped_code_entries WHERE coding_context_id = ? AND higher_level_code IS NULL",
+        #     (workspace_id,),
+        #     keys=True
+        # )
+        # print(f"Unplaced subcodes: {unplaced_subcodes}", f"Grouped codes: {grouped_codes}")
         return {"success": True, "groupedCodes": grouped_codes}
 
-    elif operation_type == "setUnplacedSubCodes":
-        unplaced_subcodes = request_body.get("unplacedSubCodes")
-        if not isinstance(unplaced_subcodes, list):
-            raise HTTPException(status_code=400, detail="unplacedSubCodes must be a list")
-        for code in unplaced_subcodes:
-            grouped_codes_repo.update(
-                {"coding_context_id": workspace_id, "code": code},
-                {
-                    "higher_level_code": None,
-                    "higher_level_code_id": None
-                }
-            )
-        return {"success": True, "unplacedSubCodes": unplaced_subcodes}
+    # elif operation_type == "setUnplacedSubCodes":
+    #     unplaced_subcodes = request_body.get("unplacedSubCodes")
+    #     if not isinstance(unplaced_subcodes, list):
+    #         raise HTTPException(status_code=400, detail="unplacedSubCodes must be a list")
+    #     for code in unplaced_subcodes:
+    #         grouped_codes_repo.update(
+    #             {"coding_context_id": workspace_id, "code": code},
+    #             {
+    #                 "higher_level_code": None,
+    #                 "higher_level_code_id": None
+    #             }
+    #         )
+    #     grouped_codes = grouped_codes_repo.execute_raw_query(
+    #         "SELECT * FROM grouped_code_entries WHERE coding_context_id = ? AND higher_level_code IS NOT NULL",
+    #         (workspace_id,),
+    #         keys=True
+    #     )
+    #     return {"success": True, "unplacedSubCodes": unplaced_subcodes, "groupedCodes": grouped_codes}
     
     elif operation_type == "setThemes":
         themes = request_body.get("themes")
@@ -290,6 +303,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
                     "theme_id": None
                 }
             )
+        
         return {"success": True, "unplacedCodes": unplaced_codes}
 
     else:
@@ -437,7 +451,7 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
 
     if "groupedCodes" in states:
         grouped_entries = grouped_codes_repo.execute_raw_query(
-            "SELECT * FROM grouped_code_entries WHERE coding_context_id = ? AND higher_level_code IS NOT NULL",
+            "SELECT * FROM grouped_code_entries WHERE coding_context_id = ?",
             (workspace_id,),
             keys=True
         )
@@ -451,14 +465,16 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
             {"id": hid, "name": higher_level_codes[hid], "codes": codes}
             for hid, codes in grouped_codes_dict.items()
         ]
+        # response["unplacedSubCodes"] = [entry["code"] for entry in unplaced_entries]
 
     if "unplacedSubCodes" in states:
-        unplaced_entries = grouped_codes_repo.execute_raw_query(
-            "SELECT * FROM grouped_code_entries WHERE coding_context_id = ? AND higher_level_code IS NULL",
-            (workspace_id,),
-            keys=True
-        )
-        response["unplacedSubCodes"] = [entry["code"] for entry in unplaced_entries]
+        # unplaced_entries = grouped_codes_repo.execute_raw_query(
+        #     "SELECT * FROM grouped_code_entries WHERE coding_context_id = ? AND higher_level_code IS NULL",
+        #     (workspace_id,),
+        #     keys=True
+        # )
+        # response["unplacedSubCodes"] = [entry["code"] for entry in unplaced_entries]
+        pass
     
     if "themes" in states:
         theme_entries = themes_repo.execute_raw_query(
@@ -741,11 +757,11 @@ async def check_data_existence(request: Request, request_body: Dict[str, Any] = 
             exists = exists or context_files_repo.count({"coding_context_id": workspace_id}) > 0
             print(f"Context files exist: {exists}, context file")
         elif state == "mainTopic":
-            coding_context = coding_context_repo.find_one({"id": workspace_id})
+            coding_context = coding_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists = exists or (coding_context and coding_context.get("main_topic") is not None)
             print(f"Main topic exists: {exists}, main topic")
         elif state == "additionalInfo":
-            coding_context = coding_context_repo.find_one({"id": workspace_id})
+            coding_context = coding_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists = exists or (coding_context and coding_context.get("additional_info") is not None)
             print(f"Additional info exists: {exists}, additional info")
         elif state == "researchQuestions":
@@ -806,22 +822,22 @@ async def check_data_existence(request: Request, request_body: Dict[str, Any] = 
             }) > 0
             print(f"Unplaced codes exist: {exists}, unplaced codes")
         elif state == "type":
-            collection_context = collection_context_repo.find_one({"id": workspace_id})
+            collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists = exists or (collection_context and collection_context.get("type") is not None)
             print(f"Type exist: {exists}, type")
         elif state == "modeInput":
-            collection_context = collection_context_repo.find_one({"id": workspace_id})
+            collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists = exists or (collection_context and collection_context.get("mode_input") is not None)
             print(f"Mode input exist: {exists}, mode input")
         elif state == "selectedData":
             exists = exists or selected_posts_repo.count({"dataset_id": workspace_id}) > 0
             print(f"Selected data exist: {exists}, selected data")
         elif state == "dataFilters":
-            collection_context = collection_context_repo.find_one({"id": workspace_id})
+            collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists = exists or (collection_context and (collection_context.get("data_filters") and collection_context.get("data_filters") != json.dumps({})))
             print(f"Data filters exist: {exists}, data filters")
         elif state == "isLocked":
-            collection_context = collection_context_repo.find_one({"id": workspace_id})
+            collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists = exists or (collection_context and collection_context.get("is_locked"))
             print(f"Is locked exist: {exists}, is locked")
     print(f"Data existence check for workspace {workspace_id} on page {page}: {exists}")

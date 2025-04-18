@@ -265,23 +265,11 @@ const InitialCodeBook = () => {
                         <button
                             id="refresh-codes-button"
                             onClick={() => {
-                                // if (checkIfDataExists(location.pathname)) {
-                                //     openModal('refresh-codes-submitted', async () => {
-                                //         await resetDataAfterPage(location.pathname);
-                                //         // await handleRefreshCodes();
-                                //     });
-                                // } else {
-                                //     loadingDispatch({
-                                //         type: 'SET_REST_UNDONE',
-                                //         route: location.pathname
-                                //     });
-                                //     // handleRefreshCodes();
-                                // }
                                 setIsFeedbackModalOpen(true);
                             }}
                             className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
                             <DetailsLLMIcon className="h-6 w-6" />
-                            Redo Codebook
+                            Redo with feedback
                         </button>
                     </div>
                 </main>

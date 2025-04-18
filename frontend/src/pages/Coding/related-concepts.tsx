@@ -253,8 +253,8 @@ const KeywordCloudPage: FC = () => {
             <div className="min-h-page flex justify-between flex-col">
                 <div className="relative flex justify-center items-center flex-col">
                     <p className="py-4">
-                        These keywords are generated using the context you provided DeTAILS. Please
-                        select 5 or more to proceed{' '}
+                        These related concepts are generated using the context you provided DeTAILS.
+                        Please select 5 or more to proceed{' '}
                     </p>
                     <div id="keyword-cloud" className="w-full">
                         <KeywordCloud
@@ -286,7 +286,7 @@ const KeywordCloudPage: FC = () => {
                             title={TooltipMessages.RefreshKeywords}
                             onClick={refreshKeywords}
                             className="refresh-keywords-btn bg-gray-600 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
-                            <DetailsLLMIcon className="h-6 w-6" /> Refresh keywords
+                            <DetailsLLMIcon className="h-6 w-6" /> Redo with feedback
                         </button>
                     </div>
                 </div>

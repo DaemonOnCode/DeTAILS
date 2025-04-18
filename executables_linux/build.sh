@@ -5,9 +5,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # Clean up previous builds
-if [ -d "./executables" ]; then
+if [ -d "./executables_linux" ]; then
     echo "executables directory exists"
-    cd executables
+    cd executables_linux
     echo "Cleaning up previous builds"
     echo "Cleaning Chromadb"
     rm -rf ./chroma_data
@@ -32,7 +32,7 @@ if [ -d "./executables" ]; then
     cd ..
 else
     echo "executables directory does not exist"
-    mkdir executables
+    mkdir executables_linux
 fi
 
 # Build functions
@@ -58,7 +58,7 @@ build_backend() {
   echo "main server Starting…"
   cd "$PROJECT_ROOT/backend/data_modeling_server"
   rm -rf dist build
-  source ./.venv/bin/activate
+  source ./linenv/bin/activate
   pyinstaller main.spec
   deactivate
   mkdir -p "$PROJECT_ROOT/executables/data-modeling-server"
@@ -69,13 +69,14 @@ build_backend() {
 build_ollama() {
   echo "ollama Starting…"
   cd "$PROJECT_ROOT/backend/ollama-0.4.2"
-  ./scripts/build.sh 0.4.2
+  make -j 8
+  go build -v -x .
   mkdir -p "$PROJECT_ROOT/executables/ollama"
   cp .env ollama "$PROJECT_ROOT/executables/ollama/"
   if [ -d dist ]; then
     cp -r dist/* "$PROJECT_ROOT/executables/ollama/"
     mkdir -p "$PROJECT_ROOT/executables/ollama/lib/ollama"
-    cp -r llama/make/build/darwin-arm64/* "$PROJECT_ROOT/executables/ollama/lib/ollama/"
+    cp -r llama/make/build/linux/* "$PROJECT_ROOT/executables/ollama/lib/ollama/"
   else
     echo "ollama ERROR: dist folder missing!"
     exit 1
@@ -86,7 +87,7 @@ build_ollama() {
 build_chroma() {
   echo "chromadb Starting…"
   cd "$PROJECT_ROOT/backend/chroma"
-  source ./env/bin/activate
+  source ./linenv/bin/activate
   cd chromadb/cli
   pyinstaller cli.spec
   deactivate

@@ -7,6 +7,7 @@ import { TranscriptContextProvider } from '../../../context/transcript-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import PostTranscript from '../CodingTranscript/post-transcript';
 import { useManualCodingContext } from '../../../context/manual-coding-context';
+import { useWorkspaceContext } from '../../../context/workspace-context';
 
 const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
     const navigate = useNavigate();
@@ -24,6 +25,7 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
 
     const { fetchData } = useApi();
     const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
     const { unseenPostResponse } = useCodingContext();
     const { manualCodingResponses } = useManualCodingContext();
 
@@ -35,7 +37,7 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                 REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID,
                 {
                     method: 'POST',
-                    body: JSON.stringify({ postId, datasetId })
+                    body: JSON.stringify({ postId, datasetId: currentWorkspace.id })
                 }
             );
             if (error) {

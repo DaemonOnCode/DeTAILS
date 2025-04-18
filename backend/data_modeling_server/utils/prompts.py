@@ -858,7 +858,7 @@ You are an advanced AI model specialized in Braun & Clarke’s Reflexive Themati
    {previous_higher_level_codes}
 
 2. **Feedback:**  
-   Feedback on the previous higher-level codes to guide refinement:  
+   Feedback on the previous higher-level codes to guide refinement, try to stick to the feedback at all times:  
    {feedback}
 
 3. **Code and Summary Data (JSON):**  
@@ -873,7 +873,7 @@ You are an advanced AI model specialized in Braun & Clarke’s Reflexive Themati
 
 1. **Review Previous Higher-Level Codes and Feedback:**  
    - Examine the previous higher-level codes and the feedback provided.  
-   - Identify areas where the groupings can be improved based on the feedback.
+   - Identify areas where the groupings can be changed based on the feedback.
 
 2. **Review the Code and Summary Data:**  
    - Re-examine the Code and Summary Data to understand the context and meanings of the codes.
@@ -883,7 +883,7 @@ You are an advanced AI model specialized in Braun & Clarke’s Reflexive Themati
 
 4. **Refine Higher-Level Codes:**  
    - Integrate insights from the previous higher-level codes, the feedback, and a re-examination of the Code and Summary Data to refine the groupings.  
-   - Address the specific points raised in the feedback to improve the coherence, fit, and relevance of the higher-level codes.  
+   - Address the specific points raised in the feedback to change the higher-level codes.  
    - Modify the groupings as needed:  
      - Merge higher-level codes that are too similar or overlapping.  
      - Split higher-level codes that cover multiple distinct concepts.  

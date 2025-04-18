@@ -12,6 +12,7 @@ import PostTranscript from '../CodingTranscript/post-transcript';
 import { TranscriptContextProvider } from '../../../context/transcript-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { useManualCodingContext } from '../../../context/manual-coding-context';
+import { useWorkspaceContext } from '../../../context/workspace-context';
 
 const TranscriptPage = ({
     id,
@@ -31,6 +32,7 @@ const TranscriptPage = ({
         updatePostState,
         postStates
     } = useManualCodingContext();
+    const { currentWorkspace } = useWorkspaceContext();
     const { datasetId } = useCollectionContext();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -107,7 +109,7 @@ const TranscriptPage = ({
         setLoading(true);
         const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID, {
             method: 'POST',
-            body: JSON.stringify({ postId, datasetId })
+            body: JSON.stringify({ postId, datasetId: currentWorkspace.id })
         });
 
         if (error) {

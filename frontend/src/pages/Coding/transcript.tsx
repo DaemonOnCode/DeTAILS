@@ -19,6 +19,7 @@ import { TranscriptContextProvider } from '../../context/transcript-context';
 import { useApi } from '../../hooks/Shared/use-api';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 const TranscriptPage = () => {
     const { id, state } = useParams<{ id: string; state: 'review' | 'refine' }>();
@@ -41,9 +42,7 @@ const TranscriptPage = () => {
         unseenPostResponse,
         dispatchUnseenPostResponse,
         sampledPostResponse,
-        dispatchSampledPostResponse,
-        sampledPostWithThemeResponse,
-        dispatchSampledPostWithThemeResponse
+        dispatchSampledPostResponse
     } = useCodingContext();
 
     const { datasetId } = useCollectionContext();
@@ -52,6 +51,7 @@ const TranscriptPage = () => {
 
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
+    const { currentWorkspace } = useWorkspaceContext();
 
     const hasSavedRef = useRef(false);
     useEffect(() => {
@@ -661,7 +661,7 @@ const TranscriptPage = () => {
                 REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID,
                 {
                     method: 'POST',
-                    body: JSON.stringify({ postId, datasetId })
+                    body: JSON.stringify({ postId, datasetId: currentWorkspace.id })
                 }
             );
             if (error) {

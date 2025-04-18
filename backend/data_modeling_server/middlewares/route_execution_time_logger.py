@@ -1,6 +1,5 @@
 import time
 import asyncio
-import logging
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from utils.logger import Logger 
@@ -8,8 +7,6 @@ from utils.logger import Logger
 logger = Logger()
 
 class ExecutionTimeMiddleware(BaseHTTPMiddleware):
-    """Middleware to log execution time of all FastAPI requests."""
-
     async def dispatch(self, request: Request, call_next):
         start_time = time.perf_counter() 
         response = await call_next(request)

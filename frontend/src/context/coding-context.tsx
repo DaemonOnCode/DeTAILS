@@ -31,7 +31,6 @@ import {
 import { useApi } from '../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
 import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
-import { getGroupedCodeOfSubCode, getThemeByCode } from '../utility/theme-finder';
 
 export const CodingContext = createContext<ICodingContext>({
     contextFiles: {},
@@ -57,10 +56,6 @@ export const CodingContext = createContext<ICodingContext>({
     resetContext: async () => {},
     sampledPostResponse: [],
     dispatchSampledPostResponse: async () => {},
-    sampledPostResponseCopy: [],
-    setSampledPostResponseCopy: async () => {},
-    sampledPostWithThemeResponse: [],
-    dispatchSampledPostWithThemeResponse: async () => {},
     unseenPostResponse: [],
     dispatchUnseenPostResponse: async () => {},
     themes: [],
@@ -138,8 +133,8 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         references: setReferencesState,
         keywordTable: setKeywordTableState,
         sampledPostResponse: setSampledPostResponseState,
-        sampledPostResponseCopy: setSampledPostResponseCopyState,
-        sampledPostWithThemeResponse: setSampledPostWithThemeResponseState,
+        // sampledPostResponseCopy: setSampledPostResponseCopyState,
+        // sampledPostWithThemeResponse: setSampledPostWithThemeResponseState,
         unseenPostResponse: setUnseenPostResponseState,
         themes: setThemesState,
         unplacedCodes: setUnplacedCodesState,
@@ -162,8 +157,8 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         references: () => setReferencesState({}),
         keywordTable: () => setKeywordTableState([]),
         sampledPostResponse: () => setSampledPostResponseState([]),
-        sampledPostResponseCopy: () => setSampledPostResponseCopyState([]),
-        sampledPostWithThemeResponse: () => setSampledPostWithThemeResponseState([]),
+        // sampledPostResponseCopy: () => setSampledPostResponseCopyState([]),
+        // sampledPostWithThemeResponse: () => setSampledPostWithThemeResponseState([]),
         unseenPostResponse: () => setUnseenPostResponseState([]),
         themes: () => setThemesState([]),
         unplacedCodes: () => setUnplacedCodesState([]),
@@ -321,7 +316,13 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 'additionalInfo',
                 'researchQuestions',
                 'keywords',
-                'selectedKeywords'
+                'selectedKeywords',
+                'sampledPostResponse',
+                'initialCodebookTable',
+                'groupedCodes',
+                'unplacedSubCodes',
+                'themes',
+                'unplacedCodes'
             ],
             [PAGE_ROUTES.CONTEXT]: [
                 'contextFiles',
@@ -360,230 +361,273 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         }
     }, [location.pathname]);
 
-    const value: ICodingContext = {
-        contextFiles,
-        addContextFile: async (filePath: string, fileName: string) => {
-            const data = await saveCodingContext('addContextFile', { filePath, fileName });
-            if (data.contextFiles) setContextFilesState(data.contextFiles);
-        },
-        removeContextFile: async (filePath: string) => {
-            const data = await saveCodingContext('removeContextFile', { filePath });
-            if (data.contextFiles) setContextFilesState(data.contextFiles);
-        },
-        mainTopic,
-        setMainTopic: async (topicOrUpdater) => {
-            const newTopic =
-                typeof topicOrUpdater === 'function' ? topicOrUpdater(mainTopic) : topicOrUpdater;
-            const data = await saveCodingContext('setMainTopic', { mainTopic: newTopic });
-            if (data.mainTopic !== undefined) setMainTopicState(data.mainTopic);
-        },
-        additionalInfo,
-        setAdditionalInfo: async (infoOrUpdater) => {
-            const newInfo =
-                typeof infoOrUpdater === 'function' ? infoOrUpdater(additionalInfo) : infoOrUpdater;
-            const data = await saveCodingContext('setAdditionalInfo', { additionalInfo: newInfo });
-            if (data.additionalInfo !== undefined) setAdditionalInfoState(data.additionalInfo);
-        },
-        keywords,
-        setKeywords: async (kwsOrUpdater) => {
-            const newKeywords =
-                typeof kwsOrUpdater === 'function' ? kwsOrUpdater(keywords) : kwsOrUpdater;
-            const data = await saveCodingContext('setKeywords', { keywords: newKeywords });
-            if (data.keywords) setKeywordsState(data.keywords);
-        },
-        selectedKeywords,
-        setSelectedKeywords: async (skwsOrUpdater) => {
-            const newSelectedKeywords =
-                typeof skwsOrUpdater === 'function'
-                    ? skwsOrUpdater(selectedKeywords)
-                    : skwsOrUpdater;
-            const data = await saveCodingContext('setSelectedKeywords', {
-                selectedKeywords: newSelectedKeywords
-            });
-            if (data.selectedKeywords) setSelectedKeywordsState(data.selectedKeywords);
-        },
-        words,
-        setWords: async (wdsOrUpdater) => {
-            const newWords =
-                typeof wdsOrUpdater === 'function' ? wdsOrUpdater(words) : wdsOrUpdater;
-            const data = await saveCodingContext('setWords', { words: newWords });
-            if (data.words) setWordsState(data.words);
-        },
-        selectedWords,
-        setSelectedWords: async (swdsOrUpdater) => {
-            const newSelectedWords =
-                typeof swdsOrUpdater === 'function' ? swdsOrUpdater(selectedWords) : swdsOrUpdater;
-            const data = await saveCodingContext('setSelectedWords', {
-                selectedWords: newSelectedWords
-            });
-            if (data.selectedWords) setSelectedWordsState(data.selectedWords);
-        },
-        references,
-        setReferences: async (refsOrUpdater) => {
-            const newReferences =
-                typeof refsOrUpdater === 'function' ? refsOrUpdater(references) : refsOrUpdater;
-            const data = await saveCodingContext('setReferences', { references: newReferences });
-            if (data.references) setReferencesState(data.references);
-        },
-        keywordTable,
-        dispatchKeywordsTable: async (action: KeywordsTableAction) => {
-            const data = await saveCodingContext('dispatchKeywordsTable', { action });
-            if (data.keywordTable) setKeywordTableState(data.keywordTable);
-        },
-        updateContext: async (updates: Partial<ICodingContext>) => {
-            const data = await saveCodingContext('updateContext', updates);
-            if (data.contextFiles) setContextFilesState(data.contextFiles);
-            if (data.mainTopic) setMainTopicState(data.mainTopic);
-            if (data.additionalInfo) setAdditionalInfoState(data.additionalInfo);
-            if (data.researchQuestions) setResearchQuestionsState(data.researchQuestions);
-            if (data.keywords) setKeywordsState(data.keywords);
-            if (data.selectedKeywords) setSelectedKeywordsState(data.selectedKeywords);
-            if (data.words) setWordsState(data.words);
-            if (data.selectedWords) setSelectedWordsState(data.selectedWords);
-            if (data.references) setReferencesState(data.references);
-            if (data.keywordTable) setKeywordTableState(data.keywordTable);
-            if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
-            if (data.sampledPostResponseCopy)
-                setSampledPostResponseCopyState(data.sampledPostResponseCopy);
-            if (data.sampledPostWithThemeResponse)
-                setSampledPostWithThemeResponseState(data.sampledPostWithThemeResponse);
-            if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
-            if (data.themes) setThemesState(data.themes);
-            if (data.unplacedCodes) setUnplacedCodesState(data.unplacedCodes);
-            if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
-            if (data.unplacedSubCodes) setUnplacedSubCodesState(data.unplacedSubCodes);
-            if (data.sampledPostIds) setSampledPostIdsState(data.sampledPostIds);
-            if (data.unseenPostIds) setUnseenPostIdsState(data.unseenPostIds);
-            if (data.initialCodebookTable) setInitialCodebookTableState(data.initialCodebookTable);
-        },
-        resetContext: async () => {
-            const data = await saveCodingContext('resetContext', {});
-            if (data.success) {
-                setContextFilesState({});
-                setMainTopicState('');
-                setAdditionalInfoState('');
-                setResearchQuestionsState([]);
-                setKeywordsState([]);
-                setSelectedKeywordsState([]);
-                setWordsState([]);
-                setSelectedWordsState([]);
-                setReferencesState({});
-                setKeywordTableState([]);
-                setSampledPostResponseState([]);
-                setSampledPostResponseCopyState([]);
-                setSampledPostWithThemeResponseState([]);
-                setUnseenPostResponseState([]);
-                setThemesState([]);
-                setUnplacedCodesState([]);
-                setGroupedCodesState([]);
-                setUnplacedSubCodesState([]);
-                setSampledPostIdsState([]);
-                setUnseenPostIdsState([]);
-                setInitialCodebookTableState([]);
+    const value: ICodingContext = useMemo(
+        () => ({
+            contextFiles,
+            addContextFile: async (filePath: string, fileName: string) => {
+                const data = await saveCodingContext('addContextFile', { filePath, fileName });
+                if (data.contextFiles) setContextFilesState(data.contextFiles);
+            },
+            removeContextFile: async (filePath: string) => {
+                const data = await saveCodingContext('removeContextFile', { filePath });
+                if (data.contextFiles) setContextFilesState(data.contextFiles);
+            },
+            mainTopic,
+            setMainTopic: async (topicOrUpdater) => {
+                const newTopic =
+                    typeof topicOrUpdater === 'function'
+                        ? topicOrUpdater(mainTopic)
+                        : topicOrUpdater;
+                const data = await saveCodingContext('setMainTopic', { mainTopic: newTopic });
+                if (data.mainTopic !== undefined) setMainTopicState(data.mainTopic);
+            },
+            additionalInfo,
+            setAdditionalInfo: async (infoOrUpdater) => {
+                const newInfo =
+                    typeof infoOrUpdater === 'function'
+                        ? infoOrUpdater(additionalInfo)
+                        : infoOrUpdater;
+                const data = await saveCodingContext('setAdditionalInfo', {
+                    additionalInfo: newInfo
+                });
+                if (data.additionalInfo !== undefined) setAdditionalInfoState(data.additionalInfo);
+            },
+            keywords,
+            setKeywords: async (kwsOrUpdater) => {
+                const newKeywords =
+                    typeof kwsOrUpdater === 'function' ? kwsOrUpdater(keywords) : kwsOrUpdater;
+                const data = await saveCodingContext('setKeywords', { keywords: newKeywords });
+                if (data.keywords) setKeywordsState(data.keywords);
+            },
+            selectedKeywords,
+            setSelectedKeywords: async (skwsOrUpdater) => {
+                const newSelectedKeywords =
+                    typeof skwsOrUpdater === 'function'
+                        ? skwsOrUpdater(selectedKeywords)
+                        : skwsOrUpdater;
+                const data = await saveCodingContext('setSelectedKeywords', {
+                    selectedKeywords: newSelectedKeywords
+                });
+                if (data.selectedKeywords) setSelectedKeywordsState(data.selectedKeywords);
+            },
+            words,
+            setWords: async (wdsOrUpdater) => {
+                const newWords =
+                    typeof wdsOrUpdater === 'function' ? wdsOrUpdater(words) : wdsOrUpdater;
+                const data = await saveCodingContext('setWords', { words: newWords });
+                if (data.words) setWordsState(data.words);
+            },
+            selectedWords,
+            setSelectedWords: async (swdsOrUpdater) => {
+                const newSelectedWords =
+                    typeof swdsOrUpdater === 'function'
+                        ? swdsOrUpdater(selectedWords)
+                        : swdsOrUpdater;
+                const data = await saveCodingContext('setSelectedWords', {
+                    selectedWords: newSelectedWords
+                });
+                if (data.selectedWords) setSelectedWordsState(data.selectedWords);
+            },
+            references,
+            setReferences: async (refsOrUpdater) => {
+                const newReferences =
+                    typeof refsOrUpdater === 'function' ? refsOrUpdater(references) : refsOrUpdater;
+                const data = await saveCodingContext('setReferences', {
+                    references: newReferences
+                });
+                if (data.references) setReferencesState(data.references);
+            },
+            keywordTable,
+            dispatchKeywordsTable: async (action: KeywordsTableAction) => {
+                const data = await saveCodingContext('dispatchKeywordsTable', { action });
+                if (data.keywordTable) setKeywordTableState(data.keywordTable);
+            },
+            updateContext: async (updates: Partial<ICodingContext>) => {
+                const data = await saveCodingContext('updateContext', updates);
+                if (data.contextFiles) setContextFilesState(data.contextFiles);
+                if (data.mainTopic) setMainTopicState(data.mainTopic);
+                if (data.additionalInfo) setAdditionalInfoState(data.additionalInfo);
+                if (data.researchQuestions) setResearchQuestionsState(data.researchQuestions);
+                if (data.keywords) setKeywordsState(data.keywords);
+                if (data.selectedKeywords) setSelectedKeywordsState(data.selectedKeywords);
+                if (data.words) setWordsState(data.words);
+                if (data.selectedWords) setSelectedWordsState(data.selectedWords);
+                if (data.references) setReferencesState(data.references);
+                if (data.keywordTable) setKeywordTableState(data.keywordTable);
+                if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
+                if (data.sampledPostResponseCopy)
+                    setSampledPostResponseCopyState(data.sampledPostResponseCopy);
+                if (data.sampledPostWithThemeResponse)
+                    setSampledPostWithThemeResponseState(data.sampledPostWithThemeResponse);
+                if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
+                if (data.themes) setThemesState(data.themes);
+                if (data.unplacedCodes) setUnplacedCodesState(data.unplacedCodes);
+                if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
+                if (data.unplacedSubCodes) setUnplacedSubCodesState(data.unplacedSubCodes);
+                if (data.sampledPostIds) setSampledPostIdsState(data.sampledPostIds);
+                if (data.unseenPostIds) setUnseenPostIdsState(data.unseenPostIds);
+                if (data.initialCodebookTable)
+                    setInitialCodebookTableState(data.initialCodebookTable);
+            },
+            resetContext: async () => {
+                const data = await saveCodingContext('resetContext', {});
+                if (data.success) {
+                    setContextFilesState({});
+                    setMainTopicState('');
+                    setAdditionalInfoState('');
+                    setResearchQuestionsState([]);
+                    setKeywordsState([]);
+                    setSelectedKeywordsState([]);
+                    setWordsState([]);
+                    setSelectedWordsState([]);
+                    setReferencesState({});
+                    setKeywordTableState([]);
+                    setSampledPostResponseState([]);
+                    // setSampledPostResponseCopyState([]);
+                    // setSampledPostWithThemeResponseState([]);
+                    setUnseenPostResponseState([]);
+                    setThemesState([]);
+                    setUnplacedCodesState([]);
+                    setGroupedCodesState([]);
+                    setUnplacedSubCodesState([]);
+                    setSampledPostIdsState([]);
+                    setUnseenPostIdsState([]);
+                    setInitialCodebookTableState([]);
+                }
+            },
+            sampledPostResponse,
+            dispatchSampledPostResponse: async (action: SampleDataResponseReducerActions) => {
+                const data = await saveCodingContext('dispatchSampledPostResponse', { action });
+                console.log('Sampled Post Response:', data);
+                if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
+            },
+            // sampledPostResponseCopy,
+            // setSampledPostResponseCopy: async (copyOrUpdater) => {
+            //     const newCopy =
+            //         typeof copyOrUpdater === 'function'
+            //             ? copyOrUpdater(sampledPostResponseCopy)
+            //             : copyOrUpdater;
+            //     const data = await saveCodingContext('setSampledPostResponseCopy', {
+            //         sampledPostResponseCopy: newCopy
+            //     });
+            //     if (data.sampledPostResponseCopy)
+            //         setSampledPostResponseCopyState(data.sampledPostResponseCopy);
+            // },
+            // sampledPostWithThemeResponse,
+            // dispatchSampledPostWithThemeResponse: async (
+            //     action: SampleDataWithThemeResponseReducerActions
+            // ) => {
+            //     const data = await saveCodingContext('dispatchSampledPostWithThemeResponse', {
+            //         action
+            //     });
+            //     if (data.sampledPostWithThemeResponse)
+            //         setSampledPostWithThemeResponseState(data.sampledPostWithThemeResponse);
+            // },
+            unseenPostResponse,
+            dispatchUnseenPostResponse: async (
+                action: BaseResponseHandlerActions<IQECTTyResponse>
+            ) => {
+                const data = await saveCodingContext('dispatchUnseenPostResponse', { action });
+                console.log('Unseen Post Response:', data);
+                if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
+            },
+            themes,
+            setThemes: async (tmsOrUpdater) => {
+                const newThemes =
+                    typeof tmsOrUpdater === 'function' ? tmsOrUpdater(themes) : tmsOrUpdater;
+                const data = await saveCodingContext('setThemes', { themes: newThemes });
+                if (data.themes) setThemesState(data.themes);
+            },
+            unplacedCodes,
+            setUnplacedCodes: async (codesOrUpdater) => {
+                const newCodes =
+                    typeof codesOrUpdater === 'function'
+                        ? codesOrUpdater(unplacedCodes)
+                        : codesOrUpdater;
+                const data = await saveCodingContext('setUnplacedCodes', {
+                    unplacedCodes: newCodes
+                });
+                if (data.unplacedCodes) setUnplacedCodesState(data.unplacedCodes);
+            },
+            groupedCodes,
+            setGroupedCodes: async (gcsOrUpdater) => {
+                const newGroupedCodes =
+                    typeof gcsOrUpdater === 'function' ? gcsOrUpdater(groupedCodes) : gcsOrUpdater;
+                const data = await saveCodingContext('setGroupedCodes', {
+                    groupedCodes: newGroupedCodes
+                });
+                if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
+                if (data.unplacedSubCodes) setUnplacedSubCodesState(data.unplacedSubCodes);
+            },
+            unplacedSubCodes,
+            setUnplacedSubCodes: async (subCodesOrUpdater) => {
+                // const newSubCodes =
+                //     typeof subCodesOrUpdater === 'function'
+                //         ? subCodesOrUpdater(unplacedSubCodes)
+                //         : subCodesOrUpdater;
+                // const data = await saveCodingContext('setUnplacedSubCodes', {
+                //     unplacedSubCodes: newSubCodes
+                // });
+                // if (data.unplacedSubCodes) setUnplacedSubCodesState(data.unplacedSubCodes);
+                // if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
+            },
+            researchQuestions,
+            setResearchQuestions: async (rqsOrUpdater) => {
+                const newResearchQuestions =
+                    typeof rqsOrUpdater === 'function'
+                        ? rqsOrUpdater(researchQuestions)
+                        : rqsOrUpdater;
+                const data = await saveCodingContext('setResearchQuestions', {
+                    researchQuestions: newResearchQuestions
+                });
+                if (data.researchQuestions) setResearchQuestionsState(data.researchQuestions);
+            },
+            sampledPostIds,
+            setSampledPostIds: async (idsOrUpdater) => {
+                const newIds =
+                    typeof idsOrUpdater === 'function'
+                        ? idsOrUpdater(sampledPostIds)
+                        : idsOrUpdater;
+                if (newIds) setSampledPostIdsState(newIds);
+            },
+            unseenPostIds,
+            setUnseenPostIds: async (idsOrUpdater) => {
+                const newIds =
+                    typeof idsOrUpdater === 'function' ? idsOrUpdater(unseenPostIds) : idsOrUpdater;
+                if (newIds) setUnseenPostIdsState(newIds);
+            },
+            initialCodebookTable,
+            dispatchInitialCodebookTable: async (action: InitialCodebookTableAction) => {
+                const data = await saveCodingContext('dispatchInitialCodebookTable', { action });
+                if (data.initialCodebookTable)
+                    setInitialCodebookTableState(data.initialCodebookTable);
             }
-        },
-        sampledPostResponse,
-        dispatchSampledPostResponse: async (action: SampleDataResponseReducerActions) => {
-            const data = await saveCodingContext('dispatchSampledPostResponse', { action });
-            console.log('Sampled Post Response:', data);
-            if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
-        },
-        sampledPostResponseCopy,
-        setSampledPostResponseCopy: async (copyOrUpdater) => {
-            const newCopy =
-                typeof copyOrUpdater === 'function'
-                    ? copyOrUpdater(sampledPostResponseCopy)
-                    : copyOrUpdater;
-            const data = await saveCodingContext('setSampledPostResponseCopy', {
-                sampledPostResponseCopy: newCopy
-            });
-            if (data.sampledPostResponseCopy)
-                setSampledPostResponseCopyState(data.sampledPostResponseCopy);
-        },
-        sampledPostWithThemeResponse,
-        dispatchSampledPostWithThemeResponse: async (
-            action: SampleDataWithThemeResponseReducerActions
-        ) => {
-            const data = await saveCodingContext('dispatchSampledPostWithThemeResponse', {
-                action
-            });
-            if (data.sampledPostWithThemeResponse)
-                setSampledPostWithThemeResponseState(data.sampledPostWithThemeResponse);
-        },
-        unseenPostResponse,
-        dispatchUnseenPostResponse: async (action: BaseResponseHandlerActions<IQECTTyResponse>) => {
-            const data = await saveCodingContext('dispatchUnseenPostResponse', { action });
-            console.log('Unseen Post Response:', data);
-            if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
-        },
-        themes,
-        setThemes: async (tmsOrUpdater) => {
-            const newThemes =
-                typeof tmsOrUpdater === 'function' ? tmsOrUpdater(themes) : tmsOrUpdater;
-            const data = await saveCodingContext('setThemes', { themes: newThemes });
-            if (data.themes) setThemesState(data.themes);
-        },
-        unplacedCodes,
-        setUnplacedCodes: async (codesOrUpdater) => {
-            const newCodes =
-                typeof codesOrUpdater === 'function'
-                    ? codesOrUpdater(unplacedCodes)
-                    : codesOrUpdater;
-            const data = await saveCodingContext('setUnplacedCodes', { unplacedCodes: newCodes });
-            if (data.unplacedCodes) setUnplacedCodesState(data.unplacedCodes);
-        },
-        groupedCodes,
-        setGroupedCodes: async (gcsOrUpdater) => {
-            const newGroupedCodes =
-                typeof gcsOrUpdater === 'function' ? gcsOrUpdater(groupedCodes) : gcsOrUpdater;
-            const data = await saveCodingContext('setGroupedCodes', {
-                groupedCodes: newGroupedCodes
-            });
-            if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
-        },
-        unplacedSubCodes,
-        setUnplacedSubCodes: async (subCodesOrUpdater) => {
-            const newSubCodes =
-                typeof subCodesOrUpdater === 'function'
-                    ? subCodesOrUpdater(unplacedSubCodes)
-                    : subCodesOrUpdater;
-            const data = await saveCodingContext('setUnplacedSubCodes', {
-                unplacedSubCodes: newSubCodes
-            });
-            if (data.unplacedSubCodes) setUnplacedSubCodesState(data.unplacedSubCodes);
-        },
-        researchQuestions,
-        setResearchQuestions: async (rqsOrUpdater) => {
-            const newResearchQuestions =
-                typeof rqsOrUpdater === 'function' ? rqsOrUpdater(researchQuestions) : rqsOrUpdater;
-            const data = await saveCodingContext('setResearchQuestions', {
-                researchQuestions: newResearchQuestions
-            });
-            if (data.researchQuestions) setResearchQuestionsState(data.researchQuestions);
-        },
-        sampledPostIds,
-        setSampledPostIds: async (idsOrUpdater) => {
-            const newIds =
-                typeof idsOrUpdater === 'function' ? idsOrUpdater(sampledPostIds) : idsOrUpdater;
-            if (newIds) setSampledPostIdsState(newIds);
-        },
-        unseenPostIds,
-        setUnseenPostIds: async (idsOrUpdater) => {
-            const newIds =
-                typeof idsOrUpdater === 'function' ? idsOrUpdater(unseenPostIds) : idsOrUpdater;
-            if (newIds) setUnseenPostIdsState(newIds);
-        },
-        initialCodebookTable,
-        dispatchInitialCodebookTable: async (action: InitialCodebookTableAction) => {
-            const data = await saveCodingContext('dispatchInitialCodebookTable', { action });
-            if (data.initialCodebookTable) setInitialCodebookTableState(data.initialCodebookTable);
-        }
-    };
+        }),
+        [
+            contextFiles,
+            mainTopic,
+            additionalInfo,
+            keywords,
+            selectedKeywords,
+            words,
+            selectedWords,
+            references,
+            keywordTable,
+            sampledPostResponse,
+            unseenPostResponse,
+            themes,
+            unplacedCodes,
+            groupedCodes,
+            unplacedSubCodes,
+            researchQuestions,
+            sampledPostIds,
+            unseenPostIds
+        ]
+    );
 
     return <CodingContext.Provider value={value}>{children}</CodingContext.Provider>;
 };
 
-// Hook to use the CodingContext
 export const useCodingContext = () => {
     const context = useContext(CodingContext);
     if (!context) {

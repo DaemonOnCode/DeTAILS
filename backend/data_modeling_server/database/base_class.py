@@ -225,7 +225,7 @@ class BaseRepository(Generic[T]):
         
     @handle_db_errors
     @auto_recover
-    def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True, order_by: Optional[Dict[str, Any]] = None) -> T | Dict[str, Any] | None:
+    def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True, order_by: Optional[Dict[str, Any]] = None, fail_silently: bool = False) -> T | Dict[str, Any] | None:
         try:
             if order_by:
                 self.query_builder_instance.order_by(**order_by)
@@ -234,8 +234,12 @@ class BaseRepository(Generic[T]):
             query, params = self.query_builder_instance.find(filters)
             return self.fetch_one(query, params, map_to_model=map_to_model)
         except RecordNotFoundError:
+            if not fail_silently:
+                raise
             return None
         except QueryExecutionError:
+            if not fail_silently:
+                raise
             return None
 
     @handle_db_errors

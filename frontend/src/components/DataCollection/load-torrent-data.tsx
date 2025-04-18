@@ -179,12 +179,14 @@ const TorrentDataTab = ({
                             <li>
                                 In some cases, you may need to install the Microsoft Visual C++
                                 Redistributable before installing Transmission. Download it from:
-                                <a
-                                    href="https://aka.ms/vs/17/release/vc_redist.x64.exe"
-                                    target="_blank"
-                                    rel="noopener noreferrer">
+                                <button
+                                    onClick={() =>
+                                        shell.openExternal(
+                                            'https://aka.ms/vs/17/release/vc_redist.x64.exe'
+                                        )
+                                    }>
                                     vc_redist.x64.exe
-                                </a>
+                                </button>
                             </li>
                             <li>Download Transmission for Windows from the official website.</li>
                             <li>

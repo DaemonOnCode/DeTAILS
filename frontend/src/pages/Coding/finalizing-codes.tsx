@@ -28,14 +28,11 @@ import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 
 const FinalzingCodes = () => {
     const location = useLocation();
-
     const {
         sampledPostResponse,
         unseenPostResponse,
         groupedCodes,
         setGroupedCodes,
-        unplacedSubCodes,
-        setUnplacedSubCodes,
         setThemes,
         setUnplacedCodes
     } = useCodingContext();
@@ -57,9 +54,22 @@ const FinalzingCodes = () => {
     const [noResults, setNoResults] = useState(false);
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
-    const codeRefs = useRef(new Map<string, HTMLDivElement>());
+    const codeRefs = useRef(new Map());
 
-    const setCodeRef = useCallback((code: string, node: HTMLDivElement | null) => {
+    // Compute all unique codes from responses
+    const allCodes = Array.from(
+        new Set([
+            ...sampledPostResponse.map((r) => r.code),
+            ...unseenPostResponse.map((r) => r.code)
+        ])
+    );
+
+    // Derive unplacedSubCodes from groupedCodes
+    const unplacedSubCodes = allCodes.filter(
+        (code) => !groupedCodes.some((bucket) => bucket.codes.includes(code))
+    );
+
+    const setCodeRef = useCallback((code, node) => {
         if (node) {
             codeRefs.current.set(code, node);
         } else {
@@ -70,10 +80,9 @@ const FinalzingCodes = () => {
     const handleSearch = () => {
         const trimmedQuery = searchQuery.trim().toLowerCase();
         const allSubCodes = [...groupedCodes.flatMap((group) => group.codes), ...unplacedSubCodes];
-        const matchingCodes = allSubCodes.filter((code) => {
-            const trimmedCode = code.trim().toLowerCase();
-            return trimmedCode.includes(trimmedQuery);
-        });
+        const matchingCodes = allSubCodes.filter((code) =>
+            code.trim().toLowerCase().includes(trimmedQuery)
+        );
 
         codeRefs.current.forEach((el) => {
             if (el) el.classList.remove('highlight');
@@ -81,25 +90,20 @@ const FinalzingCodes = () => {
 
         if (matchingCodes.length > 0) {
             setNoResults(false);
-            let firstMatchElement: HTMLDivElement | null = null;
+            let firstMatchElement = null;
 
             matchingCodes.forEach((code) => {
                 const el = codeRefs.current.get(code);
                 if (el) {
                     el.classList.add('highlight');
-                    if (!firstMatchElement) {
-                        firstMatchElement = el;
-                    }
+                    if (!firstMatchElement) firstMatchElement = el;
                 } else {
                     console.log('Element not found for code:', code);
                 }
             });
 
             if (firstMatchElement) {
-                (firstMatchElement as HTMLDivElement).scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
-                });
+                firstMatchElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         } else {
             setNoResults(true);
@@ -127,23 +131,20 @@ const FinalzingCodes = () => {
             comment: r.comment,
             subCode: r.code
         })),
-        ...unseenPostResponse.map((r) => {
-            return {
-                postId: r.postId,
-                id: r.id,
-                code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                quote: r.quote,
-                explanation: r.explanation,
-                comment: r.comment,
-                subCode: r.code
-            };
-        })
+        ...unseenPostResponse.map((r) => ({
+            postId: r.postId,
+            id: r.id,
+            code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+            quote: r.quote,
+            explanation: r.explanation,
+            comment: r.comment,
+            subCode: r.code
+        }))
     ];
 
     const { scrollRef: codeRef, storageKey: codeStorageKey } = useScrollRestoration(
         `code-list-${review}`
     );
-
     const { scrollRef: unplacedRef, storageKey: unplacedStorageKey } = useScrollRestoration(
         `unplaced-list-${review}`
     );
@@ -152,15 +153,11 @@ const FinalzingCodes = () => {
         if (!review) {
             if (codeRef.current) {
                 const savedPosition = sessionStorage.getItem(codeStorageKey);
-                if (savedPosition) {
-                    codeRef.current.scrollTop = parseInt(savedPosition, 10);
-                }
+                if (savedPosition) codeRef.current.scrollTop = parseInt(savedPosition, 10);
             }
             if (unplacedRef.current) {
                 const savedPosition = sessionStorage.getItem(unplacedStorageKey);
-                if (savedPosition) {
-                    unplacedRef.current.scrollTop = parseInt(savedPosition, 10);
-                }
+                if (savedPosition) unplacedRef.current.scrollTop = parseInt(savedPosition, 10);
             }
         }
     }, [review, codeRef, unplacedRef, codeStorageKey, unplacedStorageKey]);
@@ -173,44 +170,32 @@ const FinalzingCodes = () => {
         }
     }, []);
 
-    const handleDropToBucket = (bucketId: string, code: string) => {
-        performWithUndo(
-            [groupedCodes, unplacedSubCodes],
-            [setGroupedCodes, setUnplacedSubCodes],
-            () => {
-                setGroupedCodes((prevBuckets) =>
-                    prevBuckets.map((bucket) => {
-                        if (bucket.id === bucketId) {
-                            if (!bucket.codes.includes(code)) {
-                                return { ...bucket, codes: [...bucket.codes, code] };
-                            }
-                        } else {
-                            return { ...bucket, codes: bucket.codes.filter((c) => c !== code) };
+    const handleDropToBucket = (bucketId, code) => {
+        performWithUndo([groupedCodes], [setGroupedCodes], () => {
+            setGroupedCodes((prevBuckets) =>
+                prevBuckets.map((bucket) => {
+                    if (bucket.id === bucketId) {
+                        if (!bucket.codes.includes(code)) {
+                            return { ...bucket, codes: [...bucket.codes, code] };
                         }
-                        return bucket;
-                    })
-                );
-                setUnplacedSubCodes((prevCodes) => prevCodes.filter((c) => c !== code));
-            }
-        );
+                    } else {
+                        return { ...bucket, codes: bucket.codes.filter((c) => c !== code) };
+                    }
+                    return bucket;
+                })
+            );
+        });
     };
 
-    const handleDropToUnplaced = (code: string) => {
-        performWithUndo(
-            [groupedCodes, unplacedSubCodes],
-            [setGroupedCodes, setUnplacedSubCodes],
-            () => {
-                setUnplacedSubCodes((prevCodes) =>
-                    prevCodes.includes(code) ? prevCodes : [...prevCodes, code]
-                );
-                setGroupedCodes((prevBuckets) =>
-                    prevBuckets.map((bucket) => ({
-                        ...bucket,
-                        codes: bucket.codes.filter((c) => c !== code)
-                    }))
-                );
-            }
-        );
+    const handleDropToUnplaced = (code) => {
+        performWithUndo([groupedCodes], [setGroupedCodes], () => {
+            setGroupedCodes((prevBuckets) =>
+                prevBuckets.map((bucket) => ({
+                    ...bucket,
+                    codes: bucket.codes.filter((c) => c !== code)
+                }))
+            );
+        });
     };
 
     const handleAddBucket = () => {
@@ -220,61 +205,39 @@ const FinalzingCodes = () => {
                 name: 'New Group',
                 codes: []
             };
-            setGroupedCodes([...groupedCodes, newBucket]);
+            setGroupedCodes((prev) => [...prev, newBucket]);
         });
     };
 
-    const handleDeleteBucket = (bucketId: string) => {
-        performWithUndo(
-            [groupedCodes, unplacedSubCodes],
-            [setGroupedCodes, setUnplacedSubCodes],
-            () => {
-                const bucketToDelete = groupedCodes.find((bucket) => bucket.id === bucketId);
-                if (bucketToDelete) {
-                    setUnplacedSubCodes((prevCodes) => [...prevCodes, ...bucketToDelete.codes]);
-                }
-                setGroupedCodes((prevBuckets) =>
-                    prevBuckets.filter((bucket) => bucket.id !== bucketId)
-                );
-            }
-        );
+    const handleDeleteBucket = (bucketId) => {
+        performWithUndo([groupedCodes], [setGroupedCodes], () => {
+            setGroupedCodes((prevBuckets) =>
+                prevBuckets.filter((bucket) => bucket.id !== bucketId)
+            );
+        });
     };
 
     const handleFeedbackSubmit = async () => {
         setIsFeedbackModalOpen(false);
         if (await checkIfDataExists(location.pathname)) {
-            openModal('refresh--reviewing-codes-submitted', async () => {
+            openModal('refresh-reviewing-codes-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
                 await handleRefreshCodes(feedback);
             });
         } else {
-            loadingDispatch({
-                type: 'SET_REST_UNDONE',
-                route: location.pathname
-            });
+            loadingDispatch({ type: 'SET_REST_UNDONE', route: location.pathname });
             handleRefreshCodes(feedback);
         }
         setFeedback('');
     };
 
     const handleNextClick = async () => {
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.GENERATING_THEMES
-        });
+        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-            data: {
-                themes: any[];
-                unplaced_codes: any[];
-            };
-        }>(REMOTE_SERVER_ROUTES.THEME_GENERATION, {
+        const { data: results, error } = await fetchLLMData(REMOTE_SERVER_ROUTES.THEME_GENERATION, {
             method: 'POST',
-            body: JSON.stringify({
-                model: settings.ai.model
-            })
+            body: JSON.stringify({ model: settings.ai.model })
         });
 
         if (error) {
@@ -292,35 +255,18 @@ const FinalzingCodes = () => {
         }
         console.log('Results:', results);
 
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.GENERATING_THEMES
-        });
+        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
     };
 
     const handleRefreshCodes = async (extraFeedback = '') => {
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.REVIEWING_CODES
-        });
+        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.REVIEWING_CODES });
         navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                text: 'reviewing codes'
-            })
+            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, { text: 'Reviewing Codes' })
         );
 
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-            data: {
-                higher_level_codes: any[];
-                unplaced_codes: any[];
-            };
-        }>(REMOTE_SERVER_ROUTES.REGROUP_CODES, {
+        const { data: results, error } = await fetchLLMData(REMOTE_SERVER_ROUTES.REGROUP_CODES, {
             method: 'POST',
-            body: JSON.stringify({
-                model: settings.ai.model,
-                feedback: extraFeedback
-            })
+            body: JSON.stringify({ model: settings.ai.model, feedback: extraFeedback })
         });
 
         if (error) {
@@ -336,19 +282,14 @@ const FinalzingCodes = () => {
 
         console.log('Results:', results);
 
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.REVIEWING_CODES
-        });
+        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.REVIEWING_CODES });
         navigate(PAGE_ROUTES.REVIEWING_CODES);
     };
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
             navigate(
-                getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                    text: 'reviewing codes'
-                })
+                getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, { text: 'reviewing codes' })
             );
         }
     }, []);
@@ -371,37 +312,29 @@ const FinalzingCodes = () => {
     }, []);
 
     const handleMoveToMiscellaneous = useCallback(() => {
-        performWithUndo(
-            [groupedCodes, unplacedSubCodes],
-            [setGroupedCodes, setUnplacedSubCodes],
-            () => {
-                setGroupedCodes((prevBuckets) => {
-                    if (prevBuckets.find((bucket) => bucket.name === 'Miscellaneous')) {
-                        return prevBuckets.map((bucket) => {
-                            if (bucket.name === 'Miscellaneous') {
-                                return {
-                                    ...bucket,
-                                    codes: [...bucket.codes, ...unplacedSubCodes]
-                                };
-                            }
-                            return bucket;
-                        });
+        performWithUndo([groupedCodes], [setGroupedCodes], () => {
+            setGroupedCodes((prevBuckets) => {
+                const miscBucket = prevBuckets.find((bucket) => bucket.name === 'Miscellaneous');
+                if (miscBucket) {
+                    return prevBuckets.map((bucket) =>
+                        bucket.id === miscBucket.id
+                            ? { ...bucket, codes: [...bucket.codes, ...unplacedSubCodes] }
+                            : bucket
+                    );
+                }
+                return [
+                    ...prevBuckets,
+                    {
+                        id: (prevBuckets.length + 1).toString(),
+                        name: 'Miscellaneous',
+                        codes: unplacedSubCodes
                     }
-                    return [
-                        ...prevBuckets,
-                        {
-                            id: (prevBuckets.length + 1).toString(),
-                            name: 'Miscellaneous',
-                            codes: unplacedSubCodes
-                        }
-                    ];
-                });
-                setUnplacedSubCodes([]);
-            }
-        );
+                ];
+            });
+        });
     }, [unplacedSubCodes]);
 
-    const steps: TutorialStep[] = [
+    const steps = [
         {
             target: '#finalized-main',
             content: 'This is the Reviewing codes page. Here you can review and edit your codes.',
@@ -409,14 +342,12 @@ const FinalzingCodes = () => {
         },
         {
             target: '#review-edit-pill',
-            content:
-                'Click this button to toggle between review, where you can analyze the LLM generated codes and edit mode, where you can update the higher level codes formed from codes.',
+            content: 'Click this button to toggle between review and edit mode.',
             placement: 'bottom'
         },
         {
             target: '#finalized-code-table',
-            content:
-                'This table displays all the code responses. You can review the codes and their responses here.',
+            content: 'This table displays all the code responses.',
             placement: 'top'
         },
         {
@@ -459,7 +390,7 @@ const FinalzingCodes = () => {
                         </div>
                     </header>
                 )}
-                <div className=" flex flex-col flex-1 overflow-hidden h-full">
+                <div className="flex flex-col flex-1 overflow-hidden h-full">
                     {review ? (
                         <div className="flex-1 overflow-auto pb-6" id="finalized-code-table">
                             <ValidationTable
@@ -520,12 +451,10 @@ const FinalzingCodes = () => {
                                     </button>
                                     <button
                                         id="refresh-codes-button"
-                                        onClick={() => {
-                                            setIsFeedbackModalOpen(true);
-                                        }}
+                                        onClick={() => setIsFeedbackModalOpen(true)}
                                         className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
                                         <DetailsLLMIcon className="h-6 w-6" />
-                                        Redo grouping
+                                        Redo with feedback
                                     </button>
                                 </div>
                             </div>

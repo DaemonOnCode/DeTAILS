@@ -30,7 +30,7 @@ const ThemeLoaderPage = () => {
         } else if (message.includes('Files uploaded successfully')) {
             setStage('Files Uploaded');
         } else if (message.includes('Using Retrieval-Augmented Generation (RAG)')) {
-            setStage('Generating Keywords');
+            setStage('Generating Related Concepts');
         } else if (message.includes('LLM process completed successfully')) {
             setStage('Processing Complete');
         } else if (message.includes('Error encountered')) {
@@ -39,12 +39,12 @@ const ThemeLoaderPage = () => {
     };
 
     useEffect(() => {
-        registerCallback('theme-loader', handleWebSocketMessage);
-        logger.info('Loaded Theme Loader Page');
+        registerCallback('concept-loader', handleWebSocketMessage);
+        logger.info('Loaded Concept Loader Page');
 
         return () => {
-            unregisterCallback('theme-loader');
-            logger.info('Unloaded Theme Loader Page');
+            unregisterCallback('concept-loader');
+            logger.info('Unloaded Concept Loader Page');
         };
     }, []);
 
@@ -101,7 +101,6 @@ const ThemeLoaderPage = () => {
                         <FaLaptop size={50} />
                     </div>
 
-                    {/* Center: Staggered Moving Files */}
                     <motion.div
                         className="relative flex gap-4 items-center w-full"
                         variants={staggeredFiles}
@@ -119,7 +118,6 @@ const ThemeLoaderPage = () => {
 
                     <div className="flex flex-col items-center justify-center w-24 h-24 rounded-md text-gray-800 p-2">
                         <DetailsIcon className="h-20 w-20" />
-                        {/* <span className="text-sm font-bold">Toolkit</span> */}
                     </div>
                 </div>
             )}
@@ -131,10 +129,9 @@ const ThemeLoaderPage = () => {
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 1.5 }}
                         className="text-gray-800 text-4xl font-bold tracking-wide z-10">
-                        Generating Keywords
+                        Generating Related Concepts
                     </motion.h1>
 
-                    {/* Dynamic Rectangles */}
                     <div className="absolute">
                         {rectangles.map((rect) => (
                             <motion.div
@@ -181,7 +178,7 @@ const ThemeLoaderPage = () => {
                         opacity: [1, 0.8, 1],
                         transition: { duration: 1, repeat: Infinity }
                     }}>
-                    <span className="text-lg font-bold mt-2">Keywords Generated!</span>
+                    <span className="text-lg font-bold mt-2">Related Concepts Generated!</span>
                 </motion.div>
             )}
 
