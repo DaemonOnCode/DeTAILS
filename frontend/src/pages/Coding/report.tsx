@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { PAGE_ROUTES } from '../../constants/Coding/shared';
-import RedditViewModal from '../../components/Coding/Shared/reddit-view-modal';
+import RedditViewModal from '../../components/Shared/reddit-view-modal';
 import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding-context';

@@ -423,3 +423,10 @@ export type InitialCodebookTableAction =
     | { type: 'ADD_ROW'; entry?: InitialCodebookCode }
     | { type: 'RESET' }
     | { type: 'RESTORE_STATE'; payload: InitialCodebookCode[] };
+
+export type BaseBucketAction =
+    | { type: 'ADD_BUCKET' }
+    | { type: 'DELETE_BUCKET'; payload: string }
+    | { type: 'MOVE_CODE'; payload: { code: string; targetBucketId: string } }
+    | { type: 'MOVE_UNPLACED_TO_MISC' }
+    | { type: 'RESTORE_STATE'; payload: GroupedCodeBucket[] | ThemeBucket[] };

@@ -1,12 +1,4 @@
-import React, {
-    createContext,
-    useState,
-    useEffect,
-    useContext,
-    FC,
-    Dispatch,
-    useMemo
-} from 'react';
+import React, { createContext, useState, useEffect, useContext, FC, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useLoadingContext } from './loading-context';
 import { PAGE_ROUTES } from '../constants/Coding/shared';
@@ -15,7 +7,6 @@ import {
     IFile,
     IReference,
     IQECResponse,
-    IQECTResponse,
     IQECTTyResponse,
     ThemeBucket,
     GroupedCodeBucket,
@@ -23,10 +14,9 @@ import {
     InitialCodebookCode,
     KeywordsTableAction,
     SampleDataResponseReducerActions,
-    SampleDataWithThemeResponseReducerActions,
     BaseResponseHandlerActions,
     InitialCodebookTableAction,
-    SetState
+    BaseBucketAction
 } from '../types/Coding/shared';
 import { useApi } from '../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
@@ -44,10 +34,6 @@ export const CodingContext = createContext<ICodingContext>({
     setKeywords: async () => {},
     selectedKeywords: [],
     setSelectedKeywords: async () => {},
-    words: [],
-    setWords: async () => {},
-    selectedWords: [],
-    setSelectedWords: async () => {},
     references: {},
     setReferences: async () => {},
     keywordTable: [],
@@ -59,13 +45,9 @@ export const CodingContext = createContext<ICodingContext>({
     unseenPostResponse: [],
     dispatchUnseenPostResponse: async () => {},
     themes: [],
-    setThemes: async () => {},
-    unplacedCodes: [],
-    setUnplacedCodes: async () => {},
+    dispatchThemes: async () => {},
     groupedCodes: [],
-    setGroupedCodes: async () => {},
-    unplacedSubCodes: [],
-    setUnplacedSubCodes: async () => {},
+    dispatchGroupedCodes: async () => {},
     researchQuestions: [],
     setResearchQuestions: async () => {},
     sampledPostIds: [],
@@ -75,6 +57,24 @@ export const CodingContext = createContext<ICodingContext>({
     initialCodebookTable: [],
     dispatchInitialCodebookTable: async () => {}
 });
+
+function arraysEqual(arr1, arr2) {
+    return arr1?.length === arr2?.length && arr1?.every((val, index) => val === arr2[index]);
+}
+
+function calculateDiff(oldStruct: any, newStruct: any) {
+    const diff: any = {};
+    if (oldStruct.id !== newStruct.id) {
+        diff.id = { from: oldStruct.id, to: newStruct.id };
+    }
+    if (oldStruct.name !== newStruct.name) {
+        diff.name = { from: oldStruct.name, to: newStruct.name };
+    }
+    if (!arraysEqual(oldStruct.code, newStruct.code)) {
+        diff.code = { from: oldStruct.code, to: newStruct.code };
+    }
+    return diff;
+}
 
 export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
     const location = useLocation();
@@ -87,19 +87,14 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
     const [researchQuestions, setResearchQuestionsState] = useState<string[]>([]);
     const [keywords, setKeywordsState] = useState<Keyword[]>([]);
     const [selectedKeywords, setSelectedKeywordsState] = useState<string[]>([]);
-    const [words, setWordsState] = useState<Keyword[]>([]);
-    const [selectedWords, setSelectedWordsState] = useState<Keyword[]>([]);
     const [references, setReferencesState] = useState<{ [code: string]: IReference[] }>({});
     const [keywordTable, setKeywordTableState] = useState<KeywordEntry[]>([]);
     const [sampledPostResponse, setSampledPostResponseState] = useState<IQECResponse[]>([]);
-    const [sampledPostResponseCopy, setSampledPostResponseCopyState] = useState<IQECResponse[]>([]);
-    const [sampledPostWithThemeResponse, setSampledPostWithThemeResponseState] = useState<
-        IQECTResponse[]
-    >([]);
     const [unseenPostResponse, setUnseenPostResponseState] = useState<IQECTTyResponse[]>([]);
     const [themes, setThemesState] = useState<ThemeBucket[]>([]);
     const [unplacedCodes, setUnplacedCodesState] = useState<string[]>([]);
     const [groupedCodes, setGroupedCodesState] = useState<GroupedCodeBucket[]>([]);
+    // const [groupedCodes, setGroupedCodesState] = useState<GroupedCodeBucket[]>([]);
     const [unplacedSubCodes, setUnplacedSubCodesState] = useState<string[]>([]);
     const [sampledPostIds, setSampledPostIdsState] = useState<string[]>([]);
     const [unseenPostIds, setUnseenPostIdsState] = useState<string[]>([]);
@@ -128,18 +123,12 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         researchQuestions: setResearchQuestionsState,
         keywords: setKeywordsState,
         selectedKeywords: setSelectedKeywordsState,
-        words: setWordsState,
-        selectedWords: setSelectedWordsState,
         references: setReferencesState,
         keywordTable: setKeywordTableState,
         sampledPostResponse: setSampledPostResponseState,
-        // sampledPostResponseCopy: setSampledPostResponseCopyState,
-        // sampledPostWithThemeResponse: setSampledPostWithThemeResponseState,
         unseenPostResponse: setUnseenPostResponseState,
         themes: setThemesState,
-        unplacedCodes: setUnplacedCodesState,
         groupedCodes: setGroupedCodesState,
-        unplacedSubCodes: setUnplacedSubCodesState,
         sampledPostIds: setSampledPostIdsState,
         unseenPostIds: setUnseenPostIdsState,
         initialCodebookTable: setInitialCodebookTableState
@@ -152,18 +141,12 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
         researchQuestions: () => setResearchQuestionsState([]),
         keywords: () => setKeywordsState([]),
         selectedKeywords: () => setSelectedKeywordsState([]),
-        words: () => setWordsState([]),
-        selectedWords: () => setSelectedWordsState([]),
         references: () => setReferencesState({}),
         keywordTable: () => setKeywordTableState([]),
         sampledPostResponse: () => setSampledPostResponseState([]),
-        // sampledPostResponseCopy: () => setSampledPostResponseCopyState([]),
-        // sampledPostWithThemeResponse: () => setSampledPostWithThemeResponseState([]),
         unseenPostResponse: () => setUnseenPostResponseState([]),
         themes: () => setThemesState([]),
-        unplacedCodes: () => setUnplacedCodesState([]),
         groupedCodes: () => setGroupedCodesState([]),
-        unplacedSubCodes: () => setUnplacedSubCodesState([]),
         sampledPostIds: () => setSampledPostIdsState([]),
         unseenPostIds: () => setUnseenPostIdsState([]),
         initialCodebookTable: () => setInitialCodebookTableState([])
@@ -322,7 +305,9 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 'groupedCodes',
                 'unplacedSubCodes',
                 'themes',
-                'unplacedCodes'
+                'unplacedCodes',
+                'sampledPostIds',
+                'unseenPostIds'
             ],
             [PAGE_ROUTES.CONTEXT]: [
                 'contextFiles',
@@ -410,24 +395,6 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 });
                 if (data.selectedKeywords) setSelectedKeywordsState(data.selectedKeywords);
             },
-            words,
-            setWords: async (wdsOrUpdater) => {
-                const newWords =
-                    typeof wdsOrUpdater === 'function' ? wdsOrUpdater(words) : wdsOrUpdater;
-                const data = await saveCodingContext('setWords', { words: newWords });
-                if (data.words) setWordsState(data.words);
-            },
-            selectedWords,
-            setSelectedWords: async (swdsOrUpdater) => {
-                const newSelectedWords =
-                    typeof swdsOrUpdater === 'function'
-                        ? swdsOrUpdater(selectedWords)
-                        : swdsOrUpdater;
-                const data = await saveCodingContext('setSelectedWords', {
-                    selectedWords: newSelectedWords
-                });
-                if (data.selectedWords) setSelectedWordsState(data.selectedWords);
-            },
             references,
             setReferences: async (refsOrUpdater) => {
                 const newReferences =
@@ -450,15 +417,9 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 if (data.researchQuestions) setResearchQuestionsState(data.researchQuestions);
                 if (data.keywords) setKeywordsState(data.keywords);
                 if (data.selectedKeywords) setSelectedKeywordsState(data.selectedKeywords);
-                if (data.words) setWordsState(data.words);
-                if (data.selectedWords) setSelectedWordsState(data.selectedWords);
                 if (data.references) setReferencesState(data.references);
                 if (data.keywordTable) setKeywordTableState(data.keywordTable);
                 if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
-                if (data.sampledPostResponseCopy)
-                    setSampledPostResponseCopyState(data.sampledPostResponseCopy);
-                if (data.sampledPostWithThemeResponse)
-                    setSampledPostWithThemeResponseState(data.sampledPostWithThemeResponse);
                 if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
                 if (data.themes) setThemesState(data.themes);
                 if (data.unplacedCodes) setUnplacedCodesState(data.unplacedCodes);
@@ -478,18 +439,12 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                     setResearchQuestionsState([]);
                     setKeywordsState([]);
                     setSelectedKeywordsState([]);
-                    setWordsState([]);
-                    setSelectedWordsState([]);
                     setReferencesState({});
                     setKeywordTableState([]);
                     setSampledPostResponseState([]);
-                    // setSampledPostResponseCopyState([]);
-                    // setSampledPostWithThemeResponseState([]);
                     setUnseenPostResponseState([]);
                     setThemesState([]);
-                    setUnplacedCodesState([]);
                     setGroupedCodesState([]);
-                    setUnplacedSubCodesState([]);
                     setSampledPostIdsState([]);
                     setUnseenPostIdsState([]);
                     setInitialCodebookTableState([]);
@@ -501,28 +456,6 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 console.log('Sampled Post Response:', data);
                 if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
             },
-            // sampledPostResponseCopy,
-            // setSampledPostResponseCopy: async (copyOrUpdater) => {
-            //     const newCopy =
-            //         typeof copyOrUpdater === 'function'
-            //             ? copyOrUpdater(sampledPostResponseCopy)
-            //             : copyOrUpdater;
-            //     const data = await saveCodingContext('setSampledPostResponseCopy', {
-            //         sampledPostResponseCopy: newCopy
-            //     });
-            //     if (data.sampledPostResponseCopy)
-            //         setSampledPostResponseCopyState(data.sampledPostResponseCopy);
-            // },
-            // sampledPostWithThemeResponse,
-            // dispatchSampledPostWithThemeResponse: async (
-            //     action: SampleDataWithThemeResponseReducerActions
-            // ) => {
-            //     const data = await saveCodingContext('dispatchSampledPostWithThemeResponse', {
-            //         action
-            //     });
-            //     if (data.sampledPostWithThemeResponse)
-            //         setSampledPostWithThemeResponseState(data.sampledPostWithThemeResponse);
-            // },
             unseenPostResponse,
             dispatchUnseenPostResponse: async (
                 action: BaseResponseHandlerActions<IQECTTyResponse>
@@ -532,44 +465,23 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
             },
             themes,
-            setThemes: async (tmsOrUpdater) => {
-                const newThemes =
-                    typeof tmsOrUpdater === 'function' ? tmsOrUpdater(themes) : tmsOrUpdater;
-                const data = await saveCodingContext('setThemes', { themes: newThemes });
+            dispatchThemes: async (action) => {
+                const data = await saveCodingContext('dispatchThemes', {
+                    action
+                });
                 if (data.themes) setThemesState(data.themes);
             },
-            unplacedCodes,
-            setUnplacedCodes: async (codesOrUpdater) => {
-                const newCodes =
-                    typeof codesOrUpdater === 'function'
-                        ? codesOrUpdater(unplacedCodes)
-                        : codesOrUpdater;
-                const data = await saveCodingContext('setUnplacedCodes', {
-                    unplacedCodes: newCodes
-                });
-                if (data.unplacedCodes) setUnplacedCodesState(data.unplacedCodes);
-            },
             groupedCodes,
-            setGroupedCodes: async (gcsOrUpdater) => {
-                const newGroupedCodes =
-                    typeof gcsOrUpdater === 'function' ? gcsOrUpdater(groupedCodes) : gcsOrUpdater;
-                const data = await saveCodingContext('setGroupedCodes', {
-                    groupedCodes: newGroupedCodes
+            dispatchGroupedCodes: async (action: BaseBucketAction) => {
+                // const newGroupedCodes =
+                //     typeof gcsOrUpdater === 'function' ? gcsOrUpdater(groupedCodes) : gcsOrUpdater;
+                console.log('Setting grouped codes:', action);
+                // console.log('New Grouped Codes:', newGroupedCodes);
+                const data = await saveCodingContext('dispatchGroupedCodes', {
+                    action
                 });
+                // console.log('Grouped Codes:', data, newGroupedCodes);
                 if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
-                if (data.unplacedSubCodes) setUnplacedSubCodesState(data.unplacedSubCodes);
-            },
-            unplacedSubCodes,
-            setUnplacedSubCodes: async (subCodesOrUpdater) => {
-                // const newSubCodes =
-                //     typeof subCodesOrUpdater === 'function'
-                //         ? subCodesOrUpdater(unplacedSubCodes)
-                //         : subCodesOrUpdater;
-                // const data = await saveCodingContext('setUnplacedSubCodes', {
-                //     unplacedSubCodes: newSubCodes
-                // });
-                // if (data.unplacedSubCodes) setUnplacedSubCodesState(data.unplacedSubCodes);
-                // if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
             },
             researchQuestions,
             setResearchQuestions: async (rqsOrUpdater) => {
@@ -609,8 +521,6 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
             additionalInfo,
             keywords,
             selectedKeywords,
-            words,
-            selectedWords,
             references,
             keywordTable,
             sampledPostResponse,
@@ -621,7 +531,8 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
             unplacedSubCodes,
             researchQuestions,
             sampledPostIds,
-            unseenPostIds
+            unseenPostIds,
+            initialCodebookTable
         ]
     );
 

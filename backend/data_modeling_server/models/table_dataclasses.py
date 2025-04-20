@@ -467,17 +467,17 @@ class InitialCodebookEntry(BaseDataclass):
 @dataclass
 class GroupedCodeEntry(BaseDataclass):
     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
-    code: str = field(metadata={"not_null": True})
+    code: Optional[str] = None
     higher_level_code: Optional[str] = None
-    higher_level_code_id: Optional[str] = ""
+    higher_level_code_id: Optional[str] = None
     id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
 
 @dataclass
 class ThemeEntry(BaseDataclass):
     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
-    higher_level_code: str = field(metadata={"not_null": True})
+    higher_level_code: Optional[str] = None
     theme: Optional[str] = None
-    theme_id: Optional[str] = ""
+    theme_id: Optional[str] = None
     id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
 
 @dataclass

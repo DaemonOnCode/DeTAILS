@@ -11,7 +11,7 @@ import pandas as pd
 from config import Settings, CustomSettings
 from constants import CODEBOOK_TYPE_MAP, STUDY_DATABASE_PATH
 from controllers.coding_controller import build_where_clause_and_params, cluster_words_with_llm, filter_codes_by_transcript, filter_duplicate_codes_in_db, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
-from controllers.collection_controller import count_comments, get_reddit_post_by_id
+from controllers.collection_controller import count_comments, get_post_and_comments_from_id, get_reddit_post_by_id
 from database.coding_context_table import CodingContextRepository
 from database.context_file_table import ContextFilesRepository
 from database.grouped_code_table import GroupedCodeEntriesRepository
@@ -32,7 +32,7 @@ from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
 from models import FunctionProgress, QectResponse
-from database.db_helpers import execute_query, get_post_and_comments_from_id
+from database.db_helpers import execute_query
 from utils.prompts import ConceptOutline, ContextPrompt, FinalCoding, GenerateCodebookWithoutQuotes, GenerateDeductiveCodesFromCodebook, GroupCodes, InitialCodePrompts, RefineSingleCode, RemakerPrompts, ThemeGeneration
 
 
@@ -84,6 +84,12 @@ async def sample_posts_endpoint(
 
     start_time = time.time()
 
+
+    try:
+        selected_post_ids_repo.update({"dataset_id": dataset_id}, {"type": "ungrouped"})
+    except Exception as e:
+        print(e)
+    
     sem = asyncio.Semaphore(os.cpu_count())
 
     async def fetch_and_compute_length(post_id: str):
@@ -312,12 +318,6 @@ async def build_context_from_interests_endpoint(
         word=mainTopic,
         coding_context_id=workspace_id,
     ))
-
-    try:
-        keywords_repo.delete({"coding_context_id": workspace_id})
-        selected_keywords_repo.delete({"coding_context_id": workspace_id})
-    except Exception as e:
-        print(e)
     
     keywords_repo.insert_batch(keywords_with_ids)
     selected_keywords_repo.insert(
@@ -1042,15 +1042,27 @@ async def theme_generation_endpoint(
         for theme in themes for code in theme["codes"] 
     ])
 
-    themes_repo.insert_batch([
-        ThemeEntry(
-            higher_level_code=code, 
-            theme=None,
-            theme_id=None,
-            coding_context_id=dataset_id,
-        ) 
-        for code in unplaced_codes
-    ])
+    if len(unplaced_codes) > 0:
+        themes_repo.insert_batch([
+            ThemeEntry(
+                higher_level_code=code, 
+                theme=None,
+                theme_id=None,
+                coding_context_id=dataset_id,
+            ) 
+            for code in unplaced_codes
+        ])
+    else:
+        themes_repo.insert(
+            ThemeEntry(
+                higher_level_code=None, 
+                theme=None,
+                theme_id=None,
+                coding_context_id=dataset_id,
+            ) 
+        )
+
+    
 
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation completed.")
 
@@ -1177,15 +1189,25 @@ async def redo_theme_generation_endpoint(
         for theme in themes for code in theme["codes"] 
     ])
 
-    themes_repo.insert_batch([
-        ThemeEntry(
-            higher_level_code=code, 
-            theme=None,
-            theme_id=None,
-            coding_context_id=dataset_id,
-        ) 
-        for code in unplaced_codes
-    ])
+    if len(unplaced_codes) > 0:
+        themes_repo.insert_batch([
+            ThemeEntry(
+                higher_level_code=code, 
+                theme=None,
+                theme_id=None,
+                coding_context_id=dataset_id,
+            ) 
+            for code in unplaced_codes
+        ])
+    else:
+        themes_repo.insert(
+            ThemeEntry(
+                higher_level_code=None, 
+                theme=None,
+                theme_id=None,
+                coding_context_id=dataset_id,
+            ) 
+        )
 
 
     await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation redo completed.")
@@ -1749,15 +1771,25 @@ async def group_codes_endpoint(
         for higher_level_code in higher_level_codes for code in higher_level_code["codes"]
     ])
 
-    grouped_codes_repo.insert_batch([
-        GroupedCodeEntry(
-            code=code, 
-            higher_level_code = None,
-            higher_level_code_id = None,
-            coding_context_id=dataset_id,
-        ) 
-        for code in unplaced_codes
-    ])
+    if len(unplaced_codes) > 0:
+        grouped_codes_repo.insert_batch([
+            GroupedCodeEntry(
+                code=code, 
+                higher_level_code = None,
+                higher_level_code_id = None,
+                coding_context_id=dataset_id,
+            ) 
+            for code in unplaced_codes
+        ])
+    else:
+        grouped_codes_repo.insert(
+            GroupedCodeEntry(
+                code=None, 
+                higher_level_code = None,
+                higher_level_code_id = None,
+                coding_context_id=dataset_id,
+            ) 
+        )
 
     state_dump_repo.insert(
             StateDump(
@@ -1871,15 +1903,25 @@ async def regroup_codes_endpoint(
         for higher_level_code in higher_level_codes for code in higher_level_code["codes"]
     ])
 
-    grouped_codes_repo.insert_batch([
-        GroupedCodeEntry(
-            code=code, 
-            higher_level_code = None,
-            higher_level_code_id = None,
-            coding_context_id=dataset_id,
-        ) 
-        for code in unplaced_codes
-    ])
+    if len(unplaced_codes) > 0:
+        grouped_codes_repo.insert_batch([
+            GroupedCodeEntry(
+                code=code, 
+                higher_level_code = None,
+                higher_level_code_id = None,
+                coding_context_id=dataset_id,
+            ) 
+            for code in unplaced_codes
+        ])
+    else:
+        grouped_codes_repo.insert(
+            GroupedCodeEntry(
+                code=None, 
+                higher_level_code = None,
+                higher_level_code_id = None,
+                coding_context_id=dataset_id,
+            ) 
+        )
 
     state_dump_repo.insert(
             StateDump(

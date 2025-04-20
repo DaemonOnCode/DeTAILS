@@ -4,7 +4,7 @@ import { FC } from 'react';
 
 interface UnplacedCodesBoxProps {
     unplacedCodes: string[];
-    onDrop: (code: string) => void;
+    onDrop: (themeId: string | null, code: string) => void;
     setCodeRef: (code: string, node: HTMLDivElement | null) => void;
     scrollRef: React.RefObject<HTMLDivElement>;
 }
@@ -17,7 +17,7 @@ const UnplacedCodesBox: FC<UnplacedCodesBoxProps> = ({
 }) => {
     const [{ isOver }, drop] = useDrop(() => ({
         accept: 'CODE',
-        drop: (item: { code: string }) => onDrop(item.code),
+        drop: (item: { code: string }) => onDrop(null, item.code),
         collect: (monitor) => ({ isOver: !!monitor.isOver() })
     }));
 

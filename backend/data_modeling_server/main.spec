@@ -11,7 +11,7 @@ if os.name == "nt":  # Windows
 elif sys.platform == "darwin": # MacOS
     model_path = os.path.join(base_path, "./.venv/lib/python3.11/site-packages/en_core_web_sm/en_core_web_sm-3.8.0")
 else:
-    model_path = os.path.expanduser("~/Desktop/waterloo/abc_env/dms_env/linenv/lib/python3.12/site-packages/en_core_web_sm/en_core_web_sm-3.8.0")
+    model_path = os.path.expanduser("./linenv/lib/python3.12/site-packages/en_core_web_sm/en_core_web_sm-3.8.0")
 
 a = Analysis(
     ['main.py'],

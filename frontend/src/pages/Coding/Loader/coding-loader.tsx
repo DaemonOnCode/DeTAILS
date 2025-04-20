@@ -42,6 +42,14 @@ const FinalCoding = () => {
     const [postsFinished, setPostsFinished] = useState<number>(0);
 
     const currentPostIds = headingText.includes('Final') ? unseenPostIds : sampledPostIds;
+    console.log(
+        'Current post IDs:',
+        currentPostIds,
+        headingText,
+        currentPostIds.length,
+        unseenPostIds,
+        sampledPostIds
+    );
 
     const handleWebsocketMessage = (message: string) => {
         console.log('Websocket message:', message);

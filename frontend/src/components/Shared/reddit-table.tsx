@@ -1,6 +1,6 @@
 import { FC, useState } from 'react';
 import { RedditPosts } from '../../types/Coding/shared';
-import RedditViewModal from '../Coding/Shared/reddit-view-modal';
+import RedditViewModal from './reddit-view-modal';
 import { RedditTableProps } from '../../types/Coding/props';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '../../constants/Coding/shared';

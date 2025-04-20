@@ -179,15 +179,15 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     };
 
     useEffect(() => {
+        console.log('Fetching posts with filters:', dataFilters);
         fetchPosts();
     }, [
         debouncedSearchTerm,
-        dataFilters.reddit?.start_time,
-        dataFilters.reddit?.end_time,
-        dataFilters.reddit?.hide_removed,
+        dataFilters?.reddit?.start_time,
+        dataFilters?.reddit?.end_time,
+        dataFilters?.reddit?.hide_removed,
         currentPage,
-        itemsPerPage,
-        datasetId
+        itemsPerPage
     ]);
 
     const totalPages = Math.ceil(totalCount / itemsPerPage);

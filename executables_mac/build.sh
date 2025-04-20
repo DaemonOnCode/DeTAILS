@@ -90,7 +90,7 @@ build_backend() {
   cd "$PROJECT_ROOT/backend/data_modeling_server"
   rm -rf dist build
   source ./.venv/bin/activate
-  pyinstaller main.spec
+  python -m PyInstaller main.spec
   deactivate
   mkdir -p "$PROJECT_ROOT/executables_mac/data-modeling-server"
   cp dist/main "$PROJECT_ROOT/executables_mac/data-modeling-server/"

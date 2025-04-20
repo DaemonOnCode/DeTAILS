@@ -83,14 +83,14 @@ flowchart LR
     style App fill:#f5f5f5,stroke:#999999,stroke-width:2px,stroke-dasharray:5 5
     direction LR
 
-    subgraph UI["UI Layer (React + Electron)"]
+    subgraph UI["Frontend (React + Electron)"]
       style UI fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
       direction LR
 
       R["React"]
       E["Electron"]
 
-      R -. IPC .-> E
+      R <-. IPC .-> E
     end
 
     subgraph BE["Backend (Server + Services)"]
@@ -187,6 +187,16 @@ flowchart LR
 **Important:** Building requires specific prerequisites (languages, compilers, libraries) installed on your system. The provided build scripts assume these are available. Pre-built executables for core backend services need to be built using the build scripts in the `executables_*` directories for convenience. Running `npm run make-*` command in the frontend folder builds the frontend as well as the backend services.
 
 ### 1. Frontend (React + Electron)
+
+#### 🔐 Google OAuth Setup (Client JSON File)
+
+DeTAILS reads a single JSON credentials file from GCP to configure OAuth. Follow these steps:
+
+- **Generate your OAuth client credentials**
+
+  - In the [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials), click **Create Credentials → OAuth client ID**, choose **Desktop application** and fill out the rest of the required information
+  - Download the resulting `client-*.json` file.
+  - Add the client json file path in the .env file inside frontend folder
 
 - **Prerequisites:** Node.js, npm
 - **Steps:**

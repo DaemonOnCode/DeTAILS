@@ -4,15 +4,19 @@ import json
 from typing import Any, Dict, List
 from uuid import uuid4
 from config import CustomSettings
+from database.grouped_code_table import GroupedCodeEntriesRepository
 from database.initial_codebook_table import InitialCodebookEntriesRepository
 from database.keyword_entry_table import KeywordEntriesRepository
 from database.qect_table import QectRepository
-from models.table_dataclasses import CodebookType, InitialCodebookEntry, KeywordEntry, QectResponse, ResponseCreatorType
+from database.theme_table import ThemeEntriesRepository
+from models.table_dataclasses import CodebookType, GroupedCodeEntry, InitialCodebookEntry, KeywordEntry, QectResponse, ResponseCreatorType, ThemeEntry
 
 
 keyword_entries_repo = KeywordEntriesRepository()
 qect_repo = QectRepository()
 initial_codebook_repo = InitialCodebookEntriesRepository()
+grouped_code_repo = GroupedCodeEntriesRepository()
+themes_repo = ThemeEntriesRepository()
 
 def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> None:
     action_type = action["type"]
@@ -675,3 +679,205 @@ def process_initial_codebook_table_action(workspace_id: str, action: Dict[str, A
 
     else:
         print(f"Unknown action type: {action_type}")
+
+def process_grouped_codes_action(workspace_id: str, action: Dict[str, Any]) -> None:
+    """Process actions related to grouped codes for a given workspace.
+
+    Args:
+        workspace_id (str): The ID of the workspace.
+        action (Dict[str, Any]): The action containing type and payload.
+
+    Raises:
+        ValueError: If the action type is missing or unknown, or required payload fields are absent.
+    """
+    action_type = action.get("type")
+    if not action_type:
+        raise ValueError("Action type is required")
+
+    filters = {"coding_context_id": workspace_id}
+
+    if action_type == "ADD_BUCKET":
+        bucket_id = str(uuid4())
+        grouped_code_repo.insert(
+            GroupedCodeEntry(
+                coding_context_id=workspace_id,
+                higher_level_code="New Bucket",
+                higher_level_code_id=bucket_id,
+                code=None,
+            )
+        )
+
+    elif action_type == "DELETE_BUCKET":
+        # Unassign codes from the specified bucket by setting their bucket fields to None
+        bucket_id = action.get("payload")
+        if not bucket_id:
+            raise ValueError("Bucket ID is required for DELETE_BUCKET")
+        grouped_code_repo.update(
+            {"coding_context_id": workspace_id, "higher_level_code_id": bucket_id},
+            {"higher_level_code": None, "higher_level_code_id": None}
+        )
+
+    elif action_type == "MOVE_CODE":
+        # Reassign a specific code to a target bucket
+        payload = action.get("payload")
+        print(f"Payload for MOVE_CODE: {payload}")
+        if not payload or "code" not in payload or "targetBucketId" not in payload:
+            raise ValueError("code, targetBucketId are required for MOVE_CODE")
+        code = payload["code"]
+        target_bucket_id = payload["targetBucketId"]
+        target_bucket = grouped_code_repo.find_one({"higher_level_code_id": target_bucket_id})
+        if not target_bucket:
+            raise ValueError(f"Target bucket with ID {target_bucket_id} does not exist")
+        grouped_code_repo.update(
+            {"coding_context_id": workspace_id, "code": code},
+            {
+                "higher_level_code_id": target_bucket_id,
+                "higher_level_code": target_bucket.higher_level_code
+            }
+        )
+
+    elif action_type == "MOVE_UNPLACED_TO_MISC":
+        # Assign all unplaced codes to a Miscellaneous bucket
+        print(f"Payload for MOVE_UNPLACED_TO_MISC")
+        misc_bucket_id = "miscellaneous"  # Fixed ID for Miscellaneous bucket
+        misc_bucket_name = "Miscellaneous"
+        grouped_code_repo.execute_raw_query("""UPDATE grouped_code_entries
+            SET higher_level_code = ?, higher_level_code_id = ?
+            WHERE coding_context_id = ? AND higher_level_code_id IS NULL AND higher_level_code IS NULL""",
+            (misc_bucket_name, misc_bucket_id, workspace_id)
+        )
+
+    elif action_type == "UPDATE_BUCKET_NAME":
+        # Update the name of a specific bucket
+        payload = action.get("payload")
+        if not payload or "bucketId" not in payload or "newName" not in payload:
+            raise ValueError("bucketId and newName are required for UPDATE_BUCKET_NAME")
+        bucket_id = payload["bucketId"]
+        new_name = payload["newName"]
+        grouped_code_repo.update(
+            {"coding_context_id": workspace_id, "higher_level_code_id": bucket_id},
+            {"higher_level_code": new_name}
+        )
+
+    elif action_type == "RESTORE_STATE":
+        # Reset and reassign all codes based on the provided state
+        payload = action.get("payload")
+        if not payload:
+            raise ValueError("Payload is required for RESTORE_STATE")
+        # Step 1: Reset all codes to unplaced
+        grouped_code_repo.update(
+            {"coding_context_id": workspace_id},
+            {"higher_level_code": None, "higher_level_code_id": None}
+        )
+        # Step 2: Reassign codes to buckets based on payload
+        for bucket_data in payload:
+            if bucket_data.get("id") is not None:  # Skip unplaced bucket
+                bucket_id = bucket_data["id"]
+                bucket_name = bucket_data["name"]
+                codes = bucket_data.get("codes", [])
+                for code in codes:
+                    grouped_code_repo.update(
+                        {"coding_context_id": workspace_id, "code": code},
+                        {"higher_level_code": bucket_name, "higher_level_code_id": bucket_id}
+                    )
+
+    else:
+        raise ValueError(f"Unknown action type: {action_type}")
+    
+
+def process_themes_action(workspace_id: str, action: Dict[str, Any]) -> None:
+    """Process actions related to themes for a given workspace.
+
+    Args:
+        workspace_id (str): The ID of the workspace.
+        action (Dict[str, Any]): The action containing type and payload.
+
+    Raises:
+        ValueError: If the action type is missing or unknown, or required payload fields are absent.
+    """
+    action_type = action.get("type")
+    if not action_type:
+        raise ValueError("Action type is required")
+
+    if action_type == "ADD_THEME":
+        # Add a new theme with a unique ID
+        theme_id = str(uuid4())
+        themes_repo.insert(
+            ThemeEntry(
+                coding_context_id=workspace_id,
+                theme="New Theme",
+                theme_id=theme_id,
+                higher_level_code=None,
+            )
+        )
+
+    elif action_type == "DELETE_THEME":
+        # Unassign all codes from the specified theme by setting their theme fields to None
+        theme_id = action.get("payload")
+        if not theme_id:
+            raise ValueError("Theme ID is required for DELETE_THEME")
+        themes_repo.update(
+            {"coding_context_id": workspace_id, "theme_id": theme_id},
+            {"theme": None, "theme_id": None}
+        )
+
+    elif action_type == "MOVE_CODE_TO_THEME":
+        # Reassign a specific higher_level_code to a target theme
+        payload = action.get("payload")
+        if not payload or "code" not in payload or "targetThemeId" not in payload:
+            raise ValueError("code, targetThemeId, and targetThemeName are required for MOVE_CODE_TO_THEME")
+        code = payload["code"]
+        target_theme_id = payload["targetThemeId"]
+        target_bucket = themes_repo.find_one({"theme_id": target_theme_id}, fail_silently=True)
+        if not target_bucket:
+            raise ValueError(f"Target theme with ID {target_theme_id} does not exist")
+        themes_repo.update(
+            {"coding_context_id": workspace_id, "higher_level_code": code},
+            {"theme": target_bucket.theme, "theme_id": target_theme_id}
+        )
+
+    elif action_type == "MOVE_UNPLACED_TO_MISC":
+        # Assign all unplaced codes to a Miscellaneous theme
+        misc_theme_id = "miscellaneous"
+        misc_theme_name = "Miscellaneous"
+        themes_repo.update(
+            {"coding_context_id": workspace_id, "theme_id": None},
+            {"theme": misc_theme_name, "theme_id": misc_theme_id}
+        )
+
+    elif action_type == "UPDATE_THEME_NAME":
+        # Update the name of a specific theme across all assigned codes
+        payload = action.get("payload")
+        if not payload or "themeId" not in payload or "newName" not in payload:
+            raise ValueError("themeId and newName are required for UPDATE_THEME_NAME")
+        theme_id = payload["themeId"]
+        new_name = payload["newName"]
+        themes_repo.update(
+            {"coding_context_id": workspace_id, "theme_id": theme_id},
+            {"theme": new_name}
+        )
+
+    elif action_type == "RESTORE_STATE":
+        # Reset and reassign all codes based on the provided state
+        payload = action.get("payload")
+        if not payload:
+            raise ValueError("Payload is required for RESTORE_STATE")
+        # Step 1: Reset all codes to unplaced
+        themes_repo.update(
+            {"coding_context_id": workspace_id},
+            {"theme": None, "theme_id": None}
+        )
+        # Step 2: Reassign codes to themes based on payload
+        for theme_data in payload:
+            if theme_data.get("id") is not None:  # Skip unplaced entries
+                theme_id = theme_data["id"]
+                theme_name = theme_data["name"]
+                codes = theme_data.get("codes", [])
+                for code in codes:
+                    themes_repo.update(
+                        {"coding_context_id": workspace_id, "higher_level_code": code},
+                        {"theme": theme_name, "theme_id": theme_id}
+                    )
+
+    else:
+        raise ValueError(f"Unknown action type: {action_type}")

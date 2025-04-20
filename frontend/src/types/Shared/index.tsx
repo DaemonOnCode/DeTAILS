@@ -1,9 +1,9 @@
 import { RouteObject } from 'react-router-dom';
 import {
+    BaseBucketAction,
     BaseResponseHandlerActions,
     IFile,
     IQECResponse,
-    IQECTResponse,
     IQECTTyResponse,
     IReference,
     InitialCodebookCode,
@@ -12,7 +12,6 @@ import {
     KeywordsTableAction,
     Mode,
     SampleDataResponseReducerActions,
-    SampleDataWithThemeResponseReducerActions,
     SetState,
     ThemeBucket
 } from '../Coding/shared';
@@ -96,10 +95,6 @@ export interface ICodingContext {
     setKeywords: SetState<Keyword[]>;
     selectedKeywords: string[];
     setSelectedKeywords: SetState<string[]>;
-    words: Keyword[];
-    setWords: SetState<Keyword[]>;
-    selectedWords: Keyword[];
-    setSelectedWords: SetState<Keyword[]>;
     references: {
         [code: string]: IReference[];
     };
@@ -112,20 +107,12 @@ export interface ICodingContext {
     resetContext: () => void;
     sampledPostResponse: IQECResponse[];
     dispatchSampledPostResponse: Dispatch<SampleDataResponseReducerActions>;
-    // sampledPostResponseCopy: IQECResponse[];
-    // setSampledPostResponseCopy: SetState<IQECResponse[]>;
-    // sampledPostWithThemeResponse: IQECTResponse[];
-    // dispatchSampledPostWithThemeResponse: Dispatch<SampleDataWithThemeResponseReducerActions>;
     unseenPostResponse: IQECTTyResponse[];
     dispatchUnseenPostResponse: Dispatch<BaseResponseHandlerActions<IQECTTyResponse>>;
     themes: ThemeBucket[];
-    setThemes: SetState<ThemeBucket[]>;
-    unplacedCodes: string[];
-    setUnplacedCodes: SetState<string[]>;
+    dispatchThemes: SetState<ThemeBucket[]>;
     groupedCodes: ThemeBucket[];
-    setGroupedCodes: SetState<ThemeBucket[]>;
-    unplacedSubCodes: string[];
-    setUnplacedSubCodes: SetState<string[]>;
+    dispatchGroupedCodes: Dispatch<BaseBucketAction>;
     researchQuestions: string[];
     setResearchQuestions: SetState<string[]>;
     sampledPostIds: string[];

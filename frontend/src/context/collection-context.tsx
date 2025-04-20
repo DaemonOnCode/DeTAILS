@@ -125,7 +125,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
             if (error) throw new Error(`Failed to fetch states: ${stateNames.join(', ')}`);
             return data;
         } catch (error) {
-            console.error('Error fetching states:', error);
+            console.error('Error fetching states:', JSON.stringify(error));
             throw error;
         }
     };
@@ -140,7 +140,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 if (fetchedData.metadata) setMetadataState(fetchedData.metadata);
             }
         } catch (error) {
-            console.error('Failed to set type:', error);
+            console.error('Failed to set type:', JSON.stringify(error));
         }
     };
 
@@ -169,7 +169,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 setModeInputState(_modeInput);
             }
         } catch (error) {
-            console.error('Failed to set modeInput:', error);
+            console.error('Failed to set modeInput:', JSON.stringify(error));
         }
     };
 
@@ -183,7 +183,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 setSelectedDataState(_selectedData);
             }
         } catch (error) {
-            console.error('Failed to set selectedData:', error);
+            console.error('Failed to set selectedData:', JSON.stringify(error));
         }
     };
 
@@ -200,7 +200,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 setDataFiltersState(_dataFilters);
             }
         } catch (error) {
-            console.error('Failed to set dataFilters:', error);
+            console.error('Failed to set dataFilters:', JSON.stringify(error));
         }
     };
 
@@ -212,7 +212,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 setIsLockedState(_isLocked);
             }
         } catch (error) {
-            console.error('Failed to set isLocked:', error);
+            console.error('Failed to set isLocked:', JSON.stringify(error));
         }
     };
 
@@ -320,7 +320,14 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         const page = location.pathname;
         const stateMap: Record<string, string[]> = {
-            [CODING_PAGE_ROUTES.HOME]: ['type', 'metadata', 'datasetId', 'modeInput', 'isLocked'],
+            [CODING_PAGE_ROUTES.HOME]: [
+                'type',
+                'metadata',
+                'datasetId',
+                'modeInput',
+                'isLocked',
+                'dataFilters'
+            ],
             [CODING_PAGE_ROUTES.DATA_TYPE]: ['type'],
             [CODING_PAGE_ROUTES.DATA_SOURCE]: ['metadata', 'modeInput'],
             [CODING_PAGE_ROUTES.DATASET_CREATION]: [
@@ -352,7 +359,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                     if (fetchedData.isLocked !== undefined)
                         setIsLockedState(fetchedData.isLocked || false);
                 } catch (error) {
-                    console.error('Error fetching collection context:', error);
+                    console.error('Error fetching collection context:', JSON.stringify(error));
                 }
             })();
         }

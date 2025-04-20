@@ -22,6 +22,35 @@ class QueryBuilder(Generic[T]):
         expected_type = self.model_fields[column]
         if not isinstance(value, expected_type) and value is not None:
             raise TypeError(f"Invalid type for column '{column}'. Expected {expected_type}, got {type(value)}.")
+        
+
+    def _format_filter(
+        self, column: str, operator: str, value: Any
+    ) -> Tuple[str, List[Any]]:
+        
+        self._validate_column(column)
+
+        
+        if value is None:
+            if operator in ("=", "=="):
+                return f"{column} IS NULL", []
+            elif operator in ("!=", "<>"):
+                return f"{column} IS NOT NULL", []
+            else:
+                raise ValueError(f"Cannot use operator {operator} with None")
+        
+        
+        if isinstance(value, list):
+            if not value:
+                raise ValueError(f"Filter for '{column}' cannot be an empty list.")
+            if operator.upper() not in ("IN", "NOT IN"):
+                raise ValueError(f"Invalid operator for list: {operator}")
+            placeholders = ", ".join("?" for _ in value)
+            return f"{column} {operator} ({placeholders})", list(value)
+
+        
+        self._validate_value(column, value)
+        return f"{column} {operator} ?", [value]
 
     def reset(self) -> "QueryBuilder[T]":
         self.filters = []
@@ -78,61 +107,49 @@ class QueryBuilder(Generic[T]):
         return self
 
     def count(self, filters: Optional[Dict[str, Any]] = None) -> Tuple[str, Tuple[Any, ...]]:
-        query, params = self.find(filters)
-        count_query = query.replace(f"SELECT {self.selected_columns}", "SELECT COUNT(*)")
+        
+        base_query, params = self.find(filters)
+        count_query = base_query.replace(
+            f"SELECT {self.selected_columns}", 
+            "SELECT COUNT(*)"
+        )
         return count_query, params
 
     def find(self, filters: Optional[Dict[str, Any]] = None) -> Tuple[str, Tuple[Any, ...]]:
-        where_clause = ""
-        params = []
-
         filters = filters or {}
+        clauses: List[str] = []
+        params: List[Any] = []
 
-        if len(filters.keys()) or len(self.filters):
-            clauses = []
-            for column, value in filters.items():
-                self._validate_column(column)
+        
+        for col, val in filters.items():
+            fragment, p = self._format_filter(col, "=", val)
+            clauses.append(fragment)
+            params.extend(p)
 
-                if isinstance(value, list):  
-                    if not value:
-                        raise ValueError(f"Filter for '{column}' cannot be an empty list.")
-                    placeholders = ", ".join(["?"] * len(value))
-                    clauses.append(f"{column} IN ({placeholders})")
-                    params.extend(value)
-                else:
-                    self._validate_value(column, value)
-                    clauses.append(f"{column} = ?")
-                    params.append(value)
+        
+        for col, op, val in self.filters:
+            fragment, p = self._format_filter(col, op, val)
+            clauses.append(fragment)
+            params.extend(p)
 
-            for column, operator, value in self.filters:
-                if isinstance(value, list):  
-                    if not value:
-                        raise ValueError(f"Filter for '{column}' cannot be an empty list.")
-                    placeholders = ", ".join(["?"] * len(value))
-                    clauses.append(f"{column} {operator} ({placeholders})")
-                    params.extend(value)
-                else:
-                    self._validate_value(column, value)
-                    clauses.append(f"{column} {operator} ?")
-                    params.append(value)
+        where_sql = ""
+        if clauses:
+            where_sql = "WHERE " + " AND ".join(clauses)
 
-            where_clause = "WHERE " + " AND ".join(clauses)
+        query = f"SELECT {self.selected_columns} FROM {self.table_name} " \
+                f"{where_sql} " \
+                f"{self.group_by_clause} " \
+                f"{self.order_by_clause} "
 
-        query = f"SELECT {self.selected_columns} FROM {self.table_name}"
-        if where_clause:
-            query += f" {where_clause}"
-        if self.group_by_clause:
-            query += f" {self.group_by_clause}"
-        if self.order_by_clause:
-            query += f" {self.order_by_clause}"
         if self.limit_clause and self.offset_clause:
-            query += f" {self.limit_clause} {self.offset_clause}"
+            query += f"{self.limit_clause} {self.offset_clause}"
         elif self.limit_clause:
-            query += f" {self.limit_clause}"
+            query += f"{self.limit_clause}"
         elif self.offset_clause:
-            query += f" LIMIT -1 {self.offset_clause}"
+            query += f"LIMIT -1 {self.offset_clause}"
 
-        return query, tuple(params)
+        return query.strip(), tuple(params)
+
 
     def insert(self, data: Dict[str, Any]) -> Tuple[str, Tuple[Any, ...]]:
         for key, value in data.items():
@@ -173,27 +190,17 @@ class QueryBuilder(Generic[T]):
 
     def delete(self, filters: Dict[str, Any]) -> Tuple[str, Tuple[Any, ...]]:
         if not filters:
-            raise ValueError("Filters are required for delete operation to prevent accidental deletion of all records.")
+            raise ValueError("Filters are required for delete operation…")
 
-        clauses = []
-        params = []
+        clauses: List[str] = []
+        params: List[Any] = []
+        for col, val in filters.items():
+            fragment, p = self._format_filter(col, "=", val)
+            clauses.append(fragment)
+            params.extend(p)
 
-        for column, value in filters.items():
-            self._validate_column(column)
-
-            if isinstance(value, list):
-                if not value:
-                    raise ValueError(f"Filter for '{column}' cannot be an empty list.")
-                placeholders = ", ".join(["?"] * len(value))
-                clauses.append(f"{column} IN ({placeholders})")
-                params.extend(value)
-            else:
-                self._validate_value(column, value)
-                clauses.append(f"{column} = ?")
-                params.append(value)
-
-        where_clause = " AND ".join(clauses)
-        query = f"DELETE FROM {self.table_name} WHERE {where_clause}"
+        where_sql = " AND ".join(clauses)
+        query = f"DELETE FROM {self.table_name} WHERE {where_sql}"
         return query, tuple(params)
 
     def aggregate(self, function: str, column: str) -> Tuple[str, Tuple[Any, ...]]:

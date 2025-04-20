@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import Bucket from '../../components/Coding/Themes/bucket';
@@ -22,10 +22,9 @@ import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 
 const ThemesPage = () => {
-    const { themes, setThemes, unplacedCodes, setUnplacedCodes } = useCodingContext();
+    const { themes, dispatchThemes } = useCodingContext();
     const location = useLocation();
-    const { performWithUndo } = useUndo();
-
+    const { performWithUndoForReducer } = useUndo();
     const { loadingState, openModal, resetDataAfterPage, checkIfDataExists, loadingDispatch } =
         useLoadingContext();
     const { settings } = useSettings();
@@ -48,13 +47,16 @@ const ThemesPage = () => {
         }
     }, []);
 
+    const normalThemes = useMemo(() => themes.filter((theme) => theme.id !== null), [themes]);
+    const unplacedBucket = useMemo(() => themes.find((bucket) => bucket.id === null), [themes]);
+    const unplacedCodes = unplacedBucket ? unplacedBucket.codes : [];
+
     const handleSearch = () => {
         const trimmedQuery = searchQuery.trim().toLowerCase();
-        const allCodes = [...themes.flatMap((theme) => theme.codes), ...unplacedCodes];
-        const matchingCodes = allCodes.filter((code) => {
-            const trimmedCode = code.trim().toLowerCase();
-            return trimmedCode.includes(trimmedQuery);
-        });
+        const allCodes = [...themes.flatMap((theme) => theme.codes)];
+        const matchingCodes = allCodes.filter((code) =>
+            code.trim().toLowerCase().includes(trimmedQuery)
+        );
 
         codeRefs.current.forEach((el) => {
             if (el) el.classList.remove('highlight');
@@ -68,19 +70,12 @@ const ThemesPage = () => {
                 const el = codeRefs.current.get(code);
                 if (el) {
                     el.classList.add('highlight');
-                    if (!firstMatchElement) {
-                        firstMatchElement = el;
-                    }
-                } else {
-                    console.log('Element not found for code:', code);
+                    if (!firstMatchElement) firstMatchElement = el;
                 }
             });
 
             if (firstMatchElement) {
-                (firstMatchElement as HTMLDivElement).scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
-                });
+                firstMatchElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         } else {
             setNoResults(true);
@@ -106,10 +101,7 @@ const ThemesPage = () => {
                 await handleRefreshThemes(feedback);
             });
         } else {
-            loadingDispatch({
-                type: 'SET_REST_UNDONE',
-                route: location.pathname
-            });
+            loadingDispatch({ type: 'SET_REST_UNDONE', route: location.pathname });
             handleRefreshThemes(feedback);
         }
         setFeedback('');
@@ -136,7 +128,7 @@ const ThemesPage = () => {
         {
             target: '#unplaced-codes',
             content:
-                'This section contains codes that are not assigned to any theme. Drag codes here to remove them from themes.',
+                'This section contains codes not assigned to any theme. Drag codes here to remove them from themes.',
             placement: 'top'
         },
         {
@@ -170,96 +162,53 @@ const ThemesPage = () => {
 
     const { fetchLLMData } = useApi();
 
-    const stepRoute = location.pathname;
-
     const { scrollRef: themeRef, storageKey: codeStorageKey } = useScrollRestoration('theme-list');
-
-    useEffect(() => {
-        if (themeRef.current && themes.length > 0) {
-            const savedPosition = sessionStorage.getItem(codeStorageKey);
-            if (savedPosition) {
-                themeRef.current.scrollTop = parseInt(savedPosition, 10);
-            }
-        }
-    }, [themes, themeRef, codeStorageKey]);
-
     const { scrollRef: unplacedRef, storageKey: unplacedStorageKey } =
         useScrollRestoration('unplaced-list');
 
     useEffect(() => {
+        if (themeRef.current && themes.length > 0) {
+            const savedPosition = sessionStorage.getItem(codeStorageKey);
+            if (savedPosition) themeRef.current.scrollTop = parseInt(savedPosition, 10);
+        }
+    }, [themes, themeRef, codeStorageKey]);
+
+    useEffect(() => {
         if (unplacedRef.current && unplacedCodes.length > 0) {
             const savedPosition = sessionStorage.getItem(unplacedStorageKey);
-            if (savedPosition) {
-                unplacedRef.current.scrollTop = parseInt(savedPosition, 10);
-            }
+            if (savedPosition) unplacedRef.current.scrollTop = parseInt(savedPosition, 10);
         }
     }, [unplacedCodes, unplacedRef, unplacedStorageKey]);
 
     const handleDropToBucket = (themeId: string, code: string) => {
-        performWithUndo([themes, unplacedCodes], [setThemes, setUnplacedCodes], () => {
-            setThemes((prevThemes) =>
-                prevThemes.map((theme) => {
-                    if (theme.id === themeId) {
-                        if (!theme.codes.includes(code)) {
-                            return { ...theme, codes: [...theme.codes, code] };
-                        }
-                        return theme;
-                    } else {
-                        return { ...theme, codes: theme.codes.filter((c) => c !== code) };
-                    }
-                })
-            );
-            setUnplacedCodes((prevCodes) => prevCodes.filter((c) => c !== code));
-        });
-    };
-
-    const handleDropToUnplaced = (code: string) => {
-        performWithUndo([themes, unplacedCodes], [setThemes, setUnplacedCodes], () => {
-            setUnplacedCodes((prevCodes) => {
-                if (!prevCodes.includes(code)) {
-                    return [...prevCodes, code];
-                }
-                return prevCodes;
-            });
-            setThemes((prevThemes) =>
-                prevThemes.map((theme) => ({
-                    ...theme,
-                    codes: theme.codes.filter((c) => c !== code)
-                }))
-            );
-        });
+        const action = { type: 'MOVE_CODE_TO_THEME', payload: { code, targetThemeId: themeId } };
+        performWithUndoForReducer(themes, dispatchThemes, action);
     };
 
     const handleAddTheme = () => {
-        const newTheme = { id: (themes.length + 1).toString(), name: 'New Theme', codes: [] };
-        setThemes((prevThemes) => [...prevThemes, newTheme]);
+        const action = { type: 'ADD_THEME' };
+        performWithUndoForReducer(themes, dispatchThemes, action);
     };
 
     const handleDeleteTheme = (themeId: string) => {
-        performWithUndo([themes, unplacedCodes], [setThemes, setUnplacedCodes], () => {
-            const themeToDelete = themes.find((theme) => theme.id === themeId);
-            if (themeToDelete) {
-                setUnplacedCodes((prevCodes) => [...prevCodes, ...themeToDelete.codes]);
-            }
-            setThemes((prevThemes) => prevThemes.filter((theme) => theme.id !== themeId));
-        });
+        const action = { type: 'DELETE_THEME', payload: themeId };
+        performWithUndoForReducer(themes, dispatchThemes, action);
+    };
+
+    const handleUpdateThemeName = (themeId: string, newName: string) => {
+        const action = { type: 'UPDATE_THEME_NAME', payload: { themeId, newName } };
+        performWithUndoForReducer(themes, dispatchThemes, action);
     };
 
     const handleRefreshThemes = async (extraFeedback = '') => {
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.GENERATING_THEMES
-        });
+        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
         navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
         const { data: results, error } = await fetchLLMData<{
             message: string;
         }>(REMOTE_SERVER_ROUTES.REDO_THEME_GENERATION, {
             method: 'POST',
-            body: JSON.stringify({
-                model: settings.ai.model,
-                feedback: extraFeedback
-            })
+            body: JSON.stringify({ model: settings.ai.model, feedback: extraFeedback })
         });
 
         if (error) {
@@ -274,46 +223,22 @@ const ThemesPage = () => {
         }
 
         console.log('Results:', results);
-
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.GENERATING_THEMES
-        });
+        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
         navigate(PAGE_ROUTES.GENERATING_THEMES);
     };
 
     const handleMoveToMiscellaneous = useCallback(() => {
-        setThemes((prevBuckets) => {
-            if (prevBuckets.find((bucket) => bucket.name === 'Miscellaneous')) {
-                return prevBuckets.map((bucket) => {
-                    if (bucket.name === 'Miscellaneous') {
-                        return {
-                            ...bucket,
-                            codes: [...bucket.codes, ...unplacedCodes]
-                        };
-                    }
-                    return bucket;
-                });
-            }
-            return [
-                ...prevBuckets,
-                {
-                    id: (prevBuckets.length + 1).toString(),
-                    name: 'Miscellaneous',
-                    codes: unplacedCodes
-                }
-            ];
-        });
-        setUnplacedCodes([]);
-    }, [unplacedCodes]);
+        const action = { type: 'MOVE_UNPLACED_TO_MISC' };
+        performWithUndoForReducer(themes, dispatchThemes, action);
+    }, [themes, dispatchThemes, performWithUndoForReducer]);
 
     useEffect(() => {
-        if (loadingState[stepRoute]?.isLoading) {
+        if (loadingState[location.pathname]?.isLoading) {
             navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
         }
     }, []);
 
-    if (loadingState[stepRoute]?.isFirstRun) {
+    if (loadingState[location.pathname]?.isFirstRun) {
         return (
             <p className="h-page w-full flex justify-center items-center">
                 Please complete the previous page and click on proceed to continue with this page.
@@ -353,13 +278,14 @@ const ThemesPage = () => {
                                 {/* Left Column: Theme Buckets (70% width) */}
                                 <div className="w-[70%] flex-1 overflow-auto px-4" ref={themeRef}>
                                     <div id="bucket-section" className="grid grid-cols-2 gap-6">
-                                        {themes.map((theme) => (
+                                        {normalThemes.map((theme) => (
                                             <Bucket
                                                 scrollRef={themeRef}
                                                 key={theme.id}
                                                 theme={theme}
                                                 onDrop={handleDropToBucket}
                                                 onDelete={handleDeleteTheme}
+                                                onUpdateName={handleUpdateThemeName}
                                                 setCodeRef={setCodeRef}
                                             />
                                         ))}
@@ -374,7 +300,7 @@ const ThemesPage = () => {
                                         <UnplacedCodesBox
                                             scrollRef={unplacedRef}
                                             unplacedCodes={unplacedCodes}
-                                            onDrop={handleDropToUnplaced}
+                                            onDrop={handleDropToBucket}
                                             setCodeRef={setCodeRef}
                                         />
                                     </div>
@@ -399,9 +325,7 @@ const ThemesPage = () => {
                         </button>
                         <button
                             id="refresh-themes-button"
-                            onClick={() => {
-                                setIsFeedbackModalOpen(true);
-                            }}
+                            onClick={() => setIsFeedbackModalOpen(true)}
                             className="px-4 py-2 bg-gray-600 text-white rounded flex justify-center items-center gap-2">
                             <DetailsLLMIcon className="h-6 w-6" />
                             Redo with feedback

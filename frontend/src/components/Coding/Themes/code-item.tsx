@@ -11,10 +11,10 @@ interface CodeItemProps {
 
 const CodeItem: FC<CodeItemProps> = ({ code, setCodeRef, scrollRef }) => {
     const codeItemRef = useRef<HTMLDivElement>(null);
-    const isVisible = useIntersectionObserver(codeItemRef, {
-        root: scrollRef.current,
-        rootMargin: '100px'
-    });
+    // const isVisible = useIntersectionObserver(codeItemRef, {
+    //     root: scrollRef.current,
+    //     rootMargin: '100px'
+    // });
 
     const [{ isDragging }, drag] = useDrag(() => ({
         type: 'CODE',
@@ -26,23 +26,23 @@ const CodeItem: FC<CodeItemProps> = ({ code, setCodeRef, scrollRef }) => {
 
     return (
         <div ref={codeItemRef}>
-            {isVisible ? (
-                <div
-                    ref={(node) => {
-                        drag(node);
-                        setCodeRef(code, node);
-                    }}
-                    style={{
-                        backgroundColor: generateColor(code)
-                    }}
-                    className={`code-item p-2 border rounded-md shadow-md cursor-move overflow-wrap ${
-                        isDragging ? 'opacity-50' : 'opacity-100'
-                    }`}>
-                    {code}
-                </div>
-            ) : (
+            {/* {isVisible ? ( */}
+            <div
+                ref={(node) => {
+                    drag(node);
+                    setCodeRef(code, node);
+                }}
+                style={{
+                    backgroundColor: generateColor(code)
+                }}
+                className={`code-item p-2 border rounded-md shadow-md cursor-move overflow-wrap ${
+                    isDragging ? 'opacity-50' : 'opacity-100'
+                }`}>
+                {code}
+            </div>
+            {/* ) : (
                 <div style={{ height: '40px' }} className="bg-gray-200 animate-pulse" />
-            )}
+            )} */}
         </div>
     );
 };

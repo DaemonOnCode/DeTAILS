@@ -1,7 +1,7 @@
 const ElectronGoogleOAuth2 = require('@getstation/electron-google-oauth2').default;
 const { ipcMain } = require('electron');
 
-const clientData = require(process.env.CLIENT_SECRET_FILE);
+const clientData = require('../../client_secret_788160898700-ak998mgb60m7e36cpq9drf53hst3j6ho.apps.googleusercontent.com.json');
 const logger = require('../utils/logger');
 const { findContextByName } = require('../utils/context');
 const config = require('../../src/config')('electron');

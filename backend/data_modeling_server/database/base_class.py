@@ -4,6 +4,7 @@ from sqlite3 import Cursor, Row
 from dataclasses import fields, asdict
 
 from constants import DATABASE_PATH
+from database.db_helpers import tuned_connection
 from database.initialize import SQLITE_TYPE_MAPPING, generate_create_table_statement
 from database.query_builder import QueryBuilder
 from errors.database_errors import (
@@ -34,7 +35,7 @@ class BaseRepository(Generic[T]):
 
     def get_table_schema(self) -> Dict[str, str]:
         try:
-            with sqlite3.connect(self.database_path) as conn:
+            with tuned_connection(self.database_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(f"PRAGMA table_info({self.table_name})")
                 return {col[1]: col[2] for col in cursor.fetchall()}
@@ -45,7 +46,7 @@ class BaseRepository(Generic[T]):
         return {field.name: field.type for field in fields(self.model)}
 
     def sync_table_schema(self) -> None:
-        with sqlite3.connect(self.database_path) as conn:
+        with tuned_connection(self.database_path) as conn:
             cursor = conn.cursor()
             cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{self.table_name}'")
             if not cursor.fetchone():
@@ -59,7 +60,7 @@ class BaseRepository(Generic[T]):
         missing_columns = set(model_fields.keys()) - set(table_schema.keys())
 
         if missing_columns:
-            with sqlite3.connect(self.database_path) as conn:
+            with tuned_connection(self.database_path) as conn:
                 cursor = conn.cursor()
                 for col in missing_columns:
                     col_type = SQLITE_TYPE_MAPPING.get(model_fields[col], "TEXT")
@@ -96,7 +97,7 @@ class BaseRepository(Generic[T]):
     @handle_db_errors
     @auto_recover
     def execute_query(self, query: str, params: tuple = (), result = False)->(Cursor | None):
-        with sqlite3.connect(self.database_path) as conn:
+        with tuned_connection(self.database_path) as conn:
             cursor = conn.cursor()
             query_result = cursor.execute(query, params)
             conn.commit()
@@ -106,7 +107,7 @@ class BaseRepository(Generic[T]):
     @handle_db_errors   
     @auto_recover  
     def execute_many_query(self, query: str, params_list: List[tuple], result = False) -> None:
-        with sqlite3.connect(self.database_path) as conn:
+        with tuned_connection(self.database_path) as conn:
             cursor = conn.cursor()
             query_result = cursor.executemany(query, params_list)
             conn.commit()
@@ -116,7 +117,7 @@ class BaseRepository(Generic[T]):
     @handle_db_errors
     @auto_recover
     def fetch_all(self, query: str, params: tuple = (), map_to_model = True) -> List[T] | List[Dict[str, Any]]:
-        with sqlite3.connect(self.database_path) as conn:
+        with tuned_connection(self.database_path) as conn:
             conn.row_factory = Row
             cursor = conn.cursor()
             cursor.execute(query, params)
@@ -128,10 +129,11 @@ class BaseRepository(Generic[T]):
     @handle_db_errors
     @auto_recover
     def fetch_one(self, query: str, params: tuple = (), map_to_model = True) -> Optional[T] | Optional[Dict[str, Any]]:
-        with sqlite3.connect(self.database_path) as conn:
+        with tuned_connection(self.database_path) as conn:
             conn.row_factory = Row
             cursor = conn.cursor()
             cursor.execute(query, params)
+            print(query, params)
             row = cursor.fetchone()
         if not row:
             raise RecordNotFoundError(f"Record not found for query: {query} with params: {params}")
@@ -246,7 +248,7 @@ class BaseRepository(Generic[T]):
     @auto_recover
     def count(self, filters: Optional[Dict[str, Any]] = None) -> int:
         query, params = self.query_builder_instance.count(filters)
-        with sqlite3.connect(self.database_path) as conn:
+        with tuned_connection(self.database_path) as conn:
             cursor = conn.cursor()
             cursor.execute(query, params)
             return cursor.fetchone()[0]
@@ -254,7 +256,7 @@ class BaseRepository(Generic[T]):
     @handle_db_errors
     @auto_recover
     def execute_raw_query(self, query: str, params: tuple = (), keys = False) -> Any:
-        with sqlite3.connect(self.database_path) as conn:
+        with tuned_connection(self.database_path) as conn:
             if keys:
                 conn.row_factory = sqlite3.Row
             cursor = conn.cursor()

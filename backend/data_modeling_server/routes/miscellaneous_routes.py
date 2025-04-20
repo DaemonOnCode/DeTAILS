@@ -6,9 +6,9 @@ from google.auth.transport.requests import Request
 import openai
 import requests
 
+from controllers.collection_controller import get_post_and_comments_from_id
 from controllers.miscellaneous_controller import link_creator, normalize_text, search_slice
 from database import PostsRepository, CommentsRepository, FunctionProgressRepository
-from database.db_helpers import get_post_and_comments_from_id
 from errors.credential_errors import InvalidCredentialError, MissingCredentialError
 from errors.llm_errors import UnsupportedEmbeddingModelError
 from models.miscellaneous_models import EmbeddingTestRequest, FunctionProgressRequest, ModelTestRequest, RedditPostByIdRequest, RedditPostIDAndTitleRequest, RedditPostIDAndTitleRequestBatch, RedditPostLinkRequest, UserCredentialTestRequest

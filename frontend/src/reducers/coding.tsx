@@ -9,7 +9,10 @@ import {
     SampleDataWithThemeResponseReducerActions,
     IQECTTyResponse,
     InitialCodebookCode,
-    InitialCodebookTableAction
+    InitialCodebookTableAction,
+    ThemeBucket,
+    GroupedCodeBucket,
+    BaseBucketAction
 } from '../types/Coding/shared';
 
 export const keywordTableReducer = (
@@ -480,6 +483,87 @@ export const testDataResponseReducer = (
         case 'SYNC_CHAT_STATE':
         case 'RESTORE_STATE':
             return baseResponseHandler(state, action, {});
+
+        default:
+            return state;
+    }
+};
+
+export const baseBucketReducer = (
+    state: ThemeBucket[] | GroupedCodeBucket[],
+    action: BaseBucketAction
+) => {
+    switch (action.type) {
+        case 'ADD_BUCKET':
+            const newId = (state.filter((b) => b.id !== null).length + 1).toString();
+            const newBucket = { id: newId, name: 'New', codes: [] };
+            return [...state, newBucket];
+
+        case 'DELETE_BUCKET':
+            const bucketToDelete = state.find((b) => b.id === action.payload);
+            if (!bucketToDelete) return state;
+            const codesToMove = bucketToDelete.codes;
+            const updatedBuckets = state.filter((b) => b.id !== action.payload);
+            const unplacedIndex = updatedBuckets.findIndex((b) => b.id === null);
+            if (unplacedIndex !== -1) {
+                updatedBuckets[unplacedIndex] = {
+                    ...updatedBuckets[unplacedIndex],
+                    codes: [...updatedBuckets[unplacedIndex].codes, ...codesToMove]
+                };
+            } else {
+                updatedBuckets.push({ id: null, name: null, codes: codesToMove });
+            }
+            return updatedBuckets;
+
+        case 'MOVE_CODE':
+            const { code, targetBucketId } = action.payload;
+            const updatedState = state.map((bucket) => ({
+                ...bucket,
+                codes: bucket.codes.filter((c) => c !== code)
+            }));
+            const targetIndex = updatedState.findIndex((b) => b.id === targetBucketId);
+            if (targetIndex !== -1) {
+                updatedState[targetIndex] = {
+                    ...updatedState[targetIndex],
+                    codes: [...updatedState[targetIndex].codes, code]
+                };
+            }
+            return updatedState;
+
+        case 'MOVE_UNPLACED_TO_MISC':
+            const unplacedBucket = state.find((b) => b.id === null);
+            if (!unplacedBucket || unplacedBucket.codes.length === 0) return state;
+            const miscBucketIndex = state.findIndex((b) => b.name === 'Miscellaneous');
+            if (miscBucketIndex !== -1) {
+                const updatedMiscBucket = {
+                    ...state[miscBucketIndex],
+                    codes: [...state[miscBucketIndex].codes, ...unplacedBucket.codes]
+                };
+                const updatedUnplacedBucket = { ...unplacedBucket, codes: [] };
+                return state.map((bucket, index) =>
+                    index === miscBucketIndex
+                        ? updatedMiscBucket
+                        : bucket.id === null
+                          ? updatedUnplacedBucket
+                          : bucket
+                );
+            } else {
+                const newMiscId = (state.filter((b) => b.id !== null).length + 1).toString();
+                const newMiscBucket = {
+                    id: newMiscId,
+                    name: 'Miscellaneous',
+                    codes: unplacedBucket.codes
+                };
+                const updatedUnplacedBucket = { ...unplacedBucket, codes: [] };
+                return [
+                    ...state.filter((b) => b.id !== null),
+                    newMiscBucket,
+                    updatedUnplacedBucket
+                ];
+            }
+
+        case 'RESTORE_STATE':
+            return action.payload;
 
         default:
             return state;

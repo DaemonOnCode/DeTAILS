@@ -13,7 +13,7 @@ import re
 import shutil
 import tempfile
 import time
-from typing import Counter, Dict, List, Optional, Tuple
+from typing import Any, Counter, Dict, List, Optional, Tuple
 from uuid import uuid4
 from aiofiles import open as async_open
 import aiofiles
@@ -351,6 +351,9 @@ def delete_dataset(dataset_id: str):
     dataset_repo.delete({"id": dataset_id})
     return {"message": "Dataset deleted successfully"}
 
+from datetime import datetime
+from typing import Optional
+
 def get_reddit_posts_by_batch(
     dataset_id: str,
     batch: int,
@@ -370,92 +373,90 @@ def get_reddit_posts_by_batch(
         base_query = """
         SELECT p.id, p.title, p.selftext, p.url, p.created_utc
         FROM posts p
-        LEFT JOIN (
-            SELECT post_id
-            FROM comments
-            WHERE body IS NOT NULL
-            AND TRIM(body) <> ''
-            AND body NOT IN ('[removed]', '[deleted]')
-            GROUP BY post_id
-        ) mc ON p.id = mc.post_id
-        LEFT JOIN (
-            SELECT post_id
-            FROM comments
-            GROUP BY post_id
-        ) ac ON p.id = ac.post_id
         WHERE p.dataset_id = ?
-        AND (
+          AND EXISTS (
+            SELECT 1
+            FROM comments c
+            WHERE c.dataset_id = p.dataset_id
+              AND c.post_id    = p.id
+          )
+          AND (
             (
-                (p.title IN ('[removed]', '[deleted]') OR p.selftext IN ('[removed]', '[deleted]'))
-                AND mc.post_id IS NOT NULL
+              p.title    NOT IN ('[removed]','[deleted]')
+              AND p.selftext NOT IN ('[removed]','[deleted]')
             )
-            OR
-            (
-                (p.title NOT IN ('[removed]', '[deleted]') AND p.selftext NOT IN ('[removed]', '[deleted]'))
-                AND ac.post_id IS NOT NULL
+            OR EXISTS (
+              SELECT 1
+              FROM comments c2
+              WHERE c2.dataset_id = p.dataset_id
+                AND c2.post_id    = p.id
+                AND c2.body       IS NOT NULL
+                AND TRIM(c2.body) <> ''
+                AND c2.body NOT IN ('[removed]','[deleted]')
             )
-        )
+          )
         """
     else:
         base_query = """
-        SELECT p.id, p.title, p.selftext, p.url, p.created_utc 
+        SELECT p.id, p.title, p.selftext, p.url, p.created_utc
         FROM posts p
         WHERE p.dataset_id = ?
         """
 
     if search_term:
         base_query += " AND (p.title LIKE ? OR p.selftext LIKE ? OR p.url LIKE ?)"
-        search_pattern = f"%{search_term}%"
-        params.extend([search_pattern, search_pattern, search_pattern])
+        wildcard = f"%{search_term}%"
+        params.extend([wildcard, wildcard, wildcard])
 
     if start_time:
         base_query += " AND p.created_utc >= ?"
         params.append(start_time)
-
     if end_time:
         base_query += " AND p.created_utc <= ?"
         params.append(end_time)
 
     summary_query = f"""
-    SELECT COUNT(*) as total_count, 
-           MIN(created_utc) as start_date, 
-           MAX(created_utc) as end_date 
-    FROM ({base_query}) as summary_subquery
+    SELECT
+      COUNT(*)         AS total_count,
+      MIN(created_utc) AS start_date,
+      MAX(created_utc) AS end_date
+    FROM ({base_query}) AS summary_subquery
     """
-    summary_result = post_repo.execute_raw_query(summary_query, params).fetchone()
-    total_count = summary_result[0]
-    start_date = summary_result[1]
-    end_date = summary_result[2]
-
-    start_date_str = datetime.fromtimestamp(start_date).strftime('%Y-%m-%d') if start_date else None
-    end_date_str = datetime.fromtimestamp(end_date).strftime('%Y-%m-%d') if end_date else None
+    summary = post_repo.execute_raw_query(summary_query, params).fetchone()
+    total_count, start_ts, end_ts = summary
+    start_date = datetime.fromtimestamp(start_ts).strftime('%Y-%m-%d') if start_ts else None
+    end_date   = datetime.fromtimestamp(end_ts).strftime('%Y-%m-%d')   if end_ts   else None
 
     if get_all_ids:
-        id_query = base_query.replace("SELECT p.id, p.title, p.selftext, p.url, p.created_utc", "SELECT p.id")
-        ids = post_repo.execute_raw_query(id_query, params, keys=True)
-        post_ids = [post["id"] for post in ids]
+        id_query = base_query.replace(
+            "SELECT p.id, p.title, p.selftext, p.url, p.created_utc",
+            "SELECT p.id"
+        )
+        rows = post_repo.execute_raw_query(id_query, params, keys=True)
         return {
-            "post_ids": post_ids,
+            "post_ids":   [r["id"] for r in rows],
             "total_count": total_count,
-            "start_date": start_date_str,
-            "end_date": end_date_str
+            "start_date":  start_date,
+            "end_date":    end_date
         }
 
     if not all:
-        query_offset = (page - 1) * items_per_page
+        offset_val = (page - 1) * items_per_page
         base_query += " ORDER BY p.created_utc ASC LIMIT ? OFFSET ?"
-        params.extend([items_per_page, query_offset])
+        params.extend([items_per_page, offset_val])
     else:
         base_query += " ORDER BY p.created_utc ASC"
 
-    posts = post_repo.execute_raw_query(base_query, params, keys=True)
-    posts_dict = {post["id"]: post for post in posts}
+    rows = post_repo.execute_raw_query(base_query, params, keys=True)
+    posts = {r["id"]: r for r in rows}
+
     return {
-        "posts": posts_dict,
+        "posts":       posts,
         "total_count": total_count,
-        "start_date": start_date_str,
-        "end_date": end_date_str
+        "start_date":  start_date,
+        "end_date":    end_date
     }
+
 
 def get_reddit_post_titles(dataset_id: str):
     return post_repo.find({"dataset_id": dataset_id}, columns=["id", "title"])
@@ -467,6 +468,7 @@ def count_comments(comments):
     return total
 
 def get_reddit_post_by_id(dataset_id: str, post_id: str, columns: list = None):
+    # comment_repo.index_comments()
     post = post_repo.find(
         {"dataset_id": dataset_id, "id": post_id}, 
         columns=columns,
@@ -482,6 +484,7 @@ def get_reddit_post_by_id(dataset_id: str, post_id: str, columns: list = None):
 def get_comments_recursive(post_id: str, dataset_id: str):
 
     comments = comment_repo.get_comments_by_post_optimized(dataset_id, post_id)
+    print("Comments fetched:", comments)
 
     comment_map = {comment["id"]: comment for comment in comments}
 
@@ -708,7 +711,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                 else:
                     print(f"Skipping duplicate comment with key: {key}")
             comment_repo.insert_batch(unique_comments)
-
+    comment_repo.index_comments()
     update_dataset(dataset_id, name=subreddit)
 
     return {"message": "Reddit dataset parsed successfully"}
@@ -872,97 +875,6 @@ async def process_reddit_data(
 
         return json_files
 
-        # monthly_files = {}
-        # print(f"Opening intermediate file for reading: {intermediate_file}")
-        # try:
-        #     async with aiofiles.open(intermediate_file, "r", encoding="utf-8") as infile:
-        #         async for line in infile:
-        #             try:
-        #                 obj = json.loads(line.strip())
-        #                 created_utc = obj.get("created_utc")
-        #                 if created_utc:
-        #                     created_utc_float = float(created_utc)
-        #                     dt = datetime.fromtimestamp(created_utc_float)
-        #                     year = dt.year
-        #                     month = dt.month
-        #                     key = f"{year}-{month:02d}"
-        #                     if key not in monthly_files:
-        #                         monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
-        #                         message = f"Creating monthly file for writing: {monthly_filename}"
-        #                         try:
-        #                             monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
-        #                             print(message)
-        #                             await manager.send_message(app_id, message)
-        #                         except PermissionError:
-        #                             print(f"Permission denied writing to {monthly_filename}")
-        #                             raise e
-        #                         except IOError as e:
-        #                             print(f"IO error opening {monthly_filename}: {e}")
-        #                             raise e
-        #                     await monthly_files[key].write(line)
-        #                 else:
-        #                     print("Skipping object without 'created_utc' field.")
-        #             except json.JSONDecodeError:
-        #                 print("Skipping invalid JSON line.")
-        # except FileNotFoundError:
-        #     print(f"Intermediate file not found: {intermediate_file}")
-        #     return []
-        # except PermissionError:
-        #     print(f"Permission denied: {intermediate_file}")
-        #     return []
-        # except IOError as e:
-        #     print(f"IO error reading {intermediate_file}: {e}")
-        #     return []
-        # for key, file in monthly_files.items():
-        #     print(f"Closing monthly file: R{data_type}_{key}.jsonl")
-        #     await file.close()
-
-        # json_files = []
-        # for key in monthly_files:
-        #     jsonl_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
-        #     json_filename = os.path.join(directory, f"R{data_type}_{key}.json")
-        #     message = f"Converting {jsonl_filename} to {json_filename}"
-        #     print(message)
-        #     await manager.send_message(app_id, message)
-        #     try:
-        #         async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as jsonl_file, \
-        #                 aiofiles.open(json_filename, "w", encoding="utf-8") as json_file:
-        #             await json_file.write("[\n")
-        #             first = True
-        #             async for line in jsonl_file:
-        #                 if not first:
-        #                     await json_file.write(",\n")
-        #                 await json_file.write(line.strip())
-        #                 first = False
-        #             await json_file.write("\n]")
-        #     except FileNotFoundError:
-        #         print(f"File not found: {jsonl_filename}")
-        #         raise e
-        #     except PermissionError:
-        #         print(f"Permission denied: {jsonl_filename} or {json_filename}")
-        #         raise e
-        #     except IOError as e:
-        #         print(f"IO error processing {jsonl_filename}: {e}")
-        #         raise e
-        #     json_files.append(json_filename)
-
-        # try:
-        #     print(f"Removing intermediate file: {intermediate_file}")
-        #     os.remove(intermediate_file)
-        #     for key in monthly_files:
-        #         monthly_jsonl = os.path.join(directory, f"R{data_type}_{key}.jsonl")
-        #         print(f"Intermediate file R{data_type}_{key}.jsonl removed.")
-        #         os.remove(monthly_jsonl)
-        #     print(f"Intermediate file {intermediate_filename} removed.")
-        # except Exception as e:
-        #     print(f"Warning: Could not remove intermediate file {intermediate_filename}: {e}")
-
-        # message = f"Processed data saved to monthly JSON files for {zst_filename}"
-        # await manager.send_message(app_id, message)
-        # update_run_progress(run_id, message, current_download_dir=current_download_dir)
-        
-        # return json_files
-
     else:
         await run_command_async(command)
 
@@ -1046,7 +958,6 @@ async def wait_for_metadata(
 
     while True:
         torrent = c.get_torrent(torrent.id)
-        # Safely get the metadata percent complete; if not available, default to 0 or wait.
         mpc = getattr(torrent, "metadata_percent_complete", None)
         if mpc is None:
             print("Metadata percent not available yet, waiting...")
@@ -1067,7 +978,6 @@ async def wait_for_metadata(
     await manager.send_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
-    # Optionally perform further checks (e.g., wait until files are available)
     timeout_seconds = 15
     check_interval = 1
     t0 = time.time()
@@ -1173,7 +1083,6 @@ async def process_single_file(
     update_run_progress(run_id, message, current_download_dir=download_dir)
 
     torrent_files = c.get_torrent(torrent.id).get_files()
-    # print(f"Torrent files: {torrent_files}")
 
     wanted_file = next((f for f in torrent_files if f.name == file_name), None)
     if not wanted_file:
@@ -1252,30 +1161,7 @@ async def process_single_file(
         datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
         os.makedirs(datasets_academic_folder, exist_ok=True)
 
-        # for output_file in output_files:
-        #     academic_file_path = os.path.join(academic_folder, os.path.basename(output_file))
-        #     shutil.move(output_file, academic_file_path)
-        #     msg = f"Moved file: {output_file} -> {academic_file_path}"
-        #     print(msg)
-        #     await manager.send_message(app_id, msg)
-        #     update_run_progress(run_id, msg)
-
-        #     symlink_path = os.path.join(datasets_academic_folder, os.path.basename(output_file))
-        #     if os.path.lexists(symlink_path):
-        #         os.remove(symlink_path)
-        #     os.symlink(academic_file_path, symlink_path)
-        #     message = f"Symlink created: {symlink_path} -> {academic_file_path}"
-        #     await manager.send_message(app_id, message)
-        #     update_run_progress(run_id, message, current_download_dir=download_dir)
-
-        #     if os.stat(academic_file_path).st_size <= 5:
-        #         message = f"No data found in {os.path.basename(academic_file_path)} for {subreddit}."
-        #         await manager.send_message(app_id, message)
-        #         update_run_progress(run_id, message, current_download_dir=download_dir)
-
-        #     academic_file_paths.append(academic_file_path)
-
-        if os.name == 'nt':  # Windows-specific branch
+        if os.name == 'nt':  
             symlink_commands = []
             for output_file in output_files:
                 academic_file_path = os.path.join(academic_folder, os.path.basename(output_file))
@@ -1316,7 +1202,7 @@ async def process_single_file(
                 message = f"Created {len(symlink_commands)} symlinks in {datasets_academic_folder}"
                 await manager.send_message(app_id, message)
                 update_run_progress(run_id, message, current_download_dir=download_dir)
-        else:  # Unix-based systems (original logic)
+        else: 
             for output_file in output_files:
                 academic_file_path = os.path.join(academic_folder, os.path.basename(output_file))
                 shutil.move(output_file, academic_file_path)
@@ -1334,7 +1220,6 @@ async def process_single_file(
                 update_run_progress(run_id, message, current_download_dir=download_dir)
                 academic_file_paths.append(academic_file_path)
 
-        # Post-processing checks (unchanged)
         for academic_file_path in academic_file_paths:
             if os.stat(academic_file_path).st_size <= 5:
                 message = f"No data found in {os.path.basename(academic_file_path)} for {subreddit}."
@@ -1704,3 +1589,24 @@ async def get_post_transcripts_csv(dataset_id: str, post_ids: List[str], csv_fil
         await asyncio.gather(*tasks) 
 
     return csv_file
+
+
+
+def get_post_and_comments_from_id(post_id: str, dataset_id: str) -> Dict[str, Any]:
+    posts_repo = PostsRepository()
+    comments_repo = CommentsRepository()
+
+    post = posts_repo.find_one({"id": post_id, "dataset_id": dataset_id}, columns=["id", "title", "selftext"], map_to_model=False)
+
+    comments = comments_repo.find({"post_id": post_id, "dataset_id": dataset_id}, columns=["id", "body", "parent_id", "author"], map_to_model=False)
+
+    comment_map = {comment["id"]: comment for comment in comments}
+
+    for comment in comments:
+        if comment["parent_id"] and comment["parent_id"] in comment_map:
+            parent = comment_map[comment["parent_id"]]
+            parent.setdefault("comments", []).append(comment)
+
+    top_level_comments = [comment for comment in comments if comment["parent_id"] == post_id]
+    
+    return {**post, "comments": top_level_comments}

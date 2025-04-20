@@ -250,6 +250,13 @@ const redditHandler = (...ctxs) => {
         }
     });
 
+    ipcMain.handle('set-reddit-webview-bounds', (event, bounds) => {
+        const currentView = globalCtx.getState().browserView;
+        if (currentView) {
+            currentView.setBounds(bounds);
+        }
+    });
+
     const linkCreator = (id, type, postId, subreddit) => {
         if (type === 'post') {
             return `https://www.reddit.com/r/${subreddit}/comments/${postId}/`;

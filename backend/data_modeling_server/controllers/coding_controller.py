@@ -575,56 +575,69 @@ async def summarize_with_llm(
     manager: Any,
     llm_instance: Any,
     llm_queue_manager: Any,
-    prompt_builder_func: Callable[..., str],
+    prompt_builder_func: Optional[Callable[..., str]] = None,
     parent_function_name: str = "",
     store_response: bool = False,
     max_input_tokens: int = 128000,
     retries: int = 3,
     **kwargs
-) -> str:
+) -> Dict[str, str]:
+    """
+    Summarize a list of texts into a JSON object: {"summary": "..."}
+    If more than one chunk, recursively collapses into one final summary.
+    Returns a dict parsed from the model's JSON.
+    """
     if not texts:
-        return ""
+        return {"summary": ""}
+
+    # default prompt builder: ask for a JSON object with key "summary"
     def generic_prompt_builder(**params) -> str:
         docs = "\n\n".join(params['texts'])
         return (
-            "Provide a concise summary (1-2 lines). Return JSON:\n"
-            "```json\n{\"summary\": \"...\"}\n```\n\n"
+            "Provide a concise summary (1-2 lines). "
+            "Respond *only* with valid JSON, for example:\n"
+            "```json\n"
+            "{\"summary\": \"...\"}\n"
+            "```\n\n"
             f"Texts:\n{docs}"
         )
-    def build_chunk(texts: List[str], max_tokens: int) -> Tuple[List[str], List[str]]:
-        chunk, used = [], 0
-        prompt_fn = prompt_builder_func if 'code' in kwargs else generic_prompt_builder
+
+    prompt_fn = prompt_builder_func or generic_prompt_builder
+
+    # build a single chunk that fits
+    def build_chunk(texts: List[str], max_tokens: int):
         fixed = prompt_fn(**{**kwargs, 'texts': []})
-        fixed_tokens = llm_instance.get_num_tokens(fixed)
-        sep, sep_tokens = "\n\n", llm_instance.get_num_tokens("\n\n")
+        fixed_t = llm_instance.get_num_tokens(fixed)
+        sep = "\n\n"; sep_t = llm_instance.get_num_tokens(sep)
+        chunk, used = [], 0
         for txt in texts:
             tkns = llm_instance.get_num_tokens(txt)
-            if tkns > max_tokens - fixed_tokens - (sep_tokens if chunk else 0):
-                txt = truncate_text(txt, max_tokens - fixed_tokens - (sep_tokens if chunk else 0), llm_instance)
+            # if one piece too big, truncate it
+            if fixed_t + (sep_t if chunk else 0) + tkns > max_tokens:
+                txt = truncate_text(txt, max_tokens - fixed_t - (sep_t if chunk else 0), llm_instance)
                 tkns = llm_instance.get_num_tokens(txt)
-            need = tkns + (sep_tokens if chunk else 0)
-            if fixed_tokens + used + need > max_tokens:
+            if fixed_t + used + (sep_t if chunk else 0) + tkns > max_tokens:
                 break
+            if chunk:
+                used += sep_t
             chunk.append(txt)
-            used += need
+            used += tkns
         rest = texts[len(chunk):]
         if not chunk and rest:
-            one = truncate_text(rest[0], max_tokens - fixed_tokens, llm_instance)
+            one = truncate_text(rest[0], max_tokens - fixed_t, llm_instance)
             chunk, rest = [one], rest[1:]
         return chunk, rest
 
-    async def summarize_chunk(chunk: List[str]) -> str:
-        prompt = (prompt_builder_func if 'code' in kwargs else generic_prompt_builder)(
-            **{**kwargs, 'texts': chunk}
-        )
-        for _ in range(retries):
+    async def summarize_chunk(chunk: List[str]) -> Dict[str, Any]:
+        prompt = prompt_fn(**{**kwargs, 'texts': chunk})
+        for attempt in range(retries):
             out = await process_llm_task(
                 workspace_id=workspace_id,
                 app_id=app_id,
                 dataset_id=dataset_id,
                 manager=manager,
                 llm_model=llm_model,
-                regex_pattern=r"```json\s*(.*?)\s*```",
+                regex_pattern=r"```json\s*(\{.*?\})\s*```",
                 prompt_builder_func=lambda **_: prompt,
                 parent_function_name=f"{parent_function_name} chunk",
                 llm_instance=llm_instance,
@@ -633,14 +646,14 @@ async def summarize_with_llm(
                 retries=1,
                 **kwargs
             )
-            if isinstance(out, dict) and isinstance(out.get("summary"), str):
-                return out["summary"]
-            if isinstance(out, str):
-                 return out
-            prompt += "\n\nPlease return valid JSON with key \"summary\"."
-        return "Summary unavailable"
+            if isinstance(out, dict):
+                return out
+            # otherwise, append a JSON-reminder
+            prompt += "\n\nPlease output valid JSON as shown above."
+        return {"summary": "unavailable"}
 
-    parts: List[str] = []
+    # split into chunks & collect
+    parts: List[Dict[str, Any]] = []
     remaining = texts
     while remaining:
         chunk, remaining = build_chunk(remaining, max_input_tokens)
@@ -648,47 +661,61 @@ async def summarize_with_llm(
             break
         parts.append(await summarize_chunk(chunk))
 
+    # if multiple chunks, combine them into one
     if len(parts) > 1:
+        combined_texts = [p.get("summary", "") for p in parts]
         return await summarize_with_llm(
             workspace_id=workspace_id,
-            texts=parts,
+            texts=combined_texts,
             llm_model=llm_model,
             app_id=app_id,
             dataset_id=dataset_id,
             manager=manager,
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
-            prompt_builder_func=generic_prompt_builder,
+            prompt_builder_func=lambda **p: (
+                "Combine these summaries into one concise 1–2 line summary. "
+                "Respond *only* with valid JSON object, e.g.:\n"
+                "```json\n{\"summary\": \"...\"}\n```"
+                + "\n\n" + "\n\n".join(p["texts"])
+            ),
             parent_function_name=f"{parent_function_name} recurse",
             store_response=store_response,
             max_input_tokens=max_input_tokens,
             retries=retries
         )
-    return parts[0] if parts else ""
+    return parts[0]
 
 def split_into_batches(
     codes: Dict[str, List[str]],
     max_tokens: int,
     llm_instance: Any
 ) -> List[List[str]]:
-    fixed = "Provide 1-2 line summaries for each code, return single JSON wrapped in ```json ... ```.\n\n"
+    """
+    Build batches of codes so each batch fits within max_tokens.
+    """
+    fixed = (
+        "Provide 1-2 line summaries for each code. "
+        "Return *only* a single JSON object mapping code->summary, e.g.:\n"
+        "```json\n{\"CODE1\": \"...\", \"CODE2\": \"...\"}\n```"
+        "\n\n"
+    )
     fixed_t = llm_instance.get_num_tokens(fixed)
-    sep, sep_t = "---\n", llm_instance.get_num_tokens("---\n")
     batches, cur, cur_t = [], [], fixed_t
 
     for code, exps in codes.items():
-        section = f"Code: {code}\n" + "\n".join(f"- {e}" for e in exps) + "\n" + sep
+        section = f"\"{code}\": [\n" + ",\n".join(f"  {json.dumps(e)}" for e in exps) + "\n],\n"
         sec_t = llm_instance.get_num_tokens(section)
         if cur_t + sec_t > max_tokens:
             if cur:
                 batches.append(cur)
                 cur, cur_t = [], fixed_t
             if fixed_t + sec_t > max_tokens:
+                # too big even alone => force it
                 batches.append([code])
                 continue
         cur.append(code)
         cur_t += sec_t
-
     if cur:
         batches.append(cur)
     return batches
@@ -706,12 +733,28 @@ async def batch_multiple_codes_task(
     llm_queue_manager: Any,
     retries: int = 3,
     store_response: bool = False
-) -> List[Tuple[str, str]]:
+) -> Dict[str, str]:
+    """
+    Summarize multiple codes in one shot, returning a dict code->summary.
+    """
     if not batch:
-        return []
-    prompt = "Provide 1-2 line summaries for each code, return single JSON wrapped in ```json ... ```.\n\n"
+        return {}
+
+    # build prompt that asks for a JSON object mapping codes to summaries
+    prompt = (
+        "Provide 1-2 line summaries for each code. "
+        "Respond *only* with a JSON object mapping each code to its summary, for example:\n"
+        "```json\n{\"CODE1\": \"summary1\", \"CODE2\": \"summary2\"}\n```"
+        "\n\n"
+        "Data:\n{\n"
+    )
     for c in batch:
-        prompt += f"Code: {c}\n" + "\n".join(f"- {e}" for e in codes_map[c]) + "\n---\n"
+        exps = codes_map[c]
+        arr = ", ".join(json.dumps(e) for e in exps)
+        prompt += f'  "{c}": [{arr}],\n'
+    prompt += "}\n"
+
+    missing_codes = set(batch)
 
     for _ in range(retries):
         out = await process_llm_task(
@@ -720,7 +763,7 @@ async def batch_multiple_codes_task(
             dataset_id=dataset_id,
             manager=manager,
             llm_model=llm_model,
-            regex_pattern=r"```json\s*(.*?)\s*```",
+            regex_pattern=r"```json\s*(\{.*?\})\s*```",
             prompt_builder_func=lambda **_: prompt,
             parent_function_name=f"{parent_function_name} batch",
             llm_instance=llm_instance,
@@ -728,27 +771,18 @@ async def batch_multiple_codes_task(
             store_response=store_response,
             retries=1
         )
-
         if isinstance(out, dict):
-            missing = [c for c in batch if c not in out or not isinstance(out[c], str)]
-            if not missing:
-                return [(c, out[c]) for c in batch]
-            prompt += f"\n\nInclude missing codes: {missing}."
-            prompt += "\n\nEnsure all values are strings."
-
-        elif isinstance(out, list):
-            pairs = []
-            for item in out:
-                if isinstance(item, (list, tuple)) and len(item) == 2 and isinstance(item[0], str) and isinstance(item[1], str):
-                    pairs.append((item[0], item[1]))
-            if {c for c,_ in pairs} == set(batch):
-                return pairs
-        elif isinstance(out, str) and len(batch) == 1:
-            return [(batch[0], out)]
-
-        prompt += "\n\nReturn valid JSON as specified."
-
-    return [(c, "Summary unavailable") for c in batch]
+            # ensure all requested codes are present, fill missing with placeholder
+            if not any(c in out for c in batch):
+                missing_codes = set(batch) - set(out.keys())
+            else:    
+                result = {c: out.get(c, "summary unavailable") for c in batch}
+                return result
+        # otherwise ask again
+        prompt += "\n\nPlease respond *only* with the JSON object as specified above."
+        prompt += "\n\nEnsure responses for missing codes: " + ", ".join(missing_codes)
+    # fallback
+    return {c: "summary unavailable" for c in batch}
 
 async def _flush_and_summarize(
     grouped: Dict[str, List[str]],
@@ -789,13 +823,14 @@ async def _flush_and_summarize(
                     max_input_tokens=max_input_tokens,
                     retries=retries
                 ))]
-            return await batch_multiple_codes_task(
+            result_map = await batch_multiple_codes_task(
                 batch, todo,
                 workspace_id, app_id, dataset_id,
                 manager, llm_model, parent_function_name,
                 llm_instance, llm_queue_manager,
                 retries, store_response
             )
+            return list(result_map.items())
 
     results = await asyncio.gather(*(guarded(b) for b in batches))
     return {c: s for batch in results for c, s in batch}

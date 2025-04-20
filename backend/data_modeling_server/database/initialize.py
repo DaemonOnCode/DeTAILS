@@ -1,12 +1,12 @@
 from enum import Enum
 import os
 import re
-import sqlite3
 from dataclasses import fields
 from datetime import datetime
 from typing import Optional, Type
 
 from constants import DATABASE_PATH, STUDY_DATABASE_PATH, DATABASE_DIR
+from database.db_helpers import tuned_connection
 from database.constants import SQLITE_TYPE_MAPPING
 
 def camel_to_snake(name: str) -> str:
@@ -90,7 +90,7 @@ def generate_create_table_statement(
 def initialize_database(dataclasses, database_path=DATABASE_PATH):
     os.makedirs(DATABASE_DIR, exist_ok=True)
     print(os.path.exists(DATABASE_DIR))
-    with sqlite3.connect(database_path) as conn:
+    with tuned_connection(database_path) as conn:
         cursor = conn.cursor()
         for dataclass_obj in dataclasses:
             print(f"Initializing table for {dataclass_obj.__name__}...")
@@ -101,7 +101,7 @@ def initialize_database(dataclasses, database_path=DATABASE_PATH):
 
 def initialize_study_database(dataclasses):
     os.makedirs(DATABASE_DIR, exist_ok=True)
-    with sqlite3.connect(STUDY_DATABASE_PATH) as conn:
+    with tuned_connection(STUDY_DATABASE_PATH) as conn:
         cursor = conn.cursor()
         for dataclass_obj in dataclasses:
             print(f"Initializing table for {dataclass_obj.__name__}...")
