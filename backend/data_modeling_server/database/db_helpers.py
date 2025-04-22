@@ -6,25 +6,16 @@ from constants import DATABASE_PATH
 
 
 
-def tuned_connection(db_path: str) -> sqlite3.Connection:
+def tuned_connection(db_path: str = DATABASE_PATH) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
-
-    # 1. Use WAL for concurrency, but keep WAL file in check
     c.execute("PRAGMA journal_mode = WAL;")
-    c.execute("PRAGMA wal_autocheckpoint = 500;")     # ~2 MB autotrigger
+    c.execute("PRAGMA wal_autocheckpoint = 500;") 
 
-    # 2. Speed vs. durability
     c.execute("PRAGMA synchronous = NORMAL;")
 
-    # 3. Temp tables in RAM—but only moderately sized
     c.execute("PRAGMA temp_store = MEMORY;")
-
-    # 4. Page cache: tune to your available RAM (e.g. 20 MB here)
-    c.execute("PRAGMA cache_size = -20000;")          # 20 000 × 1 024 bytes
-
-    # (Optional) map some of the DB file into memory if OS and SQLite support it:
-    # c.execute("PRAGMA mmap_size = 268435456;")      # e.g. 256 MB
+    c.execute("PRAGMA cache_size = -20000;")          # 20000 × 1024 bytes
 
     return conn
 

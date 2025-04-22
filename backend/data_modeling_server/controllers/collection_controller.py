@@ -484,7 +484,7 @@ def get_reddit_post_by_id(dataset_id: str, post_id: str, columns: list = None):
 def get_comments_recursive(post_id: str, dataset_id: str):
 
     comments = comment_repo.get_comments_by_post_optimized(dataset_id, post_id)
-    print("Comments fetched:", comments)
+    # print("Comments fetched:", comments)
 
     comment_map = {comment["id"]: comment for comment in comments}
 
@@ -711,7 +711,6 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                 else:
                     print(f"Skipping duplicate comment with key: {key}")
             comment_repo.insert_batch(unique_comments)
-    comment_repo.index_comments()
     update_dataset(dataset_id, name=subreddit)
 
     return {"message": "Reddit dataset parsed successfully"}
@@ -1556,7 +1555,7 @@ async def check_primary_torrent(
 
 async def get_post_transcripts_csv(dataset_id: str, post_ids: List[str], csv_file: str) -> None:
     sem = asyncio.Semaphore(os.cpu_count())
-    transcripts = [None] * len(post_ids)  # List to store transcripts, initially None
+    transcripts = [None] * len(post_ids) 
     next_index = 0
     write_lock = asyncio.Lock()
 
@@ -1564,7 +1563,7 @@ async def get_post_transcripts_csv(dataset_id: str, post_ids: List[str], csv_fil
         async with sem:
             try:
                 post = await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id, ["id", "title", "selftext"])
-                transcript = await asyncio.to_thread(generate_transcript, post)
+                transcript = await anext(generate_transcript(post))
             except HTTPException as e:
                 print(f"Post {post_id} not found: {e.detail}")
                 transcript = ""

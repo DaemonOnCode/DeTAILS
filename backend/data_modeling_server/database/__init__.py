@@ -33,6 +33,8 @@ from .keyword_table import KeywordsRepository
 from .selected_keywords_table import SelectedKeywordsRepository
 from .keyword_entry_table import KeywordEntriesRepository
 from .collection_context_table import CollectionContextRepository
+from .manual_codebook_table import ManualCodebookEntriesRepository
+from .manual_post_state_table import ManualPostStatesRepository
 from .initialize import initialize_database, initialize_study_database
 from .db_helpers import execute_query, execute_query_with_retry
 
@@ -73,6 +75,8 @@ __all__ = [
     "GroupedCodeEntriesRepository",
     "ThemeEntriesRepository",
     "CollectionContextRepository",
+    "ManualCodebookEntriesRepository",
+    "ManualPostStatesRepository",
     "initialize_database",
     "initialize_study_database",
     "execute_query",

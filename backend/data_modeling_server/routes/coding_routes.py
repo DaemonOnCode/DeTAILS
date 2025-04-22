@@ -1,38 +1,58 @@
 import asyncio
+import csv
 import json
 import os
+import tempfile
 import time
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import uuid4
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, Form, HTTPException, Header, Request, UploadFile, BackgroundTasks
+from fastapi.responses import FileResponse
+from httpx import post
 import numpy as np
 import pandas as pd
 
 from config import Settings, CustomSettings
 from constants import CODEBOOK_TYPE_MAP, STUDY_DATABASE_PATH
-from controllers.coding_controller import build_where_clause_and_params, cluster_words_with_llm, filter_codes_by_transcript, filter_duplicate_codes_in_db, get_coded_data, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, summarize_codebook_explanations, summarize_with_llm
-from controllers.collection_controller import count_comments, get_post_and_comments_from_id, get_reddit_post_by_id
+from controllers.coding_controller import _apply_type_filters, cluster_words_with_llm, filter_codes_by_transcript, filter_duplicate_codes_in_db, initialize_vector_store, insert_responses_into_db, process_llm_task, save_context_files, stream_selected_post_ids, summarize_codebook_explanations
+from controllers.collection_controller import count_comments, get_reddit_post_by_id
 from database.coding_context_table import CodingContextRepository
 from database.context_file_table import ContextFilesRepository
 from database.grouped_code_table import GroupedCodeEntriesRepository
 from database.initial_codebook_table import InitialCodebookEntriesRepository
 from database.keyword_entry_table import KeywordEntriesRepository
 from database.keyword_table import KeywordsRepository
+from database.manual_codebook_table import ManualCodebookEntriesRepository
+from database.manual_post_state_table import ManualPostStatesRepository
 from database.research_question_table import ResearchQuestionsRepository
 from database.selected_keywords_table import SelectedKeywordsRepository
 from database.state_dump_table import StateDumpsRepository
 from database.theme_table import ThemeEntriesRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
-from models.coding_models import FilteredResponsesMetadataRequest, FinalCodingRequest, GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, GenerateInitialCodesRequest, GenerateKeywordDefinitionsRequest, GetCodedDataRequest, GroupCodesRequest, PostResponsesRequest, RedoThemeGenerationRequest, RefineCodeRequest, RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, RegroupCodesRequest, RemakeCodebookRequest, RemakeFinalCodesRequest, ResponsesRequest, SamplePostsRequest, SelectedPostIdsRequest, ThemeGenerationRequest
-from models.table_dataclasses import CodebookType, GenerationType, GroupedCodeEntry, InitialCodebookEntry, Keyword, KeywordEntry, ResponseCreatorType, SelectedKeyword, SelectedPostId, StateDump, ThemeEntry
+from models.coding_models import (
+    AnalysisRequest, FilteredResponsesMetadataRequest, FinalCodingRequest, 
+    GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, 
+    GenerateInitialCodesRequest, GenerateKeywordDefinitionsRequest, 
+    GroupCodesRequest, PaginatedPostRequest, PaginatedRequest, 
+    PostResponsesRequest, RedoThemeGenerationRequest, RefineCodeRequest, 
+    RegenerateCodebookWithoutQuotesRequest, RegenerateKeywordsRequest, 
+    RegroupCodesRequest, RemakeCodebookRequest, RemakeFinalCodesRequest, 
+    ResponsesRequest, SamplePostsRequest, SelectedPostIdsRequest, 
+    ThemeGenerationRequest, TranscriptRequest
+)
+from models.table_dataclasses import (
+    CodebookType, GenerationType, GroupedCodeEntry, InitialCodebookEntry, 
+    Keyword, KeywordEntry, ManualCodebookEntry, ManualPostState, ResponseCreatorType, SelectedKeyword, SelectedPostId, 
+    StateDump, ThemeEntry
+)
 from routes.websocket_routes import manager
 from database import FunctionProgressRepository, QectRepository, SelectedPostIdsRepository
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
 from models import FunctionProgress, QectResponse
-from database.db_helpers import execute_query
+from database.db_helpers import execute_query, tuned_connection
 from utils.prompts import ConceptOutline, ContextPrompt, FinalCoding, GenerateCodebookWithoutQuotes, GenerateDeductiveCodesFromCodebook, GroupCodes, InitialCodePrompts, RefineSingleCode, RemakerPrompts, ThemeGeneration
 
 
@@ -51,6 +71,7 @@ keyword_entries_repo = KeywordEntriesRepository()
 initial_codebook_repo = InitialCodebookEntriesRepository()
 grouped_codes_repo = GroupedCodeEntriesRepository()
 themes_repo = ThemeEntriesRepository()
+manual_codebook_repo = ManualCodebookEntriesRepository()
 
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
@@ -61,6 +82,9 @@ async def get_selected_post_ids_endpoint(
     request: Request
 ):
     return selected_post_ids_repo.find({"dataset_id": request.headers.get("x-workspace-id")})
+
+
+manual_post_state_repo = ManualPostStatesRepository()
 
 @router.post("/sample-posts")
 async def sample_posts_endpoint(
@@ -73,11 +97,10 @@ async def sample_posts_endpoint(
 
     if (request_body.sample_size <= 0 or 
         dataset_id == "" or 
-        len(request_body.post_ids) == 0 or 
         request_body.divisions < 1):
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
     
-    post_ids = request_body.post_ids
+
     sample_size = request_body.sample_size
     divisions = request_body.divisions
     workspace_id = request.headers.get("x-workspace-id")
@@ -90,6 +113,9 @@ async def sample_posts_endpoint(
     except Exception as e:
         print(e)
     
+    post_ids = list(map(lambda x: x["post_id"], selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "ungrouped"}, ["post_id"], map_to_model=False)))
+    print(f"Post IDs: {len(post_ids)}")
+
     sem = asyncio.Semaphore(os.cpu_count())
 
     async def fetch_and_compute_length(post_id: str):
@@ -99,7 +125,7 @@ async def sample_posts_endpoint(
                     "id", "title", "selftext"
                 ])
                 num_comments = count_comments(post.get("comments", []))
-                transcript = await asyncio.to_thread(generate_transcript, post)
+                transcript = await anext(generate_transcript(post))
                 length = len(transcript)
                 return post_id, length, num_comments
             except HTTPException as e:
@@ -215,7 +241,14 @@ async def sample_posts_endpoint(
     if divisions == 2:
         group_names = ["sampled", "unseen"]
     elif divisions == 3:
-        group_names = ["sampled", "unseen", "test"]
+        group_names = ["sampled", "unseen", "manual"]
+        manual_post_state_repo.insert_batch(
+            list(map(lambda x: ManualPostState(
+                workspace_id=workspace_id,
+                post_id=x,
+                is_marked=False,
+            ), groups[-1]))
+        )
     else:
         group_names = [f"group_{i+1}" for i in range(divisions)]
 
@@ -590,7 +623,6 @@ async def regenerate_keywords_endpoint(
 @router.post("/generate-initial-codes")
 async def generate_codes_endpoint(request: Request,
     request_body: GenerateInitialCodesRequest,
-    batch_size: int = 100,  
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
@@ -604,9 +636,6 @@ async def generate_codes_endpoint(request: Request,
     if not coding_context:
         raise HTTPException(status_code=404, detail="Coding context not found for the workspace.")
 
-    sampled_post_ids = list(map(lambda x: x["post_id"], selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "sampled"}, ["post_id"], map_to_model=False)))
-    if len(sampled_post_ids) == 0:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
     mainTopic = coding_context.main_topic
     additionalInfo = coding_context.additional_info or ""
     researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
@@ -616,7 +645,9 @@ async def generate_codes_endpoint(request: Request,
     start_time = time.time()
 
     function_id = str(uuid4())
-    total_posts = len(sampled_post_ids)
+    total_posts = selected_post_ids_repo.count({"dataset_id": dataset_id, "type": "sampled"})
+    if total_posts == 0:
+        raise HTTPException(status_code=400, detail="No posts available for coding.")
 
     try:
         if function_progress_repo.find_one({"name": "codebook"}):
@@ -645,58 +676,63 @@ async def generate_codes_endpoint(request: Request,
         async def process_post(post_id: str):
             try:
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-                post_data = get_post_and_comments_from_id(post_id, dataset_id)
+                
+                post_data = get_reddit_post_by_id(dataset_id, post_id, [
+                    "id", "title", "selftext"
+                ])
+                await asyncio.sleep(0)
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
-                transcript = generate_transcript(post_data)
+                transcripts = generate_transcript(post_data, llm.get_num_tokens)
 
-                parsed_response = await process_llm_task(
-                    workspace_id=workspace_id,
-                    app_id=app_id,
-                    dataset_id=dataset_id,
-                    post_id=post_id,
-                    manager=manager,
-                    llm_model=request_body.model,
-                    regex_pattern=r"\"codes\":\s*(\[.*?\])",
-                    parent_function_name="generate-initial-codes",
-                    prompt_builder_func=InitialCodePrompts.initial_code_prompt,
-                    function_id=function_id,
-                    llm_instance=llm,
-                    llm_queue_manager=llm_queue_manager,
-                    main_topic=mainTopic,
-                    additional_info=additionalInfo,
-                    research_questions=researchQuestions,
-                    keyword_table=json.dumps(keyword_table),
-                    post_transcript=transcript,
-                    store_response=True,
-                    cacheable_args={
-                        "args":[],
-                        "kwargs": [
-                            "main_topic",
-                            "additional_info",
-                            "research_questions",
-                            "keyword_table",
-                        ]
-                    }
-                )
+                async for transcript in transcripts:
+                    parsed_response = await process_llm_task(
+                        workspace_id=workspace_id,
+                        app_id=app_id,
+                        dataset_id=dataset_id,
+                        post_id=post_id,
+                        manager=manager,
+                        llm_model=request_body.model,
+                        regex_pattern=r"\"codes\":\s*(\[.*?\])",
+                        parent_function_name="generate-initial-codes",
+                        prompt_builder_func=InitialCodePrompts.initial_code_prompt,
+                        function_id=function_id,
+                        llm_instance=llm,
+                        llm_queue_manager=llm_queue_manager,
+                        main_topic=mainTopic,
+                        additional_info=additionalInfo,
+                        research_questions=researchQuestions,
+                        keyword_table=json.dumps(keyword_table),
+                        post_transcript=transcript,
+                        store_response=True,
+                        cacheable_args={
+                            "args":[],
+                            "kwargs": [
+                                "main_topic",
+                                "additional_info",
+                                "research_questions",
+                                "keyword_table",
+                            ]
+                        }
+                    )
 
-                if isinstance(parsed_response, list):
-                    parsed_response = {"codes": parsed_response}
+                    if isinstance(parsed_response, list):
+                        parsed_response = {"codes": parsed_response}
 
-                codes = parsed_response.get("codes", [])
-                for code in codes:
-                    code["postId"] = post_id
-                    code["id"] = str(uuid4())
+                    codes = parsed_response.get("codes", [])
+                    for code in codes:
+                        code["postId"] = post_id
+                        code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-initial-codes")
-                function_progress_repo.update({
-                    "function_id": function_id,
-                }, {
-                    "current": function_progress_repo.find_one({
-                        "function_id": function_id
-                    }).current + 1
-                })
-                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="generate-initial-codes")
+                    codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-initial-codes")
+                    function_progress_repo.update({
+                        "function_id": function_id,
+                    }, {
+                        "current": function_progress_repo.find_one({
+                            "function_id": function_id
+                        }).current + 1
+                    })
+                    codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="generate-initial-codes")
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
@@ -705,8 +741,7 @@ async def generate_codes_endpoint(request: Request,
                 await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
                 return []
 
-        sampled_posts = sampled_post_ids
-        batches = [sampled_posts[i:i + batch_size] for i in range(0, len(sampled_posts), batch_size)]
+        batches = stream_selected_post_ids(workspace_id, ["sampled"])
 
         for batch in batches:
             print(f"Processing batch of {len(batch)} posts...")
@@ -721,11 +756,13 @@ async def generate_codes_endpoint(request: Request,
             FROM qect 
             WHERE dataset_id = ? AND codebook_type = ?
         """
+        print("Fetching unique codes from qect table")
         unique_codes_result = qect_repo.execute_raw_query(
             unique_codes_query,
             (dataset_id, CodebookType.INITIAL.value),
             keys=True
         )
+        print("Unique codes fetched from qect table")
         unique_codes = [row["code"] for row in unique_codes_result]
 
         res = await cluster_words_with_llm(
@@ -756,10 +793,13 @@ async def generate_codes_endpoint(request: Request,
                 SET code = ? 
                 WHERE code = ? AND dataset_id = ? AND codebook_type = ?
             """
+            print(f"Updating code {subtopic} to {topic_head}")
             qect_repo.execute_raw_query(
                 update_query,
                 (topic_head, subtopic, dataset_id, CodebookType.INITIAL.value)
             )
+            print(f"Updated code {subtopic} to {topic_head}")
+        print("Updated codes in qect table")
 
         filter_duplicate_codes_in_db(
             dataset_id=dataset_id,
@@ -772,7 +812,7 @@ async def generate_codes_endpoint(request: Request,
             StateDump(
                 state=json.dumps({ 
                     "dataset_id": dataset_id,
-                    "post_ids": sampled_post_ids,
+                    "post_ids": selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "sampled"}, ["post_id"], map_to_model=False),
                     "results": qect_repo.find({"dataset_id": dataset_id, "codebook_type": CodebookType.INITIAL.value}, map_to_model=False),
                 }),
                 context=json.dumps({
@@ -798,7 +838,6 @@ async def generate_codes_endpoint(request: Request,
 async def final_coding_endpoint(
     request: Request,
     request_body: FinalCodingRequest,
-    batch_size: int = 100,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
@@ -816,12 +855,11 @@ async def final_coding_endpoint(
     additional_info = coding_context.additional_info or ""
     research_questions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
     keyword_table = keyword_entries_repo.find({"coding_context_id": workspace_id}, map_to_model=False)
-    unseen_post_ids = list(map(lambda x: x["post_id"], selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "unseen"}, ["post_id"], map_to_model=False)))
 
     start_time = time.time()
 
     function_id = str(uuid4())
-    total_posts = len(unseen_post_ids)
+    total_posts = selected_post_ids_repo.count({"dataset_id": dataset_id, "type": "unseen"})
 
     try:
         print(function_progress_repo.find())
@@ -841,7 +879,6 @@ async def final_coding_endpoint(
     ))
 
     try:
-        posts = unseen_post_ids
         llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
         try:
@@ -851,66 +888,77 @@ async def final_coding_endpoint(
 
         async def process_post(post_id: str):
             await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-            post_data = get_post_and_comments_from_id(post_id, dataset_id)
+            
+            print("Post data fetching")
+            post_data = get_reddit_post_by_id(dataset_id, post_id, [
+                "id", "title", "selftext"
+            ])
+            print("Post data fetched")
+
+            await asyncio.sleep(0)
 
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
-            transcript = generate_transcript(post_data)
-
-            parsed_response = await process_llm_task(
-                workspace_id=workspace_id,
-                app_id=app_id,
-                dataset_id=dataset_id,
-                post_id=post_id,
-                manager=manager,
-                llm_model=request_body.model,
-                regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-                prompt_builder_func=FinalCoding.final_coding_prompt,
-                llm_instance=llm,
-                parent_function_name="final-coding",
-                function_id=function_id,
-                llm_queue_manager=llm_queue_manager,
-                final_codebook=json.dumps(final_codebook, indent=2),
-                keyword_table=json.dumps(keyword_table, indent=2),
-                main_topic=main_topic,
-                additional_info=additional_info,
-                research_questions=json.dumps(research_questions),
-                post_transcript=transcript,
-                store_response=True,
-                cacheable_args={
-                    "args":[],
-                    "kwargs": [
-                        "main_topic",
-                        "additional_info",
-                        "research_questions",
-                        "keyword_table",
-                        "final_codebook"
-                    ]
-                }
+            transcripts = generate_transcript(
+                post_data,
+                token_checker=llm.get_num_tokens
             )
-  
-            if isinstance(parsed_response, list):
-                parsed_response = {"codes": parsed_response}
+            async for transcript in transcripts:
+                print("Chunk yielded")
+                parsed_response = await process_llm_task(
+                    workspace_id=workspace_id,
+                    app_id=app_id,
+                    dataset_id=dataset_id,
+                    post_id=post_id,
+                    manager=manager,
+                    llm_model=request_body.model,
+                    regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+                    prompt_builder_func=FinalCoding.final_coding_prompt,
+                    llm_instance=llm,
+                    parent_function_name="final-coding",
+                    function_id=function_id,
+                    llm_queue_manager=llm_queue_manager,
+                    final_codebook=json.dumps(final_codebook, indent=2),
+                    keyword_table=json.dumps(keyword_table, indent=2),
+                    main_topic=main_topic,
+                    additional_info=additional_info,
+                    research_questions=json.dumps(research_questions),
+                    post_transcript=transcript,
+                    store_response=True,
+                    cacheable_args={
+                        "args":[],
+                        "kwargs": [
+                            "main_topic",
+                            "additional_info",
+                            "research_questions",
+                            "keyword_table",
+                            "final_codebook"
+                        ]
+                    }
+                )
 
-            codes = parsed_response.get("codes", [])
-            for code in codes:
-                code["postId"] = post_id
-                code["id"] = str(uuid4())
+                if isinstance(parsed_response, list):
+                    parsed_response = {"codes": parsed_response}
 
-            codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="final-coding")
-            function_progress_repo.update({
-                    "function_id": function_id,
-                }, {
-                    "current": function_progress_repo.find_one({
-                        "function_id": function_id
-                    }).current + 1
-                })
+                codes = parsed_response.get("codes", [])
+                for code in codes:
+                    code["postId"] = post_id
+                    code["id"] = str(uuid4())
 
-            codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="final-coding")
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="final-coding")
+                function_progress_repo.update({
+                        "function_id": function_id,
+                    }, {
+                        "current": function_progress_repo.find_one({
+                            "function_id": function_id
+                        }).current + 1
+                    })
+
+                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="final-coding")
 
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
-        batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
+        batches = stream_selected_post_ids(workspace_id, ["unseen"])
 
         for batch in batches:
             await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
@@ -923,7 +971,7 @@ async def final_coding_endpoint(
             StateDump(
                 state=json.dumps({
                     "dataset_id": dataset_id,
-                    "post_ids": posts,
+                    "post_ids": selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "unseen"}, ["post_id"], map_to_model=False),
                     "results": qect_repo.find({"dataset_id": dataset_id, "codebook_type": CodebookType.FINAL.value}, map_to_model=False),
                 }),
                 context=json.dumps({
@@ -1240,17 +1288,14 @@ async def refine_single_code_endpoint(
     request: Request,
     request_body: RefineCodeRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    dataset_id: str = Header(..., alias="x-workspace-id")
 ):
-    dataset_id = request_body.dataset_id
-    if not dataset_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-    
     start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
-    post_data = get_post_and_comments_from_id(request_body.post_id, dataset_id)
-    transcript = generate_transcript(post_data)
+    post_data = get_reddit_post_by_id(dataset_id, request_body.post_id)
+    transcript =await anext(generate_transcript(post_data))
 
     *chat_history, user_comment = request_body.chat_history
 
@@ -1300,7 +1345,6 @@ async def refine_single_code_endpoint(
 async def generate_codes_endpoint(
     request: Request,
     request_body: RemakeCodebookRequest,
-    batch_size: int = 100,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
@@ -1313,8 +1357,7 @@ async def generate_codes_endpoint(
 
 
     function_id = str(uuid4())
-    sampled_post_ids = list(map(lambda x: x["post_id"], selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "sampled"}, ["post_id"], map_to_model=False)))
-    total_posts = len(sampled_post_ids)
+    total_posts = selected_post_ids_repo.count({"dataset_id": dataset_id, "type": "sampled"})
 
     coding_context = coding_context_repo.find_one({"id": workspace_id})
     if not coding_context:
@@ -1368,56 +1411,59 @@ async def generate_codes_endpoint(
         async def process_post(post_id: str):
             try:
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-                post_data = get_post_and_comments_from_id(post_id, dataset_id)
+                
+                post_data = get_reddit_post_by_id(dataset_id, post_id, [
+                    "id", "title", "selftext"
+                ])
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
-                transcript = generate_transcript(post_data)
+                transcripts = generate_transcript(post_data, llm.get_num_tokens)
+                async for transcript in transcripts:
+                    parsed_response = await process_llm_task(
+                        workspace_id=workspace_id,
+                        app_id=app_id,
+                        dataset_id=dataset_id,
+                        post_id=post_id,
+                        manager=manager,
+                        llm_model=request_body.model,
+                        regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+                        prompt_builder_func=RemakerPrompts.codebook_remake_prompt,
+                        llm_instance=llm,
+                        parent_function_name="remake-codebook",
+                        llm_queue_manager=llm_queue_manager,
+                        main_topic=mainTopic,
+                        additional_info=additionalInfo,
+                        research_questions=researchQuestions,
+                        keyword_table=json.dumps(keyword_table),
+                        function_id=function_id,
+                        post_transcript=transcript,
+                        current_codebook=json.dumps(summarized_codebook),
+                        feedback = request_body.feedback,
+                        store_response=True,
+                        cacheable_args={
+                            "args":[],
+                            "kwargs": [
+                                "main_topic",
+                                "additional_info",
+                                "research_questions",
+                                "keyword_table",
+                                "current_codebook",
+                                "feedback"
+                            ]
+                        }
+                    )
 
-                parsed_response = await process_llm_task(
-                    workspace_id=workspace_id,
-                    app_id=app_id,
-                    dataset_id=dataset_id,
-                    post_id=post_id,
-                    manager=manager,
-                    llm_model=request_body.model,
-                    regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-                    prompt_builder_func=RemakerPrompts.codebook_remake_prompt,
-                    llm_instance=llm,
-                    parent_function_name="remake-codebook",
-                    llm_queue_manager=llm_queue_manager,
-                    main_topic=mainTopic,
-                    additional_info=additionalInfo,
-                    research_questions=researchQuestions,
-                    keyword_table=json.dumps(keyword_table),
-                    function_id=function_id,
-                    post_transcript=transcript,
-                    current_codebook=json.dumps(summarized_codebook),
-                    feedback = request_body.feedback,
-                    store_response=True,
-                    cacheable_args={
-                        "args":[],
-                        "kwargs": [
-                            "main_topic",
-                            "additional_info",
-                            "research_questions",
-                            "keyword_table",
-                            "current_codebook",
-                            "feedback"
-                        ]
-                    }
-                )
+                    if isinstance(parsed_response, list):
+                        parsed_response = {"codes": parsed_response}
 
-                if isinstance(parsed_response, list):
-                    parsed_response = {"codes": parsed_response}
+                    codes = parsed_response.get("codes", [])
+                    for code in codes:
+                        code["postId"] = post_id
+                        code["id"] = str(uuid4())
 
-                codes = parsed_response.get("codes", [])
-                for code in codes:
-                    code["postId"] = post_id
-                    code["id"] = str(uuid4())
+                    codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="remake-codebook")
 
-                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="remake-codebook")
-
-                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="remake-codebook")
+                    codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="remake-codebook")
 
                 await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
@@ -1426,9 +1472,8 @@ async def generate_codes_endpoint(
                 await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
                 return []
 
-        
-        sampled_posts = sampled_post_ids
-        batches = [sampled_posts[i:i + batch_size] for i in range(0, len(sampled_posts), batch_size)]
+
+        batches = stream_selected_post_ids(workspace_id, ["sampled"])
 
         for batch in batches:
             await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
@@ -1501,7 +1546,7 @@ async def generate_codes_endpoint(
             StateDump(
                 state=json.dumps({
                     "dataset_id": dataset_id,
-                    "post_ids": sampled_post_ids,
+                    "post_ids": selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "sampled"}, ["post_id"], map_to_model=False),
                     "results": final_results,
                     "feedback": request_body.feedback
                 }),
@@ -1529,7 +1574,6 @@ async def generate_codes_endpoint(
 async def redo_final_coding_endpoint(
     request: Request,
     request_body: RemakeFinalCodesRequest,
-    batch_size: int = 100,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
@@ -1547,13 +1591,11 @@ async def redo_final_coding_endpoint(
     additional_info = coding_context.additional_info or ""
     research_questions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
     keyword_table = keyword_entries_repo.find({"coding_context_id": workspace_id}, map_to_model=False)
-    unseen_post_ids = list(map(lambda x: x["post_id"], selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "unseen"}, ["post_id"], map_to_model=False)))
-
 
     start_time = time.time()
 
     function_id = str(uuid4())
-    total_posts = len(unseen_post_ids)
+    total_posts = selected_post_ids_repo.count({"dataset_id": dataset_id, "type": "unseen"})
 
     function_progress_repo.insert(FunctionProgress(
         workspace_id=workspace_id,
@@ -1566,7 +1608,6 @@ async def redo_final_coding_endpoint(
     ))
 
     try:
-        posts = unseen_post_ids
         llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
         summarized_current_codebook_dict = await summarize_codebook_explanations(
@@ -1596,60 +1637,64 @@ async def redo_final_coding_endpoint(
 
         async def process_post(post_id: str):
             await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-            post_data = get_post_and_comments_from_id(post_id, dataset_id)
+            
+            post_data = get_reddit_post_by_id(dataset_id, post_id, [
+                "id", "title", "selftext"
+            ])
 
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
-            transcript = generate_transcript(post_data)
+            transcripts = generate_transcript(post_data, llm.get_num_tokens)
 
-            parsed_response = await process_llm_task(
-                workspace_id=workspace_id,
-                app_id=app_id,
-                dataset_id=dataset_id,
-                post_id=post_id,
-                manager=manager,
-                llm_model=request_body.model,
-                regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-                prompt_builder_func=RemakerPrompts.final_codebook_remake_prompt,
-                llm_instance=llm,
-                parent_function_name="redo-final-coding",
-                llm_queue_manager=llm_queue_manager,
-                final_codebook=json.dumps(final_codebook, indent=2),
-                keyword_table=json.dumps(keyword_table, indent=2),
-                main_topic=main_topic,
-                additional_info=additional_info,
-                research_questions=json.dumps(research_questions),
-                post_transcript=transcript,
-                current_codebook=json.dumps(summarized_current_codebook),
-                store_response=True,
-                cacheable_args={
-                    "args":[],
-                    "kwargs": [
-                        "main_topic",
-                        "additional_info",
-                        "research_questions",
-                        "keyword_table",
-                        "final_codebook",
-                        "current_codebook"
-                    ]
-                }
-            )
+            async for transcript in transcripts:
+                parsed_response = await process_llm_task(
+                    workspace_id=workspace_id,
+                    app_id=app_id,
+                    dataset_id=dataset_id,
+                    post_id=post_id,
+                    manager=manager,
+                    llm_model=request_body.model,
+                    regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+                    prompt_builder_func=RemakerPrompts.final_codebook_remake_prompt,
+                    llm_instance=llm,
+                    parent_function_name="redo-final-coding",
+                    llm_queue_manager=llm_queue_manager,
+                    final_codebook=json.dumps(final_codebook, indent=2),
+                    keyword_table=json.dumps(keyword_table, indent=2),
+                    main_topic=main_topic,
+                    additional_info=additional_info,
+                    research_questions=json.dumps(research_questions),
+                    post_transcript=transcript,
+                    current_codebook=json.dumps(summarized_current_codebook),
+                    store_response=True,
+                    cacheable_args={
+                        "args":[],
+                        "kwargs": [
+                            "main_topic",
+                            "additional_info",
+                            "research_questions",
+                            "keyword_table",
+                            "final_codebook",
+                            "current_codebook"
+                        ]
+                    }
+                )
 
-            
-            if isinstance(parsed_response, list):
-                parsed_response = {"codes": parsed_response}
+                
+                if isinstance(parsed_response, list):
+                    parsed_response = {"codes": parsed_response}
 
-            codes = parsed_response.get("codes", [])
-            for code in codes:
-                code["postId"] = post_id
-                code["id"] = str(uuid4())
+                codes = parsed_response.get("codes", [])
+                for code in codes:
+                    code["postId"] = post_id
+                    code["id"] = str(uuid4())
 
-            codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-final-coding")
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-final-coding")
 
-            codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="redo-final-coding")
+                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="redo-final-coding")
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
-        batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
+        batches = stream_selected_post_ids(workspace_id, ["unseen"])
 
         for batch in batches:
             await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
@@ -1663,7 +1708,7 @@ async def redo_final_coding_endpoint(
             StateDump(
                 state=json.dumps({
                     "dataset_id": dataset_id,
-                    "post_ids": unseen_post_ids,
+                    "post_ids": selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "unseen"}, ["post_id"], map_to_model=False),
                     "results": qect_repo.find({"dataset_id": dataset_id, "codebook_type": CodebookType.FINAL.value}, map_to_model=False),
                     "feedback": request_body.feedback
                 }),
@@ -1968,6 +2013,12 @@ async def generate_codebook_without_quotes_endpoint(
     codebook_types = [CodebookType.INITIAL.value]
     if manual_coding:
         codebook_types.append(CodebookType.FINAL.value)
+
+    if manual_coding and manual_codebook_repo.count({"workspace_id": request.headers.get("x-workspace-id")}) > 0:
+        return {
+            "message": "Codebook generated successfully!",
+            "data": {codebook_entries.code: codebook_entries.definition for codebook_entries in manual_codebook_repo.find({"workspace_id": request.headers.get("x-workspace-id")})}
+        }
     
     summarized_dict = await summarize_codebook_explanations(
         workspace_id           = dataset_id,
@@ -2025,17 +2076,29 @@ async def generate_codebook_without_quotes_endpoint(
             )
         )
     
-    initial_codebook_repo.insert_batch(
-            [
-                InitialCodebookEntry(
-                    id=str(uuid4()),
-                    coding_context_id=request.headers.get("x-workspace-id"),
-                    code= pr[0],
-                    definition= pr[1],
-                    manual_coding=manual_coding
-                ) for pr in  parsed_response.items() 
-            ]
-        )
+    if manual_coding:
+        manual_codebook_repo.insert_batch(
+                [
+                    ManualCodebookEntry(
+                        id=str(uuid4()),
+                        workspace_id=request.headers.get("x-workspace-id"),
+                        code= pr[0],
+                        definition= pr[1]
+                    ) for pr in  parsed_response.items() 
+                ]
+            )
+    else:
+        initial_codebook_repo.insert_batch(
+                [
+                    InitialCodebookEntry(
+                        id=str(uuid4()),
+                        coding_context_id=request.headers.get("x-workspace-id"),
+                        code= pr[0],
+                        definition= pr[1],
+                        manual_coding=manual_coding
+                    ) for pr in  parsed_response.items() 
+                ]
+            )
 
 
     return {
@@ -2144,9 +2207,14 @@ async def generate_deductive_codes_endpoint(
     llm_service: LangchainLLMService = Depends(get_llm_service)
 ):
     dataset_id = request.headers.get("x-workspace-id")
-    batch_size = 100
     if not dataset_id:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
+    
+    if qect_repo.count({"dataset_id": dataset_id, "codebook_type": CodebookType.MANUAL.value}) != 0:
+        return {
+            "message": "Deductive codes already exist for this dataset.",
+            "data": []
+        }
 
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
@@ -2169,70 +2237,68 @@ async def generate_deductive_codes_endpoint(
     ))
 
     try:
-        final_results = []
-        posts = request_body.post_ids
         llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
         async def process_post(post_id: str):
             await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
-            post_data = get_post_and_comments_from_id(post_id, dataset_id)
+            
+            post_data = get_reddit_post_by_id(dataset_id, post_id, [
+                "id", "title", "selftext"
+            ])
 
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
-            transcript = generate_transcript(post_data)
+            transcripts = generate_transcript(post_data, llm.get_num_tokens)
 
-            parsed_response = await process_llm_task(
-                workspace_id=request.headers.get("x-workspace-id"),
-                app_id=app_id,
-                dataset_id=dataset_id,
-                post_id=post_id,
-                manager=manager,
-                llm_model=request_body.model,
-                function_id=function_id,
-                regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-                prompt_builder_func=GenerateDeductiveCodesFromCodebook.generate_deductive_codes_from_codebook_prompt,
-                llm_instance=llm,
-                llm_queue_manager=llm_queue_manager,
-                parent_function_name="generate-deductive-codes",
-                codebook = request_body.codebook,
-                post_transcript=transcript,
-                store_response=True,
-                cacheable_args={
-                    "args":[],
-                    "kwargs": [
-                        "codebook"
-                    ]
-                }
-            )
+            async for transcript in transcripts:
+                parsed_response = await process_llm_task(
+                    workspace_id=request.headers.get("x-workspace-id"),
+                    app_id=app_id,
+                    dataset_id=dataset_id,
+                    post_id=post_id,
+                    manager=manager,
+                    llm_model=request_body.model,
+                    function_id=function_id,
+                    regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+                    prompt_builder_func=GenerateDeductiveCodesFromCodebook.generate_deductive_codes_from_codebook_prompt,
+                    llm_instance=llm,
+                    llm_queue_manager=llm_queue_manager,
+                    parent_function_name="generate-deductive-codes",
+                    codebook = request_body.codebook,
+                    post_transcript=transcript,
+                    store_response=True,
+                    cacheable_args={
+                        "args":[],
+                        "kwargs": [
+                            "codebook"
+                        ]
+                    }
+                )
 
-            if isinstance(parsed_response, list):
-                parsed_response = {"codes": parsed_response}
+                if isinstance(parsed_response, list):
+                    parsed_response = {"codes": parsed_response}
 
-            codes = parsed_response.get("codes", [])
-            for code in codes:
-                code["postId"] = post_id
-                code["id"] = str(uuid4())
+                codes = parsed_response.get("codes", [])
+                for code in codes:
+                    code["postId"] = post_id
+                    code["id"] = str(uuid4())
 
-            codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-deductive-codes")
-            codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes")
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-deductive-codes")
+                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes")
             await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
-        batches = [posts[i:i + batch_size] for i in range(0, len(posts), batch_size)]
+        batches = stream_selected_post_ids(workspace_id, ["manual"]) 
 
         for batch in batches:
             await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
             
-            batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
-            
-            for codes in batch_results:
-                final_results.extend(codes)
-
+            await asyncio.gather(*(process_post(post_id) for post_id in batch))
 
         state_dump_repo.insert(
             StateDump(
                 state=json.dumps({
                     "dataset_id": dataset_id,
-                    "codebook": final_results,
+                    "codebook": qect_repo.find({"dataset_id": dataset_id, "codebook_type": CodebookType.MANUAL.value}, map_to_model=False),
                 }),
                 context=json.dumps({
                     "function": "generate_deductive_codes",
@@ -2246,7 +2312,18 @@ async def generate_deductive_codes_endpoint(
 
         return {
             "message": "Deductive coding completed successfully!",
-            "data": final_results
+            "data": list(map(lambda x: {
+                "id": x.id,
+                "model": x.model,
+                "quote": x.quote,
+                "code": x.code,
+                "type": x.response_type,
+                "explanation": x.explanation,
+                "postId": x.post_id,
+                "chatHistory": json.loads(x.chat_history) if x.chat_history else None,
+                "isMarked": bool(x.is_marked),
+                "rangeMarker": json.loads(x.range_marker) if x.range_marker else None,
+            } , qect_repo.find({"dataset_id": dataset_id, "codebook_type": CodebookType.MANUAL.value})))
         }
     except Exception as e:
         print(f"Error in manual_deductive_coding_endpoint: {e}")
@@ -2254,198 +2331,741 @@ async def generate_deductive_codes_endpoint(
     finally:
         function_progress_repo.delete({"function_id": function_id})
 
-
-@router.post("/get-coded-data")
-def get_coded_data_endpoint(
-    request: Request,
-    request_body: GetCodedDataRequest
+@router.post("/paginated-posts")
+async def paginated_posts(
+    req: PaginatedRequest,
+    dataset_id: str = Header(..., alias="x-workspace-id"),
 ):
-    dataset_id = request.headers.get("x-workspace-id")
-    coded_data = get_coded_data(request_body.codebook_names, request_body.filters, dataset_id, request_body.batch_size, request_body.offset)
+    filters = ["p.dataset_id = ?", "r.dataset_id = ?"]
+    params  = [dataset_id, dataset_id]
+
+    _apply_type_filters(req.responseTypes, filters, params)
+
+    if req.filterCode:
+        filters.append("r.code = ?");     params.append(req.filterCode)
+    if req.searchTerm:
+        filters.append("(r.quote LIKE ? OR r.explanation LIKE ?)")
+        like = f"%{req.searchTerm}%"
+        params += [like, like]
+
+    where = " AND ".join(filters)
+
+    total_sql = f"""
+    SELECT COUNT(DISTINCT p.post_id)
+      FROM selected_post_ids p
+      JOIN qect r
+        ON r.post_id    = p.post_id
+       AND r.dataset_id = p.dataset_id
+     WHERE {where}
+    """
+    total = execute_query(total_sql, params)[0][0]
+
+    offset = (req.page - 1) * req.pageSize
+    slice_sql = f"""
+    SELECT DISTINCT p.post_id
+      FROM selected_post_ids p
+      JOIN qect r
+        ON r.post_id    = p.post_id
+       AND r.dataset_id = p.dataset_id
+     WHERE {where}
+  ORDER BY p.post_id DESC
+     LIMIT ? OFFSET ?
+    """
+    slice_params = params + [req.pageSize, offset]
+    rows = execute_query(slice_sql, slice_params, keys=True)
+    post_ids = [r["post_id"] for r in rows]
+
+    titles: Dict[str,str] = {}
+    if post_ids:
+        ph = ",".join("?" for _ in post_ids)
+        title_sql = f"SELECT id, title FROM posts WHERE id IN ({ph})"
+        trows = execute_query(title_sql, post_ids, keys=True)
+        titles = {r["id"]: r["title"] for r in trows}
+
+    hasNext     = (offset + len(post_ids)) < total
+    hasPrevious = req.page > 1
 
     return {
-        "message": "Coded data retrieved successfully!",
-        "data": coded_data
+        "postIds": post_ids,
+        "titles": titles,
+        "total": total,
+        "hasNext": hasNext,
+        "hasPrevious": hasPrevious,
     }
 
-@router.post("/get-paginated-responses")
-def get_responses(request: Request, request_body: ResponsesRequest):
-    where_clause, params = build_where_clause_and_params(request_body, request.headers.get("x-workspace-id"))
 
-    if request_body.selectedTypeFilter == 'New Data':
-        check_query = """
-        SELECT COUNT(*) FROM qect r
-        JOIN selected_post_ids p ON r.post_id = p.post_id
-        WHERE p.dataset_id = ? AND r.dataset_id = ? AND r.codebook_type = 'final' AND r.response_type = 'LLM'
-        """
-        check_params = [request.headers.get("x-workspace-id"), request.headers.get("x-workspace-id")]
-        check_result = execute_query(check_query, check_params)
-        print(f"[get_paginated_responses] Check final data: {check_query}, params: {check_params}, result: {check_result}")
-        if check_result[0][0] == 0:
-            print("[get_paginated_responses] No final data, falling back to initial")
-            where_clause = where_clause.replace("r.codebook_type = 'final' AND r.response_type = 'LLM'", "r.codebook_type = 'initial'")
-            params = [p for p in params if p not in ['final', 'LLM']]
+@router.post("/paginated-responses")
+async def paginated_responses(
+    req: PaginatedRequest,
+    dataset_id: str = Header(..., alias="x-workspace-id"),
+):
+    filters = ["p.dataset_id = ?", "r.dataset_id = ?"]
+    params: List[Any] = [dataset_id, dataset_id]
 
-    sql_post_ids = f"""
-    SELECT DISTINCT p.post_id
-    FROM selected_post_ids p
-    JOIN qect r ON p.post_id = r.post_id
-    WHERE {where_clause}
-    ORDER BY p.post_id LIMIT ? OFFSET ?
+    if (
+        req.selectedTypeFilter in ["New Data", "Codebook"]
+        and not (len(req.responseTypes or []) == 1 and req.responseTypes[0] == "sampled")
+    ):
+        if req.selectedTypeFilter == "New Data":
+            filters.append("p.type = ?"); params.append("unseen")
+        else:
+            filters.append("p.type = ?"); params.append("sampled")
+    elif req.responseTypes:
+        ph = ",".join("?" for _ in req.responseTypes)
+        filters.append(f"p.type IN ({ph})")
+        params.extend(req.responseTypes)
+
+    if req.selectedTypeFilter == "Human":
+        filters.append("r.response_type = ?"); params.append("Human")
+    elif req.selectedTypeFilter == "LLM":
+        filters.append("r.response_type = ?"); params.append("LLM")
+
+    if req.postId:
+        filters.append("r.post_id = ?")
+        params.append(req.postId)
+
+    if req.filterCode:
+        filters.append("r.code = ?")
+        params.append(req.filterCode)
+
+    # if req.searchTerm:
+    #     filters.append("(r.quote LIKE ? OR r.explanation LIKE ?)")
+    #     like = f"%{req.searchTerm}%"
+    #     params.extend([like, like])
+
+    where_clause = " AND ".join(filters)
+
+    total_rows_sql = f"""
+    SELECT COUNT(*)
+      FROM qect r
+      JOIN selected_post_ids p
+        ON r.post_id = p.post_id
+       AND r.dataset_id = p.dataset_id
+     WHERE {where_clause}
     """
-    offset = (request_body.page - 1) * request_body.pageSize
-    paginated_params = params + [request_body.pageSize, offset]
-    print(f"[get_paginated_responses] sql_post_ids: {sql_post_ids}")
-    print(f"[get_paginated_responses] sql_post_ids params: {paginated_params}")
-    res = execute_query(sql_post_ids, paginated_params, keys=True)
-    print(f"[get_paginated_responses] sql_post_ids result: {res}")
-    post_ids = [row['post_id'] for row in res]
+    total_rows = execute_query(total_rows_sql, params)[0][0]
 
-    responses_dict = {}
-    if post_ids:
-        placeholders = ', '.join(['?'] * len(post_ids))
-        sql_responses = f"""
+    offset = (req.page - 1) * req.pageSize
+    slice_sql = f"""
+    SELECT r.id
+      FROM qect r
+      JOIN selected_post_ids p
+        ON r.post_id = p.post_id
+       AND r.dataset_id = p.dataset_id
+     WHERE {where_clause}
+  ORDER BY r.post_id ASC
+     LIMIT ? OFFSET ?
+    """
+    slice_ids = execute_query(slice_sql, params + [req.pageSize, offset])
+    page_ids = [r[0] for r in slice_ids]
+
+    resp_rows = []
+    if page_ids:
+        ph2 = ",".join("?" for _ in page_ids)
+        resp_sql = f"""
         SELECT r.*
-        FROM qect r
-        JOIN selected_post_ids p ON r.post_id = p.post_id
-        WHERE p.post_id IN ({placeholders}) AND {where_clause}
+          FROM qect r
+          JOIN selected_post_ids p
+            ON r.post_id = p.post_id
+           AND r.dataset_id = p.dataset_id
+         WHERE {where_clause}
+           AND r.id IN ({ph2})
+      ORDER BY r.post_id ASC
         """
-        response_params = post_ids + params
-        print(f"[get_paginated_responses] sql_responses: {sql_responses}")
-        print(f"[get_paginated_responses] sql_responses params: {response_params}")
-        res = execute_query(sql_responses, response_params, keys=True)
-        print(f"[get_paginated_responses] sql_responses result: {res}")
-        for response in res:
-            post_id = response['post_id']
-            responses_dict.setdefault(post_id, []).append(dict(response))
+        resp_rows = execute_query(resp_sql, params + page_ids, keys=True)
 
-    sql_total = f"""
+    responses: Dict[str, List[Dict[str, Any]]] = {}
+    for row in resp_rows:
+        transformed_row = {
+            "id": row["id"],
+            "postId": row["post_id"],
+            "quote": row["quote"],
+            "explanation": row["explanation"],
+            "code": row["code"],
+            "type": row["response_type"],
+            "codebookType": row["codebook_type"],
+            "chatHistory": row["chat_history"],
+            "rangeMarker": row["range_marker"],
+            "isMarked": bool(row["is_marked"]),
+        }
+        post_id = row["post_id"] 
+        responses.setdefault(post_id, []).append(transformed_row)
+
+    return {
+        "postIds": list(responses.keys()),
+        "responses": responses,
+        "totalPostIds": total_rows,
+        "hasNext": offset + len(page_ids) < total_rows,
+        "hasPrevious": req.page > 1,
+    }
+
+@router.post("/paginated-posts-metadata")
+async def paginated_posts_metadata(
+    req: PaginatedPostRequest,
+    dataset_id: str = Header(..., alias="x-workspace-id")
+):
+    print(f"[paginated_posts_metadata] responseTypes: {req.responseTypes}, selectedTypeFilter: {req.selectedTypeFilter}")
+    if req.selectedTypeFilter in ['New Data', 'Codebook'] and not (len(req.responseTypes) == 1 and req.responseTypes[0] == 'sampled'):
+        type_filter = "p.type = ?"
+        type_params = []
+        if req.selectedTypeFilter == 'New Data':
+            type_params.append('unseen')
+        elif req.selectedTypeFilter == 'Codebook':
+            type_params.append('sampled')
+    else:
+        if req.responseTypes:
+            type_placeholders = ", ".join(["?" for _ in req.responseTypes])
+            type_filter = f"p.type IN ({type_placeholders})"
+            type_params = req.responseTypes
+        else:
+            type_filter = "1=1"  # Include all types if no filter specified
+            type_params = []
+
+    print(f"[paginated_posts_metadata] type_filter: {type_filter}, type_params: {type_params}")
+
+    base_params = [dataset_id] + type_params
+
+    if req.searchTerm:
+        search_filter = "LOWER(p2.title) LIKE ?"
+        search_param = f"%{req.searchTerm.lower()}%"  
+    else:
+        search_filter = ""
+        search_param = None
+
+    filters = ["p.dataset_id = ?", type_filter]
+    params = base_params
+    if search_filter:
+        filters.append(search_filter)
+        params = base_params + [search_param]
+
+    if req.onlyCoded:
+        subquery = """
+        EXISTS (
+            SELECT 1 FROM qect r
+            WHERE r.post_id = p.post_id AND r.dataset_id = p.dataset_id
+            AND r.code IS NOT NULL
+        )
+        """
+        filters.append(subquery)
+
+    # elif req.selectedTypeFilter == 'Human':
+    #     filters.append("""
+    #     EXISTS (
+    #         SELECT 1 FROM qect r
+    #         WHERE r.post_id = p.post_id AND r.dataset_id = p.dataset_id
+    #         AND r.response_type = 'Human' AND r.code IS NOT NULL
+    #     )
+    #     """)
+    # elif req.selectedTypeFilter == 'LLM':
+    #     filters.append("""
+    #     EXISTS (
+    #         SELECT 1 FROM qect r
+    #         WHERE r.post_id = p.post_id AND r.dataset_id = p.dataset_id
+    #         AND r.response_type = 'LLM' AND r.code IS NOT NULL
+    #     )
+    #     """)
+
+    where_clause = " AND ".join(filters)
+
+    total_sql = f"""
     SELECT COUNT(DISTINCT p.post_id)
     FROM selected_post_ids p
-    JOIN qect r ON p.post_id = r.post_id
+    JOIN posts p2 ON p.post_id = p2.id
     WHERE {where_clause}
     """
-    print(f"[get_paginated_responses] sql_total: {sql_total}")
-    print(f"[get_paginated_responses] sql_total params: {params}")
-    res = execute_query(sql_total, params)
-    print(f"[get_paginated_responses] sql_total result: {res}")
-    total_post_ids = res[0][0] if res else 0
+    total = execute_query(total_sql, params)[0][0]
 
-    response_data = {
-        "postIds": post_ids,
-        "responses": responses_dict,
-        "totalPostIds": total_post_ids
-    }
-    print(f"[get_paginated_responses] Returning: {response_data}")
-    return response_data
-
-@router.post("/get-filtered-responses-metadata")
-def get_filtered_metadata(request: Request, request_body: FilteredResponsesMetadataRequest):
-    where_clause, params = build_where_clause_and_params(request_body, request.headers.get("x-workspace-id"))
-
-    if request_body.selectedTypeFilter == 'New Data':
-        check_query = """
-        SELECT COUNT(*) FROM qect r
-        JOIN selected_post_ids p ON r.post_id = p.post_id
-        WHERE p.dataset_id = ? AND r.dataset_id = ? AND r.codebook_type = 'final' AND r.response_type = 'LLM'
-        """
-        check_params = [request.headers.get("x-workspace-id"), request.headers.get("x-workspace-id")]
-        check_result = execute_query(check_query, check_params)
-        print(f"[get_filtered_metadata] Check final data: {check_query}, params: {check_params}, result: {check_result}")
-        if check_result[0][0] == 0:
-            print("[get_filtered_metadata] No final data, falling back to initial")
-            where_clause = where_clause.replace("r.codebook_type = 'final' AND r.response_type = 'LLM'", "r.codebook_type = 'initial'")
-            params = [p for p in params if p not in ['final', 'LLM']]
-
-    sql_post_ids = f"""
-    SELECT DISTINCT p.post_id
+    total_posts_sql = f"""
+    SELECT COUNT(DISTINCT p.post_id)
     FROM selected_post_ids p
-    JOIN qect r ON p.post_id = r.post_id
-    WHERE {where_clause}
+    WHERE p.dataset_id = ? AND ({type_filter})
     """
-    print(f"[get_filtered_metadata] sql_post_ids: {sql_post_ids}")
-    print(f"[get_filtered_metadata] sql_post_ids params: {params}")
-    res = execute_query(sql_post_ids, params, keys=True)
-    print(f"[get_filtered_metadata] sql_post_ids result: {res}")
-    post_ids = [row['post_id'] for row in res]
+    total_posts = execute_query(total_posts_sql, [dataset_id] + type_params)[0][0]
 
-    sql_codes = f"""
-    SELECT DISTINCT r.code
-    FROM qect r
-    JOIN selected_post_ids p ON r.post_id = r.post_id
-    WHERE {where_clause}
+    total_coded_sql = f"""
+    SELECT COUNT(DISTINCT p.post_id)
+    FROM selected_post_ids p
+    WHERE p.dataset_id = ? AND ({type_filter}) AND EXISTS (
+        SELECT 1 FROM qect r
+        WHERE r.post_id = p.post_id AND r.dataset_id = p.dataset_id
+        AND r.code IS NOT NULL
+    )
     """
-    print(f"[get_filtered_metadata] sql_codes: {sql_codes}")
-    print(f"[get_filtered_metadata] sql_codes params: {params}")
-    res = execute_query(sql_codes, params, keys=True)
-    print(f"[get_filtered_metadata] sql_codes result: {res}")
-    codes = [row['code'] for row in res if row['code']]
+    total_coded_posts = execute_query(total_coded_sql, [dataset_id] + type_params)[0][0]
 
-    if hasattr(request_body, 'responseTypes') and request_body.responseTypes:
-        mapped_types = [CODEBOOK_TYPE_MAP[t] for t in request_body.responseTypes if t in CODEBOOK_TYPE_MAP]
-        placeholders = ','.join(['?' for _ in mapped_types])
-        total_sql_post_ids = f"""
-        SELECT DISTINCT p.post_id
-        FROM selected_post_ids p
-        JOIN qect r ON p.post_id = r.post_id
-        WHERE p.dataset_id = ? AND r.codebook_type IN ({placeholders})
-        """
-        total_params = [request.headers.get("x-workspace-id")] + mapped_types
-        print(f"[get_filtered_metadata] total_sql_post_ids: {total_sql_post_ids}")
-        print(f"[get_filtered_metadata] total_sql_post_ids params: {total_params}")
-        res = execute_query(total_sql_post_ids, total_params, keys=True)
-        print(f"[get_filtered_metadata] total_sql_post_ids result: {res}")
-    else:
-        total_sql_post_ids = f"""
-        SELECT DISTINCT p.post_id
-        FROM selected_post_ids p
-        WHERE p.dataset_id = ?
-        """
-        total_params = [request.headers.get("x-workspace-id")]
-        print(f"[get_filtered_metadata] total_sql_post_ids: {total_sql_post_ids}")
-        print(f"[get_filtered_metadata] total_sql_post_ids params: {total_params}")
-        res = execute_query(total_sql_post_ids, total_params, keys=True)
-        print(f"[get_filtered_metadata] total_sql_post_ids result: {res}")
-    all_post_ids = [row['post_id'] for row in res]
+    offset = (req.page - 1) * req.pageSize
+    slice_sql = f"""
+    SELECT DISTINCT p.post_id, p2.title
+    FROM selected_post_ids p
+    JOIN posts p2 ON p.post_id = p2.id
+    WHERE {where_clause}
+    ORDER BY p.post_id DESC
+    LIMIT ? OFFSET ?
+    """
+    slice_params = params + [req.pageSize, offset]
+    rows = execute_query(slice_sql, slice_params)
 
-    response_data = {
+    post_ids = [str(row[0]) for row in rows]
+    titles = {str(row[0]): row[1] for row in rows}
+
+    return {
         "postIds": post_ids,
-        "codes": codes,
-        "totalPosts": len(post_ids),
-        "allPostIds": all_post_ids,
-        "totalCodedPosts": len(all_post_ids)
+        "titles": titles,
+        "total": total,
+        "totalPosts": total_posts,
+        "totalCodedPosts": total_coded_posts,
+        "hasNext": offset + len(post_ids) < total,
+        "hasPrevious": req.page > 1
     }
-    print(f"[get_filtered_metadata] Returning: {response_data}")
-    return response_data
+        
+@router.post("/paginated-codes")
+async def paginated_codes(
+    req: PaginatedPostRequest,
+    dataset_id: str = Header(..., alias="x-workspace-id")
+):
+    filters = ["p.dataset_id = ?", "r.dataset_id = ?"]
+    params = [dataset_id, dataset_id]
 
-@router.post("/get-post-responses")
-def get_post_responses(request: Request, request_body: PostResponsesRequest):
-    where_clause, params = build_where_clause_and_params(request_body, request.headers.get("x-workspace-id"))
+    response_filters = []
+    if "sampled" in req.responseTypes:
+        response_filters.append("r.codebook_type = 'initial'")
+    if "unseen" in req.responseTypes:
+        response_filters.append("r.codebook_type = 'final' AND r.response_type = 'LLM'")
+    if "manual" in req.responseTypes:
+        response_filters.append("r.codebook_type = 'manual'")
+    
+    if response_filters:
+        filters.append("(" + " OR ".join(response_filters) + ")")
 
-    if request_body.selectedTypeFilter == 'New Data':
-        check_query = """
-        SELECT COUNT(*) FROM qect r
-        JOIN selected_post_ids p ON r.post_id = p.post_id
-        WHERE p.dataset_id = ? AND r.dataset_id = ? AND r.codebook_type = 'final' AND r.response_type = 'LLM'
-        """
-        check_params = [request.headers.get("x-workspace-id"), request.headers.get("x-workspace-id")]
-        check_result = execute_query(check_query, check_params)
-        print(f"[get_post_responses] Check final data: {check_query}, params: {check_params}, result: {check_result}")
-        if check_result[0][0] == 0:
-            print("[get_post_responses] No final data, falling back to initial")
-            where_clause = where_clause.replace("r.codebook_type = 'final' AND r.response_type = 'LLM'", "r.codebook_type = 'initial'")
-            params = [p for p in params if p not in ['final', 'LLM']]
+    if req.selectedTypeFilter == 'Human':
+        filters.append("r.response_type = ?")
+        params.append('Human')
+    elif req.selectedTypeFilter == 'LLM':
+        filters.append("r.response_type = ?")
+        params.append('LLM')
 
-    sql = f"""
-    SELECT r.*
-    FROM qect r
-    JOIN selected_post_ids p ON r.post_id = p.post_id
-    WHERE p.post_id = ? AND {where_clause}
+    if req.searchTerm:
+        filters.append("LOWER(r.code) LIKE ?")
+        params.append(f"%{req.searchTerm.lower()}%")
+
+    where_clause = " AND ".join(filters)
+
+    total_sql = f"""
+        SELECT COUNT(DISTINCT r.code)
+        FROM qect r
+        JOIN selected_post_ids p ON r.post_id = p.post_id AND r.dataset_id = p.dataset_id
+        WHERE {where_clause}
     """
-    query_params = [request_body.postId] + params
-    print(f"[get_post_responses] sql: {sql}")
-    print(f"[get_post_responses] sql params: {query_params}")
-    res = execute_query(sql, query_params, keys=True)
-    print(f"[get_post_responses] sql result: {res}")
-    print(f"[get_post_responses] Returning: {res}")
-    return res
+    totalCodes = execute_query(total_sql, params)[0][0]
+
+    offset = (req.page - 1) * req.pageSize
+    slice_sql = f"""
+        SELECT DISTINCT r.code
+        FROM qect r
+        JOIN selected_post_ids p ON r.post_id = p.post_id AND r.dataset_id = p.dataset_id
+        WHERE {where_clause}
+        ORDER BY r.code
+        LIMIT ? OFFSET ?
+    """
+    rows = execute_query(slice_sql, params + [req.pageSize, offset], keys=True)
+    codes = [r["code"] for r in rows if r["code"]]
+
+    hasNext = offset + len(codes) < totalCodes
+    hasPrevious = req.page > 1
+
+    return {
+        "codes": codes,
+        "totalCodes": totalCodes,
+        "hasNext": hasNext,
+        "hasPrevious": hasPrevious,
+    }
+
+@router.post("/transcript-data")
+async def get_transcript_data_endpoint(
+    request_body: TranscriptRequest,
+    dataset_id: str = Header(..., alias="x-workspace-id"),
+):
+    post_id = request_body.postId
+    print(post_id, "Got post id")
+    post = get_reddit_post_by_id(dataset_id, post_id, [
+        "id", "title", "selftext"
+    ])
+
+    resp_sql = """
+      SELECT
+        r.id,
+        r.post_id,
+        r.quote,
+        r.explanation,
+        r.code,
+        r.response_type,
+        r.codebook_type,
+        r.chat_history,
+        r.range_marker,
+        r.is_marked
+      FROM qect r
+      JOIN selected_post_ids p
+        ON r.post_id    = p.post_id
+       AND r.dataset_id = p.dataset_id
+     WHERE r.dataset_id = ?
+       AND r.post_id    = ?
+     ORDER BY r.id DESC;
+    """
+    resp_rows = execute_query(resp_sql, [dataset_id, post_id], keys=True)
+
+    responses: List[Dict[str, Any]] = []
+    for row in resp_rows:
+        responses.append({
+            "id": row["id"],
+            "postId": row["post_id"],
+            "quote": row["quote"],
+            "explanation": row["explanation"],
+            "code": row["code"],
+            "responseType": row["response_type"],
+            "codebookType": row["codebook_type"],
+            "chatHistory": json.loads(row["chat_history"]) if row["chat_history"] else None,
+            "rangeMarker": json.loads(row["range_marker"]) if row["range_marker"] else None,
+            "isMarked": bool(row["is_marked"]),
+        })
+
+    codes_sql = """
+      SELECT DISTINCT r.code
+        FROM qect r
+       WHERE r.dataset_id = ?
+         AND r.code IS NOT NULL
+       ORDER BY r.code;
+    """
+    code_rows = execute_query(codes_sql, [dataset_id], keys=True)
+    all_codes = [r["code"] for r in code_rows if r["code"]]
+
+    return {
+        "post":      post,
+        "responses": responses,
+        "allCodes":  all_codes,
+    }
+
+
+BASE_JOIN = """
+  FROM qect r
+  LEFT JOIN grouped_code_entries g
+    ON r.code = g.code
+   AND g.coding_context_id = :dataset_id
+  LEFT JOIN theme_entries t
+    ON g.higher_level_code = t.higher_level_code
+   AND t.coding_context_id = :dataset_id
+  WHERE r.dataset_id = :dataset_id
+"""
+
+@router.post("/analysis-report")
+async def analysis_report(
+    req: AnalysisRequest = Body(...),
+    dataset_id: str = Header(..., alias="x-workspace-id")
+):
+    if req.page < 1 or req.pageSize < 1:
+        raise HTTPException(400, "Invalid pagination parameters")
+
+    offset = (req.page - 1) * req.pageSize
+    params = {"dataset_id": dataset_id, "limit": req.pageSize, "offset": offset}
+
+    # 3a) overall stats
+    if req.viewType == "post":
+        stats_sql = f"""
+        SELECT
+          COUNT(DISTINCT r.post_id)    AS totalUniquePosts,
+          COUNT(DISTINCT r.code)       AS totalUniqueCodes,
+          COUNT(*)                     AS totalQuoteCount
+        {BASE_JOIN}
+        """
+    else:  # code view
+        stats_sql = f"""
+        SELECT
+          COUNT(DISTINCT r.code)       AS totalUniqueCodes,
+          COUNT(DISTINCT r.post_id)    AS totalUniquePosts,
+          COUNT(*)                     AS totalQuoteCount
+        {BASE_JOIN}
+        """
+    stat_row = execute_query(stats_sql, params, keys=True)[0]
+    print(f"stat_row: {stat_row}")
+    overall_stats = dict(zip(stat_row.keys(), stat_row.values()))
+
+    if req.viewType == "post" and not req.summary:
+        data_sql = f"""
+        SELECT
+          r.id,
+          r.post_id    AS postId,
+          r.code,
+          g.higher_level_code   AS higherLevelCode,
+          t.theme               AS theme,
+          r.quote,
+          r.explanation
+        {BASE_JOIN}
+        ORDER BY r.id DESC
+        LIMIT :limit OFFSET :offset
+        """
+        rows = execute_query(data_sql, params, keys=True)
+        total = overall_stats["totalQuoteCount"]
+
+    elif req.viewType == "post" and req.summary:
+        data_sql = f"""
+        SELECT
+          r.post_id             AS postId,
+          COUNT(DISTINCT r.code) AS uniqueCodeCount,
+          COUNT(*)              AS totalQuoteCount
+        {BASE_JOIN}
+        GROUP BY r.post_id
+        ORDER BY r.post_id DESC
+        LIMIT :limit OFFSET :offset
+        """
+        rows = execute_query(data_sql, params, keys=True)
+        total = overall_stats["totalUniquePosts"]
+
+    elif req.viewType == "code" and not req.summary:
+        data_sql = f"""
+        SELECT
+          r.id,
+          r.post_id            AS postId,
+          r.code,
+          g.higher_level_code  AS higherLevelCode,
+          t.theme              AS theme,
+          r.quote,
+          r.explanation
+        {BASE_JOIN}
+        ORDER BY r.id DESC
+        LIMIT :limit OFFSET :offset
+        """
+        rows = execute_query(data_sql, params, keys=True)
+        total = overall_stats["totalQuoteCount"]
+
+    else:
+        data_sql = f"""
+        SELECT
+          t.theme               AS theme,
+          COUNT(DISTINCT r.post_id) AS uniquePosts,
+          COUNT(DISTINCT r.code)    AS uniqueCodes,
+          COUNT(*)                  AS totalQuoteCount
+        {BASE_JOIN}
+        GROUP BY t.theme
+        ORDER BY t.theme
+        LIMIT :limit OFFSET :offset
+        """
+        rows = execute_query(data_sql, params, keys=True)
+        total = overall_stats["totalUniqueCodes"]  
+
+    return {
+        "overallStats": overall_stats,
+        "rows": rows,
+        "meta": {
+            "totalItems": total,
+            "hasNext": offset + len(rows) < total,
+            "hasPrevious": req.page > 1
+        }
+    }
+
+@router.get("/analysis-download")
+async def download_report(
+    request_body: AnalysisRequest,
+    background_tasks: BackgroundTasks,
+    dataset_id: str = Header(..., alias="x-workspace-id")
+):
+    viewType = request_body.viewType
+    summary = request_body.summary
+    
+    if viewType == "post" and not summary:
+        sql = f"""
+        SELECT
+          r.id,
+          r.post_id            AS postId,
+          r.code,
+          g.higher_level_code  AS higherLevelCode,
+          t.theme              AS theme,
+          r.quote,
+          r.explanation
+        {BASE_JOIN}
+        ORDER BY r.id
+        """
+    elif viewType == "post" and summary:
+        sql = f"""
+        SELECT
+          r.post_id             AS postId,
+          COUNT(DISTINCT r.code) AS uniqueCodeCount,
+          COUNT(*)              AS totalQuoteCount
+        {BASE_JOIN}
+        GROUP BY r.post_id
+        ORDER BY r.post_id
+        """
+    elif viewType == "code" and not summary:
+        sql = f"""
+        SELECT
+          r.id,
+          r.post_id            AS postId,
+          r.code,
+          g.higher_level_code  AS higherLevelCode,
+          t.theme              AS theme,
+          r.quote,
+          r.explanation
+        {BASE_JOIN}
+        ORDER BY r.id
+        """
+    else:
+        sql = f"""
+        SELECT
+          t.theme               AS theme,
+          COUNT(DISTINCT r.post_id) AS uniquePosts,
+          COUNT(DISTINCT r.code)    AS uniqueCodes,
+          COUNT(*)                  AS totalQuoteCount
+        {BASE_JOIN}
+        GROUP BY t.theme
+        ORDER BY t.theme
+        """
+
+    conn = tuned_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(sql, {"dataset_id": dataset_id})
+        columns = [col[0] for col in cursor.description]
+
+
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w", newline="", encoding="utf-8")
+        writer = csv.writer(tmp)
+        writer.writerow(columns)
+
+        while True:
+            batch = cursor.fetchmany(500)
+            if not batch:
+                break
+            for row in batch:
+                if not summary:
+                    row = list(map(lambda x: {
+                        x["postId"]: x["postId"],
+                        x["theme"]: x["theme"],
+                        x["higherLevelCode"]: x["higherLevelCode"],
+                        x["code"]: x["code"],
+                        x["quote"]: x["quote"],
+                        x["explanation"]: x["explanation"],
+                    }, row))
+                clean = [("" if cell is None else cell) for cell in row]
+                writer.writerow(clean)
+
+        tmp.flush()
+        tmp.close()
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    background_tasks.add_task(os.remove, tmp.name)
+    filename = f"{viewType}_{'summary' if summary else 'detailed'}_analysis.csv"
+    return FileResponse(
+        tmp.name,
+        media_type="text/csv",
+        filename=filename,
+        background=background_tasks
+    )
+
+@router.post("/download-codes")
+async def download_qect_endpoint(
+    background_tasks: BackgroundTasks,
+    request_body: Any = Body(...),
+    dataset_id: str = Header(..., alias="x-workspace-id")
+):
+    response_types = request_body.get('responseTypes', [])
+    
+    if not response_types:
+        raise HTTPException(status_code=400, detail="responseTypes must be provided")
+    
+    response_types = list(map(lambda x: {"sampled": "initial", "unseen": "final", "manual": "manual"}[x], response_types))
+
+    placeholders = ",".join("?" for _ in response_types)
+    params = tuple([dataset_id, dataset_id, dataset_id, *response_types])
+    sample_sql = f"""
+    SELECT
+      r.post_id AS "postId",
+      r.code  AS "code",
+      g.higher_level_code AS "reviewedCode",
+      t.theme,
+      r.quote,
+      r.explanation
+    FROM qect r
+    LEFT JOIN grouped_code_entries g
+      ON r.code = g.code
+     AND g.coding_context_id = ?
+    LEFT JOIN theme_entries t
+      ON g.higher_level_code = t.higher_level_code
+     AND t.coding_context_id = ?
+    WHERE r.dataset_id = ? AND r.codebook_type IN ({placeholders})
+    ORDER BY RANDOM()
+    LIMIT 100
+    """
+    
+    conn = tuned_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(sample_sql, params)
+        sample_rows = cursor.fetchall()
+        
+        if not sample_rows:
+            raise HTTPException(status_code=404, detail="No data found for the given parameters")
+        
+        columns = [col[0] for col in cursor.description]
+        
+        non_empty_columns = set()
+        for row in sample_rows:
+            for i, value in enumerate(row):
+                if value is not None:
+                    non_empty_columns.add(columns[i])
+        
+        columns_to_include = list(non_empty_columns)
+        if not columns_to_include:
+            raise HTTPException(status_code=404, detail="All columns appear empty in the sample")
+        
+        include_indices = [i for i, col in enumerate(columns) if col in columns_to_include]
+        
+        main_sql = f"""
+        SELECT
+            r.post_id AS "postId",
+            r.code  AS "code",
+            g.higher_level_code AS "reviewedCode",
+            t.theme,
+            r.quote,
+            r.explanation
+        FROM qect r
+        LEFT JOIN grouped_code_entries g
+          ON r.code = g.code
+         AND g.coding_context_id = ?
+        LEFT JOIN theme_entries t
+          ON g.higher_level_code = t.higher_level_code
+         AND t.coding_context_id = ?
+        WHERE r.dataset_id = ? AND r.codebook_type IN ({placeholders})
+        ORDER BY r.id
+        """
+        
+        cursor.execute(main_sql, params)
+        
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w", newline="", encoding="utf-8")
+        writer = csv.writer(tmp)
+        
+        writer.writerow([columns[i] for i in include_indices])
+        
+        while True:
+            batch = cursor.fetchmany(500)
+            if not batch:
+                break
+            for row in batch:
+                clean_row = ["" if row[i] is None else row[i] for i in include_indices]
+                writer.writerow(clean_row)
+        
+        tmp.flush()
+        tmp.close()
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    background_tasks.add_task(os.remove, tmp.name)
+    filename = "coding_responses.csv"
+    return FileResponse(
+        tmp.name,
+        media_type="text/csv",
+        filename=filename,
+        background=background_tasks
+    )

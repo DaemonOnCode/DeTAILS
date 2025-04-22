@@ -1,17 +1,18 @@
-from typing import Optional, TypeVar, Generic, Tuple, Any, List, Dict, get_type_hints
+from typing import Optional, TypeVar, Generic, Tuple, Any, List, Dict
 from dataclasses import fields
 
-T = TypeVar("T") 
+T = TypeVar("T")
+
 
 class QueryBuilder(Generic[T]):
     def __init__(self, table_name: str, model: T):
         self.table_name = table_name
         self.model_fields = {field.name: field.type for field in fields(model)}
-        self.filters: List[Tuple[str, str, Any]] = [] 
+        self.filters: List[Tuple[str, str, Any]] = []
         self.order_by_clause = ""
         self.limit_clause = ""
         self.group_by_clause = ""
-        self.selected_columns = "*" 
+        self.selected_columns = "*"
         self.offset_clause = ""
 
     def _validate_column(self, column: str) -> None:
@@ -22,35 +23,28 @@ class QueryBuilder(Generic[T]):
         expected_type = self.model_fields[column]
         if not isinstance(value, expected_type) and value is not None:
             raise TypeError(f"Invalid type for column '{column}'. Expected {expected_type}, got {type(value)}.")
-        
 
-    def _format_filter(
-        self, column: str, operator: str, value: Any
-    ) -> Tuple[str, List[Any]]:
-        
+    def _format_filter(self, column: str, operator: str, value: Any) -> Tuple[str, List[Any]]:
         self._validate_column(column)
-
-        
         if value is None:
-            if operator in ("=", "=="):
+            if operator == '=':
                 return f"{column} IS NULL", []
-            elif operator in ("!=", "<>"):
+            elif operator == '!=':
                 return f"{column} IS NOT NULL", []
             else:
                 raise ValueError(f"Cannot use operator {operator} with None")
-        
-        
-        if isinstance(value, list):
+        elif isinstance(value, list):
+            if operator.upper() not in ('IN', 'NOT IN'):
+                raise ValueError(f"Operator {operator} cannot be used with a list")
             if not value:
-                raise ValueError(f"Filter for '{column}' cannot be an empty list.")
-            if operator.upper() not in ("IN", "NOT IN"):
-                raise ValueError(f"Invalid operator for list: {operator}")
-            placeholders = ", ".join("?" for _ in value)
-            return f"{column} {operator} ({placeholders})", list(value)
-
-        
-        self._validate_value(column, value)
-        return f"{column} {operator} ?", [value]
+                raise ValueError(f"List for {column} cannot be empty")
+            for val in value:
+                self._validate_value(column, val)
+            placeholders = ', '.join('?' * len(value))
+            return f"{column} {operator} ({placeholders})", value
+        else:
+            self._validate_value(column, value)
+            return f"{column} {operator} ?", [value]
 
     def reset(self) -> "QueryBuilder[T]":
         self.filters = []
@@ -58,7 +52,7 @@ class QueryBuilder(Generic[T]):
         self.limit_clause = ""
         self.group_by_clause = ""
         self.selected_columns = "*"
-        self.offset_clause = "" 
+        self.offset_clause = ""
         return self
 
     def offset(self, offset: int) -> "QueryBuilder[T]":
@@ -69,15 +63,19 @@ class QueryBuilder(Generic[T]):
 
     def where(self, column: str, value: Any, operator: str = "=") -> "QueryBuilder[T]":
         if operator not in ("=", "!=", ">", "<", ">=", "<=", "IN", "NOT IN"):
-            raise ValueError(f"Invalid operator: {operator}. Allowed operators: =, !=, >, <, >=, <=, IN, NOT IN")
-        if isinstance(value, list):
-            self._validate_column(column)
-            if not len(value): 
-                return self
+            raise ValueError(f"Invalid operator: {operator}")
+        self._validate_column(column)
+        if value is None:
+            if operator not in ('=', '!='):
+                raise ValueError(f"Cannot use operator {operator} with None")
+        elif isinstance(value, list):
+            if operator.upper() not in ('IN', 'NOT IN'):
+                raise ValueError(f"Operator {operator} cannot be used with a list")
+            if not value:
+                raise ValueError(f"List for {column} cannot be empty")
             for val in value:
                 self._validate_value(column, val)
         else:
-            self._validate_column(column)
             self._validate_value(column, value)
         self.filters.append((column, operator, value))
         return self
@@ -106,50 +104,35 @@ class QueryBuilder(Generic[T]):
         self.group_by_clause = f"GROUP BY {column}"
         return self
 
-    def count(self, filters: Optional[Dict[str, Any]] = None) -> Tuple[str, Tuple[Any, ...]]:
-        
-        base_query, params = self.find(filters)
-        count_query = base_query.replace(
-            f"SELECT {self.selected_columns}", 
-            "SELECT COUNT(*)"
-        )
-        return count_query, params
-
     def find(self, filters: Optional[Dict[str, Any]] = None) -> Tuple[str, Tuple[Any, ...]]:
         filters = filters or {}
-        clauses: List[str] = []
-        params: List[Any] = []
-
-        
-        for col, val in filters.items():
-            fragment, p = self._format_filter(col, "=", val)
-            clauses.append(fragment)
+        clauses = []
+        params = []
+        for column, value in filters.items():
+            if isinstance(value, list):
+                clause, p = self._format_filter(column, 'IN', value)
+            else:
+                clause, p = self._format_filter(column, '=', value)
+            clauses.append(clause)
             params.extend(p)
-
-        
-        for col, op, val in self.filters:
-            fragment, p = self._format_filter(col, op, val)
-            clauses.append(fragment)
+        for column, operator, value in self.filters:
+            clause, p = self._format_filter(column, operator, value)
+            clauses.append(clause)
             params.extend(p)
-
-        where_sql = ""
-        if clauses:
-            where_sql = "WHERE " + " AND ".join(clauses)
-
-        query = f"SELECT {self.selected_columns} FROM {self.table_name} " \
-                f"{where_sql} " \
-                f"{self.group_by_clause} " \
-                f"{self.order_by_clause} "
-
+        where_clause = "WHERE " + " AND ".join(clauses) if clauses else ""
+        query = f"SELECT {self.selected_columns} FROM {self.table_name} {where_clause} {self.group_by_clause} {self.order_by_clause}"
         if self.limit_clause and self.offset_clause:
-            query += f"{self.limit_clause} {self.offset_clause}"
+            query += f" {self.limit_clause} {self.offset_clause}"
         elif self.limit_clause:
-            query += f"{self.limit_clause}"
+            query += f" {self.limit_clause}"
         elif self.offset_clause:
-            query += f"LIMIT -1 {self.offset_clause}"
+            query += f" LIMIT -1 {self.offset_clause}"
+        return query, tuple(params)
 
-        return query.strip(), tuple(params)
-
+    def count(self, filters: Optional[Dict[str, Any]] = None) -> Tuple[str, Tuple[Any, ...]]:
+        query, params = self.find(filters)
+        count_query = query.replace(f"SELECT {self.selected_columns}", "SELECT COUNT(*)")
+        return count_query, params
 
     def insert(self, data: Dict[str, Any]) -> Tuple[str, Tuple[Any, ...]]:
         for key, value in data.items():
@@ -173,34 +156,38 @@ class QueryBuilder(Generic[T]):
         for key, value in updates.items():
             self._validate_column(key)
             self._validate_value(key, value)
-        for key, value in filters.items():
-            self._validate_column(key)
-            self._validate_value(key, value)
         set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
-        where_clause = " AND ".join([f"{key} = ?" for key in filters.keys()])
-        query = f"UPDATE {self.table_name} SET {set_clause} WHERE {where_clause}"
-        params = tuple(updates.values()) + tuple(filters.values())
-        return query, params
-
-    def bulk_update(self, updates_list: List[Dict[str, Any]], filters_list: List[Dict[str, Any]]) -> List[Tuple[str, Tuple[Any, ...]]]:
-        queries_and_params = []
-        for updates, filters in zip(updates_list, filters_list):
-            queries_and_params.append(self.update(filters, updates))
-        return queries_and_params
-
-    def delete(self, filters: Dict[str, Any]) -> Tuple[str, Tuple[Any, ...]]:
-        if not filters:
-            raise ValueError("Filters are required for delete operation…")
-
-        clauses: List[str] = []
-        params: List[Any] = []
-        for col, val in filters.items():
-            fragment, p = self._format_filter(col, "=", val)
-            clauses.append(fragment)
+        clauses = []
+        params = []
+        for column, value in filters.items():
+            if isinstance(value, list):
+                clause, p = self._format_filter(column, 'IN', value)
+            else:
+                clause, p = self._format_filter(column, '=', value)
+            clauses.append(clause)
             params.extend(p)
+        where_clause = " AND ".join(clauses)
+        query = f"UPDATE {self.table_name} SET {set_clause} WHERE {where_clause}"
+        update_params = list(updates.values()) + params
+        return query, tuple(update_params)
 
-        where_sql = " AND ".join(clauses)
-        query = f"DELETE FROM {self.table_name} WHERE {where_sql}"
+    def delete(self, filters: Dict[str, Any], all=False) -> Tuple[str, Tuple[Any, ...]]:
+        if not filters and not all:
+            raise ValueError("Filters are required for delete operation to prevent accidental deletion of all records.")
+        if all:
+            query = f"DELETE FROM {self.table_name}"
+            return query, ()
+        clauses = []
+        params = []
+        for column, value in filters.items():
+            if isinstance(value, list):
+                clause, p = self._format_filter(column, 'IN', value)
+            else:
+                clause, p = self._format_filter(column, '=', value)
+            clauses.append(clause)
+            params.extend(p)
+        where_clause = " AND ".join(clauses)
+        query = f"DELETE FROM {self.table_name} WHERE {where_clause}"
         return query, tuple(params)
 
     def aggregate(self, function: str, column: str) -> Tuple[str, Tuple[Any, ...]]:

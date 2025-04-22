@@ -9,6 +9,7 @@ class CommentsRepository(BaseRepository[Comment]):
     model = Comment
     def __init__(self, *args, **kwargs):
         super().__init__("comments", Comment, *args, **kwargs)
+        self.index_comments()
 
     def fetch_unprocessed_comments(self, dataset_id: str, batch_size: int, num_threads: int):
         tokenized_comment_ids = list(map(lambda x: x["comment_id"], self.execute_raw_query("SELECT comment_id FROM tokenized_comments", keys=True)))

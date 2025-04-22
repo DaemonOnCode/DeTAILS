@@ -194,9 +194,9 @@ class BaseRepository(Generic[T]):
 
     @handle_db_errors
     @auto_recover
-    def delete(self, filters: Dict[str, Any]):
+    def delete(self, filters: Dict[str, Any], *args, **kwargs):
         try:
-            query, params = self.query_builder_instance.delete(filters)
+            query, params = self.query_builder_instance.delete(filters, *args, **kwargs)
             return self.execute_query(query, params, result=True)
         except sqlite3.Error as e:
             raise DeleteError(f"Failed to delete records from table {self.table_name}. Error: {e}")
@@ -220,7 +220,7 @@ class BaseRepository(Generic[T]):
         if limit is not None:
             self.query_builder_instance.limit(limit)
         query, params = self.query_builder_instance.find(filters)
-        # print(query, params)
+
         result = self.fetch_all(query, params, map_to_model=map_to_model)
         self.query_builder_instance.reset()
         return result
@@ -260,6 +260,7 @@ class BaseRepository(Generic[T]):
             if keys:
                 conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
+            print(query, params, "raw query")
             result = cursor.execute(query, params)
             conn.commit()
             if keys:

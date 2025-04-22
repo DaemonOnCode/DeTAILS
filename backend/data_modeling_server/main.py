@@ -118,6 +118,8 @@ if __name__ == "__main__":
 
     print("Database initialized!")
 
+    FunctionProgressRepository().delete({}, all=True)
+
     print("Setting initial settings...")
     set_initial_settings()
     print("Initial settings set!")

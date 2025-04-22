@@ -293,6 +293,10 @@ class GlobalQueueManager:
                                     if job_id in self.pending_tasks:
                                         del self.pending_tasks[job_id]
                                         print(f"[ENQUEUE] Removed task {job_id} from pending_tasks")
+                                    self.pending_task_repo.update(
+                                        filters={"task_id": job_id},
+                                        updates={"status": "failed", "error": "Task not found in pending_tasks"}
+                                    )
                 else:
                     print("[ENQUEUE] Queue not empty or no pending tasks, waiting")
                     await asyncio.sleep(1)

@@ -1,5 +1,5 @@
 
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel
 
 
@@ -41,7 +41,6 @@ class RefineCodeRequest(BaseModel):
     quote: str
     post_id: str
     model: str
-    dataset_id: str
 
 
 class RemakeCodebookRequest(GenerateInitialCodesRequest):
@@ -97,3 +96,45 @@ class FilteredResponsesMetadataRequest(BaseModel):
 class PostResponsesRequest(BaseModel):
     postId: str
     responseTypes: List[str]
+
+
+class PaginatedRequest(BaseModel):
+    page: int
+    pageSize: int
+    filterCode: Optional[str] = None
+    searchTerm: Optional[str] = None
+    selectedTypeFilter: Literal["New Data", "Codebook", "Human", "LLM", "All"]
+    postId: Optional[str] = None     
+    responseTypes: List[str] = []
+    
+
+class PaginatedPostsResponse(BaseModel):
+    postIds: List[str]
+    titles: Dict[str,str]
+    total: int
+    hasNext: bool
+    hasPrevious: bool
+
+class PaginatedPostRequest(BaseModel):
+    page: int
+    pageSize: int
+    responseTypes: List[str]               
+    searchTerm: str | None = None
+    onlyCoded: bool = False
+    selectedTypeFilter: str | None = "New Data"
+
+
+class TranscriptRequest(BaseModel):
+    postId: str
+
+class AnalysisRequest(BaseModel):
+    viewType: Literal['post', 'code']
+    summary: bool = False
+    page: int = 1
+    pageSize: int = 20
+    searchTerm: Optional[str] = None
+
+class PaginationMeta(BaseModel):
+    totalItems: int
+    hasNext: bool
+    hasPrevious: bool

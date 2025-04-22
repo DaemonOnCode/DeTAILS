@@ -26,6 +26,7 @@ class ConnectionManager:
             del self.keep_alive_tasks[app_id]
 
     async def send_message(self, app_id: str, message: str):
+        # await asyncio.sleep(0)
         if app_id in self.active_connections:
             websocket = self.active_connections[app_id]
             try:

@@ -349,7 +349,7 @@ class CodebookType(Enum):
 @dataclass
 class QectResponse(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
-    dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
+    dataset_id: str = field(metadata={"foreign_key": "workspaces(id)"})
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
     model: str = field(metadata={"not_null": True})
     quote: str = field(metadata={"not_null": True})
@@ -489,3 +489,17 @@ class CollectionContext(BaseDataclass):
     data_filters: Optional[str] = None
     is_locked: bool = False
     
+
+@dataclass
+class ManualCodebookEntry(BaseDataclass):
+    id: str = field(metadata={"primary_key": True})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
+    code: str = field(metadata={"not_null": True})
+    definition: Optional[str] = None
+
+@dataclass
+class ManualPostState(BaseDataclass):
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
+    post_id: str = field(metadata={"foreign_key": "selected_post_ids(post_id)", "not_null": True})
+    id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
+    is_marked: Optional[bool] = field(default=False)

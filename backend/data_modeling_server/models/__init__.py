@@ -21,12 +21,7 @@ from .table_dataclasses import (
     QectResponse, 
     LlmPendingTask,  
     LlmFunctionArgs,
-    # GroupedCode,
-    # GroupedCodeSubcode,
-    # Theme,
-    # ThemeCode,
     SelectedPostId,
-    # Subcode,
     ErrorLog,
     StateDump,
     BackgroundJob,
@@ -39,5 +34,7 @@ from .table_dataclasses import (
     InitialCodebookEntry,
     GroupedCodeEntry,
     ThemeEntry,
-    CollectionContext
+    CollectionContext,
+    ManualCodebookEntry,
+    ManualPostState
 )

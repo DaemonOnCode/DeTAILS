@@ -19,14 +19,16 @@ from database.grouped_code_table import GroupedCodeEntriesRepository
 from database.initial_codebook_table import InitialCodebookEntriesRepository
 from database.keyword_entry_table import KeywordEntriesRepository
 from database.keyword_table import KeywordsRepository
+from database.manual_codebook_table import ManualCodebookEntriesRepository
+from database.manual_post_state_table import ManualPostStatesRepository
 from database.qect_table import QectRepository
 from database.research_question_table import ResearchQuestionsRepository
 from database.selected_keywords_table import SelectedKeywordsRepository
 from database.selected_post_ids_table import SelectedPostIdsRepository
 from database.theme_table import ThemeEntriesRepository
 from models.state_models import LoadStateRequest, SaveStateRequest
-from models.table_dataclasses import CodebookType, CodingContext, CollectionContext, ContextFile, GenerationType, Keyword, ResearchQuestion, SelectedKeyword, SelectedPostId
-from utils.reducers import process_grouped_codes_action, process_initial_codebook_table_action, process_keyword_table_action, process_sampled_post_response_action, process_themes_action, process_unseen_post_response_action
+from models.table_dataclasses import CodebookType, CodingContext, CollectionContext, ContextFile, GenerationType, Keyword, ManualCodebookEntry, ManualPostState, ResearchQuestion, SelectedKeyword, SelectedPostId
+from utils.reducers import process_grouped_codes_action, process_initial_codebook_table_action, process_keyword_table_action, process_manual_coding_responses_action, process_sampled_post_response_action, process_themes_action, process_unseen_post_response_action
 
 
 router = APIRouter()
@@ -231,30 +233,10 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
         process_grouped_codes_action(workspace_id, action)
-        # for group in grouped_codes:
-        #     higher_level_code_id = group.get("id")
-        #     higher_level_code_name = group.get("name")
-        #     codes = group.get("codes", [])
-        #     # if not higher_level_code_id or not higher_level_code_name or not isinstance(codes, list):
-        #     #     raise HTTPException(status_code=400, detail="Invalid groupedCodes format")
-        #     for code in codes:
-        #         grouped_codes_repo.update(
-        #             {"coding_context_id": workspace_id, "code": code},
-        #             {
-        #                 "higher_level_code": higher_level_code_name,
-        #                 "higher_level_code_id": higher_level_code_id
-        #             }
-        #         )
-        # unplaced_subcodes = grouped_codes_repo.execute_raw_query(
-        #     "SELECT * FROM grouped_code_entries WHERE coding_context_id = ? AND higher_level_code IS NULL",
-        #     (workspace_id,),
-        #     keys=True
-        # )
         grouped_entries = grouped_codes_repo.find({"coding_context_id": workspace_id})
         grouped_codes_dict = defaultdict(list)
         higher_level_codes = {}
         for entry in grouped_entries:
-            # if entry.code is not None:
             grouped_codes_dict[entry.higher_level_code_id].append(entry.code)
             if entry.higher_level_code_id not in higher_level_codes:
                 higher_level_codes[entry.higher_level_code_id] = entry.higher_level_code
@@ -265,44 +247,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         print(f"Grouped codes: {grouped_codes}")
         return {"success": True, "groupedCodes": grouped_codes}
 
-    # elif operation_type == "setUnplacedSubCodes":
-    #     unplaced_subcodes = request_body.get("unplacedSubCodes")
-    #     if not isinstance(unplaced_subcodes, list):
-    #         raise HTTPException(status_code=400, detail="unplacedSubCodes must be a list")
-    #     for code in unplaced_subcodes:
-    #         grouped_codes_repo.update(
-    #             {"coding_context_id": workspace_id, "code": code},
-    #             {
-    #                 "higher_level_code": None,
-    #                 "higher_level_code_id": None
-    #             }
-    #         )
-    #     grouped_codes = grouped_codes_repo.execute_raw_query(
-    #         "SELECT * FROM grouped_code_entries WHERE coding_context_id = ? AND higher_level_code IS NOT NULL",
-    #         (workspace_id,),
-    #         keys=True
-    #     )
-    #     return {"success": True, "unplacedSubCodes": unplaced_subcodes, "groupedCodes": grouped_codes}
-    
     elif operation_type == "dispatchThemes":
-        # themes = request_body.get("themes")
-        # if not isinstance(themes, list):
-        #     raise HTTPException(status_code=400, detail="themes must be a list")
-        # for theme in themes:
-        #     theme_id = theme.get("id")
-        #     theme_name = theme.get("name")
-        #     codes = theme.get("codes", [])
-        #     # if not theme_id or not theme_name or not isinstance(codes, list):
-        #     #     raise HTTPException(status_code=400, detail="Invalid themes format")
-
-        #     for higher_level_code in codes:
-        #         themes_repo.update(
-        #             {"coding_context_id": workspace_id, "higher_level_code": higher_level_code},
-        #             {
-        #                 "theme": theme_name,
-        #                 "theme_id": theme_id
-        #             }
-        #         )
         action = request_body.get("action")
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
@@ -319,22 +264,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             for tid, codes in themes_dict.items()
         ]
         return {"success": True, "themes": themes}
-
-    elif operation_type == "setUnplacedCodes":
-        unplaced_codes = request_body.get("unplacedCodes")
-        if not isinstance(unplaced_codes, list):
-            raise HTTPException(status_code=400, detail="unplacedCodes must be a list")
-        for higher_level_code in unplaced_codes:
-            themes_repo.update(
-                {"coding_context_id": workspace_id, "higher_level_code": higher_level_code},
-                {
-                    "theme": None,
-                    "theme_id": None
-                }
-            )
-        
-        return {"success": True, "unplacedCodes": unplaced_codes}
-
     else:
         print(f"Unknown operation type: {operation_type}")
         return {"success": False}
@@ -482,8 +411,7 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
         grouped_entries = grouped_codes_repo.find({"coding_context_id": workspace_id})
         grouped_codes_dict = defaultdict(list)
         higher_level_codes = {}
-        for entry in grouped_entries:
-            # if entry.code is not None:   
+        for entry in grouped_entries: 
             grouped_codes_dict[entry.higher_level_code_id].append(entry.code)
             if entry.higher_level_code_id not in higher_level_codes:
                 higher_level_codes[entry.higher_level_code_id] = entry.higher_level_code
@@ -491,17 +419,7 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
             {"id": hid, "name": higher_level_codes[hid], "codes": list(filter(bool, codes))}
             for hid, codes in grouped_codes_dict.items()
         ]
-        # response["unplacedSubCodes"] = [entry["code"] for entry in unplaced_entries]
 
-    # if "unplacedSubCodes" in states:
-        # unplaced_entries = grouped_codes_repo.execute_raw_query(
-        #     "SELECT * FROM grouped_code_entries WHERE coding_context_id = ? AND higher_level_code IS NULL",
-        #     (workspace_id,),
-        #     keys=True
-        # )
-        # response["unplacedSubCodes"] = [entry["code"] for entry in unplaced_entries]
-        # pass
-    
     if "themes" in states:
         theme_entries = themes_repo.find({"coding_context_id": workspace_id})
         themes_dict = defaultdict(list)
@@ -514,14 +432,6 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
             {"id": tid, "name": theme_names[tid], "codes": list(filter(bool, codes))}
             for tid, codes in themes_dict.items()
         ]
-
-    # if "unplacedCodes" in states:
-    #     unplaced_entries = themes_repo.execute_raw_query(
-    #         "SELECT * FROM theme_entries WHERE coding_context_id = ? AND theme IS NULL",
-    #         (workspace_id,),
-    #         keys=True
-    #     )
-    #     response["unplacedCodes"] = [entry["higher_level_code"] for entry in unplaced_entries]
 
     print(f"Loaded coding context for workspace {workspace_id}: {response}")
     return response
@@ -586,10 +496,8 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
         if not isinstance(selected_data, list):
             raise HTTPException(status_code=400, detail="selectedData must be a list")
         selected_posts_repo.delete({"dataset_id": workspace_id})
-        values = [(workspace_id, post_id) for post_id in selected_data]
-        selected_posts_repo.execute_many_query(
-            "INSERT INTO selected_post_ids (dataset_id, post_id) VALUES (?, ?)",
-            values,
+        selected_posts_repo.insert_batch(
+            [SelectedPostId(dataset_id=workspace_id, post_id=post_id) for post_id in selected_data],
         )
         return {"success": True, "selectedData": selected_data}
 
@@ -636,8 +544,9 @@ async def load_collection_context(request: Request, request_body: Dict[str, Any]
     if not states:
         states = ["type", "metadata", "dataset", "modeInput", "selectedData", "dataFilters", "isLocked"]
 
-    collection_context = collection_context_repo.find_one({"id": workspace_id})
+    collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
     if not collection_context:
+        collection_context_repo.insert(CollectionContext(id=workspace_id))
         return {}
 
     response = {}
@@ -656,6 +565,99 @@ async def load_collection_context(request: Request, request_body: Dict[str, Any]
 
     return response
 
+
+manual_post_state_repo = ManualPostStatesRepository()
+manual_codebook_repo = ManualCodebookEntriesRepository()
+
+@router.post("/save-manual-coding-context")
+async def save_manual_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    workspace_id = request.headers.get("x-workspace-id")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspaceId is required")
+
+    operation_type = request_body.get("type")
+    if not operation_type:
+        raise HTTPException(status_code=400, detail="Operation type is required")
+
+    if operation_type == "addPostIds":
+        new_post_ids = request_body.get("newPostIds", [])
+        for post_id in new_post_ids:
+            existing = manual_post_state_repo.find_one({"workspace_id": workspace_id, "post_id": post_id}, fail_silently=True)
+            if not existing:
+                manual_post_state_repo.insert(ManualPostState(workspace_id=workspace_id, post_id=post_id, is_marked=False))
+        post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
+        return {"success": True, "postStates": {ps.post_id: bool(ps.is_marked) for ps in post_states}}
+
+    elif operation_type == "updatePostState":
+        post_id = request_body.get("postId")
+        state = request_body.get("state")
+        if post_id is None or state is None:
+            raise HTTPException(status_code=400, detail="postId and state are required")
+        manual_post_state_repo.update({"workspace_id": workspace_id, "post_id": post_id}, {"is_marked": bool(state)})
+        post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
+        return {"success": True, "postStates": {ps.post_id: ps.is_marked for ps in post_states}}
+
+    elif operation_type == "dispatchManualCodingResponses":
+        action = request_body.get("action")
+        if not action or "type" not in action:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        process_manual_coding_responses_action(workspace_id, action)
+        responses = qect_repo.find({"workspace_id": workspace_id, "codebook_type": "manual"})
+        return {"success": True, "manualCodingResponses": [response.to_dict() for response in responses]}
+
+    elif operation_type == "setCodebook":
+        return {"success": True, "codebook": request_body.get("codebook", {})}
+
+    elif operation_type == "updateContext":
+        updates = request_body.get("updates", {})
+        if "postStates" in updates:
+            new_post_states = updates["postStates"]
+            manual_post_state_repo.delete({"workspace_id": workspace_id})
+            for post_id, state in new_post_states.items():
+                manual_post_state_repo.insert(ManualPostState(workspace_id=workspace_id, post_id=post_id, state=state))
+        if "codebook" in updates:
+            new_codebook = updates["codebook"]
+            manual_codebook_repo.delete({"workspace_id": workspace_id})
+            for code, description in new_codebook.items():
+                manual_codebook_repo.insert(ManualCodebookEntry(workspace_id=workspace_id, code=code, description=description))
+        post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
+        codebook_entries = manual_codebook_repo.find({"workspace_id": workspace_id})
+        responses = qect_repo.find({"workspace_id": workspace_id, "codebook_type": "manual"})
+        return {
+            "success": True,
+            "postStates": {ps.post_id: ps.is_marked for ps in post_states},
+            "codebook": {entry.code: entry.definition for entry in codebook_entries}
+        }
+
+    elif operation_type == "resetContext":
+        manual_post_state_repo.delete({"workspace_id": workspace_id})
+        manual_codebook_repo.delete({"workspace_id": workspace_id})
+        qect_repo.delete({"workspace_id": workspace_id, "codebook_type": "manual"})
+        return {"success": True}
+
+    else:
+        raise HTTPException(status_code=400, detail="Invalid operation type")
+
+@router.post("/load-manual-coding-context")
+async def load_manual_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    workspace_id = request.headers.get("x-workspace-id")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspaceId is required")
+
+    states = request_body.get("states", [])
+    if not states:
+        states = ["postStates", "codebook"]
+
+    response = {}
+
+    if "postStates" in states:
+        post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
+        response["postStates"] = {ps.post_id: bool(ps.is_marked) for ps in post_states}
+
+    if "codebook" in states:
+        codebook_entries = manual_codebook_repo.find({"workspace_id": workspace_id})
+        response["codebook"] = {entry.code: entry.definition for entry in codebook_entries}
+    return response
 
 @router.post("/reset-context-data")
 async def reset_context_data_endpoint(
@@ -715,14 +717,6 @@ async def reset_context_data_endpoint(
             "workspace_id": workspace_id,
             "codebook_type": CodebookType.INITIAL.value
         })
-        selected_posts_repo.delete({
-            "dataset_id": workspace_id,
-            "type": "sampled"
-        })
-        selected_posts_repo.delete({
-            "dataset_id": workspace_id,
-            "type": "unseen"
-        })
     elif page == "initial_codebook":
         initial_codebook_repo.delete({"coding_context_id": workspace_id})
     elif page == "final_coding":
@@ -734,11 +728,6 @@ async def reset_context_data_endpoint(
         grouped_codes_repo.delete({"coding_context_id": workspace_id})
     elif page == "generating_themes":
         themes_repo.delete({"coding_context_id": workspace_id})
-    elif page == "data_type":
-        collection_context_repo.update(
-            {"id": workspace_id},
-            {"type": None}
-        )
     elif page == "data_source":
         collection_context_repo.update(
             {"id": workspace_id},
@@ -750,6 +739,10 @@ async def reset_context_data_endpoint(
             {"id": workspace_id},
             {"data_filters": json.dumps({}), "is_locked": False}
         )
+    elif page == "manual_coding":
+        manual_codebook_repo.delete({"workspace_id": workspace_id})
+        manual_post_state_repo.update({"workspace_id": workspace_id}, {"is_marked": False})
+        qect_repo.delete({"workspace_id": workspace_id, "codebook_type": "manual"})
     else:
         raise HTTPException(status_code=400, detail="Invalid page")
     
@@ -863,6 +856,15 @@ async def check_data_existence(request: Request, request_body: Dict[str, Any] = 
             collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists = exists or (collection_context and collection_context.get("is_locked"))
             print(f"Is locked exist: {exists}, is locked")
+        elif state == "postStates":
+            exists = exists or manual_post_state_repo.count({"workspace_id": workspace_id}) > 0
+            print(f"Post states exist: {exists}, post states")
+        elif state == "codebook":
+            exists = exists or manual_codebook_repo.count({"workspace_id": workspace_id}) > 0
+            print(f"Codebook exist: {exists}, codebook")
+        elif state == "manualCodingResponses":
+            exists = exists or qect_repo.count({"workspace_id": workspace_id, "codebook_type": "manual"}) > 0
+            print(f"Manual coding responses exist: {exists}, manual coding responses")
     print(f"Data existence check for workspace {workspace_id} on page {page}: {exists}")
     return {"exists": bool(exists)}
 

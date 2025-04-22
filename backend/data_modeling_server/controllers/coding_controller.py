@@ -4,7 +4,7 @@ import json
 import os
 import re
 import time
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, AsyncGenerator, Callable, Dict, Generator, List, Optional, Sequence, Tuple, Type, Union
 import unicodedata
 from uuid import uuid4
 
@@ -14,6 +14,7 @@ from fastapi import UploadFile
 from chromadb.config import Settings as ChromaDBSettings
 from constants import CHROMA_PORT, CODEBOOK_TYPE_MAP, CONTEXT_FILES_DIR, PATHS, STUDY_DATABASE_PATH
 from database.qect_table import QectRepository
+from database.selected_post_ids_table import SelectedPostIdsRepository
 from database.state_dump_table import StateDumpsRepository
 from decorators import log_execution_time
 from models.table_dataclasses import CodebookType, LlmResponse, QectResponse, ResponseCreatorType, StateDump
@@ -582,15 +583,9 @@ async def summarize_with_llm(
     retries: int = 3,
     **kwargs
 ) -> Dict[str, str]:
-    """
-    Summarize a list of texts into a JSON object: {"summary": "..."}
-    If more than one chunk, recursively collapses into one final summary.
-    Returns a dict parsed from the model's JSON.
-    """
     if not texts:
         return {"summary": ""}
 
-    # default prompt builder: ask for a JSON object with key "summary"
     def generic_prompt_builder(**params) -> str:
         docs = "\n\n".join(params['texts'])
         return (
@@ -604,7 +599,6 @@ async def summarize_with_llm(
 
     prompt_fn = prompt_builder_func or generic_prompt_builder
 
-    # build a single chunk that fits
     def build_chunk(texts: List[str], max_tokens: int):
         fixed = prompt_fn(**{**kwargs, 'texts': []})
         fixed_t = llm_instance.get_num_tokens(fixed)
@@ -648,11 +642,10 @@ async def summarize_with_llm(
             )
             if isinstance(out, dict):
                 return out
-            # otherwise, append a JSON-reminder
             prompt += "\n\nPlease output valid JSON as shown above."
         return {"summary": "unavailable"}
 
-    # split into chunks & collect
+
     parts: List[Dict[str, Any]] = []
     remaining = texts
     while remaining:
@@ -661,7 +654,6 @@ async def summarize_with_llm(
             break
         parts.append(await summarize_chunk(chunk))
 
-    # if multiple chunks, combine them into one
     if len(parts) > 1:
         combined_texts = [p.get("summary", "") for p in parts]
         return await summarize_with_llm(
@@ -711,7 +703,6 @@ def split_into_batches(
                 batches.append(cur)
                 cur, cur_t = [], fixed_t
             if fixed_t + sec_t > max_tokens:
-                # too big even alone => force it
                 batches.append([code])
                 continue
         cur.append(code)
@@ -734,13 +725,10 @@ async def batch_multiple_codes_task(
     retries: int = 3,
     store_response: bool = False
 ) -> Dict[str, str]:
-    """
-    Summarize multiple codes in one shot, returning a dict code->summary.
-    """
+
     if not batch:
         return {}
 
-    # build prompt that asks for a JSON object mapping codes to summaries
     prompt = (
         "Provide 1-2 line summaries for each code. "
         "Respond *only* with a JSON object mapping each code to its summary, for example:\n"
@@ -750,7 +738,7 @@ async def batch_multiple_codes_task(
     )
     for c in batch:
         exps = codes_map[c]
-        arr = ", ".join(json.dumps(e) for e in exps)
+        arr = ", ".join(json.dumps(e, indent=2) for e in exps)
         prompt += f'  "{c}": [{arr}],\n'
     prompt += "}\n"
 
@@ -772,16 +760,13 @@ async def batch_multiple_codes_task(
             retries=1
         )
         if isinstance(out, dict):
-            # ensure all requested codes are present, fill missing with placeholder
             if not any(c in out for c in batch):
                 missing_codes = set(batch) - set(out.keys())
             else:    
                 result = {c: out.get(c, "summary unavailable") for c in batch}
                 return result
-        # otherwise ask again
         prompt += "\n\nPlease respond *only* with the JSON object as specified above."
         prompt += "\n\nEnsure responses for missing codes: " + ", ".join(missing_codes)
-    # fallback
     return {c: "summary unavailable" for c in batch}
 
 async def _flush_and_summarize(
@@ -911,159 +896,48 @@ async def summarize_codebook_explanations(
     return final
 
 
-def get_coded_data(
-    codebook_names: list,
-    filters: dict,
+def _apply_type_filters(responseTypes: List[str], filters: List[str], params: List[Any]):
+    conds = []
+    if not responseTypes:
+        conds = [
+            "(r.codebook_type = 'final' AND r.response_type = 'LLM')",
+            "(r.codebook_type = 'initial')",
+            "(r.codebook_type = 'manual')",
+        ]
+    else:
+        if 'unseen' in responseTypes:
+            conds.append("(r.codebook_type = 'final' AND r.response_type = 'LLM')")
+        if 'sampled' in responseTypes:
+            conds.append("r.codebook_type = 'initial'")
+        if 'manual' in responseTypes:
+            conds.append("r.codebook_type = 'manual'")
+    filters.append(f"({' OR '.join(conds)})")
+
+selected_post_ids_repo = SelectedPostIdsRepository()
+
+def stream_selected_post_ids(
     dataset_id: str,
-    batch_size: int,
-    offset: int,
-):
-    show_coder_type = filters.get("showCoderType", False)
-    selected_type_filter = filters.get("selectedTypeFilter", "All")
-    filter_param = filters.get("filter")
-    
-    base_conditions = ["dataset_id = :dataset_id"]
-    params = {"dataset_id": dataset_id}
-
-    if codebook_names:
-        placeholders = ", ".join([f":codebook_{i}" for i in range(len(codebook_names))])
-        base_conditions.append(f"codebook_type IN ({placeholders})")
-        for i, name in enumerate(codebook_names):
-            params[f"codebook_{i}"] = name
-
-    if not show_coder_type:
-        if selected_type_filter == "All":
-            base_conditions.append(
-                "(codebook_type = :initial OR (codebook_type = :final AND response_type = :llm))"
-            )
-            params["initial"] = "initial"
-            params["final"] = "final"
-            params["llm"] = "LLM"
-        elif selected_type_filter == "New Data":
-            base_conditions.append("codebook_type = :final")
-            base_conditions.append("response_type = :llm")
-            params["final"] = "final"
-            params["llm"] = "LLM"
-        elif selected_type_filter == "Codebook":
-            base_conditions.append("codebook_type = :initial")
-            params["initial"] = "initial"
-    else:
-        base_conditions.append("codebook_type = :manual")
-        params["manual"] = "manual"
-        if selected_type_filter == "Human":
-            base_conditions.append("response_type = :human")
-            params["human"] = "Human"
-        elif selected_type_filter == "LLM":
-            base_conditions.append("response_type = :llm")
-            params["llm"] = "LLM"
-    
-    base_where_clause = " AND ".join(base_conditions)
-    
-    total_ids_query = f"SELECT COUNT(*) FROM qect WHERE {base_where_clause}"
-    total_ids_result = qect_repo.execute_raw_query(total_ids_query, tuple(params.values()), keys=False)
-    total_ids = total_ids_result.fetchone()[0]
-    
-    total_data_query = f"SELECT * FROM qect WHERE {base_where_clause}"
-    total_data_rows = qect_repo.execute_raw_query(total_data_query, tuple(params.values()), keys=True)
-    total_data = [QectResponse(**row) for row in total_data_rows]
-
-    unique_codes = list(set(resp.code for resp in total_data))
-
-    if filter_param:
-        if filter_param == "coded-data":
-            filtered_data = total_data
-            filtered_post_ids = list(set(resp.post_id for resp in total_data))
-        elif "|" in filter_param and filter_param.endswith("|coded-data"):
-            post_id = filter_param.split("|")[0]
-            filtered_data = [resp for resp in total_data if resp.post_id == post_id]
-            filtered_post_ids = [post_id] if filtered_data else []
-        else:
-            all_post_ids = set(resp.post_id for resp in total_data)
-            if filter_param in all_post_ids:
-                filtered_data = [resp for resp in total_data if resp.post_id == filter_param]
-                filtered_post_ids = list(set(resp.post_id for resp in total_data))
-            else:
-                filtered_data = [resp for resp in total_data if resp.code == filter_param]
-                filtered_post_ids = list(set(resp.post_id for resp in filtered_data))
-    else:
-        filtered_data = total_data
-        filtered_post_ids = list(set(resp.post_id for resp in total_data))
-    
-    if batch_size is not None:
-        filtered_data = filtered_data[offset:offset + batch_size]
-    else:
-        filtered_data = filtered_data[offset:]
-    filtered_data_serialized = [resp.to_dict() for resp in filtered_data]
-    
-    return {
-        "filteredData": filtered_data_serialized,
-        "filteredPostIds": filtered_post_ids,
-        "totalIds": total_ids,
-        "uniqueCodes": unique_codes
-    }
-
-
-def build_where_clause_and_params(request, dataset_id):
-    conditions = ["p.dataset_id = ?", "r.dataset_id = ?"]
-    params = [dataset_id, dataset_id]
-    
-    # Apply selectedTypeFilter first
-    if hasattr(request, 'selectedTypeFilter') and request.selectedTypeFilter:
-        print(f"[build_where_clause] selectedTypeFilter: {request.selectedTypeFilter}")
-        if request.selectedTypeFilter == 'All':
-            if hasattr(request, 'responseTypes') and request.responseTypes:
-                mapped_types = [CODEBOOK_TYPE_MAP[t] for t in request.responseTypes if t in CODEBOOK_TYPE_MAP]
-                if 'manual' in request.responseTypes:
-                    conditions.append("r.codebook_type = 'manual'")
-                    print("[build_where_clause] Applying 'All' for manual: r.codebook_type = 'manual'")
-                elif mapped_types:
-                    placeholders = ','.join(['?' for _ in mapped_types])
-                    conditions.append(f"(r.codebook_type IN ({placeholders}) OR (r.codebook_type = 'final' AND r.response_type = 'LLM'))")
-                    params.extend(mapped_types)
-                    print(f"[build_where_clause] Applying 'All' for non-manual: r.codebook_type IN ({mapped_types}) OR (r.codebook_type = 'final' AND r.response_type = 'LLM')")
-            else:
-                conditions.append("(r.codebook_type = 'initial' OR (r.codebook_type = 'final' AND r.response_type = 'LLM'))")
-                print("[build_where_clause] Applying 'All' default: (r.codebook_type = 'initial' OR (r.codebook_type = 'final' AND r.response_type = 'LLM'))")
-        elif request.selectedTypeFilter == 'New Data':
-            conditions.append("r.codebook_type = 'final' AND r.response_type = 'LLM'")
-            print("[build_where_clause] Applying 'New Data': r.codebook_type = 'final' AND r.response_type = 'LLM'")
-        elif request.selectedTypeFilter == 'Codebook':
-            conditions.append("r.codebook_type = 'initial'")
-            print("[build_where_clause] Applying 'Codebook': r.codebook_type = 'initial'")
-        elif request.selectedTypeFilter == 'Human':
-            conditions.append("r.codebook_type = 'manual' AND r.response_type = 'Human'")
-            print("[build_where_clause] Applying 'Human': r.codebook_type = 'manual' AND r.response_type = 'Human'")
-        elif request.selectedTypeFilter == 'LLM':
-            conditions.append("r.codebook_type = 'manual' AND r.response_type = 'LLM'")
-            print("[build_where_clause] Applying 'LLM': r.codebook_type = 'manual' AND r.response_type = 'LLM'")
-    else:
-        if hasattr(request, 'responseTypes') and request.responseTypes:
-            mapped_types = [CODEBOOK_TYPE_MAP[t] for t in request.responseTypes if t in CODEBOOK_TYPE_MAP]
-            if mapped_types:
-                placeholders = ','.join(['?' for _ in mapped_types])
-                conditions.append(f"r.codebook_type IN ({placeholders})")
-                params.extend(mapped_types)
-                print(f"[build_where_clause] responseTypes: {request.responseTypes}, mapped_types: {mapped_types}, condition: r.codebook_type IN ({mapped_types})")
-
-    if hasattr(request, 'filter') and request.filter:
-        print(f"[build_where_clause] filter: {request.filter}")
-        if request.filter == 'coded-data':
-            print("[build_where_clause] Filter is 'coded-data', no additional condition")
-        else:
-            all_post_ids_query = "SELECT DISTINCT r.post_id FROM qect r WHERE r.dataset_id = ?"
-            print(f"[build_where_clause] Executing all_post_ids query: {all_post_ids_query}, params: {[dataset_id]}")
-            all_post_ids = execute_query(all_post_ids_query, [dataset_id], keys=True)
-            all_post_ids_list = [row['post_id'] for row in all_post_ids]
-            print(f"[build_where_clause] all_post_ids result: {all_post_ids_list}")
-            if request.filter in all_post_ids_list:
-                conditions.append("p.post_id = ?")
-                params.append(request.filter)
-                print(f"[build_where_clause] Filter by postId: p.post_id = {request.filter}")
-            else:
-                conditions.append("r.code = ?")
-                params.append(request.filter)
-                print(f"[build_where_clause] Filter by code: r.code = {request.filter}")
-    
-    where_clause = " AND ".join(conditions)
-    print(f"[build_where_clause] Final where_clause: {where_clause}, params: {params}")
-    return where_clause, params
+    responseTypes: List[str],
+    page_size: int = 100
+) -> Generator[list[Any], Any, None]:
+    params = []
+    base_sql = (
+        f"SELECT post_id FROM selected_post_ids "
+        f"WHERE dataset_id = ? AND type IN ({', '.join('?' for _ in responseTypes)}) "
+        f"ORDER BY rowid "
+        f"LIMIT ? OFFSET ?"
+    )
+    params.append(dataset_id)
+    for responseType in responseTypes:
+        params.append(responseType)
+    params.append(page_size)
+    offset = 0
+    params.append(offset)
+    while True:
+        params[-1] = offset
+        print("Params", params, "Base SQL", base_sql)
+        rows = selected_post_ids_repo.execute_raw_query(base_sql, tuple(params), keys=True)
+        if not rows:
+            break
+        yield [row["post_id"] for row in rows]
+        offset += len(rows)
