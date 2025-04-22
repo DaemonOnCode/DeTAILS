@@ -306,6 +306,7 @@ export type BaseResponseHandlerActions<T> =
           | { type: 'REMOVE_RESPONSES'; all: boolean; indexes?: never }
       )
     | { type: 'SET_RESPONSES'; responses: T[] }
+    | { type: 'SET_PARTIAL_RESPONSES'; responses: T[] }
     | { type: 'DELETE_CODE'; code: string }
     | { type: 'EDIT_CODE'; currentCode: string; newCode: string }
     | { type: 'DELETE_HIGHLIGHT'; postId: string; sentence: string; code: string }

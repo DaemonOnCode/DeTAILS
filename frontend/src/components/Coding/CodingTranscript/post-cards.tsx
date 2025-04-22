@@ -28,7 +28,7 @@ const PostCards: FC<PostCardsProps> = memo(({ postData, postStates, onPostClick 
                         }`}
                         onClick={() => onPostClick(post.id)}>
                         <div className="flex items-center mb-2">
-                            {isDone && <FaCheck className="text-green-500 text-xl mr-2" />}
+                            {!!isDone && <FaCheck className="text-green-500 text-xl mr-2" />}
                             <h3 className="text-lg font-bold truncate">{post.title}</h3>
                         </div>
                         <p className="text-gray-600 line-clamp-5">

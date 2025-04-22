@@ -1,26 +1,24 @@
-import { FC, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import PostTab from './post-tab';
-import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import { useCollectionContext } from '../../../context/collection-context';
-import { useApi } from '../../../hooks/Shared/use-api';
+import {
+    usePaginatedPostsMetadata,
+    usePaginatedCodesMetadata
+} from '../../../hooks/Coding/use-paginated-metadata';
 import { SetState } from '../../../types/Coding/shared';
 import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
-import { useWorkspaceContext } from '../../../context/workspace-context';
+import { debounce } from 'lodash';
+import { useInfiniteScroll } from '../../../hooks/Coding/use-infinite-scroll';
 
 interface LeftPanelProps {
-    totalPosts: number;
-    totalCodedPosts: number;
-    postIds: string[];
-    codes: string[];
+    responseTypes: ('sampled' | 'unseen' | 'manual')[];
+    activeTab: 'posts' | 'codes';
     filter: string | null;
-    onFilterSelect: (filter: string | null) => void;
+    onFilterSelect: (f: string | null) => void;
     showTypeFilterDropdown?: boolean;
     selectedTypeFilter: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
-    handleSelectedTypeFilter?: (type: string) => void;
+    handleSelectedTypeFilter?: SetState<string>;
     showCoderType?: boolean;
-    codedPostsCount: number;
-    activeTab: 'posts' | 'codes';
-    setActiveTab: (tab: 'posts' | 'codes') => void;
+    setActiveTab: SetState<'posts' | 'codes'>;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
     selectedItem: string | null;
@@ -28,158 +26,102 @@ interface LeftPanelProps {
 }
 
 const LeftPanel: FC<LeftPanelProps> = ({
-    totalPosts,
-    totalCodedPosts,
-    postIds,
-    codes,
+    responseTypes,
+    activeTab,
     filter,
     onFilterSelect,
     showTypeFilterDropdown = false,
     selectedTypeFilter,
     handleSelectedTypeFilter,
     showCoderType,
-    activeTab,
     setActiveTab,
     searchQuery,
     setSearchQuery,
     selectedItem,
     setSelectedItem
 }) => {
-    const [fetchedPostTitles, setFetchedPostTitles] = useState<{ id: string; title: string }[]>([]);
-    const [hasMore, setHasMore] = useState(true);
-    const [loading, setLoading] = useState(false);
-    const batchSize = 20;
-    const sentinelRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLUListElement>(null);
-    const { fetchData } = useApi();
-    const { datasetId } = useCollectionContext();
+    const [showCodedPosts, setShowCodedPosts] = useState(false);
     const { scrollRef: listRef, storageKey } = useScrollRestoration('left-panel');
-    const { currentWorkspace } = useWorkspaceContext();
+
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+    const updateDebouncedSearch = useCallback(
+        debounce((query: string) => {
+            setDebouncedSearchQuery(query);
+        }, 300), // 300ms delay
+        [] // Empty dependency array ensures the debounced function is created only once
+    );
 
     useEffect(() => {
-        const fetchInitialBatch = async () => {
-            if (!postIds.length || !datasetId) {
-                setFetchedPostTitles([]);
-                setHasMore(false);
-                return;
-            }
-            setLoading(true);
-            const initialBatch = postIds.slice(0, batchSize);
-            const { data: results, error } = await fetchData<any[]>(
-                REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        post_ids: initialBatch,
-                        dataset_id: currentWorkspace?.id
-                    })
-                }
-            );
-            if (error) {
-                console.error('Failed to fetch initial batch:', error);
-            } else {
-                setFetchedPostTitles(
-                    results?.map((result: any) => ({ id: result.id, title: result.title })) ?? []
-                );
-                setHasMore(postIds.length > batchSize);
-            }
-            setLoading(false);
-        };
-        fetchInitialBatch();
-    }, [postIds, datasetId, fetchData]);
+        updateDebouncedSearch(searchQuery);
+    }, [searchQuery, updateDebouncedSearch]);
 
-    const loadMore = useCallback(async () => {
-        if (!hasMore || loading) return;
-        const nextBatch = postIds.slice(
-            fetchedPostTitles.length,
-            fetchedPostTitles.length + batchSize
-        );
-        if (nextBatch.length === 0) {
-            setHasMore(false);
-            return;
-        }
-        setLoading(true);
-        const { data: results, error } = await fetchData<any[]>(
-            REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH,
-            {
-                method: 'POST',
-                body: JSON.stringify({ post_ids: nextBatch, dataset_id: datasetId })
-            }
-        );
-        if (error) {
-            console.error('Failed to fetch more posts:', error);
-        } else {
-            setFetchedPostTitles((prev) => [
-                ...prev,
-                ...results.map((result: any) => ({ id: result.id, title: result.title }))
-            ]);
-            setHasMore(fetchedPostTitles.length + nextBatch.length < postIds.length);
-        }
-        setLoading(false);
-    }, [postIds, datasetId, fetchedPostTitles, hasMore, loading, fetchData]);
-
-    // Set up IntersectionObserver to trigger loadMore
+    // Reset debouncedSearchQuery immediately when activeTab changes
     useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting && hasMore && !loading) {
-                    loadMore();
-                }
-            },
-            { root: listRef.current, threshold: 1.0 }
-        );
-        if (sentinelRef.current) {
-            observer.observe(sentinelRef.current);
-        }
-        return () => {
-            if (sentinelRef.current) {
-                observer.unobserve(sentinelRef.current);
-            }
-        };
-    }, [hasMore, loading, loadMore, listRef]);
+        setDebouncedSearchQuery(searchQuery); // Immediately set to current searchQuery (which is '' when tabs switch)
+        updateDebouncedSearch.cancel(); // Cancel any pending debounced updates
+    }, [activeTab, searchQuery, updateDebouncedSearch]);
 
-    // Reset selection when filter changes
+    const {
+        postIds,
+        titles,
+        totalPosts,
+        totalCodedPosts,
+        isLoading: loadingPosts,
+        hasNextPage: postsHasNext,
+        hasPreviousPage: postsHasPrev,
+        loadNextPage: loadNextPosts,
+        loadPreviousPage: loadPrevPosts
+    } = usePaginatedPostsMetadata({
+        pageSize: 20,
+        responseTypes,
+        searchTerm: activeTab === 'posts' ? debouncedSearchQuery : '',
+        onlyCoded: showCodedPosts,
+        selectedTypeFilter
+    });
+
+    const {
+        codes,
+        totalCodes,
+        isLoading: loadingCodes,
+        hasNextPage: codesHasNext,
+        hasPreviousPage: codesHasPrev,
+        loadNextPage: loadNextCodes,
+        loadPreviousPage: loadPrevCodes
+    } = usePaginatedCodesMetadata({
+        pageSize: 20,
+        responseTypes,
+        searchTerm: activeTab === 'codes' ? debouncedSearchQuery : ''
+    });
+
+    useInfiniteScroll(listRef, {
+        isLoading: activeTab === 'posts' ? loadingPosts : loadingCodes,
+        hasNextPage: activeTab === 'posts' ? postsHasNext : codesHasNext,
+        hasPreviousPage: activeTab === 'posts' ? postsHasPrev : codesHasPrev,
+        loadNextPage: activeTab === 'posts' ? loadNextPosts : loadNextCodes,
+        loadPreviousPage: activeTab === 'posts' ? loadPrevPosts : loadPrevCodes
+    });
+
     useEffect(() => {
         setSelectedItem(null);
     }, [selectedTypeFilter, setSelectedItem]);
 
-    // Filter posts based on searchQuery
-    const filteredPosts = useMemo(() => {
-        if (!searchQuery) return fetchedPostTitles;
-        const lowerQuery = searchQuery.toLowerCase();
-        return fetchedPostTitles.filter((post) => post.title.toLowerCase().includes(lowerQuery));
-    }, [fetchedPostTitles, searchQuery]);
-
-    // Filter codes based on searchQuery
-    const filteredCodes = useMemo(() => {
-        if (!searchQuery) return codes;
-        const lowerQuery = searchQuery.toLowerCase();
-        return codes.filter((code) => code.toLowerCase().includes(lowerQuery));
-    }, [codes, searchQuery]);
-
-    // Restore scroll position
     useEffect(() => {
-        if (listRef.current && fetchedPostTitles.length > 0) {
+        if (listRef.current && postIds.length > 0) {
             const savedPosition = sessionStorage.getItem(storageKey);
             if (savedPosition) {
                 listRef.current.scrollTop = parseInt(savedPosition, 10);
             }
         }
-    }, [fetchedPostTitles, listRef, storageKey]);
+    }, [postIds, listRef, storageKey]);
 
     const handleSelect = (selection: string | null) => {
-        setSelectedItem((prev) => {
-            if (
-                (prev === 'coded-data' || prev?.split('|')?.[1] === 'coded-data') &&
-                selection !== null
-            ) {
-                const newFilter = `${selection}|coded-data`;
-                onFilterSelect(newFilter);
-                return newFilter;
-            }
-            onFilterSelect(selection);
-            return selection;
-        });
+        if (selection === 'coded-data') {
+            setShowCodedPosts(true);
+        } else if (selection === null) {
+            setShowCodedPosts(false);
+        }
+        setSelectedItem(selection);
+        onFilterSelect(selection);
         if (selection === null) {
             setSearchQuery('');
         }
@@ -238,7 +180,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                     <div className="flex justify-evenly items-center text-center">
                         <span
                             className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
-                                selectedItem === null && searchQuery === ''
+                                !showCodedPosts && selectedItem === null
                                     ? 'bg-blue-200 font-bold'
                                     : 'hover:bg-blue-100'
                             }`}
@@ -247,8 +189,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                         </span>
                         <span
                             className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
-                                selectedItem === 'coded-data' ||
-                                selectedItem?.split('|')?.[1] === 'coded-data'
+                                showCodedPosts || selectedItem === 'coded-data'
                                     ? 'bg-blue-200 font-bold'
                                     : 'hover:bg-blue-100'
                             }`}
@@ -264,7 +205,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                                 : 'hover:bg-blue-100'
                         }`}
                         onClick={() => handleSelect(null)}>
-                        Show All ({codes.length})
+                        Show All ({totalCodes})
                     </div>
                 )}
             </div>
@@ -279,43 +220,45 @@ const LeftPanel: FC<LeftPanelProps> = ({
 
             <div className="flex-1 overflow-auto min-h-0 my-2 gap-y-2" ref={listRef}>
                 {activeTab === 'posts' ? (
-                    <ul className="space-y-2" ref={containerRef}>
-                        {loading && fetchedPostTitles.length === 0 ? (
+                    <ul className="space-y-2">
+                        {loadingPosts && postIds.length === 0 ? (
                             <li>Loading...</li>
-                        ) : filteredPosts.length === 0 ? (
+                        ) : postIds.length === 0 ? (
                             <li>No posts found</li>
                         ) : (
-                            filteredPosts.map((postIdTitle) => (
+                            postIds.map((postId) => (
                                 <PostTab
-                                    key={postIdTitle.id}
-                                    postIdTitle={postIdTitle}
+                                    key={postId}
+                                    postIdTitle={{ id: postId, title: titles[postId] || postId }}
                                     selectedItem={selectedItem}
                                     handleSelect={handleSelect}
-                                    containerRef={containerRef}
+                                    containerRef={listRef}
                                 />
                             ))
                         )}
-                        {hasMore && !loading && filteredPosts.length > 0 && (
-                            <li>
-                                <div ref={sentinelRef} className="h-1" />
-                            </li>
-                        )}
-                        {loading && filteredPosts.length > 0 && <li>Loading more...</li>}
+                        {loadingPosts && postIds.length > 0 && <li>Loading more...</li>}
                     </ul>
                 ) : (
                     <ul className="space-y-2">
-                        {filteredCodes.map((code) => (
-                            <li
-                                key={code}
-                                className={`p-3 border rounded shadow cursor-pointer transition-all ${
-                                    selectedItem === code
-                                        ? 'bg-blue-200 font-bold'
-                                        : 'hover:bg-blue-100'
-                                }`}
-                                onClick={() => handleSelect(code)}>
-                                {code}
-                            </li>
-                        ))}
+                        {loadingCodes && codes.length === 0 ? (
+                            <li>Loading...</li>
+                        ) : codes.length === 0 ? (
+                            <li>No codes found</li>
+                        ) : (
+                            codes.map((code) => (
+                                <li
+                                    key={code}
+                                    className={`p-3 border rounded shadow cursor-pointer transition-all ${
+                                        selectedItem === code
+                                            ? 'bg-blue-200 font-bold'
+                                            : 'hover:bg-blue-100'
+                                    }`}
+                                    onClick={() => handleSelect(code)}>
+                                    {code}
+                                </li>
+                            ))
+                        )}
+                        {loadingCodes && codes.length > 0 && <li>Loading more...</li>}
                     </ul>
                 )}
             </div>

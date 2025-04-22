@@ -316,7 +316,6 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
         loadingState[CODING_PAGE_ROUTES.DATASET_CREATION]?.stepRef
     );
 
-    // Load states based on page
     useEffect(() => {
         const page = location.pathname;
         const stateMap: Record<string, string[]> = {

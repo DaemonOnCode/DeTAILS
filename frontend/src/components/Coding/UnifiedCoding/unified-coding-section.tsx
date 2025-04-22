@@ -15,11 +15,13 @@ import { useManualCodingContext } from '../../../context/manual-coding-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
-import { downloadFile } from '../../../utility/file-downloader';
+import { downloadFile, downloadFileWithStreaming } from '../../../utility/file-downloader';
+import { usePaginatedResponses } from '../../../hooks/Coding/use-paginated-responses';
+import { usePaginatedPosts } from '../../../hooks/Coding/use-paginated-posts';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
-    data: any[];
+    responseTypes?: ('sampled' | 'unseen' | 'manual')[];
     dispatchFunction: (action: any) => void;
     review?: boolean;
     showThemes?: boolean;
@@ -38,9 +40,10 @@ interface UnifiedCodingPageProps {
 }
 
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
-    postIds,
-    data,
+    postIds: _postIds,
+    // data,
     review: reviewParam,
+    responseTypes = ['sampled'],
     dispatchFunction,
     showThemes = false,
     download = true,
@@ -61,15 +64,11 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     const { fetchData } = useApi();
     const { datasetId } = useCollectionContext();
     const {
-        sampledPostResponse,
-        unseenPostResponse,
         sampledPostIds,
         unseenPostIds,
         dispatchSampledPostResponse,
         dispatchUnseenPostResponse
     } = useCodingContext();
-    const { postStates, manualCodingResponses, dispatchManualCodingResponses } =
-        useManualCodingContext();
 
     const [review, setReview] = useState(reviewParam ?? true);
     const [filter, setFilter] = useState<string | null>(null);
@@ -77,7 +76,6 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All'
     >(showCoderType ? 'All' : 'New Data');
 
-    // New states for tab, search, and selection
     const [activeTab, setActiveTab] = useState<'posts' | 'codes'>('posts');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedItem, setSelectedItem] = useState<string | null>(null);
@@ -87,7 +85,6 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     const [isDownloadingTranscripts, setIsDownloadingTranscripts] = useState(false);
 
-    // Restore states from URL on mount
     useEffect(() => {
         console.log('Restoring state from URL', location.search);
         const params = new URLSearchParams(location.search);
@@ -119,7 +116,6 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         setSelectedTypeFilter(type as 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All');
     }, [location.search]);
 
-    // Debounced function to update URL
     const debouncedUpdateUrl = useMemo(
         () =>
             debounce((tab: string, search: string, selected: string | null, type: string) => {
@@ -133,49 +129,31 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         [navigate]
     );
 
-    // Update URL when states change
     useEffect(() => {
         debouncedUpdateUrl(activeTab, searchQuery, selectedItem, selectedTypeFilter);
     }, [activeTab, searchQuery, selectedItem, selectedTypeFilter, debouncedUpdateUrl]);
 
-    // Cleanup debounce on unmount
     useEffect(() => {
         return () => debouncedUpdateUrl.cancel();
     }, [debouncedUpdateUrl]);
 
-    const { filteredData, filteredPostIds, totalData, totalIds } = useFilteredData({
-        data,
-        postIds,
-        filter,
-        showCoderType,
-        applyFilters,
+    const {
+        responsesByPostId,
+        isLoadingPage,
+        hasNextPage,
+        hasPreviousPage,
+        loadNextPage,
+        loadPreviousPage
+    } = usePaginatedResponses({
+        pageSize: 10,
+        searchTerm: searchQuery,
         selectedTypeFilter,
-        sampledPostResponse,
-        unseenPostResponse,
-        manualCodingResponses,
-        sampledPostIds,
-        unseenPostIds,
-        testPostIds: Object.keys(postStates)
+        responseTypes,
+        postId: activeTab === 'posts' ? selectedItem : null,
+        filterCode: activeTab === 'codes' ? selectedItem : null
     });
 
-    console.log(
-        'Filtered data:',
-        filteredData,
-        filteredPostIds,
-        totalData,
-        totalIds,
-        showCoderType,
-        selectedTypeFilter
-    );
-
-    // Precompute a Set of sampled IDs for fast lookup
-    const sampledIds = useMemo(
-        () => new Set(sampledPostResponse.map((r: any) => r.id)),
-        [sampledPostResponse]
-    );
-
-    // Helper to determine if a response is sampled
-    const isSampled = (response: any) => sampledIds.has(response.id);
+    const isSampled = (response: any) => sampledPostIds.includes(response.post_id);
 
     const routeDispatch = (action: BaseResponseHandlerActions<any>) => {
         if (selectedTypeFilter === 'Codebook') {
@@ -200,7 +178,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 }
                 return;
             } else if ('index' in action) {
+                // @ts-ignore
                 const response = data[action.index];
+                console.log('Index response:', response);
                 if (response && isSampled(response)) {
                     console.log(action, 'route dispatch index updating sample');
                     dispatchSampledPostResponse(action);
@@ -217,50 +197,32 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         }
     };
 
-    const downloadTranscripts = async (e: any, responses: any[]) => {
-        let fileHandle;
-        const _window = window as any;
-        if (_window.showSaveFilePicker) {
-            try {
-                fileHandle = await _window.showSaveFilePicker({
-                    suggestedName: 'transcripts.csv',
-                    types: [
-                        {
-                            description: 'CSV Files',
-                            accept: { 'text/csv': ['.csv'] }
-                        }
-                    ]
-                });
-            } catch (error) {
-                console.error('File save cancelled or failed', error);
-                return false;
-            }
-        }
+    const downloadCodebook = async () => {
+        const payload = {
+            responseTypes
+        };
+        return await downloadFileWithStreaming(
+            fetchData,
+            REMOTE_SERVER_ROUTES.DOWNLOAD_CODES,
+            payload,
+            'codebook.csv'
+        );
+    };
 
-        const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.GET_TRANSCRIPTS_CSV, {
-            method: 'POST',
-            body: JSON.stringify({
-                dataset_id: datasetId,
-                post_ids: [...new Set(responses.map((response) => response.postId))]
-            }),
-            rawResponse: true
-        });
-
-        if (error) {
-            console.error('Error fetching transcripts:', error);
-            return false;
-        }
-
-        const content = await data.text();
-
-        if (fileHandle) {
-            const writable = await fileHandle.createWritable();
-            await writable.write(content);
-            await writable.close();
-            return true;
-        } else {
-            return downloadFile(content, 'transcripts.csv');
-        }
+    const downloadTranscripts = async () => {
+        const payload = {
+            dataset_id: datasetId,
+            post_ids: [
+                ...(responseTypes.find((type) => type === 'sampled') ? sampledPostIds : []),
+                ...(responseTypes.find((type) => type === 'unseen') ? unseenPostIds : [])
+            ]
+        };
+        return await downloadFileWithStreaming(
+            fetchData,
+            REMOTE_SERVER_ROUTES.GET_TRANSCRIPTS_CSV,
+            payload,
+            'transcripts.csv'
+        );
     };
 
     const effectiveDispatch =
@@ -274,6 +236,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 onPostSelect(postId);
                 return;
             }
+
+            console.log('View transcript clicked', postId);
 
             const params = new URLSearchParams();
             if (showFilterDropdown && selectedTypeFilter) {
@@ -318,7 +282,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     const handleUpdateResponses = (updatedResponses: any[]) => {
         effectiveDispatch({
-            type: 'SET_RESPONSES',
+            type: 'SET_PARTIAL_RESPONSES',
             responses: updatedResponses
         });
     };
@@ -332,8 +296,6 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         setShowFeedbackModal(true);
     };
 
-    const uniqueCodes = Array.from(new Set(totalData.map((item) => item.code)));
-
     return (
         <div
             id="unified-coding-page"
@@ -341,23 +303,19 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             <div className="flex flex-1 overflow-y-auto">
                 <div className="w-1/4 border-r flex-1 overflow-auto px-6 pb-0">
                     <LeftPanel
-                        totalPosts={totalIds}
-                        totalCodedPosts={new Set(totalData.map((data) => data.postId)).size}
-                        postIds={filteredPostIds}
-                        codes={uniqueCodes}
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        setSelectedItem={setSelectedItem}
+                        selectedItem={selectedItem}
                         filter={filter}
                         onFilterSelect={setFilter}
                         showTypeFilterDropdown={showFilterDropdown}
                         selectedTypeFilter={selectedTypeFilter}
                         handleSelectedTypeFilter={handleSelectedTypeFilter}
                         showCoderType={showCoderType}
-                        codedPostsCount={new Set(filteredData.map((data) => data.postId)).size}
-                        activeTab={activeTab}
-                        setActiveTab={setActiveTab}
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        selectedItem={selectedItem}
-                        setSelectedItem={setSelectedItem}
+                        responseTypes={responseTypes}
                     />
                 </div>
                 <div className="w-3/4 flex flex-col h-full">
@@ -368,7 +326,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             <div className="flex gap-x-2">
                                 <button
                                     onClick={async () => {
-                                        const success = await downloadCodebook(filteredData);
+                                        const success = await downloadCodebook();
                                         if (success) {
                                             toast.success('Codebook downloaded successfully');
                                         } else {
@@ -376,12 +334,12 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                                         }
                                     }}
                                     className="px-4 py-2 bg-green-500 text-white rounded">
-                                    Download Initial Codes
+                                    Download Codes
                                 </button>
                                 <button
                                     onClick={async (e) => {
                                         setIsDownloadingTranscripts(true);
-                                        const success = await downloadTranscripts(e, filteredData);
+                                        const success = await downloadTranscripts();
                                         setIsDownloadingTranscripts(false);
                                         if (success) {
                                             toast.success('Transcripts downloaded successfully');
@@ -398,20 +356,21 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                     </div>
                     <div className="flex-1 overflow-y-auto px-6">
                         <ValidationTable
-                            codeResponses={filteredData}
-                            dispatchCodeResponses={effectiveDispatch}
+                            codeResponses={Object.values(responsesByPostId).flat() as any[]}
+                            dispatchCodeResponses={dispatchFunction}
                             onViewTranscript={handleViewTranscript}
                             review={review}
                             showThemes={showThemes}
                             onReRunCoding={handleReRunCoding}
                             onUpdateResponses={handleUpdateResponses}
                             conflictingResponses={conflictingResponses}
-                            currentPostId={
-                                filter?.split('|')?.[1] === 'coded-data'
-                                    ? filter.split('|')?.[0]
-                                    : filter
-                            }
+                            currentPostId={selectedItem}
                             showCoderType={showCoderType}
+                            isLoadingPage={isLoadingPage}
+                            hasNextPage={hasNextPage}
+                            hasPreviousPage={hasPreviousPage}
+                            loadNextPage={loadNextPage}
+                            loadPreviousPage={loadPreviousPage}
                         />
                     </div>
                     {showRerunCoding && review && (

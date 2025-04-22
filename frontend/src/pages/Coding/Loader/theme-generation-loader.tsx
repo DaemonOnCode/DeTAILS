@@ -61,15 +61,13 @@ export default function SmoothCodeFlow(): JSX.Element {
         <div className="min-h-page flex flex-col items-center justify-between p-6 text-gray-800 relative overflow-hidden">
             <h1 className="text-2xl font-bold mb-6">Sorting Codes into Themes...</h1>
 
-            {/* Central Codebook (Hub) */}
             <motion.div
-                className="relative w-24 h-32 bg-blue-600 text-white flex items-center justify-center rounded-lg shadow-lg z-20 transform translate-y-16"
+                className="relative w-24 h-32 bg-blue-600 text-white flex items-center justify-center rounded-lg shadow-lg z-20 transform translate-y-16 text-center"
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 2, repeat: Infinity, repeatType: 'mirror' }}>
-                Codebook
+                Finalized Codes
             </motion.div>
 
-            {/* Moving Code Snippets */}
             <div className="relative w-full h-60 flex items-start justify-center">
                 {activeSnippets.map((snippet) => {
                     const bucketX =
@@ -103,7 +101,6 @@ export default function SmoothCodeFlow(): JSX.Element {
                 })}
             </div>
 
-            {/* Thematic Buckets */}
             <div className="w-full flex justify-center space-x-8 z-10 bg-white">
                 {buckets.map((bucket, index) => (
                     <motion.div

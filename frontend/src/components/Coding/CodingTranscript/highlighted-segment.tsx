@@ -31,6 +31,42 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
         );
     }
 
+    const overlapRatio = 0.8;
+    const stripeCount = segment.backgroundColours.length;
+
+    const heightPct = 100 / ((stripeCount - 1) * (1 - overlapRatio) + 1);
+
+    const stripes: JSX.Element[] = [];
+    let cumulativeOffset = 0;
+
+    segment.backgroundColours.forEach((bgColor, i) => {
+        const isMatch = hoveredCode !== null && generateColor(hoveredCode) === bgColor;
+        if (hoveredCode !== null && !isMatch) return;
+
+        const topPct = cumulativeOffset;
+
+        stripes.push(
+            <span
+                key={i}
+                style={{
+                    position: 'absolute',
+                    top: `${topPct}%`,
+                    left: 0,
+                    right: 0,
+                    height: `${heightPct}%`,
+                    backgroundColor: bgColor,
+                    zIndex: 1,
+                    pointerEvents: 'none',
+                    opacity: 1,
+                    transition: 'opacity 0.2s, z-index 0.2s'
+                }}
+            />
+        );
+
+        // shift for the next stripe by the *visible* portion of this one
+        cumulativeOffset += heightPct * (1 - overlapRatio);
+    });
+
     return (
         <span
             ref={segmentRef}
@@ -43,7 +79,7 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
                 transition: 'transform 0.2s'
             }}
             onDoubleClick={() => {
-                if (selectedSegment && selectedSegment.index === segment.index) {
+                if (selectedSegment?.index === segment.index) {
                     setSelectedSegment(null);
                 } else {
                     handleSegmentInteraction(segment, true);
@@ -61,28 +97,7 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
                 style={{ zIndex: 5 }}>
                 {segment.line}
             </span>
-            {segment.backgroundColours.map((bgColor, i) => {
-                const isMatch = hoveredCode !== null && generateColor(hoveredCode) === bgColor;
-                if (hoveredCode !== null && !isMatch) return null;
-                const verticalOffset = i * 4;
-                return (
-                    <span
-                        key={i}
-                        style={{
-                            position: 'absolute',
-                            top: `${verticalOffset}px`,
-                            left: 0,
-                            right: 0,
-                            height: '80%',
-                            backgroundColor: bgColor,
-                            zIndex: 1,
-                            pointerEvents: 'none',
-                            opacity: 1,
-                            transition: 'opacity 0.2s, z-index 0.2s'
-                        }}
-                    />
-                );
-            })}
+            {stripes}
         </span>
     );
 });

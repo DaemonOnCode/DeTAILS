@@ -10,18 +10,15 @@ import React, {
     RefObject,
     useCallback
 } from 'react';
-import { ratio } from 'fuzzball';
 import {
     SetState,
     ChatMessage,
-    ILayout,
     Segment,
-    IQECTResponse,
     IQECResponse,
+    IQECTResponse,
     IQECTTyResponse,
     Explanation
 } from '../types/Coding/shared';
-import { generateColor } from '../utility/color-generator';
 
 interface ITranscriptContext {
     review: boolean;
@@ -45,6 +42,7 @@ interface ITranscriptContext {
     selectedSegment: Segment | null;
     setSelectedSegment: SetState<Segment | null>;
     codes: {
+        id: string;
         text: string;
         code: string;
         rangeMarker?: { itemId: string; range: [number, number] };
@@ -57,13 +55,12 @@ interface ITranscriptContext {
     handleSegmentLeave: (isPermanent?: boolean) => void;
     processTranscript: (
         post: any,
-        extraCodes?: string[],
-        codeResponses?: any[]
-    ) => {
+        extraCodes?: string[]
+    ) => Promise<{
         processedSegments: Segment[];
         codeSet: string[];
         codeColors: Record<string, string>;
-    };
+    }>;
     selectionRangeRef: MutableRefObject<Range | null>;
     containerRef: RefObject<HTMLDivElement>;
     selectedTextMarker: {
@@ -104,7 +101,7 @@ const TranscriptContext = createContext<ITranscriptContext>({
     removeSelection: () => {},
     handleSegmentInteraction: () => {},
     handleSegmentLeave: () => {},
-    processTranscript: () => ({
+    processTranscript: async () => ({
         processedSegments: [],
         codeSet: [],
         codeColors: {}
@@ -120,8 +117,14 @@ export const TranscriptContextProvider: FC<{
     postId: string;
     review: boolean;
     codeResponses: (IQECResponse | IQECTResponse | IQECTTyResponse)[];
-}> = ({ children, review, codeResponses, postId }) => {
+    splitCheck?: boolean;
+}> = ({ children, review, codeResponses, postId, splitCheck = false }) => {
     console.log('Running provider', review);
+
+    const worker = useMemo(
+        () => new Worker(new URL('../workers/transcript.worker.ts', import.meta.url)),
+        []
+    );
 
     const [allExplanations, setAllExplanations] = useState<Explanation[]>(
         codeResponses
@@ -165,16 +168,6 @@ export const TranscriptContextProvider: FC<{
                 fullText: r.quote
             }));
 
-        const newCodes = codeResponses
-            .filter((r) => r.postId === postId)
-            .map((r) => ({
-                text: r.quote,
-                code: r.code,
-                rangeMarker: r.rangeMarker
-            }));
-
-        console.log('New codes rerender:', newCodes);
-
         const newChatHistories: Record<string, ChatMessage[]> = {};
         codeResponses
             .filter((response) => response.postId === postId)
@@ -195,7 +188,6 @@ export const TranscriptContextProvider: FC<{
             });
 
         setAllExplanations(newAllExplanations);
-        // setCodes([...newCodes]);
         setChatHistories(newChatHistories);
     }, [codeResponses, postId]);
 
@@ -375,286 +367,34 @@ export const TranscriptContextProvider: FC<{
         selectionRangeRef.current = null;
     };
 
-    function traverseComments(comment: any, parentId: string | null): any[] {
-        return [
-            {
-                id: comment.id,
-                text: displayText(comment.body),
-                type: 'comment',
-                parent_id: parentId
-            },
-            ...(comment.comments || []).flatMap((c: any) => traverseComments(c, comment.id))
-        ];
-    }
-
-    function escapeRegExp(text: string) {
-        return text.replace(/[.*+?^${}()|[\]\\]/gi, '\\$&');
-    }
-
-    interface CodeInterval {
-        start: number;
-        end: number;
-        codeId: string;
-        text: string;
-    }
-
-    interface TextEvent {
-        position: number;
-        type: 'start' | 'end';
-        codeId: string;
-    }
-
-    const normalizeText = (text: string) => {
-        return text
-            .toLowerCase()
-            .replace(/\s+/g, ' ')
-            .replace(/[^\w\s]|_/g, '')
-            .trim();
-    };
-
     const processTranscript = useCallback(
-        (post: any, extraCodes: string[] = []) => {
-            console.log(` Starting processTranscript for post ${post.id}`);
-
-            const codeSet = Array.from(new Set([...codes.map((c) => c.code), ...extraCodes]));
-
-            const codeColors: Record<string, string> = {};
-            codeSet.forEach((code) => {
-                codeColors[code] = generateColor(code);
+        async (post: any, extraCodes: string[] = []) => {
+            return new Promise<any>((resolve, reject) => {
+                const handleMessage = (event: MessageEvent) => {
+                    if (event.data.type === 'processTranscriptResult') {
+                        worker.removeEventListener('message', handleMessage);
+                        resolve(event.data.data);
+                    } else if (event.data.type === 'error') {
+                        worker.removeEventListener('message', handleMessage);
+                        reject(new Error(event.data.error));
+                    }
+                };
+                worker.addEventListener('message', handleMessage);
+                worker.postMessage({
+                    type: 'processTranscript',
+                    data: { post, codes, extraCodes }
+                });
             });
-
-            const transcriptFlatMap = [
-                { id: post.id, text: displayText(post.title), type: 'title', parent_id: null },
-                {
-                    id: post.id,
-                    text: displayText(post.selftext),
-                    type: 'selftext',
-                    parent_id: null
-                },
-                ...post.comments.flatMap((comment: any) => traverseComments(comment, post.id))
-            ];
-
-            const codesWithMarker = codes.filter((c) => c.rangeMarker);
-            console.log(
-                ` Code Filtering: Codes with marker:`,
-                codesWithMarker.map((c) => c.id)
-            );
-
-            const codesWithoutMarker = codes.filter((c) => !c.rangeMarker);
-            console.log(
-                ` Code Filtering: Codes without marker:`,
-                codesWithoutMarker.map((c) => c.id)
-            );
-
-            const segments = transcriptFlatMap.flatMap((data, dataIndex) => {
-                console.log(` Segment Creation: Processing item ${dataIndex}:`, data);
-                const text = data.text;
-                console.log(` Segment Creation: Text:`, text);
-
-                // Marker-based intervals
-                const markerIntervals: CodeInterval[] = codesWithMarker
-                    .filter((c) => c.rangeMarker?.itemId === dataIndex.toString())
-                    .map((c) => ({
-                        start: c.rangeMarker?.range[0] ?? 0,
-                        end: c.rangeMarker?.range[1] ?? 0,
-                        codeId: c.id,
-                        text: c.text
-                    }));
-                console.log(
-                    ` Segment Creation: Marker intervals for item ${dataIndex}:`,
-                    markerIntervals
-                );
-
-                // Fuzzy matching for codes without markers
-                const normalizedText = normalizeText(text);
-                console.log(` Segment Creation: Normalized text:`, normalizedText);
-
-                const matchingIntervals: CodeInterval[] = codesWithoutMarker.flatMap((c) => {
-                    const normalizedCodeText = normalizeText(c.text);
-                    const exactMatch = text.includes(c.text);
-                    const fuzzyScore = exactMatch
-                        ? 100
-                        : ratio(normalizedText, normalizedCodeText, { full_process: true });
-                    console.log(
-                        ` Segment Creation: Code ${c.id}: exactMatch=${exactMatch}, fuzzyScore=${fuzzyScore}`
-                    );
-
-                    if (fuzzyScore >= 85) {
-                        const positions = getAllPositions(text, c.text);
-                        console.log(` Segment Creation: Positions for code ${c.id}:`, positions);
-                        return positions.map((pos) => ({
-                            start: pos,
-                            end: pos + c.text.length,
-                            codeId: c.id,
-                            text: c.text
-                        }));
-                    }
-                    return [];
-                });
-                console.log(
-                    ` Segment Creation: Matching intervals for item ${dataIndex}:`,
-                    matchingIntervals
-                );
-
-                // Combine all intervals
-                const allIntervals = [...markerIntervals, ...matchingIntervals];
-                console.log(
-                    ` Segment Creation: All intervals for item ${dataIndex}:`,
-                    allIntervals
-                );
-
-                // If no intervals are found, create a single segment
-                if (allIntervals.length === 0) {
-                    console.log(
-                        ` Segment Creation: No intervals found for item ${dataIndex}, creating single segment`
-                    );
-                    return [createSegment(text, data, dataIndex, 0, [], codeColors, codes)];
-                }
-
-                const events: TextEvent[] = [];
-                allIntervals.forEach(({ start, end, codeId }) => {
-                    events.push({ position: start, type: 'start', codeId });
-                    events.push({ position: end, type: 'end', codeId });
-                });
-                console.log(` Interval Processing: Events for item ${dataIndex}:`, events);
-
-                events.sort(
-                    (a, b) =>
-                        a.position - b.position || (a.type === 'end' && b.type === 'start' ? -1 : 1)
-                );
-                console.log(` Interval Processing: Sorted events for item ${dataIndex}:`, events);
-
-                const itemSegments: Segment[] = [];
-                let currentPos = 0;
-                const currentCodeIds = new Set<string>();
-
-                events.forEach((event, eventIndex) => {
-                    console.log(` Interval Processing: Processing event ${eventIndex}:`, event);
-
-                    if (event.position > currentPos) {
-                        const segmentText = text.slice(currentPos, event.position);
-                        if (segmentText) {
-                            const segment = createSegment(
-                                segmentText,
-                                data,
-                                dataIndex,
-                                itemSegments.length,
-                                Array.from(currentCodeIds),
-                                codeColors,
-                                codes
-                            );
-                            itemSegments.push(segment);
-                            console.log(` Interval Processing: Created segment:`, segment);
-                        }
-                        currentPos = event.position;
-                    }
-
-                    if (event.type === 'start') {
-                        currentCodeIds.add(event.codeId);
-                    } else {
-                        currentCodeIds.delete(event.codeId);
-                    }
-                    console.log(
-                        ` Interval Processing: Current code IDs:`,
-                        Array.from(currentCodeIds)
-                    );
-                });
-
-                // Handle remaining text after the last event
-                if (currentPos < text.length) {
-                    const segment = createSegment(
-                        text.slice(currentPos),
-                        data,
-                        dataIndex,
-                        itemSegments.length,
-                        Array.from(currentCodeIds),
-                        codeColors,
-                        codes
-                    );
-                    itemSegments.push(segment);
-                    console.log(` Interval Processing: Created final segment:`, segment);
-                }
-
-                return itemSegments;
-            });
-
-            // Log the completion and final segments
-            console.log(` Processing complete. Segments:`, segments);
-            return { processedSegments: segments, codeSet, codeColors };
         },
-        [codes]
+        [worker, codes]
     );
-    const displayText = (text: string) => {
-        return text.replace(/\s+/g, ' ').trim();
-    };
-
-    function createSegment(
-        segmentText: string,
-        data: any,
-        dataIndex: number,
-        segmentIndex: number,
-        activeCodeIds: string[],
-        codeColors: Record<string, string>,
-        codes: { id: string; text: string; code: string }[]
-    ): Segment {
-        const activeCodes = activeCodeIds
-            .map((id) => codes.find((c) => c.id === id))
-            .filter(Boolean) as {
-            id: string;
-            text: string;
-            code: string;
-        }[];
-
-        const codeToOriginalQuotes: Record<string, string[]> = {};
-        activeCodes.forEach((c) => {
-            if (!codeToOriginalQuotes[c.code]) {
-                codeToOriginalQuotes[c.code] = [];
-            }
-            codeToOriginalQuotes[c.code].push(c.text);
-        });
-
-        const relatedCodeText = Array.from(new Set(activeCodes.map((c) => c.code)));
-
-        const codeQuotes = relatedCodeText.reduce(
-            (acc, code) => {
-                acc[code] = segmentText;
-                return acc;
-            },
-            {} as Record<string, string>
-        );
-
-        return {
-            line: displayText(segmentText),
-            id: data.id,
-            type: data.type,
-            parent_id: data.parent_id,
-            index: `${dataIndex}|${segmentIndex}`,
-            relatedCodeText,
-            backgroundColours: relatedCodeText.map((code) => codeColors[code]),
-            fullText: activeCodes.map((c) => c.text),
-            codeQuotes,
-            codeToOriginalQuotes
-        };
-    }
-
-    const getAllPositions = (text: string, search: string) => {
-        const positions = [];
-        let pos = 0;
-        while (pos < text.length) {
-            const index = text.indexOf(search, pos);
-            if (index === -1) break;
-            positions.push(index);
-            pos = index + search.length;
-        }
-        return positions;
-    };
 
     const handleSegmentInteraction = useCallback(
         (segment: Segment | null, isPermanent = false, relatedCodeText?: string[]) => {
             console.log('Handling segment interaction:', segment, isPermanent);
             if (!segment || !segment.fullText.length) return;
 
-            if (review && isPermanent) {
+            if (review && isPermanent && !splitCheck) {
                 setSwitchModalOn(true);
                 return;
             }

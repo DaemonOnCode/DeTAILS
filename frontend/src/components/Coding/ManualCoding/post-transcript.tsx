@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCodingContext } from '../../../context/coding-context';
@@ -104,21 +104,39 @@ const TranscriptPage = ({
 
     const _selectionRef = useRef<Range | null>(null);
 
-    const fetchPostById = async (postId: string, datasetId: string) => {
-        if (!postId || !datasetId) return;
-        setLoading(true);
-        const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID, {
-            method: 'POST',
-            body: JSON.stringify({ postId, datasetId: currentWorkspace.id })
-        });
+    const [codeResponses, setCodeResponses] = useState([]);
+    const [codebookCodes, setCodebookCodes] = useState([]);
 
-        if (error) {
-            console.error('Error fetching Reddit post:', error);
-        } else {
-            setPost(data);
-            console.log('Fetched post:', data);
+    const fetchPostById = async (postId: string, datasetId: string, showLoading = true) => {
+        console.log('Fetching post:', postId, datasetId);
+        if (!postId || !datasetId) return;
+        if (showLoading) {
+            setLoading(true);
         }
-        setLoading(false);
+        try {
+            const { data: fetchedPost, error } = await fetchData<{
+                post: any;
+                responses: any[];
+                allCodes: string[];
+            }>(REMOTE_SERVER_ROUTES.GET_POST_TRANSCRIPT_DATA, {
+                method: 'POST',
+                body: JSON.stringify({ postId })
+            });
+            if (error) {
+                console.error('Error fetching post:', error);
+                return;
+            }
+            console.log('Fetched post:', fetchedPost);
+            setPost(fetchedPost.post);
+            setCodeResponses(fetchedPost.responses);
+            setCodebookCodes(fetchedPost.allCodes);
+        } catch (error) {
+            console.error('Error fetching post:', error);
+        } finally {
+            if (showLoading) {
+                setLoading(false);
+            }
+        }
     };
 
     const allClearedToLeaveRef = useRef<{ check: boolean } | null>(null);
@@ -156,6 +174,16 @@ const TranscriptPage = ({
         setActiveTranscript(position);
     };
 
+    const dispatchAndRefetch = useCallback(
+        (...args: any[]) => {
+            currentConfig?.bottomTranscript?.dispatchFunction!(...args);
+            if (id && datasetId) {
+                fetchPostById(id, datasetId, false);
+            }
+        },
+        [currentConfig, id, datasetId]
+    );
+
     if (loading) {
         return (
             <div className="w-full h-full flex flex-col justify-center items-center">
@@ -172,6 +200,8 @@ const TranscriptPage = ({
             </div>
         );
     }
+
+    const humanResponses = codeResponses.filter((r) => r.responseType === 'Human');
 
     return (
         <div className="h-full w-full flex flex-col min-h-0">
@@ -244,17 +274,18 @@ const TranscriptPage = ({
                     <TranscriptContextProvider
                         postId={id ?? ''}
                         review={currentConfig.review}
-                        codeResponses={currentConfig?.bottomTranscript?.responses ?? []}>
+                        codeResponses={humanResponses ?? []}>
                         <PostTranscript
                             post={post}
+                            codebookCodes={codebookCodes}
                             clearedToLeaveRef={allClearedToLeaveRef}
                             onBack={onBack}
                             _selectionRef={_selectionRef}
                             review={currentConfig.review}
-                            codeResponses={currentConfig.bottomTranscript.responses ?? []}
+                            codeResponses={humanResponses ?? []}
                             isActive={true}
                             extraCodes={Object.keys(codebook ?? {})}
-                            dispatchCodeResponse={currentConfig.bottomTranscript.dispatchFunction}
+                            dispatchCodeResponse={dispatchAndRefetch}
                             conflictingCodes={currentConfig.bottomTranscript.conflicts}
                             selectedText={selectedText}
                             setSelectedText={setSelectedText}

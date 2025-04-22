@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import PostTranscript from '../../components/Coding/CodingTranscript/post-transcript';
 import TopToolbar from '../../components/Coding/Shared/top-toolbar';
 import ValidationTable from '../../components/Coding/UnifiedCoding/validation-table';
@@ -20,6 +20,7 @@ import { useApi } from '../../hooks/Shared/use-api';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { useWorkspaceContext } from '../../context/workspace-context';
+import { usePaginatedResponses } from '../../hooks/Coding/use-paginated-responses';
 
 const TranscriptPage = () => {
     const { id, state } = useParams<{ id: string; state: 'review' | 'refine' }>();
@@ -38,12 +39,7 @@ const TranscriptPage = () => {
     const codebookIsTrue = codebook === 'true';
     const splitCodebook = !(codebookIsTrue && !splitIsTrue);
 
-    const {
-        unseenPostResponse,
-        dispatchUnseenPostResponse,
-        sampledPostResponse,
-        dispatchSampledPostResponse
-    } = useCodingContext();
+    const { dispatchUnseenPostResponse, dispatchSampledPostResponse } = useCodingContext();
 
     const { datasetId } = useCollectionContext();
 
@@ -51,7 +47,6 @@ const TranscriptPage = () => {
 
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { currentWorkspace } = useWorkspaceContext();
 
     const hasSavedRef = useRef(false);
     useEffect(() => {
@@ -116,22 +111,22 @@ const TranscriptPage = () => {
                 review: true,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.INITIAL_CODING, true),
                 codebook: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     }
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     }
@@ -152,11 +147,11 @@ const TranscriptPage = () => {
                 codebook: null,
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     }
@@ -175,11 +170,11 @@ const TranscriptPage = () => {
                 review: true,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.INITIAL_CODING, true),
                 codebook: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     },
@@ -187,11 +182,11 @@ const TranscriptPage = () => {
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: unseenPostResponse,
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     }
@@ -210,18 +205,18 @@ const TranscriptPage = () => {
                 review: false,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.INITIAL_CODING, false),
                 codebook: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     }
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         dispatchSampledPostResponse({
@@ -243,11 +238,11 @@ const TranscriptPage = () => {
                 review: true,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.INITIAL_CODING, false),
                 codebook: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchSampledPostResponse({
-                            // type: 'SET_RESPONSES',
+                            // type: 'SET_PARTIAL_RESPONSES',
                             // responses: args[0]
                             ...args[0]
                         });
@@ -255,11 +250,11 @@ const TranscriptPage = () => {
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         dispatchSampledPostResponse({
-                            // type: 'SET_RESPONSES',
+                            // type: 'SET_PARTIAL_RESPONSES',
                             // responses: args?.map((response: any) => ({
                             //     ...response
                             //     // type: 'Human'
@@ -283,18 +278,18 @@ const TranscriptPage = () => {
                 review: false,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.FINAL_CODING, false),
                 codebook: {
-                    responses: unseenPostResponse,
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     }
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: unseenPostResponse.filter((response) => response.type === 'Human'),
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         let value =
@@ -328,18 +323,18 @@ const TranscriptPage = () => {
                 review: false,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.FINAL_CODING, false),
                 codebook: {
-                    responses: unseenPostResponse,
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     }
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: unseenPostResponse.filter((response) => response.type === 'LLM'),
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         let value =
@@ -373,17 +368,17 @@ const TranscriptPage = () => {
                 review: false,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.FINAL_CODING, false),
                 codebook: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchSampledPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     }
                 },
                 topTranscript: {
-                    responses: unseenPostResponse.filter((response) => response.type === 'Human'),
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         dispatchUnseenPostResponse({
@@ -393,7 +388,7 @@ const TranscriptPage = () => {
                     }
                 },
                 bottomTranscript: {
-                    responses: unseenPostResponse.filter((response) => response.type === 'LLM'),
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
                         dispatchUnseenPostResponse({
@@ -416,11 +411,11 @@ const TranscriptPage = () => {
                 review: true,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.FINAL_CODING, true),
                 codebook: {
-                    responses: unseenPostResponse,
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     },
@@ -428,11 +423,11 @@ const TranscriptPage = () => {
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: unseenPostResponse,
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchUnseenPostResponse({
-                            type: 'SET_RESPONSES',
+                            type: 'SET_PARTIAL_RESPONSES',
                             responses: args[0]
                         });
                     }
@@ -451,7 +446,7 @@ const TranscriptPage = () => {
                 review: true,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.FINAL_CODING, true),
                 codebook: {
-                    responses: unseenPostResponse,
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
@@ -462,7 +457,7 @@ const TranscriptPage = () => {
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchSampledPostResponse({
@@ -484,7 +479,7 @@ const TranscriptPage = () => {
                 review: false,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.FINAL_CODING, false),
                 codebook: {
-                    responses: [...sampledPostResponse, ...unseenPostResponse],
+                    responses: ['sampled', 'unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
@@ -495,7 +490,7 @@ const TranscriptPage = () => {
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: sampledPostResponse,
+                    responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchSampledPostResponse({
@@ -517,7 +512,7 @@ const TranscriptPage = () => {
                 review: true,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.FINAL_CODING, true),
                 codebook: {
-                    responses: unseenPostResponse,
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
@@ -528,7 +523,7 @@ const TranscriptPage = () => {
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: unseenPostResponse,
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchUnseenPostResponse({
@@ -550,7 +545,7 @@ const TranscriptPage = () => {
                 review: false,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.FINAL_CODING, false),
                 codebook: {
-                    responses: [...sampledPostResponse, ...unseenPostResponse],
+                    responses: ['sampled', 'unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         dispatchUnseenPostResponse({
@@ -561,7 +556,7 @@ const TranscriptPage = () => {
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: unseenPostResponse,
+                    responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
                         dispatchUnseenPostResponse({
@@ -589,13 +584,28 @@ const TranscriptPage = () => {
         split
     });
 
+    const {
+        responsesByPostId,
+        isLoadingPage,
+        hasNextPage,
+        hasPreviousPage,
+        loadNextPage,
+        loadPreviousPage
+    } = usePaginatedResponses({
+        pageSize: 10,
+        responseTypes: currentConfig.bottomTranscript.responses ?? []
+    });
+
+    const validationTableData = Object.values(responsesByPostId).flat();
+
     const componentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (
                 !allClearedToLeaveRef.current?.check &&
-                !componentRef.current?.contains(e.target as Node)
+                !componentRef.current?.contains(e.target as Node) &&
+                post
             ) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -629,6 +639,16 @@ const TranscriptPage = () => {
     const topSelectionRef = useRef<Range | null>(null);
     const bottomSelectionRef = useRef<Range | null>(null);
 
+    const dispatchAndRefetch = useCallback(
+        (...args: any[]) => {
+            currentConfig?.bottomTranscript?.dispatchFunction!(...args);
+            if (id && datasetId) {
+                fetchPostById(id, datasetId, false);
+            }
+        },
+        [currentConfig, id, datasetId]
+    );
+
     const handleSetActiveTranscript = (
         e: React.MouseEvent<HTMLDivElement>,
         position: 'top' | 'bottom' | null
@@ -642,38 +662,46 @@ const TranscriptPage = () => {
         setActiveTranscript(position);
     };
 
-    const { getServerUrl } = useServerUtils();
+    const [codeResponses, setCodeResponses] = useState([]);
+    const [codebookCodes, setCodebookCodes] = useState([]);
 
     const handleUpdateResponses = (updatedResponses: any[]) => {
         console.log('Updated responses:', updatedResponses);
         dispatchUnseenPostResponse({
-            type: 'SET_RESPONSES',
+            type: 'SET_PARTIAL_RESPONSES',
             responses: updatedResponses
         });
     };
 
-    const fetchPostById = async (postId: string, datasetId: string) => {
+    const fetchPostById = async (postId: string, datasetId: string, showLoading = true) => {
         console.log('Fetching post:', postId, datasetId);
         if (!postId || !datasetId) return;
-        setLoading(true);
+        if (showLoading) {
+            setLoading(true);
+        }
         try {
-            const { data: fetchedPost, error } = await fetchData<any>(
-                REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ postId, datasetId: currentWorkspace.id })
-                }
-            );
+            const { data: fetchedPost, error } = await fetchData<{
+                post: any;
+                responses: any[];
+                allCodes: string[];
+            }>(REMOTE_SERVER_ROUTES.GET_POST_TRANSCRIPT_DATA, {
+                method: 'POST',
+                body: JSON.stringify({ postId })
+            });
             if (error) {
                 console.error('Error fetching post:', error);
                 return;
             }
             console.log('Fetched post:', fetchedPost);
-            setPost(fetchedPost);
+            setPost(fetchedPost.post);
+            setCodeResponses(fetchedPost.responses);
+            setCodebookCodes(fetchedPost.allCodes);
         } catch (error) {
             console.error('Error fetching post:', error);
         } finally {
-            setLoading(false);
+            if (showLoading) {
+                setLoading(false);
+            }
         }
     };
 
@@ -768,7 +796,7 @@ const TranscriptPage = () => {
                             showCodebook={showCodebook}
                             activeTranscript={
                                 activeTranscript === 'top'
-                                    ? (currentConfig?.topTranscript?.responses as any)
+                                    ? (codeResponses as any)
                                     : activeTranscript === 'bottom'
                                       ? (currentConfig?.bottomTranscript.responses as any)
                                       : null
@@ -785,12 +813,17 @@ const TranscriptPage = () => {
                                 dispatchCodeResponses={
                                     currentConfig?.codebook?.dispatchFunction as any
                                 }
-                                codeResponses={currentConfig?.codebook?.responses ?? []}
+                                codeResponses={validationTableData ?? []}
                                 onViewTranscript={() => {}}
                                 review={true}
                                 showThemes={currentConfig?.codebook?.showThemes}
                                 onReRunCoding={() => {}}
                                 onUpdateResponses={currentConfig?.codebook?.dispatchFunction as any}
+                                hasNextPage={hasNextPage}
+                                hasPreviousPage={hasPreviousPage}
+                                loadNextPage={loadNextPage}
+                                loadPreviousPage={loadPreviousPage}
+                                isLoadingPage={isLoadingPage}
                             />
                         </div>
                     )}
@@ -838,27 +871,28 @@ const TranscriptPage = () => {
                                                 dispatchCodeResponses={
                                                     currentConfig?.codebook?.dispatchFunction as any
                                                 }
-                                                codeResponses={
-                                                    currentConfig?.codebook?.responses ?? []
-                                                }
+                                                codeResponses={validationTableData ?? []}
                                                 onViewTranscript={() => {}}
                                                 review
-                                                // showThemes
                                                 onReRunCoding={() => {}}
                                                 onUpdateResponses={
                                                     currentConfig?.codebook?.dispatchFunction as any
                                                 }
+                                                hasNextPage={hasNextPage}
+                                                hasPreviousPage={hasPreviousPage}
+                                                loadNextPage={loadNextPage}
+                                                loadPreviousPage={loadPreviousPage}
+                                                isLoadingPage={isLoadingPage}
                                             />
                                         </>
                                     ) : (
                                         <TranscriptContextProvider
                                             postId={id ?? ''}
                                             review={state === 'review'}
-                                            codeResponses={
-                                                currentConfig?.topTranscript?.responses ?? []
-                                            }>
+                                            codeResponses={codeResponses ?? []}>
                                             <PostTranscript
                                                 post={post}
+                                                codebookCodes={codebookCodes}
                                                 clearedToLeaveRef={allClearedToLeaveRef}
                                                 onBack={() =>
                                                     (
@@ -867,9 +901,7 @@ const TranscriptPage = () => {
                                                     )()
                                                 }
                                                 _selectionRef={topSelectionRef}
-                                                codeResponses={
-                                                    currentConfig?.topTranscript?.responses ?? []
-                                                }
+                                                codeResponses={codeResponses ?? []}
                                                 isActive={activeTranscript === 'top'}
                                                 dispatchCodeResponse={
                                                     currentConfig?.topTranscript
@@ -920,24 +952,19 @@ const TranscriptPage = () => {
                                 <TranscriptContextProvider
                                     postId={id ?? ''}
                                     review={state === 'review'}
-                                    codeResponses={
-                                        currentConfig?.bottomTranscript?.responses ?? []
-                                    }>
+                                    codeResponses={codeResponses ?? []}>
                                     <PostTranscript
                                         post={post}
+                                        codebookCodes={codebookCodes}
                                         clearedToLeaveRef={allClearedToLeaveRef}
                                         _selectionRef={bottomSelectionRef}
                                         onBack={() =>
                                             (currentConfig?.backFunction ?? window.history.back)()
                                         }
                                         review={currentConfig?.review ?? true}
-                                        codeResponses={
-                                            currentConfig?.bottomTranscript?.responses ?? []
-                                        }
+                                        codeResponses={codeResponses ?? []}
                                         isActive={activeTranscript === 'bottom'}
-                                        dispatchCodeResponse={
-                                            currentConfig?.bottomTranscript?.dispatchFunction as any
-                                        }
+                                        dispatchCodeResponse={dispatchAndRefetch as any}
                                         handleSwitchToEditMode={handleSwitchToEditMode}
                                         conflictingCodes={
                                             currentConfig?.bottomTranscript?.conflicts

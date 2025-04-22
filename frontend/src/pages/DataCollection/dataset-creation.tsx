@@ -142,7 +142,7 @@ const DataViewerPage = () => {
                   message: string;
                   sampled: string[];
                   unseen: string[];
-                  test: string[];
+                  manual: string[];
               }
         >(REMOTE_SERVER_ROUTES.SAMPLE_POSTS, {
             method: 'POST',
@@ -176,7 +176,7 @@ const DataViewerPage = () => {
 
         if (settings.general.manualCoding) {
             // @ts-ignore
-            addPostIds(sampleData['test']);
+            addPostIds(sampleData['manual']);
         }
 
         console.log(

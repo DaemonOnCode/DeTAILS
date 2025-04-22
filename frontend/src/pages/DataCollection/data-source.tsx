@@ -15,7 +15,7 @@ import { useLoadingContext } from '../../context/loading-context';
 const UploadDataPage = () => {
     const { type, modeInput } = useCollectionContext();
     const [searchParams] = useSearchParams();
-    console.log('Selected mode:', modeInput);
+    console.log('Selected mode:', modeInput, searchParams.get('type'), type);
     const datasetType = searchParams.get('type') ?? type ?? modeInput.split('|')[0];
 
     console.log('Selected data:', datasetType);
@@ -101,7 +101,7 @@ const UploadDataPage = () => {
                     No data type selected. Please return to the home page to select a type.
                 </p>
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate(PAGE_ROUTES.DATA_TYPE)}
                     className="px-4 py-2 bg-blue-500 text-white rounded">
                     Go Home
                 </button>

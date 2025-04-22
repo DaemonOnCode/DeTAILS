@@ -1,3 +1,6 @@
+import { toast } from 'react-toastify';
+import { FetchResponse } from '../hooks/Shared/use-api';
+
 export async function downloadFile(
     content: string,
     fileName: string,
@@ -37,3 +40,70 @@ export async function downloadFile(
         return true;
     }
 }
+
+export const downloadFileWithStreaming = async (
+    fetchData: (route: string, options?: RequestInit) => Promise<FetchResponse<any>>,
+    route,
+    payload,
+    suggestedName,
+    fileType = { description: 'CSV Files', accept: { 'text/csv': ['.csv'] } }
+) => {
+    let fileHandle;
+    const _window = window as any;
+
+    if (_window.showSaveFilePicker) {
+        try {
+            fileHandle = await _window.showSaveFilePicker({
+                suggestedName,
+                types: [fileType]
+            });
+        } catch (error) {
+            console.error('File save cancelled or failed', error);
+            toast.error('Download failed');
+            return false;
+        }
+    }
+
+    try {
+        const { data, error } = await fetchData(route, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            // @ts-ignore
+            rawResponse: true
+        });
+
+        if (error) {
+            console.error('Error fetching data:', error);
+            toast.error('Download failed');
+            return false;
+        }
+
+        if (fileHandle) {
+            const writable = await fileHandle.createWritable();
+            try {
+                await data.body.pipeTo(writable);
+                toast.success('File saved successfully');
+                return true;
+            } catch (pipeError) {
+                console.error('Error piping stream:', pipeError);
+                toast.error('Failed to save file');
+                return false;
+            }
+        } else {
+            const content = await data.text();
+            const blob = new Blob([content], { type: Object.keys(fileType.accept)[0] });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = suggestedName;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            toast.success('Download started');
+            return true;
+        }
+    } catch (err) {
+        console.error('Download error', err);
+        toast.error('Download failed');
+        return false;
+    }
+};

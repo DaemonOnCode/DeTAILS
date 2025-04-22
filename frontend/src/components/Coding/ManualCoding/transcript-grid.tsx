@@ -3,6 +3,7 @@ import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCollectionContext } from '../../../context/collection-context';
 import PostCards from '../CodingTranscript/post-cards';
 import { FetchResponse, useApi } from '../../../hooks/Shared/use-api';
+import { useWorkspaceContext } from '../../../context/workspace-context';
 
 const fetchPostData = async (
     postIds: string[],
@@ -36,17 +37,17 @@ const TranscriptGrid = ({
     postStates: { [postId: string]: boolean };
     onPostSelect: (postId: string) => void;
 }) => {
-    const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
     const { fetchData } = useApi();
     const [postData, setPostData] = useState<any[] | null>(null);
 
     useEffect(() => {
         const loadData = async () => {
-            const data = await fetchPostData(postIds, datasetId, fetchData);
+            const data = await fetchPostData(postIds, currentWorkspace.id, fetchData);
             setPostData(data);
         };
         loadData();
-    }, [postIds, datasetId, fetchData]);
+    }, [postIds, currentWorkspace.id, fetchData]);
 
     const handleViewTranscript = (postId: string) => {
         console.log('Viewing transcript for post:', postId);

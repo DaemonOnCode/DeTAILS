@@ -1,6 +1,6 @@
 import { FC, useState, useMemo, useEffect, useCallback, useRef, useImperativeHandle } from 'react';
 import { useTranscriptContext } from '../../../context/transcript-context';
-import { IReference } from '../../../types/Coding/shared';
+import { IReference, Segment } from '../../../types/Coding/shared';
 import RedditComments from './reddit-comments';
 import HighlightedSegment from './highlighted-segment';
 import RelatedCodes from './related-codes';
@@ -39,7 +39,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     isDeleteHighlightModalOpen,
     setDeleteIsHighlightModalOpen,
     clearedToLeaveRef,
-    showBackButton = true
+    showBackButton = true,
+    codebookCodes = []
 }) => {
     const {
         selectedText,
@@ -64,16 +65,37 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
     const { performWithUndo, performWithUndoForReducer, batch } = useUndo();
 
-    const { processedSegments, codeSet, codeColors } = useMemo(
-        () => processTranscript(post, extraCodes, codeResponses),
-        [post, extraCodes, codeResponses]
-    );
+    const [processedSegments, setProcessedSegments] = useState<Segment[]>([]);
+    const [codeSet, setCodeSet] = useState<string[]>([]);
+    const [codeColors, setCodeColors] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        if (!post) return;
+        let cancelled = false;
+
+        processTranscript(post, extraCodes)
+            .then(({ processedSegments, codeSet, codeColors }) => {
+                if (cancelled) return;
+                setProcessedSegments(processedSegments);
+                setCodeSet(codeSet);
+                setCodeColors(codeColors);
+            })
+            .catch((err) => {
+                console.error('Transcript worker error:', err);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [post, codeResponses]);
 
     console.log('Processed Segments:', processedSegments, codeSet, codeResponses);
+
     useEffect(() => {
-        if (!codeSet.every((code, i) => code === additionalCodes[i])) {
-            setAdditionalCodes(codeSet);
-        }
+        if (!post) return;
+        console.log('Running codes effect');
+        const allCodes = [...new Set([...codeSet, ...additionalCodes])];
+        setAdditionalCodes(allCodes);
     }, [codeSet]);
 
     const [selectedCode, setSelectedCode] = useState<string>('');
@@ -426,12 +448,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     <HighlightModal
                         hidden={addHighlightModalHidden}
                         setHidden={setAddHighlightModalHidden}
-                        codes={[
-                            ...new Set([
-                                ...additionalCodes,
-                                ...codeResponses.map((response) => response.code)
-                            ])
-                        ]}
+                        codes={[...new Set([...additionalCodes, ...codebookCodes])]}
                         selectedCode={selectedCode}
                         setSelectedCode={setSelectedCode}
                         setIsAddCodeModalOpen={setIsAddCodeModalOpen}

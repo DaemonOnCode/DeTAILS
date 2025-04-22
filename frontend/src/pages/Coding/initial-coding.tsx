@@ -23,7 +23,7 @@ const CodebookCreation = () => {
 
     const { settings } = useSettings();
 
-    const { sampledPostResponse, dispatchSampledPostResponse, sampledPostIds } = useCodingContext();
+    const { dispatchSampledPostResponse, sampledPostIds } = useCodingContext();
     const location = useLocation();
 
     const logger = useLogger();
@@ -184,7 +184,8 @@ const CodebookCreation = () => {
                 <div className="flex-1 overflow-hidden">
                     <UnifiedCodingPage
                         postIds={sampledPostIds}
-                        data={sampledPostResponse}
+                        responseTypes={['sampled']}
+                        // data={sampledPostResponse}
                         dispatchFunction={dispatchSampledPostResponse}
                         review={reviewParam}
                         showCoderType={false}

@@ -23,8 +23,8 @@ import {
 } from '../pages/Coding';
 import {
     HomePage as CollectionHomePage,
-    DataViewerPage,
-    UploadDataPage
+    DataSourcePage,
+    DatasetCreationPage
 } from '../pages/DataCollection';
 
 import { LOADER_ROUTES, ROUTES } from '../constants/Coding/shared';
@@ -45,11 +45,11 @@ export const CodingRouter: RouteObject[] = [
             { path: ROUTES.DATA_SOURCE, element: <CollectionHomePage />, index: true },
             {
                 path: ROUTES.DATASET_CREATION,
-                element: <UploadDataPage />
+                element: <DataSourcePage />
             },
             {
                 path: ROUTES.DATA_VIEWER,
-                element: <DataViewerPage />
+                element: <DatasetCreationPage />
             }
         ]
     },

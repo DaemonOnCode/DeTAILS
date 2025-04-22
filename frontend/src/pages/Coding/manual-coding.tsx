@@ -11,14 +11,12 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 const ManualCodingPage: React.FC = () => {
     const portalContainerRef = useRef<HTMLDivElement>(document.createElement('div'));
 
-    const { unseenPostResponse, sampledPostResponse, groupedCodes } = useCodingContext();
+    const { groupedCodes } = useCodingContext();
     const {
         postStates,
-        addPostIds,
         updatePostState,
         isLoading,
         codebook,
-        manualCodingResponses,
         dispatchManualCodingResponses,
         generateCodebook
     } = useManualCodingContext();
@@ -46,15 +44,9 @@ const ManualCodingPage: React.FC = () => {
         document.body.appendChild(portalContainer);
 
         console.log('ManualCodingPage mounted', codebook, Object.keys(codebook ?? {}).length === 0);
-        if (Object.keys(codebook ?? {}).length === 0) {
-            console.log(
-                'ManualCodingPage mounted Generating codebook',
-                sampledPostResponse,
-                unseenPostResponse,
-                groupedCodes
-            );
-            generateCodebook(sampledPostResponse, unseenPostResponse, groupedCodes);
-        }
+
+        console.log('ManualCodingPage mounted Generating codebook', groupedCodes);
+        generateCodebook();
 
         return () => {
             document.body.removeChild(portalContainer);
@@ -122,10 +114,11 @@ const ManualCodingPage: React.FC = () => {
                 {tab === 'unified' ? (
                     <UnifiedCodingPage
                         postIds={Object.keys(postStates)}
-                        data={manualCodingResponses}
+                        // data={manualCodingResponses}
                         dispatchFunction={dispatchManualCodingResponses}
                         split
                         showCodebook
+                        responseTypes={['manual']}
                         showCoderType
                         showFilterDropdown
                         applyFilters

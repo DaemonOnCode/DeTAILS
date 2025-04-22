@@ -24,11 +24,11 @@ import { getGroupedCodeOfSubCode } from '../../utility/theme-finder';
 import { toast } from 'react-toastify';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
+import { usePaginatedResponses } from '../../hooks/Coding/use-paginated-responses';
 
 const FinalzingCodes = () => {
     const location = useLocation();
-    const { sampledPostResponse, unseenPostResponse, groupedCodes, dispatchGroupedCodes } =
-        useCodingContext();
+    const { groupedCodes, dispatchGroupedCodes } = useCodingContext();
     const { loadingState, openModal, checkIfDataExists, resetDataAfterPage, loadingDispatch } =
         useLoadingContext();
     const { performWithUndoForReducer } = useUndo();
@@ -109,26 +109,49 @@ const FinalzingCodes = () => {
         }
     }, [searchQuery]);
 
-    const codeResponses = [
-        ...sampledPostResponse.map((r) => ({
-            postId: r.postId,
-            id: r.id,
-            code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-            quote: r.quote,
-            explanation: r.explanation,
-            comment: r.comment,
-            subCode: r.code
-        })),
-        ...unseenPostResponse.map((r) => ({
-            postId: r.postId,
-            id: r.id,
-            code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-            quote: r.quote,
-            explanation: r.explanation,
-            comment: r.comment,
-            subCode: r.code
-        }))
-    ];
+    const {
+        responsesByPostId,
+        isLoadingPage,
+        hasNextPage,
+        hasPreviousPage,
+        loadNextPage,
+        loadPreviousPage
+    } = usePaginatedResponses({
+        pageSize: 10,
+        responseTypes: ['sampled', 'unseen']
+    });
+
+    const codeResponses = useMemo(() => {
+        return Object.values(responsesByPostId)
+            .flat()
+            .map((r) => ({
+                ...r,
+                code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+                subCode: r.code
+            }))
+            .filter((r) => r.isMarked);
+    }, [responsesByPostId, groupedCodes]);
+
+    // const codeResponses = [
+    // ...sampledPostResponse.map((r) => ({
+    //     postId: r.postId,
+    //     id: r.id,
+    //     code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+    //     quote: r.quote,
+    //     explanation: r.explanation,
+    //     comment: r.comment,
+    //     subCode: r.code
+    // })),
+    // ...unseenPostResponse.map((r) => ({
+    //     postId: r.postId,
+    //     id: r.id,
+    //     code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+    //     quote: r.quote,
+    //     explanation: r.explanation,
+    //     comment: r.comment,
+    //     subCode: r.code
+    // }))
+    // ];
 
     const { scrollRef: codeRef, storageKey: codeStorageKey } = useScrollRestoration(
         `code-list-${review}`
@@ -332,6 +355,12 @@ const FinalzingCodes = () => {
                                 onReRunCoding={() => {}}
                                 onUpdateResponses={() => {}}
                                 review={true}
+                                showCoderType={false}
+                                hasNextPage={hasNextPage}
+                                loadNextPage={loadNextPage}
+                                hasPreviousPage={hasPreviousPage}
+                                loadPreviousPage={loadPreviousPage}
+                                isLoadingPage={isLoadingPage}
                             />
                         </div>
                     ) : (

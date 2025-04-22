@@ -230,6 +230,7 @@ export type PostTranscriptProps = {
     setDeleteIsHighlightModalOpen: SetState<boolean>;
     clearedToLeaveRef: RefObject<{ check: boolean } | null>;
     showBackButton?: boolean;
+    codebookCodes?: string[];
 };
 
 export interface CodeViewProps {

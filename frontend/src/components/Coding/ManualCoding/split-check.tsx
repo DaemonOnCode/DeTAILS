@@ -25,30 +25,39 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
 
     const { fetchData } = useApi();
     const { datasetId } = useCollectionContext();
-    const { currentWorkspace } = useWorkspaceContext();
-    const { unseenPostResponse } = useCodingContext();
-    const { manualCodingResponses } = useManualCodingContext();
 
-    const fetchPostById = async (postId: string, datasetId: string) => {
+    const [codeResponses, setCodeResponses] = useState([]);
+    const [codebookCodes, setCodebookCodes] = useState([]);
+
+    const fetchPostById = async (postId: string, datasetId: string, showLoading = true) => {
+        console.log('Fetching post:', postId, datasetId);
         if (!postId || !datasetId) return;
-        setLoading(true);
+        if (showLoading) {
+            setLoading(true);
+        }
         try {
-            const { data: fetchedPost, error } = await fetchData<any>(
-                REMOTE_SERVER_ROUTES.GET_REDDIT_POST_BY_ID,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ postId, datasetId: currentWorkspace.id })
-                }
-            );
+            const { data: fetchedPost, error } = await fetchData<{
+                post: any;
+                responses: any[];
+                allCodes: string[];
+            }>(REMOTE_SERVER_ROUTES.GET_POST_TRANSCRIPT_DATA, {
+                method: 'POST',
+                body: JSON.stringify({ postId })
+            });
             if (error) {
                 console.error('Error fetching post:', error);
                 return;
             }
-            setPost(fetchedPost);
+            console.log('Fetched post:', fetchedPost);
+            setPost(fetchedPost.post);
+            setCodeResponses(fetchedPost.responses);
+            setCodebookCodes(fetchedPost.allCodes);
         } catch (error) {
             console.error('Error fetching post:', error);
         } finally {
-            setLoading(false);
+            if (showLoading) {
+                setLoading(false);
+            }
         }
     };
 
@@ -58,8 +67,10 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
         }
     }, [id, datasetId]);
 
-    const humanResponses = manualCodingResponses.filter((response) => response.type === 'Human');
-    const llmResponses = manualCodingResponses.filter((response) => response.type === 'LLM');
+    const humanResponses = codeResponses.filter((r) => r.responseType === 'Human');
+    const llmResponses = codeResponses.filter((r) => r.responseType === 'LLM');
+
+    console.log('humanResponses:', humanResponses, 'llmResponses', llmResponses);
 
     if (loading) {
         return (
@@ -97,11 +108,7 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
             <div className="h-full flex flex-col gap-2 overflow-hidden">
                 {(selectedTypeFilter === 'All' || selectedTypeFilter === 'LLM') && (
                     <div
-                        className={`h-${selectedTypeFilter === 'All' ? '1/2' : 'full'} ${
-                            activeTranscript === 'bottom'
-                                ? 'border-4 border-blue-500'
-                                : 'border-gray-200'
-                        }`}
+                        className={`${selectedTypeFilter === 'All' ? 'h-1/2' : 'h-full'}`}
                         onClick={(e) => {
                             e.stopPropagation();
                             setActiveTranscript('bottom');
@@ -110,10 +117,12 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                         <TranscriptContextProvider
                             postId={id ?? ''}
                             review={true}
-                            codeResponses={llmResponses}>
+                            codeResponses={llmResponses}
+                            splitCheck={true}>
                             <PostTranscript
                                 post={post}
                                 onBack={() => {}}
+                                codebookCodes={codebookCodes}
                                 review={true}
                                 showBackButton={false}
                                 clearedToLeaveRef={{ current: { check: false } }}
@@ -160,6 +169,7 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                                 post={post}
                                 onBack={() => {}}
                                 review={true}
+                                codebookCodes={codebookCodes}
                                 showBackButton={false}
                                 clearedToLeaveRef={{ current: { check: false } }}
                                 dispatchCodeResponse={() => {}}

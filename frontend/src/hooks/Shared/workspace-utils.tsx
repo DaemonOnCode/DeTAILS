@@ -1,32 +1,18 @@
 import { useEffect, useRef } from 'react';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useAuth } from '../../context/auth-context';
-import { useCodingContext } from '../../context/coding-context';
-import { ExtendedICollectionContext, useCollectionContext } from '../../context/collection-context';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { useWebSocket } from '../../context/websocket-context';
-import { useModelingContext } from '../../context/modeling-context';
-import {
-    IWorkspaceContext,
-    AuthContextType,
-    ICodingContext,
-    IModelingContext,
-    ILoadingContext
-} from '../../types/Shared';
+import { IWorkspaceContext, AuthContextType, ILoadingContext } from '../../types/Shared';
 import { useToast } from '../../context/toast-context';
 import { useApi } from './use-api';
 import { useLoadingContext } from '../../context/loading-context';
-import { IManualCodingContext, useManualCodingContext } from '../../context/manual-coding-context';
 import { useLocation } from 'react-router-dom';
 
 const useWorkspaceUtils = () => {
     const { user } = useAuth();
     const { currentWorkspace } = useWorkspaceContext();
-    const collectionContext = useCollectionContext();
-    const codingContext = useCodingContext();
-    const modelingContext = useModelingContext();
     const loadingContext = useLoadingContext();
-    const manualCodingContext = useManualCodingContext();
     const { serviceStarting } = useWebSocket();
     const { showToast } = useToast();
     const { fetchData } = useApi();
@@ -35,9 +21,7 @@ const useWorkspaceUtils = () => {
     const getPayload = (
         currentWorkspace: IWorkspaceContext['currentWorkspace'],
         user: AuthContextType['user'],
-        modelingContext: IModelingContext,
-        loadingContext: ILoadingContext,
-        manualCodingContext: IManualCodingContext
+        loadingContext: ILoadingContext
     ) => {
         return {
             workspace_id: currentWorkspace?.id || '',
@@ -45,9 +29,7 @@ const useWorkspaceUtils = () => {
             page_url: `${location.pathname}${location.search}`,
             dataset_id: '',
             collection_context: {},
-            modeling_context: {
-                models: modelingContext.models || []
-            },
+            modeling_context: {},
             coding_context: {},
             loading_context: {
                 page_state:
@@ -57,41 +39,27 @@ const useWorkspaceUtils = () => {
                             .map(([key, value]) => [key, value.isFirstRun])
                     ) || {}
             },
-            manual_coding_context: {
-                post_states: manualCodingContext.postStates || {},
-                codebook: manualCodingContext.codebook || {},
-                manual_coding_responses: manualCodingContext.manualCodingResponses || []
-            }
+            manual_coding_context: {}
         };
     };
 
     const contextRef = useRef({
         currentWorkspace,
         user,
-        modelingContext,
-        loadingContext,
-        manualCodingContext
+        loadingContext
     });
 
     useEffect(() => {
         contextRef.current = {
             currentWorkspace,
             user,
-            modelingContext,
-            loadingContext,
-            manualCodingContext
+            loadingContext
         };
-    }, [currentWorkspace, user, modelingContext, loadingContext, manualCodingContext]);
+    }, [currentWorkspace, user, loadingContext]);
 
     const getWorkspaceData = () => {
-        const { currentWorkspace, user, modelingContext } = contextRef.current;
-        return getPayload(
-            currentWorkspace,
-            user,
-            modelingContext,
-            loadingContext,
-            manualCodingContext
-        );
+        const { currentWorkspace, user } = contextRef.current;
+        return getPayload(currentWorkspace, user, loadingContext);
     };
 
     const resetContextData = (...contexts: any[]) => {
@@ -101,24 +69,12 @@ const useWorkspaceUtils = () => {
     const updateContextData = (data: Record<string, any>) => {
         console.log('Updating context data:', data);
         if (!data) {
-            modelingContext.resetContext();
             loadingContext.resetContext();
-            manualCodingContext.resetContext();
             return;
         }
 
-        modelingContext.updateContext({
-            models: data.models ?? []
-        });
-
         loadingContext.updateContext({
             pageState: data.page_state ?? {}
-        });
-
-        manualCodingContext.updateContext({
-            postStates: data.post_states ?? {},
-            codebook: data.codebook ?? {},
-            manualCodingResponses: data.manual_coding_responses ?? []
         });
     };
 
@@ -133,7 +89,7 @@ const useWorkspaceUtils = () => {
             });
 
             if (fetchResponse.error) {
-                resetContextData(modelingContext, loadingContext, manualCodingContext);
+                resetContextData(loadingContext);
                 showToast({
                     type: 'error',
                     message: 'Error loading workspace data'
@@ -151,7 +107,7 @@ const useWorkspaceUtils = () => {
                 });
                 console.log('Workspace data loaded successfully');
             } else {
-                resetContextData(modelingContext, loadingContext, manualCodingContext);
+                resetContextData(loadingContext);
                 showToast({
                     type: 'error',
                     message: 'Error loading workspace data'
@@ -160,7 +116,7 @@ const useWorkspaceUtils = () => {
             }
             console.log('Loading workspace data:', parsedResults.data);
         } catch (error) {
-            resetContextData(modelingContext, loadingContext, manualCodingContext);
+            resetContextData(loadingContext);
             console.error('Error in loadWorkspaceData:', error);
         }
     };

@@ -1,277 +1,110 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import { PAGE_ROUTES } from '../../constants/Coding/shared';
-import RedditViewModal from '../../components/Shared/reddit-view-modal';
-import { useLogger } from '../../context/logging-context';
-import { createTimer } from '../../utility/timer';
-import { useCodingContext } from '../../context/coding-context';
-import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import PostView from '../../components/Coding/Report/post-view';
-import CodeView from '../../components/Coding/Report/code-view';
-import { groupByCode, groupByPostId } from '../../utility/group-items';
-import { getGroupedCodeOfSubCode, getThemeByCode } from '../../utility/theme-finder';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { useLocation } from 'react-router-dom';
-import { useLoadingContext } from '../../context/loading-context';
+import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
+import RedditViewModal from '../../components/Shared/reddit-view-modal';
+import { PAGE_ROUTES } from '../../constants/Coding/shared';
+import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 
-const { ipcRenderer } = window.require('electron');
+import { PostDetailedTable, PostDetailRow } from '../../components/Coding/Report/post-detailed';
+import { PostSummaryTable, PostSummaryRow } from '../../components/Coding/Report/post-summary';
+import { CodeDetailedTable, CodeDetailRow } from '../../components/Coding/Report/code-detailed';
+import { CodeSummaryTable, CodeSummaryRow } from '../../components/Coding/Report/code-summary';
+import { useApi } from '../../hooks/Shared/use-api';
+import { downloadFileWithStreaming } from '../../utility/file-downloader';
 
-const FinalPage = () => {
-    const { themes, sampledPostResponse, unseenPostResponse, groupedCodes } = useCodingContext();
-    const [renderedPost, setRenderedPost] = useState<{
-        id: string;
-        link: string;
-        sentence: string;
-    }>({ id: '', link: '', sentence: '' });
+const PAGE_SIZE = 20;
 
-    const location = useLocation();
-    const { loadingState } = useLoadingContext();
+const ReportPage: React.FC = () => {
+    const [viewType, setViewType] = useState<'post' | 'code'>('post');
+    const [summaryView, setSummaryView] = useState(false);
 
-    const logger = useLogger();
-    const { saveWorkspaceData } = useWorkspaceUtils();
-    const hasSavedRef = useRef(false);
+    const isCodeView = viewType === 'code';
+    const isSummaryView = summaryView;
+
+    const [rows, setRows] = useState<any[]>([]);
+    const [hasNext, setHasNext] = useState(true);
+    const [loading, setLoading] = useState(false);
+
+    const pageRef = useRef(1);
+    const loadingRef = useRef(false);
+    const nextRef = useRef(true);
+
+    const [overallStats, setOverallStats] = useState<{
+        totalUniquePosts: number;
+        totalUniqueCodes: number;
+        totalQuoteCount: number;
+    } | null>(null);
+
+    const { fetchData } = useApi();
+
+    const fetchPage = useCallback(async () => {
+        if (loadingRef.current || !nextRef.current) return;
+        loadingRef.current = true;
+        setLoading(true);
+
+        try {
+            const { data } = await fetchData(REMOTE_SERVER_ROUTES.GET_ANALYSIS_REPORT, {
+                method: 'POST',
+                body: JSON.stringify({
+                    page: pageRef.current,
+                    pageSize: PAGE_SIZE,
+                    viewType,
+                    summary: summaryView
+                })
+            });
+            setRows((r) => [...r, ...data.rows]);
+            nextRef.current = data.meta.hasNext;
+            setHasNext(data.meta.hasNext);
+            pageRef.current += 1;
+            setOverallStats(data.overallStats);
+        } catch (err) {
+            console.error('Fetch page error', err);
+            toast.error('Failed to load data');
+        } finally {
+            loadingRef.current = false;
+            setLoading(false);
+        }
+    }, [viewType, summaryView]);
 
     useEffect(() => {
-        const timer = createTimer();
-        logger.info('Loaded Final Page');
+        pageRef.current = 1;
+        loadingRef.current = false;
+        nextRef.current = true;
 
-        return () => {
-            if (!hasSavedRef.current) {
-                hasSavedRef.current = true;
-                saveWorkspaceData().finally(() => {
-                    hasSavedRef.current = false;
-                });
-            }
-            logger.info('Unloaded Final Page').then(() => {
-                logger.time('Final Page stay time', { time: timer.end() });
-            });
-        };
-    }, []);
+        setRows([]);
+        setHasNext(true);
+        setLoading(false);
 
-    const handleViewPost = async (postId: string, sentence: string) => {
-        const link = undefined;
+        fetchPage();
+    }, [fetchPage]);
 
-        console.log('Viewing post:', postId, link, sentence);
-        setRenderedPost({
-            id: postId,
-            link: link ?? '',
-            sentence
-        });
-    };
-
-    const [isCodeView, setIsCodeView] = useState(false);
-    const [isSummaryView, setIsSummaryView] = useState(false);
-
-    const toggleView = (type: 'code' | 'details') => {
-        if (type === 'details') setIsSummaryView((prev) => !prev);
-        else setIsCodeView((prev) => !prev);
-    };
-
-    const finalCodeResponses = useMemo(
-        () => [
-            ...sampledPostResponse.map((post) => ({
-                postId: post.postId,
-                quote: post.quote,
-                coded_word: getGroupedCodeOfSubCode(post.code, groupedCodes),
-                reasoning: post.explanation,
-                theme: getThemeByCode(post.code, themes, groupedCodes),
-                id: post.id
-            })),
-            ...unseenPostResponse.map((post) => ({
-                postId: post.postId,
-                quote: post.quote,
-                coded_word: getGroupedCodeOfSubCode(post.code, groupedCodes),
-                reasoning: post.explanation,
-                theme: getThemeByCode(post.code, themes, groupedCodes),
-                id: post.id
-            }))
-        ],
-        [sampledPostResponse, unseenPostResponse, themes, groupedCodes]
-    );
-
-    const grouped = useMemo(() => groupByPostId(finalCodeResponses), [finalCodeResponses]);
-    const allPostIds = Object.keys(grouped);
-
-    const groupedByCode = useMemo(() => groupByCode(finalCodeResponses), [finalCodeResponses]);
-    const allCodes = Object.keys(groupedByCode);
-
-    const getDetailedCodeData = useCallback(() => {
-        const data = [];
-        for (const code of allCodes) {
-            const rows = groupedByCode[code];
-            const theme = rows[0]?.theme || 'Unknown Theme';
-            for (const item of rows) {
-                data.push({
-                    Code: code,
-                    Theme: theme,
-                    'Post ID': item.postId,
-                    Quote: item.quote,
-                    Explanation: item.reasoning
-                });
-            }
-        }
-        return data;
-    }, [allCodes, groupedByCode]);
-
-    const getSummaryCodeData = useCallback(() => {
-        const themeGroups = {};
-        allCodes.forEach((code) => {
-            const rows = groupedByCode[code];
-            rows.forEach((item) => {
-                const theme = item.theme;
-                if (!themeGroups[theme]) {
-                    themeGroups[theme] = [];
-                }
-                themeGroups[theme].push(item);
-            });
-        });
-
-        const summaryRows = Object.keys(themeGroups).map((themeName) => {
-            const items: any[] = themeGroups[themeName];
-            const uniquePosts = new Set(items.map((item) => item.postId));
-            const uniqueCodes = new Set(items.map((item) => item.coded_word));
-            const totalQuoteCount = items.length;
-            return [themeName, uniquePosts.size, uniqueCodes.size, totalQuoteCount];
-        });
-
-        const overallUniqueThemes = Object.keys(themeGroups).length;
-        const overallUniquePosts = new Set();
-        const overallUniqueCodes = new Set();
-        let overallTotalQuoteCount = 0;
-        Object.values(themeGroups).forEach((items: any[]) => {
-            overallTotalQuoteCount += items.length;
-            items.forEach((item) => {
-                overallUniquePosts.add(item.postId);
-                overallUniqueCodes.add(item.coded_word);
-            });
-        });
-
-        const overallStats = [
-            ['Overall Stats', 'Value'],
-            ['Total Unique Themes', overallUniqueThemes],
-            ['Total Unique Posts', overallUniquePosts.size],
-            ['Total Code Count', overallUniqueCodes.size],
-            ['Total Quote Count', overallTotalQuoteCount]
-        ];
-
-        return [
-            ['Theme Name', 'Unique Posts Count', 'Unique Codes Count', 'Total Quote Count'],
-            ...summaryRows,
-            [],
-            ...overallStats
-        ];
-    }, [allCodes, groupedByCode]);
-
-    const getDetailedPostData = useCallback(() => {
-        const data = [];
-        for (const pid of allPostIds) {
-            const rows = grouped[pid];
-            for (const item of rows) {
-                data.push({
-                    'Post ID': pid,
-                    Code: item.coded_word,
-                    Theme: item.theme,
-                    Quote: item.quote,
-                    Explanation: item.reasoning
-                });
-            }
-        }
-        return data;
-    }, [allPostIds, grouped]);
-
-    const getSummaryPostData = useCallback(() => {
-        const summaryRows = allPostIds.map((pid) => {
-            const rows = grouped[pid];
-            const uniqueThemes = new Set(rows.map((row) => row.theme));
-            const uniqueCodes = new Set(rows.map((row) => row.coded_word));
-            const totalQuoteCount = rows.length;
-            return [pid, uniqueThemes.size, uniqueCodes.size, totalQuoteCount];
-        });
-
-        const overallThemes = new Set();
-        const overallCodes = new Set();
-        let overallQuoteCount = 0;
-        allPostIds.forEach((pid) => {
-            const rows = grouped[pid];
-            rows.forEach((row) => {
-                overallThemes.add(row.theme);
-                overallCodes.add(row.coded_word);
-            });
-            overallQuoteCount += rows.length;
-        });
-
-        const overallStats = [
-            ['Overall Stats', 'Value'],
-            ['Total Unique Themes', overallThemes.size],
-            ['Total Unique Codes', overallCodes.size],
-            ['Total Quote Count', overallQuoteCount]
-        ];
-
-        return [
-            ['Post ID', 'Unique Theme Count', 'Unique Code Count', 'Total Quote Count'],
-            ...summaryRows,
-            [],
-            ...overallStats
-        ];
-    }, [allPostIds, grouped]);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const sentinelRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const obs = new IntersectionObserver(
+            (entries) => entries[0].isIntersecting && fetchPage(),
+            { root: containerRef.current, threshold: 1.0 }
+        );
+        if (sentinelRef.current) obs.observe(sentinelRef.current);
+        return () => obs.disconnect();
+    }, [fetchPage]);
 
     const handleDownloadData = useCallback(async () => {
-        console.log('Downloading data...', isCodeView, isSummaryView);
-        let data;
-        if (isCodeView) {
-            if (isSummaryView) {
-                data = getSummaryCodeData();
-            } else {
-                data = getDetailedCodeData();
-            }
-        } else {
-            if (isSummaryView) {
-                data = getSummaryPostData();
-            } else {
-                data = getDetailedPostData();
-            }
-        }
-        const result = await ipcRenderer.invoke('save-csv', {
-            data,
-            fileName: `${isCodeView ? 'code' : 'post'}_${
-                isSummaryView ? 'summary' : 'detailed'
-            }_analysis`
-        });
-
-        if (result.success) {
-            toast.success('Data downloaded successfully');
-        } else {
-            toast.error('Download cancelled or failed');
-        }
-    }, [
-        isCodeView,
-        isSummaryView,
-        getSummaryCodeData,
-        getDetailedCodeData,
-        getSummaryPostData,
-        getDetailedPostData
-    ]);
-
-    if (loadingState[location.pathname]?.isFirstRun) {
-        return (
-            <p className="h-page w-full flex justify-center items-center">
-                Please complete the previous page and click on proceed to continue with this page.
-            </p>
+        const payload = {
+            viewType,
+            summary: summaryView
+        };
+        const suggestedName = `${viewType}_${summaryView ? 'summary' : 'detailed'}_analysis.csv`;
+        await downloadFileWithStreaming(
+            fetchData,
+            REMOTE_SERVER_ROUTES.DOWNLOAD_ANALYSIS_REPORT,
+            payload,
+            suggestedName
         );
-    }
+    }, [viewType, summaryView]);
 
-    // If no data
-    if (finalCodeResponses.length === 0) {
-        return (
-            <div className="h-page flex flex-col justify-between">
-                <div>
-                    <h2 className="text-xl font-bold mb-4">Final Page</h2>
-                    <p className="mb-6">No data found.</p>
-                </div>
-                <NavigationBottomBar previousPage={PAGE_ROUTES.GENERATING_THEMES} />
-            </div>
-        );
-    }
+    const [modal, setModal] = useState({ id: '', link: '', sentence: '' });
+    const handleViewPost = (id: string) => setModal({ id, link: '', sentence: '' });
 
     return (
         <div className="h-page flex flex-col justify-between">
@@ -283,7 +116,7 @@ const FinalPage = () => {
                             className={`cursor-pointer select-none ${
                                 !isCodeView ? 'font-bold text-blue-500' : 'text-gray-700'
                             }`}
-                            onClick={() => setIsCodeView(false)}>
+                            onClick={() => setViewType('post')}>
                             Post View
                         </span>
 
@@ -295,7 +128,9 @@ const FinalPage = () => {
                                 type="checkbox"
                                 className="sr-only"
                                 checked={isCodeView}
-                                onChange={() => toggleView('code')}
+                                onChange={() =>
+                                    setViewType((v) => (v === 'post' ? 'code' : 'post'))
+                                }
                             />
                             <div className="block bg-gray-300 w-6 lg:w-12 h-3 lg:h-6 rounded-full"></div>
                             <div
@@ -308,7 +143,7 @@ const FinalPage = () => {
                             className={`cursor-pointer select-none ${
                                 isCodeView ? 'font-bold text-blue-500' : 'text-gray-700'
                             }`}
-                            onClick={() => setIsCodeView(true)}>
+                            onClick={() => setViewType('code')}>
                             Code View
                         </span>
                     </div>
@@ -324,19 +159,19 @@ const FinalPage = () => {
                             className={`cursor-pointer select-none ${
                                 !isSummaryView ? 'font-bold text-blue-500' : 'text-gray-700'
                             }`}
-                            onClick={() => setIsSummaryView(false)}>
+                            onClick={() => setSummaryView(false)}>
                             Detailed View
                         </span>
 
                         <label
                             htmlFor="toggleViewDetails"
-                            className="relative inline-blockw-6 lg:w-12 h-3 lg:h-6  cursor-pointer">
+                            className="relative inline-block w-6 lg:w-12 h-3 lg:h-6 cursor-pointer">
                             <input
                                 id="toggleViewDetails"
                                 type="checkbox"
                                 className="sr-only"
                                 checked={isSummaryView}
-                                onChange={() => toggleView('details')}
+                                onChange={() => setSummaryView((s) => !s)}
                             />
                             <div className="block bg-gray-300 w-6 lg:w-12 h-3 lg:h-6 rounded-full"></div>
                             <div
@@ -351,37 +186,45 @@ const FinalPage = () => {
                             className={`cursor-pointer select-none ${
                                 isSummaryView ? 'font-bold text-blue-500' : 'text-gray-700'
                             }`}
-                            onClick={() => setIsSummaryView(true)}>
+                            onClick={() => setSummaryView(true)}>
                             Summary View
                         </span>
                     </div>
                 </div>
             </header>
-            <main className="flex-1 overflow-hidden">
-                {!isCodeView ? (
-                    <PostView
-                        allPostIds={allPostIds}
-                        grouped={grouped}
-                        handleViewPost={handleViewPost}
-                        summaryView={isSummaryView}
-                    />
+
+            <main ref={containerRef} className="flex-1 overflow-auto space-y-4">
+                {viewType === 'post' ? (
+                    isSummaryView ? (
+                        <PostSummaryTable
+                            rows={rows as PostSummaryRow[]}
+                            overallStats={overallStats}
+                            onViewPost={handleViewPost}
+                        />
+                    ) : (
+                        <PostDetailedTable
+                            rows={rows as PostDetailRow[]}
+                            onViewPost={handleViewPost}
+                        />
+                    )
+                ) : isSummaryView ? (
+                    <CodeSummaryTable rows={rows as CodeSummaryRow[]} overallStats={overallStats} />
                 ) : (
-                    <CodeView
-                        allCodes={allCodes}
-                        groupedByCode={groupedByCode}
-                        summaryView={isSummaryView}
-                        handleViewPost={handleViewPost}
-                    />
+                    <CodeDetailedTable rows={rows as CodeDetailRow[]} onViewPost={handleViewPost} />
                 )}
+
+                <div ref={sentinelRef} style={{ height: 1 }} />
+
+                {loading && <div className="text-center py-2">Loading…</div>}
             </main>
 
-            {renderedPost.id !== '' && (
+            {modal.id && (
                 <RedditViewModal
-                    isViewOpen={renderedPost.id !== ''}
-                    postLink={renderedPost.link}
-                    postText={renderedPost.sentence}
-                    postId={renderedPost.id}
-                    closeModal={() => setRenderedPost({ id: '', link: '', sentence: '' })}
+                    isViewOpen
+                    postLink={modal.link}
+                    postText={modal.sentence}
+                    postId={modal.id}
+                    closeModal={() => setModal({ id: '', link: '', sentence: '' })}
                 />
             )}
 
@@ -392,4 +235,4 @@ const FinalPage = () => {
     );
 };
 
-export default FinalPage;
+export default ReportPage;

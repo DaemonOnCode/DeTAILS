@@ -40,9 +40,9 @@ export const CodingContext = createContext<ICodingContext>({
     dispatchKeywordsTable: async () => {},
     updateContext: async () => {},
     resetContext: async () => {},
-    sampledPostResponse: [],
+    // sampledPostResponse: [],
     dispatchSampledPostResponse: async () => {},
-    unseenPostResponse: [],
+    // unseenPostResponse: [],
     dispatchUnseenPostResponse: async () => {},
     themes: [],
     dispatchThemes: async () => {},
@@ -57,24 +57,6 @@ export const CodingContext = createContext<ICodingContext>({
     initialCodebookTable: [],
     dispatchInitialCodebookTable: async () => {}
 });
-
-function arraysEqual(arr1, arr2) {
-    return arr1?.length === arr2?.length && arr1?.every((val, index) => val === arr2[index]);
-}
-
-function calculateDiff(oldStruct: any, newStruct: any) {
-    const diff: any = {};
-    if (oldStruct.id !== newStruct.id) {
-        diff.id = { from: oldStruct.id, to: newStruct.id };
-    }
-    if (oldStruct.name !== newStruct.name) {
-        diff.name = { from: oldStruct.name, to: newStruct.name };
-    }
-    if (!arraysEqual(oldStruct.code, newStruct.code)) {
-        diff.code = { from: oldStruct.code, to: newStruct.code };
-    }
-    return diff;
-}
 
 export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
     const location = useLocation();
@@ -94,7 +76,6 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
     const [themes, setThemesState] = useState<ThemeBucket[]>([]);
     const [unplacedCodes, setUnplacedCodesState] = useState<string[]>([]);
     const [groupedCodes, setGroupedCodesState] = useState<GroupedCodeBucket[]>([]);
-    // const [groupedCodes, setGroupedCodesState] = useState<GroupedCodeBucket[]>([]);
     const [unplacedSubCodes, setUnplacedSubCodesState] = useState<string[]>([]);
     const [sampledPostIds, setSampledPostIdsState] = useState<string[]>([]);
     const [unseenPostIds, setUnseenPostIdsState] = useState<string[]>([]);
@@ -300,7 +281,6 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 'researchQuestions',
                 'keywords',
                 'selectedKeywords',
-                'sampledPostResponse',
                 'initialCodebookTable',
                 'groupedCodes',
                 'unplacedSubCodes',
@@ -450,13 +430,13 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                     setInitialCodebookTableState([]);
                 }
             },
-            sampledPostResponse,
+            // sampledPostResponse,
             dispatchSampledPostResponse: async (action: SampleDataResponseReducerActions) => {
                 const data = await saveCodingContext('dispatchSampledPostResponse', { action });
                 console.log('Sampled Post Response:', data);
                 if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
             },
-            unseenPostResponse,
+            // unseenPostResponse,
             dispatchUnseenPostResponse: async (
                 action: BaseResponseHandlerActions<IQECTTyResponse>
             ) => {
@@ -473,14 +453,9 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
             },
             groupedCodes,
             dispatchGroupedCodes: async (action: BaseBucketAction) => {
-                // const newGroupedCodes =
-                //     typeof gcsOrUpdater === 'function' ? gcsOrUpdater(groupedCodes) : gcsOrUpdater;
-                console.log('Setting grouped codes:', action);
-                // console.log('New Grouped Codes:', newGroupedCodes);
                 const data = await saveCodingContext('dispatchGroupedCodes', {
                     action
                 });
-                // console.log('Grouped Codes:', data, newGroupedCodes);
                 if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
             },
             researchQuestions,

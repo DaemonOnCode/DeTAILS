@@ -105,9 +105,9 @@ export interface ICodingContext {
     dispatchKeywordsTable: Dispatch<KeywordsTableAction>;
     updateContext: (updates: Partial<ICodingContext>) => void;
     resetContext: () => void;
-    sampledPostResponse: IQECResponse[];
+    // sampledPostResponse: IQECResponse[];
     dispatchSampledPostResponse: Dispatch<SampleDataResponseReducerActions>;
-    unseenPostResponse: IQECTTyResponse[];
+    // unseenPostResponse: IQECTTyResponse[];
     dispatchUnseenPostResponse: Dispatch<BaseResponseHandlerActions<IQECTTyResponse>>;
     themes: ThemeBucket[];
     dispatchThemes: SetState<ThemeBucket[]>;

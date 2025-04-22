@@ -1,15 +1,4 @@
-import {
-    createContext,
-    useState,
-    useCallback,
-    useMemo,
-    FC,
-    useContext,
-    useEffect,
-    useRef,
-    useReducer,
-    Dispatch
-} from 'react';
+import { createContext, useState, useCallback, useMemo, FC, useContext, useEffect } from 'react';
 import {
     BaseResponseHandlerActions,
     ILayout,
@@ -21,50 +10,43 @@ import { useCodingContext } from './coding-context';
 import { useCollectionContext } from './collection-context';
 import { useSettings } from './settings-context';
 import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
-import { getGroupedCodeOfSubCode } from '../utility/theme-finder';
-import { testDataResponseReducer } from '../reducers/coding';
 import { useWorkspaceContext } from './workspace-context';
 import { toast } from 'react-toastify';
 import { useLoadingContext } from './loading-context';
-import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
-import { PAGE_ROUTES, ROUTES } from '../constants/Coding/shared';
+import { PAGE_ROUTES } from '../constants/Coding/shared';
 import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
+import { useLocation } from 'react-router-dom';
 
-// Define the type for the codebook (replace 'any' with the actual type if known)
 type CodebookType = {
     [code: string]: string;
 };
 
-// Define the context interface with additional properties
 export interface IManualCodingContext {
-    postStates: { [postId: string]: boolean }; // Tracks marked state for each postId
-    addPostIds: (newPostIds: string[], initialState?: boolean) => void; // Function to add new postIds
-    updatePostState: (postId: string, state: boolean) => void; // Function to update post state
-    isLoading: boolean; // Indicates if the codebook is being created
-    codebook: CodebookType | null; // Stores the codebook data
-    manualCodingResponses: IQECTTyResponse[]; // Stores the manual coding responses
-    dispatchManualCodingResponses: Dispatch<BaseResponseHandlerActions<IQECTTyResponse>>; // Dispatch function for manual coding responses
-    updateContext: (updates: Partial<IManualCodingContext>) => void;
-    resetContext: () => void;
-    generateCodebook: (
-        sampledPostResponses: any[],
-        unseenPostResponses: any[],
-        groupedCodes: any[]
-    ) => void;
+    postStates: { [postId: string]: boolean };
+    addPostIds: (newPostIds: string[], initialState?: boolean) => Promise<void>;
+    updatePostState: (postId: string, state: boolean) => Promise<void>;
+    isLoading: boolean;
+    codebook: CodebookType | null;
+    manualCodingResponses: IQECTTyResponse[];
+    dispatchManualCodingResponses: (
+        action: BaseResponseHandlerActions<IQECTTyResponse>
+    ) => Promise<void>;
+    updateContext: (updates: Partial<IManualCodingContext>) => Promise<void>;
+    resetContext: () => Promise<void>;
+    generateCodebook: () => Promise<void>;
 }
 
-// Create the context with default values
 export const ManualCodingContext = createContext<IManualCodingContext>({
     postStates: {},
-    addPostIds: () => {},
-    updatePostState: () => {},
+    addPostIds: async () => {},
+    updatePostState: async () => {},
     isLoading: false,
     codebook: null,
     manualCodingResponses: [],
-    dispatchManualCodingResponses: () => {},
-    updateContext: () => {},
-    resetContext: () => {},
-    generateCodebook: () => {}
+    dispatchManualCodingResponses: async () => {},
+    updateContext: async () => {},
+    resetContext: async () => {},
+    generateCodebook: async () => {}
 });
 
 interface ManualCodingProviderProps extends ILayout {
@@ -75,278 +57,214 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
     children,
     postIds: initialPostIds
 }) => {
+    const location = useLocation();
     const { settings } = useSettings();
-    const { loadingState, loadingDispatch, registerStepRef } = useLoadingContext();
-    const { datasetId, selectedData } = useCollectionContext();
-    const { sampledPostResponse, unseenPostResponse, groupedCodes, sampledPostIds, unseenPostIds } =
-        useCodingContext();
-    const { currentWorkspace } = useWorkspaceContext();
-    console.log('Initial postIds', initialPostIds);
-    const [postStates, setPostStates] = useState<{ [postId: string]: boolean }>(
-        initialPostIds.reduce((acc, id) => ({ ...acc, [id]: false }), {})
-    );
+    const { loadingState } = useLoadingContext();
+    const [postStates, setPostStates] = useState<{ [postId: string]: boolean }>({});
     const [isLoading, setIsLoading] = useState(false);
     const [codebook, setCodebook] = useState<CodebookType | null>(null);
-    const prevPostIdsRef = useRef<string[]>([]);
-
-    const [manualCodingResponses, dispatchManualCodingResponses] = useReducer(
-        testDataResponseReducer,
-        []
-    );
+    const [manualCodingResponses, setManualCodingResponses] = useState<IQECTTyResponse[]>([]);
 
     const { fetchData, fetchLLMData } = useApi();
 
-    const fetchLLMResponses = useCallback(
-        async (codebook: CodebookType, postIds: string[]) => {
-            const { data, error } = await fetchLLMData<{
-                message: string;
-                data: IQECTTyResponse[];
-            }>(REMOTE_SERVER_ROUTES.GENERATE_DEDUCTIVE_CODES, {
-                method: 'POST',
-                body: JSON.stringify({
-                    codebook,
-                    post_ids: postIds,
-                    model: settings.ai.model,
-                    workspace_id: currentWorkspace!.id,
-                    dataset_id: datasetId
-                })
-            });
-            if (error) {
-                toast.error(
-                    'Failed to fetch LLM responses for manual coding. ' + (error.message ?? '')
-                );
-                throw new Error('Failed to fetch LLM responses');
-            }
-            return data.data;
-        },
-        [fetchLLMData, settings]
-    );
-    const generateCodebookWithoutQuotes = useCallback(
-        async (sampledPostResponses: any[], unseenPostResponses: any[], groupedCodes: any[]) => {
-            console.log(
-                'Generating codebook without quotes',
-                settings,
-                datasetId,
-                sampledPostResponses,
-                unseenPostResponses
+    const saveManualCodingContext = async (operationType: string, payload: object) => {
+        try {
+            const { data, error } = await fetchData(
+                REMOTE_SERVER_ROUTES.SAVE_MANUAL_CODING_CONTEXT,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ type: operationType, ...payload })
+                }
             );
-            if (
-                !settings.app.id ||
-                !sampledPostResponses.length ||
-                !unseenPostResponses.length ||
-                !groupedCodes?.length
-            ) {
-                console.log(
-                    'Returning empty object, settings.app.id:',
-                    settings.app.id,
-                    'sampledPostResponse.length:',
-                    sampledPostResponses.length,
-                    'unseenPostResponse.length:',
-                    unseenPostResponses.length
-                );
-                return {};
+            if (error) throw new Error(`Failed to save manual coding context for ${operationType}`);
+            return data;
+        } catch (error) {
+            console.error(`Error in ${operationType}:`, error);
+            throw error;
+        }
+    };
+
+    const fetchManualCodingStates = async (stateNames: string[]) => {
+        try {
+            const { data, error } = await fetchData(
+                REMOTE_SERVER_ROUTES.LOAD_MANUAL_CODING_CONTEXT,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ states: stateNames })
+                }
+            );
+            if (error)
+                throw new Error(`Failed to fetch manual coding states: ${stateNames.join(', ')}`);
+            return data;
+        } catch (error) {
+            console.error(`Error fetching manual coding states:`, error);
+            throw error;
+        }
+    };
+
+    useEffect(() => {
+        const loadStates = async () => {
+            const stateNames = ['postStates', 'codebook'];
+            try {
+                const fetchedData = await fetchManualCodingStates(stateNames);
+                if (fetchedData) {
+                    if (fetchedData.postStates !== undefined) setPostStates(fetchedData.postStates);
+                    if (fetchedData.codebook !== undefined) setCodebook(fetchedData.codebook);
+                }
+            } catch (error) {
+                console.error('Error loading manual coding states:', error);
             }
+        };
+        loadStates();
+    }, []);
+
+    useEffect(() => {
+        if (codebook && Object.keys(codebook).length > 0 && Object.keys(postStates).length > 0) {
+            const fetchResponses = async () => {
+                try {
+                    const postIds = Object.keys(postStates);
+                    const { data, error } = await fetchLLMData<{
+                        message: string;
+                        data: IQECTTyResponse[];
+                    }>(REMOTE_SERVER_ROUTES.GENERATE_DEDUCTIVE_CODES, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            codebook,
+                            post_ids: postIds,
+                            model: settings.ai.model
+                        })
+                    });
+                    if (error) throw new Error('Failed to fetch LLM responses');
+                    toast.success('LLM generated deductive codes successfully');
+                } catch (error) {
+                    console.error('Error fetching LLM responses:', error);
+                    toast.error('Failed to fetch LLM responses');
+                }
+            };
+            fetchResponses();
+        }
+    }, [codebook]);
+
+    const addPostIds = async (newPostIds: string[]) => {
+        const data = await saveManualCodingContext('addPostIds', { newPostIds });
+        if (data.postStates) setPostStates(data.postStates);
+    };
+
+    const updatePostState = async (postId: string, state: boolean) => {
+        const data = await saveManualCodingContext('updatePostState', { postId, state });
+        if (data.postStates) setPostStates(data.postStates);
+    };
+
+    const dispatchManualCodingResponses = async (
+        action: BaseResponseHandlerActions<IQECTTyResponse>
+    ) => {
+        const data = await saveManualCodingContext('dispatchManualCodingResponses', { action });
+        if (data.manualCodingResponses) setManualCodingResponses(data.manualCodingResponses);
+    };
+
+    const updateContext = async (updates: Partial<IManualCodingContext>) => {
+        const data = await saveManualCodingContext('updateContext', updates);
+        if (data.postStates) setPostStates(data.postStates);
+        if (data.codebook) setCodebook(data.codebook);
+        if (data.manualCodingResponses) setManualCodingResponses(data.manualCodingResponses);
+    };
+
+    const resetContext = async () => {
+        const data = await saveManualCodingContext('resetContext', {});
+        if (data.success) {
+            setPostStates({});
+            setCodebook({});
+        }
+    };
+
+    const generateCodebook = async () => {
+        setIsLoading(true);
+        try {
             const { data, error } = await fetchLLMData<{
                 message: string;
                 data: CodebookType;
             }>(REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK_WITHOUT_QUOTES, {
                 method: 'POST',
                 body: JSON.stringify({
-                    dataset_id: datasetId,
-                    unseen_post_responses: unseenPostResponses.map((r) => ({
-                        postId: r.postId,
-                        id: r.id,
-                        code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                        quote: r.quote,
-                        explanation: r.explanation,
-                        comment: r.comment,
-                        subCode: r.code
-                    })),
-                    sampled_post_responses: sampledPostResponses.map((r) => ({
-                        postId: r.postId,
-                        id: r.id,
-                        code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-                        quote: r.quote,
-                        explanation: r.explanation,
-                        comment: r.comment,
-                        subCode: r.code
-                    })),
                     model: settings.ai.model
                 })
             });
-            if (error) {
-                console.error('Failed to generate codebook:', error);
-                toast.error('Failed to generate codebook ' + (error.message ?? ''));
-                throw new Error('Failed to generate codebook');
-            }
-            return data.data;
-        },
-        [settings, datasetId, groupedCodes]
-    );
-
-    const addPostIds = useCallback((newPostIds: string[], initialState = false) => {
-        setPostStates((prev) => {
-            const newStates = newPostIds.reduce(
-                (acc, id) => {
-                    if (!(id in prev)) {
-                        acc[id] = initialState;
-                    }
-                    return acc;
-                },
-                {} as { [postId: string]: boolean }
-            );
-            return { ...prev, ...newStates };
-        });
-    }, []);
-
-    const updatePostState = useCallback((postId: string, state: boolean) => {
-        setPostStates((prev) => ({ ...prev, [postId]: state }));
-    }, []);
-
-    const createCodebook = useCallback(
-        async (sampledPostResponses: any[], unseenPostResponses: any[], groupedCodes: any[]) => {
-            setIsLoading(true);
-            try {
-                const newCodebook = await generateCodebookWithoutQuotes(
-                    sampledPostResponses,
-                    unseenPostResponses,
-                    groupedCodes
-                );
-                setCodebook(newCodebook);
-            } catch (error) {
-                console.error('Error creating codebook:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        },
-        [generateCodebookWithoutQuotes]
-    );
-
-    const updateContext = (updates: Partial<IManualCodingContext>) => {
-        console.log('Updates:', updates);
-        if (updates.postStates) {
-            setPostStates(updates.postStates);
-        }
-        if (updates.codebook) {
-            setCodebook(updates.codebook);
-        }
-        if (updates.manualCodingResponses) {
-            dispatchManualCodingResponses({
-                type: 'ADD_RESPONSES',
-                responses: updates.manualCodingResponses
+            if (error) throw new Error('Failed to generate codebook');
+            const newCodebook = data.data;
+            const saveData = await saveManualCodingContext('setCodebook', {
+                codebook: newCodebook
             });
+            if (saveData.codebook !== undefined) setCodebook(saveData.codebook);
+        } catch (error) {
+            console.error('Error generating codebook:', error);
+            toast.error('Failed to generate codebook');
+        } finally {
+            setIsLoading(false);
         }
     };
-
-    const resetContext = () => {
-        setPostStates({});
-        setCodebook(null);
-        dispatchManualCodingResponses({ type: 'RESET' });
-    };
-
-    const generateCodebook = useCallback(
-        (sampledPostResponse: any[], unseenPostResponse: any[], groupedCodes: any[]) => {
-            console.log(
-                'Manual context mounted',
-                Object.keys(codebook ?? {}).length === 0,
-                Object.keys(codebook ?? {}).length !== 0
-            );
-            if (Object.keys(codebook ?? {}).length !== 0) return;
-            createCodebook(sampledPostResponse, unseenPostResponse, groupedCodes);
-        },
-        [codebook, postStates, createCodebook]
-    );
-
-    useEffect(() => {
-        if (postStates && Object.keys(postStates).length > 0) {
-            console.log('Post states:', postStates);
-            return;
-        }
-
-        const testPostIds = selectedData.filter(
-            (p) => !sampledPostIds.includes(p) && !unseenPostIds.includes(p)
-        );
-
-        console.log('Test postIds:', testPostIds);
-
-        setPostStates(testPostIds.reduce((acc, id) => ({ ...acc, [id]: false }), {}));
-    }, [sampledPostIds, unseenPostIds]);
-
-    useEffect(() => {
-        console.log(
-            'Manual coding context mounted',
-            manualCodingResponses,
-            codebook,
-            postStates,
-            sampledPostResponse,
-            unseenPostResponse
-        );
-        if (
-            manualCodingResponses.length === 0 &&
-            codebook &&
-            Object.keys(codebook).length > 0 &&
-            Object.keys(postStates).length > 0 &&
-            sampledPostResponse.length > 0 &&
-            unseenPostResponse.length > 0
-        ) {
-            const fetchResponses = async () => {
-                try {
-                    const postIds = Object.keys(postStates);
-                    const responses = await fetchLLMResponses(codebook, postIds);
-                    const llmResponses = responses.map((resp) => ({
-                        ...resp,
-                        type: 'LLM',
-                        isMarked: true
-                    }));
-                    dispatchManualCodingResponses({
-                        type: 'ADD_RESPONSES',
-                        responses: llmResponses
-                    });
-                    toast.success('LLM generated deductive codes successfully');
-                } catch (error) {
-                    console.error('Error fetching LLM responses:', error);
-                }
-            };
-            fetchResponses();
-        }
-    }, [codebook, sampledPostResponse, unseenPostResponse]);
 
     const loadingStateInitialization: Record<
         string,
         {
             relatedStates: {
-                state: any;
-                func: SetState<any> | Dispatch<any>;
                 name: string;
-                initValue?: any;
             }[];
-            downloadData?: { name: string; data: any[]; condition?: boolean };
         }
     > = useMemo(
-        () =>
-            settings.general.manualCoding
-                ? {
-                      [PAGE_ROUTES.MANUAL_CODING]: {
-                          relatedStates: [
-                              {
-                                  state: codebook,
-                                  func: setCodebook,
-                                  name: 'setCodebook',
-                                  initValue: null
-                              },
-                              {
-                                  state: manualCodingResponses,
-                                  func: dispatchManualCodingResponses,
-                                  name: 'dispatchManualCodingResponses'
-                              }
-                          ]
-                      }
-                  }
-                : {},
+        () => ({
+            [PAGE_ROUTES.MANUAL_CODING]: {
+                relatedStates: [
+                    { name: 'setCodebook' },
+                    {
+                        name: 'setManualCodingResponses'
+                    }
+                ]
+            }
+        }),
         [codebook, manualCodingResponses]
     );
 
     useLoadingSteps(loadingStateInitialization, loadingState[PAGE_ROUTES.MANUAL_CODING]?.stepRef);
+
+    const fetchStates = async (stateNames: string[]) => {
+        try {
+            const { data, error } = await fetchData(
+                REMOTE_SERVER_ROUTES.LOAD_MANUAL_CODING_CONTEXT,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ states: stateNames })
+                }
+            );
+            if (error) throw new Error(`Failed to fetch states: ${stateNames.join(', ')}`);
+            return data;
+        } catch (error) {
+            console.error('Error fetching states:', JSON.stringify(error));
+            throw error;
+        }
+    };
+
+    useEffect(() => {
+        const page = location.pathname;
+        const stateMap: Record<string, string[]> = {
+            [PAGE_ROUTES.HOME]: ['postStates', 'codebook'],
+            [PAGE_ROUTES.MANUAL_CODING]: ['postStates', 'codebook']
+        };
+        const statesToFetch = stateMap[page] || [];
+        if (statesToFetch.length > 0) {
+            (async () => {
+                try {
+                    const fetchedData = await fetchStates(statesToFetch);
+                    if (fetchedData) {
+                        if (fetchedData.postStates !== undefined)
+                            setPostStates(fetchedData.postStates);
+                        if (fetchedData.codebook !== undefined) setCodebook(fetchedData.codebook);
+                    }
+                } catch (error) {
+                    console.error('Error in state fetching effect:', error);
+                }
+            })();
+        }
+    }, [location.pathname]);
 
     const value = useMemo(
         () => ({
@@ -361,18 +279,10 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
             resetContext,
             generateCodebook
         }),
-        [postStates, addPostIds, updatePostState, isLoading, codebook, manualCodingResponses]
+        [postStates, isLoading, codebook, manualCodingResponses]
     );
 
     return <ManualCodingContext.Provider value={value}>{children}</ManualCodingContext.Provider>;
 };
 
-// Helper function to compare two arrays as sets
-function setsEqual(a: string[], b: string[]) {
-    const setA = new Set(a);
-    const setB = new Set(b);
-    return a.length === b.length && a.every((id) => setB.has(id));
-}
-
-// Hook to use the context
 export const useManualCodingContext = () => useContext(ManualCodingContext);

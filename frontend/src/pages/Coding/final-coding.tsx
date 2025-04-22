@@ -20,7 +20,7 @@ const FinalCodingPage = () => {
     const [searchParams] = useSearchParams();
     const reviewParam = searchParams.get('review') !== 'false';
 
-    const { unseenPostResponse, dispatchUnseenPostResponse, unseenPostIds } = useCodingContext();
+    const { dispatchUnseenPostResponse, unseenPostIds } = useCodingContext();
     const { settings } = useSettings();
     const location = useLocation();
     const logger = useLogger();
@@ -182,7 +182,8 @@ const FinalCodingPage = () => {
                 <div className="flex-1 overflow-hidden">
                     <UnifiedCodingPage
                         postIds={unseenPostIds}
-                        data={unseenPostResponse}
+                        // data={unseenPostResponse}
+                        responseTypes={['sampled', 'unseen']}
                         dispatchFunction={dispatchUnseenPostResponse}
                         // showThemes
                         showRerunCoding
