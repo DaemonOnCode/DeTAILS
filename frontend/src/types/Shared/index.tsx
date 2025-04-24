@@ -83,6 +83,8 @@ export interface IModelingContext {
 
 export type Keyword = { id: string; word: string };
 
+export type AsyncDispatch<T> = Dispatch<T> | ((...args: any[]) => Promise<void>);
+
 export interface ICodingContext {
     contextFiles: IFile;
     addContextFile: (filePath: string, fileName: string) => void;
@@ -105,10 +107,8 @@ export interface ICodingContext {
     dispatchKeywordsTable: Dispatch<KeywordsTableAction>;
     updateContext: (updates: Partial<ICodingContext>) => void;
     resetContext: () => void;
-    // sampledPostResponse: IQECResponse[];
-    dispatchSampledPostResponse: Dispatch<SampleDataResponseReducerActions>;
-    // unseenPostResponse: IQECTTyResponse[];
-    dispatchUnseenPostResponse: Dispatch<BaseResponseHandlerActions<IQECTTyResponse>>;
+    dispatchSampledPostResponse: AsyncDispatch<SampleDataResponseReducerActions>;
+    dispatchUnseenPostResponse: AsyncDispatch<BaseResponseHandlerActions<IQECTTyResponse>>;
     themes: ThemeBucket[];
     dispatchThemes: SetState<ThemeBucket[]>;
     groupedCodes: ThemeBucket[];
@@ -184,6 +184,7 @@ export type LoadingAction =
           payload: { route: string; defaultData?: ILoadingState[string] };
       }
     | { type: 'SET_FIRST_RUN_DONE'; route: string }
+    | { type: 'SET_FIRST_RUN'; route: string; done: boolean }
     | { type: 'SET_REST_UNDONE'; route: string }
     | {
           type: 'UPDATE_PAGE_STATE';
@@ -218,4 +219,21 @@ export interface ILoadingContext {
 
 export interface ModalCallbacks {
     [id: string]: (e: React.MouseEvent) => void | Promise<void>;
+}
+
+export type CodebookType = {
+    [code: string]: string;
+};
+
+export interface IManualCodingContext {
+    postStates: { [postId: string]: boolean };
+    addPostIds: (newPostIds: string[], initialState?: boolean) => Promise<void>;
+    updatePostState: (postId: string, state: boolean) => Promise<void>;
+    isLoading: boolean;
+    codebook: CodebookType | null;
+    manualCodingResponses: IQECTTyResponse[];
+    dispatchManualCodingResponses: AsyncDispatch<BaseResponseHandlerActions<IQECTTyResponse>>;
+    updateContext: (updates: Partial<IManualCodingContext>) => Promise<void>;
+    resetContext: () => Promise<void>;
+    generateCodebook: () => Promise<void>;
 }

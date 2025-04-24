@@ -8,6 +8,7 @@ import re
 from constants import OLLAMA_API_BASE
 from errors.ollama_errors import DeleteModelError, InvalidModelError, PullModelError
 from headers.app_id import get_app_id
+from ipc import send_ipc_message
 from routes.websocket_routes import manager
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
@@ -47,7 +48,7 @@ async def pull_model(
                     if line:  
                         current_time = time.monotonic()
                         if current_time - last_sent >= interval:
-                            await manager.send_message(app_id, line)
+                            await send_ipc_message(app_id, line)
                             last_sent = current_time
         return {"message": "Pull model streaming completed."}
     except Exception as e:

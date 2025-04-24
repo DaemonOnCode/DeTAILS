@@ -1,4 +1,4 @@
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import PostTab from './post-tab';
 import {
     usePaginatedPostsMetadata,
@@ -6,8 +6,9 @@ import {
 } from '../../../hooks/Coding/use-paginated-metadata';
 import { SetState } from '../../../types/Coding/shared';
 import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
-import { debounce } from 'lodash';
 import { useInfiniteScroll } from '../../../hooks/Coding/use-infinite-scroll';
+import { DEBOUNCE_DELAY } from '../../../constants/Shared';
+import useDebounce from '../../../hooks/Shared/use-debounce';
 
 interface LeftPanelProps {
     responseTypes: ('sampled' | 'unseen' | 'manual')[];
@@ -40,26 +41,9 @@ const LeftPanel: FC<LeftPanelProps> = ({
     selectedItem,
     setSelectedItem
 }) => {
-    const [showCodedPosts, setShowCodedPosts] = useState(false);
     const { scrollRef: listRef, storageKey } = useScrollRestoration('left-panel');
 
-    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
-    const updateDebouncedSearch = useCallback(
-        debounce((query: string) => {
-            setDebouncedSearchQuery(query);
-        }, 300), // 300ms delay
-        [] // Empty dependency array ensures the debounced function is created only once
-    );
-
-    useEffect(() => {
-        updateDebouncedSearch(searchQuery);
-    }, [searchQuery, updateDebouncedSearch]);
-
-    // Reset debouncedSearchQuery immediately when activeTab changes
-    useEffect(() => {
-        setDebouncedSearchQuery(searchQuery); // Immediately set to current searchQuery (which is '' when tabs switch)
-        updateDebouncedSearch.cancel(); // Cancel any pending debounced updates
-    }, [activeTab, searchQuery, updateDebouncedSearch]);
+    const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
 
     const {
         postIds,
@@ -75,7 +59,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
         pageSize: 20,
         responseTypes,
         searchTerm: activeTab === 'posts' ? debouncedSearchQuery : '',
-        onlyCoded: showCodedPosts,
+        onlyCoded: selectedItem?.endsWith('coded-data') ?? false,
         selectedTypeFilter
     });
 
@@ -103,25 +87,21 @@ const LeftPanel: FC<LeftPanelProps> = ({
 
     useEffect(() => {
         setSelectedItem(null);
-    }, [selectedTypeFilter, setSelectedItem]);
-
-    useEffect(() => {
-        if (listRef.current && postIds.length > 0) {
-            const savedPosition = sessionStorage.getItem(storageKey);
-            if (savedPosition) {
-                listRef.current.scrollTop = parseInt(savedPosition, 10);
-            }
-        }
-    }, [postIds, listRef, storageKey]);
+    }, [selectedTypeFilter]);
 
     const handleSelect = (selection: string | null) => {
-        if (selection === 'coded-data') {
-            setShowCodedPosts(true);
-        } else if (selection === null) {
-            setShowCodedPosts(false);
-        }
-        setSelectedItem(selection);
-        onFilterSelect(selection);
+        setSelectedItem((prev) => {
+            if (
+                (prev === 'coded-data' || prev?.split('|')?.[1] === 'coded-data') &&
+                selection !== null
+            ) {
+                const newFilter = `${selection}|coded-data`;
+                onFilterSelect(newFilter);
+                return newFilter;
+            }
+            onFilterSelect(selection);
+            return selection;
+        });
         if (selection === null) {
             setSearchQuery('');
         }
@@ -180,7 +160,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                     <div className="flex justify-evenly items-center text-center">
                         <span
                             className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
-                                !showCodedPosts && selectedItem === null
+                                selectedItem === null
                                     ? 'bg-blue-200 font-bold'
                                     : 'hover:bg-blue-100'
                             }`}
@@ -189,7 +169,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                         </span>
                         <span
                             className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
-                                showCodedPosts || selectedItem === 'coded-data'
+                                selectedItem?.endsWith('coded-data')
                                     ? 'bg-blue-200 font-bold'
                                     : 'hover:bg-blue-100'
                             }`}

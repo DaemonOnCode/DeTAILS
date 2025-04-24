@@ -33,26 +33,38 @@ export function usePaginatedResponses({
     const [totalPostIds, setTotalPostIds] = useState(0);
     const [isLoadingPage, setIsLoadingPage] = useState(false);
 
+    const buildBody = useCallback(
+        (page: number) => ({
+            page,
+            pageSize,
+            filterCode,
+            searchTerm,
+            selectedTypeFilter,
+            responseTypes,
+            postId
+        }),
+        [pageSize, filterCode, searchTerm, selectedTypeFilter, responseTypes, postId]
+    );
+
     const loadPage = useCallback(
         async (page: number) => {
             setIsLoadingPage(true);
-            const body = {
-                page,
-                pageSize,
-                filterCode,
-                searchTerm,
-                selectedTypeFilter,
-                responseTypes,
-                postId
-            };
             const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.GET_PAGINATED_RESPONSES, {
                 method: 'POST',
-                body: JSON.stringify(body)
+                body: JSON.stringify(buildBody(page))
             });
 
             if (!error && data) {
                 setPages((prev) => {
-                    if (prev.some((p) => p.pageNum === page)) return prev;
+                    if (prev.some((p) => p.pageNum === page))
+                        return [
+                            ...prev.filter((p) => p.pageNum !== page),
+                            {
+                                pageNum: page,
+                                postIds: data.postIds,
+                                responsesByPostId: data.responses
+                            }
+                        ];
                     return [
                         ...prev,
                         {
@@ -77,7 +89,7 @@ export function usePaginatedResponses({
         setMaxPage(1);
         setTotalPostIds(0);
         loadPage(1);
-    }, [filterCode, searchTerm, selectedTypeFilter, loadPage]);
+    }, [filterCode, searchTerm, selectedTypeFilter, postId, loadPage]);
 
     const loadedPostIds = useMemo(() => {
         const set = new Set<string>();
@@ -111,13 +123,61 @@ export function usePaginatedResponses({
         if (!isLoadingPage && hasNextPage) {
             loadPage(maxPage + 1);
         }
-    }, [isLoadingPage, hasNextPage, maxPage, loadPage]);
+    }, [postId, isLoadingPage, hasNextPage, maxPage, loadPage]);
 
     const loadPreviousPage = useCallback(() => {
         if (!isLoadingPage && hasPreviousPage) {
             loadPage(minPage - 1);
         }
-    }, [isLoadingPage, hasPreviousPage, minPage, loadPage]);
+    }, [postId, isLoadingPage, hasPreviousPage, minPage, loadPage]);
+
+    const refresh = useCallback(async () => {
+        console.log('Refreshing data... from hook', pages);
+        if (isLoadingPage) return;
+        setIsLoadingPage(true);
+        const pageNums = pages.map((_, i) => i + 1);
+        const promises = pageNums.map((page) =>
+            fetchData(REMOTE_SERVER_ROUTES.GET_PAGINATED_RESPONSES, {
+                method: 'POST',
+                body: JSON.stringify(buildBody(page))
+            })
+                .then((res) => ({ page, data: res.data, error: res.error }))
+                .catch((err) => ({ page, data: undefined, error: err }))
+        );
+
+        try {
+            const results = await Promise.all(promises);
+
+            const successful = results.filter((r) => !r.error && r.data);
+
+            const newPages = successful
+                .map(({ page, data }) => ({
+                    pageNum: page,
+                    postIds: data.postIds,
+                    responsesByPostId: data.responses
+                }))
+                .sort((a, b) => a.pageNum - b.pageNum);
+
+            setPages(newPages);
+
+            if (successful.length) {
+                setTotalPostIds(successful[0].data.totalPostIds);
+                setMinPage(Math.min(...pageNums));
+                setMaxPage(Math.max(...pageNums));
+            }
+        } finally {
+            setIsLoadingPage(false);
+        }
+    }, [
+        pages,
+        pageSize,
+        filterCode,
+        searchTerm,
+        selectedTypeFilter,
+        responseTypes,
+        postId,
+        isLoadingPage
+    ]);
 
     return {
         postIds,
@@ -126,6 +186,7 @@ export function usePaginatedResponses({
         hasNextPage,
         hasPreviousPage,
         loadNextPage,
-        loadPreviousPage
+        loadPreviousPage,
+        refresh
     };
 }

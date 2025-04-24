@@ -15,6 +15,7 @@ import { useLoadingContext } from '../../context/loading-context';
 import { toast } from 'react-toastify';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
+import { useRetryHandler, useNextHandler } from '../../hooks/Coding/use-handler-factory';
 
 const FinalCodingPage = () => {
     const [searchParams] = useSearchParams();
@@ -50,88 +51,31 @@ const FinalCodingPage = () => {
 
     const stepRoute = location.pathname;
 
-    const handleRedoCoding = async () => {
-        navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.FINAL_CODING_LOADER, {
-                text: 'Final Coding in Progress'
-            })
-        );
+    const handleRedoCoding = useRetryHandler({
+        startLog: 'Starting redo coding',
+        doneLog: 'Redo coding completed',
+        loadingRoute: PAGE_ROUTES.FINAL_CODING,
+        loaderRoute: LOADER_ROUTES.FINAL_CODING_LOADER,
+        loaderParams: { text: 'Final Coding in Progress' },
+        remoteRoute: REMOTE_SERVER_ROUTES.FINAL_CODING,
+        useLLM: true,
+        buildBody: () => JSON.stringify({ model: settings.ai.model }),
+        nextRoute: PAGE_ROUTES.FINAL_CODING,
+        onSuccess: (data) => console.log('Results:', data),
+        onError: (error) => console.error('Error in handleRedoCoding:', error)
+    });
 
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.FINAL_CODING
-        });
-
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-        }>(REMOTE_SERVER_ROUTES.FINAL_CODING, {
-            method: 'POST',
-            body: JSON.stringify({
-                model: settings.ai.model
-            })
-        });
-
-        if (error) {
-            console.error('Error in handleRedoCoding:', error);
-            if (error.name) {
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.FINAL_CODING
-                });
-            }
-            return;
-        }
-
-        console.log('Results:', results);
-
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.FINAL_CODING
-        });
-        navigate(PAGE_ROUTES.FINAL_CODING);
-    };
-
-    const handleNextClick = async () => {
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.REVIEWING_CODES
-        });
-        navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                text: 'Reviewing codes'
-            })
-        );
-
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-        }>(REMOTE_SERVER_ROUTES.GROUP_CODES, {
-            method: 'POST',
-            body: JSON.stringify({
-                model: settings.ai.model
-            })
-        });
-
-        if (error) {
-            console.error('Error refreshing themes:', error);
-            if (error.name !== 'AbortError') {
-                toast.error('Error finalizing codes ' + (error.message ?? ''));
-                navigate(PAGE_ROUTES.FINAL_CODING);
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.REVIEWING_CODES
-                });
-                throw new Error(error.message);
-            }
-            return;
-        }
-
-        console.log('Results:', results);
-
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.REVIEWING_CODES
-        });
-    };
+    const handleNextClick = useNextHandler({
+        startLog: 'Starting code grouping',
+        doneLog: 'Code grouping completed',
+        loadingRoute: PAGE_ROUTES.REVIEWING_CODES,
+        loaderRoute: LOADER_ROUTES.DATA_LOADING_LOADER,
+        loaderParams: { text: 'Reviewing codes' },
+        remoteRoute: REMOTE_SERVER_ROUTES.GROUP_CODES,
+        useLLM: true,
+        buildBody: () => JSON.stringify({ model: settings.ai.model }),
+        onSuccess: (data) => console.log('Results:', data)
+    });
 
     const steps: TutorialStep[] = [
         {

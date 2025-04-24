@@ -18,6 +18,7 @@ import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
+import { useNextHandler } from '../../hooks/Coding/use-handler-factory';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -171,50 +172,39 @@ const ContextPage = () => {
         });
     };
 
-    const handleOnNextClick = async (e: any) => {
-        if (!datasetId) return;
-        if (newQuestion.trim() !== '') {
-            alert(
-                "You have an unsaved research question. Please click 'Add' to include it or clear the text before proceeding."
-            );
-            throw new Error('Unsaved research question');
-        }
-        e.preventDefault();
-        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.RELATED_CONCEPTS });
-        await logger.info('Starting Theme Cloud Generation');
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
-
-        const formData = new FormData();
-        Object.keys(contextFiles).forEach((filePath) => {
-            const fileContent = fs.readFileSync(filePath);
-            const blob = new Blob([fileContent]);
-            formData.append('contextFiles', blob, contextFiles[filePath]);
-        });
-        formData.append('model', settings.ai.model);
-
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-        }>(REMOTE_SERVER_ROUTES.BUILD_CONTEXT, { method: 'POST', body: formData });
-
-        if (error) {
-            console.error('Error building context:', error);
-            if (error.name !== 'AbortError') {
-                toast.error('Error building context. Please try again. ' + (error.message ?? ''));
-                navigate(PAGE_ROUTES.CONTEXT);
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.RELATED_CONCEPTS
-                });
-                throw new Error(error.message);
+    const handleOnNextClick = useNextHandler({
+        startLog: 'Starting Relevant Concept Generation',
+        doneLog: 'Relevant Concept generated',
+        loadingRoute: PAGE_ROUTES.RELATED_CONCEPTS,
+        loaderRoute: LOADER_ROUTES.THEME_LOADER,
+        remoteRoute: REMOTE_SERVER_ROUTES.BUILD_CONTEXT,
+        useLLM: true,
+        buildBody: () => {
+            const formData = new FormData();
+            Object.keys(contextFiles).forEach((filePath) => {
+                const fileContent = fs.readFileSync(filePath);
+                const blob = new Blob([fileContent]);
+                formData.append('contextFiles', blob, contextFiles[filePath]);
+            });
+            formData.append('model', settings.ai.model);
+            return formData;
+        },
+        onSuccess: (data) => {
+            console.log('Response from remote server', data);
+            navigate(PAGE_ROUTES.RELATED_CONCEPTS);
+        },
+        checkUnsaved: () => {
+            if (!datasetId) {
+                throw new Error('Dataset ID is missing');
             }
-            return;
+            if (newQuestion.trim() !== '') {
+                alert(
+                    "You have an unsaved research question. Please click 'Add' to include it or clear the text before proceeding."
+                );
+                throw new Error('Unsaved research question');
+            }
         }
-        console.log('Response from remote server', results);
-
-        await logger.info('Theme Cloud generated');
-        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.RELATED_CONCEPTS });
-        navigate(PAGE_ROUTES.RELATED_CONCEPTS);
-    };
+    });
 
     return (
         <>

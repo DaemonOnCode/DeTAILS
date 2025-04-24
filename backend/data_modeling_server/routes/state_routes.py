@@ -183,7 +183,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             "explanation": response.explanation,
             "postId": response.post_id,
             "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
-            "isMarked": bool(response.is_marked),
+            "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
             "comment": "",
             "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
         } for response in sampled_responses]}
@@ -222,7 +222,7 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             "explanation": response.explanation,
             "postId": response.post_id,
             "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
-            "isMarked": bool(response.is_marked),
+            "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
             "comment": "",
             "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
             "type": response.response_type,
@@ -354,7 +354,7 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
                 "explanation": qr["explanation"],
                 "postId": qr["post_id"],
                 "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else None,
-                "isMarked": bool(qr["is_marked"]),
+                "isMarked": bool(qr["is_marked"]) if qr["isMarked"] is not None else None ,
                 "rangeMarker": json.loads(qr["range_marker"]) if qr["range_marker"] else None,
             }
             for qr in qect_responses
@@ -390,7 +390,7 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
                 "explanation": qr["explanation"],
                 "postId": qr["post_id"],
                 "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else None,
-                "isMarked": bool(qr["is_marked"]),
+                "isMarked": bool(qr["is_marked"]) if qr["isMarked"] is not None else None ,
                 "rangeMarker": json.loads(qr["range_marker"]) if qr["range_marker"] else None,
             }
             for qr in qect_responses

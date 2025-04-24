@@ -172,6 +172,7 @@ class BaseRepository(Generic[T]):
         try:
             # update_dict = asdict(updates)
             query, params = self.query_builder_instance.update(filters, updates)
+            print(query, params, "update")
             return self.execute_query(query, params, result=True)
         except sqlite3.Error as e:
             raise UpdateError(f"Failed to update records in table {self.table_name}. Error: {e}")
@@ -255,12 +256,11 @@ class BaseRepository(Generic[T]):
         
     @handle_db_errors
     @auto_recover
-    def execute_raw_query(self, query: str, params: tuple = (), keys = False) -> Any:
+    def execute_raw_query(self, query: str, params: tuple = (), keys = False) -> dict | sqlite3.Cursor:
         with tuned_connection(self.database_path) as conn:
             if keys:
                 conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            print(query, params, "raw query")
             result = cursor.execute(query, params)
             conn.commit()
             if keys:

@@ -61,11 +61,19 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                                             console.error('Error in abortRequests:', e);
                                         }
                                         await resetDataAfterPage(location.pathname);
-                                        onNextClick && (await onNextClick(e));
-                                        loadingDispatch({
-                                            type: 'SET_FIRST_RUN_DONE',
-                                            route: location.pathname
-                                        });
+                                        const error = await onNextClick?.(e);
+                                        console.log('Abort error on route:', error);
+                                        if (!error) {
+                                            loadingDispatch({
+                                                type: 'SET_FIRST_RUN_DONE',
+                                                route: location.pathname
+                                            });
+                                        } else {
+                                            loadingDispatch({
+                                                type: 'SET_REST_UNDONE',
+                                                route: location.pathname
+                                            });
+                                        }
                                         autoNavigateToNext && navigate(nextPageFull);
                                     });
                                 } else {
@@ -78,11 +86,19 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                                         type: 'SET_REST_UNDONE',
                                         route: location.pathname
                                     });
-                                    onNextClick && (await onNextClick?.(e));
-                                    loadingDispatch({
-                                        type: 'SET_FIRST_RUN_DONE',
-                                        route: location.pathname
-                                    });
+                                    const error = onNextClick && (await onNextClick?.(e));
+                                    console.log('Abort error on route:', error);
+                                    if (!error) {
+                                        loadingDispatch({
+                                            type: 'SET_FIRST_RUN_DONE',
+                                            route: location.pathname
+                                        });
+                                    } else {
+                                        loadingDispatch({
+                                            type: 'SET_REST_UNDONE',
+                                            route: location.pathname
+                                        });
+                                    }
                                     autoNavigateToNext && navigate(nextPageFull);
                                 }
                             } catch (e) {

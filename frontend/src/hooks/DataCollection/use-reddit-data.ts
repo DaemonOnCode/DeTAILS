@@ -1,12 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { RedditPosts } from '../../types/Coding/shared';
-import { DB_PATH } from '../../constants/Coding/shared';
 import { useCollectionContext } from '../../context/collection-context';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { useApi } from '../Shared/use-api';
 
-const { ipcRenderer } = window.require('electron');
 const fs = window.require('fs');
 const path = window.require('path');
 
@@ -133,7 +131,7 @@ const useRedditData = () => {
         return batchResponse.data;
     };
 
-    const loadFolderData = async (addToDb: boolean = false, changeModeInput = false) => {
+    const loadFolderData = async (addToDb: boolean = false) => {
         setLoading(true);
         try {
             if (!currentWorkspace || !currentWorkspace.id) {

@@ -1,18 +1,19 @@
 import json
+from multiprocessing import Process
+import multiprocessing
 import os
+import signal
 import sys
-import time
-from dotenv import load_dotenv
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from constants import DATASETS_DIR, PATHS, get_default_transmission_cmd
+
+
+from constants import DATASETS_DIR, PATHS
 from database import (
-    initialize_database, WorkspacesRepository, 
-    WorkspaceStatesRepository, DatasetsRepository, 
-    PostsRepository, CommentsRepository, 
-    LlmResponsesRepository, FileStatusRepository, 
-    PipelineStepsRepository, TorrentDownloadProgressRepository, 
+    initialize_database, WorkspacesRepository,
+    WorkspaceStatesRepository, DatasetsRepository,
+    PostsRepository, CommentsRepository,
+    LlmResponsesRepository, FileStatusRepository,
+    PipelineStepsRepository, TorrentDownloadProgressRepository,
     QectRepository, FunctionProgressRepository,
     LlmPendingTaskRepository, LlmFunctionArgsRepository,
     SelectedPostIdsRepository,
@@ -22,117 +23,89 @@ from database import (
 from database.full_qect_table import FullQectRepository
 from database.initialize import initialize_study_database
 from database.state_dump_table import StateDumpsRepository
-from middlewares import ErrorHandlingMiddleware, ExecutionTimeMiddleware, LoggingMiddleware, AbortOnDisconnectMiddleware
-from routes import (
-    coding_routes, collection_routes, 
-    ollama_routes, websocket_routes, 
-    miscellaneous_routes, workspace_routes, 
-    state_routes
-)
+from constants import PATHS, get_default_transmission_cmd
 
-sys.stdout.reconfigure(encoding='utf-8')
-
-load_dotenv()
-print(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
 
 def set_initial_settings():
     with open(PATHS["settings"], "r") as f:
         settings = json.load(f)
-        if settings["transmission"]["downloadDir"] == "" :
-            settings["transmission"]["downloadDir"] = PATHS["transmission"]
-        if settings["transmission"]["path"] == "":
-            default_cmd = get_default_transmission_cmd()
-            default_path = default_cmd[0]
-            settings["transmission"]["path"] = default_path
-        with open(PATHS["settings"], "w") as f:
-            json.dump(settings, f, indent=4)
-        
+    if not settings["transmission"]["downloadDir"]:
+        settings["transmission"]["downloadDir"] = PATHS["transmission"]
+    if not settings["transmission"]["path"]:
+        settings["transmission"]["path"] = get_default_transmission_cmd()[0]
+    with open(PATHS["settings"], "w") as f:
+        json.dump(settings, f, indent=4)
 
-print("Starting FastAPI server...")
-app = FastAPI()
+def run_http():
+    uvicorn.run(
+        "app_http:app", 
+        port=8080,
+        reload=False,
+        workers=3,  
+    )
 
-print("Adding middleware...")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.add_middleware(AbortOnDisconnectMiddleware)
-app.add_middleware(ExecutionTimeMiddleware)
-app.add_middleware(ErrorHandlingMiddleware)
-app.add_middleware(LoggingMiddleware)
-print("Middleware added!")
-
-app.include_router(collection_routes.router, prefix="/api/collections", tags=["collections"])
-# app.include_router(modeling_routes.router, prefix="/api/data-modeling", tags=["topic-modeling"])
-# app.include_router(filtering_routes.router, prefix="/api/data-filtering", tags=["data-filtering"])
-app.include_router(websocket_routes.router, prefix="/api/notifications", tags=["notifications"])
-app.include_router(coding_routes.router, prefix="/api/coding", tags=["coding"])
-app.include_router(miscellaneous_routes.router, prefix="/api/miscellaneous", tags=["miscellaneous"])
-app.include_router(workspace_routes.router, prefix="/api/workspaces", tags=["workspace"])
-app.include_router(state_routes.router, prefix="/api/state", tags=["state"])
-app.include_router(ollama_routes.router, prefix="/api/ollama", tags=["ollama"])
-
-@app.get("/")
-def health_check():
-    return {"status": "Data modeling server is up and running!"}
-
+def run_ws():
+    uvicorn.run(
+        "app_ws:app", 
+        port=8081,
+        reload=False
+    )
 
 if __name__ == "__main__":
-    print("Initializing database...")
+    set_initial_settings()
+
+
     initialize_database([
-        WorkspacesRepository, 
-        WorkspaceStatesRepository, 
-        DatasetsRepository, 
-        PostsRepository, 
-        CommentsRepository,
-        LlmResponsesRepository,
-
-        TorrentDownloadProgressRepository,
-        FileStatusRepository,
-        PipelineStepsRepository,
-        FunctionProgressRepository,
-        QectRepository,
-        LlmPendingTaskRepository,
-        LlmFunctionArgsRepository,
-        SelectedPostIdsRepository,
-        CodingContextRepository,
-        ContextFilesRepository,
-        ResearchQuestionsRepository,
+        WorkspacesRepository, WorkspaceStatesRepository,
+        DatasetsRepository, PostsRepository, CommentsRepository,
+        LlmResponsesRepository, TorrentDownloadProgressRepository,
+        FileStatusRepository, PipelineStepsRepository,
+        FunctionProgressRepository, QectRepository,
+        LlmPendingTaskRepository, LlmFunctionArgsRepository,
+        SelectedPostIdsRepository, CodingContextRepository,
+        ContextFilesRepository, ResearchQuestionsRepository,
     ])
-
     initialize_study_database([
-        FullQectRepository,
-        WorkspaceStatesRepository,
-        WorkspacesRepository,
-        LlmPendingTaskRepository,
-        LlmFunctionArgsRepository,
-        SelectedPostIdsRepository,
-        QectRepository,
-        ErrorLogRepository,
-        StateDumpsRepository
+        FullQectRepository, WorkspaceStatesRepository,
+        WorkspacesRepository, LlmPendingTaskRepository,
+        LlmFunctionArgsRepository, SelectedPostIdsRepository,
+        QectRepository, ErrorLogRepository, StateDumpsRepository,
     ])
-
-    print("Database initialized!")
-
     FunctionProgressRepository().delete({}, all=True)
 
-    print("Setting initial settings...")
-    set_initial_settings()
-    print("Initial settings set!")
 
-    print("Creating directories...")
-    os.mkdir(DATASETS_DIR) if not os.path.exists(DATASETS_DIR) else None
-    os.mkdir(PATHS["transmission"]) if not os.path.exists(PATHS["transmission"]) else None
-    print("Directories created!")
+    os.makedirs(DATASETS_DIR, exist_ok=True)
+    os.makedirs(PATHS["transmission"], exist_ok=True)
 
-    is_pyinstaller = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
-    print(sys.platform)
-    uvicorn.run(
-        "main:app",
-        port=8080,
-        reload=not is_pyinstaller and not sys.platform.startswith("win")
-    )
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        multiprocessing.freeze_support()
+
+    p_http = Process(target=run_http, name="http-server")
+    p_http.start()
+
+    p_ws = Process(target=run_ws, name="ws-server")
+    p_ws.start()
+
+    def shutdown(signum, frame):
+        print("Shutting down child processes…")
+        for p in (p_http, p_ws):
+            if p.is_alive():
+                p.terminate()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT,  shutdown)
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGQUIT, shutdown)
+    signal.signal(signal.SIGHUP,  shutdown)
+
+    try:
+        while True:
+            p_http.join(timeout=1)
+            p_ws.join(timeout=1)
+            if not p_http.is_alive() and not p_ws.is_alive():
+                break
+    except KeyboardInterrupt:
+        shutdown(None, None)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(0)

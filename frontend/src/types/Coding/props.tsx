@@ -142,7 +142,7 @@ export type NavigationBottomBarProps = {
     isReady?: boolean;
     previousPage?: string;
     nextPage?: string;
-    onNextClick?: (e: any) => Promise<void>;
+    onNextClick?: (e: any) => Promise<boolean | void>;
     onPreviousClick?: () => void;
     autoNavigateToNext?: boolean;
     disabledTooltipText?: string;

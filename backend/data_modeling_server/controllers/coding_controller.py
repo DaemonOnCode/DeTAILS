@@ -17,6 +17,7 @@ from database.qect_table import QectRepository
 from database.selected_post_ids_table import SelectedPostIdsRepository
 from database.state_dump_table import StateDumpsRepository
 from decorators import log_execution_time
+from ipc import send_ipc_message
 from models.table_dataclasses import CodebookType, LlmResponse, QectResponse, ResponseCreatorType, StateDump
 from routes.websocket_routes import ConnectionManager, manager
 
@@ -60,7 +61,7 @@ def initialize_vector_store(dataset_id: str, model: str, embeddings: Any):
 async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[UploadFile], vector_store: Chroma):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Uploading files...")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Uploading files...")
     await asyncio.sleep(5)
 
     print(f"Processing context files for dataset {dataset_id}..., num files: {len(contextFiles)}")
@@ -107,19 +108,19 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
                 await run_in_threadpool(vector_store.add_documents, chunks)
 
                 success = True
-                await manager.send_message(app_id, f"Dataset {dataset_id}: Successfully processed file {file_name}.")
+                await send_ipc_message(app_id, f"Dataset {dataset_id}: Successfully processed file {file_name}.")
             except Exception as e:
                 retries -= 1
-                await manager.send_message(app_id, 
+                await send_ipc_message(app_id, 
                     f"WARNING: Dataset {dataset_id}: Error processing file {file.filename} - {str(e)}. Retrying... ({3 - retries}/3)"
                 )
                 if retries == 0:
-                    await manager.send_message(app_id, 
+                    await send_ipc_message(app_id, 
                         f"ERROR: Dataset {dataset_id}: Failed to process file {file.filename} after multiple attempts."
                     )
                     raise e
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Files uploaded successfully.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Files uploaded successfully.")
     await asyncio.sleep(1)
 
 
@@ -152,7 +153,7 @@ async def process_llm_task(
     if not function_id:
         function_id = str(uuid4()) 
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: LLM process started...")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: LLM process started...")
 
     while retries > 0 and not success:
         try:
@@ -165,7 +166,7 @@ async def process_llm_task(
                 if not rag_prompt_builder_func:
                     raise ValueError("RAG mode requires a 'rag_prompt_builder_func'.")
 
-                await manager.send_message(app_id, f"Dataset {dataset_id}: Using Retrieval-Augmented Generation (RAG)...")
+                await send_ipc_message(app_id, f"Dataset {dataset_id}: Using Retrieval-Augmented Generation (RAG)...")
 
                 prompt_template = ChatPromptTemplate.from_messages([
                     ("system", rag_prompt_builder_func(**prompt_params)),  
@@ -179,7 +180,7 @@ async def process_llm_task(
                 if not prompt_builder_func:
                     raise ValueError("Standard LLM invocation requires a 'prompt_builder_func'.")
 
-                await manager.send_message(app_id, f"Dataset {dataset_id}: Running direct LLM task...")
+                await send_ipc_message(app_id, f"Dataset {dataset_id}: Running direct LLM task...")
 
                 print("Cacheable Args in collector", cacheable_args)
                 if cacheable_args:
@@ -190,7 +191,7 @@ async def process_llm_task(
                     print("Prompt Text", prompt_text)
                     if stream_output:
                         async for chunk in llm_instance.stream(prompt_text):
-                            await manager.send_message(app_id, f"Dataset {dataset_id}: {chunk}")
+                            await send_ipc_message(app_id, f"Dataset {dataset_id}: {chunk}")
                     else:
                        job_id, response_future = await llm_queue_manager.submit_task(llm_instance.invoke, function_id, prompt_text)
 
@@ -224,7 +225,7 @@ async def process_llm_task(
             extracted_data = json.loads(json_str, strict=False)
 
             success = True
-            await manager.send_message(app_id, f"Dataset {dataset_id}: LLM process completed successfully.")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: LLM process completed successfully.")
 
             if store_response and post_id:
                 llm_responses_repo.insert(
@@ -241,11 +242,11 @@ async def process_llm_task(
 
         except Exception as e:
             retries -= 1
-            await manager.send_message(app_id, 
+            await send_ipc_message(app_id, 
                 f"WARNING: Dataset {dataset_id}: Error processing LLM response - {str(e)}. Retrying... ({retries}/{max_retries})"
             )
             if retries == 0:
-                await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
+                await send_ipc_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
                 extracted_data = []
 
     return extracted_data

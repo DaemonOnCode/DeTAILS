@@ -8,18 +8,14 @@ import React, {
     useEffect
 } from 'react';
 import { ILayout } from '../types/Coding/shared';
-import {
-    ILoadingState,
-    ILoadingContext,
-    LoadingAction,
-    StepHandle,
-    ModalCallbacks
-} from '../types/Shared';
+import { ILoadingState, ILoadingContext, StepHandle, ModalCallbacks } from '../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
-import { PAGE_ROUTES as CODING_PAGE_ROUTES, ROUTES } from '../constants/Coding/shared';
+import {
+    PAGE_ROUTES as CODING_PAGE_ROUTES,
+    LOADER_ROUTES as CODING_LOADER_ROUTES
+} from '../constants/Coding/shared';
 import { loadingReducer } from '../reducers/loading';
 import { useLocation } from 'react-router-dom';
-import { useApi } from '../hooks/Shared/use-api';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -81,7 +77,6 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             await resetDataAfterPage(location.pathname, true);
             if (activeModalId && modalCallbacks[activeModalId]) {
                 const result = modalCallbacks[activeModalId](e);
-                // Breaks on windows
                 // @ts-ignore
                 if (result !== undefined && typeof result.then === 'function') {
                     await result;
@@ -103,7 +98,6 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             await resetDataAfterPage(location.pathname, false);
             if (activeModalId && modalCallbacks[activeModalId]) {
                 const result = modalCallbacks[activeModalId](e);
-                // Breaks on windows
                 // @ts-ignore
                 if (result !== undefined && typeof result.then === 'function') {
                     await result;
@@ -339,6 +333,13 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
     };
 
     const resetContext = () => {
+        console.log('Resetting context');
+        Object.keys(initialPageState).forEach((route) => {
+            loadingDispatch({
+                type: 'SET_LOADING_DONE_ROUTE',
+                route
+            });
+        });
         loadingDispatch({
             type: 'SET_REST_UNDONE',
             route: Object.keys(initialPageState)[0]

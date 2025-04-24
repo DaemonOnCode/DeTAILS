@@ -1,7 +1,6 @@
 import { FC, useRef } from 'react';
 import { useDrag } from 'react-dnd';
 import { generateColor } from '../../../utility/color-generator';
-import { useIntersectionObserver } from '../../../hooks/Shared/use-intersection-observer';
 
 interface CodeItemProps {
     code: string;
@@ -11,10 +10,6 @@ interface CodeItemProps {
 
 const CodeItem: FC<CodeItemProps> = ({ code, setCodeRef, scrollRef }) => {
     const codeItemRef = useRef<HTMLDivElement>(null);
-    // const isVisible = useIntersectionObserver(codeItemRef, {
-    //     root: scrollRef.current,
-    //     rootMargin: '100px'
-    // });
 
     const [{ isDragging }, drag] = useDrag(() => ({
         type: 'CODE',
@@ -26,7 +21,6 @@ const CodeItem: FC<CodeItemProps> = ({ code, setCodeRef, scrollRef }) => {
 
     return (
         <div ref={codeItemRef}>
-            {/* {isVisible ? ( */}
             <div
                 ref={(node) => {
                     drag(node);
@@ -40,9 +34,6 @@ const CodeItem: FC<CodeItemProps> = ({ code, setCodeRef, scrollRef }) => {
                 }`}>
                 {code}
             </div>
-            {/* ) : (
-                <div style={{ height: '40px' }} className="bg-gray-200 animate-pulse" />
-            )} */}
         </div>
     );
 };

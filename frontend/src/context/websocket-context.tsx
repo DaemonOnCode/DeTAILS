@@ -49,25 +49,23 @@ const WebSocketSingleton = (() => {
             // toast.error('WebSocket server is offline. Max retries reached.');
             return;
         }
-        const retryDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+        const retryDelay = Math.pow(2, retryCount) * 1000;
         console.log(`Reconnecting WebSocket in ${retryDelay / 1000}s...`);
         setTimeout(initiateWebSocketConnection, retryDelay);
     };
 
     const deinitialize = async () => {
         console.log('Deinitializing WebSocket Singleton...');
-        // Remove all event listeners related to WebSocket
+
         ipcRenderer.removeAllListeners('ws-message');
         ipcRenderer.removeAllListeners('ws-connected');
         ipcRenderer.removeAllListeners('ws-closed');
         ipcRenderer.removeAllListeners('service-started');
         ipcRenderer.removeAllListeners('service-stopped');
 
-        // Reset internal state
         retryCount = 0;
         isInitialized = false;
 
-        // Stop WebSocket connection
         try {
             await ipcRenderer.invoke('disconnect-ws');
         } catch (error) {
@@ -138,7 +136,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         (checkBackend = false) => {
             ipcRenderer.on('ws-connected', () => {
                 console.log('WebSocket connected');
-                // toast.success('Websocket connection established.');
                 WebSocketSingleton.resetRetryCount();
                 lastPingRef.current = new Date();
                 resetPingTimeout();
@@ -148,9 +145,7 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
             });
 
             ipcRenderer.on('ws-closed', () => {
-                // console.log('WebSocket closed', isAuthenticated);
                 if (!isAuthenticated) return;
-                // toast.warning('WebSocket disconnected. Attempting to reconnect...');
                 WebSocketSingleton.attemptReconnect(initiateWebSocketConnection);
             });
         },
@@ -183,7 +178,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         ipcRenderer.on('service-stopped', handleServiceStopped);
 
         return () => {
-            // WebSocketSingleton.deinitialize();
             ipcRenderer.removeListener('service-started', handleServiceStarted);
             ipcRenderer.removeListener('service-stopped', handleServiceStopped);
         };
@@ -206,7 +200,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
 
         let cleanup = () => {
             console.log('User logged out. De-initializing WebSocket...');
-            // setServiceStarting(false);
         };
         if (remoteProcessing) {
             setServiceStarting(false);

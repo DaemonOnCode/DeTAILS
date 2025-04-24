@@ -598,6 +598,9 @@ const TranscriptPage = () => {
 
     const validationTableData = Object.values(responsesByPostId).flat();
 
+    const [post, setPost] = useState<any | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [showCodebook, setShowCodebook] = useState(false);
     const componentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -617,11 +620,7 @@ const TranscriptPage = () => {
         return () => {
             document.removeEventListener('click', handleClickOutside, true);
         };
-    }, []);
-
-    const [post, setPost] = useState<any | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [showCodebook, setShowCodebook] = useState(false);
+    }, [post]);
 
     const [isAddCodeModalOpen, setIsAddCodeModalOpen] = useState(false);
     const [isEditCodeModalOpen, setIsEditCodeModalOpen] = useState(false);

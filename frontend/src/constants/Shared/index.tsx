@@ -8,6 +8,8 @@ import {
 
 const reactConfig = config('react');
 
+export const DEBOUNCE_DELAY = 1000;
+
 export const ROUTES = Object.freeze({
     NOT_FOUND: '*',
     LOGIN: 'login',
@@ -79,6 +81,6 @@ export const LOADER_TO_ROUTE_MAP: Record<string, string> = {
         CODING_PAGE_ROUTES.REVIEWING_CODES,
     [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.CODEBOOK_LOADER}`]:
         CODING_PAGE_ROUTES.INITIAL_CODEBOOK,
-    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.DATA_LOADING_LOADER}?text=Generating+Keyword+Definitions`]:
+    [`/${ROUTES.CODING}/loader/${CODING_LOADER_ROUTES.DATA_LOADING_LOADER}?text=Generating+Concept+Outline`]:
         CODING_PAGE_ROUTES.CONCEPT_OUTLINE
 };

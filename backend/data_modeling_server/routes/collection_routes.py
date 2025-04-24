@@ -19,6 +19,7 @@ from controllers.collection_controller import (
 from database import PipelineStepsRepository, TorrentDownloadProgressRepository
 from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
+from ipc import send_ipc_message
 from models.collection_models import (
     FilterRedditPostsByDeleted, GetTorrentStatusRequest, 
     GetTranscriptsCsvRequest, ParseDatasetRequest, 
@@ -152,7 +153,7 @@ async def download_reddit_from_torrent_endpoint(
             ))
         )
         message = f"Starting download for subreddit '{request_body.subreddit}' ..."
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
         print(request_body.start_date, request_body.end_date)
@@ -167,7 +168,7 @@ async def download_reddit_from_torrent_endpoint(
 
         try:
             message = f"Fetching torrent data for months {start_month} through {end_month}..."
-            await manager.send_message(app_id, message)
+            await send_ipc_message(app_id, message)
             update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
             output_files = await get_reddit_data_from_torrent(
@@ -182,7 +183,7 @@ async def download_reddit_from_torrent_endpoint(
             )
 
             message = f"Finished downloading {len(output_files)} file(s)."
-            await manager.send_message(app_id, message)
+            await send_ipc_message(app_id, message)
             update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
             academic_folder = None
@@ -193,7 +194,7 @@ async def download_reddit_from_torrent_endpoint(
             if not os.path.exists(datasets_academic_folder):
                 os.makedirs(datasets_academic_folder)
                 message = f"Created datasets folder: {datasets_academic_folder}"
-                await manager.send_message(app_id, message)
+                await send_ipc_message(app_id, message)
                 update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
             print("Output files:", output_files)
             if len(output_files) > 0:
@@ -203,7 +204,7 @@ async def download_reddit_from_torrent_endpoint(
                 if not os.path.exists(academic_folder):
                     os.makedirs(academic_folder, exist_ok=True)
                     message = f"Created folder: {academic_folder}"
-                    await manager.send_message(app_id, message)
+                    await send_ipc_message(app_id, message)
                     update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
                     
             print("Academic folder:", academic_folder)
@@ -215,7 +216,7 @@ async def download_reddit_from_torrent_endpoint(
                 dataset_id = str(uuid4())
 
             message = f"Parsing files into dataset {dataset_id}..."
-            await manager.send_message(app_id, message)
+            await send_ipc_message(app_id, message)
             update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
             print("Parsing files in academic folder:", academic_folder)
@@ -227,16 +228,16 @@ async def download_reddit_from_torrent_endpoint(
 
             print("Finished parsing files.")
             message = "Parsing complete. All steps finished."
-            await manager.send_message(app_id, message)
+            await send_ipc_message(app_id, message)
             update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
             message = "Loading dataset, this may take a few moments..."
-            await manager.send_message(app_id, message)
+            await send_ipc_message(app_id, message)
             update_run_progress(run_id, message, current_download_dir=request_body.download_dir)
 
         except Exception as e:
             err_msg = f"ERROR: {str(e)}"
-            await manager.send_message(app_id, err_msg)
+            await send_ipc_message(app_id, err_msg)
             print(err_msg)
             raise e
         finally:

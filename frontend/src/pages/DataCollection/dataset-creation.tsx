@@ -21,9 +21,9 @@ import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import { useLoadingContext } from '../../context/loading-context';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
-import { toast } from 'react-toastify';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { useManualCodingContext } from '../../context/manual-coding-context';
+import { useNextHandler } from '../../hooks/Coding/use-handler-factory';
 
 const DataViewerPage = () => {
     const { type, datasetId, selectedData, setSelectedData, modeInput, isLocked } =
@@ -34,11 +34,10 @@ const DataViewerPage = () => {
     const { loadFolderData, loadTorrentData } = useRedditData();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { fetchData, fetchLLMData } = useApi();
     const hasSavedRef = useRef(false);
     const location = useLocation();
     const { currentWorkspace } = useWorkspaceContext();
-    const { loadingState, loadingDispatch } = useLoadingContext();
+    const { loadingState } = useLoadingContext();
 
     const postIds: string[] = selectedData;
     const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD && isLocked;
@@ -118,35 +117,16 @@ const DataViewerPage = () => {
         }
     ];
 
-    const handleSamplingPosts = async () => {
-        if (!datasetId) return;
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.INITIAL_CODING
-        });
-        navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.FINAL_CODING_LOADER, {
-                text: 'Initial Coding in Progress'
-            })
-        );
-        console.log('Sampling posts:', postIds);
-
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-        const { data: sampleData, error: sampleError } = await fetchData<
-            | {
-                  message: string;
-                  sampled: string[];
-                  unseen: string[];
-              }
-            | {
-                  message: string;
-                  sampled: string[];
-                  unseen: string[];
-                  manual: string[];
-              }
-        >(REMOTE_SERVER_ROUTES.SAMPLE_POSTS, {
-            method: 'POST',
-            body: JSON.stringify({
+    const handleSampling = useNextHandler({
+        startLog: 'Sampling posts',
+        doneLog: 'Sampling completed',
+        loadingRoute: PAGE_ROUTES.INITIAL_CODING,
+        loaderRoute: LOADER_ROUTES.FINAL_CODING_LOADER,
+        loaderParams: { text: 'Initial Coding in Progress' },
+        remoteRoute: REMOTE_SERVER_ROUTES.SAMPLE_POSTS,
+        useLLM: false,
+        buildBody: () =>
+            JSON.stringify({
                 workspace_id: currentWorkspace!.id,
                 dataset_id: datasetId,
                 post_ids: postIds,
@@ -154,72 +134,31 @@ const DataViewerPage = () => {
                 ...(!settings.general.manualCoding
                     ? { sample_size: settings.general.sampleRatio }
                     : {})
-            })
-        });
-
-        if (sampleError) {
-            console.error('Error sampling posts:', sampleError);
-            if (sampleError.name !== 'AbortError') {
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.INITIAL_CODING
-                });
-                throw new Error(sampleError.message.error_message);
-            }
-            return;
-        }
-
-        console.log('Results:', sampleData);
-
-        setSampledPostIds(sampleData['sampled']);
-        setUnseenPostIds(sampleData['unseen']);
-
-        if (settings.general.manualCoding) {
-            // @ts-ignore
-            addPostIds(sampleData['manual']);
-        }
-
-        console.log(
-            'Generate initial codes:',
-            sampleData['sampled'],
-            keywordTable.filter((keyword) => keyword.isMarked !== undefined)
-        );
-        const { data: codeData, error: codeError } = await fetchLLMData<{
+            }),
+        onSuccess: (data: {
             message: string;
-            data: any[];
-        }>(REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES, {
-            method: 'POST',
-            body: JSON.stringify({
-                model: settings.ai.model
-            })
-        });
-
-        if (codeError) {
-            console.error('Error generating initial codes:', codeError);
-            if (codeError.name !== 'AbortError') {
-                toast.error('Error generating initial codes. ' + (codeError.message ?? ''));
-                navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`);
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.INITIAL_CODING
-                });
-                console.error(
-                    'Error generating initial codes:',
-                    codeError,
-                    'navigate to dataset creation'
-                );
-                throw new Error(codeError.message);
+            sampled: string[];
+            unseen: string[];
+            manual?: string[];
+        }) => {
+            setSampledPostIds(data.sampled);
+            setUnseenPostIds(data.unseen);
+            if (settings.general.manualCoding && data.manual) {
+                addPostIds(data.manual);
             }
-            return;
         }
-
-        console.log('Results:', codeData);
-
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.INITIAL_CODING
-        });
-    };
+    });
+    const handleGenerateInitialCodes = useNextHandler({
+        startLog: 'Generating initial codes',
+        doneLog: 'Initial codes generated',
+        loadingRoute: PAGE_ROUTES.INITIAL_CODING,
+        loaderRoute: LOADER_ROUTES.FINAL_CODING_LOADER,
+        loaderParams: { text: 'Initial Coding in Progress' },
+        remoteRoute: REMOTE_SERVER_ROUTES.GENERATE_INITIAL_CODES,
+        useLLM: true,
+        buildBody: () => JSON.stringify({ model: settings.ai.model }),
+        onSuccess: (data) => console.log('Results:', data)
+    });
 
     if (loadingState[stepRoute]?.isFirstRun) {
         return (
@@ -265,7 +204,10 @@ const DataViewerPage = () => {
                             previousPage={PAGE_ROUTES.DATA_SOURCE}
                             nextPage={PAGE_ROUTES.INITIAL_CODING}
                             isReady={isReadyCheck}
-                            onNextClick={handleSamplingPosts}
+                            onNextClick={async () => {
+                                await handleSampling();
+                                await handleGenerateInitialCodes();
+                            }}
                         />
                     </footer>
                 </div>

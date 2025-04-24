@@ -1,6 +1,7 @@
 import { FC, useState, useEffect } from 'react';
 import { FaTrash } from 'react-icons/fa';
 import { KeywordEntry } from '../../../types/Coding/shared';
+import { DEBOUNCE_DELAY } from '../../../constants/Shared';
 
 interface KeywordTableRowProps {
     entry: KeywordEntry;
@@ -43,7 +44,7 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
             if (localExclusion !== entry.exclusion_criteria) {
                 onFieldChange(index, 'exclusion_criteria', localExclusion);
             }
-        }, 500);
+        }, DEBOUNCE_DELAY);
         return () => clearTimeout(timer);
     }, [localWord, localDescription, localInclusion, localExclusion, entry, index, onFieldChange]);
 

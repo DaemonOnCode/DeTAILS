@@ -16,7 +16,8 @@ import {
     SampleDataResponseReducerActions,
     BaseResponseHandlerActions,
     InitialCodebookTableAction,
-    BaseBucketAction
+    BaseBucketAction,
+    ILayout
 } from '../types/Coding/shared';
 import { useApi } from '../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
@@ -58,9 +59,9 @@ export const CodingContext = createContext<ICodingContext>({
     dispatchInitialCodebookTable: async () => {}
 });
 
-export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
+export const CodingProvider: FC<ILayout> = ({ children }) => {
     const location = useLocation();
-    const { loadingState, loadingDispatch } = useLoadingContext();
+    const { loadingState } = useLoadingContext();
     const { fetchData } = useApi();
 
     const [contextFiles, setContextFilesState] = useState<IFile>({});
@@ -431,18 +432,26 @@ export const CodingProvider: FC<{ children: React.ReactNode }> = ({ children }) 
                 }
             },
             // sampledPostResponse,
-            dispatchSampledPostResponse: async (action: SampleDataResponseReducerActions) => {
+            dispatchSampledPostResponse: async (
+                action: SampleDataResponseReducerActions,
+                refreshRef: any = null
+            ) => {
                 const data = await saveCodingContext('dispatchSampledPostResponse', { action });
                 console.log('Sampled Post Response:', data);
-                if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
+                // if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
+                console.log('Refreshing data... from context', refreshRef.current);
+                refreshRef?.current?.refresh();
             },
             // unseenPostResponse,
             dispatchUnseenPostResponse: async (
-                action: BaseResponseHandlerActions<IQECTTyResponse>
+                action: BaseResponseHandlerActions<IQECTTyResponse>,
+                refreshRef: any = null
             ) => {
                 const data = await saveCodingContext('dispatchUnseenPostResponse', { action });
                 console.log('Unseen Post Response:', data);
-                if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
+                // if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
+                console.log('Refreshing data... from context', refreshRef.current);
+                refreshRef?.current?.refresh();
             },
             themes,
             dispatchThemes: async (action) => {

@@ -6,35 +6,14 @@ import {
     SetState
 } from '../types/Coding/shared';
 import { useApi } from '../hooks/Shared/use-api';
-import { useCodingContext } from './coding-context';
-import { useCollectionContext } from './collection-context';
 import { useSettings } from './settings-context';
 import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
-import { useWorkspaceContext } from './workspace-context';
 import { toast } from 'react-toastify';
 import { useLoadingContext } from './loading-context';
 import { PAGE_ROUTES } from '../constants/Coding/shared';
 import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
 import { useLocation } from 'react-router-dom';
-
-type CodebookType = {
-    [code: string]: string;
-};
-
-export interface IManualCodingContext {
-    postStates: { [postId: string]: boolean };
-    addPostIds: (newPostIds: string[], initialState?: boolean) => Promise<void>;
-    updatePostState: (postId: string, state: boolean) => Promise<void>;
-    isLoading: boolean;
-    codebook: CodebookType | null;
-    manualCodingResponses: IQECTTyResponse[];
-    dispatchManualCodingResponses: (
-        action: BaseResponseHandlerActions<IQECTTyResponse>
-    ) => Promise<void>;
-    updateContext: (updates: Partial<IManualCodingContext>) => Promise<void>;
-    resetContext: () => Promise<void>;
-    generateCodebook: () => Promise<void>;
-}
+import { CodebookType, IManualCodingContext } from '../types/Shared';
 
 export const ManualCodingContext = createContext<IManualCodingContext>({
     postStates: {},
@@ -156,10 +135,12 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
     };
 
     const dispatchManualCodingResponses = async (
-        action: BaseResponseHandlerActions<IQECTTyResponse>
+        action: BaseResponseHandlerActions<IQECTTyResponse>,
+        refreshRef = null
     ) => {
         const data = await saveManualCodingContext('dispatchManualCodingResponses', { action });
-        if (data.manualCodingResponses) setManualCodingResponses(data.manualCodingResponses);
+        // if (data.manualCodingResponses) setManualCodingResponses(data.manualCodingResponses);
+        refreshRef?.current?.refresh();
     };
 
     const updateContext = async (updates: Partial<IManualCodingContext>) => {

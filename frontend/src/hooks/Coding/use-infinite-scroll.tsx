@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { RefObject, useEffect } from 'react';
 
 interface InfiniteScrollOptions {
     isLoading: boolean;
@@ -10,7 +10,7 @@ interface InfiniteScrollOptions {
 }
 
 export function useInfiniteScroll(
-    containerRef: React.RefObject<HTMLElement>,
+    containerRef: RefObject<HTMLElement>,
     {
         isLoading,
         hasNextPage,
@@ -31,7 +31,6 @@ export function useInfiniteScroll(
             requestAnimationFrame(() => {
                 const { scrollTop, scrollHeight, clientHeight } = el;
 
-                // near bottom?
                 if (
                     scrollTop + clientHeight >= scrollHeight - threshold &&
                     hasNextPage &&
@@ -39,7 +38,6 @@ export function useInfiniteScroll(
                 ) {
                     loadNextPage();
                 }
-                // near top?
                 if (scrollTop <= threshold && hasPreviousPage && !isLoading) {
                     loadPreviousPage();
                 }

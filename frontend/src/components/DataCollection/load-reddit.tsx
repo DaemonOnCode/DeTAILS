@@ -224,7 +224,7 @@ const LoadReddit: FC<{
                                 text: 'Loading Data'
                             })
                         );
-                        await loadFolderData(true, true);
+                        await loadFolderData(true);
                     }
                 }
             }

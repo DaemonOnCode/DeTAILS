@@ -43,22 +43,13 @@ const useWorkspaceUtils = () => {
         };
     };
 
-    const contextRef = useRef({
-        currentWorkspace,
-        user,
-        loadingContext
-    });
-
     useEffect(() => {
-        contextRef.current = {
-            currentWorkspace,
-            user,
-            loadingContext
-        };
-    }, [currentWorkspace, user, loadingContext]);
+        if (!currentWorkspace) {
+            loadingContext.resetContext();
+        }
+    }, [currentWorkspace, user]);
 
     const getWorkspaceData = () => {
-        const { currentWorkspace, user } = contextRef.current;
         return getPayload(currentWorkspace, user, loadingContext);
     };
 

@@ -14,6 +14,10 @@ const config = {
             local: 'http://localhost:8080/api',
             remote: 'http://34.130.161.42/backend/api'
         },
+        websocketURL: {
+            local: 'http://localhost:8081/api',
+            remote: 'http://34.130.161.42/websocket/api'
+        },
         backendRoutes: {
             GET_REDDIT_POSTS_TITLES: 'collections/reddit-posts-titles',
             GET_REDDIT_POST_BY_ID: 'collections/reddit-post-by-id',

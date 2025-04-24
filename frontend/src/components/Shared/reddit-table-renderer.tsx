@@ -3,13 +3,14 @@ import PaginationControls from './pagination-control';
 import RedditTable from './reddit-table';
 import { RedditPosts, SetState } from '../../types/Coding/shared';
 import { useCollectionContext } from '../../context/collection-context';
-import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { DEBOUNCE_DELAY, REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useLoadingContext } from '../../context/loading-context';
 import { useLocation } from 'react-router-dom';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { TORRENT_START_DATE, TORRENT_END_DATE } from '../../constants/DataCollection/shared';
+import useDebounce from '../../hooks/Shared/use-debounce';
 
 type RedditTableRendererProps = {
     maxTableHeightClass?: string;
@@ -18,18 +19,7 @@ type RedditTableRendererProps = {
     setSelectedData?: SetState<string[]>;
 };
 
-const useDebounce = (value: string, delay: number): string => {
-    const [debouncedValue, setDebouncedValue] = useState(value);
-    useEffect(() => {
-        const handler = setTimeout(() => setDebouncedValue(value), delay);
-        return () => clearTimeout(handler);
-    }, [value, delay]);
-    return debouncedValue;
-};
-
 const RedditTableRenderer: FC<RedditTableRendererProps> = ({
-    maxContainerHeight = 'min-h-page',
-    maxTableHeightClass,
     selectedData = [],
     setSelectedData = () => {}
 }) => {
@@ -42,6 +32,12 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     const [minDate, setMinDate] = useState('');
     const [maxDate, setMaxDate] = useState('');
 
+    const [metadata, setMetadata] = useState<{
+        subreddit?: string;
+        start_date?: string;
+        end_date?: string;
+    }>({});
+
     const [isLoading, setIsLoading] = useState(false);
 
     const location = useLocation();
@@ -50,6 +46,8 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         useCollectionContext();
     const { checkIfDataExists, openModal, abortRequests, resetDataAfterPage } = useLoadingContext();
     const { currentWorkspace } = useWorkspaceContext();
+
+    console.log('RedditTableRenderer mounted', dataFilters);
 
     function formatDate(date) {
         const year = date.getFullYear();
@@ -71,17 +69,37 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     }
 
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-    const [pendingFilterStartTime, setPendingFilterStartTime] = useState(
-        dataFilters.reddit?.start_time || ''
+    const [pendingFilterStartTime, setPendingFilterStartTime] = useState<string>(
+        dataFilters?.reddit?.start_time ?? ''
     );
-    const [pendingFilterEndTime, setPendingFilterEndTime] = useState(
-        dataFilters.reddit?.end_time || ''
+    const [pendingFilterEndTime, setPendingFilterEndTime] = useState<string>(
+        dataFilters?.reddit?.end_time ?? ''
     );
-    const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState(
-        dataFilters.reddit?.hide_removed || false
+    const [pendingFilterHideRemoved, setPendingFilterHideRemoved] = useState<boolean>(
+        dataFilters?.reddit?.hide_removed ?? false
     );
 
-    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    useEffect(() => {
+        if (dataFilters.reddit?.start_time) {
+            setPendingFilterStartTime(getStartDate(dataFilters.reddit.start_time));
+        } else {
+            setPendingFilterStartTime('');
+        }
+
+        if (dataFilters.reddit?.end_time) {
+            setPendingFilterEndTime(getEndDate(dataFilters.reddit.end_time));
+        } else {
+            setPendingFilterEndTime('');
+        }
+
+        if (dataFilters.reddit?.hide_removed) {
+            setPendingFilterHideRemoved(dataFilters.reddit.hide_removed);
+        } else {
+            setPendingFilterHideRemoved(false);
+        }
+    }, [dataFilters]);
+
+    const debouncedSearchTerm = useDebounce(searchTerm, DEBOUNCE_DELAY);
     const { scrollRef: tableRef } = useScrollRestoration(`validation-table-page-${currentPage}`);
 
     const fetchPosts = async () => {
@@ -121,11 +139,13 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             setTotalCount(0);
             setMinDate(getStartDate(TORRENT_START_DATE));
             setMaxDate(getEndDate(TORRENT_END_DATE));
+            setMetadata({});
         } else {
             setPosts(response.data.posts || {});
             setTotalCount(response.data.total_count || 0);
             setMinDate(response.data.start_date || getStartDate(TORRENT_START_DATE));
             setMaxDate(response.data.end_date || getEndDate(TORRENT_END_DATE));
+            setMetadata(response.data.metadata || {});
         }
         setIsLoading(false);
     };
@@ -321,6 +341,17 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                     />
                     <span className="ml-2">of {totalPages}</span>
                 </div>
+            </div>
+
+            <div className="mb-4 flex items-center justify-between bg-gray-100 p-4 rounded">
+                <p>Subreddit name: {metadata.subreddit ?? 'Unknown'}</p>
+                <p>
+                    Date range: {metadata.start_date ?? 'Unknown'} to{' '}
+                    {metadata.end_date ?? 'Unknown'}
+                </p>
+                <p>
+                    Total posts: {totalCount} ({Object.keys(posts).length} loaded)
+                </p>
             </div>
 
             {isFilterModalOpen && (

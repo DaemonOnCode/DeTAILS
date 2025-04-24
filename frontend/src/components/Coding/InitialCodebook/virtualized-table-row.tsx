@@ -1,5 +1,6 @@
 import { FC, useRef, useState, useEffect } from 'react';
 import { useIntersectionObserver } from '../../../hooks/Shared/use-intersection-observer';
+import { DEBOUNCE_DELAY } from '../../../constants/Shared';
 
 interface VirtualizedTableRowProps {
     entry: { code: string; definition: string };
@@ -31,7 +32,7 @@ const VirtualizedTableRow: FC<VirtualizedTableRowProps> = ({
             if (localDefinition !== entry.definition) {
                 onDefinitionChange(index, localDefinition);
             }
-        }, 500);
+        }, DEBOUNCE_DELAY);
         return () => clearTimeout(timeoutId);
     }, [localDefinition, index, onDefinitionChange, entry.definition]);
 

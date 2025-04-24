@@ -20,6 +20,7 @@ import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
+import { useRetryHandler } from '../../hooks/Coding/use-handler-factory';
 
 const ThemesPage = () => {
     const { themes, dispatchThemes } = useCodingContext();
@@ -98,11 +99,11 @@ const ThemesPage = () => {
         if (await checkIfDataExists(location.pathname)) {
             openModal('refresh-themes-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
-                await handleRefreshThemes(feedback);
+                await handleRefreshThemes();
             });
         } else {
             loadingDispatch({ type: 'SET_REST_UNDONE', route: location.pathname });
-            handleRefreshThemes(feedback);
+            handleRefreshThemes();
         }
         setFeedback('');
     };
@@ -200,32 +201,45 @@ const ThemesPage = () => {
         performWithUndoForReducer(themes, dispatchThemes, action);
     };
 
-    const handleRefreshThemes = async (extraFeedback = '') => {
-        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
+    // const handleRefreshThemes = async (extraFeedback = '') => {
+    //     loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
+    //     navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
 
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-        }>(REMOTE_SERVER_ROUTES.REDO_THEME_GENERATION, {
-            method: 'POST',
-            body: JSON.stringify({ model: settings.ai.model, feedback: extraFeedback })
-        });
+    //     const { data: results, error } = await fetchLLMData<{
+    //         message: string;
+    //     }>(REMOTE_SERVER_ROUTES.REDO_THEME_GENERATION, {
+    //         method: 'POST',
+    //         body: JSON.stringify({ model: settings.ai.model, feedback: extraFeedback })
+    //     });
 
-        if (error) {
-            console.error('Error refreshing themes:', error);
-            if (error.name !== 'AbortError') {
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.GENERATING_THEMES
-                });
-            }
-            return;
-        }
+    //     if (error) {
+    //         console.error('Error refreshing themes:', error);
+    //         if (error.name !== 'AbortError') {
+    //             loadingDispatch({
+    //                 type: 'SET_LOADING_DONE_ROUTE',
+    //                 route: PAGE_ROUTES.GENERATING_THEMES
+    //             });
+    //         }
+    //         return;
+    //     }
 
-        console.log('Results:', results);
-        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
-        navigate(PAGE_ROUTES.GENERATING_THEMES);
-    };
+    //     console.log('Results:', results);
+    //     loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
+    //     navigate(PAGE_ROUTES.GENERATING_THEMES);
+    // };
+
+    const handleRefreshThemes = useRetryHandler({
+        startLog: 'Refreshing themes',
+        doneLog: 'Themes refreshed',
+        loadingRoute: PAGE_ROUTES.GENERATING_THEMES,
+        loaderRoute: LOADER_ROUTES.THEME_GENERATION_LOADER,
+        remoteRoute: REMOTE_SERVER_ROUTES.REDO_THEME_GENERATION,
+        useLLM: true,
+        buildBody: () => JSON.stringify({ model: settings.ai.model, feedback }),
+        nextRoute: PAGE_ROUTES.GENERATING_THEMES,
+        onSuccess: (data) => console.log('Results:', data),
+        onError: (error) => console.error('Error refreshing themes:', error)
+    });
 
     const handleMoveToMiscellaneous = useCallback(() => {
         const action = { type: 'MOVE_UNPLACED_TO_MISC' };
@@ -275,7 +289,6 @@ const ThemesPage = () => {
                     <main className="flex-1 overflow-hidden size-full">
                         <DndProvider backend={HTML5Backend} context={window}>
                             <div className="flex flex-1 overflow-hidden size-full">
-                                {/* Left Column: Theme Buckets (70% width) */}
                                 <div className="w-[70%] flex-1 overflow-auto px-4" ref={themeRef}>
                                     <div id="bucket-section" className="grid grid-cols-2 gap-6">
                                         {normalThemes.map((theme) => (
@@ -291,7 +304,6 @@ const ThemesPage = () => {
                                         ))}
                                     </div>
                                 </div>
-                                {/* Right Column: Unplaced Codes (30% width) */}
                                 <div className="w-[30%] flex flex-col px-4 gap-2">
                                     <div
                                         className="flex-1 overflow-auto"

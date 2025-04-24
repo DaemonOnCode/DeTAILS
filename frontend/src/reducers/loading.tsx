@@ -2,6 +2,7 @@ import { ILoadingState, LoadingAction } from '../types/Shared';
 
 export const loadingReducer = (state: ILoadingState, action: LoadingAction): ILoadingState => {
     console.log('loadingReducer action:', action, 'state:', state);
+    let donePageIndex;
     switch (action.type) {
         case 'SET_LOADING': {
             const { route, loading } = action.payload;
@@ -52,9 +53,14 @@ export const loadingReducer = (state: ILoadingState, action: LoadingAction): ILo
             return state;
         }
         case 'SET_FIRST_RUN_DONE':
-            const doneAfter = action.route;
-            let donePageIndex = Object.keys(state).indexOf(doneAfter) + 1;
+            console.log('Setting first run done for route:', action.route);
+            donePageIndex = Object.keys(state).indexOf(action.route) + 1;
             state[Object.keys(state)[donePageIndex]].isFirstRun = false;
+            return { ...state };
+
+        case 'SET_FIRST_RUN':
+            donePageIndex = Object.keys(state).indexOf(action.route) + 1;
+            state[Object.keys(state)[donePageIndex]].isFirstRun = action.done;
             return { ...state };
         case 'SET_REST_UNDONE':
             const resetAfter = action.route;
@@ -68,7 +74,8 @@ export const loadingReducer = (state: ILoadingState, action: LoadingAction): ILo
             });
             return { ...state };
         case 'UPDATE_PAGE_STATE': {
-            const pageState = action.payload; // payload is the complete page state object
+            const pageState = action.payload;
+            console.log('Updating page state:', pageState);
             Object.entries(pageState).forEach(([route, isFirstRun]) => {
                 if (state[route]) {
                     state[route].isFirstRun = isFirstRun ?? true;
@@ -76,8 +83,6 @@ export const loadingReducer = (state: ILoadingState, action: LoadingAction): ILo
             });
             return { ...state };
         }
-
-        // return { ...state };
         default:
             return state;
     }

@@ -1,4 +1,4 @@
-import React, { FC, useEffect } from 'react';
+import { FC, useEffect } from 'react';
 import { useLogger } from '../../context/logging-context';
 
 const SystemMetricsLogger: FC = () => {
@@ -29,10 +29,10 @@ const SystemMetricsLogger: FC = () => {
             }
         };
 
-        const interval = setInterval(logMetrics, 60 * 1000); // Log every minute
+        const interval = setInterval(logMetrics, 60 * 1000);
 
         return () => {
-            clearInterval(interval); // Cleanup on unmount
+            clearInterval(interval);
         };
     }, [logger]);
 

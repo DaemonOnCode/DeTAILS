@@ -30,6 +30,7 @@ from database.state_dump_table import StateDumpsRepository
 from database.theme_table import ThemeEntriesRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
+from ipc import send_ipc_message
 from models.coding_models import (
     AnalysisRequest, FilteredResponsesMetadataRequest, FinalCodingRequest, 
     GenerateCodebookWithoutQuotesRequest, GenerateDeductiveCodesRequest, 
@@ -301,7 +302,7 @@ async def build_context_from_interests_endpoint(
     additionalInfo = coding_context.additional_info or ""
     researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Processing started.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Processing started.")
 
     start_time = time.time()
 
@@ -311,7 +312,7 @@ async def build_context_from_interests_endpoint(
     vector_store = initialize_vector_store(dataset_id, model, embeddings)
     await save_context_files(app_id, dataset_id, contextFiles, vector_store)
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Creating retriever...")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Creating retriever...")
     retriever = vector_store.as_retriever(search_kwargs={'k': 20})
 
     input_text = ContextPrompt.context_builder(mainTopic, researchQuestions, additionalInfo)
@@ -360,7 +361,7 @@ async def build_context_from_interests_endpoint(
         )
     )
     
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 
     state_dump_repo.insert(
         StateDump(
@@ -419,7 +420,7 @@ async def generate_definitions_endpoint(
     if not len(words):
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
     
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Processing started.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Processing started.")
 
     start_time = time.time()
     
@@ -427,7 +428,7 @@ async def generate_definitions_endpoint(
     
     vector_store = initialize_vector_store(dataset_id, model, embeddings)
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Creating retriever...")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Creating retriever...")
     retriever = vector_store.as_retriever(search_kwargs={'k': 20})
     
     word_list = [word.strip() for word in words]
@@ -510,7 +511,7 @@ async def generate_definitions_endpoint(
         )
     )
     
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Processing complete.")
     
     return {
         "message": "Definitions generated successfully!",
@@ -537,7 +538,7 @@ async def regenerate_keywords_endpoint(
     keywords = keywords_repo.find({"coding_context_id": workspace_id})
     selected_keywords = list(map(lambda x: x.keyword_id, selected_keywords_repo.find({"coding_context_id": workspace_id})))
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Regenerating keywords with feedback...")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Regenerating keywords with feedback...")
 
     start_time = time.time()
 
@@ -589,7 +590,7 @@ async def regenerate_keywords_endpoint(
 
     keywords_repo.insert_batch(keywords_with_ids)
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Processing complete.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Processing complete.")
 
     state_dump_repo.insert(
         StateDump(
@@ -630,7 +631,7 @@ async def generate_codes_endpoint(request: Request,
     dataset_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
     coding_context = coding_context_repo.find_one({"id": workspace_id})
     if not coding_context:
@@ -650,8 +651,8 @@ async def generate_codes_endpoint(request: Request,
         raise HTTPException(status_code=400, detail="No posts available for coding.")
 
     try:
-        if function_progress_repo.find_one({"name": "codebook"}):
-            function_progress_repo.delete({"name": "codebook"})
+        if function_progress_repo.find_one({"name": "initial"}):
+            function_progress_repo.delete({"name": "initial"})
     except Exception as e:
         print(f"Error in generate_codes_endpoint: {e}")
         
@@ -659,7 +660,7 @@ async def generate_codes_endpoint(request: Request,
     function_progress_repo.insert(FunctionProgress(
         workspace_id=workspace_id,
         dataset_id=dataset_id,
-        name="codebook",
+        name="initial",
         function_id=function_id,
         status="started",
         current=0,
@@ -675,14 +676,14 @@ async def generate_codes_endpoint(request: Request,
 
         async def process_post(post_id: str):
             try:
-                await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+                await send_ipc_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
                 
                 post_data = get_reddit_post_by_id(dataset_id, post_id, [
                     "id", "title", "selftext"
                 ])
                 await asyncio.sleep(0)
 
-                await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+                await send_ipc_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
                 transcripts = generate_transcript(post_data, llm.get_num_tokens)
 
                 async for transcript in transcripts:
@@ -734,22 +735,22 @@ async def generate_codes_endpoint(request: Request,
                     })
                     codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="generate-initial-codes")
 
-                await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
+                await send_ipc_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
 
             except Exception as e:
-                await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
+                await send_ipc_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
                 return []
 
         batches = stream_selected_post_ids(workspace_id, ["sampled"])
 
         for batch in batches:
             print(f"Processing batch of {len(batch)} posts...")
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
 
             await asyncio.gather(*(process_post(post_id) for post_id in batch))
 
-        await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+        await send_ipc_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
         unique_codes_query = """
             SELECT DISTINCT code 
@@ -844,7 +845,7 @@ async def final_coding_endpoint(
     dataset_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Final coding process started.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Final coding process started.")
 
     coding_context = coding_context_repo.find_one({"id": workspace_id})
     if not coding_context:
@@ -887,7 +888,7 @@ async def final_coding_endpoint(
             print(e)
 
         async def process_post(post_id: str):
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
             
             print("Post data fetching")
             post_data = get_reddit_post_by_id(dataset_id, post_id, [
@@ -897,7 +898,7 @@ async def final_coding_endpoint(
 
             await asyncio.sleep(0)
 
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
             transcripts = generate_transcript(
                 post_data,
                 token_checker=llm.get_num_tokens
@@ -955,17 +956,17 @@ async def final_coding_endpoint(
 
                 codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="final-coding")
 
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
         batches = stream_selected_post_ids(workspace_id, ["unseen"])
 
         for batch in batches:
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
             
             await asyncio.gather(*(process_post(post_id) for post_id in batch))
             
-        await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+        await send_ipc_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
         state_dump_repo.insert(
             StateDump(
@@ -1006,7 +1007,7 @@ async def theme_generation_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation process started.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Theme generation process started.")
 
     start_time = time.time()
 
@@ -1112,7 +1113,7 @@ async def theme_generation_endpoint(
 
     
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation completed.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Theme generation completed.")
 
     await asyncio.sleep(5)
 
@@ -1149,7 +1150,7 @@ async def redo_theme_generation_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation redo process started.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Theme generation redo process started.")
 
     start_time = time.time()
 
@@ -1258,7 +1259,7 @@ async def redo_theme_generation_endpoint(
         )
 
 
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Theme generation redo completed.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Theme generation redo completed.")
 
     await asyncio.sleep(5)
 
@@ -1351,7 +1352,7 @@ async def generate_codes_endpoint(
     dataset_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Code generation process started.")
 
     start_time = time.time()
 
@@ -1370,7 +1371,7 @@ async def generate_codes_endpoint(
     function_progress_repo.insert(FunctionProgress(
         workspace_id=workspace_id,
         dataset_id=dataset_id,
-        name="codebook",
+        name="initial",
         function_id=function_id,
         status="started",
         current=0,
@@ -1410,13 +1411,13 @@ async def generate_codes_endpoint(
 
         async def process_post(post_id: str):
             try:
-                await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+                await send_ipc_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
                 
                 post_data = get_reddit_post_by_id(dataset_id, post_id, [
                     "id", "title", "selftext"
                 ])
 
-                await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+                await send_ipc_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
                 transcripts = generate_transcript(post_data, llm.get_num_tokens)
                 async for transcript in transcripts:
                     parsed_response = await process_llm_task(
@@ -1465,18 +1466,18 @@ async def generate_codes_endpoint(
 
                     codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="remake-codebook")
 
-                await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
+                await send_ipc_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
 
             except Exception as e:
-                await manager.send_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
+                await send_ipc_message(app_id, f"ERROR: Dataset {dataset_id}: Error processing post {post_id} - {str(e)}.")
                 return []
 
 
         batches = stream_selected_post_ids(workspace_id, ["sampled"])
 
         for batch in batches:
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
             
             
             batch_results = await asyncio.gather(*(process_post(post_id) for post_id in batch))
@@ -1484,7 +1485,7 @@ async def generate_codes_endpoint(
             for codes in batch_results:
                 final_results.extend(codes)
 
-        await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+        await send_ipc_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
         unique_codes_query = """
             SELECT DISTINCT code 
@@ -1580,7 +1581,7 @@ async def redo_final_coding_endpoint(
     dataset_id = request.headers.get("x-workspace-id")
     app_id = request.headers.get("x-app-id")
     workspace_id = request.headers.get("x-workspace-id")
-    await manager.send_message(app_id, f"Dataset {dataset_id}: Final coding process started.")
+    await send_ipc_message(app_id, f"Dataset {dataset_id}: Final coding process started.")
 
     coding_context = coding_context_repo.find_one({"id": workspace_id})
     if not coding_context:
@@ -1636,13 +1637,13 @@ async def redo_final_coding_endpoint(
             print(e)
 
         async def process_post(post_id: str):
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
             
             post_data = get_reddit_post_by_id(dataset_id, post_id, [
                 "id", "title", "selftext"
             ])
 
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
             transcripts = generate_transcript(post_data, llm.get_num_tokens)
 
             async for transcript in transcripts:
@@ -1691,18 +1692,18 @@ async def redo_final_coding_endpoint(
                 codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-final-coding")
 
                 codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="redo-final-coding")
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
         batches = stream_selected_post_ids(workspace_id, ["unseen"])
 
         for batch in batches:
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
             
             await asyncio.gather(*(process_post(post_id) for post_id in batch))
 
 
-        await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+        await send_ipc_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
         state_dump_repo.insert(
             StateDump(
@@ -2240,13 +2241,13 @@ async def generate_deductive_codes_endpoint(
         llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
         async def process_post(post_id: str):
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Fetching data for post {post_id}...")
             
             post_data = get_reddit_post_by_id(dataset_id, post_id, [
                 "id", "title", "selftext"
             ])
 
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Generating transcript for post {post_id}...")
             transcripts = generate_transcript(post_data, llm.get_num_tokens)
 
             async for transcript in transcripts:
@@ -2284,13 +2285,13 @@ async def generate_deductive_codes_endpoint(
 
                 codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-deductive-codes")
                 codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes")
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
         batches = stream_selected_post_ids(workspace_id, ["manual"]) 
 
         for batch in batches:
-            await manager.send_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
+            await send_ipc_message(app_id, f"Dataset {dataset_id}: Processing batch of {len(batch)} posts...")
             
             await asyncio.gather(*(process_post(post_id) for post_id in batch))
 
@@ -2308,7 +2309,7 @@ async def generate_deductive_codes_endpoint(
                 }),
             )
         )
-        await manager.send_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
+        await send_ipc_message(app_id, f"Dataset {dataset_id}: All posts processed successfully.")
 
         return {
             "message": "Deductive coding completed successfully!",
@@ -2420,10 +2421,13 @@ async def paginated_responses(
     elif req.selectedTypeFilter == "LLM":
         filters.append("r.response_type = ?"); params.append("LLM")
 
-    if req.postId:
+    stripped_post_id = req.postId.replace("|coded-data", "") if req.postId else None
+    print("stripped_post_id", stripped_post_id, req.postId)
+    if stripped_post_id and req.postId != "coded-data":
         filters.append("r.post_id = ?")
-        params.append(req.postId)
+        params.append(stripped_post_id)
 
+    print(f"[paginated_responses] filterCode: {req.filterCode}, searchTerm: {req.searchTerm}")
     if req.filterCode:
         filters.append("r.code = ?")
         params.append(req.filterCode)
@@ -2456,6 +2460,7 @@ async def paginated_responses(
   ORDER BY r.post_id ASC
      LIMIT ? OFFSET ?
     """
+    print(f"[paginated_responses] slice_sql: {slice_sql}", params)
     slice_ids = execute_query(slice_sql, params + [req.pageSize, offset])
     page_ids = [r[0] for r in slice_ids]
 
@@ -2486,7 +2491,7 @@ async def paginated_responses(
             "codebookType": row["codebook_type"],
             "chatHistory": row["chat_history"],
             "rangeMarker": row["range_marker"],
-            "isMarked": bool(row["is_marked"]),
+            "isMarked": bool(row["is_marked"]) if row["is_marked"] is not None else None,
         }
         post_id = row["post_id"] 
         responses.setdefault(post_id, []).append(transformed_row)
@@ -2518,7 +2523,7 @@ async def paginated_posts_metadata(
             type_filter = f"p.type IN ({type_placeholders})"
             type_params = req.responseTypes
         else:
-            type_filter = "1=1"  # Include all types if no filter specified
+            type_filter = "1=1" 
             type_params = []
 
     print(f"[paginated_posts_metadata] type_filter: {type_filter}, type_params: {type_params}")
@@ -2599,7 +2604,7 @@ async def paginated_posts_metadata(
     FROM selected_post_ids p
     JOIN posts p2 ON p.post_id = p2.id
     WHERE {where_clause}
-    ORDER BY p.post_id DESC
+    ORDER BY p.post_id ASC
     LIMIT ? OFFSET ?
     """
     slice_params = params + [req.pageSize, offset]
@@ -2708,8 +2713,7 @@ async def get_transcript_data_endpoint(
         ON r.post_id    = p.post_id
        AND r.dataset_id = p.dataset_id
      WHERE r.dataset_id = ?
-       AND r.post_id    = ?
-     ORDER BY r.id DESC;
+       AND r.post_id    = ?;
     """
     resp_rows = execute_query(resp_sql, [dataset_id, post_id], keys=True)
 
@@ -2725,7 +2729,7 @@ async def get_transcript_data_endpoint(
             "codebookType": row["codebook_type"],
             "chatHistory": json.loads(row["chat_history"]) if row["chat_history"] else None,
             "rangeMarker": json.loads(row["range_marker"]) if row["range_marker"] else None,
-            "isMarked": bool(row["is_marked"]),
+            "isMarked": bool(row["is_marked"]) if row["is_marked"] is not None else None,
         })
 
     codes_sql = """
@@ -2767,7 +2771,6 @@ async def analysis_report(
     offset = (req.page - 1) * req.pageSize
     params = {"dataset_id": dataset_id, "limit": req.pageSize, "offset": offset}
 
-    # 3a) overall stats
     if req.viewType == "post":
         stats_sql = f"""
         SELECT
@@ -2776,7 +2779,7 @@ async def analysis_report(
           COUNT(*)                     AS totalQuoteCount
         {BASE_JOIN}
         """
-    else:  # code view
+    else:  
         stats_sql = f"""
         SELECT
           COUNT(DISTINCT r.code)       AS totalUniqueCodes,
@@ -2861,7 +2864,7 @@ async def analysis_report(
         }
     }
 
-@router.get("/analysis-download")
+@router.post("/analysis-download")
 async def download_report(
     request_body: AnalysisRequest,
     background_tasks: BackgroundTasks,
@@ -2936,12 +2939,12 @@ async def download_report(
             for row in batch:
                 if not summary:
                     row = list(map(lambda x: {
-                        x["postId"]: x["postId"],
-                        x["theme"]: x["theme"],
-                        x["higherLevelCode"]: x["higherLevelCode"],
-                        x["code"]: x["code"],
-                        x["quote"]: x["quote"],
-                        x["explanation"]: x["explanation"],
+                        "postId": x[1],
+                        "theme": x[4],
+                        "higherLevelCode": x[3],
+                        "code": x[2],
+                        "quote": x[5],
+                        "explanation": x[6],
                     }, row))
                 clean = [("" if cell is None else cell) for cell in row]
                 writer.writerow(clean)

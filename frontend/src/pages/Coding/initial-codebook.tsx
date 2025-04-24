@@ -21,6 +21,7 @@ import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import VirtualizedTableRow from '../../components/Coding/InitialCodebook/virtualized-table-row';
 import { DetailsLLMIcon } from '../../components/Shared/Icons';
+import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
 
 const InitialCodeBook = () => {
     const { initialCodebookTable, dispatchInitialCodebookTable } = useCodingContext();
@@ -71,103 +72,41 @@ const InitialCodeBook = () => {
         performWithUndoForReducer(initialCodebookTable, dispatchInitialCodebookTable, action);
     };
 
-    const handleNextClick = async () => {
-        navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.FINAL_CODING_LOADER, {
-                text: 'Final Coding in Progress'
-            })
-        );
+    const handleNextClick = useNextHandler({
+        startLog: 'Starting final coding',
+        doneLog: 'Final coding completed',
+        loadingRoute: PAGE_ROUTES.FINAL_CODING,
+        loaderRoute: LOADER_ROUTES.FINAL_CODING_LOADER,
+        loaderParams: { text: 'Final Coding in Progress' },
+        remoteRoute: REMOTE_SERVER_ROUTES.FINAL_CODING,
+        useLLM: true,
+        buildBody: () => JSON.stringify({ model: settings.ai.model }),
+        onSuccess: (data) => console.log('Results:', data)
+    });
 
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.FINAL_CODING
-        });
-
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-            data: {
-                id: string;
-                postId: string;
-                quote: string;
-                explanation: string;
-                code: string;
-            }[];
-        }>(REMOTE_SERVER_ROUTES.FINAL_CODING, {
-            method: 'POST',
-            body: JSON.stringify({
-                model: settings.ai.model
-            })
-        });
-
-        if (error) {
-            console.error('Error in handleNextClick:', error);
-            if (error.name !== 'AbortError') {
-                toast.error(
-                    'Error generating codebook. Please try again. ' + (error.message ?? '')
-                );
-                navigate(PAGE_ROUTES.INITIAL_CODEBOOK);
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.FINAL_CODING
-                });
-                throw new Error(error.message);
-            }
-            return;
-        }
-
-        console.log('Results:', results);
-
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.FINAL_CODING
-        });
-    };
-
-    const handleRegenerateCodebook = async (extraFeedback = '') => {
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
-        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.INITIAL_CODEBOOK });
-
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-            data: { [code: string]: string };
-        }>(REMOTE_SERVER_ROUTES.REGENERATE_CODEBOOK_WITHOUT_QUOTES, {
-            method: 'POST',
-            body: JSON.stringify({
-                model: settings.ai.model,
-                feedback: extraFeedback
-            })
-        });
-
-        if (error) {
-            console.error('Error in handleRegenerateCodebook:', error);
-            if (error.name !== 'AbortError') {
-                toast.error('Error generating codebook. Please try again. ' + error.message);
-                navigate(PAGE_ROUTES.INITIAL_CODEBOOK);
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.INITIAL_CODEBOOK
-                });
-                throw new Error(error.message);
-            }
-            return;
-        }
-
-        console.log('Results:', results);
-
-        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.INITIAL_CODEBOOK });
-        navigate(PAGE_ROUTES.INITIAL_CODEBOOK);
-    };
+    const handleRegenerateCodebook = useRetryHandler({
+        startLog: 'Starting codebook regeneration',
+        doneLog: 'Codebook regeneration completed',
+        loadingRoute: PAGE_ROUTES.INITIAL_CODEBOOK,
+        loaderRoute: LOADER_ROUTES.CODEBOOK_LOADER,
+        remoteRoute: REMOTE_SERVER_ROUTES.REGENERATE_CODEBOOK_WITHOUT_QUOTES,
+        useLLM: true,
+        buildBody: () => JSON.stringify({ model: settings.ai.model, feedback }),
+        nextRoute: PAGE_ROUTES.INITIAL_CODEBOOK,
+        onSuccess: (data) => console.log('Results:', data),
+        onError: (error) => console.error('Error in handleRegenerateCodebook:', error)
+    });
 
     const handleFeedbackSubmit = async () => {
         setIsFeedbackModalOpen(false);
         if (await checkIfDataExists(location.pathname)) {
             openModal('refresh-codebook-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
-                await handleRegenerateCodebook(feedback);
+                await handleRegenerateCodebook();
             });
         } else {
             loadingDispatch({ type: 'SET_REST_UNDONE', route: location.pathname });
-            handleRegenerateCodebook(feedback);
+            handleRegenerateCodebook();
         }
         setFeedback('');
     };

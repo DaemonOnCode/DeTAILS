@@ -22,6 +22,8 @@ import { Keyword } from '../../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
+import { toast } from 'react-toastify';
+import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
 
 const KeywordCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -92,96 +94,46 @@ const KeywordCloudPage: FC = () => {
         }
     };
 
-    const refreshKeywordCloud = async () => {
-        await logger.info('Regenerating Relevant concepts');
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.RELATED_CONCEPTS
-        });
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_LOADER));
-
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-        }>(REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS, {
-            method: 'POST',
-            body: JSON.stringify({
+    const refreshKeywordCloud = useRetryHandler({
+        startLog: 'Regenerating Relevant concepts',
+        doneLog: 'Relevant concepts refreshed',
+        loadingRoute: PAGE_ROUTES.RELATED_CONCEPTS,
+        loaderRoute: LOADER_ROUTES.THEME_LOADER,
+        remoteRoute: REMOTE_SERVER_ROUTES.REGENERATE_KEYWORDS,
+        useLLM: true,
+        buildBody: () =>
+            JSON.stringify({
                 model: settings.ai.model,
                 extraFeedback: feedback
-            })
-        });
-
-        if (error) {
+            }),
+        onSuccess: (data) => {
+            console.log(data, 'Relevant concepts Page');
+        },
+        onError: (error) => {
             console.error('Error regenerating Relevant concepts:', error);
-            if (error.name !== 'AbortError') {
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.RELATED_CONCEPTS
-                });
-            }
-            navigate(PAGE_ROUTES.RELATED_CONCEPTS);
-            return;
         }
-        console.log(results, 'Relevant concepts Page');
-
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.RELATED_CONCEPTS
-        });
-
-        navigate(PAGE_ROUTES.RELATED_CONCEPTS);
-        await logger.info('Relevant concepts refreshed');
-        console.log('Relevant concepts refreshed');
-    };
+    });
 
     const refreshKeywords = () => {
         setIsFeedbackOpen(true);
     };
 
-    const handleNextClick = async (e: any) => {
-        e.preventDefault();
-        await logger.info('Starting concept outline generation');
-        console.log('Navigating to codebook');
-
-        console.log('response', selectedKeywords);
-
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.CONCEPT_OUTLINE
-        });
-        navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                text: 'Generating Keyword Definitions'
-            })
-        );
-
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-        }>(REMOTE_SERVER_ROUTES.GENERATE_KEYWORD_DEFINITIONS, {
-            method: 'POST',
-            body: JSON.stringify({
+    const handleNextClick = useNextHandler({
+        startLog: 'Starting concept outline generation',
+        doneLog: 'concept outline generation completed',
+        loadingRoute: PAGE_ROUTES.CONCEPT_OUTLINE,
+        loaderRoute: LOADER_ROUTES.DATA_LOADING_LOADER,
+        loaderParams: { text: 'Generating Concept Outline' },
+        remoteRoute: REMOTE_SERVER_ROUTES.GENERATE_KEYWORD_DEFINITIONS,
+        useLLM: true,
+        buildBody: () =>
+            JSON.stringify({
                 model: settings.ai.model
-            })
-        });
-
-        if (error) {
-            console.error('Error regenerating Relevant concepts:', error);
-            if (error.name !== 'AbortError') {
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.CONCEPT_OUTLINE
-                });
-            }
-            navigate(PAGE_ROUTES.RELATED_CONCEPTS);
-            return;
+            }),
+        onSuccess: (data) => {
+            console.log(data, 'Concept outline Page');
         }
-        console.log(results, 'Concept outline Page');
-
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.CONCEPT_OUTLINE
-        });
-        await logger.info('concept outline generation completed');
-    };
+    });
 
     const handleSelectAll = (selectAll: boolean) => {
         if (selectAll) {

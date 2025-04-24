@@ -32,7 +32,6 @@ const TranscriptPage = ({
         updatePostState,
         postStates
     } = useManualCodingContext();
-    const { currentWorkspace } = useWorkspaceContext();
     const { datasetId } = useCollectionContext();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();

@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 from uuid import uuid4
 
 from fastapi import HTTPException
+from sympy import false
 from config import CustomSettings
 from database.grouped_code_table import GroupedCodeEntriesRepository
 from database.initial_codebook_table import InitialCodebookEntriesRepository
@@ -134,563 +135,563 @@ def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> N
         raise ValueError(f"Unknown action type: {action_type}")
     
 
-def process_sampled_post_response_action(workspace_id: str, action: Dict[str, Any]) -> None:
-    settings = CustomSettings()
-    action_type = action["type"]
-    base_filters = {
-        "workspace_id": workspace_id,
-        "codebook_type": CodebookType.INITIAL.value
-    }
+# def process_sampled_post_response_action(workspace_id: str, action: Dict[str, Any]) -> None:
+#     settings = CustomSettings()
+#     action_type = action["type"]
+#     base_filters = {
+#         "workspace_id": workspace_id,
+#         "codebook_type": CodebookType.INITIAL.value
+#     }
 
-    def get_current_state() -> List[QectResponse]:
-        return qect_repo.find(base_filters)
+#     def get_current_state() -> List[QectResponse]:
+#         return qect_repo.find(base_filters)
 
-    if action_type == "SET_CORRECT":
-        index = action["index"]
-        responses = get_current_state()
-        if 0 <= index < len(responses):
-            response_id = responses[index].id
-            qect_repo.update({"id": response_id}, {"is_correct": True, "comment": ""})
+#     if action_type == "SET_CORRECT":
+#         index = action["index"]
+#         responses = get_current_state()
+#         if 0 <= index < len(responses):
+#             response_id = responses[index].id
+#             qect_repo.update({"id": response_id}, {"is_correct": True, "comment": ""})
 
-    elif action_type == "SET_ALL_CORRECT":
-        qect_repo.update(base_filters, {"is_marked": True})
+#     elif action_type == "SET_ALL_CORRECT":
+#         qect_repo.update(base_filters, {"is_marked": True})
 
-    elif action_type == "SET_INCORRECT":
-        index = action["index"]
-        responses = get_current_state()
-        if 0 <= index < len(responses):
-            response_id = responses[index].id
-            qect_repo.update({"id": response_id}, {"is_correct": False})
+#     elif action_type == "SET_INCORRECT":
+#         index = action["index"]
+#         responses = get_current_state()
+#         if 0 <= index < len(responses):
+#             response_id = responses[index].id
+#             qect_repo.update({"id": response_id}, {"is_correct": False})
 
-    elif action_type == "SET_ALL_INCORRECT":
-        qect_repo.update(base_filters, {"is_marked": False})
+#     elif action_type == "SET_ALL_INCORRECT":
+#         qect_repo.update(base_filters, {"is_marked": False})
 
-    elif action_type == "SET_ALL_UNMARKED":
-        qect_repo.update(base_filters, {"is_marked": None})
+#     elif action_type == "SET_ALL_UNMARKED":
+#         qect_repo.update(base_filters, {"is_marked": None})
 
-    elif action_type == "UPDATE_COMMENT":
-        index = action["index"]
-        comment = action["comment"]
-        responses = get_current_state()
-        if 0 <= index < len(responses):
-            response_id = responses[index].id
-            qect_repo.update({"id": response_id}, {"comment": comment})
+#     elif action_type == "UPDATE_COMMENT":
+#         index = action["index"]
+#         comment = action["comment"]
+#         responses = get_current_state()
+#         if 0 <= index < len(responses):
+#             response_id = responses[index].id
+#             qect_repo.update({"id": response_id}, {"comment": comment})
 
-    elif action_type == "MARK_RESPONSE":
-        index = action["index"]
-        is_marked = action["isMarked"]
-        responses = get_current_state()
-        if 0 <= index < len(responses):
-            response_id = responses[index].id
-            qect_repo.update({"id": response_id}, {"is_marked": is_marked})
+#     elif action_type == "MARK_RESPONSE":
+#         index = action["index"]
+#         is_marked = action["isMarked"]
+#         responses = get_current_state()
+#         if 0 <= index < len(responses):
+#             response_id = responses[index].id
+#             qect_repo.update({"id": response_id}, {"is_marked": is_marked})
 
-    elif action_type == "MARK_RESPONSE_BY_CODE_EXPLANATION":
-        code = action["code"]
-        quote = action["quote"]
-        post_id = action["postId"]
-        is_marked = action["isMarked"]
-        qect_repo.update(
-            {**base_filters, "code": code, "quote": quote, "post_id": post_id},
-            {"is_marked": is_marked}
-        )
+#     elif action_type == "MARK_RESPONSE_BY_CODE_EXPLANATION":
+#         code = action["code"]
+#         quote = action["quote"]
+#         post_id = action["postId"]
+#         is_marked = action["isMarked"]
+#         qect_repo.update(
+#             {**base_filters, "code": code, "quote": quote, "post_id": post_id},
+#             {"is_marked": is_marked}
+#         )
 
-    elif action_type == "ADD_RESPONSE":
-        response_data = action["response"]
-        if response_data["code"].strip() and response_data["quote"].strip():
-            new_response = QectResponse(
-                id=str(uuid4()),
-                dataset_id=workspace_id,
-                workspace_id=workspace_id,
-                model=response_data.get("model", settings.ai.model),
-                quote=response_data["quote"],
-                code=response_data["code"],
-                explanation=response_data["explanation"],
-                post_id=response_data["postId"],
-                codebook_type=CodebookType.INITIAL.value,
-                response_type=ResponseCreatorType.LLM.value,
-                chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", None),
-                created_at=datetime.now()
-            )
-            qect_repo.insert(new_response)
+#     elif action_type == "ADD_RESPONSE":
+#         response_data = action["response"]
+#         if response_data["code"].strip() and response_data["quote"].strip():
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 dataset_id=workspace_id,
+#                 workspace_id=workspace_id,
+#                 model=response_data.get("model", settings.ai.model),
+#                 quote=response_data["quote"],
+#                 code=response_data["code"],
+#                 explanation=response_data["explanation"],
+#                 post_id=response_data["postId"],
+#                 codebook_type=CodebookType.INITIAL.value,
+#                 response_type=ResponseCreatorType.LLM.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", None),
+#                 created_at=datetime.now()
+#             )
+#             qect_repo.insert(new_response)
 
-    elif action_type == "SET_RESPONSES":
-        qect_repo.delete(base_filters)
-        new_responses = [
-            r for r in (action["responses"] or [])
-            if r["code"].strip() and r["quote"].strip()
-        ]
-        for response_data in new_responses:
-            new_response = QectResponse(
-                id=str(uuid4()),
-                dataset_id=workspace_id,
-                workspace_id=workspace_id,
-                model=response_data.get("model", settings.ai.model),
-                quote=response_data["quote"],
-                code=response_data["code"],
-                explanation=response_data["explanation"],
-                post_id=response_data["postId"],
-                codebook_type=CodebookType.INITIAL.value,
-                response_type=ResponseCreatorType.LLM.value,
-                chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", None),
-                created_at=datetime.now()
-            )
-            qect_repo.insert(new_response)
+#     elif action_type == "SET_RESPONSES":
+#         qect_repo.delete(base_filters)
+#         new_responses = [
+#             r for r in (action["responses"] or [])
+#             if r["code"].strip() and r["quote"].strip()
+#         ]
+#         for response_data in new_responses:
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 dataset_id=workspace_id,
+#                 workspace_id=workspace_id,
+#                 model=response_data.get("model", settings.ai.model),
+#                 quote=response_data["quote"],
+#                 code=response_data["code"],
+#                 explanation=response_data["explanation"],
+#                 post_id=response_data["postId"],
+#                 codebook_type=CodebookType.INITIAL.value,
+#                 response_type=ResponseCreatorType.LLM.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", None),
+#                 created_at=datetime.now()
+#             )
+#             qect_repo.insert(new_response)
 
-    elif action_type == "SET_PARTIAL_RESPONSES":
-        new_responses = [
-            r for r in (action["responses"] or [])
-            if r["code"].strip() and r["quote"].strip()
-        ]
-        qect_repo.delete({**base_filters, "post_id": [r["postId"] for r in new_responses]})
-        for response_data in new_responses:
-            new_response = QectResponse(
-                id=str(uuid4()),
-                dataset_id=workspace_id,
-                workspace_id=workspace_id,
-                model=response_data.get("model", settings.ai.model),
-                quote=response_data["quote"],
-                code=response_data["code"],
-                explanation=response_data["explanation"],
-                post_id=response_data["postId"],
-                codebook_type=CodebookType.INITIAL.value,
-                response_type=ResponseCreatorType.LLM.value,
-                chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", None),
-                created_at=datetime.now()
-            )
-            qect_repo.insert(new_response)
+#     elif action_type == "SET_PARTIAL_RESPONSES":
+#         new_responses = [
+#             r for r in (action["responses"] or [])
+#             if r["code"].strip() and r["quote"].strip()
+#         ]
+#         qect_repo.delete({**base_filters, "post_id": [r["postId"] for r in new_responses]})
+#         for response_data in new_responses:
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 dataset_id=workspace_id,
+#                 workspace_id=workspace_id,
+#                 model=response_data.get("model", settings.ai.model),
+#                 quote=response_data["quote"],
+#                 code=response_data["code"],
+#                 explanation=response_data["explanation"],
+#                 post_id=response_data["postId"],
+#                 codebook_type=CodebookType.INITIAL.value,
+#                 response_type=ResponseCreatorType.LLM.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", None),
+#                 created_at=datetime.now()
+#             )
+#             qect_repo.insert(new_response)
 
-    elif action_type == "ADD_RESPONSES":
-        new_responses = [
-            r for r in (action["responses"] or [])
-            if r["code"].strip() and r["quote"].strip()
-        ]
-        for response_data in new_responses:
-            new_response = QectResponse(
-                id=str(uuid4()),
-                dataset_id=workspace_id,
-                workspace_id=workspace_id,
-                model=response_data.get("model", settings.ai.model),
-                quote=response_data["quote"],
-                code=response_data["code"],
-                explanation=response_data["explanation"],
-                post_id=response_data["postId"],
-                codebook_type=CodebookType.INITIAL.value,
-                response_type=ResponseCreatorType.LLM.value,
-                chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", None),
-                created_at=datetime.now()
-            )
-            qect_repo.insert(new_response)
+#     elif action_type == "ADD_RESPONSES":
+#         new_responses = [
+#             r for r in (action["responses"] or [])
+#             if r["code"].strip() and r["quote"].strip()
+#         ]
+#         for response_data in new_responses:
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 dataset_id=workspace_id,
+#                 workspace_id=workspace_id,
+#                 model=response_data.get("model", settings.ai.model),
+#                 quote=response_data["quote"],
+#                 code=response_data["code"],
+#                 explanation=response_data["explanation"],
+#                 post_id=response_data["postId"],
+#                 codebook_type=CodebookType.INITIAL.value,
+#                 response_type=ResponseCreatorType.LLM.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", None),
+#                 created_at=datetime.now()
+#             )
+#             qect_repo.insert(new_response)
 
-    elif action_type == "REMOVE_RESPONSES":
-        if action.get("all"):
-            qect_repo.delete(base_filters)
-        elif "indexes" in action:
-            responses = get_current_state()
-            indexes = action["indexes"]
-            response_ids_to_delete = [
-                responses[i].id for i in indexes if 0 <= i < len(responses)
-            ]
-            if response_ids_to_delete:
-                qect_repo.delete({"id": {"$in": response_ids_to_delete}})
+#     elif action_type == "REMOVE_RESPONSES":
+#         if action.get("all"):
+#             qect_repo.delete(base_filters)
+#         elif "indexes" in action:
+#             responses = get_current_state()
+#             indexes = action["indexes"]
+#             response_ids_to_delete = [
+#                 responses[i].id for i in indexes if 0 <= i < len(responses)
+#             ]
+#             if response_ids_to_delete:
+#                 qect_repo.delete({"id": {"$in": response_ids_to_delete}})
 
-    elif action_type == "DELETE_CODE":
-        code = action["code"]
-        qect_repo.delete({**base_filters, "code": code})
+#     elif action_type == "DELETE_CODE":
+#         code = action["code"]
+#         qect_repo.delete({**base_filters, "code": code})
 
-    elif action_type == "EDIT_CODE":
-        current_code = action["currentCode"]
-        new_code = action["newCode"]
-        qect_repo.update({**base_filters, "code": current_code}, {"code": new_code})
+#     elif action_type == "EDIT_CODE":
+#         current_code = action["currentCode"]
+#         new_code = action["newCode"]
+#         qect_repo.update({**base_filters, "code": current_code}, {"code": new_code})
 
-    elif action_type == "DELETE_HIGHLIGHT":
-        post_id = action["postId"]
-        sentence = action["sentence"]
-        code = action["code"]
-        qect_repo.delete({**base_filters, "post_id": post_id, "quote": sentence, "code": code})
+#     elif action_type == "DELETE_HIGHLIGHT":
+#         post_id = action["postId"]
+#         sentence = action["sentence"]
+#         code = action["code"]
+#         qect_repo.delete({**base_filters, "post_id": post_id, "quote": sentence, "code": code})
 
-    elif action_type == "EDIT_HIGHLIGHT":
-        post_id = action["postId"]
-        sentence = action["sentence"]
-        code = action["code"]
-        new_sentence = action["newSentence"]
-        range_marker = action.get("rangeMarker")
-        updates = {"quote": new_sentence}
-        if range_marker is not None:
-            updates["range_marker"] = json.dumps(range_marker)
-        qect_repo.update(
-            {**base_filters, "post_id": post_id, "quote": sentence, "code": code},
-            updates
-        )
+#     elif action_type == "EDIT_HIGHLIGHT":
+#         post_id = action["postId"]
+#         sentence = action["sentence"]
+#         code = action["code"]
+#         new_sentence = action["newSentence"]
+#         range_marker = action.get("rangeMarker")
+#         updates = {"quote": new_sentence}
+#         if range_marker is not None:
+#             updates["range_marker"] = json.dumps(range_marker)
+#         qect_repo.update(
+#             {**base_filters, "post_id": post_id, "quote": sentence, "code": code},
+#             updates
+#         )
 
-    elif action_type == "SET_CHAT_HISTORY":
-        post_id = action["postId"]
-        sentence = action["sentence"]
-        code = action["code"]
-        chat_history = json.dumps(action["chatHistory"])
-        qect_repo.update(
-            {**base_filters, "post_id": post_id, "quote": sentence, "code": code},
-            {"chat_history": chat_history}
-        )
+#     elif action_type == "SET_CHAT_HISTORY":
+#         post_id = action["postId"]
+#         sentence = action["sentence"]
+#         code = action["code"]
+#         chat_history = json.dumps(action["chatHistory"])
+#         qect_repo.update(
+#             {**base_filters, "post_id": post_id, "quote": sentence, "code": code},
+#             {"chat_history": chat_history}
+#         )
 
-    elif action_type == "UPDATE_CODE":
-        quote = action["quote"]
-        prev_code = action["prevCode"]
-        new_code = action["newCode"]
-        qect_repo.update(
-            {**base_filters, "quote": quote, "code": prev_code},
-            {"code": new_code}
-        )
+#     elif action_type == "UPDATE_CODE":
+#         quote = action["quote"]
+#         prev_code = action["prevCode"]
+#         new_code = action["newCode"]
+#         qect_repo.update(
+#             {**base_filters, "quote": quote, "code": prev_code},
+#             {"code": new_code}
+#         )
 
-    elif action_type == "UPSERT_MARKER":
-        code = action["code"]
-        quote = action["quote"]
-        post_id = action["postId"]
-        range_marker = action["rangeMarker"]
-        qect_repo.update(
-            {**base_filters, "code": code, "quote": quote, "post_id": post_id},
-            {"range_marker": range_marker}
-        )
+#     elif action_type == "UPSERT_MARKER":
+#         code = action["code"]
+#         quote = action["quote"]
+#         post_id = action["postId"]
+#         range_marker = action["rangeMarker"]
+#         qect_repo.update(
+#             {**base_filters, "code": code, "quote": quote, "post_id": post_id},
+#             {"range_marker": range_marker}
+#         )
 
-    elif action_type == "SYNC_CHAT_STATE":
-        post_id = action["postId"]
-        quote = action["quote"]
-        prev_code = action["prevCode"]
-        current_code = action.get("currentCode")
-        chat_history = action.get("chatHistory")
-        is_marked = action.get("isMarked")
-        refresh = action.get("refresh", False)
+#     elif action_type == "SYNC_CHAT_STATE":
+#         post_id = action["postId"]
+#         quote = action["quote"]
+#         prev_code = action["prevCode"]
+#         current_code = action.get("currentCode")
+#         chat_history = action.get("chatHistory")
+#         is_marked = action.get("isMarked")
+#         refresh = action.get("refresh", False)
 
-        filters = {**base_filters, "post_id": post_id, "quote": quote, "code": prev_code}
-        responses = qect_repo.find(filters)
-        if responses:
-            response = responses[0]
-            updates = {}
+#         filters = {**base_filters, "post_id": post_id, "quote": quote, "code": prev_code}
+#         responses = qect_repo.find(filters)
+#         if responses:
+#             response = responses[0]
+#             updates = {}
 
-            if chat_history is not None:
-                updates["chat_history"] = json.dumps(chat_history)
+#             if chat_history is not None:
+#                 updates["chat_history"] = json.dumps(chat_history)
 
-            if current_code and current_code.strip():
-                updates["code"] = current_code
+#             if current_code and current_code.strip():
+#                 updates["code"] = current_code
 
-            if is_marked is not None:
-                updates["is_marked"] = is_marked
+#             if is_marked is not None:
+#                 updates["is_marked"] = is_marked
 
-            if refresh and "chat_history" in updates:
-                chat_history = json.loads(updates["chat_history"])
-                chat_history = [
-                    {**msg, "reaction": None, "isThinking": False} if msg["sender"] == "LLM" else msg
-                    for msg in chat_history if not (msg["sender"] == "Human" and msg.get("isEditable"))
-                ]
-                updates["chat_history"] = json.dumps(chat_history)
+#             if refresh and "chat_history" in updates:
+#                 chat_history = json.loads(updates["chat_history"])
+#                 chat_history = [
+#                     {**msg, "reaction": None, "isThinking": False} if msg["sender"] == "LLM" else msg
+#                     for msg in chat_history if not (msg["sender"] == "Human" and msg.get("isEditable"))
+#                 ]
+#                 updates["chat_history"] = json.dumps(chat_history)
 
-            if updates:
-                qect_repo.update({"id": response.id}, updates)
+#             if updates:
+#                 qect_repo.update({"id": response.id}, updates)
 
-    elif action_type == "RESET":
-        qect_repo.delete(base_filters)
+#     elif action_type == "RESET":
+#         qect_repo.delete(base_filters)
 
-    elif action_type == "RESTORE_STATE":
-        for response_data in action["payload"]:
-            response_id = response_data.get("id")
-            if response_id:
-                existing = qect_repo.find_one({"id": response_id})
-                if existing:
-                    updates = {
-                        "dataset_id": response_data.get("datasetId", existing.dataset_id),
-                        "model": response_data.get("model", existing.model),
-                        "quote": response_data.get("quote", existing.quote),
-                        "code": response_data.get("code", existing.code),
-                        "explanation": response_data.get("explanation", existing.explanation),
-                        "post_id": response_data.get("postId", existing.post_id),
-                        "response_type": response_data.get("responseType", existing.response_type),
-                        "codebook_type": response_data.get("codebookType", existing.codebook_type),
-                        "chat_history": json.dumps(response_data["chatHistory"]) if "chatHistory" in response_data else existing.chat_history,
-                        "is_marked": response_data.get("isMarked", existing.is_marked),
-                        "range_marker": response_data.get("rangeMarker", existing.range_marker),
-                    }
-                    qect_repo.update({"id": response_id}, updates)
-                else:
-                    new_response = QectResponse(
-                        id=response_id,
-                        dataset_id=response_data.get("datasetId", workspace_id),
-                        workspace_id=workspace_id,
-                        model=response_data.get("model", settings.ai.model),
-                        quote=response_data.get("quote", ""),
-                        code=response_data.get("code", ""),
-                        explanation=response_data.get("explanation", ""),
-                        post_id=response_data.get("postId", ""),
-                        codebook_type=response_data.get("codebookType", CodebookType.INITIAL.value),
-                        response_type=response_data.get("responseType", ResponseCreatorType.LLM.value),
-                        chat_history=json.dumps(response_data.get("chatHistory", None)),
-                        is_marked=response_data.get("isMarked", None),
-                        created_at=datetime.now()
-                    )
-                    qect_repo.insert(new_response)
-    elif action_type == "RERUN_CODING":
-        pass
+#     elif action_type == "RESTORE_STATE":
+#         for response_data in action["payload"]:
+#             response_id = response_data.get("id")
+#             if response_id:
+#                 existing = qect_repo.find_one({"id": response_id})
+#                 if existing:
+#                     updates = {
+#                         "dataset_id": response_data.get("datasetId", existing.dataset_id),
+#                         "model": response_data.get("model", existing.model),
+#                         "quote": response_data.get("quote", existing.quote),
+#                         "code": response_data.get("code", existing.code),
+#                         "explanation": response_data.get("explanation", existing.explanation),
+#                         "post_id": response_data.get("postId", existing.post_id),
+#                         "response_type": response_data.get("responseType", existing.response_type),
+#                         "codebook_type": response_data.get("codebookType", existing.codebook_type),
+#                         "chat_history": json.dumps(response_data["chatHistory"]) if "chatHistory" in response_data else existing.chat_history,
+#                         "is_marked": response_data.get("isMarked", existing.is_marked),
+#                         "range_marker": response_data.get("rangeMarker", existing.range_marker),
+#                     }
+#                     qect_repo.update({"id": response_id}, updates)
+#                 else:
+#                     new_response = QectResponse(
+#                         id=response_id,
+#                         dataset_id=response_data.get("datasetId", workspace_id),
+#                         workspace_id=workspace_id,
+#                         model=response_data.get("model", settings.ai.model),
+#                         quote=response_data.get("quote", ""),
+#                         code=response_data.get("code", ""),
+#                         explanation=response_data.get("explanation", ""),
+#                         post_id=response_data.get("postId", ""),
+#                         codebook_type=response_data.get("codebookType", CodebookType.INITIAL.value),
+#                         response_type=response_data.get("responseType", ResponseCreatorType.LLM.value),
+#                         chat_history=json.dumps(response_data.get("chatHistory", None)),
+#                         is_marked=response_data.get("isMarked", None),
+#                         created_at=datetime.now()
+#                     )
+#                     qect_repo.insert(new_response)
+#     elif action_type == "RERUN_CODING":
+#         pass
 
-    else:
-        pass
+#     else:
+#         pass
 
-def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any]) -> None:
-    action_type = action.get("type")
-    settings = CustomSettings()
-    if not action_type:
-        raise HTTPException(status_code=400, detail="Action type is required")
+# def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any]) -> None:
+#     action_type = action.get("type")
+#     settings = CustomSettings()
+#     if not action_type:
+#         raise HTTPException(status_code=400, detail="Action type is required")
 
-    filters = {
-        "workspace_id": workspace_id,
-        "codebook_type": CodebookType.FINAL.value,
-    }
-    if action_type == "SET_CORRECT":
-        response_id = action.get("responseId")
-        qect_repo.update({"id": response_id}, {"is_correct": True, "comment": ""})
+#     filters = {
+#         "workspace_id": workspace_id,
+#         "codebook_type": CodebookType.FINAL.value,
+#     }
+#     if action_type == "SET_CORRECT":
+#         response_id = action.get("responseId")
+#         qect_repo.update({"id": response_id}, {"is_correct": True, "comment": ""})
 
-    elif action_type == "SET_ALL_CORRECT":
-        qect_repo.update(filters, {"is_marked": True})
+#     elif action_type == "SET_ALL_CORRECT":
+#         qect_repo.update(filters, {"is_marked": True})
 
-    elif action_type == "SET_INCORRECT":
-        response_id = action.get("responseId")
-        qect_repo.update({"id": response_id}, {"is_correct": False})
+#     elif action_type == "SET_INCORRECT":
+#         response_id = action.get("responseId")
+#         qect_repo.update({"id": response_id}, {"is_correct": False})
 
-    elif action_type == "SET_ALL_INCORRECT":
-        qect_repo.update(filters, {"is_marked": False})
+#     elif action_type == "SET_ALL_INCORRECT":
+#         qect_repo.update(filters, {"is_marked": False})
 
-    elif action_type == "SET_ALL_UNMARKED":
-        qect_repo.update(filters, {"is_marked": None})
+#     elif action_type == "SET_ALL_UNMARKED":
+#         qect_repo.update(filters, {"is_marked": None})
 
-    elif action_type == "UPDATE_COMMENT":
-        response_id = action.get("responseId")
-        comment = action.get("comment")
-        qect_repo.update({"id": response_id}, {"comment": comment})
+#     elif action_type == "UPDATE_COMMENT":
+#         response_id = action.get("responseId")
+#         comment = action.get("comment")
+#         qect_repo.update({"id": response_id}, {"comment": comment})
 
-    elif action_type == "MARK_RESPONSE":
-        response_id = action.get("responseId")
-        is_marked = action.get("isMarked")
-        qect_repo.update({"id": response_id}, {"is_marked": is_marked})
+#     elif action_type == "MARK_RESPONSE":
+#         response_id = action.get("responseId")
+#         is_marked = action.get("isMarked")
+#         qect_repo.update({"id": response_id}, {"is_marked": is_marked})
 
-    elif action_type == "MARK_RESPONSE_BY_CODE_EXPLANATION":
-        code = action.get("code")
-        quote = action.get("quote")
-        post_id = action.get("postId")
-        is_marked = action.get("isMarked")
-        qect_repo.update(
-            {**filters, "code": code, "quote": quote, "post_id": post_id},
-            {"is_marked": is_marked}
-        )
+#     elif action_type == "MARK_RESPONSE_BY_CODE_EXPLANATION":
+#         code = action.get("code")
+#         quote = action.get("quote")
+#         post_id = action.get("postId")
+#         is_marked = action.get("isMarked")
+#         qect_repo.update(
+#             {**filters, "code": code, "quote": quote, "post_id": post_id},
+#             {"is_marked": is_marked}
+#         )
 
-    elif action_type == "ADD_RESPONSE":
-        response_data = action.get("response")
-        new_response = QectResponse(
-            id=str(uuid4()),
-            workspace_id=workspace_id,
-            dataset_id=response_data.get("datasetId", workspace_id),
-            post_id=response_data["postId"],
-            code=response_data["code"],
-            quote=response_data["quote"],
-            explanation=response_data["explanation"],
-            model=response_data.get("model", settings.ai.model),
-            codebook_type=CodebookType.FINAL.value,
-            response_type=ResponseCreatorType.LLM.value,
-            chat_history=json.dumps(response_data.get("chatHistory")),
-            is_marked=response_data.get("isMarked", True)
-        )
-        qect_repo.insert(new_response)
+#     elif action_type == "ADD_RESPONSE":
+#         response_data = action.get("response")
+#         new_response = QectResponse(
+#             id=str(uuid4()),
+#             workspace_id=workspace_id,
+#             dataset_id=response_data.get("datasetId", workspace_id),
+#             post_id=response_data["postId"],
+#             code=response_data["code"],
+#             quote=response_data["quote"],
+#             explanation=response_data["explanation"],
+#             model=response_data.get("model", settings.ai.model),
+#             codebook_type=CodebookType.FINAL.value,
+#             response_type=ResponseCreatorType.LLM.value,
+#             chat_history=json.dumps(response_data.get("chatHistory")),
+#             is_marked=response_data.get("isMarked", True)
+#         )
+#         qect_repo.insert(new_response)
 
-    elif action_type == "SET_RESPONSES":
-        qect_repo.delete(filters)
-        for response_data in action.get("responses", []):
-            new_response = QectResponse(
-                id=str(uuid4()),
-                workspace_id=workspace_id,
-                dataset_id=response_data.get("datasetId", workspace_id),
-                post_id=response_data["postId"],
-                code=response_data["code"],
-                quote=response_data["quote"],
-                explanation=response_data["explanation"],
-                model=response_data.get("model", settings.ai.model),
-                codebook_type=CodebookType.FINAL.value,
-                response_type=ResponseCreatorType.LLM.value,
-                chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", True)
-            )
-            qect_repo.insert(new_response)
+#     elif action_type == "SET_RESPONSES":
+#         qect_repo.delete(filters)
+#         for response_data in action.get("responses", []):
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 workspace_id=workspace_id,
+#                 dataset_id=response_data.get("datasetId", workspace_id),
+#                 post_id=response_data["postId"],
+#                 code=response_data["code"],
+#                 quote=response_data["quote"],
+#                 explanation=response_data["explanation"],
+#                 model=response_data.get("model", settings.ai.model),
+#                 codebook_type=CodebookType.FINAL.value,
+#                 response_type=ResponseCreatorType.LLM.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", True)
+#             )
+#             qect_repo.insert(new_response)
 
-    elif action_type == "SET_PARTIAL_RESPONSES":
-        new_responses = [
-            r for r in (action.get("responses") or [])
-            if r["code"].strip() and r["quote"].strip()
-        ]
-        qect_repo.delete({**filters, "post_id": [r["postId"] for r in new_responses]})
-        for response_data in action.get("responses", []):
-            new_response = QectResponse(
-                id=str(uuid4()),
-                workspace_id=workspace_id,
-                dataset_id=response_data.get("datasetId", workspace_id),
-                post_id=response_data["postId"],
-                code=response_data["code"],
-                quote=response_data["quote"],
-                explanation=response_data["explanation"],
-                model=response_data.get("model", settings.ai.model),
-                codebook_type=CodebookType.FINAL.value,
-                response_type=ResponseCreatorType.LLM.value,
-                chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", True)
-            )
-            qect_repo.insert(new_response)
+#     elif action_type == "SET_PARTIAL_RESPONSES":
+#         new_responses = [
+#             r for r in (action.get("responses") or [])
+#             if r["code"].strip() and r["quote"].strip()
+#         ]
+#         qect_repo.delete({**filters, "post_id": [r["postId"] for r in new_responses]})
+#         for response_data in action.get("responses", []):
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 workspace_id=workspace_id,
+#                 dataset_id=response_data.get("datasetId", workspace_id),
+#                 post_id=response_data["postId"],
+#                 code=response_data["code"],
+#                 quote=response_data["quote"],
+#                 explanation=response_data["explanation"],
+#                 model=response_data.get("model", settings.ai.model),
+#                 codebook_type=CodebookType.FINAL.value,
+#                 response_type=ResponseCreatorType.LLM.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", True)
+#             )
+#             qect_repo.insert(new_response)
 
-    elif action_type == "ADD_RESPONSES":
-        for response_data in action.get("responses", []):
-            new_response = QectResponse(
-                id=str(uuid4()),
-                workspace_id=workspace_id,
-                dataset_id=response_data.get("datasetId", workspace_id),
-                post_id=response_data["postId"],
-                code=response_data["code"],
-                quote=response_data["quote"],
-                explanation=response_data["explanation"],
-                model=response_data.get("model", settings.ai.model),
-                codebook_type=CodebookType.FINAL.value,
-                response_type=ResponseCreatorType.LLM.value,
-                chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", True)
-            )
-            qect_repo.insert(new_response)
+#     elif action_type == "ADD_RESPONSES":
+#         for response_data in action.get("responses", []):
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 workspace_id=workspace_id,
+#                 dataset_id=response_data.get("datasetId", workspace_id),
+#                 post_id=response_data["postId"],
+#                 code=response_data["code"],
+#                 quote=response_data["quote"],
+#                 explanation=response_data["explanation"],
+#                 model=response_data.get("model", settings.ai.model),
+#                 codebook_type=CodebookType.FINAL.value,
+#                 response_type=ResponseCreatorType.LLM.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", True)
+#             )
+#             qect_repo.insert(new_response)
 
-    elif action_type == "REMOVE_RESPONSES":
-        if action.get("all"):
-            qect_repo.delete(filters)
-        elif "responseIds" in action:
-            response_ids = action["responseIds"]
-            qect_repo.delete({"id": {"$in": response_ids}})
+#     elif action_type == "REMOVE_RESPONSES":
+#         if action.get("all"):
+#             qect_repo.delete(filters)
+#         elif "responseIds" in action:
+#             response_ids = action["responseIds"]
+#             qect_repo.delete({"id": {"$in": response_ids}})
 
-    elif action_type == "DELETE_CODE":
-        code = action.get("code")
-        qect_repo.delete({**filters, "code": code})
+#     elif action_type == "DELETE_CODE":
+#         code = action.get("code")
+#         qect_repo.delete({**filters, "code": code})
 
-    elif action_type == "EDIT_CODE":
-        current_code = action.get("currentCode")
-        new_code = action.get("newCode")
-        qect_repo.update({**filters, "code": current_code}, {"code": new_code})
+#     elif action_type == "EDIT_CODE":
+#         current_code = action.get("currentCode")
+#         new_code = action.get("newCode")
+#         qect_repo.update({**filters, "code": current_code}, {"code": new_code})
 
-    elif action_type == "DELETE_HIGHLIGHT":
-        post_id = action.get("postId")
-        sentence = action.get("sentence")
-        code = action.get("code")
-        qect_repo.delete({**filters, "post_id": post_id, "quote": sentence, "code": code})
+#     elif action_type == "DELETE_HIGHLIGHT":
+#         post_id = action.get("postId")
+#         sentence = action.get("sentence")
+#         code = action.get("code")
+#         qect_repo.delete({**filters, "post_id": post_id, "quote": sentence, "code": code})
 
-    elif action_type == "EDIT_HIGHLIGHT":
-        post_id = action.get("postId")
-        sentence = action.get("sentence")
-        code = action.get("code")
-        new_sentence = action.get("newSentence")
-        range_marker = action.get("rangeMarker")
-        updates = {"quote": new_sentence}
-        if range_marker is not None:
-            updates["range_marker"] = json.dumps(range_marker)
-        qect_repo.update(
-            {**filters, "post_id": post_id, "quote": sentence, "code": code},
-            updates
-        )
+#     elif action_type == "EDIT_HIGHLIGHT":
+#         post_id = action.get("postId")
+#         sentence = action.get("sentence")
+#         code = action.get("code")
+#         new_sentence = action.get("newSentence")
+#         range_marker = action.get("rangeMarker")
+#         updates = {"quote": new_sentence}
+#         if range_marker is not None:
+#             updates["range_marker"] = json.dumps(range_marker)
+#         qect_repo.update(
+#             {**filters, "post_id": post_id, "quote": sentence, "code": code},
+#             updates
+#         )
 
-    elif action_type == "SET_CHAT_HISTORY":
-        post_id = action.get("postId")
-        sentence = action.get("sentence")
-        code = action.get("code")
-        chat_history = action.get("chatHistory")
-        qect_repo.update(
-            {**filters, "post_id": post_id, "quote": sentence, "code": code},
-            {"chat_history": json.dumps(chat_history)}
-        )
+#     elif action_type == "SET_CHAT_HISTORY":
+#         post_id = action.get("postId")
+#         sentence = action.get("sentence")
+#         code = action.get("code")
+#         chat_history = action.get("chatHistory")
+#         qect_repo.update(
+#             {**filters, "post_id": post_id, "quote": sentence, "code": code},
+#             {"chat_history": json.dumps(chat_history)}
+#         )
 
-    elif action_type == "UPDATE_CODE":
-        quote = action.get("quote")
-        prev_code = action.get("prevCode")
-        new_code = action.get("newCode")
-        qect_repo.update(
-            {**filters, "quote": quote, "code": prev_code},
-            {"code": new_code}
-        )
+#     elif action_type == "UPDATE_CODE":
+#         quote = action.get("quote")
+#         prev_code = action.get("prevCode")
+#         new_code = action.get("newCode")
+#         qect_repo.update(
+#             {**filters, "quote": quote, "code": prev_code},
+#             {"code": new_code}
+#         )
 
-    elif action_type == "UPSERT_MARKER":
-        code = action.get("code")
-        quote = action.get("quote")
-        post_id = action.get("postId")
-        range_marker = action.get("rangeMarker")
-        qect_repo.update(
-            {**filters, "code": code, "quote": quote, "post_id": post_id},
-            {"range_marker": range_marker}
-        )
+#     elif action_type == "UPSERT_MARKER":
+#         code = action.get("code")
+#         quote = action.get("quote")
+#         post_id = action.get("postId")
+#         range_marker = action.get("rangeMarker")
+#         qect_repo.update(
+#             {**filters, "code": code, "quote": quote, "post_id": post_id},
+#             {"range_marker": range_marker}
+#         )
 
-    elif action_type == "SYNC_CHAT_STATE":
-        post_id = action.get("postId")
-        quote = action.get("quote")
-        prev_code = action.get("prevCode")
-        current_code = action.get("currentCode")
-        chat_history = action.get("chatHistory")
-        is_marked = action.get("isMarked")
-        refresh = action.get("refresh", False)
-        filters = {**filters, "post_id": post_id, "quote": quote, "code": prev_code}
-        responses = qect_repo.find(filters)
-        if responses:
-            response = responses[0]
-            updates = {}
-            if current_code:
-                updates["code"] = current_code
-            if chat_history:
-                updates["chat_history"] = json.dumps(chat_history)
-            if is_marked is not None:
-                updates["is_marked"] = is_marked
-            if updates:
-                qect_repo.update({"id": response.id}, updates)
+#     elif action_type == "SYNC_CHAT_STATE":
+#         post_id = action.get("postId")
+#         quote = action.get("quote")
+#         prev_code = action.get("prevCode")
+#         current_code = action.get("currentCode")
+#         chat_history = action.get("chatHistory")
+#         is_marked = action.get("isMarked")
+#         refresh = action.get("refresh", False)
+#         filters = {**filters, "post_id": post_id, "quote": quote, "code": prev_code}
+#         responses = qect_repo.find(filters)
+#         if responses:
+#             response = responses[0]
+#             updates = {}
+#             if current_code:
+#                 updates["code"] = current_code
+#             if chat_history:
+#                 updates["chat_history"] = json.dumps(chat_history)
+#             if is_marked is not None:
+#                 updates["is_marked"] = is_marked
+#             if updates:
+#                 qect_repo.update({"id": response.id}, updates)
 
-    elif action_type == "RESET":
-        qect_repo.delete(filters)
+#     elif action_type == "RESET":
+#         qect_repo.delete(filters)
 
-    elif action_type == "RESTORE_STATE":
-        for response_data in action["payload"]:
-            response_id = response_data.get("id")
-            if response_id:
-                existing = qect_repo.find_one({"id": response_id})
-                if existing:
-                    updates = {
-                        "dataset_id": response_data.get("datasetId", existing.dataset_id),
-                        "model": response_data.get("model", existing.model),
-                        "quote": response_data.get("quote", existing.quote),
-                        "code": response_data.get("code", existing.code),
-                        "explanation": response_data.get("explanation", existing.explanation),
-                        "post_id": response_data.get("postId", existing.post_id),
-                        "response_type": response_data.get("responseType", existing.response_type),
-                        "codebook_type": response_data.get("codebookType", existing.codebook_type),
-                        "chat_history": json.dumps(response_data["chatHistory"]) if "chatHistory" in response_data else existing.chat_history,
-                        "is_marked": response_data.get("isMarked", existing.is_marked),
-                        "range_marker": response_data.get("rangeMarker", existing.range_marker),
-                    }
-                    qect_repo.update({"id": response_id}, updates)
-                else:
-                    new_response = QectResponse(
-                        id=response_id,
-                        dataset_id=response_data.get("datasetId", workspace_id),
-                        workspace_id=workspace_id,
-                        model=response_data.get("model", settings.ai.model),
-                        quote=response_data.get("quote", ""),
-                        code=response_data.get("code", ""),
-                        explanation=response_data.get("explanation", ""),
-                        post_id=response_data.get("postId", ""),
-                        codebook_type=response_data.get("codebookType", CodebookType.FINAL.value),
-                        response_type=response_data.get("responseType", ResponseCreatorType.LLM.value),
-                        chat_history=json.dumps(response_data.get("chatHistory", None)),
-                        is_marked=response_data.get("isMarked", None),
-                        created_at=datetime.now()
-                    )
-                    qect_repo.insert(new_response)
+#     elif action_type == "RESTORE_STATE":
+#         for response_data in action["payload"]:
+#             response_id = response_data.get("id")
+#             if response_id:
+#                 existing = qect_repo.find_one({"id": response_id})
+#                 if existing:
+#                     updates = {
+#                         "dataset_id": response_data.get("datasetId", existing.dataset_id),
+#                         "model": response_data.get("model", existing.model),
+#                         "quote": response_data.get("quote", existing.quote),
+#                         "code": response_data.get("code", existing.code),
+#                         "explanation": response_data.get("explanation", existing.explanation),
+#                         "post_id": response_data.get("postId", existing.post_id),
+#                         "response_type": response_data.get("responseType", existing.response_type),
+#                         "codebook_type": response_data.get("codebookType", existing.codebook_type),
+#                         "chat_history": json.dumps(response_data["chatHistory"]) if "chatHistory" in response_data else existing.chat_history,
+#                         "is_marked": response_data.get("isMarked", existing.is_marked),
+#                         "range_marker": response_data.get("rangeMarker", existing.range_marker),
+#                     }
+#                     qect_repo.update({"id": response_id}, updates)
+#                 else:
+#                     new_response = QectResponse(
+#                         id=response_id,
+#                         dataset_id=response_data.get("datasetId", workspace_id),
+#                         workspace_id=workspace_id,
+#                         model=response_data.get("model", settings.ai.model),
+#                         quote=response_data.get("quote", ""),
+#                         code=response_data.get("code", ""),
+#                         explanation=response_data.get("explanation", ""),
+#                         post_id=response_data.get("postId", ""),
+#                         codebook_type=response_data.get("codebookType", CodebookType.FINAL.value),
+#                         response_type=response_data.get("responseType", ResponseCreatorType.LLM.value),
+#                         chat_history=json.dumps(response_data.get("chatHistory", None)),
+#                         is_marked=response_data.get("isMarked", None),
+#                         created_at=datetime.now()
+#                     )
+#                     qect_repo.insert(new_response)
 
-    else:
-        print(f"Unknown action type: {action_type}")
+#     else:
+#         print(f"Unknown action type: {action_type}")
         
 
 def process_initial_codebook_table_action(workspace_id: str, action: Dict[str, Any]) -> None:
@@ -933,82 +934,387 @@ def process_themes_action(workspace_id: str, action: Dict[str, Any]) -> None:
     else:
         raise ValueError(f"Unknown action type: {action_type}")
     
-def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, Any]) -> None:
+# def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, Any]) -> None:
+#     settings = CustomSettings()
+#     action_type = action["type"]
+#     base_filters = {
+#         "workspace_id": workspace_id,
+#         "codebook_type": CodebookType.MANUAL.value
+#     }
+
+#     def get_current_state() -> List[QectResponse]:
+#         return qect_repo.find(base_filters)
+
+#     if action_type == "SET_CORRECT":
+#         index = action["index"]
+#         qect_repo.update({"id": index}, {"is_marked": True})
+
+#     elif action_type == "SET_ALL_CORRECT":
+#         qect_repo.update(base_filters, {"is_marked": True})
+
+#     elif action_type == "SET_INCORRECT":
+#         index = action["index"]
+#         qect_repo.update({"id": index}, {"is_marked": False})
+
+#     elif action_type == "SET_ALL_INCORRECT":
+#         qect_repo.update(base_filters, {"is_marked": False})
+
+#     elif action_type == "SET_ALL_UNMARKED":
+#         qect_repo.update(base_filters, {"is_marked": None})
+
+#     elif action_type == "UPDATE_COMMENT":
+#         index = action["index"]
+#         comment = action["comment"]
+#         qect_repo.update({"id": index}, {"comment": comment})
+
+#     elif action_type == "MARK_RESPONSE":
+#         index = action["index"]
+#         is_marked = action["isMarked"]
+#         qect_repo.update({"id": index}, {"is_marked": is_marked})
+
+#     elif action_type == "MARK_RESPONSE_BY_CODE_EXPLANATION":
+#         code = action["code"]
+#         quote = action["quote"]
+#         post_id = action["postId"]
+#         is_marked = action["isMarked"]
+#         qect_repo.update(
+#             {**base_filters, "code": code, "quote": quote, "post_id": post_id},
+#             {"is_marked": is_marked}
+#         )
+
+#     elif action_type == "ADD_RESPONSE":
+#         response_data = action["response"]
+#         if response_data["code"].strip() and response_data["quote"].strip():
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 dataset_id=workspace_id,
+#                 workspace_id=workspace_id,
+#                 model=response_data.get("model", settings.ai.model),
+#                 quote=response_data["quote"],
+#                 code=response_data["code"],
+#                 explanation=response_data["explanation"],
+#                 post_id=response_data["postId"],
+#                 codebook_type=CodebookType.MANUAL.value,
+#                 response_type=ResponseCreatorType.HUMAN.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", None),
+#                 created_at=datetime.now()
+#             )
+#             qect_repo.insert(new_response)
+
+#     elif action_type == "SET_RESPONSES":
+#         qect_repo.delete(base_filters)
+#         new_responses = [
+#             r for r in (action["responses"] or [])
+#             if r["code"].strip() and r["quote"].strip()
+#         ]
+#         for response_data in new_responses:
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 dataset_id=workspace_id,
+#                 workspace_id=workspace_id,
+#                 model=response_data.get("model", settings.ai.model),
+#                 quote=response_data["quote"],
+#                 code=response_data["code"],
+#                 explanation=response_data["explanation"],
+#                 post_id=response_data["postId"],
+#                 codebook_type=CodebookType.MANUAL.value,
+#                 response_type=ResponseCreatorType.LLM.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", None),
+#                 created_at=datetime.now()
+#             )
+#             qect_repo.insert(new_response)
+
+#     elif action_type == "SET_PARTIAL_RESPONSES":
+#         new_responses = [
+#             r for r in (action["responses"] or [])
+#             if r["code"].strip() and r["quote"].strip()
+#         ]
+#         qect_repo.delete({**base_filters, "post_id": [r["postId"] for r in new_responses]})
+#         for response_data in new_responses:
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 dataset_id=workspace_id,
+#                 workspace_id=workspace_id,
+#                 model=response_data.get("model", settings.ai.model),
+#                 quote=response_data["quote"],
+#                 code=response_data["code"],
+#                 explanation=response_data["explanation"],
+#                 post_id=response_data["postId"],
+#                 codebook_type=CodebookType.MANUAL.value,
+#                 response_type=ResponseCreatorType.LLM.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", None),
+#                 created_at=datetime.now()
+#             )
+#             qect_repo.insert(new_response)
+
+#     elif action_type == "ADD_RESPONSES":
+#         new_responses = [
+#             r for r in (action["responses"] or [])
+#             if r["code"].strip() and r["quote"].strip()
+#         ]
+#         for response_data in new_responses:
+#             new_response = QectResponse(
+#                 id=str(uuid4()),
+#                 dataset_id=workspace_id,
+#                 workspace_id=workspace_id,
+#                 model=response_data.get("model", settings.ai.model),
+#                 quote=response_data["quote"],
+#                 code=response_data["code"],
+#                 explanation=response_data["explanation"],
+#                 post_id=response_data["postId"],
+#                 codebook_type=CodebookType.MANUAL.value,
+#                 response_type=ResponseCreatorType.LLM.value,
+#                 chat_history=json.dumps(response_data.get("chatHistory")),
+#                 is_marked=response_data.get("isMarked", None),
+#                 created_at=datetime.now()
+#             )
+#             qect_repo.insert(new_response)
+
+#     elif action_type == "REMOVE_RESPONSES":
+#         if action.get("all"):
+#             qect_repo.delete(base_filters)
+#         elif "indexes" in action:
+#             responses = get_current_state()
+#             indexes = action["indexes"]
+#             response_ids_to_delete = [
+#                 responses[i].id for i in indexes if 0 <= i < len(responses)
+#             ]
+#             if response_ids_to_delete:
+#                 qect_repo.delete({"id": {"$in": response_ids_to_delete}})
+
+#     elif action_type == "DELETE_CODE":
+#         code = action["code"]
+#         qect_repo.delete({**base_filters, "code": code})
+
+#     elif action_type == "EDIT_CODE":
+#         current_code = action["currentCode"]
+#         new_code = action["newCode"]
+#         qect_repo.update({**base_filters, "code": current_code}, {"code": new_code})
+
+#     elif action_type == "DELETE_HIGHLIGHT":
+#         post_id = action["postId"]
+#         sentence = action["sentence"]
+#         code = action["code"]
+#         qect_repo.delete({**base_filters, "post_id": post_id, "quote": sentence, "code": code})
+
+#     elif action_type == "EDIT_HIGHLIGHT":
+#         post_id = action["postId"]
+#         sentence = action["sentence"]
+#         code = action["code"]
+#         new_sentence = action["newSentence"]
+#         range_marker = action.get("rangeMarker")
+#         updates = {"quote": new_sentence}
+#         if range_marker is not None:
+#             updates["range_marker"] = json.dumps(range_marker)
+#         qect_repo.update(
+#             {**base_filters, "post_id": post_id, "quote": sentence, "code": code},
+#             updates
+#         )
+
+#     elif action_type == "SET_CHAT_HISTORY":
+#         post_id = action["postId"]
+#         sentence = action["sentence"]
+#         code = action["code"]
+#         chat_history = json.dumps(action["chatHistory"])
+#         qect_repo.update(
+#             {**base_filters, "post_id": post_id, "quote": sentence, "code": code},
+#             {"chat_history": chat_history}
+#         )
+
+#     elif action_type == "UPDATE_CODE":
+#         quote = action["quote"]
+#         prev_code = action["prevCode"]
+#         new_code = action["newCode"]
+#         qect_repo.update(
+#             {**base_filters, "quote": quote, "code": prev_code},
+#             {"code": new_code}
+#         )
+
+#     elif action_type == "UPSERT_MARKER":
+#         code = action["code"]
+#         quote = action["quote"]
+#         post_id = action["postId"]
+#         range_marker = action["rangeMarker"]
+#         qect_repo.update(
+#             {**base_filters, "code": code, "quote": quote, "post_id": post_id},
+#             {"range_marker": range_marker}
+#         )
+
+#     elif action_type == "SYNC_CHAT_STATE":
+#         post_id = action["postId"]
+#         quote = action["quote"]
+#         prev_code = action["prevCode"]
+#         current_code = action.get("currentCode")
+#         chat_history = action.get("chatHistory")
+#         is_marked = action.get("isMarked")
+#         refresh = action.get("refresh", False)
+
+#         filters = {**base_filters, "post_id": post_id, "quote": quote, "code": prev_code}
+#         responses = qect_repo.find(filters)
+#         if responses:
+#             response = responses[0]
+#             updates = {}
+
+#             if chat_history is not None:
+#                 updates["chat_history"] = json.dumps(chat_history)
+
+#             if current_code and current_code.strip():
+#                 updates["code"] = current_code
+
+#             if is_marked is not None:
+#                 updates["is_marked"] = is_marked
+
+#             if refresh and "chat_history" in updates:
+#                 chat_history = json.loads(updates["chat_history"])
+#                 chat_history = [
+#                     {**msg, "reaction": None, "isThinking": False} if msg["sender"] == "LLM" else msg
+#                     for msg in chat_history if not (msg["sender"] == "Human" and msg.get("isEditable"))
+#                 ]
+#                 updates["chat_history"] = json.dumps(chat_history)
+
+#             if updates:
+#                 qect_repo.update({"id": response.id}, updates)
+
+#     elif action_type == "RESET":
+#         qect_repo.delete(base_filters)
+
+#     if action_type == "RESTORE_STATE":
+#         for response_data in action["payload"]:
+#             response_id = response_data.get("id")
+#             if response_id:
+#                 existing = qect_repo.find_one({"id": response_id})
+#                 if existing:
+#                     updates = {
+#                         "dataset_id": response_data.get("datasetId", existing.dataset_id),
+#                         "model": response_data.get("model", existing.model),
+#                         "quote": response_data.get("quote", existing.quote),
+#                         "code": response_data.get("code", existing.code),
+#                         "explanation": response_data.get("explanation", existing.explanation),
+#                         "post_id": response_data.get("postId", existing.post_id),
+#                         "response_type": response_data.get("responseType", existing.response_type),
+#                         "codebook_type": response_data.get("codebookType", existing.codebook_type),
+#                         "chat_history": json.dumps(response_data["chatHistory"]) if "chatHistory" in response_data else existing.chat_history,
+#                         "is_marked": response_data.get("isMarked", existing.is_marked),
+#                         "range_marker": response_data.get("rangeMarker", existing.range_marker),
+#                     }
+#                     qect_repo.update({"id": response_id}, updates)
+#                 else:
+#                     new_response = QectResponse(
+#                         id=response_id,
+#                         dataset_id=response_data.get("datasetId", workspace_id),
+#                         workspace_id=workspace_id,
+#                         model=response_data.get("model", settings.ai.model),
+#                         quote=response_data.get("quote", ""),
+#                         code=response_data.get("code", ""),
+#                         explanation=response_data.get("explanation", ""),
+#                         post_id=response_data.get("postId", ""),
+#                         codebook_type=response_data.get("codebookType", CodebookType.MANUAL.value),
+#                         response_type=response_data.get("responseType", ResponseCreatorType.LLM.value),
+#                         chat_history=json.dumps(response_data.get("chatHistory", None)),
+#                         is_marked=response_data.get("isMarked", None),
+#                         created_at=datetime.now()
+#                     )
+#                     qect_repo.insert(new_response)
+
+#     elif action_type == "RERUN_CODING":
+#         pass
+
+#     else:
+#         pass
+
+def process_action(
+    workspace_id: str,
+    action: Dict[str, Any],
+    codebook_type: str,
+    default_response_type: str,
+    use_index: bool = True,
+    strict_action_type: bool = False
+) -> None:
     settings = CustomSettings()
-    action_type = action["type"]
+    action_type = action.get("type")
+    
+    if strict_action_type and not action_type:
+        raise HTTPException(status_code=400, detail="Action type is required")
+
     base_filters = {
         "workspace_id": workspace_id,
-        "codebook_type": CodebookType.MANUAL.value
+        "codebook_type": codebook_type
     }
 
-    def get_current_state() -> List[QectResponse]:
-        return qect_repo.find(base_filters)
+    print(f"Processing action: {action_type} for workspace: {workspace_id}", action)
+
+    def update_response(identifier: Any, updates: Dict[str, Any]) -> None:
+        qect_repo.update(identifier, updates)
 
     if action_type == "SET_CORRECT":
-        index = action["index"]
-        responses = get_current_state()
-        if 0 <= index < len(responses):
-            response_id = responses[index].id
-            qect_repo.update({"id": response_id}, {"is_correct": True, "comment": ""})
+        updates = {"is_correct": True, "comment": "", "is_marked": True}
+        update_response({"id": action["index"]}, updates)
 
     elif action_type == "SET_ALL_CORRECT":
-        qect_repo.update(base_filters, {"is_marked": True})
+        result = qect_repo.execute_raw_query("SELECT is_marked FROM qect WHERE workspace_id = ? AND codebook_type = ? GROUP BY is_marked;", (workspace_id, codebook_type), keys=True)
+        true_count = sum(1 for row in result if row['is_marked'])
+        if true_count < len(result):
+            print(f"Setting all responses to correct for workspace: {workspace_id}")
+            qect_repo.update(base_filters, {"is_marked": True})
+        else:
+            print(f"Setting all responses to unmarked for workspace: {workspace_id}")
+            qect_repo.update(base_filters, {"is_marked": None})
 
     elif action_type == "SET_INCORRECT":
-        index = action["index"]
-        responses = get_current_state()
-        if 0 <= index < len(responses):
-            response_id = responses[index].id
-            qect_repo.update({"id": response_id}, {"is_correct": False})
+        updates = { "is_marked": False}
+        update_response({"id": action["index"]}, updates)
 
     elif action_type == "SET_ALL_INCORRECT":
-        qect_repo.update(base_filters, {"is_marked": False})
+        result = qect_repo.execute_raw_query("SELECT is_marked FROM qect WHERE workspace_id = ? AND codebook_type = ? GROUP BY is_marked;", (workspace_id, codebook_type), keys=True)
+        false_count = sum(1 for row in result if row['is_marked'] == 0)
+        if false_count < len(result):
+            print(f"Setting all responses to incorrect for workspace: {workspace_id}")
+            qect_repo.update(base_filters, {"is_marked": False})
+        else:
+            print(f"Setting all responses to unmarked for workspace: {workspace_id}")
+            qect_repo.update(base_filters, {"is_marked": None})
 
     elif action_type == "SET_ALL_UNMARKED":
+        print(f"Setting all responses to unmarked for workspace: {workspace_id}")
         qect_repo.update(base_filters, {"is_marked": None})
 
     elif action_type == "UPDATE_COMMENT":
-        index = action["index"]
-        comment = action["comment"]
-        responses = get_current_state()
-        if 0 <= index < len(responses):
-            response_id = responses[index].id
-            qect_repo.update({"id": response_id}, {"comment": comment})
+        comment = action.get("comment")
+        update_response({"id": action["index"]}, {"comment": comment})
 
     elif action_type == "MARK_RESPONSE":
-        index = action["index"]
-        is_marked = action["isMarked"]
-        responses = get_current_state()
-        if 0 <= index < len(responses):
-            response_id = responses[index].id
-            qect_repo.update({"id": response_id}, {"is_marked": is_marked})
+        is_marked = action.get("isMarked")
+        update_response({"id": action["index"]}, {"is_marked": is_marked})
 
     elif action_type == "MARK_RESPONSE_BY_CODE_EXPLANATION":
-        code = action["code"]
-        quote = action["quote"]
-        post_id = action["postId"]
-        is_marked = action["isMarked"]
+        code = action.get("code")
+        quote = action.get("quote")
+        post_id = action.get("postId")
+        is_marked = action.get("isMarked")
         qect_repo.update(
             {**base_filters, "code": code, "quote": quote, "post_id": post_id},
             {"is_marked": is_marked}
         )
 
     elif action_type == "ADD_RESPONSE":
-        response_data = action["response"]
+        response_data = action.get("response")
         if response_data["code"].strip() and response_data["quote"].strip():
             new_response = QectResponse(
                 id=str(uuid4()),
-                dataset_id=workspace_id,
+                dataset_id=response_data.get("datasetId", workspace_id),
                 workspace_id=workspace_id,
                 model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
                 code=response_data["code"],
                 explanation=response_data["explanation"],
                 post_id=response_data["postId"],
-                codebook_type=CodebookType.MANUAL.value,
-                response_type=ResponseCreatorType.HUMAN.value,
+                codebook_type=codebook_type,
+                response_type=response_data.get("responseType", default_response_type),
                 chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", None),
+                is_marked=response_data.get("isMarked", None if codebook_type != CodebookType.FINAL else True),
                 created_at=datetime.now()
             )
             qect_repo.insert(new_response)
@@ -1016,70 +1322,70 @@ def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, 
     elif action_type == "SET_RESPONSES":
         qect_repo.delete(base_filters)
         new_responses = [
-            r for r in (action["responses"] or [])
+            r for r in (action.get("responses") or [])
             if r["code"].strip() and r["quote"].strip()
         ]
         for response_data in new_responses:
             new_response = QectResponse(
-                id=str(uuid4()),
-                dataset_id=workspace_id,
+                id=response_data.get("id", str(uuid4())),
+                dataset_id=response_data.get("datasetId", workspace_id),
                 workspace_id=workspace_id,
                 model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
                 code=response_data["code"],
                 explanation=response_data["explanation"],
                 post_id=response_data["postId"],
-                codebook_type=CodebookType.MANUAL.value,
-                response_type=ResponseCreatorType.LLM.value,
+                codebook_type=codebook_type,
+                response_type=response_data.get("responseType", default_response_type),
                 chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", None),
+                is_marked=response_data.get("isMarked", None if codebook_type != CodebookType.FINAL else True),
                 created_at=datetime.now()
             )
             qect_repo.insert(new_response)
 
     elif action_type == "SET_PARTIAL_RESPONSES":
         new_responses = [
-            r for r in (action["responses"] or [])
+            r for r in (action.get("responses") or [])
             if r["code"].strip() and r["quote"].strip()
         ]
         qect_repo.delete({**base_filters, "post_id": [r["postId"] for r in new_responses]})
         for response_data in new_responses:
             new_response = QectResponse(
-                id=str(uuid4()),
-                dataset_id=workspace_id,
+                id=response_data.get("id", str(uuid4())),
+                dataset_id=response_data.get("datasetId", workspace_id),
                 workspace_id=workspace_id,
                 model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
                 code=response_data["code"],
                 explanation=response_data["explanation"],
                 post_id=response_data["postId"],
-                codebook_type=CodebookType.MANUAL.value,
-                response_type=ResponseCreatorType.LLM.value,
+                codebook_type=codebook_type,
+                response_type=response_data.get("responseType", default_response_type),
                 chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", None),
+                is_marked=response_data.get("isMarked", None if codebook_type != CodebookType.FINAL else True),
                 created_at=datetime.now()
             )
             qect_repo.insert(new_response)
 
     elif action_type == "ADD_RESPONSES":
         new_responses = [
-            r for r in (action["responses"] or [])
+            r for r in (action.get("responses") or [])
             if r["code"].strip() and r["quote"].strip()
         ]
         for response_data in new_responses:
             new_response = QectResponse(
                 id=str(uuid4()),
-                dataset_id=workspace_id,
+                dataset_id=response_data.get("datasetId", workspace_id),
                 workspace_id=workspace_id,
                 model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
                 code=response_data["code"],
                 explanation=response_data["explanation"],
                 post_id=response_data["postId"],
-                codebook_type=CodebookType.MANUAL.value,
-                response_type=ResponseCreatorType.LLM.value,
+                codebook_type=codebook_type,
+                response_type=response_data.get("responseType", default_response_type),
                 chat_history=json.dumps(response_data.get("chatHistory")),
-                is_marked=response_data.get("isMarked", None),
+                is_marked=response_data.get("isMarked", None if codebook_type != CodebookType.FINAL else True),
                 created_at=datetime.now()
             )
             qect_repo.insert(new_response)
@@ -1087,35 +1393,34 @@ def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, 
     elif action_type == "REMOVE_RESPONSES":
         if action.get("all"):
             qect_repo.delete(base_filters)
-        elif "indexes" in action:
-            responses = get_current_state()
+        elif "indexes" in action and use_index:
             indexes = action["indexes"]
-            response_ids_to_delete = [
-                responses[i].id for i in indexes if 0 <= i < len(responses)
-            ]
-            if response_ids_to_delete:
-                qect_repo.delete({"id": {"$in": response_ids_to_delete}})
+            if len(indexes):
+                qect_repo.delete({"id": indexes})
+        elif "responseIds" in action and not use_index:
+            response_ids = action["responseIds"]
+            qect_repo.delete({"id": response_ids})
 
     elif action_type == "DELETE_CODE":
-        code = action["code"]
+        code = action.get("code")
         qect_repo.delete({**base_filters, "code": code})
 
     elif action_type == "EDIT_CODE":
-        current_code = action["currentCode"]
-        new_code = action["newCode"]
+        current_code = action.get("currentCode")
+        new_code = action.get("newCode")
         qect_repo.update({**base_filters, "code": current_code}, {"code": new_code})
 
     elif action_type == "DELETE_HIGHLIGHT":
-        post_id = action["postId"]
-        sentence = action["sentence"]
-        code = action["code"]
+        post_id = action.get("postId")
+        sentence = action.get("sentence")
+        code = action.get("code")
         qect_repo.delete({**base_filters, "post_id": post_id, "quote": sentence, "code": code})
 
     elif action_type == "EDIT_HIGHLIGHT":
-        post_id = action["postId"]
-        sentence = action["sentence"]
-        code = action["code"]
-        new_sentence = action["newSentence"]
+        post_id = action.get("postId")
+        sentence = action.get("sentence")
+        code = action.get("code")
+        new_sentence = action.get("newSentence")
         range_marker = action.get("rangeMarker")
         updates = {"quote": new_sentence}
         if range_marker is not None:
@@ -1126,58 +1431,53 @@ def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, 
         )
 
     elif action_type == "SET_CHAT_HISTORY":
-        post_id = action["postId"]
-        sentence = action["sentence"]
-        code = action["code"]
-        chat_history = json.dumps(action["chatHistory"])
+        post_id = action.get("postId")
+        sentence = action.get("sentence")
+        code = action.get("code")
+        chat_history = json.dumps(action.get("chatHistory"))
         qect_repo.update(
             {**base_filters, "post_id": post_id, "quote": sentence, "code": code},
             {"chat_history": chat_history}
         )
 
     elif action_type == "UPDATE_CODE":
-        quote = action["quote"]
-        prev_code = action["prevCode"]
-        new_code = action["newCode"]
+        quote = action.get("quote")
+        prev_code = action.get("prevCode")
+        new_code = action.get("newCode")
         qect_repo.update(
             {**base_filters, "quote": quote, "code": prev_code},
             {"code": new_code}
         )
 
     elif action_type == "UPSERT_MARKER":
-        code = action["code"]
-        quote = action["quote"]
-        post_id = action["postId"]
-        range_marker = action["rangeMarker"]
+        code = action.get("code")
+        quote = action.get("quote")
+        post_id = action.get("postId")
+        range_marker = action.get("rangeMarker")
         qect_repo.update(
             {**base_filters, "code": code, "quote": quote, "post_id": post_id},
             {"range_marker": range_marker}
         )
 
     elif action_type == "SYNC_CHAT_STATE":
-        post_id = action["postId"]
-        quote = action["quote"]
-        prev_code = action["prevCode"]
+        post_id = action.get("postId")
+        quote = action.get("quote")
+        prev_code = action.get("prevCode")
         current_code = action.get("currentCode")
         chat_history = action.get("chatHistory")
         is_marked = action.get("isMarked")
         refresh = action.get("refresh", False)
-
         filters = {**base_filters, "post_id": post_id, "quote": quote, "code": prev_code}
         responses = qect_repo.find(filters)
         if responses:
             response = responses[0]
             updates = {}
-
             if chat_history is not None:
                 updates["chat_history"] = json.dumps(chat_history)
-
             if current_code and current_code.strip():
                 updates["code"] = current_code
-
             if is_marked is not None:
                 updates["is_marked"] = is_marked
-
             if refresh and "chat_history" in updates:
                 chat_history = json.loads(updates["chat_history"])
                 chat_history = [
@@ -1185,15 +1485,14 @@ def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, 
                     for msg in chat_history if not (msg["sender"] == "Human" and msg.get("isEditable"))
                 ]
                 updates["chat_history"] = json.dumps(chat_history)
-
             if updates:
                 qect_repo.update({"id": response.id}, updates)
 
     elif action_type == "RESET":
         qect_repo.delete(base_filters)
 
-    if action_type == "RESTORE_STATE":
-        for response_data in action["payload"]:
+    elif action_type == "RESTORE_STATE":
+        for response_data in action.get("payload", []):
             response_id = response_data.get("id")
             if response_id:
                 existing = qect_repo.find_one({"id": response_id})
@@ -1206,7 +1505,7 @@ def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, 
                         "explanation": response_data.get("explanation", existing.explanation),
                         "post_id": response_data.get("postId", existing.post_id),
                         "response_type": response_data.get("responseType", existing.response_type),
-                        "codebook_type": response_data.get("codebookType", existing.codebook_type),
+                        "codebook_type": response_data.get("codebookType", codebook_type),
                         "chat_history": json.dumps(response_data["chatHistory"]) if "chatHistory" in response_data else existing.chat_history,
                         "is_marked": response_data.get("isMarked", existing.is_marked),
                         "range_marker": response_data.get("rangeMarker", existing.range_marker),
@@ -1222,8 +1521,8 @@ def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, 
                         code=response_data.get("code", ""),
                         explanation=response_data.get("explanation", ""),
                         post_id=response_data.get("postId", ""),
-                        codebook_type=response_data.get("codebookType", CodebookType.MANUAL.value),
-                        response_type=response_data.get("responseType", ResponseCreatorType.LLM.value),
+                        codebook_type=codebook_type,
+                        response_type=response_data.get("responseType", default_response_type),
                         chat_history=json.dumps(response_data.get("chatHistory", None)),
                         is_marked=response_data.get("isMarked", None),
                         created_at=datetime.now()
@@ -1234,4 +1533,34 @@ def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, 
         pass
 
     else:
-        pass
+        print(f"Unknown action type: {action_type}")
+
+def process_sampled_post_response_action(workspace_id: str, action: Dict[str, Any]) -> None:
+    process_action(
+        workspace_id=workspace_id,
+        action=action,
+        codebook_type=CodebookType.INITIAL.value,
+        default_response_type=ResponseCreatorType.LLM.value,
+        use_index=True,
+        strict_action_type=False
+    )
+
+def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any]) -> None:
+    process_action(
+        workspace_id=workspace_id,
+        action=action,
+        codebook_type=CodebookType.FINAL.value,
+        default_response_type=ResponseCreatorType.LLM.value,
+        use_index=False,
+        strict_action_type=True
+    )
+
+def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, Any]) -> None:
+    process_action(
+        workspace_id=workspace_id,
+        action=action,
+        codebook_type=CodebookType.MANUAL.value,
+        default_response_type=ResponseCreatorType.HUMAN.value,
+        use_index=True,
+        strict_action_type=False
+    )

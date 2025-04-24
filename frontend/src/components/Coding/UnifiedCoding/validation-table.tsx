@@ -1,7 +1,6 @@
-import { ChangeEvent, FC, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { IQECResponse, IQECTTyResponse } from '../../../types/Coding/shared';
 import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
-import { useLocation } from 'react-router-dom';
 import { useInfiniteScroll } from '../../../hooks/Coding/use-infinite-scroll';
 
 interface ValidationTableProps {
@@ -50,14 +49,15 @@ const ValidationTable: FC<ValidationTableProps> = ({
     loadNextPage,
     loadPreviousPage
 }) => {
-    const location = useLocation();
+    console.log('Validation Table Render', codeResponses);
 
     const [editIndex, setEditIndex] = useState<string | null>(null);
     const [editableRow, setEditableRow] = useState<any>(null);
-    const [scrollToPostId, setScrollToPostId] = useState<string | null>(null);
 
     const postHeaderRefs = useRef<Record<string, HTMLTableRowElement>>({});
-    const { scrollRef: tableRef, storageKey } = useScrollRestoration('validation-table');
+    const { scrollRef: tableRef, storageKey } = useScrollRestoration(
+        `validation-table-${codeResponses.length}`
+    );
 
     useInfiniteScroll(tableRef, {
         isLoading: isLoadingPage,
@@ -67,64 +67,12 @@ const ValidationTable: FC<ValidationTableProps> = ({
         loadPreviousPage
     });
 
-    useEffect(() => {
-        if (scrollToPostId && postHeaderRefs.current[scrollToPostId]) {
-            postHeaderRefs.current[scrollToPostId].scrollIntoView({
-                behavior: 'auto',
-                block: 'start'
-            });
-            setScrollToPostId(null);
-        }
-    }, [codeResponses, scrollToPostId]);
-
-    useEffect(() => {
-        if (tableRef.current && codeResponses.length > 0) {
-            const savedPosition = sessionStorage.getItem(storageKey);
-            if (savedPosition) {
-                tableRef.current.scrollTop = parseInt(savedPosition, 10);
-            }
-        }
-    }, [codeResponses, tableRef, storageKey]);
-
     const handleMark = (index: string, isMarked?: boolean) => {
-        const updatedResponses = [...codeResponses];
-        const response = updatedResponses.find((r) => r.id === index);
-        if (response) {
-            response.isMarked = isMarked;
-            onUpdateResponses(updatedResponses);
-        }
-    };
-
-    const handleCommentChange = (index: string, event: ChangeEvent<HTMLTextAreaElement>) => {
-        const updatedResponses = [...codeResponses];
-        const response = updatedResponses.find((r) => r.id === index);
-        if (response) {
-            response.comment = event.target.value;
-            onUpdateResponses(updatedResponses);
-        }
-    };
-
-    const handleEditRow = (index: string) => {
-        setEditIndex(index);
-        const response = codeResponses.find((r) => r.id === index);
-        if (response) {
-            setEditableRow({ ...response });
-        }
-    };
-
-    const handleSaveEdit = () => {
-        if (editIndex === null) return;
-        const updatedResponses = [...codeResponses];
-        const responseIndex = updatedResponses.findIndex((r) => r.id === editIndex);
-        if (responseIndex !== -1) {
-            updatedResponses[responseIndex] = editableRow;
-            onUpdateResponses(updatedResponses);
-            setEditIndex(null);
-        }
-    };
-
-    const handleCancelEdit = () => {
-        setEditIndex(null);
+        dispatchCodeResponses({
+            type: 'MARK_RESPONSE',
+            index,
+            isMarked
+        });
     };
 
     const handleInputChange = (field: string, value: string) => {
@@ -132,16 +80,9 @@ const ValidationTable: FC<ValidationTableProps> = ({
     };
 
     const handleToggleAllSelectOrReject = (isSelect: boolean) => {
-        const allAlreadySetTo = codeResponses.every((r) => r.isMarked === isSelect);
-        const finalDecision = allAlreadySetTo ? undefined : isSelect;
-
-        if (finalDecision === undefined) {
-            dispatchCodeResponses({ type: 'SET_ALL_UNMARKED' });
-        } else {
-            dispatchCodeResponses({
-                type: finalDecision ? 'SET_ALL_CORRECT' : 'SET_ALL_INCORRECT'
-            });
-        }
+        dispatchCodeResponses({
+            type: isSelect ? 'SET_ALL_CORRECT' : 'SET_ALL_INCORRECT'
+        });
     };
 
     const groupedByPostId = useMemo(() => groupByPostId(codeResponses as any[]), [codeResponses]);
@@ -222,11 +163,6 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             ✕
                                         </button>
                                     </div>
-                                </th>
-                            )}
-                            {conflictingResponses.length > 0 && (
-                                <th className="p-2 bg-gray-100 border border-gray-300 outline outline-1 outline-gray-300">
-                                    Conflicts
                                 </th>
                             )}
                         </tr>
@@ -393,81 +329,43 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                         {!review && (
                                             <td className="border border-gray-300 p-2 max-w-28">
                                                 <div className="flex justify-center gap-2 text-center">
-                                                    {editIndex === row.id ? (
-                                                        <>
-                                                            <button
-                                                                className="px-3 py-2 bg-green-500 text-white rounded-md"
-                                                                onClick={handleSaveEdit}>
-                                                                💾
-                                                            </button>
-                                                            <button
-                                                                className="px-3 py-2 bg-red-500 text-white rounded-md"
-                                                                onClick={handleCancelEdit}>
-                                                                ❌
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <button
-                                                                className={`px-3 py-2 rounded-md ${
-                                                                    row.isMarked === true
-                                                                        ? 'bg-green-500 text-white'
-                                                                        : 'bg-gray-300 text-gray-600'
-                                                                }`}
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    handleMark(
-                                                                        row.id,
-                                                                        row.isMarked !== true
-                                                                            ? true
-                                                                            : undefined
-                                                                    );
-                                                                }}>
-                                                                ✓
-                                                            </button>
-                                                            <button
-                                                                className={`px-3 py-2 rounded-md ${
-                                                                    row.isMarked === false
-                                                                        ? 'bg-red-500 text-white'
-                                                                        : 'bg-gray-300 text-gray-600'
-                                                                }`}
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    handleMark(
-                                                                        row.id,
-                                                                        row.isMarked !== false
-                                                                            ? false
-                                                                            : undefined
-                                                                    );
-                                                                }}>
-                                                                ✕
-                                                            </button>
-                                                        </>
-                                                    )}
+                                                    <button
+                                                        className={`px-3 py-2 rounded-md ${
+                                                            row.isMarked === true
+                                                                ? 'bg-green-500 text-white'
+                                                                : 'bg-gray-300 text-gray-600'
+                                                        }`}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            handleMark(
+                                                                row.id,
+                                                                row.isMarked !== true
+                                                                    ? true
+                                                                    : undefined
+                                                            );
+                                                        }}>
+                                                        ✓
+                                                    </button>
+                                                    <button
+                                                        className={`px-3 py-2 rounded-md ${
+                                                            row.isMarked === false
+                                                                ? 'bg-red-500 text-white'
+                                                                : 'bg-gray-300 text-gray-600'
+                                                        }`}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            handleMark(
+                                                                row.id,
+                                                                row.isMarked !== false
+                                                                    ? false
+                                                                    : undefined
+                                                            );
+                                                        }}>
+                                                        ✕
+                                                    </button>
                                                 </div>
-                                            </td>
-                                        )}
-                                        {conflictingResponses.length > 0 && (
-                                            <td className="border border-gray-300 p-2">
-                                                {conflictingResponses
-                                                    .filter(
-                                                        (conflict) =>
-                                                            conflict.code === row.code &&
-                                                            conflict.quote === row.quote
-                                                    )
-                                                    .map((conflict, i) => (
-                                                        <div key={i}>
-                                                            <button
-                                                                className="text-red-500 underline"
-                                                                onClick={() =>
-                                                                    onViewTranscript(row.post_id)
-                                                                }>
-                                                                Go to Conflict
-                                                            </button>
-                                                        </div>
-                                                    ))}
                                             </td>
                                         )}
                                     </tr>

@@ -34,7 +34,7 @@ const connectWS = (globalCtx) => {
     isConnecting = true;
     connectionPromise = new Promise((resolve, reject) => {
         try {
-            const url = new URL(config.backendURL[globalCtx.getState().processing]);
+            const url = new URL(config.websocketURL[globalCtx.getState().processing]);
             const appId = globalCtx.getState().settings?.app?.id ?? 'default';
             const wsUrl = `ws://${url.host}${url.pathname}/notifications/ws?app=${appId}`;
             electronLogger.log(`Creating new WebSocket instance for ${wsUrl}`);

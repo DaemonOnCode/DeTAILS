@@ -19,6 +19,9 @@ a = Analysis(
     binaries=[],
     datas=[(model_path, 'spacy/data/en_core_web_sm')],
     hiddenimports=[
+        'app_http',
+        'app_ws',
+        'ipc',
         'main',
         'routes',
         'utils',

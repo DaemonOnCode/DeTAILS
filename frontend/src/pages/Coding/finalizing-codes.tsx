@@ -25,6 +25,7 @@ import { toast } from 'react-toastify';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import { usePaginatedResponses } from '../../hooks/Coding/use-paginated-responses';
+import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
 
 const FinalzingCodes = () => {
     const location = useLocation();
@@ -132,27 +133,6 @@ const FinalzingCodes = () => {
             .filter((r) => r.isMarked);
     }, [responsesByPostId, groupedCodes]);
 
-    // const codeResponses = [
-    // ...sampledPostResponse.map((r) => ({
-    //     postId: r.postId,
-    //     id: r.id,
-    //     code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-    //     quote: r.quote,
-    //     explanation: r.explanation,
-    //     comment: r.comment,
-    //     subCode: r.code
-    // })),
-    // ...unseenPostResponse.map((r) => ({
-    //     postId: r.postId,
-    //     id: r.id,
-    //     code: getGroupedCodeOfSubCode(r.code, groupedCodes),
-    //     quote: r.quote,
-    //     explanation: r.explanation,
-    //     comment: r.comment,
-    //     subCode: r.code
-    // }))
-    // ];
-
     const { scrollRef: codeRef, storageKey: codeStorageKey } = useScrollRestoration(
         `code-list-${review}`
     );
@@ -204,65 +184,41 @@ const FinalzingCodes = () => {
         if (await checkIfDataExists(location.pathname)) {
             openModal('refresh-reviewing-codes-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
-                await handleRefreshCodes(feedback);
+                await handleRefreshCodes();
             });
         } else {
             loadingDispatch({ type: 'SET_REST_UNDONE', route: location.pathname });
-            handleRefreshCodes(feedback);
+            handleRefreshCodes();
         }
         setFeedback('');
     };
 
-    const handleNextClick = async () => {
-        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
+    const handleNextClick = useNextHandler({
+        startLog: 'Starting theme generation',
+        doneLog: 'Theme generation completed',
+        loadingRoute: PAGE_ROUTES.GENERATING_THEMES,
+        loaderRoute: LOADER_ROUTES.THEME_GENERATION_LOADER,
+        remoteRoute: REMOTE_SERVER_ROUTES.THEME_GENERATION,
+        useLLM: true,
+        buildBody: () => JSON.stringify({ model: settings.ai.model }),
+        onSuccess: () => {}
+    });
 
-        const { data: results, error } = await fetchLLMData(REMOTE_SERVER_ROUTES.THEME_GENERATION, {
-            method: 'POST',
-            body: JSON.stringify({ model: settings.ai.model })
-        });
-
-        if (error) {
-            console.error('Error in handleNextClick:', error);
-            if (error.name !== 'AbortError') {
-                toast.error('Error generating themes. Please try again.');
-                navigate(PAGE_ROUTES.REVIEWING_CODES);
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.GENERATING_THEMES
-                });
-            }
-            return;
-        }
-
-        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
-    };
-
-    const handleRefreshCodes = async (extraFeedback = '') => {
-        loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.REVIEWING_CODES });
-        navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, { text: 'Reviewing Codes' })
-        );
-
-        const { data: results, error } = await fetchLLMData(REMOTE_SERVER_ROUTES.REGROUP_CODES, {
-            method: 'POST',
-            body: JSON.stringify({ model: settings.ai.model, feedback: extraFeedback })
-        });
-
-        if (error) {
+    const handleRefreshCodes = useRetryHandler({
+        startLog: 'Starting code review',
+        doneLog: 'Code review completed',
+        loadingRoute: PAGE_ROUTES.REVIEWING_CODES,
+        loaderRoute: LOADER_ROUTES.DATA_LOADING_LOADER,
+        loaderParams: { text: 'Reviewing codes' },
+        remoteRoute: REMOTE_SERVER_ROUTES.REGROUP_CODES,
+        useLLM: true,
+        buildBody: () => JSON.stringify({ model: settings.ai.model, feedback }),
+        nextRoute: PAGE_ROUTES.REVIEWING_CODES,
+        onSuccess: () => {},
+        onError: (error) => {
             console.error('Error refreshing themes:', error);
-            if (error.name !== 'AbortError') {
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.REVIEWING_CODES
-                });
-            }
-            return;
         }
-
-        loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.REVIEWING_CODES });
-        navigate(PAGE_ROUTES.REVIEWING_CODES);
-    };
+    });
 
     const steps = [
         {

@@ -1,6 +1,7 @@
 import { MutableRefObject, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { debounce } from 'lodash';
+import { DEBOUNCE_DELAY } from '../../constants/Shared';
 
 const useScrollRestoration = (basicName: string) => {
     const location = useLocation();
@@ -24,7 +25,7 @@ const useScrollRestoration = (basicName: string) => {
                 const currentPosition = scrollRef.current.scrollTop;
                 sessionStorage.setItem(storageKey, currentPosition.toString());
             }
-        }, 300);
+        }, DEBOUNCE_DELAY);
 
         const handleScroll = () => {
             saveScrollPosition();

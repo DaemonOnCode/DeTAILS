@@ -3,7 +3,8 @@ import { useDrop } from 'react-dnd';
 import CodeItem from './code-item';
 import { FaTrashAlt } from 'react-icons/fa';
 import { FiEdit } from 'react-icons/fi';
-import debounce from 'lodash/debounce'; // Import Lodash debounce
+import { DEBOUNCE_DELAY } from '../../../constants/Shared';
+import useDebounce from '../../../hooks/Shared/use-debounce';
 
 interface BucketProps {
     theme: { id: string; name: string; codes: string[] };
@@ -22,17 +23,12 @@ const Bucket: FC<BucketProps> = ({
     setCodeRef,
     scrollRef
 }) => {
+    const bucketRef = useRef<HTMLDivElement>(null);
+
     const [isEditing, setIsEditing] = useState(false);
     const [newName, setNewName] = useState(theme.name);
 
-    // Create a debounced version of onUpdateName with a 500ms delay
-    const debouncedUpdateName = useRef(
-        debounce((id: string, name: string) => {
-            onUpdateName(id, name);
-        }, 500)
-    ).current;
-
-    const bucketRef = useRef<HTMLDivElement>(null);
+    const debouncedNewName = useDebounce(newName, DEBOUNCE_DELAY);
 
     const [{ isOver }, drop] = useDrop(() => ({
         accept: 'CODE',
@@ -43,25 +39,26 @@ const Bucket: FC<BucketProps> = ({
         })
     }));
 
-    // Sync newName with theme.name when entering edit mode
     useEffect(() => {
         if (isEditing) {
             setNewName(theme.name);
         }
     }, [isEditing, theme.name]);
 
-    // Handle input changes: update local state instantly, dispatch debounced update
+    useEffect(() => {
+        if (isEditing) {
+            onUpdateName(theme.id, debouncedNewName.trim());
+        }
+    }, [debouncedNewName, isEditing, onUpdateName, theme.id]);
+
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setNewName(value); // Update local state immediately for instant feedback
-        debouncedUpdateName(theme.id, value.trim()); // Debounced update to onUpdateName
+        setNewName(e.target.value);
     };
 
-    // Handle submission (Enter or blur): dispatch update immediately
     const handleEditSubmit = () => {
         const trimmedName = newName.trim();
         if (trimmedName) {
-            onUpdateName(theme.id, trimmedName); // Immediate dispatch on submit
+            onUpdateName(theme.id, trimmedName);
         }
         setIsEditing(false);
     };
@@ -76,7 +73,7 @@ const Bucket: FC<BucketProps> = ({
                         <input
                             type="text"
                             value={newName}
-                            onChange={handleNameChange} // Use the new handler
+                            onChange={handleNameChange}
                             onBlur={handleEditSubmit}
                             onKeyPress={(e) => e.key === 'Enter' && handleEditSubmit()}
                             autoFocus

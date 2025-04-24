@@ -149,7 +149,7 @@ const KeywordsTablePage: FC = () => {
         if (loadingState[stepRoute]?.isLoading) {
             navigate(
                 getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                    text: 'Generating Keyword Definitions'
+                    text: 'Generating Concept Outline'
                 })
             );
         }

@@ -286,7 +286,11 @@ class GlobalQueueManager:
                             except Exception as e:
                                 print(f"[ENQUEUE] Failed to enqueue task {job_id}: {e}")
                         else:
-                            print(f"[ENQUEUE] No future for task {job_id}, skipping")
+                            print(f"[ENQUEUE] No future for task {job_id}, marking failed")
+                            dummy_fut = ConcurrentFuture()
+                            dummy_fut.set_exception(
+                                RuntimeError(f"No local future to process task {job_id}")
+                            )
                             with self._lock:
                                 for task in pending_tasks:
                                     job_id = task.task_id
@@ -430,11 +434,6 @@ class GlobalQueueManager:
             print(f"[WORKER {worker_id}] Unexpected error: {e}")
 
     async def submit_task(self, func: Callable, function_key: str, *args, cacheable_args: Optional[Dict[str, List]] = None, **kwargs) -> Tuple[str, asyncio.Future]:
-        # print(cacheable_args, "cacheable_args")
-        # for k, v in kwargs.items():
-        #     if k in cacheable_args["kwargs"]:
-        #         print(f"Found {k} in cacheable_args", v)
-        # sys.exit()
         try:
             if not self.running:
                 print("[SUBMIT] Manager not running, starting it")

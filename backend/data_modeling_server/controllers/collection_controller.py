@@ -26,6 +26,7 @@ from constants import DATASETS_DIR, PATHS, STUDY_DATABASE_PATH, UPLOAD_DIR
 from database import DatasetsRepository, CommentsRepository, PostsRepository, PipelineStepsRepository, FileStatusRepository, TorrentDownloadProgressRepository, SelectedPostIdsRepository
 from database.state_dump_table import StateDumpsRepository
 from decorators.execution_time_logger import log_execution_time
+from ipc import send_ipc_message
 from models import Dataset, Comment, Post, TorrentDownloadProgress
 from models.table_dataclasses import FileStatus, StateDump
 from routes.websocket_routes import ConnectionManager
@@ -351,9 +352,6 @@ def delete_dataset(dataset_id: str):
     dataset_repo.delete({"id": dataset_id})
     return {"message": "Dataset deleted successfully"}
 
-from datetime import datetime
-from typing import Optional
-
 def get_reddit_posts_by_batch(
     dataset_id: str,
     batch: int,
@@ -371,12 +369,10 @@ def get_reddit_posts_by_batch(
 
     if hide_removed:
         base_query = """
-        SELECT p.id, p.title, p.selftext, p.url, p.created_utc
         FROM posts p
         WHERE p.dataset_id = ?
           AND EXISTS (
-            SELECT 1
-            FROM comments c
+            SELECT 1 FROM comments c
             WHERE c.dataset_id = p.dataset_id
               AND c.post_id    = p.id
           )
@@ -386,8 +382,7 @@ def get_reddit_posts_by_batch(
               AND p.selftext NOT IN ('[removed]','[deleted]')
             )
             OR EXISTS (
-              SELECT 1
-              FROM comments c2
+              SELECT 1 FROM comments c2
               WHERE c2.dataset_id = p.dataset_id
                 AND c2.post_id    = p.id
                 AND c2.body       IS NOT NULL
@@ -398,7 +393,6 @@ def get_reddit_posts_by_batch(
         """
     else:
         base_query = """
-        SELECT p.id, p.title, p.selftext, p.url, p.created_utc
         FROM posts p
         WHERE p.dataset_id = ?
         """
@@ -415,48 +409,62 @@ def get_reddit_posts_by_batch(
         base_query += " AND p.created_utc <= ?"
         params.append(end_time)
 
+    metadata_query = f"""
+    SELECT
+      p.subreddit,
+      MIN(p.created_utc) AS start_ts,
+      MAX(p.created_utc) AS end_ts
+    {base_query}
+    GROUP BY p.subreddit
+    """
+    meta_row = post_repo.execute_raw_query(metadata_query, params, keys=True)[0]
+    metadata = {
+        "subreddit":   meta_row["subreddit"],
+        "start_date":  datetime.fromtimestamp(meta_row["start_ts"]).strftime('%Y-%m-%d'),
+        "end_date":    datetime.fromtimestamp(meta_row["end_ts"]).strftime('%Y-%m-%d'),
+    }
+
     summary_query = f"""
     SELECT
       COUNT(*)         AS total_count,
-      MIN(created_utc) AS start_date,
-      MAX(created_utc) AS end_date
-    FROM ({base_query}) AS summary_subquery
+      MIN(created_utc) AS start_ts,
+      MAX(created_utc) AS end_ts
+    FROM (
+        SELECT p.created_utc
+        {base_query}
+    ) AS summary_subq
     """
-    summary = post_repo.execute_raw_query(summary_query, params).fetchone()
-    total_count, start_ts, end_ts = summary
+    print("Summary query:", summary_query, params)
+    total_count, start_ts, end_ts = post_repo.execute_raw_query(summary_query, params).fetchone()
     start_date = datetime.fromtimestamp(start_ts).strftime('%Y-%m-%d') if start_ts else None
     end_date   = datetime.fromtimestamp(end_ts).strftime('%Y-%m-%d')   if end_ts   else None
 
     if get_all_ids:
-        id_query = base_query.replace(
-            "SELECT p.id, p.title, p.selftext, p.url, p.created_utc",
-            "SELECT p.id"
-        )
+        id_query = f"SELECT p.id {base_query}"
         rows = post_repo.execute_raw_query(id_query, params, keys=True)
         return {
-            "post_ids":   [r["id"] for r in rows],
-            "total_count": total_count,
-            "start_date":  start_date,
-            "end_date":    end_date
+            "post_ids":    [r["id"] for r in rows]
         }
 
+    select_clause = "SELECT p.id, p.title, p.selftext, p.url, p.created_utc"
     if not all:
         offset_val = (page - 1) * items_per_page
-        base_query += " ORDER BY p.created_utc ASC LIMIT ? OFFSET ?"
+        paging_clause = " ORDER BY p.created_utc ASC LIMIT ? OFFSET ?"
         params.extend([items_per_page, offset_val])
     else:
-        base_query += " ORDER BY p.created_utc ASC"
+        paging_clause = " ORDER BY p.created_utc ASC"
 
-    rows = post_repo.execute_raw_query(base_query, params, keys=True)
+    final_query = f"{select_clause} {base_query}{paging_clause}"
+    rows = post_repo.execute_raw_query(final_query, params, keys=True)
     posts = {r["id"]: r for r in rows}
 
     return {
+        "metadata":    metadata,
         "posts":       posts,
         "total_count": total_count,
         "start_date":  start_date,
         "end_date":    end_date
     }
-
 
 def get_reddit_post_titles(dataset_id: str):
     return post_repo.find({"dataset_id": dataset_id}, columns=["id", "title"])
@@ -812,7 +820,7 @@ async def process_reddit_data(
 
     print(f"Running command:\n{command}")
     message = f"Extracting data from {zst_filename}..."
-    await manager.send_message(app_id, message)
+    await send_ipc_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
     if is_primary:
@@ -840,7 +848,7 @@ async def process_reddit_data(
                     if key not in monthly_files:
                         monthly_filename = os.path.join(directory, f"R{data_type}_{key}.jsonl")
                         monthly_files[key] = await aiofiles.open(monthly_filename, "w", encoding="utf-8")
-                        await manager.send_message(app_id, f"Creating monthly file: {monthly_filename}")
+                        await send_ipc_message(app_id, f"Creating monthly file: {monthly_filename}")
                     await monthly_files[key].write(line + "\n")
             except json.JSONDecodeError:
                 print("Skipping invalid JSON line.")
@@ -854,7 +862,7 @@ async def process_reddit_data(
             json_filename = os.path.join(directory, f"R{data_type}_{key}.json")
             message = f"Converting {jsonl_filename} to {json_filename}"
             print(message)
-            await manager.send_message(app_id, message)
+            await send_ipc_message(app_id, message)
             async with aiofiles.open(jsonl_filename, "r", encoding="utf-8") as jsonl_file, \
                     aiofiles.open(json_filename, "w", encoding="utf-8") as json_file:
                 await json_file.write("[\n")
@@ -869,7 +877,7 @@ async def process_reddit_data(
             os.remove(jsonl_filename) 
 
         message = f"Processed data saved to monthly JSON files for {zst_filename}"
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
         return json_files
@@ -901,7 +909,7 @@ async def process_reddit_data(
 
         print(f"Processed data saved to {output_filename}")
         message = f"JSON extracted: {output_filename}"
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
         try:
@@ -964,7 +972,7 @@ async def wait_for_metadata(
             continue
 
         print(f"Metadata progress: {mpc * 100:.2f}%")
-        await manager.send_message(app_id, f"Metadata progress: {mpc * 100:.2f}%")
+        await send_ipc_message(app_id, f"Metadata progress: {mpc * 100:.2f}%")
         update_run_progress(run_id, f"Metadata progress: {mpc * 100:.2f}%", current_download_dir=current_download_dir)
 
         if mpc >= 1.0:
@@ -974,7 +982,7 @@ async def wait_for_metadata(
 
     message = "Metadata download complete. Verifying metadata..."
     print(message)
-    await manager.send_message(app_id, message)
+    await send_ipc_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
     timeout_seconds = 15
@@ -993,7 +1001,7 @@ async def wait_for_metadata(
 
     message = "Metadata fully loaded. Stopping torrent."
     print(message)
-    await manager.send_message(app_id, message)
+    await send_ipc_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
     c.stop_torrent(torrent.id)
@@ -1041,12 +1049,12 @@ async def verify_torrent_with_retry(
             break
         message = f"Verification in progress: {status}"
         print(message)
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)
         await asyncio.sleep(5)
     message = "Torrent verified. Starting download."
     print(message)
-    await manager.send_message(app_id, message)
+    await send_ipc_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=download_dir)
     return torrent
 
@@ -1078,7 +1086,7 @@ async def process_single_file(
     print(f"\n--- Processing file: {file_name} ---")
 
     message = f"Processing file: {file_name} ..."
-    await manager.send_message(app_id, message)
+    await send_ipc_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=download_dir)
 
     torrent_files = c.get_torrent(torrent.id).get_files()
@@ -1106,7 +1114,7 @@ async def process_single_file(
             if hasattr(curr_torrent, "error") and curr_torrent.error != 0:
                 err_msg = f"Error downloading {file_name}: {curr_torrent.error_string}"
                 print(err_msg)
-                await manager.send_message(app_id, err_msg)
+                await send_ipc_message(app_id, err_msg)
                 update_run_progress(run_id, err_msg)
                 if "Out of memory" in err_msg:
                     raise MemoryError(err_msg)
@@ -1124,7 +1132,7 @@ async def process_single_file(
                 print(f"File {file_name} has been fully downloaded.")
                 message = f"File {file_name} fully downloaded ({file_status.completed}/{file_status.size} bytes)."
                 print(message)
-                await manager.send_message(app_id, message)
+                await send_ipc_message(app_id, message)
                 update_run_progress(run_id, message, current_download_dir=download_dir)
                 break
             else:
@@ -1132,16 +1140,21 @@ async def process_single_file(
                     pct_done = (file_status.completed / file_status.size) * 100
                     message = f"Downloading {file_name}: {pct_done:.2f}% ({file_status.completed}/{file_status.size} bytes)"
                     print(message)
-                    await manager.send_message(app_id, message)
+                    await send_ipc_message(app_id, message)
                     update_run_progress(run_id, message, current_download_dir=download_dir)
                 else:
                     print(f"Waiting for file {file_name} to start...")
                 await asyncio.sleep(5)
 
+        check_start = time.time()
         while not os.path.exists(file_path_zst):
+            if time.time() - check_start > 2 *60:
+                print(f"File {file_path_zst} not found after 120 seconds.")
+                await send_ipc_message(app_id, f"ERROR: File {file_path_zst} not found after 120 seconds. Try retrying the request.")
+                raise FileNotFoundError(f"File {file_path_zst} not found after 120 seconds. Try retrying the request.")
             message = f"Waiting for file {file_path_zst} to appear on disk..."
             print(message)
-            await manager.send_message(app_id, message)
+            await send_ipc_message(app_id, message)
             update_run_progress(run_id, message, current_download_dir=download_dir)
             await asyncio.sleep(5)
         
@@ -1154,7 +1167,7 @@ async def process_single_file(
             os.makedirs(academic_folder, exist_ok=True)
             msg = f"Created academic folder: {academic_folder}"
             print(msg)
-            await manager.send_message(app_id, msg)
+            await send_ipc_message(app_id, msg)
             update_run_progress(run_id, msg)
 
         datasets_academic_folder = os.path.join(DATASETS_DIR, academic_folder_name)
@@ -1167,7 +1180,7 @@ async def process_single_file(
                 shutil.move(output_file, academic_file_path)
                 msg = f"Moved file: {output_file} -> {academic_file_path}"
                 print(msg)
-                await manager.send_message(app_id, msg)
+                await send_ipc_message(app_id, msg)
                 update_run_progress(run_id, msg)
                 
                 symlink_path = os.path.join(datasets_academic_folder, os.path.basename(output_file))
@@ -1179,7 +1192,7 @@ async def process_single_file(
             if symlink_commands:
                 # Alert the user about the need for administrator access
                 message = "Administrator access is required to create symbolic links on Windows. A UAC prompt will appear to grant these permissions."
-                await manager.send_message(app_id, message)
+                await send_ipc_message(app_id, message)
                 update_run_progress(run_id, message, current_download_dir=download_dir)
                 
                 # Create and execute a batch file with all mklink commands
@@ -1192,14 +1205,14 @@ async def process_single_file(
                 if result <= 32:  # ShellExecuteW returns <= 32 on failure
                     os.unlink(bat_file_path)
                     error_msg = f"Failed to create symlinks: Administrator access was not granted (ShellExecute returned {result})."
-                    await manager.send_message(app_id, error_msg)
+                    await send_ipc_message(app_id, error_msg)
                     raise RuntimeError(error_msg)
                 
                 await asyncio.sleep(2)  # Brief wait for the batch file to execute
                 os.unlink(bat_file_path)  # Clean up the temporary file
                 
                 message = f"Created {len(symlink_commands)} symlinks in {datasets_academic_folder}"
-                await manager.send_message(app_id, message)
+                await send_ipc_message(app_id, message)
                 update_run_progress(run_id, message, current_download_dir=download_dir)
         else: 
             for output_file in output_files:
@@ -1207,7 +1220,7 @@ async def process_single_file(
                 shutil.move(output_file, academic_file_path)
                 msg = f"Moved file: {output_file} -> {academic_file_path}"
                 print(msg)
-                await manager.send_message(app_id, msg)
+                await send_ipc_message(app_id, msg)
                 update_run_progress(run_id, msg)
                 
                 symlink_path = os.path.join(datasets_academic_folder, os.path.basename(output_file))
@@ -1215,25 +1228,25 @@ async def process_single_file(
                     os.remove(symlink_path)
                 os.symlink(academic_file_path, symlink_path)
                 message = f"Symlink created: {symlink_path} -> {academic_file_path}"
-                await manager.send_message(app_id, message)
+                await send_ipc_message(app_id, message)
                 update_run_progress(run_id, message, current_download_dir=download_dir)
                 academic_file_paths.append(academic_file_path)
 
         for academic_file_path in academic_file_paths:
             if os.stat(academic_file_path).st_size <= 5:
                 message = f"No data found in {os.path.basename(academic_file_path)} for {subreddit}."
-                await manager.send_message(app_id, message)
+                await send_ipc_message(app_id, message)
                 update_run_progress(run_id, message, current_download_dir=download_dir)
 
         message = f"Processed file: {file_name} into {len(academic_file_paths)} files."
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)
         print(f"Processing complete for file {file_name}.")
 
     except Exception as e:
         print(f"Error processing file {file_name}: {e}")
         message = f"Error processing file {file_name}: {e}"
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         # update_run_progress(run_id, message, current_download_dir=download_dir)
         raise e
     finally:
@@ -1300,7 +1313,7 @@ async def get_reddit_data_from_torrent(
     #     magnet_link = FALLBACK_MAGNET_LINK
     #     message = f"Using fallback torrent with range {start_month} to {end_month}."
     
-    # await manager.send_message(app_id, message)
+    # await send_ipc_message(app_id, message)
     # update_run_progress(run_id, message, current_download_dir=current_download_dir)
 
     if not use_fallback:
@@ -1320,13 +1333,13 @@ async def get_reddit_data_from_torrent(
     else:
         message += " (Using existing torrent)"
     
-    await manager.send_message(app_id, message)
+    await send_ipc_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=download_dir)
 
     if current_torrent.download_dir != TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR:
         message = f"Torrent download directory mismatch. Moving torrent to {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}..."
         print(message)
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)
         c.move_torrent_data(current_torrent.id, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
         await asyncio.sleep(10)  
@@ -1335,7 +1348,7 @@ async def get_reddit_data_from_torrent(
         current_torrent = c.get_torrent(torrent_hash_string)
         message = f"Torrent data moved and verified in {TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR}."
         print(message)
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)
 
     torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, current_torrent, current_download_dir=download_dir)
@@ -1359,11 +1372,11 @@ async def get_reddit_data_from_torrent(
     if files_already_processed:
         already_processed_names = [os.path.splitext(os.path.basename(f))[0] for f in files_already_processed]
         message = f"Files already downloaded: {', '.join(already_processed_names)}"
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)
     
     message = f"Files to process: {len(files_to_process_actually)}"
-    await manager.send_message(app_id, message)
+    await send_ipc_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=download_dir)
 
     file_repo.insert_batch(
@@ -1380,7 +1393,7 @@ async def get_reddit_data_from_torrent(
     
     message = f"All wanted files have been processed. Total new files: {len(all_output_files)}."
     print(message)
-    await manager.send_message(app_id, message)
+    await send_ipc_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=download_dir)
     return all_output_files
 
@@ -1507,7 +1520,7 @@ async def check_primary_torrent(
         primary_torrent = c.add_torrent(PRIMARY_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
 
     message = f"Checking primary torrent for subreddit '{subreddit}'..."
-    await manager.send_message(app_id, message)
+    await send_ipc_message(app_id, message)
     update_run_progress(run_id, message, current_download_dir=download_dir)
 
     primary_torrent = await wait_for_metadata(manager, app_id, run_id, c, primary_torrent)
@@ -1521,7 +1534,7 @@ async def check_primary_torrent(
 
     if total_size > available_space:
         message = f"Insufficient disk space for subreddit '{subreddit}'. Required: {total_size} bytes, Available: {available_space} bytes."
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)
         return {"status": False, "files": primary_files, "error": "Insufficient disk space"}
 
@@ -1543,12 +1556,12 @@ async def check_primary_torrent(
 
     if len(primary_files) > 0:
         message = f"Found subreddit '{subreddit}' in primary torrent. Files available: {len(primary_files)}, Total size: {total_size} bytes"
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)
         return {"status": True, "files": primary_files, "total_size": total_size}
     else:
         message = f"Subreddit '{subreddit}' not found in primary torrent."
-        await manager.send_message(app_id, message)
+        await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)
         return {"status": False, "files": [], "total_size": 0, "error": "Subreddit not found"}
     

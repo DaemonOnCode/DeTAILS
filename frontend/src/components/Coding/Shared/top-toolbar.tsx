@@ -151,8 +151,7 @@ const TopToolbar: FC<TopToolbarProps> = ({
                 <button
                     className="flex items-center px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
                     onClick={onShowCodebook}>
-                    <FaBook className="mr-2" />{' '}
-                    {!showCodebook ? 'Show Initial Codes' : 'Hide Codebook'}
+                    <FaBook className="mr-2" /> {!showCodebook ? 'Show Codes' : 'Hide Codes'}
                 </button>
             )}
             {showDoneButton && (

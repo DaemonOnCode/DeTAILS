@@ -16,6 +16,7 @@ import { useLoadingContext } from '../../context/loading-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
+import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
 
 const CodebookCreation = () => {
     const [searchParams] = useSearchParams();
@@ -53,83 +54,30 @@ const CodebookCreation = () => {
 
     const stepRoute = location.pathname;
 
-    const handleRedoCoding = async () => {
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.INITIAL_CODING
-        });
-        navigate(
-            getCodingLoaderUrl(LOADER_ROUTES.FINAL_CODING_LOADER, {
-                text: 'Initial Coding in Progress'
-            })
-        );
+    const handleRedoCoding = useRetryHandler({
+        startLog: 'Starting redo initial coding',
+        doneLog: 'Redo initial coding completed',
+        loadingRoute: PAGE_ROUTES.INITIAL_CODING,
+        loaderRoute: LOADER_ROUTES.FINAL_CODING_LOADER,
+        loaderParams: { text: 'Initial Coding in Progress' },
+        remoteRoute: REMOTE_SERVER_ROUTES.REMAKE_CODEBOOK,
+        useLLM: true,
+        buildBody: () => JSON.stringify({ model: settings.ai.model }),
+        nextRoute: PAGE_ROUTES.INITIAL_CODING,
+        onSuccess: (data) => console.log('Results:', data),
+        onError: (error) => console.error('Error in handleRedoCoding:', error)
+    });
 
-        const { data: results, error } = await fetchLLMData(REMOTE_SERVER_ROUTES.REMAKE_CODEBOOK, {
-            method: 'POST',
-            body: JSON.stringify({
-                model: settings.ai.model
-            })
-        });
-
-        if (error) {
-            console.error('Error in handleRedoCoding:', error);
-            loadingDispatch({
-                type: 'SET_LOADING_DONE_ROUTE',
-                route: PAGE_ROUTES.INITIAL_CODING
-            });
-            return;
-        }
-
-        console.log('Results:', results);
-
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.INITIAL_CODING
-        });
-        navigate(PAGE_ROUTES.INITIAL_CODING);
-    };
-
-    const handleNextClick = async () => {
-        navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
-
-        loadingDispatch({
-            type: 'SET_LOADING_ROUTE',
-            route: PAGE_ROUTES.INITIAL_CODEBOOK
-        });
-
-        const { data: results, error } = await fetchLLMData<{
-            message: string;
-            data: {
-                [code: string]: string;
-            };
-        }>(REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK_WITHOUT_QUOTES, {
-            method: 'POST',
-            body: JSON.stringify({
-                model: settings.ai.model
-            })
-        });
-
-        if (error) {
-            console.error('Error in handleNextClick:', error);
-            if (error.name !== 'AbortError') {
-                toast.error('Error generating codebook. Please try again.');
-                navigate(PAGE_ROUTES.INITIAL_CODING);
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: PAGE_ROUTES.INITIAL_CODEBOOK
-                });
-                throw new Error(error.message);
-            }
-            return;
-        }
-
-        console.log('Results:', results);
-
-        loadingDispatch({
-            type: 'SET_LOADING_DONE_ROUTE',
-            route: PAGE_ROUTES.INITIAL_CODEBOOK
-        });
-    };
+    const handleNextClick = useNextHandler({
+        startLog: 'Starting codebook generation',
+        doneLog: 'Codebook generation completed',
+        loadingRoute: PAGE_ROUTES.INITIAL_CODEBOOK,
+        loaderRoute: LOADER_ROUTES.CODEBOOK_LOADER,
+        remoteRoute: REMOTE_SERVER_ROUTES.GENERATE_CODEBOOK_WITHOUT_QUOTES,
+        useLLM: true,
+        buildBody: () => JSON.stringify({ model: settings.ai.model }),
+        onSuccess: (data) => console.log('Results:', data)
+    });
 
     const steps: TutorialStep[] = [
         {
