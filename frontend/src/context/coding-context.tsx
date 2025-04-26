@@ -26,6 +26,7 @@ import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
 export const CodingContext = createContext<ICodingContext>({
     contextFiles: {},
     addContextFile: async () => {},
+    addContextFilesBatch: async () => {},
     removeContextFile: async () => {},
     mainTopic: '',
     setMainTopic: async () => {},
@@ -45,6 +46,7 @@ export const CodingContext = createContext<ICodingContext>({
     dispatchSampledPostResponse: async () => {},
     // unseenPostResponse: [],
     dispatchUnseenPostResponse: async () => {},
+    dispatchAllPostResponse: async () => {},
     themes: [],
     dispatchThemes: async () => {},
     groupedCodes: [],
@@ -84,7 +86,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         []
     );
 
-    const saveCodingContext = async (operationType: string, payload: object) => {
+    const saveCodingContext = async (operationType: string, payload: any) => {
         try {
             const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.SAVE_CODING_CONTEXT, {
                 method: 'POST',
@@ -333,10 +335,22 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             addContextFile: async (filePath: string, fileName: string) => {
                 const data = await saveCodingContext('addContextFile', { filePath, fileName });
                 if (data.contextFiles) setContextFilesState(data.contextFiles);
+                return data;
+            },
+            addContextFilesBatch: async (
+                files: {
+                    filePath: string;
+                    fileName: string;
+                }[]
+            ) => {
+                const data = await saveCodingContext('addContextFilesBatch', { files });
+                if (data.contextFiles) setContextFilesState(data.contextFiles);
+                return data;
             },
             removeContextFile: async (filePath: string) => {
                 const data = await saveCodingContext('removeContextFile', { filePath });
                 if (data.contextFiles) setContextFilesState(data.contextFiles);
+                return data;
             },
             mainTopic,
             setMainTopic: async (topicOrUpdater) => {
@@ -346,6 +360,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         : topicOrUpdater;
                 const data = await saveCodingContext('setMainTopic', { mainTopic: newTopic });
                 if (data.mainTopic !== undefined) setMainTopicState(data.mainTopic);
+                return data;
             },
             additionalInfo,
             setAdditionalInfo: async (infoOrUpdater) => {
@@ -357,6 +372,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     additionalInfo: newInfo
                 });
                 if (data.additionalInfo !== undefined) setAdditionalInfoState(data.additionalInfo);
+                return data;
             },
             keywords,
             setKeywords: async (kwsOrUpdater) => {
@@ -364,6 +380,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     typeof kwsOrUpdater === 'function' ? kwsOrUpdater(keywords) : kwsOrUpdater;
                 const data = await saveCodingContext('setKeywords', { keywords: newKeywords });
                 if (data.keywords) setKeywordsState(data.keywords);
+                return data;
             },
             selectedKeywords,
             setSelectedKeywords: async (skwsOrUpdater) => {
@@ -375,6 +392,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     selectedKeywords: newSelectedKeywords
                 });
                 if (data.selectedKeywords) setSelectedKeywordsState(data.selectedKeywords);
+                return data;
             },
             references,
             setReferences: async (refsOrUpdater) => {
@@ -384,11 +402,13 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     references: newReferences
                 });
                 if (data.references) setReferencesState(data.references);
+                return data;
             },
             keywordTable,
             dispatchKeywordsTable: async (action: KeywordsTableAction) => {
                 const data = await saveCodingContext('dispatchKeywordsTable', { action });
                 if (data.keywordTable) setKeywordTableState(data.keywordTable);
+                return data;
             },
             updateContext: async (updates: Partial<ICodingContext>) => {
                 const data = await saveCodingContext('updateContext', updates);
@@ -439,8 +459,13 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                 const data = await saveCodingContext('dispatchSampledPostResponse', { action });
                 console.log('Sampled Post Response:', data);
                 // if (data.sampledPostResponse) setSampledPostResponseState(data.sampledPostResponse);
-                console.log('Refreshing data... from context', refreshRef.current);
+                console.log('Refreshing data... from context', refreshRef?.current);
                 refreshRef?.current?.refresh();
+                console.log(
+                    'Refreshing data... from context after refreshing',
+                    refreshRef?.current
+                );
+                return data;
             },
             // unseenPostResponse,
             dispatchUnseenPostResponse: async (
@@ -450,8 +475,20 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                 const data = await saveCodingContext('dispatchUnseenPostResponse', { action });
                 console.log('Unseen Post Response:', data);
                 // if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
-                console.log('Refreshing data... from context', refreshRef.current);
+                console.log('Refreshing data... from context', refreshRef?.current);
                 refreshRef?.current?.refresh();
+                return data;
+            },
+            dispatchAllPostResponse: async (
+                action: BaseResponseHandlerActions<IQECTTyResponse>,
+                refreshRef: any = null
+            ) => {
+                const data = await saveCodingContext('dispatchAllPostResponse', { action });
+                console.log('All Post Response:', data);
+                // if (data.unseenPostResponse) setUnseenPostResponseState(data.unseenPostResponse);
+                console.log('Refreshing data... from context', refreshRef?.current);
+                refreshRef?.current?.refresh();
+                return data;
             },
             themes,
             dispatchThemes: async (action) => {
@@ -459,6 +496,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     action
                 });
                 if (data.themes) setThemesState(data.themes);
+                return data;
             },
             groupedCodes,
             dispatchGroupedCodes: async (action: BaseBucketAction) => {
@@ -466,6 +504,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     action
                 });
                 if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
+                return data;
             },
             researchQuestions,
             setResearchQuestions: async (rqsOrUpdater) => {
@@ -477,6 +516,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     researchQuestions: newResearchQuestions
                 });
                 if (data.researchQuestions) setResearchQuestionsState(data.researchQuestions);
+                return data;
             },
             sampledPostIds,
             setSampledPostIds: async (idsOrUpdater) => {
@@ -497,6 +537,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                 const data = await saveCodingContext('dispatchInitialCodebookTable', { action });
                 if (data.initialCodebookTable)
                     setInitialCodebookTableState(data.initialCodebookTable);
+                return data;
             }
         }),
         [

@@ -63,7 +63,7 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
             />
         );
 
-        // shift for the next stripe by the *visible* portion of this one
+        // shift for the next stripe by the visible portion of this one
         cumulativeOffset += heightPct * (1 - overlapRatio);
     });
 

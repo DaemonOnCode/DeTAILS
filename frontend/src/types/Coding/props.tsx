@@ -231,6 +231,7 @@ export type PostTranscriptProps = {
     clearedToLeaveRef: RefObject<{ check: boolean } | null>;
     showBackButton?: boolean;
     codebookCodes?: string[];
+    manualCoding?: boolean;
 };
 
 export interface CodeViewProps {

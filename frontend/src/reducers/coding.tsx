@@ -33,7 +33,6 @@ export const keywordTableReducer = (
             let newEntries = action.entries.filter(
                 (entry) => state.findIndex((s) => s.word === entry.word) === -1
             );
-            // return [...state, ...action.entries.filter((entry) => newEntries.length === 0)];
             return [...state.filter((entry) => entry.isMarked === true), ...newEntries];
         case 'UPDATE_FIELD':
             return state.map((entry, i) =>
@@ -66,13 +65,7 @@ export const keywordTableReducer = (
             }
             return [...state, newRow];
         case 'UNDO_DELETE_ROW':
-            console.log(
-                'Undo delete:',
-                action.index,
-                state
-                // state.splice(action.index, 0, action.entry)
-            );
-            // state.splice(action.index, 0, action.entry);
+            console.log('Undo delete:', action.index, state);
             return [...state, action.entry];
         case 'DELETE_ROW':
             return state.filter((_, i) => i !== action.index);
@@ -258,50 +251,29 @@ export function baseResponseHandler<T>(
                     : response
             );
         case 'SYNC_CHAT_STATE': {
-            const {
-                postId,
-                quote,
-                prevCode, // The old code to match on
-                currentCode, // The new code to set (optional)
-                chatHistory, // The new chatHistory array (optional)
-                isMarked, // The new isMarked flag (optional)
-                refresh // If true, we’ll do special “refresh” logic below
-            } = action;
+            const { postId, quote, prevCode, currentCode, chatHistory, isMarked, refresh } = action;
 
             console.log('SYNC_CHAT_STATE action:', action);
 
             return state.map((response: any) => {
-                // We match the existing snippet by (postId, quote, code = prevCode)
                 if (
                     response.postId === postId &&
                     response.quote === quote &&
                     response.code === prevCode
                 ) {
-                    // Clone the existing snippet
                     const updated = { ...response };
-
-                    // If we have a new chatHistory, set it first
                     if (Array.isArray(chatHistory)) {
                         updated.chatHistory = chatHistory;
                     }
-
-                    // If user provided a non-empty currentCode, replace the old code
                     if (typeof currentCode === 'string' && currentCode.trim() !== '') {
                         updated.code = currentCode;
                     }
-
-                    // Update isMarked if provided
                     if (typeof isMarked !== 'undefined') {
                         updated.isMarked = isMarked;
                     }
-
-                    // -------------------------------------
-                    // If "refresh" is true, do the extra clearing
-                    // -------------------------------------
                     if (refresh && Array.isArray(updated.chatHistory)) {
                         updated.chatHistory = updated.chatHistory
                             .map((msg: any) => {
-                                // Clear LLM reactions & thinking state
                                 if (msg.sender === 'LLM') {
                                     return {
                                         ...msg,
@@ -312,7 +284,6 @@ export function baseResponseHandler<T>(
                                 return msg;
                             })
                             .filter((msg: any) => {
-                                // Remove any human messages still "isEditable"
                                 if (msg.sender === 'Human' && msg.isEditable) {
                                     return false;
                                 }

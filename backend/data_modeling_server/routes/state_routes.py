@@ -10,7 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Uploa
 from fastapi.responses import FileResponse
 import pandas as pd
 
-from constants import FRONTEND_PAGE_MAPPER, PAGE_TO_STATES, TEMP_DIR
+from constants import FRONTEND_PAGE_MAPPER, PAGE_TO_STATES, STUDY_DATABASE_PATH, TEMP_DIR
 from controllers.state_controller import delete_state, export_workspace, get_grouped_code, get_theme_by_code, import_workspace, load_state, save_state
 from database.coding_context_table import CodingContextRepository
 from database.collection_context_table import CollectionContextRepository
@@ -25,11 +25,31 @@ from database.qect_table import QectRepository
 from database.research_question_table import ResearchQuestionsRepository
 from database.selected_keywords_table import SelectedKeywordsRepository
 from database.selected_post_ids_table import SelectedPostIdsRepository
+from database.state_dump_table import StateDumpsRepository
 from database.theme_table import ThemeEntriesRepository
 from models.state_models import LoadStateRequest, SaveStateRequest
-from models.table_dataclasses import CodebookType, CodingContext, CollectionContext, ContextFile, GenerationType, Keyword, ManualCodebookEntry, ManualPostState, ResearchQuestion, SelectedKeyword, SelectedPostId
-from utils.reducers import process_grouped_codes_action, process_initial_codebook_table_action, process_keyword_table_action, process_manual_coding_responses_action, process_sampled_post_response_action, process_themes_action, process_unseen_post_response_action
+from models.table_dataclasses import CodebookType, CodingContext, CollectionContext, ContextFile, DataClassEncoder, GenerationType, Keyword, ManualCodebookEntry, ManualPostState, ResearchQuestion, SelectedKeyword, SelectedPostId, StateDump
+from utils.reducers import merge_diffs, process_all_responses_action, process_grouped_codes_action, process_initial_codebook_table_action, process_keyword_table_action, process_manual_coding_responses_action, process_sampled_post_response_action, process_themes_action, process_unseen_post_response_action
 
+
+
+coding_context_repo = CodingContextRepository()
+context_files_repo = ContextFilesRepository()
+research_question_repo = ResearchQuestionsRepository()
+keywords_repo = KeywordsRepository()
+selected_keywords_repo = SelectedKeywordsRepository()
+keyword_entries_repo = KeywordEntriesRepository()
+qect_repo = QectRepository()
+selected_posts_repo = SelectedPostIdsRepository()
+initial_codebook_repo = InitialCodebookEntriesRepository()
+grouped_codes_repo = GroupedCodeEntriesRepository()
+themes_repo = ThemeEntriesRepository()
+collection_context_repo = CollectionContextRepository()
+manual_post_state_repo = ManualPostStatesRepository()
+manual_codebook_repo = ManualCodebookEntriesRepository()
+state_dump_repo = StateDumpsRepository(
+    database_path = STUDY_DATABASE_PATH
+)
 
 router = APIRouter()
 
@@ -45,17 +65,17 @@ async def save_state_endpoint(request: SaveStateRequest):
         print(f"Error saving state: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-coding_context_repo = CodingContextRepository()
-context_files_repo = ContextFilesRepository()
-research_question_repo = ResearchQuestionsRepository()
-keywords_repo = KeywordsRepository()
-selected_keywords_repo = SelectedKeywordsRepository()
-keyword_entries_repo = KeywordEntriesRepository()
-qect_repo = QectRepository()
-selected_posts_repo = SelectedPostIdsRepository()
-initial_codebook_repo = InitialCodebookEntriesRepository()
-grouped_codes_repo = GroupedCodeEntriesRepository()
-themes_repo = ThemeEntriesRepository()
+def add_state_to_dump(state: str, workspace_id: str, function: str, origin: str):
+    state_dump_repo.insert(
+        StateDump(
+            state=json.dumps(state, cls=DataClassEncoder),
+            context=json.dumps({
+                "function": function,
+                "workspace_id": workspace_id,
+                "origin": origin,
+            }),
+        )
+    )
 
 @router.post("/save-coding-context")
 async def save_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
@@ -63,13 +83,13 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
     if not workspace_id:
         raise HTTPException(status_code=400, detail="workspaceId is required")
 
+    dump_helper = lambda state_dict: add_state_to_dump(state=state_dict, workspace_id=workspace_id, function=operation_type, origin="save-coding-context")
     try:
-        coding_context = coding_context_repo.find_one({"id": workspace_id})
-        if not coding_context:
-            raise Exception("Coding context not found")
-    except:
-        coding_context = CodingContext(id=workspace_id)
-        coding_context_repo.insert(coding_context)
+        if not coding_context_repo.find_one({"id": workspace_id}, fail_silently=True):
+            coding_context = CodingContext(id=workspace_id)
+            coding_context_repo.insert(coding_context)
+    except Exception as e:
+        print(f"Error finding coding context: {e}")
 
     operation_type = request_body.get("type")
     if not operation_type:
@@ -81,61 +101,142 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         if not file_path or not file_name:
             raise HTTPException(status_code=400, detail="filePath and fileName are required")
         context_file = ContextFile(coding_context_id=workspace_id, file_path=file_path, file_name=file_name)
-        context_files_repo.insert(context_file)
+        inserted_row = context_files_repo.insert_returning(context_file)
         files = context_files_repo.find({"coding_context_id": workspace_id})
-        return {"success": True, "contextFiles": {f.file_path: f.file_name for f in files}}
+        diff = {"inserted": [inserted_row]}
+        dump_helper({
+            "current_state": files,
+            "diff": diff,
+        })  
+        return {
+            "success": True,
+            "contextFiles": {f.file_path: f.file_name for f in files},
+            "diff": diff
+        }
+    
+    if operation_type == "addContextFilesBatch":
+        print("Adding context files batch", request_body.get("files"))
+        files = request_body.get("files")
+        # file_path = request_body.get("filePath")
+        # file_name = request_body.get("fileName")
+        if not len(files):
+            raise HTTPException(status_code=400, detail="files are required")
+        inserted_rows = []
+        for file in files:
+            context_file = ContextFile(coding_context_id=workspace_id, file_path=file["filePath"], file_name=file["fileName"])
+            inserted_rows.append(context_files_repo.insert_returning(context_file))
+        files = context_files_repo.find({"coding_context_id": workspace_id})
+        diff = {"inserted": inserted_rows}
+        dump_helper({
+            "current_state": files,
+            "diff": diff,
+        })  
+        return {
+            "success": True,
+            "contextFiles": {f.file_path: f.file_name for f in files},
+            "diff": diff
+        }
+
 
     elif operation_type == "removeContextFile":
         file_path = request_body.get("filePath")
         if not file_path:
             raise HTTPException(status_code=400, detail="filePath is required")
-        context_files_repo.delete({"coding_context_id": workspace_id, "file_path": file_path})
+        deleted_rows = context_files_repo.delete_returning({"coding_context_id": workspace_id, "file_path": file_path})
         files = context_files_repo.find({"coding_context_id": workspace_id})
-        return {"success": True, "contextFiles": {f.file_path: f.file_name for f in files}}
+        diff = {"deleted": deleted_rows}
+        dump_helper({
+            "current_state": files,
+            "diff": diff,
+        })
+        return {
+            "success": True,
+            "contextFiles": {f.file_path: f.file_name for f in files},
+            "diff": diff
+        }
 
     elif operation_type == "setMainTopic":
         main_topic = request_body.get("mainTopic")
         if main_topic is None:
             raise HTTPException(status_code=400, detail="mainTopic is required")
+        old_context = coding_context_repo.find_one(
+            {"id": workspace_id}, columns=["main_topic"], map_to_model=False, fail_silently=True
+        )
+        old_main_topic = old_context["main_topic"] if old_context else None
         coding_context_repo.update({"id": workspace_id}, {"main_topic": main_topic})
-        return {"success": True, "mainTopic": main_topic}
+        diff = {"updated": {"main_topic": {"old": old_main_topic, "new": main_topic}}}
+        dump_helper({
+            "current_state": main_topic,
+            "diff": diff,
+        })
+        return {"success": True, "mainTopic": main_topic, "diff": diff}
 
     elif operation_type == "setAdditionalInfo":
         additional_info = request_body.get("additionalInfo")
         if additional_info is None:
             raise HTTPException(status_code=400, detail="additionalInfo is required")
+        old_context = coding_context_repo.find_one(
+            {"id": workspace_id}, columns=["additional_info"], map_to_model=False, fail_silently=True
+        )
+        old_additional_info = old_context["additional_info"] if old_context else None
         coding_context_repo.update({"id": workspace_id}, {"additional_info": additional_info})
-        return {"success": True, "additionalInfo": additional_info}
+        diff = {"updated": {"additional_info": {"old": old_additional_info, "new": additional_info}}}
+        dump_helper({
+            "current_state": additional_info,
+            "diff": diff,
+        })
+        return {"success": True, "additionalInfo": additional_info, "diff": diff}
 
     elif operation_type == "setResearchQuestions":
         research_questions = request_body.get("researchQuestions")
         if not isinstance(research_questions, list):
             raise HTTPException(status_code=400, detail="researchQuestions must be a list")
-        research_question_repo.delete({"coding_context_id": workspace_id})
+        deleted_rows = research_question_repo.delete_returning({"coding_context_id": workspace_id})
+        inserted_rows = []
         for question in research_questions:
             rq = ResearchQuestion(coding_context_id=workspace_id, question=question)
-            research_question_repo.insert(rq)
-        return {"success": True, "researchQuestions": research_questions}
+            inserted_row = research_question_repo.insert_returning(rq)
+            inserted_rows.append(inserted_row)
+        diff = {"deleted": deleted_rows, "inserted": inserted_rows}
+        dump_helper({
+            "current_state": research_questions,
+            "diff": diff,
+        })
+        return {"success": True, "researchQuestions": research_questions, "diff": diff}
 
     elif operation_type == "setKeywords":
         keywords = request_body.get("keywords")
         if not isinstance(keywords, list):
             raise HTTPException(status_code=400, detail="keywords must be a list")
-        keywords_repo.delete({"coding_context_id": workspace_id})
+        deleted_rows = keywords_repo.delete_returning({"coding_context_id": workspace_id})
+        inserted_rows = []
         for kw in keywords:
             keyword = Keyword(coding_context_id=workspace_id, word=kw["word"], id=kw["id"])
-            keywords_repo.insert(keyword)
-        return {"success": True, "keywords": keywords}
+            inserted_row = keywords_repo.insert_returning(keyword)
+            inserted_rows.append(inserted_row)
+        diff = {"deleted": deleted_rows, "inserted": inserted_rows}
+        dump_helper({
+            "current_state": keywords,
+            "diff": diff,
+        })
+        return {"success": True, "keywords": keywords, "diff": diff}
 
     elif operation_type == "setSelectedKeywords":
         selected_keywords = request_body.get("selectedKeywords")
         if not isinstance(selected_keywords, list):
             raise HTTPException(status_code=400, detail="selectedKeywords must be a list")
-        selected_keywords_repo.delete({"coding_context_id": workspace_id})
+        deleted_rows = selected_keywords_repo.delete_returning({"coding_context_id": workspace_id})
+        inserted_rows = []
         for sk in selected_keywords:
             skw = SelectedKeyword(coding_context_id=workspace_id, keyword_id=sk)
-            selected_keywords_repo.insert(skw)
-        return {"success": True, "selectedKeywords": selected_keywords}
+            inserted_row = selected_keywords_repo.insert_returning(skw)
+            inserted_rows.append(inserted_row)
+        diff = {"deleted": deleted_rows, "inserted": inserted_rows}
+        dump_helper({
+            "current_state": selected_keywords,
+            "diff": diff
+        })
+        return {"success": True, "selectedKeywords": selected_keywords, "diff": diff}
 
     elif operation_type == "resetContext":
         context_files_repo.delete({"coding_context_id": workspace_id})
@@ -146,14 +247,16 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             {"id": workspace_id},
             {"main_topic": None, "additional_info": None}
         )
+        dump_helper({
+            "current_state": {}
+        })
         return {"success": True, "message": "Context reset successfully"}
 
     elif operation_type == "dispatchKeywordsTable":
         action = request_body.get("action")
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
-        process_keyword_table_action(workspace_id, action)
-        
+        diff = process_keyword_table_action(workspace_id, action)
         keyword_entries = keyword_entries_repo.find({"coding_context_id": workspace_id})
         keyword_table = [
             {
@@ -166,15 +269,26 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             }
             for ke in keyword_entries
         ]
-        return {"success": True, "keywordTable": keyword_table}
+        dump_helper({
+            "action": action,
+            "diff": diff,
+            "current_state": keyword_table
+        })
+        return {"success": True, "keywordTable": keyword_table, "diff": diff}
+    
     elif operation_type == "dispatchSampledPostResponse":
         action = request_body.get("action")
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
-        process_sampled_post_response_action(workspace_id, action)
+        diff = process_sampled_post_response_action(workspace_id, action)
         sampled_responses = qect_repo.find({
             "workspace_id": workspace_id,
             "codebook_type": CodebookType.INITIAL.value
+        })
+        dump_helper({
+            "action": action,
+            "diff": diff,
+            "current_state": sampled_responses
         })
         return {"success": True, "sampledPostResponse": [{
             "id": response.id,
@@ -186,34 +300,34 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
             "comment": "",
             "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
-        } for response in sampled_responses]}
+        } for response in sampled_responses],"diff": diff}
     
     elif operation_type == "dispatchInitialCodebookTable":
         action = request_body.get("action")
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
-        process_initial_codebook_table_action(workspace_id, action)
+        diff = process_initial_codebook_table_action(workspace_id, action)
         codebook_entries = initial_codebook_repo.find({"coding_context_id": workspace_id})  
-        return {"success": True, "initialCodebookTable": [entry.to_dict() for entry in codebook_entries]}
-    
-    elif operation_type == "setUnseenPostIds":
-        post_ids = request_body.get("unseenPostIds")
-        dataset_id = request_body.get("datasetId", workspace_id)
-        if not isinstance(post_ids, list):
-            raise HTTPException(status_code=400, detail="unseenPostIds must be a list")
-        selected_posts_repo.delete({"dataset_id": dataset_id, "type": "unseen"})
-        for post_id in post_ids:
-            selected_posts_repo.insert(SelectedPostId(dataset_id=dataset_id, post_id=post_id, type="unseen"))
-        return {"success": True, "unseenPostIds": post_ids}
+        dump_helper({
+            "action": action,
+            "diff": diff,
+            "current_state": codebook_entries
+        })
+        return {"success": True, "initialCodebookTable": [entry.to_dict() for entry in codebook_entries], "diff": diff}
     
     elif operation_type == "dispatchUnseenPostResponse":
         action = request_body.get("action")
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
-        process_unseen_post_response_action(workspace_id, action)
+        diff = process_unseen_post_response_action(workspace_id, action)
         unseen_responses = qect_repo.find({
             "workspace_id": workspace_id,
             "codebook_type": CodebookType.FINAL.value,
+        })
+        dump_helper({
+            "action": action,
+            "diff": diff,
+            "current_state": unseen_responses
         })
         return {"success": True, "unseenPostResponse": [{
             "id": response.id,
@@ -226,13 +340,57 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             "comment": "",
             "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
             "type": response.response_type,
-        } for response in unseen_responses]}
+        } for response in unseen_responses], "diff": diff}
+    
+    elif operation_type == "dispatchAllPostResponse":
+        action = request_body.get("action")
+        if not action or "type" not in action:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        diff = process_all_responses_action(workspace_id, action)
+        # all_responses = qect_repo.find({
+        #     "workspace_id": workspace_id,
+        #     "codebook_type": [CodebookType.INITIAL.value, CodebookType.FINAL.value],
+        # })
+        # dump_helper({
+        #     "action": action,
+        #     "diff": {
+        #         "sampled": diffSampled,
+        #         "unseen": diffUnseen
+        #     },
+        #     "current_state": all_responses
+        # })
+        sampled_responses = qect_repo.find({
+            "workspace_id": workspace_id,
+            "codebook_type": CodebookType.INITIAL.value
+        })
+        unseen_responses = qect_repo.find({
+            "workspace_id": workspace_id,
+            "codebook_type": CodebookType.FINAL.value,
+        })
+        all_responses = sampled_responses + unseen_responses
+        dump_helper({
+            "action": action,
+            "diff": diff,
+            "current_state": all_responses
+        })
+
+        return {"success": True, "allPostResponse": [{
+            "id": response.id,
+            "quote": response.quote,
+            "code": response.code,
+            "explanation": response.explanation,
+            "postId": response.post_id,
+            "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
+            "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
+            "comment": "",
+            "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
+        } for response in all_responses], "diff": diff}
     
     elif operation_type == "dispatchGroupedCodes":
         action = request_body.get("action")
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
-        process_grouped_codes_action(workspace_id, action)
+        diff = process_grouped_codes_action(workspace_id, action)
         grouped_entries = grouped_codes_repo.find({"coding_context_id": workspace_id})
         grouped_codes_dict = defaultdict(list)
         higher_level_codes = {}
@@ -244,14 +402,18 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             {"id": hid, "name": higher_level_codes[hid], "codes": list(filter(bool, codes))}
             for hid, codes in grouped_codes_dict.items()
         ]
-        print(f"Grouped codes: {grouped_codes}")
-        return {"success": True, "groupedCodes": grouped_codes}
+        dump_helper({
+            "action": action,
+            "diff": diff,
+            "current_state": grouped_entries
+        })
+        return {"success": True, "groupedCodes": grouped_codes, "diff": diff}
 
     elif operation_type == "dispatchThemes":
         action = request_body.get("action")
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
-        process_themes_action(workspace_id, action)
+        diff = process_themes_action(workspace_id, action)
         theme_entries = themes_repo.find({"coding_context_id": workspace_id})
         themes_dict = defaultdict(list)
         theme_names = {}
@@ -263,7 +425,13 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             {"id": tid, "name": theme_names[tid], "codes": list(filter(bool, codes))}
             for tid, codes in themes_dict.items()
         ]
-        return {"success": True, "themes": themes}
+        dump_helper({
+            "action": action,
+            "diff": diff,
+            "current_state": theme_entries
+        })
+        return {"success": True, "themes": themes, "diff": diff}
+
     else:
         print(f"Unknown operation type: {operation_type}")
         return {"success": False}
@@ -354,7 +522,7 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
                 "explanation": qr["explanation"],
                 "postId": qr["post_id"],
                 "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else None,
-                "isMarked": bool(qr["is_marked"]) if qr["isMarked"] is not None else None ,
+                "isMarked": bool(qr["is_marked"]) if qr["is_marked"] is not None else None ,
                 "rangeMarker": json.loads(qr["range_marker"]) if qr["range_marker"] else None,
             }
             for qr in qect_responses
@@ -390,7 +558,7 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
                 "explanation": qr["explanation"],
                 "postId": qr["post_id"],
                 "chatHistory": json.loads(qr["chat_history"]) if qr["chat_history"] else None,
-                "isMarked": bool(qr["is_marked"]) if qr["isMarked"] is not None else None ,
+                "isMarked": bool(qr["is_marked"]) if qr["is_marked"] is not None else None ,
                 "rangeMarker": json.loads(qr["range_marker"]) if qr["range_marker"] else None,
             }
             for qr in qect_responses
@@ -436,9 +604,6 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
     print(f"Loaded coding context for workspace {workspace_id}: {response}")
     return response
 
-
-collection_context_repo = CollectionContextRepository()
-
 @router.post("/save-collection-context")
 async def save_collection_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     workspace_id = request.headers.get("x-workspace-id")
@@ -449,6 +614,8 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
     if not operation_type:
         raise HTTPException(status_code=400, detail="Operation type is required")
 
+
+    dump_helper = lambda state_dict: add_state_to_dump(state=state_dict, workspace_id=workspace_id, function=operation_type, origin="save-collection-context")
     try:
         collection_context = collection_context_repo.find_one({"id": workspace_id})
         if not collection_context:
@@ -459,11 +626,17 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
 
     if operation_type == "setType":
         new_type = request_body.get("newType") or "reddit"
-        collection_context.type = new_type
-        collection_context_repo.update({"id": workspace_id}, {
-            "type": new_type
-        })
-        return {"success": True, "type": new_type}
+        old_context = collection_context_repo.find_one(
+            {"id": workspace_id}, columns=["type"], map_to_model=False, fail_silently=True
+        )
+        old_type = old_context["type"] if old_context else None
+        collection_context_repo.update({"id": workspace_id}, {"type": new_type})
+        diff = {"updated": {"type": {"old": old_type, "new": new_type}}}
+        dump_helper({
+            "current_state": new_type,
+            "diff": diff
+        })  
+        return {"success": True, "type": new_type, "diff": diff}
 
     elif operation_type == "setMetadataSource":
         source = request_body.get("source")
@@ -472,48 +645,86 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
         if collection_context.type == "interview" and source == "url":
             raise HTTPException(status_code=400, detail="Interview type only allows 'folder' source")
         metadata = json.loads(collection_context.metadata)
+        old_source = metadata.get("source")
         metadata["source"] = source
         collection_context_repo.update({"id": workspace_id}, {"metadata": json.dumps(metadata)})
-        return {"success": True, "source": source}
+        diff = {"updated": {"metadata.source": {"old": old_source, "new": source}}}
+        dump_helper({
+            "current_state": source,
+            "diff": diff
+        })  
+        return {"success": True, "source": source, "diff": diff}
+
 
     elif operation_type == "setMetadataSubreddit":
         if collection_context.type != "reddit":
             raise HTTPException(status_code=400, detail="Subreddit can only be set for reddit type")
         subreddit = request_body.get("subreddit")
-        metadata = json.loads(collection_context.metadata)
-        metadata["subreddit"] = subreddit
-        collection_context_repo.update({"id": workspace_id}, {"metadata": json.dumps(metadata)})
-        return {"success": True, "subreddit": subreddit}
+        old_metadata = json.loads(collection_context.metadata)
+        old_subreddit = old_metadata.get("subreddit")
+        new_metadata = old_metadata.copy()
+        new_metadata["subreddit"] = subreddit
+        collection_context_repo.update({"id": workspace_id}, {"metadata": json.dumps(new_metadata)})
+        diff = {"updated": {"metadata.subreddit": {"old": old_subreddit, "new": subreddit}}}
+        dump_helper({
+            "current_state": subreddit,
+            "diff": diff
+        })  
+        return {"success": True, "subreddit": subreddit, "diff": diff}
 
     elif operation_type == "setModeInput":
         mode_input = request_body.get("modeInput")
+        old_mode_input = collection_context.mode_input
         collection_context_repo.update({"id": workspace_id}, {"mode_input": mode_input})
-        return {"success": True, "modeInput": mode_input}
+        diff = {"updated": {"mode_input": {"old": old_mode_input, "new": mode_input}}}
+        dump_helper({
+            "current_state": mode_input,
+            "diff": diff
+        })  
+        return {"success": True, "modeInput": mode_input, "diff": diff}
 
     elif operation_type == "setSelectedData":
         selected_data = request_body.get("selectedData")
-        print(f"Selected data: {selected_data}")
         if not isinstance(selected_data, list):
             raise HTTPException(status_code=400, detail="selectedData must be a list")
-        selected_posts_repo.delete({"dataset_id": workspace_id})
-        selected_posts_repo.insert_batch(
-            [SelectedPostId(dataset_id=workspace_id, post_id=post_id) for post_id in selected_data],
-        )
-        return {"success": True, "selectedData": selected_data}
+        deleted_rows = selected_posts_repo.delete_returning({"dataset_id": workspace_id})
+        inserted_rows = []
+        for post_id in selected_data:
+            post = SelectedPostId(dataset_id=workspace_id, post_id=post_id)
+            inserted_row = selected_posts_repo.insert_returning(post)
+            inserted_rows.append(inserted_row)
+        diff = {"deleted": deleted_rows, "inserted": inserted_rows}
+        dump_helper({
+            "current_state": selected_data,
+            "diff": diff
+        })  
+        return {"success": True, "selectedData": selected_data, "diff": diff}
 
     elif operation_type == "setDataFilters":
         data_filters = request_body.get("dataFilters")
-        print(f"Data filters: {data_filters}")
         if not isinstance(data_filters, dict):
             raise HTTPException(status_code=400, detail="dataFilters must be a dictionary")
-        collection_context_repo.update({"id": workspace_id}, {"data_filters": json.dumps(data_filters)})
-        return {"success": True, "dataFilters": data_filters}
+        old_data_filters = collection_context.data_filters
+        new_data_filters = json.dumps(data_filters)
+        collection_context_repo.update({"id": workspace_id}, {"data_filters": new_data_filters})
+        diff = {"updated": {"data_filters": {"old": old_data_filters, "new": new_data_filters}}}
+        dump_helper({
+            "current_state": data_filters,
+            "diff": diff
+        })  
+        return {"success": True, "dataFilters": data_filters, "diff": diff}
 
     elif operation_type == "setIsLocked":
         is_locked = request_body.get("isLocked")
-        print(f"Is locked: {is_locked}")
-        collection_context_repo.update({"id": workspace_id}, {"is_locked": bool(is_locked)})
-        return {"success": True, "isLocked": is_locked}
+        old_is_locked = collection_context.is_locked
+        new_is_locked = bool(is_locked)
+        collection_context_repo.update({"id": workspace_id}, {"is_locked": new_is_locked})
+        diff = {"updated": {"is_locked": {"old": old_is_locked, "new": new_is_locked}}}
+        dump_helper({
+            "current_state": is_locked,
+            "diff": diff
+        })  
+        return {"success": True, "isLocked": new_is_locked, "diff": diff}
 
     elif operation_type == "resetContext":
         print("Resetting context")
@@ -528,6 +739,9 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
             }
         )
         selected_posts_repo.delete({"dataset_id": workspace_id})
+        dump_helper({
+            "current_state": {}
+        })
         return {"success": True}
 
     else:
@@ -544,16 +758,20 @@ async def load_collection_context(request: Request, request_body: Dict[str, Any]
     if not states:
         states = ["type", "metadata", "dataset", "modeInput", "selectedData", "dataFilters", "isLocked"]
 
-    collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
-    if not collection_context:
+    try:
+        collection_context = collection_context_repo.find_one({"id": workspace_id})
+        if not collection_context:
+            raise Exception("Collection context not found")
+    except Exception as e:
+        print(f"Error finding collection context: {e}")
         collection_context_repo.insert(CollectionContext(id=workspace_id))
-        return {}
+        collection_context = collection_context_repo.find_one({"id": workspace_id})
 
     response = {}
     if "type" in states:
-        response["type"] = collection_context.type
+        response["type"] = collection_context.type if hasattr(collection_context, "type") else "reddit"
     if "metadata" in states:
-        response["metadata"] = collection_context.metadata
+        response["metadata"] = collection_context.metadata if hasattr(collection_context, "metadata") else {}
     if "modeInput" in states:
         response["modeInput"] = collection_context.mode_input
     if "selectedData" in states:
@@ -565,10 +783,6 @@ async def load_collection_context(request: Request, request_body: Dict[str, Any]
 
     return response
 
-
-manual_post_state_repo = ManualPostStatesRepository()
-manual_codebook_repo = ManualCodebookEntriesRepository()
-
 @router.post("/save-manual-coding-context")
 async def save_manual_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     workspace_id = request.headers.get("x-workspace-id")
@@ -578,32 +792,74 @@ async def save_manual_coding_context(request: Request, request_body: Dict[str, A
     operation_type = request_body.get("type")
     if not operation_type:
         raise HTTPException(status_code=400, detail="Operation type is required")
-
+    
+    dump_helper = lambda state_dict: add_state_to_dump(state=state_dict, workspace_id=workspace_id, function=operation_type, origin="save-manual-context")
     if operation_type == "addPostIds":
         new_post_ids = request_body.get("newPostIds", [])
+        inserted_rows = []
         for post_id in new_post_ids:
             existing = manual_post_state_repo.find_one({"workspace_id": workspace_id, "post_id": post_id}, fail_silently=True)
             if not existing:
-                manual_post_state_repo.insert(ManualPostState(workspace_id=workspace_id, post_id=post_id, is_marked=False))
+                post_state = ManualPostState(workspace_id=workspace_id, post_id=post_id, is_marked=False)
+                inserted_row = manual_post_state_repo.insert_returning(post_state)
+                inserted_rows.append(inserted_row)
         post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
-        return {"success": True, "postStates": {ps.post_id: bool(ps.is_marked) for ps in post_states}}
+        diff = {"inserted": inserted_rows}
+        dump_helper({
+            "current_state": new_post_ids,
+            "diff": diff
+        })  
+        return {
+            "success": True,
+            "postStates": {ps.post_id: bool(ps.is_marked) for ps in post_states},
+            "diff": diff
+        }
 
     elif operation_type == "updatePostState":
         post_id = request_body.get("postId")
         state = request_body.get("state")
         if post_id is None or state is None:
             raise HTTPException(status_code=400, detail="postId and state are required")
+        old_state = manual_post_state_repo.find_one(
+            {"workspace_id": workspace_id, "post_id": post_id}, columns=["is_marked"], map_to_model=False
+        )
+        old_is_marked = old_state["is_marked"] if old_state else None
         manual_post_state_repo.update({"workspace_id": workspace_id, "post_id": post_id}, {"is_marked": bool(state)})
+        diff = {"updated": {"is_marked": {"old": old_is_marked, "new": bool(state)}}}
         post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
-        return {"success": True, "postStates": {ps.post_id: ps.is_marked for ps in post_states}}
+        dump_helper({
+            "current_state": post_states,
+            "diff": diff
+        })  
+        return {
+            "success": True,
+            "postStates": {ps.post_id: ps.is_marked for ps in post_states},
+            "diff": diff
+        }
 
     elif operation_type == "dispatchManualCodingResponses":
         action = request_body.get("action")
         if not action or "type" not in action:
             raise HTTPException(status_code=400, detail="Invalid action")
-        process_manual_coding_responses_action(workspace_id, action)
+        diff = process_manual_coding_responses_action(workspace_id, action)
         responses = qect_repo.find({"workspace_id": workspace_id, "codebook_type": "manual"})
-        return {"success": True, "manualCodingResponses": [response.to_dict() for response in responses]}
+        dump_helper({
+            "action": action,
+            "diff": diff,
+            "current_state": responses
+        })
+        return {"success": True, "manualCodingResponses": [{
+                "id": r["id"],
+                "model": r["model"],
+                "quote": r["quote"],
+                "code": r["code"],
+                "type": r["response_type"],
+                "explanation": r["explanation"],
+                "postId": r["post_id"],
+                "chatHistory": json.loads(r["chat_history"]) if r["chat_history"] else None,
+                "isMarked": bool(r["is_marked"]) if r["is_marked"] is not None else None ,
+                "rangeMarker": json.loads(r["range_marker"]) if r["range_marker"] else None,
+            } for r in responses], "diff": diff}
 
     elif operation_type == "setCodebook":
         return {"success": True, "codebook": request_body.get("codebook", {})}
@@ -623,6 +879,9 @@ async def save_manual_coding_context(request: Request, request_body: Dict[str, A
         post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
         codebook_entries = manual_codebook_repo.find({"workspace_id": workspace_id})
         responses = qect_repo.find({"workspace_id": workspace_id, "codebook_type": "manual"})
+        dump_helper({
+            "current_state": {},
+        })  
         return {
             "success": True,
             "postStates": {ps.post_id: ps.is_marked for ps in post_states},
@@ -633,6 +892,9 @@ async def save_manual_coding_context(request: Request, request_body: Dict[str, A
         manual_post_state_repo.delete({"workspace_id": workspace_id})
         manual_codebook_repo.delete({"workspace_id": workspace_id})
         qect_repo.delete({"workspace_id": workspace_id, "codebook_type": "manual"})
+        dump_helper({
+            "current_state": {}
+        })
         return {"success": True}
 
     else:

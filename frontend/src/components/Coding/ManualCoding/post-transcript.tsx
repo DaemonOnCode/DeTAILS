@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useImperativeHandle } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
 import { useCodingContext } from '../../../context/coding-context';
@@ -36,6 +36,7 @@ const TranscriptPage = ({
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
+    const refetchRef = useRef<any>(null);
     const { fetchData } = useApi();
 
     const currentConfig: {
@@ -80,9 +81,13 @@ const TranscriptPage = ({
                               }
                           }
                         : { ...args[0] };
-                dispatchManualCodingResponses({
-                    ...value
-                });
+                return dispatchManualCodingResponses(
+                    {
+                        ...value
+                    },
+                    // @ts-ignore
+                    refetchRef
+                );
             },
             conflicts: []
         }
@@ -119,7 +124,7 @@ const TranscriptPage = ({
                 allCodes: string[];
             }>(REMOTE_SERVER_ROUTES.GET_POST_TRANSCRIPT_DATA, {
                 method: 'POST',
-                body: JSON.stringify({ postId })
+                body: JSON.stringify({ postId, manualCoding: true })
             });
             if (error) {
                 console.error('Error fetching post:', error);
@@ -173,14 +178,24 @@ const TranscriptPage = ({
         setActiveTranscript(position);
     };
 
+    useImperativeHandle(
+        refetchRef,
+        () => ({
+            refresh: () => {
+                if (id && datasetId) {
+                    fetchPostById(id, datasetId, false);
+                }
+            }
+        }),
+        [id, datasetId]
+    );
+
     const dispatchAndRefetch = useCallback(
         (...args: any[]) => {
-            currentConfig?.bottomTranscript?.dispatchFunction!(...args);
-            if (id && datasetId) {
-                fetchPostById(id, datasetId, false);
-            }
+            console.log('Dispatching and refetching:', args);
+            return currentConfig?.bottomTranscript?.dispatchFunction!(...args);
         },
-        [currentConfig, id, datasetId]
+        [currentConfig, refetchRef]
     );
 
     if (loading) {
@@ -300,6 +315,7 @@ const TranscriptPage = ({
                             setIsHighlightModalOpen={setIsHighlightModalOpen}
                             setIsEditHighlightModalOpen={setIsEditHighlightModalOpen}
                             setDeleteIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
+                            manualCoding
                         />
                     </TranscriptContextProvider>
                 </div>

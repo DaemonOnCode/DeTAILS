@@ -9,6 +9,7 @@ export interface PaginatedArgs {
     searchTerm?: string;
     selectedTypeFilter?: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
     postId?: string | null;
+    markedTrue?: boolean;
 }
 
 export function usePaginatedResponses({
@@ -17,7 +18,8 @@ export function usePaginatedResponses({
     searchTerm = '',
     selectedTypeFilter = 'All',
     responseTypes,
-    postId = null
+    postId = null,
+    markedTrue = false
 }: PaginatedArgs) {
     const { fetchData } = useApi();
 
@@ -41,9 +43,10 @@ export function usePaginatedResponses({
             searchTerm,
             selectedTypeFilter,
             responseTypes,
-            postId
+            postId,
+            markedTrue
         }),
-        [pageSize, filterCode, searchTerm, selectedTypeFilter, responseTypes, postId]
+        [pageSize, filterCode, searchTerm, selectedTypeFilter, responseTypes, postId, markedTrue]
     );
 
     const loadPage = useCallback(

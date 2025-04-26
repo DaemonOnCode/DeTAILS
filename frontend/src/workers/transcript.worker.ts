@@ -22,14 +22,14 @@ interface Segment {
 }
 
 function displayText(text: string): string {
-    return text.replace(/\s+/g, ' ').trim();
+    return text.replace(/\s+/gm, ' ').trim();
 }
 
 function normalizeText(text: string): string {
     return text
         .toLowerCase()
-        .replace(/\s+/g, ' ')
-        .replace(/[^\w\s]|_/g, '')
+        .replace(/\s+/gm, ' ')
+        .replace(/[^\w\s]|_/gm, '')
         .trim();
 }
 
@@ -147,12 +147,31 @@ function processTranscript(
         const matchingIntervals = codesWithoutMarker.flatMap((c) => {
             const normalizedCodeText = normalizeText(c.text);
             const exactMatch = text.includes(c.text);
+
             const fuzzyScore = exactMatch
                 ? 100
                 : ratio(normalizedText, normalizedCodeText, { full_process: true });
+            if (dataIndex === 72) {
+                console.log(`Worker: Data index ${dataIndex} normalizedText:`, normalizedText);
+                console.log(
+                    `Worker: Data index ${dataIndex} normalizedCodeText:`,
+                    normalizedCodeText
+                );
+                console.log(`Worker: Data index ${dataIndex} exactMatch:`, exactMatch);
+                console.log(`Worker: Data index ${dataIndex} fuzzyScore:`, fuzzyScore);
+            }
 
             if (fuzzyScore >= 85) {
-                const positions = getAllPositions(text, c.text);
+                const positions = getAllPositions(text, displayText(c.text));
+
+                if (dataIndex === 72) {
+                    console.log(
+                        `Worker: Data index ${dataIndex} positions:`,
+                        positions,
+                        c.text,
+                        text
+                    );
+                }
                 return positions.map((pos) => ({
                     start: pos,
                     end: pos + c.text.length,
@@ -165,6 +184,10 @@ function processTranscript(
 
         // Combine all intervals
         const allIntervals = [...markerIntervals, ...matchingIntervals];
+
+        if (dataIndex === 72) {
+            console.log(`Worker: Data index ${dataIndex} intervals1:`, allIntervals);
+        }
 
         if (allIntervals.length === 0) {
             return [createSegment(text, data, dataIndex, 0, [], codeColors, codes)];
@@ -221,6 +244,10 @@ function processTranscript(
                 codes
             );
             itemSegments.push(segment);
+        }
+
+        if (dataIndex === 72) {
+            console.log(`Worker: Data index ${dataIndex} segments:`, itemSegments);
         }
 
         return itemSegments;

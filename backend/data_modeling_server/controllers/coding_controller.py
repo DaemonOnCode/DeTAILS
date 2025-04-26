@@ -555,7 +555,7 @@ async def stream_qect_pages(
     types_placeholders = ", ".join("?" for _ in codebook_types)
     base_sql = (
         f"SELECT * FROM {table} "
-        f"WHERE dataset_id = ? AND codebook_type IN ({types_placeholders}) "
+        f"WHERE dataset_id = ? AND codebook_type IN ({types_placeholders}) AND is_marked = 1 "
         f"ORDER BY rowid "
         f"LIMIT ? OFFSET ?"
     )

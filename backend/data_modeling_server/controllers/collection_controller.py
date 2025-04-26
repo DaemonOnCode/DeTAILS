@@ -44,6 +44,12 @@ selected_post_ids_repo = SelectedPostIdsRepository()
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
 )
+study_posts_repo = PostsRepository(
+    database_path = STUDY_DATABASE_PATH
+)
+study_comments_repo = CommentsRepository(
+    database_path = STUDY_DATABASE_PATH
+)
 
 
 def get_current_download_dir():
@@ -371,25 +377,17 @@ def get_reddit_posts_by_batch(
         base_query = """
         FROM posts p
         WHERE p.dataset_id = ?
-          AND EXISTS (
-            SELECT 1 FROM comments c
+        AND (
+            (p.title    NOT IN ('[removed]','[deleted]')
+            AND p.selftext NOT IN ('[removed]','[deleted]'))
+            OR
+            EXISTS (
+            SELECT 1
+            FROM comments c
             WHERE c.dataset_id = p.dataset_id
-              AND c.post_id    = p.id
-          )
-          AND (
-            (
-              p.title    NOT IN ('[removed]','[deleted]')
-              AND p.selftext NOT IN ('[removed]','[deleted]')
+                AND c.post_id    = p.id
             )
-            OR EXISTS (
-              SELECT 1 FROM comments c2
-              WHERE c2.dataset_id = p.dataset_id
-                AND c2.post_id    = p.id
-                AND c2.body       IS NOT NULL
-                AND TRIM(c2.body) <> ''
-                AND c2.body NOT IN ('[removed]','[deleted]')
-            )
-          )
+        )
         """
     else:
         base_query = """
@@ -417,12 +415,20 @@ def get_reddit_posts_by_batch(
     {base_query}
     GROUP BY p.subreddit
     """
-    meta_row = post_repo.execute_raw_query(metadata_query, params, keys=True)[0]
-    metadata = {
-        "subreddit":   meta_row["subreddit"],
-        "start_date":  datetime.fromtimestamp(meta_row["start_ts"]).strftime('%Y-%m-%d'),
-        "end_date":    datetime.fromtimestamp(meta_row["end_ts"]).strftime('%Y-%m-%d'),
-    }
+    meta_rows = post_repo.execute_raw_query(metadata_query, params, keys=True)
+    if meta_rows:
+        meta_row = meta_rows[0]
+        metadata = {
+            "subreddit":  meta_row["subreddit"],
+            "start_date": datetime.fromtimestamp(meta_row["start_ts"]).strftime('%Y-%m-%d'),
+            "end_date":   datetime.fromtimestamp(meta_row["end_ts"]).strftime('%Y-%m-%d'),
+        }
+    else:
+        metadata = {
+            "subreddit":  None,
+            "start_date": None,
+            "end_date":   None,
+        }
 
     summary_query = f"""
     SELECT
@@ -544,6 +550,11 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
     if existing_comments_count > 0:
         comment_repo.delete({"dataset_id": dataset_id})
 
+    if study_posts_repo.count({"dataset_id": dataset_id}) > 0:
+        study_posts_repo.delete({"dataset_id": dataset_id})
+    if study_comments_repo.count({"dataset_id": dataset_id}) > 0:
+        study_comments_repo.delete({"dataset_id": dataset_id})
+
     dataset_path = dataset_path or os.path.join(DATASETS_DIR, dataset_id)
     
     all_files = []
@@ -658,6 +669,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     dataset_id=dataset_id
                 ))
             post_repo.insert_batch(posts)
+            study_posts_repo.insert_batch(posts)
 
         elif file["type"] == "comments":
             comments = []
@@ -698,7 +710,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     body=c.get("body", ""),
                     author=c.get("author", ""),
                     post_id=post_id,
-                    created_utc=created,
+                    created_utc=c.get("created_utc", 0),
                     link_id=link_id,
                     parent_id=parent_id,
                     controversiality=c.get("controversiality", 0),
@@ -719,6 +731,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                 else:
                     print(f"Skipping duplicate comment with key: {key}")
             comment_repo.insert_batch(unique_comments)
+            study_comments_repo.insert_batch(unique_comments)
     update_dataset(dataset_id, name=subreddit)
 
     return {"message": "Reddit dataset parsed successfully"}

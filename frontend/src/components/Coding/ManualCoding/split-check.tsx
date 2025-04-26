@@ -144,6 +144,7 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                                 setIsHighlightModalOpen={() => {}}
                                 setIsEditHighlightModalOpen={() => {}}
                                 setDeleteIsHighlightModalOpen={() => {}}
+                                manualCoding
                             />
                         </TranscriptContextProvider>
                     </div>
@@ -190,6 +191,7 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                                 setIsHighlightModalOpen={() => {}}
                                 setIsEditHighlightModalOpen={() => {}}
                                 setDeleteIsHighlightModalOpen={() => {}}
+                                manualCoding
                             />
                         </TranscriptContextProvider>
                     </div>

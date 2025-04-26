@@ -15,6 +15,7 @@ from errors.database_errors import (
 )
 from errors.llm_errors import ConfigurationError, EmbeddingsInitializationError, InvalidModelFormatError, LLMInitializationError, UnsupportedModelError, UnsupportedProviderError
 from errors.ollama_errors import InvalidModelError, OllamaError, PullModelError, DeleteModelError
+from errors.request_errors import RequestError
 from errors.vertex_ai_errors import InvalidGenAIModelError, InvalidTextEmbeddingError, VertexAIError
 from models.table_dataclasses import ErrorLog
 
@@ -59,6 +60,8 @@ EXCEPTION_HANDLERS = {
     MemoryError: lambda e: (500, f"Out of memory: {str(e)}"),
     RuntimeError: lambda e: (500, f"Runtime error: {str(e)}"),
     OSError: lambda e: (500, f"OS error: {str(e)}"),
+
+    RequestError: lambda e: (e.status_code, e.message),
 }
 
 error_log_repository = ErrorLogRepository(database_path = STUDY_DATABASE_PATH)
@@ -70,8 +73,10 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             return response
         except Exception as e:
             exception_type = type(e)
+            print(f"Exception type: {exception_type.__name__}")
             if exception_type in EXCEPTION_HANDLERS:
                 status_code, error_message = EXCEPTION_HANDLERS[exception_type](e)
+                print(f"Handling exception: {exception_type.__name__} - {str(e)}, status_code: {status_code}, error_message: {error_message}")
                 logging.error(f"{exception_type.__name__}: {str(e)}")
                 traceback.print_exc()
                 error_log_repository.insert(

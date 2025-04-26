@@ -106,6 +106,7 @@ class PaginatedRequest(BaseModel):
     selectedTypeFilter: Literal["New Data", "Codebook", "Human", "LLM", "All"]
     postId: Optional[str] = None     
     responseTypes: List[str] = []
+    markedTrue: bool = False
     
 
 class PaginatedPostsResponse(BaseModel):
@@ -126,6 +127,7 @@ class PaginatedPostRequest(BaseModel):
 
 class TranscriptRequest(BaseModel):
     postId: str
+    manualCoding: bool = False
 
 class AnalysisRequest(BaseModel):
     viewType: Literal['post', 'code']

@@ -139,6 +139,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 const fetchedData = await fetchStates(['metadata']);
                 if (fetchedData.metadata) setMetadataState(fetchedData.metadata);
             }
+            return data;
         } catch (error) {
             console.error('Failed to set type:', JSON.stringify(error));
         }
@@ -150,6 +151,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
             // @ts-ignore
             setMetadataState((prev) => (prev ? { ...prev, source } : prev));
         }
+        return data;
     };
 
     const setMetadataSubreddit = async (subreddit: string) => {
@@ -159,6 +161,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 prev && prev.type === 'reddit' ? { ...prev, subreddit } : prev
             );
         }
+        return data;
     };
 
     const setModeInput = async (inputOrFn: string | ((prev: string) => string)) => {
@@ -168,6 +171,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
             if (data.success) {
                 setModeInputState(_modeInput);
             }
+            return data;
         } catch (error) {
             console.error('Failed to set modeInput:', JSON.stringify(error));
         }
@@ -182,6 +186,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
             if (data.success) {
                 setSelectedDataState(_selectedData);
             }
+            return data;
         } catch (error) {
             console.error('Failed to set selectedData:', JSON.stringify(error));
         }
@@ -199,6 +204,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
             if (data.success) {
                 setDataFiltersState(_dataFilters);
             }
+            return data;
         } catch (error) {
             console.error('Failed to set dataFilters:', JSON.stringify(error));
         }
@@ -211,6 +217,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
             if (data.success) {
                 setIsLockedState(_isLocked);
             }
+            return data;
         } catch (error) {
             console.error('Failed to set isLocked:', JSON.stringify(error));
         }
@@ -384,10 +391,12 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
         metadataDispatch: async (action: MetadataAction) => {
             const data = await saveCollectionContext('metadataDispatch', { action });
             if (data.metadata) setMetadataState(data.metadata);
+            return data;
         },
         datasetDispatch: async (action: DataAction) => {
             const data = await saveCollectionContext('datasetDispatch', { action });
             if (data.dataset) setDatasetState(data.dataset);
+            return data;
         }
     };
 

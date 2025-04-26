@@ -3,7 +3,6 @@ import {
     BaseBucketAction,
     BaseResponseHandlerActions,
     IFile,
-    IQECResponse,
     IQECTTyResponse,
     IReference,
     InitialCodebookCode,
@@ -83,11 +82,12 @@ export interface IModelingContext {
 
 export type Keyword = { id: string; word: string };
 
-export type AsyncDispatch<T> = Dispatch<T> | ((...args: any[]) => Promise<void>);
+export type AsyncDispatch<T> = Dispatch<T> | ((...args: any[]) => Promise<any>);
 
 export interface ICodingContext {
     contextFiles: IFile;
     addContextFile: (filePath: string, fileName: string) => void;
+    addContextFilesBatch: (files: IFile[]) => void;
     removeContextFile: (filePath: string) => void;
     mainTopic: string;
     setMainTopic: SetState<string>;
@@ -104,15 +104,16 @@ export interface ICodingContext {
         [code: string]: IReference[];
     }>;
     keywordTable: KeywordEntry[];
-    dispatchKeywordsTable: Dispatch<KeywordsTableAction>;
+    dispatchKeywordsTable: AsyncDispatch<KeywordsTableAction>;
     updateContext: (updates: Partial<ICodingContext>) => void;
     resetContext: () => void;
     dispatchSampledPostResponse: AsyncDispatch<SampleDataResponseReducerActions>;
     dispatchUnseenPostResponse: AsyncDispatch<BaseResponseHandlerActions<IQECTTyResponse>>;
+    dispatchAllPostResponse: AsyncDispatch<BaseResponseHandlerActions<IQECTTyResponse>>;
     themes: ThemeBucket[];
     dispatchThemes: SetState<ThemeBucket[]>;
     groupedCodes: ThemeBucket[];
-    dispatchGroupedCodes: Dispatch<BaseBucketAction>;
+    dispatchGroupedCodes: AsyncDispatch<BaseBucketAction>;
     researchQuestions: string[];
     setResearchQuestions: SetState<string[]>;
     sampledPostIds: string[];
@@ -120,7 +121,7 @@ export interface ICodingContext {
     unseenPostIds: string[];
     setUnseenPostIds: SetState<string[]>;
     initialCodebookTable: InitialCodebookCode[];
-    dispatchInitialCodebookTable: Dispatch<InitialCodebookTableAction>;
+    dispatchInitialCodebookTable: AsyncDispatch<InitialCodebookTableAction>;
 }
 
 export interface Workspace {

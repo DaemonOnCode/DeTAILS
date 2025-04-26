@@ -286,21 +286,23 @@ class GlobalQueueManager:
                             except Exception as e:
                                 print(f"[ENQUEUE] Failed to enqueue task {job_id}: {e}")
                         else:
-                            print(f"[ENQUEUE] No future for task {job_id}, marking failed")
-                            dummy_fut = ConcurrentFuture()
-                            dummy_fut.set_exception(
-                                RuntimeError(f"No local future to process task {job_id}")
-                            )
+                            print(f"[ENQUEUE] No local future found for task {job_id}, marking failed")
                             with self._lock:
-                                for task in pending_tasks:
-                                    job_id = task.task_id
-                                    if job_id in self.pending_tasks:
-                                        del self.pending_tasks[job_id]
-                                        print(f"[ENQUEUE] Removed task {job_id} from pending_tasks")
-                                    self.pending_task_repo.update(
-                                        filters={"task_id": job_id},
-                                        updates={"status": "failed", "error": "Task not found in pending_tasks"}
-                                    )
+                                orig_fut = self.pending_tasks.pop(job_id, None)
+                            if orig_fut:
+                                orig_fut.set_exception(
+                                    RuntimeError(f"No pending future to process task {job_id}")
+                                )
+
+                            self.pending_task_repo.update(
+                                filters={"task_id": job_id},
+                                updates={
+                                    "status": "failed",
+                                    "error": "No pending future found",
+                                    "completed_at": datetime.now()
+                                }
+                            )
+                            continue
                 else:
                     print("[ENQUEUE] Queue not empty or no pending tasks, waiting")
                     await asyncio.sleep(1)

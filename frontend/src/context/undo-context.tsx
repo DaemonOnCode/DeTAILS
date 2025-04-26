@@ -13,13 +13,15 @@ const UndoContext = createContext<IUndoContext>({
     undo: () => {}
 });
 
+const STACK_SIZE = 50;
+
 export const UndoProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const undoStack = useRef<(() => void)[]>([]);
     const location = useLocation();
 
     const logOperation = (undoFunction: () => void) => {
         undoStack.current.push(undoFunction);
-        if (undoStack.current.length > 50) {
+        if (undoStack.current.length > STACK_SIZE) {
             undoStack.current.shift();
         }
     };

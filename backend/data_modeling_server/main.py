@@ -28,13 +28,35 @@ from constants import PATHS, get_default_transmission_cmd
 
 def set_initial_settings():
     with open(PATHS["settings"], "r") as f:
-        settings = json.load(f)
+        file = f.read()
+        print(file)
+        settings = json.loads(file)
     if not settings["transmission"]["downloadDir"]:
         settings["transmission"]["downloadDir"] = PATHS["transmission"]
     if not settings["transmission"]["path"]:
         settings["transmission"]["path"] = get_default_transmission_cmd()[0]
     with open(PATHS["settings"], "w") as f:
         json.dump(settings, f, indent=4)
+
+
+set_initial_settings()
+
+
+initialize_database([
+    WorkspacesRepository, WorkspaceStatesRepository,
+    DatasetsRepository, PostsRepository, CommentsRepository,
+    LlmResponsesRepository, TorrentDownloadProgressRepository,
+    FileStatusRepository, PipelineStepsRepository,
+    FunctionProgressRepository, QectRepository,
+    LlmPendingTaskRepository, LlmFunctionArgsRepository,
+    SelectedPostIdsRepository, CodingContextRepository,
+    ContextFilesRepository, ResearchQuestionsRepository,
+])
+initialize_study_database([
+    QectRepository, ErrorLogRepository, StateDumpsRepository,
+    PostsRepository, CommentsRepository
+])
+FunctionProgressRepository().delete({}, all=True)
 
 def run_http():
     uvicorn.run(
@@ -52,28 +74,6 @@ def run_ws():
     )
 
 if __name__ == "__main__":
-    set_initial_settings()
-
-
-    initialize_database([
-        WorkspacesRepository, WorkspaceStatesRepository,
-        DatasetsRepository, PostsRepository, CommentsRepository,
-        LlmResponsesRepository, TorrentDownloadProgressRepository,
-        FileStatusRepository, PipelineStepsRepository,
-        FunctionProgressRepository, QectRepository,
-        LlmPendingTaskRepository, LlmFunctionArgsRepository,
-        SelectedPostIdsRepository, CodingContextRepository,
-        ContextFilesRepository, ResearchQuestionsRepository,
-    ])
-    initialize_study_database([
-        FullQectRepository, WorkspaceStatesRepository,
-        WorkspacesRepository, LlmPendingTaskRepository,
-        LlmFunctionArgsRepository, SelectedPostIdsRepository,
-        QectRepository, ErrorLogRepository, StateDumpsRepository,
-    ])
-    FunctionProgressRepository().delete({}, all=True)
-
-
     os.makedirs(DATASETS_DIR, exist_ok=True)
     os.makedirs(PATHS["transmission"], exist_ok=True)
 

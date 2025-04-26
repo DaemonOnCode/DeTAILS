@@ -119,7 +119,8 @@ const FinalzingCodes = () => {
         loadPreviousPage
     } = usePaginatedResponses({
         pageSize: 10,
-        responseTypes: ['sampled', 'unseen']
+        responseTypes: ['sampled', 'unseen'],
+        markedTrue: true
     });
 
     const codeResponses = useMemo(() => {
@@ -246,7 +247,7 @@ const FinalzingCodes = () => {
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
             navigate(
-                getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, { text: 'reviewing codes' })
+                getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, { text: 'Reviewing codes' })
             );
         }
     }, []);

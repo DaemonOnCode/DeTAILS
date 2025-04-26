@@ -9,17 +9,13 @@ import {
     FiTrash2
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
-import { ROUTES as DATA_COLLECTION_ROUTES } from '../../constants/DataCollection/shared';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useAuth } from '../../context/auth-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import { toast } from 'react-toastify';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 import { useToast } from '../../context/toast-context';
 import { useApi } from '../../hooks/Shared/use-api';
-
-const { ipcRenderer } = window.require('electron');
 
 const WorkspaceSelectionPage: React.FC = () => {
     const { user } = useAuth();
@@ -34,7 +30,6 @@ const WorkspaceSelectionPage: React.FC = () => {
         currentWorkspace,
         addWorkspace,
         setWorkspaces,
-        addWorkspaceBatch,
         updateWorkspace,
         deleteWorkspace,
         setCurrentWorkspaceById,
@@ -43,19 +38,15 @@ const WorkspaceSelectionPage: React.FC = () => {
         workspaceLoading: loading
     } = useWorkspaceContext();
 
-    const { loadWorkspaceData } = useWorkspaceUtils();
-    const { getServerUrl } = useServerUtils();
     const { fetchData } = useApi();
 
     const [newWorkspaceName, setNewWorkspaceName] = useState<string>('');
     const [renameWorkspaceName, setRenameWorkspaceName] = useState<string>('');
 
-    // Reset current workspace on mount.
     useEffect(() => {
         setCurrentWorkspace(null);
     }, [setCurrentWorkspace]);
 
-    // Fetch workspaces on mount.
     const isLoading = useRef(false);
 
     useEffect(() => {
@@ -64,7 +55,6 @@ const WorkspaceSelectionPage: React.FC = () => {
             isLoading.current = true;
             try {
                 setWorkspaceLoading(true);
-                // Build the full route with query string.
                 const route = `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
                     user?.email || ''
                 )}`;
@@ -98,7 +88,6 @@ const WorkspaceSelectionPage: React.FC = () => {
         if (user?.email) fetchWorkspaces();
     }, [user?.email, setWorkspaceLoading, setWorkspaces, fetchData]);
 
-    // Add workspace
     const handleAddWorkspace = async () => {
         if (!newWorkspaceName.trim()) {
             showToast({
@@ -133,7 +122,6 @@ const WorkspaceSelectionPage: React.FC = () => {
         }
     };
 
-    // Rename workspace
     const handleRenameWorkspace = async (workspaceId: string) => {
         if (!renameWorkspaceName.trim()) {
             showToast({
@@ -163,7 +151,6 @@ const WorkspaceSelectionPage: React.FC = () => {
         }
     };
 
-    // Delete workspace
     const handleDeleteWorkspace = async (workspaceId: string) => {
         try {
             const deleteWorkspacePromise = fetchData(
@@ -228,7 +215,7 @@ const WorkspaceSelectionPage: React.FC = () => {
     }
 
     return (
-        <div className="h-page ">
+        <div className="max-h-page h-page flex flex-col overflow-hidden">
             <div className="flex justify-between items-center mb-4">
                 <h1 className="text-2xl font-bold">Workspace Management</h1>
             </div>
@@ -247,11 +234,11 @@ const WorkspaceSelectionPage: React.FC = () => {
                     Add
                 </button>
             </div>
-            <div className="bg-white shadow-md rounded-lg my-4">
+            <div className="shadow-lg rounded-lg my-4 flex flex-col flex-1 overflow-hidden">
                 <div className="p-4 border-b">
                     <h2 className="text-lg font-semibold">All Workspaces</h2>
                 </div>
-                <div className="p-4">
+                <div className="p-4 overflow-y-auto flex-1">
                     {workspaces.length === 0 && (
                         <div className="text-gray-600 text-center">No workspaces found.</div>
                     )}

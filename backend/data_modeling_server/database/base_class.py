@@ -135,6 +135,7 @@ class BaseRepository(Generic[T]):
             cursor.execute(query, params)
             print(query, params)
             row = cursor.fetchone()
+        print(row, "row")
         if not row:
             raise RecordNotFoundError(f"Record not found for query: {query} with params: {params}")
         if not map_to_model:
@@ -212,6 +213,7 @@ class BaseRepository(Generic[T]):
         order_by: Optional[Dict[str, str]] = None,
         limit: Optional[int] = None
     ) -> List[T] | List[Dict[str, Any]]:
+        self.query_builder_instance.reset()
         if columns:
             self.query_builder_instance.select(*columns)
         if order_by:
@@ -221,7 +223,7 @@ class BaseRepository(Generic[T]):
         if limit is not None:
             self.query_builder_instance.limit(limit)
         query, params = self.query_builder_instance.find(filters)
-
+        print(query, params, "find")
         result = self.fetch_all(query, params, map_to_model=map_to_model)
         self.query_builder_instance.reset()
         return result
@@ -230,6 +232,7 @@ class BaseRepository(Generic[T]):
     @auto_recover
     def find_one(self, filters: Optional[Dict[str, Any]] = None, columns: Optional[List[str]] = None, map_to_model=True, order_by: Optional[Dict[str, Any]] = None, fail_silently: bool = False) -> T | Dict[str, Any] | None:
         try:
+            self.query_builder_instance.reset()
             if order_by:
                 self.query_builder_instance.order_by(**order_by)
             if columns:
@@ -292,11 +295,53 @@ class BaseRepository(Generic[T]):
 
     @handle_db_errors
     @auto_recover
+    def insert_returning(self, data: T) -> Dict[str, Any]:
+        data_dict = asdict(data)
+        query, params = self.query_builder_instance.insert(data_dict)
+        query = query.rstrip().rstrip(';') + " RETURNING *;"
+        rows = self.fetch_all(query, params, map_to_model=False)
+        return rows[0] if rows else {}
+
+    @handle_db_errors
+    @auto_recover
+    def update_returning(self, filters: Dict[str, Any], updates:  Dict[str, Any]) -> List[Dict[str, Any]]:
+        query, params = self.query_builder_instance.update(filters, updates)
+        query = query.rstrip().rstrip(';') + " RETURNING *;"
+        return self.fetch_all(query, params, map_to_model=False)
+
+    @handle_db_errors
+    @auto_recover
+    def delete_returning(self, filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+        query, params = self.query_builder_instance.delete(filters)
+        query = query.rstrip().rstrip(';') + " RETURNING *;"
+        return self.fetch_all(query, params, map_to_model=False)
+    
+
+    @handle_db_errors
+    @auto_recover
+    def insert_batch_returning(self, data_list: List[T]) -> List[Dict[str,Any]]:
+        return [self.insert_returning(item) for item in data_list ]
+
+    @handle_db_errors
+    @auto_recover
+    def update_batch_returning(
+        self,
+        filters_list: List[Dict[str,Any]],
+        updates_list:  List[Dict[str,Any]]
+    ) -> List[List[Dict[str,Any]]]:
+        return [
+            self.update_returning(filters, updates)
+            for filters, updates in zip(filters_list, updates_list)
+        ]
+
+    @handle_db_errors
+    @auto_recover
     def drop_table(self) -> None:
         drop_query = f"DROP TABLE IF EXISTS {self.table_name}"
 
         return self.execute_query(drop_query, result=True)
 
     def _map_to_model(self, row: Row) -> T:
-        row_dict = {key: row[key] for key in row.keys() if key in self.query_builder_instance.model_fields}
+        row_dict = {key: row[key] for key in row.keys() if key in self.get_model_fields()}
+        print(row_dict, "row_dict", self.model, "row", row)
         return self.model(**row_dict)

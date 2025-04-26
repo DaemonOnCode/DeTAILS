@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import PostTranscript from '../../components/Coding/CodingTranscript/post-transcript';
 import TopToolbar from '../../components/Coding/Shared/top-toolbar';
 import ValidationTable from '../../components/Coding/UnifiedCoding/validation-table';
@@ -8,7 +8,6 @@ import { useLogger } from '../../context/logging-context';
 import { createTimer } from '../../utility/timer';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useCollectionContext } from '../../context/collection-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import {
@@ -19,7 +18,6 @@ import { TranscriptContextProvider } from '../../context/transcript-context';
 import { useApi } from '../../hooks/Shared/use-api';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
-import { useWorkspaceContext } from '../../context/workspace-context';
 import { usePaginatedResponses } from '../../hooks/Coding/use-paginated-responses';
 
 const TranscriptPage = () => {
@@ -49,6 +47,9 @@ const TranscriptPage = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
 
     const hasSavedRef = useRef(false);
+
+    const refetchRef = useRef<any>(null);
+
     useEffect(() => {
         const timer = createTimer();
         logger.info('Transcript Page Loaded');
@@ -84,17 +85,17 @@ const TranscriptPage = () => {
             backFunction?: (...args: any) => void;
             codebook: {
                 responses: any[];
-                dispatchFunction: (...args: any) => void;
+                dispatchFunction: (...args: any) => void | Promise<any>;
                 showThemes?: boolean;
             } | null;
             topTranscript: {
                 responses: any[];
-                dispatchFunction: (...args: any) => void;
+                dispatchFunction: (...args: any) => void | Promise<any>;
                 conflicts?: any[];
             } | null;
             bottomTranscript: {
                 responses: any[];
-                dispatchFunction: (...args: any) => void;
+                dispatchFunction: (...args: any) => void | Promise<any>;
                 conflicts?: any[];
             };
         }
@@ -114,10 +115,14 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchSampledPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 },
                 topTranscript: null,
@@ -125,10 +130,14 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchSampledPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -150,10 +159,14 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
-                        dispatchSampledPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -173,10 +186,14 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchSampledPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     },
                     showThemes: false
                 },
@@ -185,10 +202,14 @@ const TranscriptPage = () => {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
-                        dispatchUnseenPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -208,10 +229,14 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchSampledPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 },
                 topTranscript: null,
@@ -219,9 +244,13 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
-                        dispatchSampledPostResponse({
-                            ...args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -241,11 +270,15 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchSampledPostResponse({
-                            // type: 'SET_PARTIAL_RESPONSES',
-                            // responses: args[0]
-                            ...args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                // type: 'SET_PARTIAL_RESPONSES',
+                                // responses: args[0]
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 },
                 topTranscript: null,
@@ -253,14 +286,18 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
-                        dispatchSampledPostResponse({
-                            // type: 'SET_PARTIAL_RESPONSES',
-                            // responses: args?.map((response: any) => ({
-                            //     ...response
-                            //     // type: 'Human'
-                            // }))
-                            ...args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                // type: 'SET_PARTIAL_RESPONSES',
+                                // responses: args?.map((response: any) => ({
+                                //     ...response
+                                //     // type: 'Human'
+                                // }))
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     },
                     conflicts: []
                 }
@@ -281,10 +318,14 @@ const TranscriptPage = () => {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchUnseenPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 },
                 topTranscript: null,
@@ -304,9 +345,13 @@ const TranscriptPage = () => {
                                 : {
                                       ...args[0]
                                   };
-                        dispatchUnseenPostResponse({
-                            ...value
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                ...value
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -326,10 +371,14 @@ const TranscriptPage = () => {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchUnseenPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 },
                 topTranscript: null,
@@ -349,9 +398,13 @@ const TranscriptPage = () => {
                                 : {
                                       ...args[0]
                                   };
-                        dispatchUnseenPostResponse({
-                            ...value
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                ...value
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -371,30 +424,42 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchSampledPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 },
                 topTranscript: {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
-                        dispatchUnseenPostResponse({
-                            ...args[0],
-                            responseType: 'Human'
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                ...args[0],
+                                responseType: 'Human'
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 },
                 bottomTranscript: {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Refine:', args);
-                        dispatchUnseenPostResponse({
-                            ...args[0],
-                            responseType: 'LLM'
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                ...args[0],
+                                responseType: 'LLM'
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -414,10 +479,14 @@ const TranscriptPage = () => {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchUnseenPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     },
                     showThemes: false
                 },
@@ -426,10 +495,14 @@ const TranscriptPage = () => {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
-                        dispatchUnseenPostResponse({
-                            type: 'SET_PARTIAL_RESPONSES',
-                            responses: args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                type: 'SET_PARTIAL_RESPONSES',
+                                responses: args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -449,9 +522,13 @@ const TranscriptPage = () => {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchUnseenPostResponse({
-                            ...args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     },
                     showThemes: false
                 },
@@ -460,9 +537,13 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
-                        dispatchSampledPostResponse({
-                            ...args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -482,9 +563,13 @@ const TranscriptPage = () => {
                     responses: ['sampled', 'unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchUnseenPostResponse({
-                            ...args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     },
                     showThemes: false
                 },
@@ -493,9 +578,13 @@ const TranscriptPage = () => {
                     responses: ['sampled'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
-                        dispatchSampledPostResponse({
-                            ...args[0]
-                        });
+                        return dispatchSampledPostResponse(
+                            {
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -515,9 +604,13 @@ const TranscriptPage = () => {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchUnseenPostResponse({
-                            ...args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     },
                     showThemes: false
                 },
@@ -526,9 +619,13 @@ const TranscriptPage = () => {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
-                        dispatchUnseenPostResponse({
-                            ...args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -548,9 +645,13 @@ const TranscriptPage = () => {
                     responses: ['sampled', 'unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
-                        dispatchUnseenPostResponse({
-                            ...args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     },
                     showThemes: false
                 },
@@ -559,9 +660,13 @@ const TranscriptPage = () => {
                     responses: ['unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
-                        dispatchUnseenPostResponse({
-                            ...args[0]
-                        });
+                        return dispatchUnseenPostResponse(
+                            {
+                                ...args[0]
+                            },
+                            // @ts-ignore
+                            refetchRef
+                        );
                     }
                 }
             }
@@ -638,16 +743,6 @@ const TranscriptPage = () => {
     const topSelectionRef = useRef<Range | null>(null);
     const bottomSelectionRef = useRef<Range | null>(null);
 
-    const dispatchAndRefetch = useCallback(
-        (...args: any[]) => {
-            currentConfig?.bottomTranscript?.dispatchFunction!(...args);
-            if (id && datasetId) {
-                fetchPostById(id, datasetId, false);
-            }
-        },
-        [currentConfig, id, datasetId]
-    );
-
     const handleSetActiveTranscript = (
         e: React.MouseEvent<HTMLDivElement>,
         position: 'top' | 'bottom' | null
@@ -709,6 +804,26 @@ const TranscriptPage = () => {
             fetchPostById(id, datasetId);
         }
     }, [id, datasetId]);
+
+    useImperativeHandle(
+        refetchRef,
+        () => ({
+            refresh: () => {
+                if (id && datasetId) {
+                    fetchPostById(id, datasetId, false);
+                }
+            }
+        }),
+        [id, datasetId]
+    );
+
+    const dispatchAndRefetch = useCallback(
+        (...args: any[]) => {
+            console.log('Dispatching and refetching:', args);
+            return currentConfig?.bottomTranscript?.dispatchFunction!(...args);
+        },
+        [currentConfig, refetchRef]
+    );
 
     const handleSwitchToEditMode = () => {
         const params = new URLSearchParams();

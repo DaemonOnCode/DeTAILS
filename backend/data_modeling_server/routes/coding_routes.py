@@ -28,6 +28,7 @@ from database.research_question_table import ResearchQuestionsRepository
 from database.selected_keywords_table import SelectedKeywordsRepository
 from database.state_dump_table import StateDumpsRepository
 from database.theme_table import ThemeEntriesRepository
+from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from ipc import send_ipc_message
@@ -850,6 +851,10 @@ async def final_coding_endpoint(
     coding_context = coding_context_repo.find_one({"id": workspace_id})
     if not coding_context:
         raise HTTPException(status_code=404, detail="Coding context not found for the workspace.")
+    
+    if qect_repo.count({"dataset_id": dataset_id, "codebook_type": [CodebookType.INITIAL.value], "is_marked": True}) == 0:
+        raise RequestError(status_code=400, message="No responses available.")
+
 
     final_codebook = initial_codebook_repo.find_one({"coding_context_id": workspace_id}, map_to_model=False)
     main_topic = coding_context.main_topic
@@ -1363,6 +1368,7 @@ async def generate_codes_endpoint(
     coding_context = coding_context_repo.find_one({"id": workspace_id})
     if not coding_context:
         raise HTTPException(status_code=404, detail="Coding context not found for the workspace.")
+    
     mainTopic = coding_context.main_topic
     additionalInfo = coding_context.additional_info or ""
     researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
@@ -1586,6 +1592,9 @@ async def redo_final_coding_endpoint(
     coding_context = coding_context_repo.find_one({"id": workspace_id})
     if not coding_context:
         raise HTTPException(status_code=404, detail="Coding context not found for the workspace.")
+    
+    if qect_repo.count({"dataset_id": dataset_id, "codebook_type": [CodebookType.INITIAL.value], "is_marked": True}) == 0:
+        raise RequestError(status_code=400, message="No responses available.")
 
     final_codebook = initial_codebook_repo.find_one({"coding_context_id": workspace_id}, map_to_model=False)
     main_topic = coding_context.main_topic
@@ -1746,6 +1755,9 @@ async def group_codes_endpoint(
 
     app_id = request.headers.get("x-app-id")
 
+    if qect_repo.count({"dataset_id": dataset_id, "codebook_type": [CodebookType.INITIAL.value,CodebookType.FINAL.value], "is_marked": True}) == 0:
+        raise RequestError(status_code=400, message="No codes available for grouping.")
+
     start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
@@ -1869,6 +1881,10 @@ async def regroup_codes_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     app_id = request.headers.get("x-app-id")
+
+    if qect_repo.count({"dataset_id": dataset_id, "codebook_type": [CodebookType.INITIAL.value,CodebookType.FINAL.value], "is_marked": True}) == 0:
+        raise RequestError(status_code=400, message="No codes available for grouping.")
+
 
     start_time = time.time()
 
@@ -2015,22 +2031,39 @@ async def generate_codebook_without_quotes_endpoint(
     if manual_coding:
         codebook_types.append(CodebookType.FINAL.value)
 
+    if qect_repo.count({"dataset_id": dataset_id, "codebook_type": codebook_types, "is_marked": True}) == 0:
+        raise RequestError(status_code=400, message="No responses available.")
+
+
     if manual_coding and manual_codebook_repo.count({"workspace_id": request.headers.get("x-workspace-id")}) > 0:
         return {
             "message": "Codebook generated successfully!",
             "data": {codebook_entries.code: codebook_entries.definition for codebook_entries in manual_codebook_repo.find({"workspace_id": request.headers.get("x-workspace-id")})}
         }
     
+    if manual_coding and qect_repo.count({"dataset_id": dataset_id}) == 0 and grouped_codes_repo.count({"coding_context_id": dataset_id}) == 0:
+        raise HTTPException(status_code=400, detail="No responses found for the dataset.")
+    
+    def to_higher(code: str) -> Optional[str]:
+        if not manual_coding:
+            return code
+        entry = grouped_codes_repo.find_one({
+            "coding_context_id": dataset_id,
+            "code": code
+        })
+        return entry.higher_level_code if entry else None
+    
     summarized_dict = await summarize_codebook_explanations(
-        workspace_id           = dataset_id,
+        workspace_id = dataset_id,
         codebook_types = codebook_types,
         llm_model = request_body.model,
         app_id = app_id,
         dataset_id = dataset_id,
         manager = manager,
-        parent_function_name = "manual-codebook-generation",
+        parent_function_name = "manual-codebook-generation" if manual_coding else "initial-codebook",
         llm_instance = llm,
         llm_queue_manager = llm_queue_manager,
+        code_transform = to_higher,
         max_input_tokens = 128000,
         retries = 3,
         flush_threshold = 200,
@@ -2131,7 +2164,7 @@ async def regenerate_codebook_without_quotes_endpoint(
         app_id = app_id,
         dataset_id = dataset_id,
         manager = manager,
-        parent_function_name = "manual-codebook-regeneration",
+        parent_function_name = "initial-codebook",
         llm_instance = llm,
         llm_queue_manager = llm_queue_manager,
         max_input_tokens = 128000,
@@ -2436,6 +2469,12 @@ async def paginated_responses(
     #     filters.append("(r.quote LIKE ? OR r.explanation LIKE ?)")
     #     like = f"%{req.searchTerm}%"
     #     params.extend([like, like])
+        
+    print(f"markedTrue: {req.markedTrue}")
+    if req.markedTrue:
+        filters.append("r.is_marked = ?")
+        params.append(1)
+
 
     where_clause = " AND ".join(filters)
 
@@ -2635,7 +2674,7 @@ async def paginated_codes(
     if "sampled" in req.responseTypes:
         response_filters.append("r.codebook_type = 'initial'")
     if "unseen" in req.responseTypes:
-        response_filters.append("r.codebook_type = 'final' AND r.response_type = 'LLM'")
+        response_filters.append("r.codebook_type = 'final'")
     if "manual" in req.responseTypes:
         response_filters.append("r.codebook_type = 'manual'")
     
@@ -2697,25 +2736,37 @@ async def get_transcript_data_endpoint(
     ])
 
     resp_sql = """
-      SELECT
-        r.id,
-        r.post_id,
-        r.quote,
-        r.explanation,
-        r.code,
-        r.response_type,
-        r.codebook_type,
-        r.chat_history,
-        r.range_marker,
-        r.is_marked
-      FROM qect r
-      JOIN selected_post_ids p
-        ON r.post_id    = p.post_id
-       AND r.dataset_id = p.dataset_id
-     WHERE r.dataset_id = ?
-       AND r.post_id    = ?;
-    """
-    resp_rows = execute_query(resp_sql, [dataset_id, post_id], keys=True)
+  SELECT
+    r.id,
+    r.post_id,
+    r.quote,
+    r.explanation,
+    CASE
+      WHEN :manualCoding = 1 THEN COALESCE(g.higher_level_code, r.code)
+      ELSE r.code
+    END AS code,
+    r.response_type,
+    r.codebook_type,
+    r.chat_history,
+    r.range_marker,
+    r.is_marked
+  FROM qect r
+  JOIN selected_post_ids p
+    ON r.post_id    = p.post_id
+   AND r.dataset_id = p.dataset_id
+  LEFT JOIN grouped_code_entries g
+    ON g.coding_context_id = r.dataset_id   
+   AND g.code              = r.code        
+  WHERE r.dataset_id = :dataset_id
+    AND r.post_id    = :post_id;
+"""
+
+    params = {
+        "manualCoding": 1 if request_body.manualCoding else 0,
+        "dataset_id":   dataset_id,
+        "post_id":      post_id,
+    }
+    resp_rows = execute_query(resp_sql, params, keys=True)
 
     responses: List[Dict[str, Any]] = []
     for row in resp_rows:
@@ -2732,14 +2783,25 @@ async def get_transcript_data_endpoint(
             "isMarked": bool(row["is_marked"]) if row["is_marked"] is not None else None,
         })
 
-    codes_sql = """
-      SELECT DISTINCT r.code
-        FROM qect r
-       WHERE r.dataset_id = ?
-         AND r.code IS NOT NULL
-       ORDER BY r.code;
-    """
-    code_rows = execute_query(codes_sql, [dataset_id], keys=True)
+    if request_body.manualCoding:
+        codes_sql = """
+        SELECT DISTINCT
+            g.higher_level_code AS code
+        FROM grouped_code_entries g
+        WHERE g.coding_context_id = ?
+            AND g.higher_level_code IS NOT NULL
+        ORDER BY g.higher_level_code;
+        """
+        code_rows = execute_query(codes_sql, [dataset_id], keys=True)
+    else:
+        codes_sql = """
+        SELECT DISTINCT r.code
+            FROM qect r
+        WHERE r.dataset_id = ?
+            AND r.code IS NOT NULL
+        ORDER BY r.code;
+        """
+        code_rows = execute_query(codes_sql, [dataset_id], keys=True)
     all_codes = [r["code"] for r in code_rows if r["code"]]
 
     return {
@@ -2758,6 +2820,8 @@ BASE_JOIN = """
     ON g.higher_level_code = t.higher_level_code
    AND t.coding_context_id = :dataset_id
   WHERE r.dataset_id = :dataset_id
+    AND r.codebook_type IN ('initial', 'final')
+    AND r.is_marked = 1
 """
 
 @router.post("/analysis-report")
@@ -2775,14 +2839,14 @@ async def analysis_report(
         stats_sql = f"""
         SELECT
           COUNT(DISTINCT r.post_id)    AS totalUniquePosts,
-          COUNT(DISTINCT r.code)       AS totalUniqueCodes,
+          COUNT(DISTINCT g.higher_level_code) AS totalUniqueCodes,
           COUNT(*)                     AS totalQuoteCount
         {BASE_JOIN}
         """
     else:  
         stats_sql = f"""
         SELECT
-          COUNT(DISTINCT r.code)       AS totalUniqueCodes,
+          COUNT(DISTINCT g.higher_level_code) AS totalUniqueCodes,
           COUNT(DISTINCT r.post_id)    AS totalUniquePosts,
           COUNT(*)                     AS totalQuoteCount
         {BASE_JOIN}
@@ -2796,8 +2860,7 @@ async def analysis_report(
         SELECT
           r.id,
           r.post_id    AS postId,
-          r.code,
-          g.higher_level_code   AS higherLevelCode,
+          g.higher_level_code AS code,
           t.theme               AS theme,
           r.quote,
           r.explanation
@@ -2812,7 +2875,7 @@ async def analysis_report(
         data_sql = f"""
         SELECT
           r.post_id             AS postId,
-          COUNT(DISTINCT r.code) AS uniqueCodeCount,
+          COUNT(DISTINCT g.higher_level_code) AS uniqueCodeCount,
           COUNT(*)              AS totalQuoteCount
         {BASE_JOIN}
         GROUP BY r.post_id
@@ -2827,8 +2890,7 @@ async def analysis_report(
         SELECT
           r.id,
           r.post_id            AS postId,
-          r.code,
-          g.higher_level_code  AS higherLevelCode,
+          g.higher_level_code AS code,
           t.theme              AS theme,
           r.quote,
           r.explanation
@@ -2844,7 +2906,7 @@ async def analysis_report(
         SELECT
           t.theme               AS theme,
           COUNT(DISTINCT r.post_id) AS uniquePosts,
-          COUNT(DISTINCT r.code)    AS uniqueCodes,
+          COUNT(DISTINCT g.higher_level_code) AS uniqueCodes,
           COUNT(*)                  AS totalQuoteCount
         {BASE_JOIN}
         GROUP BY t.theme
@@ -2878,8 +2940,7 @@ async def download_report(
         SELECT
           r.id,
           r.post_id            AS postId,
-          r.code,
-          g.higher_level_code  AS higherLevelCode,
+          g.higher_level_code  AS code,
           t.theme              AS theme,
           r.quote,
           r.explanation
@@ -2890,7 +2951,7 @@ async def download_report(
         sql = f"""
         SELECT
           r.post_id             AS postId,
-          COUNT(DISTINCT r.code) AS uniqueCodeCount,
+          COUNT(DISTINCT g.higher_level_code) AS uniqueCodeCount,
           COUNT(*)              AS totalQuoteCount
         {BASE_JOIN}
         GROUP BY r.post_id
@@ -2901,8 +2962,7 @@ async def download_report(
         SELECT
           r.id,
           r.post_id            AS postId,
-          r.code,
-          g.higher_level_code  AS higherLevelCode,
+          g.higher_level_code  AS code,
           t.theme              AS theme,
           r.quote,
           r.explanation
@@ -2914,7 +2974,7 @@ async def download_report(
         SELECT
           t.theme               AS theme,
           COUNT(DISTINCT r.post_id) AS uniquePosts,
-          COUNT(DISTINCT r.code)    AS uniqueCodes,
+          COUNT(DISTINCT g.higher_level_code) AS uniqueCodes,
           COUNT(*)                  AS totalQuoteCount
         {BASE_JOIN}
         GROUP BY t.theme

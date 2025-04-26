@@ -27,7 +27,6 @@ state_dump_repo = StateDumpsRepository(
 )
 
 def save_state(data):
-    # Create context objects from data
 
     state_dump_repo.insert(
         StateDump(
@@ -53,7 +52,6 @@ def save_state(data):
     loading_context = LoadingContext(**data.loading_context)
     manual_coding_context = ManualCodingContext(**data.manual_coding_context)
 
-    # Convert complex objects to JSON strings for storage
     metadata = json.dumps(collection_context.metadata)
     selected_data = json.dumps(collection_context.selected_data)
     data_filters = json.dumps(collection_context.data_filters)
@@ -84,7 +82,6 @@ def save_state(data):
     manual_coding_responses = json.dumps(manual_coding_context.manual_coding_responses)
     codebook = json.dumps(manual_coding_context.codebook)
 
-    # Create a workspace state object
     workspace_state = WorkspaceState(
         user_email=data.user_email,
         workspace_id=data.workspace_id,
@@ -122,7 +119,6 @@ def save_state(data):
         updated_at=datetime.now(),
     )
 
-    # Check if the workspace state already exists
     try:
         existing_state = workspace_state_repo.find_one(
             {"workspace_id": data.workspace_id, "user_email": data.user_email}
@@ -134,7 +130,6 @@ def save_state(data):
     if existing_state:
 
         if workspace_state == existing_state:
-            # No changes to the workspace state
             print("No changes to the workspace state.")
             return
         
@@ -148,7 +143,6 @@ def save_state(data):
                 continue
             current_value = getattr(workspace_state, field)
             previous_value = getattr(existing_state, field)
-            # print(f"Field: {field}, Current: {current_value}, Previous: {previous_value}")
             if (current_value is not None and current_value != "") and (previous_value is None or previous_value == ""):
                 print("Empty to Filled")
                 emptyToFilled = True
@@ -157,14 +151,11 @@ def save_state(data):
         if current_workspace.name == "Temporary Workspace" and emptyToFilled:
             upgrade_workspace_from_temp(data.workspace_id, "Untitled Workspace")
         
-
-        # Update the existing record
         workspace_state_repo.update(
             {"workspace_id": data.workspace_id, "user_email": data.user_email},
             workspace_state.to_dict()
         )
     else:
-        # Insert a new record
         workspace_state_repo.insert(workspace_state)
 
     workspaces_repo.update(
@@ -174,7 +165,6 @@ def save_state(data):
 
 
 def load_state(data):
-    # Fetch the workspace state from the database
     state = None
     try:
         state = workspace_state_repo.find_one(
@@ -186,7 +176,6 @@ def load_state(data):
     if not state:
         return {"success": True, "data": None}
 
-    # Convert JSON strings back to Python objects
     json_fields = [
         "selected_data", "metadata", "models", "data_filters", "context_files", "keywords", "selected_keywords",
         "keyword_table", "references_data", "themes", "grouped_codes", "research_questions",
@@ -208,32 +197,19 @@ def delete_state(data):
 
 
 def find_file_with_time(folder_path: str, dataset_id: str, file_name: str) -> str:
-    # Construct the search pattern
     search_pattern = os.path.join(folder_path, f"{dataset_id}_*_{file_name}")
 
-    # Find files matching the pattern
     matching_files = glob.glob(search_pattern)
 
     if not matching_files:
         return None
     
-    # Return the first matching file (if multiple files, handle based on requirements)
     return matching_files[0]
 
 def export_workspace(workspace_id: str, user_email: str):
-    """
-    Exports a workspace including its state, Chroma collections, and basis files.
-
-    :param workspace_id: The ID of the workspace.
-    :param user_email: The email of the user.
-    :return: The path to the exported ZIP file and the temporary folder.
-    """
-
-    # Define temporary folder for export
     temp_folder = f"/export_temp/{workspace_id}"
     os.makedirs(temp_folder, exist_ok=True)
 
-    # Fetch workspace state from the database
     state = workspace_state_repo.find_one(
         {"workspace_id": workspace_id, "user_email": user_email}
     )
@@ -241,13 +217,11 @@ def export_workspace(workspace_id: str, user_email: str):
     if not state:
         raise ValueError("Workspace state not found.")
 
-    # Fetch additional workspace details
     workspace_details = workspaces_repo.find_one({"id": workspace_id})
 
     if not workspace_details:
         raise ValueError("Workspace details not found.")
 
-    # Convert JSON string fields to Python objects
     json_fields = [
         "models", "context_files", "themes", "selected_posts",
         "selected_themes", "references_data", "codebook",
@@ -260,15 +234,12 @@ def export_workspace(workspace_id: str, user_email: str):
 
     state = state.to_dict()
 
-    # Rename "references_data" to "references" for consistency
     state["references"] = state["references_data"]
     del state["references_data"]
 
-    # Add workspace details
     state["workspace_name"] = workspace_details.name
     state["workspace_description"] = workspace_details.description
 
-    # Export Chroma collections
     chroma_client = HttpClient(host="localhost", port=8000)
     all_collections = chroma_client.list_collections()
     chroma_files: list[str] = []
@@ -282,7 +253,6 @@ def export_workspace(workspace_id: str, user_email: str):
 
     print(f"Exported Chroma collections: {chroma_files}")
 
-    # Export basis files
     context_pdf_paths: list[str] = []
     for context_file in state["context_files"].values():
         path = find_file_with_time("./context_files", state["dataset_id"], context_file)
@@ -291,12 +261,10 @@ def export_workspace(workspace_id: str, user_email: str):
 
     print(f"Exported basis files: {context_pdf_paths}")
 
-    # Save workspace state to a JSON file
     workspace_file = f"{temp_folder}/workspace_data.json"
     with open(workspace_file, "w") as wf:
         json.dump(state.__dict__, wf, indent=4)
 
-    # Create a ZIP file containing all exported data
     zip_file = f"/export_temp/{workspace_id}.zip"
     with ZipFile(zip_file, "w") as zf:
         zf.write(workspace_file, "workspace_data.json")
@@ -308,36 +276,24 @@ def export_workspace(workspace_id: str, user_email: str):
     return zip_file, temp_folder
 
 async def import_workspace(user_email: str, file: UploadFile):
-    """
-    Imports a workspace from a ZIP file containing a workspace state JSON and related files.
-
-    :param user_email: The email of the user importing the workspace.
-    :param file: The uploaded ZIP file.
-    :return: The new workspace ID, name, and description.
-    """
-
-    # Create a unique temporary directory for processing
     prefix = f"{str(uuid4())}_{time.time()}"
     temp_dir = f"./import_temp/{prefix}"
     os.makedirs(temp_dir, exist_ok=True)
 
-    # Save uploaded ZIP file
     zip_file_path = os.path.join(temp_dir, f"{prefix}_{file.filename}")
 
     with open(zip_file_path, "wb") as temp_file:
-        while chunk := await file.read(1024 * 1024):  # Read in 1MB chunks
+        while chunk := await file.read(1024 * 1024): 
             temp_file.write(chunk)
 
     print(f"Saved streamed file to: {zip_file_path}")
 
-    # Validate and extract ZIP file
     with ZipFile(zip_file_path, 'r') as zip_ref:
         zip_ref.testzip()
         zip_ref.extractall(temp_dir)
 
     print(f"Extracted ZIP file to: {temp_dir}")
 
-    # Validate workspace_data.json
     workspace_data_path = os.path.join(temp_dir, "workspace_data.json")
     if not os.path.exists(workspace_data_path):
         raise HTTPException(status_code=400, detail="workspace_data.json is missing in the uploaded ZIP file")
@@ -347,7 +303,6 @@ async def import_workspace(user_email: str, file: UploadFile):
 
     print("Workspace data: ", workspace_data)
 
-    # Extract workspace data
     workspace_id = workspace_data.get("workspace_id", str(uuid4()))
     workspace_name = workspace_data.get("workspace_name", "Imported Workspace")
     workspace_description = workspace_data.get("workspace_description")
@@ -367,14 +322,11 @@ async def import_workspace(user_email: str, file: UploadFile):
 
     print(f"Importing workspace: {workspace_id}, {workspace_name}, {workspace_description}, {dataset_id}")
 
-    # Check if workspace ID and email combination exists
     existing_workspace = workspace_state_repo.find_one({"workspace_id": workspace_id, "user_email": user_email})
 
     if existing_workspace:
-        # Generate new workspace ID to avoid conflicts
         workspace_id = str(uuid4()).replace("-", "_")
 
-    # Insert into `workspace_states` table
     workspace_state_repo.insert(WorkspaceState(**{
         "workspace_id": workspace_id,
         "user_email": user_email,
@@ -392,7 +344,6 @@ async def import_workspace(user_email: str, file: UploadFile):
         "updated_at": datetime.now(),
     }))
 
-    # Insert into `workspaces` table
     workspaces_repo.insert(Workspace(**{
         "id": workspace_id,
         "name": workspace_name,

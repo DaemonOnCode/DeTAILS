@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
+import json
 from typing import Any, Dict, Optional, get_type_hints
 
 @dataclass
 class BaseDataclass:
-    """Base class for all dataclasses with dictionary-like behavior."""
+    """Base class for all dataclasses."""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -78,6 +79,12 @@ class BaseDataclass:
 
     def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
+
+class DataClassEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, BaseDataclass):
+            return obj.to_dict()
+        return super().default(obj)
 
 @dataclass
 class Workspace(BaseDataclass):

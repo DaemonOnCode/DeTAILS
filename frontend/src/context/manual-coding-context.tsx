@@ -127,11 +127,13 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
     const addPostIds = async (newPostIds: string[]) => {
         const data = await saveManualCodingContext('addPostIds', { newPostIds });
         if (data.postStates) setPostStates(data.postStates);
+        return data;
     };
 
     const updatePostState = async (postId: string, state: boolean) => {
         const data = await saveManualCodingContext('updatePostState', { postId, state });
         if (data.postStates) setPostStates(data.postStates);
+        return data;
     };
 
     const dispatchManualCodingResponses = async (
@@ -141,6 +143,7 @@ export const ManualCodingProvider: FC<ManualCodingProviderProps> = ({
         const data = await saveManualCodingContext('dispatchManualCodingResponses', { action });
         // if (data.manualCodingResponses) setManualCodingResponses(data.manualCodingResponses);
         refreshRef?.current?.refresh();
+        return data;
     };
 
     const updateContext = async (updates: Partial<IManualCodingContext>) => {

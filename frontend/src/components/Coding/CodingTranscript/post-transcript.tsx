@@ -40,7 +40,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     setDeleteIsHighlightModalOpen,
     clearedToLeaveRef,
     showBackButton = true,
-    codebookCodes = []
+    codebookCodes = [],
+    manualCoding
 }) => {
     const {
         selectedText,
@@ -415,6 +416,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             )}
                             dispatchFunction={dispatchCodeResponse}
                             conflictingCodes={conflictingCodes}
+                            manualCoding={manualCoding}
                         />
                     </div>
                 </div>

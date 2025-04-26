@@ -11,6 +11,8 @@ import { CodeDetailedTable, CodeDetailRow } from '../../components/Coding/Report
 import { CodeSummaryTable, CodeSummaryRow } from '../../components/Coding/Report/code-summary';
 import { useApi } from '../../hooks/Shared/use-api';
 import { downloadFileWithStreaming } from '../../utility/file-downloader';
+import { useLoadingContext } from '../../context/loading-context';
+import { useLocation } from 'react-router-dom';
 
 const PAGE_SIZE = 20;
 
@@ -21,6 +23,8 @@ const ReportPage: React.FC = () => {
     const isCodeView = viewType === 'code';
     const isSummaryView = summaryView;
 
+    const location = useLocation();
+
     const [rows, setRows] = useState<any[]>([]);
     const [hasNext, setHasNext] = useState(true);
     const [loading, setLoading] = useState(false);
@@ -28,6 +32,9 @@ const ReportPage: React.FC = () => {
     const pageRef = useRef(1);
     const loadingRef = useRef(false);
     const nextRef = useRef(true);
+
+    const { loadingState } = useLoadingContext();
+    const stepRoute = location.pathname;
 
     const [overallStats, setOverallStats] = useState<{
         totalUniquePosts: number;
@@ -105,6 +112,14 @@ const ReportPage: React.FC = () => {
 
     const [modal, setModal] = useState({ id: '', link: '', sentence: '' });
     const handleViewPost = (id: string) => setModal({ id, link: '', sentence: '' });
+
+    if (loadingState[stepRoute]?.isFirstRun) {
+        return (
+            <p className="h-page w-full flex justify-center items-center">
+                Please complete the previous page and click on proceed to continue with this page.
+            </p>
+        );
+    }
 
     return (
         <div className="h-page flex flex-col justify-between">

@@ -31,7 +31,7 @@ const ContextPage = () => {
     const logger = useLogger();
     const {
         contextFiles,
-        addContextFile,
+        addContextFilesBatch,
         mainTopic: globalMainTopic,
         additionalInfo: globalAdditionalInfo,
         setAdditionalInfo,
@@ -166,10 +166,7 @@ const ContextPage = () => {
             alert('No valid files selected. Please select files with valid extensions.');
             return;
         }
-
-        filteredFiles.forEach(({ filePath, fileName }) => {
-            addContextFile(filePath, fileName);
-        });
+        addContextFilesBatch(filteredFiles);
     };
 
     const handleOnNextClick = useNextHandler({

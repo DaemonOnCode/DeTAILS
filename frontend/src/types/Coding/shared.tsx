@@ -135,7 +135,7 @@ export interface IRedditPostData {
     comments?: IComment[];
 }
 
-export type SetState<T> = Dispatch<SetStateAction<T>> | ((...value: any[]) => T);
+export type SetState<T> = Dispatch<SetStateAction<T>> | ((...value: any[]) => Promise<any>);
 
 export type ContentAreaTabs = 'data' | 'codes';
 

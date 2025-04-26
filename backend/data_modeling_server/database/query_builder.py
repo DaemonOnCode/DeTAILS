@@ -21,11 +21,26 @@ class QueryBuilder(Generic[T]):
 
     def _validate_value(self, column: str, value: Any) -> None:
         expected_type = self.model_fields[column]
+        if expected_type == bool:
+            if not isinstance(value, (bool, int)):
+                raise TypeError(f"Invalid type for column '{column}'. Expected bool, got {type(value)}.")
+        elif expected_type == Optional[bool]:
+            if not isinstance(value, (bool, int, type(None))):
+                raise TypeError(f"Invalid type for column '{column}'. Expected Optional[bool], got {type(value)}.")
         if not isinstance(value, expected_type) and value is not None:
             raise TypeError(f"Invalid type for column '{column}'. Expected {expected_type}, got {type(value)}.")
+        
+    def _normalize_value(self, column: str, value: Any) -> Any:
+        expected = self.model_fields[column]
+        if (expected is bool) and isinstance(value, int):
+            return bool(value)
+        elif (expected is Optional[bool]) and isinstance(value, int):
+            return bool(value) if value is not None else None
+        return value
 
     def _format_filter(self, column: str, operator: str, value: Any) -> Tuple[str, List[Any]]:
         self._validate_column(column)
+        value = self._normalize_value(column, value)
         if value is None:
             if operator == '=':
                 return f"{column} IS NULL", []
@@ -38,10 +53,13 @@ class QueryBuilder(Generic[T]):
                 raise ValueError(f"Operator {operator} cannot be used with a list")
             if not value:
                 raise ValueError(f"List for {column} cannot be empty")
+            normalized = []
             for val in value:
+                val = self._normalize_value(column, val)
                 self._validate_value(column, val)
-            placeholders = ', '.join('?' * len(value))
-            return f"{column} {operator} ({placeholders})", value
+                normalized.append(val)
+            placeholders = ', '.join('?' * len(normalized))
+            return f"{column} {operator} ({placeholders})", normalized
         else:
             self._validate_value(column, value)
             return f"{column} {operator} ?", [value]
@@ -65,18 +83,26 @@ class QueryBuilder(Generic[T]):
         if operator not in ("=", "!=", ">", "<", ">=", "<=", "IN", "NOT IN"):
             raise ValueError(f"Invalid operator: {operator}")
         self._validate_column(column)
-        if value is None:
-            if operator not in ('=', '!='):
-                raise ValueError(f"Cannot use operator {operator} with None")
-        elif isinstance(value, list):
-            if operator.upper() not in ('IN', 'NOT IN'):
-                raise ValueError(f"Operator {operator} cannot be used with a list")
-            if not value:
-                raise ValueError(f"List for {column} cannot be empty")
-            for val in value:
-                self._validate_value(column, val)
+        # normalize & validate here as well
+        if value is not None:
+            if isinstance(value, list):
+                if operator.upper() not in ('IN', 'NOT IN'):
+                    raise ValueError(f"Operator {operator} cannot be used with a list")
+                if not value:
+                    raise ValueError(f"List for {column} cannot be empty")
+                value = [self._normalize_value(column, v) for v in value]
+                for v in value:
+                    self._validate_value(column, v)
+            else:
+                value = self._normalize_value(column, value)
+                self._validate_value(column, value)
         else:
-            self._validate_value(column, value)
+            if operator == '=':
+                operator = 'IS'
+            elif operator == '!=':
+                operator = 'IS NOT'
+            else:
+                raise ValueError(f"Cannot use operator {operator} with None")
         self.filters.append((column, operator, value))
         return self
 
@@ -127,6 +153,8 @@ class QueryBuilder(Generic[T]):
             query += f" {self.limit_clause}"
         elif self.offset_clause:
             query += f" LIMIT -1 {self.offset_clause}"
+
+        print(f"Generated SQL Query: {query}", params)
         return query, tuple(params)
 
     def count(self, filters: Optional[Dict[str, Any]] = None) -> Tuple[str, Tuple[Any, ...]]:
@@ -137,7 +165,9 @@ class QueryBuilder(Generic[T]):
     def insert(self, data: Dict[str, Any]) -> Tuple[str, Tuple[Any, ...]]:
         for key, value in data.items():
             self._validate_column(key)
+            value = self._normalize_value(key, value)
             self._validate_value(key, value)
+            data[key] = value
         columns = ", ".join(data.keys())
         placeholders = ", ".join(["?"] * len(data))
         query = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders})"
@@ -146,16 +176,32 @@ class QueryBuilder(Generic[T]):
     def insert_batch(self, data_list: List[Dict[str, Any]]) -> Tuple[str, List[Tuple[Any, ...]]]:
         if not data_list:
             raise ValueError("Data list cannot be empty for batch insert.")
-        columns = ", ".join(data_list[0].keys())
-        placeholders = ", ".join(["?"] * len(data_list[0]))
+        keys = list(data_list[0].keys())
+        for row in data_list:
+            if list(row.keys()) != keys:
+                raise ValueError("All dictionaries in data_list must have the same keys.")
+
+            # 2) normalize & validate each value
+            for key in keys:
+                self._validate_column(key)
+                val = self._normalize_value(key, row[key])
+                self._validate_value(key, val)
+                row[key] = val
+
+        # 3) build SQL
+        columns = ", ".join(keys)
+        placeholders = ", ".join("?" for _ in keys)
         query = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders})"
-        params_list = [tuple(data.values()) for data in data_list]
+        # 4) collect params in consistent key order
+        params_list = [tuple(row[k] for k in keys) for row in data_list]
         return query, params_list
 
     def update(self, filters: Dict[str, Any], updates: Dict[str, Any]) -> Tuple[str, Tuple[Any, ...]]:
         for key, value in updates.items():
             self._validate_column(key)
+            value = self._normalize_value(key, value)
             self._validate_value(key, value)
+            updates[key] = value
         set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
         clauses = []
         params = []

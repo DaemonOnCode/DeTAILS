@@ -20,6 +20,7 @@ const UndoToast: React.FC<UndoToastProps> = ({ undo, closeToast }) => {
                 <div>
                     <button
                         onClick={() => {
+                            console.log('Undo button clicked');
                             undo();
                             closeToast();
                         }}
@@ -42,8 +43,10 @@ export function useUndo() {
     const logOperationLocal = useCallback(
         (undoFn: () => void) => {
             if (isBatching.current) {
+                console.log('Batching operation, adding undo function to batch');
                 batchUndoFunctions.current.push(undoFn);
             } else {
+                console.log('Logging single operation and showing toast');
                 logOperation(undoFn);
                 toast.info(<UndoToast undo={undo} closeToast={() => toast.dismiss()} />, {
                     autoClose: 5000,
@@ -56,11 +59,13 @@ export function useUndo() {
     );
 
     const beginBatch = useCallback(() => {
+        console.log('Beginning batch');
         isBatching.current = true;
         batchUndoFunctions.current = [];
     }, []);
 
     const endBatch = useCallback(() => {
+        console.log('Ending batch, logging batch operation');
         isBatching.current = false;
         const batchUndos = [...batchUndoFunctions.current].reverse();
         const batchUndoFn = () => {
@@ -77,9 +82,11 @@ export function useUndo() {
 
     const batch = useCallback(
         (callback: () => void) => {
+            console.log('Starting batch operation');
             beginBatch();
             try {
                 callback();
+                console.log('Finished batch operation');
             } finally {
                 endBatch();
             }
@@ -88,6 +95,7 @@ export function useUndo() {
     );
 
     const registerState = useCallback((key: string, state: any, setter: StateSetter<any>) => {
+        console.log(`Registering state with key: ${key}`);
         stateRegistry.current.set(key, { state, setter });
     }, []);
 
@@ -98,7 +106,9 @@ export function useUndo() {
                 beforeStates[key] = entry.state;
             });
 
+            console.log('Before batch update: states registered');
             operation();
+            console.log('Batch update operation performed');
 
             const undoFunction = () => {
                 Object.keys(beforeStates).forEach((key) => {
@@ -128,30 +138,46 @@ export function useUndo() {
             });
         };
 
+        console.log('Performing operation with undo for states');
         logOperationLocal(undoFn);
-
         operation();
+        console.log('Operation performed, undo function logged');
     }
 
-    function performWithUndoForReducer(
+    async function performWithUndoForReducer(
         currentState: any,
-        dispatch: (action: any) => void,
+        dispatch: (action: any) => void | Promise<any>,
         action: any
     ) {
-        console.log('Performing with undo for reducer:', action, currentState);
         const previousState = currentState;
-        const undoFn = () => {
-            dispatch({ type: 'RESTORE_STATE', payload: previousState });
+        // const undoFn = () => {
+        //     dispatch({ type: 'RESTORE_STATE', payload: previousState });
+        // };
+
+        console.log('UNDO: Performing reducer action with undo:', action);
+
+        const logUndoWithDiff = (res: { diff: any }) => {
+            logOperationLocal(() => {
+                dispatch({ type: 'RESTORE_DIFF', payload: res.diff });
+            });
         };
-
-        logOperationLocal(undoFn);
-
-        dispatch(action);
+        // logOperationLocal(undoFn);
+        console.log('UNDO: Logging reducer action with undo function, before dispatching');
+        const result = dispatch(action);
+        console.log('UNDO: Dispatching reducer action:', action, result, dispatch);
+        if (result instanceof Promise) {
+            console.log('UNDO: Dispatch is a promise, waiting for it to resolve');
+            const res = await result;
+            logUndoWithDiff(res);
+            console.log('UNDO: Reducer action performed, undo (via diff) function logged', res);
+        }
+        console.log('UNDO: Reducer action dispatched, undo function logged');
     }
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.ctrlKey && event.key === 'z') {
+                console.log('Undo triggered via keyboard shortcut');
                 undo();
             }
         };

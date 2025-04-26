@@ -70,7 +70,8 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         sampledPostIds,
         unseenPostIds,
         dispatchSampledPostResponse,
-        dispatchUnseenPostResponse
+        dispatchUnseenPostResponse,
+        dispatchAllPostResponse
     } = useCodingContext();
 
     const [review, setReview] = useState(reviewParam ?? true);
@@ -160,14 +161,15 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     const isSampled = (response: any) => sampledPostIds.includes(response.post_id);
 
     const routeDispatch = (action: BaseResponseHandlerActions<any>, refreshRef: RefObject<any>) => {
+        let dispatchResult = null;
         if (selectedTypeFilter === 'Codebook') {
             console.log(action, 'route dispatch codebook updating sample');
             // @ts-ignore
-            dispatchSampledPostResponse({ ...action }, refreshRef);
+            dispatchResult = dispatchSampledPostResponse({ ...action }, refreshRef);
         } else if (selectedTypeFilter === 'New Data') {
             console.log(action, 'route dispatch newdata updating unseen');
             // @ts-ignore
-            dispatchUnseenPostResponse({ ...action }, refreshRef);
+            dispatchResult = dispatchUnseenPostResponse({ ...action }, refreshRef);
         } else {
             console.log(action, 'route dispatch');
             if ('responses' in action) {
@@ -176,7 +178,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 const unseenResponses = responses.filter((r: any) => !isSampled(r));
                 if (sampledResponses.length > 0) {
                     console.log(action, 'route dispatch responses updating sample');
-                    dispatchSampledPostResponse(
+                    dispatchResult = dispatchSampledPostResponse(
                         { ...action, responses: sampledResponses },
                         // @ts-ignore
                         refreshRef
@@ -184,7 +186,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 }
                 if (unseenResponses.length > 0) {
                     console.log(action, 'route dispatch responses updating unseen');
-                    dispatchUnseenPostResponse(
+                    dispatchResult = dispatchUnseenPostResponse(
                         { ...action, responses: unseenResponses },
                         // @ts-ignore
                         refreshRef
@@ -192,27 +194,27 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 }
                 return;
             } else if ('index' in action) {
-                // @ts-ignore
-                const response = data[action.index];
-                console.log('Index response:', response);
-                if (response && isSampled(response)) {
+                if (isSampled(action.index)) {
                     console.log(action, 'route dispatch index updating sample');
                     // @ts-ignore
-                    dispatchSampledPostResponse(action, refreshRef);
+                    dispatchResult = dispatchSampledPostResponse(action, refreshRef);
                 } else {
                     console.log(action, 'route dispatch index updating unseen');
                     // @ts-ignore
-                    dispatchUnseenPostResponse(action, refreshRef);
+                    dispatchResult = dispatchUnseenPostResponse(action, refreshRef);
                 }
-                return;
+                return dispatchResult;
             } else {
                 console.log(action, 'route dispatch updating both');
+                // // @ts-ignore
+                // dispatchResult = dispatchSampledPostResponse(action, refreshRef);
+                // // @ts-ignore
+                // dispatchResult = dispatchUnseenPostResponse(action, refreshRef);
                 // @ts-ignore
-                dispatchSampledPostResponse(action, refreshRef);
-                // @ts-ignore
-                dispatchUnseenPostResponse(action, refreshRef);
+                dispatchResult = dispatchAllPostResponse(action, refreshRef);
             }
         }
+        return dispatchResult;
     };
 
     const downloadCodebook = async () => {
@@ -253,11 +255,12 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     );
 
     const dispatchWithRefresh = useCallback(
-        (action: BaseResponseHandlerActions<any>) => {
+        async (action: BaseResponseHandlerActions<any>) => {
             console.log('Dispatching with refresh', action);
-            coderType && !(selectedTypeFilter === 'Human' || selectedTypeFilter === 'LLM')
+            return await (coderType &&
+            !(selectedTypeFilter === 'Human' || selectedTypeFilter === 'LLM')
                 ? routeDispatch(action, refreshRef)
-                : dispatchFunction(action, refreshRef);
+                : dispatchFunction(action, refreshRef));
         },
         [refresh, selectedTypeFilter]
     );
