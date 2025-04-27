@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useDatabase } from "./database-context"; // Assuming a context for database access
+import { useDatabase } from "./context"; // Assuming a context for database access
 
 // Type Definitions
 interface DatabaseRow {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, JSX } from "react";
-import { useDatabase } from "./database-context";
+import { useDatabase } from "./context";
 
 // **Type Definitions**
 interface DatabaseRow {

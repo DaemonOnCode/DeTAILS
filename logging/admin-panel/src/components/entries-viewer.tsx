@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { useDatabase } from "./database-context";
+import { useDatabase } from "./context";
 import { diff } from "../utils/diff";
 
-// **Type Definitions**
 interface DatabaseRow {
   id: number;
   created_at: string;
@@ -14,11 +13,10 @@ interface EntriesViewerProps {
   title: string;
   functionName: string;
   getComparisonData: (state: any) => any;
-  propertyKeys?: string[]; // Optional prop for specifying properties to compare
+  propertyKeys?: string[];
   includeRun?: boolean;
 }
 
-// **Helper Function to Compute Cosine Similarity**
 const computeCosineSimilarity = (vec1: number[], vec2: number[]): number => {
   const dotProduct = vec1.reduce((sum, v, i) => sum + v * vec2[i], 0);
   const norm1 = Math.sqrt(vec1.reduce((sum, v) => sum + v * v, 0));
@@ -27,11 +25,9 @@ const computeCosineSimilarity = (vec1: number[], vec2: number[]): number => {
   return dotProduct / (norm1 * norm2);
 };
 
-// **Helper Function to Fetch Google Text Embeddings (Placeholder)**
 const fetchEmbedding = async (text: string): Promise<number[]> => {
-  // Placeholder: Replace with actual API call to Google's text embedding service
   console.log(`Fetching embedding for: ${text}`);
-  return new Array(768).fill(0); // Simulate a 768-dimensional zero vector
+  return new Array(768).fill(0);
 };
 
 function EntriesViewer({
@@ -45,7 +41,6 @@ function EntriesViewer({
   const [entries, setEntries] = useState<DatabaseRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // **Fetch Entries from Database**
   useEffect(() => {
     const fetchEntries = async () => {
       setIsLoading(true);
@@ -72,7 +67,6 @@ function EntriesViewer({
     }
   }, [isDatabaseLoaded, executeQuery, functionName]);
 
-  // **Compute Adjacent Differences (entry[n] vs entry[n-1])**
   const adjacentDiffs = useMemo(() => {
     if (entries.length < 2) return [];
     return entries.slice(1).map((entry, index) => {
@@ -90,47 +84,39 @@ function EntriesViewer({
     });
   }, [entries, getComparisonData]);
 
-  // **Compute Metrics (Precision, Recall, Cosine Similarity, Weighted Metrics)**
   const metrics = useMemo(() => {
     if (adjacentDiffs.length < 2) return [];
 
-    // Collect all unique paths edited across all diffs
     const allPaths = new Set<string>();
     adjacentDiffs.forEach((diffArray) => {
       diffArray.forEach((d) => allPaths.add(d.path));
     });
     const pathArray = Array.from(allPaths);
 
-    // Convert each diff to a binary vector
     const diffVectors = adjacentDiffs.map((diffArray) => {
       const editedPaths = new Set(diffArray.map((d) => d.path));
       return pathArray.map((path) => (editedPaths.has(path) ? 1 : 0));
     });
 
-    // Compute metrics between consecutive diffs
     return adjacentDiffs.slice(1).map((_, index) => {
       const prevDiff = adjacentDiffs[index];
       const currDiff = adjacentDiffs[index + 1];
       const prevPaths = new Set(prevDiff.map((d) => d.path));
       const currPaths = new Set(currDiff.map((d) => d.path));
 
-      // Intersection of edited paths
       const intersection = new Set(
         [...prevPaths].filter((path) => currPaths.has(path))
       );
 
-      // Precision and Recall
       const precision =
         currPaths.size > 0 ? intersection.size / currPaths.size : 0;
       const recall =
         prevPaths.size > 0 ? intersection.size / prevPaths.size : 0;
 
-      // Cosine Similarity between diff vectors
       const vec1 = diffVectors[index];
       const vec2 = diffVectors[index + 1];
       const cosineSimilarity = computeCosineSimilarity(vec1, vec2);
 
-      // Weighted Precision and Recall
       const weightedPrecision = precision * cosineSimilarity;
       const weightedRecall = recall * cosineSimilarity;
 
@@ -144,7 +130,6 @@ function EntriesViewer({
     });
   }, [adjacentDiffs]);
 
-  // **Compute Property-Specific Cosine Similarities Using Embeddings**
   const propertyCosineSimilarities = useMemo(() => {
     if (entries.length < 2 || propertyKeys.length === 0) return [];
 
@@ -171,18 +156,15 @@ function EntriesViewer({
           similarities.push(propertySimilarities);
         } catch (error) {
           console.error("Error computing cosine similarity:", error);
-          similarities.push(propertyKeys.map(() => 0)); // Fallback to zeros
+          similarities.push(propertyKeys.map(() => 0));
         }
       }
       return similarities;
     };
-
-    // Execute async computation and return placeholder until resolved
     computeSimilarities().then((result) => result);
-    return entries.slice(1).map(() => propertyKeys.map(() => null)); // Initial placeholder
+    return entries.slice(1).map(() => propertyKeys.map(() => null));
   }, [entries, getComparisonData, propertyKeys]);
 
-  // **Helper Function to Safely Parse Context**
   const safeParseContext = (context: string) => {
     try {
       return JSON.parse(context);
@@ -191,7 +173,6 @@ function EntriesViewer({
     }
   };
 
-  // **JSX Rendering**
   if (isLoading) {
     return <p className="p-4">Loading entries...</p>;
   }

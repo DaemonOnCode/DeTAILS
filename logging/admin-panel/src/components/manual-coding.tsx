@@ -1,0 +1,566 @@
+import React, { useState, useEffect, useRef } from "react";
+import { useDatabase } from "./context";
+import WorkerPool from "./worker-pool";
+
+// Type Definitions
+interface DatabaseRow {
+  id: number;
+  created_at: string;
+  state: string;
+  context: string;
+}
+
+interface CodingResult {
+  id: string;
+  model: string;
+  quote: string;
+  code: string;
+  explanation: string;
+  post_id: string;
+  chat_history: any | null;
+  is_marked: boolean | null;
+  range_marker: any | null;
+  response_type: "Human" | "LLM";
+}
+
+interface ComparisonChange {
+  postId: string;
+  quote: string;
+  type: "same_quote_different_code" | "human_only" | "llm_only";
+  humanCode?: string;
+  llmCode?: string;
+  codeSimilarity?: number;
+}
+
+interface PostDiff {
+  postId: string;
+  changes: ComparisonChange[];
+}
+
+interface ComparisonMetrics {
+  llmAcceptanceRate: number;
+  llmAddedCorrect: number;
+  humanNotInLlmCorrect: number;
+  matchingQuotes: number;
+  percentageAgreement: number;
+  cohenKappa: number;
+}
+
+const CodingComparisonViewer: React.FC = () => {
+  const {
+    isDatabaseLoaded,
+    executeQuery,
+    calculateSimilarity,
+    selectedWorkspaceId,
+    workerPoolRef, // database-worker pool
+  } = useDatabase();
+
+  // transcript-worker pool for parallel code-to-quote mapping
+  const mappingPoolRef = useRef(
+    new WorkerPool(new URL("./transcript-worker.js", import.meta.url).href, 4)
+  );
+
+  useEffect(() => {
+    mappingPoolRef.current = new WorkerPool(
+      new URL("./transcript-worker.js", import.meta.url).href,
+      4
+    );
+    return () => {
+      if (mappingPoolRef.current) {
+        mappingPoolRef.current.terminate();
+      }
+    };
+  }, []);
+
+  const [postDiffs, setPostDiffs] = useState<PostDiff[]>([]);
+  const [overallMetrics, setOverallMetrics] =
+    useState<ComparisonMetrics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingStep, setLoadingStep] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"both" | "human" | "llm">("both");
+
+  const similarityCache = useRef<Map<string, number>>(new Map());
+
+  // Calculate similarity with in-memory cache
+  const getSimilarity = async (textA: string, textB: string) => {
+    if (textA === textB) return 1.0;
+    const key = [textA, textB].sort().join("||");
+    const cached = similarityCache.current.get(key);
+    if (cached !== undefined) return cached;
+    const sim = await calculateSimilarity(textA, textB);
+    similarityCache.current.set(key, sim);
+    return sim;
+  };
+
+  // Batch-fetch posts/comments via database-worker pool
+  const batchFetchPostsAndComments = async (postIds: string[]) => {
+    if (!workerPoolRef.current) {
+      throw new Error("Worker pool not initialized");
+    }
+    if (postIds.length === 0) {
+      return [];
+    }
+    setLoadingStep("Fetching posts & comments");
+
+    // chunk into 4 roughly equal parts
+    const NUM_CHUNKS = 4;
+    const chunkSize = Math.ceil(postIds.length / NUM_CHUNKS);
+    const chunks: string[][] = [];
+    for (let i = 0; i < postIds.length; i += chunkSize) {
+      chunks.push(postIds.slice(i, i + chunkSize));
+    }
+
+    const results = await Promise.all(
+      chunks.map((chunk) =>
+        workerPoolRef.current!.runTask<any[]>(
+          {
+            type: "fetchPostsAndCommentsBatch",
+            datasetId: selectedWorkspaceId as string,
+            postIds: chunk,
+          },
+          {
+            responseType: "fetchPostsAndCommentsBatchResult",
+            errorType: "error",
+          }
+        )
+      )
+    );
+
+    const all = results.flat();
+    const seen = new Set<string | number>();
+    const deduped = all.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+    return deduped;
+  };
+
+  const getCodeToQuoteParentIds = (
+    post: any,
+    codes: any[]
+  ): Promise<Record<string, string[]>> => {
+    return mappingPoolRef.current.runTask<Record<string, string[]>>(
+      { type: "getCodeToQuoteParentIds", post, codes },
+      { responseType: "getCodeToQuoteParentIdsResult", errorType: "error" }
+    );
+  };
+
+  useEffect(() => {
+    if (!isDatabaseLoaded) return;
+
+    const fetchAndProcessData = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        setLoadingStep("Fetching state dumps");
+        const rows: DatabaseRow[] = await executeQuery(
+          `SELECT * FROM state_dumps
+           WHERE json_extract(context, '$.function')
+             IN ('manual_codebook_generation','dispatchManualCodingResponses')
+           ORDER BY created_at ASC`,
+          []
+        );
+
+        setLoadingStep("Processing responses");
+        const allResponses: CodingResult[] = [];
+        for (const row of rows) {
+          const state = JSON.parse(row.state);
+          for (const resp of state.current_state || []) {
+            allResponses.push({
+              id: resp.id,
+              model: resp.model,
+              quote: resp.quote,
+              code: resp.code,
+              explanation: resp.explanation,
+              post_id: resp.post_id,
+              chat_history: resp.chat_history
+                ? JSON.parse(resp.chat_history)
+                : null,
+              is_marked:
+                resp.is_marked !== null ? Boolean(resp.is_marked) : null,
+              range_marker: resp.range_marker
+                ? JSON.parse(resp.range_marker)
+                : null,
+              response_type: resp.response_type,
+            });
+          }
+        }
+
+        const humanResponses = allResponses.filter(
+          (r) => r.response_type === "Human"
+        );
+        const llmResponses = allResponses.filter(
+          (r) => r.response_type === "LLM"
+        );
+
+        const allPostIds = Array.from(
+          new Set([
+            ...humanResponses.map((r) => r.post_id),
+            ...llmResponses.map((r) => r.post_id),
+          ])
+        );
+        const allPosts = await batchFetchPostsAndComments(allPostIds);
+        const humanPosts = allPosts.filter((p) =>
+          humanResponses.some((r) => r.post_id === p.id)
+        );
+        const llmPosts = allPosts.filter((p) =>
+          llmResponses.some((r) => r.post_id === p.id)
+        );
+
+        setLoadingStep("Generating human maps");
+        const humanMaps = await Promise.all(
+          humanPosts.map((post) =>
+            getCodeToQuoteParentIds(
+              post,
+              humanResponses.map((r) => ({
+                id: r.id,
+                text: r.quote,
+                code: r.code,
+                rangeMarker: r.range_marker,
+              }))
+            )
+          )
+        );
+
+        setLoadingStep("Generating LLM maps");
+        const llmMaps = await Promise.all(
+          llmPosts.map((post) =>
+            getCodeToQuoteParentIds(
+              post,
+              llmResponses.map((r) => ({
+                id: r.id,
+                text: r.quote,
+                code: r.code,
+                rangeMarker: r.range_marker,
+              }))
+            )
+          )
+        );
+
+        setLoadingStep("Merging maps");
+        const mergedHumanMap: Record<string, Set<string>> = {};
+        for (const map of humanMaps) {
+          for (const code in map) {
+            mergedHumanMap[code] ??= new Set();
+            map[code].forEach((q) => mergedHumanMap[code].add(q));
+          }
+        }
+        const finalHumanMap: Record<string, string[]> = {};
+        for (const code in mergedHumanMap) {
+          finalHumanMap[code] = Array.from(mergedHumanMap[code]);
+        }
+
+        const mergedLlmMap: Record<string, Set<string>> = {};
+        for (const map of llmMaps) {
+          for (const code in map) {
+            mergedLlmMap[code] ??= new Set();
+            map[code].forEach((q) => mergedLlmMap[code].add(q));
+          }
+        }
+        const finalLlmMap: Record<string, string[]> = {};
+        for (const code in mergedLlmMap) {
+          finalLlmMap[code] = Array.from(mergedLlmMap[code]);
+        }
+
+        setLoadingStep("Building contingency table");
+        const allQuoteIds = new Set<string>([
+          ...Object.values(finalHumanMap).flat(),
+          ...Object.values(finalLlmMap).flat(),
+        ]);
+        const contingency: Record<
+          string,
+          Record<string, { human: boolean; llm: boolean }>
+        > = {};
+        for (const q of allQuoteIds) contingency[q] = {};
+        for (const code in finalHumanMap) {
+          for (const q of finalHumanMap[code]) {
+            contingency[q][code] = {
+              ...(contingency[q][code] || { human: false, llm: false }),
+              human: true,
+            };
+          }
+        }
+        for (const code in finalLlmMap) {
+          for (const q of finalLlmMap[code]) {
+            contingency[q][code] = {
+              ...(contingency[q][code] || { human: false, llm: false }),
+              llm: true,
+            };
+          }
+        }
+
+        setLoadingStep("Calculating Cohen's Kappa");
+        const allCodes = new Set<string>([
+          ...Object.keys(finalHumanMap),
+          ...Object.keys(finalLlmMap),
+        ]);
+        let totalKappa = 0,
+          validCodes = 0;
+        for (const code of allCodes) {
+          let agree = 0,
+            humanYes = 0,
+            llmYes = 0;
+          for (const q of allQuoteIds) {
+            const a = contingency[q][code] || { human: false, llm: false };
+            if ((a.human && a.llm) || (!a.human && !a.llm)) agree++;
+            if (a.human) humanYes++;
+            if (a.llm) llmYes++;
+          }
+          const N = allQuoteIds.size;
+          const p0 = agree / N;
+          const pHuman = humanYes / N;
+          const pLlm = llmYes / N;
+          const pe = pHuman * pLlm + (1 - pHuman) * (1 - pLlm);
+          const kappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
+          if (!isNaN(kappa)) {
+            totalKappa += kappa;
+            validCodes++;
+          }
+        }
+        const cohenKappa = validCodes > 0 ? totalKappa / validCodes : 0;
+
+        setLoadingStep("Analyzing differences & metrics");
+        const postGroups: Record<
+          string,
+          { human: CodingResult[]; llm: CodingResult[] }
+        > = {};
+        allResponses.forEach((r) => {
+          postGroups[r.post_id] ??= { human: [], llm: [] };
+          postGroups[r.post_id][
+            r.response_type === "Human" ? "human" : "llm"
+          ].push(r);
+        });
+
+        let totalLlm = 0,
+          markedLlm = 0,
+          addedCorrect = 0,
+          missingCorrect = 0,
+          matchCount = 0;
+        const diffs: PostDiff[] = [];
+
+        for (const postId in postGroups) {
+          const { human, llm } = postGroups[postId];
+          totalLlm += llm.length;
+          const humanTrue = human.filter((r) => r.is_marked);
+          const llmTrue = llm.filter((r) => r.is_marked);
+          const hSet = new Set(humanTrue.map((r) => r.quote));
+          const lSet = new Set(llmTrue.map((r) => r.quote));
+
+          markedLlm += llmTrue.length;
+          for (const q of lSet) if (!hSet.has(q)) addedCorrect++;
+          for (const q of hSet) if (!lSet.has(q)) missingCorrect++;
+          const commonTrue = [...hSet].filter((q) => lSet.has(q));
+          matchCount += commonTrue.length;
+
+          const allH = new Set(human.map((r) => r.quote));
+          const allL = new Set(llm.map((r) => r.quote));
+          const changes: ComparisonChange[] = [];
+
+          if (filter !== "llm") {
+            for (const q of [...allH].filter((q) => !allL.has(q))) {
+              const hr = human.find((r) => r.quote === q)!;
+              changes.push({
+                postId,
+                quote: q,
+                type: "human_only",
+                humanCode: hr.code,
+              });
+            }
+          }
+          if (filter !== "human") {
+            for (const q of [...allL].filter((q) => !allH.has(q))) {
+              const lr = llm.find((r) => r.quote === q)!;
+              changes.push({
+                postId,
+                quote: q,
+                type: "llm_only",
+                llmCode: lr.code,
+              });
+            }
+          }
+          if (filter === "both") {
+            for (const q of [...allH].filter((q) => allL.has(q))) {
+              const hr = human.find((r) => r.quote === q)!;
+              const lr = llm.find((r) => r.quote === q)!;
+              if (hr.code !== lr.code) {
+                const sim = await getSimilarity(hr.code, lr.code);
+                changes.push({
+                  postId,
+                  quote: q,
+                  type: "same_quote_different_code",
+                  humanCode: hr.code,
+                  llmCode: lr.code,
+                  codeSimilarity: sim,
+                });
+              }
+            }
+          }
+
+          diffs.push({ postId, changes });
+        }
+
+        const llmAcceptanceRate = totalLlm ? markedLlm / totalLlm : 0;
+        const percentageAgreement = matchCount
+          ? matchCount / (matchCount + missingCorrect + addedCorrect)
+          : 0;
+
+        setOverallMetrics({
+          llmAcceptanceRate,
+          llmAddedCorrect: addedCorrect,
+          humanNotInLlmCorrect: missingCorrect,
+          matchingQuotes: matchCount,
+          percentageAgreement,
+          cohenKappa,
+        });
+        setPostDiffs(diffs);
+      } catch (err) {
+        console.error(err);
+        setError("An error occurred while processing data.");
+      } finally {
+        setIsLoading(false);
+        setLoadingStep(null);
+      }
+    };
+
+    fetchAndProcessData();
+  }, [
+    isDatabaseLoaded,
+    executeQuery,
+    calculateSimilarity,
+    filter,
+    selectedWorkspaceId,
+  ]);
+
+  const handleFilterChange = (newFilter: "both" | "human" | "llm") => {
+    setFilter(newFilter);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mx-auto" />
+          <p className="mt-4 text-lg font-semibold text-gray-700">
+            Loading data…
+          </p>
+          {loadingStep && (
+            <p className="mt-2 text-base text-gray-600">{loadingStep}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+  if (error) {
+    return <p className="p-4 text-red-600">{error}</p>;
+  }
+  if (!isDatabaseLoaded) {
+    return (
+      <p className="p-4 text-gray-600">Please select and load a database.</p>
+    );
+  }
+
+  return (
+    <div className="p-4 max-w-7xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">
+        Human vs LLM Coding Comparison
+      </h1>
+
+      <div className="mb-4">
+        <label className="mr-2">Filter:</label>
+        <select
+          value={filter}
+          onChange={(e) =>
+            handleFilterChange(e.target.value as "both" | "human" | "llm")
+          }
+          className="p-2 border rounded"
+        >
+          <option value="both">Both</option>
+          <option value="human">Human Only</option>
+          <option value="llm">LLM Only</option>
+        </select>
+      </div>
+
+      {overallMetrics && (
+        <div className="mb-8 p-4 bg-gray-50 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-2">Overall Metrics</h2>
+          <ul className="list-disc pl-5">
+            <li>
+              <strong>LLM Acceptance Rate:</strong>{" "}
+              {overallMetrics.llmAcceptanceRate.toFixed(3)}
+            </li>
+            <li>
+              <strong>LLM Added Correct:</strong>{" "}
+              {overallMetrics.llmAddedCorrect}
+            </li>
+            <li>
+              <strong>Human Not In LLM Correct:</strong>{" "}
+              {overallMetrics.humanNotInLlmCorrect}
+            </li>
+            <li>
+              <strong>Matching Quotes:</strong> {overallMetrics.matchingQuotes}
+            </li>
+            <li>
+              <strong>Percentage Agreement:</strong>{" "}
+              {overallMetrics.percentageAgreement.toFixed(3)}
+            </li>
+            <li>
+              <strong>Cohen’s Kappa:</strong>{" "}
+              {overallMetrics.cohenKappa.toFixed(3)}
+            </li>
+          </ul>
+        </div>
+      )}
+
+      {postDiffs.map(({ postId, changes }) => (
+        <div key={postId} className="mb-8 p-4 bg-white rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-2">Post ID: {postId}</h2>
+          {changes.length === 0 ? (
+            <p className="text-gray-600">No differences found.</p>
+          ) : (
+            <div className="space-y-4">
+              {changes.map((chg, i) => (
+                <div key={i} className="p-3 bg-gray-100 rounded">
+                  <p>
+                    <strong>Type:</strong> {chg.type}
+                  </p>
+                  <p>
+                    <strong>Quote:</strong> {chg.quote}
+                  </p>
+                  {chg.type === "same_quote_different_code" && (
+                    <>
+                      <p>
+                        <strong>Human Code:</strong> {chg.humanCode}
+                      </p>
+                      <p>
+                        <strong>LLM Code:</strong> {chg.llmCode}
+                      </p>
+                      <p>
+                        <strong>Similarity:</strong>{" "}
+                        {chg.codeSimilarity?.toFixed(3)}
+                      </p>
+                    </>
+                  )}
+                  {chg.type === "human_only" && (
+                    <p>
+                      <strong>Human Code:</strong> {chg.humanCode}
+                    </p>
+                  )}
+                  {chg.type === "llm_only" && (
+                    <p>
+                      <strong>LLM Code:</strong> {chg.llmCode}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default CodingComparisonViewer;

@@ -30,6 +30,14 @@ function NavBar() {
           </Link>
         </li>
         <li>
+          <Link
+            to="/initial-codebook"
+            className="text-white hover:text-gray-300"
+          >
+            Initial Codebook
+          </Link>
+        </li>
+        <li>
           <Link to="/final-coding" className="text-white hover:text-gray-300">
             Final Coding
           </Link>
@@ -50,6 +58,11 @@ function NavBar() {
         <li>
           <Link to="/error-rates" className="text-white hover:text-gray-300">
             Error Rates
+          </Link>
+        </li>
+        <li>
+          <Link to="/manual-coding" className="text-white hover:text-gray-300">
+            Manual Coding
           </Link>
         </li>
       </ul>

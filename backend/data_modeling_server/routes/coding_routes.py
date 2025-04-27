@@ -2053,6 +2053,8 @@ async def generate_codebook_without_quotes_endpoint(
         })
         return entry.higher_level_code if entry else None
     
+    function_name = "manual_codebook_generation" if manual_coding else "initial_codebook"
+    
     summarized_dict = await summarize_codebook_explanations(
         workspace_id = dataset_id,
         codebook_types = codebook_types,
@@ -2060,7 +2062,7 @@ async def generate_codebook_without_quotes_endpoint(
         app_id = app_id,
         dataset_id = dataset_id,
         manager = manager,
-        parent_function_name = "manual-codebook-generation" if manual_coding else "initial-codebook",
+        parent_function_name = function_name,
         llm_instance = llm,
         llm_queue_manager = llm_queue_manager,
         code_transform = to_higher,
@@ -2087,7 +2089,7 @@ async def generate_codebook_without_quotes_endpoint(
         dataset_id=dataset_id,
         manager=manager,
         llm_model=request_body.model,
-        parent_function_name="manual-codebook-generation",
+        parent_function_name=function_name,
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=GenerateCodebookWithoutQuotes.generate_codebook_without_quotes_prompt,
         llm_instance=llm,
@@ -2102,7 +2104,7 @@ async def generate_codebook_without_quotes_endpoint(
                     "codebook": parsed_response,
                 }),
                 context=json.dumps({
-                    "function": "manual_codebook_generation",
+                    "function": function_name,
                     "run":"initial",
                     "workspace_id": request.headers.get("x-workspace-id"),
                     "time_taken": time.time() - start_time,
@@ -2164,7 +2166,7 @@ async def regenerate_codebook_without_quotes_endpoint(
         app_id = app_id,
         dataset_id = dataset_id,
         manager = manager,
-        parent_function_name = "initial-codebook",
+        parent_function_name = "initial_codebook",
         llm_instance = llm,
         llm_queue_manager = llm_queue_manager,
         max_input_tokens = 128000,
@@ -2195,7 +2197,7 @@ async def regenerate_codebook_without_quotes_endpoint(
         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
         prompt_builder_func=GenerateCodebookWithoutQuotes.regenerate_codebook_without_quotes_prompt,
         llm_instance=llm,
-        parent_function_name="manual-codebook-generation",
+        parent_function_name="initial_codebook",
         llm_queue_manager=llm_queue_manager,
         codes=json.dumps(summarized_grouped_ec),  
         previous_codebook=previous_codebook_json  ,
@@ -2221,7 +2223,7 @@ async def regenerate_codebook_without_quotes_endpoint(
                     "codebook": parsed_response,
                 }),
                 context=json.dumps({
-                    "function": "manual_codebook_generation",
+                    "function": "initial_codebook",
                     "run":"regenerate",
                     "workspace_id": request.headers.get("x-workspace-id"),
                     "time_taken": time.time() - start_time,

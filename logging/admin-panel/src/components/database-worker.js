@@ -4,50 +4,113 @@ let SQL;
 let database;
 
 self.onmessage = async (e) => {
-  console.log("Worker received:", e.data);
-  const { type, arrayBuffer, query, params, page, pageSize, queryId } = e.data;
+  const {
+    type,
+    id,
+    arrayBuffer,
+    query,
+    params,
+    page,
+    pageSize,
+    datasetId,
+    postIds,
+  } = e.data;
 
   if (type === "loadDatabase") {
     try {
       if (!SQL) {
-        console.log("Initializing sql.js...");
         SQL = await initSqlJs({
           locateFile: (file) => `https://sql.js.org/dist/${file}`,
         });
-        console.log("sql.js initialized");
       }
-      console.log("ArrayBuffer size:", arrayBuffer.byteLength);
       database = new SQL.Database(new Uint8Array(arrayBuffer));
-      console.log("Database loaded");
-      self.postMessage({ type: "databaseLoaded", data: null });
+      self.postMessage({ type: "databaseLoaded", data: null, id });
     } catch (error) {
-      console.error("Worker error:", error);
-      self.postMessage({ type: "error", data: error.message });
+      self.postMessage({ type: "error", data: error.message, id });
     }
   } else if (type === "query") {
     try {
       let finalQuery = query;
-      // Only apply pagination if page and pageSize are explicitly provided
       if (page !== undefined && pageSize !== undefined) {
         const offset = (page - 1) * pageSize;
         finalQuery = `${query} LIMIT ${pageSize} OFFSET ${offset}`;
       }
-      // Prepare the statement to support parameters
       const stmt = database.prepare(finalQuery);
-      if (params) {
-        stmt.bind(params);
-      }
-      // Collect results
+      if (params) stmt.bind(params);
       const results = [];
-      while (stmt.step()) {
-        results.push(stmt.getAsObject());
-      }
+      while (stmt.step()) results.push(stmt.getAsObject());
       stmt.free();
-      console.log("Query results:", results);
-      self.postMessage({ type: "queryResult", data: results, queryId });
+      self.postMessage({ type: "queryResult", data: results, id });
     } catch (error) {
-      console.error("Query error:", error);
-      self.postMessage({ type: "error", data: error.message, queryId });
+      self.postMessage({ type: "error", data: error.message, id });
+    }
+  } else if (type === "fetchPostsAndCommentsBatch") {
+    try {
+      const results = await fetchPostsAndCommentsBatch(datasetId, postIds);
+      self.postMessage({
+        type: "fetchPostsAndCommentsBatchResult",
+        data: results,
+        id,
+      });
+    } catch (error) {
+      self.postMessage({ type: "error", data: error.message, id });
     }
   }
 };
+
+async function fetchPostsAndCommentsBatch(datasetId, postIds) {
+  const postQuery = `
+    SELECT id, selftext, title 
+    FROM posts 
+    WHERE dataset_id = ? AND id IN (${postIds.map(() => "?").join(",")})
+  `;
+  console.log(
+    `Executing post query with datasetId: ${datasetId}, postIds: ${postIds}`
+  );
+  const postStmt = database.prepare(postQuery);
+  postStmt.bind([datasetId, ...postIds]);
+  const posts = [];
+  while (postStmt.step()) posts.push(postStmt.getAsObject());
+  postStmt.free();
+
+  const commentQuery = `
+    WITH RECURSIVE comment_tree AS (
+      SELECT id, body, parent_id, post_id
+      FROM comments
+      WHERE dataset_id = ? AND post_id IN (${postIds.map(() => "?").join(",")})
+      UNION ALL
+      SELECT c.id, c.body, c.parent_id, c.post_id
+      FROM comments c
+      INNER JOIN comment_tree ct ON c.parent_id = ct.id
+      WHERE c.dataset_id = ?
+    )
+    SELECT * FROM comment_tree;
+  `;
+  const commentStmt = database.prepare(commentQuery);
+  commentStmt.bind([datasetId, ...postIds, datasetId]);
+  const comments = [];
+  while (commentStmt.step()) comments.push(commentStmt.getAsObject());
+  commentStmt.free();
+
+  const commentMap = {};
+  comments.forEach((comment) => {
+    comment.comments = [];
+    commentMap[comment.id] = comment;
+  });
+
+  const postMap = {};
+  posts.forEach((post) => {
+    post.comments = [];
+    postMap[post.id] = post;
+  });
+
+  comments.forEach((comment) => {
+    if (comment.post_id in postMap && comment.parent_id === comment.post_id) {
+      postMap[comment.post_id].comments.push(comment);
+    } else if (comment.parent_id in commentMap) {
+      commentMap[comment.parent_id].comments.push(comment);
+    }
+  });
+
+  return posts;
+}
