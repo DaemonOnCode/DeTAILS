@@ -64,35 +64,22 @@ const TorrentSelectionPanel: React.FC<{
     };
 
     useEffect(() => {
-        const isAnyFileSelected = Object.values(selected).some((subredditSelection) => {
-            const postsSelected = Object.values(subredditSelection.posts).some((arr) =>
-                arr.some((v) => v)
-            );
-            const commentsSelected = Object.values(subredditSelection.comments).some((arr) =>
-                arr.some((v) => v)
-            );
-            return postsSelected || commentsSelected;
-        });
+        if (!activeSubreddit) return;
 
-        if (isAnyFileSelected && activeSubreddit) {
-            const files = getFilesForSubreddit(activeSubreddit);
-            setModeInput((prevModeInput) => {
-                let baseInput = `reddit|torrent|${activeSubreddit}`;
-                if (prevModeInput && prevModeInput.includes('|files|')) {
-                    baseInput = prevModeInput.split('|files|')[0];
-                }
-                return `${baseInput}|files|${files.join(',')}`;
-            });
-        } else {
-            // setModeInput((prevModeInput) => {
-            //     let baseInput = `reddit:torrent:${activeSubreddit}`;
-            //     if (prevModeInput && prevModeInput.includes(':files:')) {
-            //         baseInput = prevModeInput.split(':files:')[0];
-            //     }
-            //     return `${baseInput}:files:`;
-            // });
+        const files = getFilesForSubreddit(activeSubreddit);
+        const hasFiles = files.length > 0;
+
+        // take existing base (in case user has typed other args), or default
+        const base = modeInput.includes('|files|')
+            ? modeInput.split('|files|')[0]
+            : `reddit|torrent|${activeSubreddit}`;
+
+        const nextInput = hasFiles ? `${base}|files|${files.join(',')}` : `${base}|files|`; // clear the files list if none
+
+        if (nextInput !== modeInput) {
+            setModeInput(nextInput);
         }
-    }, [selected, activeSubreddit, setModeInput, dataResponse]);
+    }, [selected, activeSubreddit, modeInput, setModeInput]);
 
     useEffect(() => {
         if (modeInput && modeInput.includes('|files|')) {

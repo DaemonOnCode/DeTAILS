@@ -235,9 +235,21 @@ class GlobalQueueManager:
                     for task in pending_tasks:
                         job_id = task.task_id
                         print(f"[ENQUEUE] Processing task {job_id}")
-                        cfut = None
+                        # with self._lock:
+                        #     cfut = self.pending_tasks.pop(job_id, None)
+                            # if not cfut:
+                            #     print(f"[ENQUEUE] No local future for {job_id}, marking failed")
+                            #     self.pending_task_repo.update(
+                            #         filters={"task_id": job_id},
+                            #         updates={
+                            #             "status": "failed",
+                            #             "error": "No pending future found",
+                            #             "completed_at": datetime.now()
+                            #         }
+                            #     )
+                            #     continue
                         with self._lock:
-                            cfut = self.pending_tasks.get(job_id)
+                            cfut = self.pending_tasks.get(job_id, None)
                         if cfut:
                             function_key = task.function_key
                             try:
@@ -446,9 +458,17 @@ class GlobalQueueManager:
             with self._lock:
                 self.pending_tasks[job_id] = cfut
                 print(f"[SUBMIT] Added task {job_id} to pending_tasks")
-            print(f"[SUBMIT] Calling submit_task_sync for job_id {job_id}")
-            self.submit_task_sync(job_id, func, function_key, cacheable_args, *args, **kwargs)
-            print(f"[SUBMIT] submit_task_sync completed for job_id {job_id}")
+
+            try:
+                print(f"[SUBMIT] Calling submit_task_sync for job_id {job_id}")
+                self.submit_task_sync(job_id, func, function_key, cacheable_args, *args, **kwargs)
+                print(f"[SUBMIT] submit_task_sync completed for job_id {job_id}")
+            except Exception as e:
+                with self._lock:
+                    self.pending_tasks.pop(job_id, None)
+                cfut.set_exception(e)
+                print(f"[SUBMIT] submit_task_sync failed for {job_id}: {e}")
+                raise
             asyncio_fut = asyncio.wrap_future(cfut, loop=asyncio.get_running_loop())
             return job_id, asyncio_fut
         except Exception as e:

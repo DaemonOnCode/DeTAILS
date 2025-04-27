@@ -71,7 +71,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
     setKeywords,
     setSelectedKeywords
 }) => {
-    console.log('Rendering KeywordCloud', mainTopic, keywords, selectedKeywords);
+    // console.log('Rendering KeywordCloud', mainTopic, keywords, selectedKeywords);
     const { performWithUndo } = useUndo();
     const svgRef = useRef<SVGSVGElement | null>(null);
     const [placedKeywords, setPlacedKeywords] = useState<(IKeywordBox & { rotation: number })[]>(

@@ -709,10 +709,26 @@ const TranscriptPage = () => {
     const componentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        const isAboveHighZ = (node: Node | null): boolean => {
+            while (node && node instanceof Element) {
+                const z = window.getComputedStyle(node).zIndex;
+                if (z !== 'auto' && !isNaN(Number(z)) && Number(z) >= 50) {
+                    return true;
+                }
+                node = node.parentNode;
+            }
+            return false;
+        };
+
         const handleClickOutside = (e: MouseEvent) => {
+            const target = e.target as Node;
+            if (isAboveHighZ(target)) {
+                return;
+            }
             if (
                 !allClearedToLeaveRef.current?.check &&
-                !componentRef.current?.contains(e.target as Node) &&
+                componentRef.current &&
+                !componentRef.current.contains(target) &&
                 post
             ) {
                 e.preventDefault();

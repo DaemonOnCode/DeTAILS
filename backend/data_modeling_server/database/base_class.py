@@ -306,6 +306,7 @@ class BaseRepository(Generic[T]):
     @auto_recover
     def update_returning(self, filters: Dict[str, Any], updates:  Dict[str, Any]) -> List[Dict[str, Any]]:
         query, params = self.query_builder_instance.update(filters, updates)
+        print(query, params, "update returning")
         query = query.rstrip().rstrip(';') + " RETURNING *;"
         return self.fetch_all(query, params, map_to_model=False)
 

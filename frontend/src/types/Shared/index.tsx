@@ -216,11 +216,18 @@ export interface ILoadingContext {
         errorMessage: string,
         resolver: (newPath: string) => void
     ) => void;
+    isStateLocked: (page: string) => boolean;
+    lockedUpdate: (id: string, updateFn: () => Promise<any>) => Promise<any>;
 }
 
 export interface ModalCallbacks {
     [id: string]: (e: React.MouseEvent) => void | Promise<void>;
 }
+
+export type ModalCallbackPair = {
+    onProceed: (e: React.MouseEvent) => void | Promise<void>;
+    onCancel?: () => void;
+};
 
 export type CodebookType = {
     [code: string]: string;

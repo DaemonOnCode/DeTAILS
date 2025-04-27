@@ -10,6 +10,7 @@ import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 
 const ManualCodingPage: React.FC = () => {
     const portalContainerRef = useRef<HTMLDivElement>(document.createElement('div'));
+    const hasGeneratedCodebook = useRef(false);
 
     const { groupedCodes } = useCodingContext();
     const {
@@ -43,12 +44,11 @@ const ManualCodingPage: React.FC = () => {
 
         document.body.appendChild(portalContainer);
 
-        console.log('ManualCodingPage mounted', codebook, Object.keys(codebook ?? {}).length === 0);
-
-        // if (groupedCodes.length > 0 && Object.keys(codebook ?? {}).length === 0) {
-        console.log('ManualCodingPage mounted Generating codebook', codebook);
-        generateCodebook();
-        // }
+        if (!hasGeneratedCodebook.current) {
+            console.log('ManualCodingPage mounted Generating codebook', codebook);
+            generateCodebook();
+            hasGeneratedCodebook.current = true;
+        }
 
         return () => {
             document.body.removeChild(portalContainer);
@@ -116,7 +116,6 @@ const ManualCodingPage: React.FC = () => {
                 {tab === 'unified' ? (
                     <UnifiedCodingPage
                         postIds={Object.keys(postStates)}
-                        // data={manualCodingResponses}
                         dispatchFunction={dispatchManualCodingResponses}
                         split
                         showCodebook

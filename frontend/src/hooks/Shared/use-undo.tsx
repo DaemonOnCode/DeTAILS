@@ -41,18 +41,20 @@ export function useUndo() {
     const batchUndoFunctions = useRef<(() => void)[]>([]);
 
     const logOperationLocal = useCallback(
-        (undoFn: () => void) => {
+        (undoFn: () => void, showToast: boolean = true) => {
             if (isBatching.current) {
                 console.log('Batching operation, adding undo function to batch');
                 batchUndoFunctions.current.push(undoFn);
             } else {
                 console.log('Logging single operation and showing toast');
                 logOperation(undoFn);
-                toast.info(<UndoToast undo={undo} closeToast={() => toast.dismiss()} />, {
-                    autoClose: 5000,
-                    closeOnClick: false,
-                    draggable: false
-                });
+                if (showToast) {
+                    toast.info(<UndoToast undo={undo} closeToast={() => toast.dismiss()} />, {
+                        autoClose: 5000,
+                        closeOnClick: false,
+                        draggable: false
+                    });
+                }
             }
         },
         [logOperation, undo]
@@ -64,31 +66,35 @@ export function useUndo() {
         batchUndoFunctions.current = [];
     }, []);
 
-    const endBatch = useCallback(() => {
-        console.log('Ending batch, logging batch operation');
-        isBatching.current = false;
-        const batchUndos = [...batchUndoFunctions.current].reverse();
-        const batchUndoFn = () => {
-            batchUndos.forEach((undoFn) => undoFn());
-        };
-        logOperation(batchUndoFn);
-        toast.info(<UndoToast undo={undo} closeToast={() => toast.dismiss()} />, {
-            autoClose: 5000,
-            closeOnClick: false,
-            draggable: false
-        });
-        batchUndoFunctions.current = [];
-    }, [logOperation, undo]);
+    const endBatch = useCallback(
+        (showToast: boolean = true) => {
+            console.log('Ending batch, logging batch operation');
+            isBatching.current = false;
+            const batchUndos = [...batchUndoFunctions.current].reverse();
+            const batchUndoFn = () => {
+                batchUndos.forEach((undoFn) => undoFn());
+            };
+            logOperation(batchUndoFn);
+            if (showToast)
+                toast.info(<UndoToast undo={undo} closeToast={() => toast.dismiss()} />, {
+                    autoClose: 5000,
+                    closeOnClick: false,
+                    draggable: false
+                });
+            batchUndoFunctions.current = [];
+        },
+        [logOperation, undo]
+    );
 
     const batch = useCallback(
-        (callback: () => void) => {
+        (callback: () => void, showToast: boolean = true) => {
             console.log('Starting batch operation');
             beginBatch();
             try {
                 callback();
                 console.log('Finished batch operation');
             } finally {
-                endBatch();
+                endBatch(showToast);
             }
         },
         [beginBatch, endBatch]
@@ -100,7 +106,7 @@ export function useUndo() {
     }, []);
 
     const batchUpdate = useCallback(
-        (operation: () => void, operationType: string = 'batch') => {
+        (operation: () => void, operationType: string = 'batch', showToast: boolean = true) => {
             const beforeStates: { [key: string]: any } = {};
             stateRegistry.current.forEach((entry, key) => {
                 beforeStates[key] = entry.state;
@@ -119,7 +125,7 @@ export function useUndo() {
                 });
             };
 
-            logOperationLocal(undoFunction);
+            logOperationLocal(undoFunction, showToast);
             console.log(`Logged batch operation: ${operationType}`);
         },
         [logOperationLocal]
@@ -128,7 +134,8 @@ export function useUndo() {
     function performWithUndo(
         states: any[],
         setters: ((value: any) => void)[],
-        operation: () => void
+        operation: () => void,
+        showToast: boolean = true
     ) {
         const beforeStates = states.map((state) => JSON.parse(JSON.stringify(state)));
 
@@ -139,7 +146,7 @@ export function useUndo() {
         };
 
         console.log('Performing operation with undo for states');
-        logOperationLocal(undoFn);
+        logOperationLocal(undoFn, showToast);
         operation();
         console.log('Operation performed, undo function logged');
     }
@@ -147,7 +154,8 @@ export function useUndo() {
     async function performWithUndoForReducer(
         currentState: any,
         dispatch: (action: any) => void | Promise<any>,
-        action: any
+        action: any,
+        showToast: boolean = true
     ) {
         const previousState = currentState;
         // const undoFn = () => {
@@ -159,7 +167,7 @@ export function useUndo() {
         const logUndoWithDiff = (res: { diff: any }) => {
             logOperationLocal(() => {
                 dispatch({ type: 'RESTORE_DIFF', payload: res.diff });
-            });
+            }, showToast);
         };
         // logOperationLocal(undoFn);
         console.log('UNDO: Logging reducer action with undo function, before dispatching');

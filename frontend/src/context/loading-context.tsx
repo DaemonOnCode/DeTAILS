@@ -5,7 +5,8 @@ import React, {
     useState,
     useContext,
     useRef,
-    useEffect
+    useEffect,
+    useCallback
 } from 'react';
 import { ILayout } from '../types/Coding/shared';
 import { ILoadingState, ILoadingContext, StepHandle, ModalCallbacks } from '../types/Shared';
@@ -33,7 +34,9 @@ const LoadingContext = createContext<ILoadingContext>({
     resetContext: () => {},
     abortRequests: () => {},
     abortRequestsByRoute: () => {},
-    openCredentialModalForCredentialError: () => {}
+    openCredentialModalForCredentialError: () => {},
+    isStateLocked: () => false,
+    lockedUpdate: async () => {}
 });
 
 export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
@@ -77,8 +80,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             await resetDataAfterPage(location.pathname, true);
             if (activeModalId && modalCallbacks[activeModalId]) {
                 const result = modalCallbacks[activeModalId](e);
-                // @ts-ignore
-                if (result !== undefined && typeof result.then === 'function') {
+                if (result instanceof Promise) {
                     await result;
                 }
             }
@@ -98,8 +100,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             await resetDataAfterPage(location.pathname, false);
             if (activeModalId && modalCallbacks[activeModalId]) {
                 const result = modalCallbacks[activeModalId](e);
-                // @ts-ignore
-                if (result !== undefined && typeof result.then === 'function') {
+                if (result instanceof Promise) {
                     await result;
                 }
             }
@@ -299,6 +300,49 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         }
     };
 
+    const isStateLocked = (currentRoute: string) => {
+        console.log('Checking if state is locked for route:', currentRoute);
+        const appRoutes = Object.keys(initialPageState);
+        const currentIndex = appRoutes.indexOf(currentRoute);
+        if (currentIndex === -1) return false;
+        console.log('Current route index:', currentIndex);
+        const subsequentRoutes = appRoutes.slice(currentIndex + 1);
+        for (const route of subsequentRoutes) {
+            const state = loadingState[route];
+            if (state.isLoading || !state.isFirstRun) {
+                console.log(
+                    'State is locked for route:',
+                    route,
+                    state.isLoading || !state.isFirstRun
+                );
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const lockedUpdate = useCallback(
+        async (id: string, updateFn: () => Promise<any>) => {
+            if (!isStateLocked(location.pathname)) {
+                console.log('State is not locked, proceeding with update:', id);
+                return updateFn();
+            } else {
+                console.log('State is locked, showing modal:', id);
+                return new Promise((resolve) => {
+                    openModal(id, async (e) => {
+                        try {
+                            const result = await updateFn();
+                            resolve(result);
+                        } catch (error) {
+                            resolve({ success: false, error });
+                        }
+                    });
+                });
+            }
+        },
+        [location.pathname]
+    );
+
     useEffect(() => {
         console.log("Inside loading context's useEffect", location.pathname);
         console.log('Cleanup loading context:', location.pathname);
@@ -361,9 +405,11 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
             resetContext,
             abortRequests,
             abortRequestsByRoute,
-            openCredentialModalForCredentialError
+            openCredentialModalForCredentialError,
+            isStateLocked,
+            lockedUpdate
         }),
-        [loadingState, showProceedConfirmModal]
+        [loadingState, showProceedConfirmModal, lockedUpdate]
     );
 
     return (

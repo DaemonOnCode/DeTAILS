@@ -10,7 +10,7 @@ def tuned_connection(db_path: str = DATABASE_PATH) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
     c.execute("PRAGMA journal_mode = WAL;")
-    c.execute("PRAGMA wal_autocheckpoint = 100;") 
+    c.execute("PRAGMA wal_autocheckpoint = 500;") 
 
     c.execute("PRAGMA synchronous = NORMAL;")
 

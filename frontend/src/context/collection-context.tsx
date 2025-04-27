@@ -90,7 +90,7 @@ export const CollectionContext = createContext<ExtendedICollectionContext>(defau
 
 export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
     const location = useLocation();
-    const { loadingState } = useLoadingContext();
+    const { loadingState, lockedUpdate } = useLoadingContext();
     const { fetchData } = useApi();
 
     const [type, setTypeState] = useState<ModeType>(null);
@@ -132,7 +132,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
 
     const setType = async (newTypeOrFn: ModeType | ((prev: ModeType) => ModeType)) => {
         const newType = typeof newTypeOrFn === 'function' ? newTypeOrFn(type) : newTypeOrFn;
-        try {
+        return lockedUpdate('set-type', async () => {
             const data = await saveCollectionContext('setType', { newType });
             if (data.success) {
                 setTypeState(newType);
@@ -140,46 +140,49 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 if (fetchedData.metadata) setMetadataState(fetchedData.metadata);
             }
             return data;
-        } catch (error) {
-            console.error('Failed to set type:', JSON.stringify(error));
-        }
+        });
     };
 
     const setMetadataSource = async (source: 'folder' | 'url') => {
-        const data = await saveCollectionContext('setMetadataSource', { source });
-        if (data.success) {
-            // @ts-ignore
-            setMetadataState((prev) => (prev ? { ...prev, source } : prev));
-        }
-        return data;
+        return lockedUpdate('set-metadata-source', async () => {
+            const data = await saveCollectionContext('setMetadataSource', { source });
+            if (data.success) {
+                if (type === 'reddit') {
+                    setMetadataState((prev) =>
+                        prev && prev.type === 'reddit' ? { ...prev, source } : prev
+                    );
+                }
+            }
+            return data;
+        });
     };
 
     const setMetadataSubreddit = async (subreddit: string) => {
-        const data = await saveCollectionContext('setMetadataSubreddit', { subreddit });
-        if (data.success && type === 'reddit') {
-            setMetadataState((prev) =>
-                prev && prev.type === 'reddit' ? { ...prev, subreddit } : prev
-            );
-        }
-        return data;
+        return lockedUpdate('set-metadata-subreddit', async () => {
+            const data = await saveCollectionContext('setMetadataSubreddit', { subreddit });
+            if (data.success && type === 'reddit') {
+                setMetadataState((prev) =>
+                    prev && prev.type === 'reddit' ? { ...prev, subreddit } : prev
+                );
+            }
+            return data;
+        });
     };
 
     const setModeInput = async (inputOrFn: string | ((prev: string) => string)) => {
         const _modeInput = typeof inputOrFn === 'function' ? inputOrFn(modeInput) : inputOrFn;
-        try {
+        return lockedUpdate('set-mode-input', async () => {
             const data = await saveCollectionContext('setModeInput', { modeInput: _modeInput });
             if (data.success) {
                 setModeInputState(_modeInput);
             }
             return data;
-        } catch (error) {
-            console.error('Failed to set modeInput:', JSON.stringify(error));
-        }
+        });
     };
 
     const setSelectedData = async (dataOrFn: string[] | ((prev: string[]) => string[])) => {
         const _selectedData = typeof dataOrFn === 'function' ? dataOrFn(selectedData) : dataOrFn;
-        try {
+        return lockedUpdate('set-selected-data', async () => {
             const data = await saveCollectionContext('setSelectedData', {
                 selectedData: _selectedData
             });
@@ -187,9 +190,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 setSelectedDataState(_selectedData);
             }
             return data;
-        } catch (error) {
-            console.error('Failed to set selectedData:', JSON.stringify(error));
-        }
+        });
     };
 
     const setDataFilters = async (
@@ -197,7 +198,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
     ) => {
         const _dataFilters =
             typeof filtersOrFn === 'function' ? filtersOrFn(dataFilters) : filtersOrFn;
-        try {
+        return lockedUpdate('set-data-filters', async () => {
             const data = await saveCollectionContext('setDataFilters', {
                 dataFilters: _dataFilters
             });
@@ -205,36 +206,38 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 setDataFiltersState(_dataFilters);
             }
             return data;
-        } catch (error) {
-            console.error('Failed to set dataFilters:', JSON.stringify(error));
-        }
+        });
     };
 
     const setIsLocked = async (lockedOrFn: boolean | ((prev: boolean) => boolean)) => {
         const _isLocked = typeof lockedOrFn === 'function' ? lockedOrFn(isLocked) : lockedOrFn;
-        try {
+        return lockedUpdate('set-is-locked', async () => {
             const data = await saveCollectionContext('setIsLocked', { isLocked: _isLocked });
             if (data.success) {
                 setIsLockedState(_isLocked);
             }
             return data;
-        } catch (error) {
-            console.error('Failed to set isLocked:', JSON.stringify(error));
-        }
+        });
     };
 
     const addDatasetItem = async (newData: RedditData | InterviewData) => {
-        const data = await saveCollectionContext('addDatasetItem', { data: newData });
-        if (data.success) {
-            setDatasetState((prev) => [...prev, newData]);
-        }
+        return lockedUpdate('add-dataset-item', async () => {
+            const data = await saveCollectionContext('addDatasetItem', { data: newData });
+            if (data.success) {
+                setDatasetState((prev) => [...prev, newData]);
+            }
+            return data;
+        });
     };
 
     const resetDataset = async () => {
-        const data = await saveCollectionContext('resetDataset', {});
-        if (data.success) {
-            setDatasetState([]);
-        }
+        return lockedUpdate('reset-dataset', async () => {
+            const data = await saveCollectionContext('resetDataset', {});
+            if (data.success) {
+                setDatasetState([]);
+            }
+            return data;
+        });
     };
 
     const setDatasetId = async (datasetId: string) => {

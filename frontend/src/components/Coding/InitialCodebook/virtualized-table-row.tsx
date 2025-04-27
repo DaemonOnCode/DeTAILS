@@ -1,5 +1,6 @@
-import { FC, useRef, useState, useEffect } from 'react';
+import React, { FC, useRef, useState, useEffect, useMemo } from 'react';
 import { useIntersectionObserver } from '../../../hooks/Shared/use-intersection-observer';
+import debounce from 'lodash/debounce';
 import { DEBOUNCE_DELAY } from '../../../constants/Shared';
 
 interface VirtualizedTableRowProps {
@@ -23,18 +24,26 @@ const VirtualizedTableRow: FC<VirtualizedTableRowProps> = ({
 
     const [localDefinition, setLocalDefinition] = useState(entry.definition);
 
+    // Sync local state when the prop changes
     useEffect(() => {
         setLocalDefinition(entry.definition);
     }, [entry.definition]);
 
+    // Debounced updater for definition changes
+    const debouncedUpdate = useMemo(
+        () =>
+            debounce((idx: number, value: string) => {
+                onDefinitionChange(idx, value);
+            }, DEBOUNCE_DELAY),
+        [onDefinitionChange]
+    );
+
+    // Cancel any pending debounced calls on unmount
     useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            if (localDefinition !== entry.definition) {
-                onDefinitionChange(index, localDefinition);
-            }
-        }, DEBOUNCE_DELAY);
-        return () => clearTimeout(timeoutId);
-    }, [localDefinition, index, onDefinitionChange, entry.definition]);
+        return () => {
+            debouncedUpdate.cancel();
+        };
+    }, [debouncedUpdate]);
 
     return (
         <tr ref={rowRef}>
@@ -44,7 +53,11 @@ const VirtualizedTableRow: FC<VirtualizedTableRowProps> = ({
                     <textarea
                         className="w-full p-2 border border-gray-300 rounded resize-none h-24"
                         value={localDefinition}
-                        onChange={(e) => setLocalDefinition(e.target.value)}
+                        onChange={(e) => {
+                            const v = e.target.value;
+                            setLocalDefinition(v);
+                            debouncedUpdate(index, v);
+                        }}
                     />
                 ) : (
                     <div className="w-full p-2 h-24 overflow-hidden">{entry.definition}</div>

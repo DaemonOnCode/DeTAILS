@@ -106,7 +106,7 @@ const KeywordsTablePage: FC = () => {
 
     const onFieldChange = (index: number, field: string, value: any) => {
         const action = { type: 'UPDATE_FIELD', index, field, value };
-        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
+        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action, false);
     };
 
     const onToggleMark = (index: number, isMarked: boolean | undefined) => {

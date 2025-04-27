@@ -69,7 +69,12 @@ const InitialCodeBook = () => {
             field: 'definition',
             value: newDefinition
         };
-        performWithUndoForReducer(initialCodebookTable, dispatchInitialCodebookTable, action);
+        performWithUndoForReducer(
+            initialCodebookTable,
+            dispatchInitialCodebookTable,
+            action,
+            false
+        );
     };
 
     const handleNextClick = useNextHandler({

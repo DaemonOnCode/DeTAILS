@@ -1,5 +1,6 @@
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, useMemo } from 'react';
 import { FaTrash } from 'react-icons/fa';
+import debounce from 'lodash/debounce';
 import { KeywordEntry } from '../../../types/Coding/shared';
 import { DEBOUNCE_DELAY } from '../../../constants/Shared';
 
@@ -18,11 +19,13 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
     onToggleMark,
     onDeleteRow
 }) => {
+    // --- local editable state ---
     const [localWord, setLocalWord] = useState(entry.word);
     const [localDescription, setLocalDescription] = useState(entry.description);
     const [localInclusion, setLocalInclusion] = useState(entry.inclusion_criteria);
     const [localExclusion, setLocalExclusion] = useState(entry.exclusion_criteria);
 
+    // Sync up when parent entry changes (e.g. after unlock)
     useEffect(() => {
         setLocalWord(entry.word);
         setLocalDescription(entry.description);
@@ -30,23 +33,21 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
         setLocalExclusion(entry.exclusion_criteria);
     }, [entry]);
 
+    // Debounced updater
+    const debouncedUpdate = useMemo(
+        () =>
+            debounce((field: string, value: any) => {
+                onFieldChange(index, field, value);
+            }, DEBOUNCE_DELAY),
+        [index, onFieldChange]
+    );
+
+    // Cancel any pending update on unmount
     useEffect(() => {
-        const timer = setTimeout(() => {
-            if (localWord !== entry.word) {
-                onFieldChange(index, 'word', localWord);
-            }
-            if (localDescription !== entry.description) {
-                onFieldChange(index, 'description', localDescription);
-            }
-            if (localInclusion !== entry.inclusion_criteria) {
-                onFieldChange(index, 'inclusion_criteria', localInclusion);
-            }
-            if (localExclusion !== entry.exclusion_criteria) {
-                onFieldChange(index, 'exclusion_criteria', localExclusion);
-            }
-        }, DEBOUNCE_DELAY);
-        return () => clearTimeout(timer);
-    }, [localWord, localDescription, localInclusion, localExclusion, entry, index, onFieldChange]);
+        return () => {
+            debouncedUpdate.cancel();
+        };
+    }, [debouncedUpdate]);
 
     return (
         <tr className="text-center">
@@ -54,28 +55,44 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
                 <textarea
                     className="w-full p-2 border border-gray-300 rounded resize-none h-24"
                     value={localWord}
-                    onChange={(e) => setLocalWord(e.target.value)}
+                    onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalWord(v);
+                        debouncedUpdate('word', v);
+                    }}
                 />
             </td>
             <td className="border border-gray-400 p-2">
                 <textarea
                     className="w-full p-2 border border-gray-300 rounded resize-none h-24"
                     value={localDescription}
-                    onChange={(e) => setLocalDescription(e.target.value)}
+                    onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalDescription(v);
+                        debouncedUpdate('description', v);
+                    }}
                 />
             </td>
             <td className="border border-gray-400 p-2">
                 <textarea
                     className="w-full p-2 border border-gray-300 rounded resize-none h-24"
                     value={localInclusion}
-                    onChange={(e) => setLocalInclusion(e.target.value)}
+                    onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalInclusion(v);
+                        debouncedUpdate('inclusion_criteria', v);
+                    }}
                 />
             </td>
             <td className="border border-gray-400 p-2">
                 <textarea
                     className="w-full p-2 border border-gray-300 rounded resize-none h-24"
                     value={localExclusion}
-                    onChange={(e) => setLocalExclusion(e.target.value)}
+                    onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalExclusion(v);
+                        debouncedUpdate('exclusion_criteria', v);
+                    }}
                 />
             </td>
             <td className="border border-gray-400 p-2" id={`action-row-${index}`}>

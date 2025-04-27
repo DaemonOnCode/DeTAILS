@@ -1,5 +1,6 @@
-from typing import Optional, TypeVar, Generic, Tuple, Any, List, Dict
+from typing import Optional, TypeVar, Generic, Tuple, Any, List, Dict, Union
 from dataclasses import fields
+import typing
 
 T = TypeVar("T")
 
@@ -20,22 +21,49 @@ class QueryBuilder(Generic[T]):
             raise ValueError(f"Invalid column: {column}. Allowed columns: {list(self.model_fields.keys())}")
 
     def _validate_value(self, column: str, value: Any) -> None:
-        expected_type = self.model_fields[column]
-        if expected_type == bool:
+        expected = self.model_fields[column]
+        origin = typing.get_origin(expected)
+        args = typing.get_args(expected)
+
+        if origin is Union and type(None) in args:
+            non_none = [t for t in args if t is not type(None)]
+            allowed = []
+            for t in non_none:
+                if t is bool:
+                    allowed.extend((bool, int))
+                else:
+                    allowed.append(t)
+            if value is None:
+                return 
+            if not isinstance(value, tuple(allowed)):
+                raise TypeError(
+                    f"Invalid type for column '{column}'. "
+                    f"Expected {expected}, got {type(value)}."
+                )
+            return
+        if expected is bool:
             if not isinstance(value, (bool, int)):
-                raise TypeError(f"Invalid type for column '{column}'. Expected bool, got {type(value)}.")
-        elif expected_type == Optional[bool]:
-            if not isinstance(value, (bool, int, type(None))):
-                raise TypeError(f"Invalid type for column '{column}'. Expected Optional[bool], got {type(value)}.")
-        if not isinstance(value, expected_type) and value is not None:
-            raise TypeError(f"Invalid type for column '{column}'. Expected {expected_type}, got {type(value)}.")
+                raise TypeError(
+                    f"Invalid type for column '{column}'. Expected bool, got {type(value)}."
+                )
+            return
+        if not isinstance(value, expected):
+            raise TypeError(
+                f"Invalid type for column '{column}'. Expected {expected}, got {type(value)}."
+            )
         
     def _normalize_value(self, column: str, value: Any) -> Any:
         expected = self.model_fields[column]
-        if (expected is bool) and isinstance(value, int):
+        origin = typing.get_origin(expected)
+        args = typing.get_args(expected)
+
+        is_optional_bool = (
+            (origin is Union and bool in args and type(None) in args)
+            or (expected is bool)
+        )
+        if is_optional_bool and isinstance(value, int):
             return bool(value)
-        elif (expected is Optional[bool]) and isinstance(value, int):
-            return bool(value) if value is not None else None
+
         return value
 
     def _format_filter(self, column: str, operator: str, value: Any) -> Tuple[str, List[Any]]:
