@@ -136,19 +136,19 @@ const computeChanges = (
     const curr = currResults.get(id);
     if (prev && curr) {
       if (prev.model !== curr.model)
-        updated.push({
-          type: "model_changed",
-          resultId: id,
-          oldValue: prev.model,
-          newValue: curr.model,
-        });
-      if (prev.quote !== curr.quote)
-        updated.push({
-          type: "quote_changed",
-          resultId: id,
-          oldValue: prev.quote,
-          newValue: curr.quote,
-        });
+        if (prev.quote !== curr.quote)
+          // updated.push({
+          //   type: "model_changed",
+          //   resultId: id,
+          //   oldValue: prev.model,
+          //   newValue: curr.model,
+          // });
+          updated.push({
+            type: "quote_changed",
+            resultId: id,
+            oldValue: prev.quote,
+            newValue: curr.quote,
+          });
       if (prev.code !== curr.code)
         updated.push({
           type: "code_changed",
@@ -209,8 +209,8 @@ const areCodingResultsEqual = (a: CodingResult, b: CodingResult): boolean => {
 
 const renderChangeDetails = (change: FieldChange): string => {
   switch (change.type) {
-    case "model_changed":
-      return `Result ID: ${change.resultId}, Old Model: ${change.oldValue}, New Model: ${change.newValue}`;
+    // case "model_changed":
+    //   return `Result ID: ${change.resultId}, Old Model: ${change.oldValue}, New Model: ${change.newValue}`;
     case "quote_changed":
       return `Result ID: ${change.resultId}, Old Quote: ${change.oldValue}, New Quote: ${change.newValue}`;
     case "code_changed":
@@ -229,7 +229,12 @@ const renderChangeDetails = (change: FieldChange): string => {
 };
 
 const CodingResultsDiffViewer: React.FC = () => {
-  const { isDatabaseLoaded, executeQuery, calculateSimilarity } = useDatabase();
+  const {
+    isDatabaseLoaded,
+    executeQuery,
+    calculateSimilarity,
+    selectedWorkspaceId,
+  } = useDatabase();
   const [sequences, setSequences] = useState<DatabaseRow[][]>([]);
   const [sequenceDiffs, setSequenceDiffs] = useState<SequenceDiff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -319,9 +324,10 @@ const CodingResultsDiffViewer: React.FC = () => {
         const query = `
           SELECT * FROM state_dumps
           WHERE json_extract(context, '$.function') IN ('final_codes', 'dispatchUnseenPostResponse')
+          AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
         `;
-        const result = await executeQuery(query, []);
+        const result = await executeQuery(query, [selectedWorkspaceId]);
         setSequences(groupEntriesIntoSequences(result));
       } catch (error) {
         console.error("Error fetching entries:", error);

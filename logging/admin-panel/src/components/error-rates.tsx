@@ -24,7 +24,7 @@ interface ErrorRateData {
 }
 
 function ErrorRates() {
-  const { isDatabaseLoaded, executeQuery } = useDatabase();
+  const { isDatabaseLoaded, executeQuery, selectedWorkspaceId } = useDatabase();
   const [errorRates, setErrorRates] = useState<Record<string, ErrorRateData>>(
     {}
   );
@@ -41,10 +41,13 @@ function ErrorRates() {
         const sampleQuery = `
           SELECT * FROM state_dumps
           WHERE json_extract(context, '$.function') = 'sample_posts'
+          AND json_extract(context, '$.workspace_id') = ?
           ORDER BY id DESC
           LIMIT 1
         `;
-        const sampleResult = await executeQuery(sampleQuery, []);
+        const sampleResult = await executeQuery(sampleQuery, [
+          selectedWorkspaceId,
+        ]);
         const sampleDump = sampleResult[0]; // Take the most recent dump
         const groups = JSON.parse(sampleDump.state).groups; // e.g., { group1: ['post1', 'post2'], ... }
 
@@ -52,17 +55,23 @@ function ErrorRates() {
         const hallucinationQuery = `
           SELECT * FROM state_dumps
           WHERE json_extract(context, '$.function') = 'llm_response_after_filtering_hallucinations'
+          AND json_extract(context, '$.workspace_id') = ?
           ORDER BY id
         `;
-        const hallucinationDumps = await executeQuery(hallucinationQuery, []);
+        const hallucinationDumps = await executeQuery(hallucinationQuery, [
+          selectedWorkspaceId,
+        ]);
 
         // Fetch empty column filtering state dumps
         const emptyColumnsQuery = `
           SELECT * FROM state_dumps
           WHERE json_extract(context, '$.function') = 'llm_response_after_filtering_empty_columns'
+          AND json_extract(context, '$.workspace_id') = ?
           ORDER BY id
         `;
-        const emptyColumnsDumps = await executeQuery(emptyColumnsQuery, []);
+        const emptyColumnsDumps = await executeQuery(emptyColumnsQuery, [
+          selectedWorkspaceId,
+        ]);
 
         // Process the fetched data
         const data = processStateDumps(

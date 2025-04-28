@@ -152,7 +152,12 @@ const renderChangeDetails = (change: Change): string => {
 };
 
 const CodesDiffViewer: React.FC = () => {
-  const { isDatabaseLoaded, executeQuery, calculateSimilarity } = useDatabase();
+  const {
+    isDatabaseLoaded,
+    executeQuery,
+    calculateSimilarity,
+    selectedWorkspaceId,
+  } = useDatabase();
   const [sequences, setSequences] = useState<DatabaseRow[][]>([]);
   const [sequenceDiffs, setSequenceDiffs] = useState<SequenceDiff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -281,9 +286,10 @@ const CodesDiffViewer: React.FC = () => {
         const query = `
           SELECT * FROM state_dumps
           WHERE json_extract(context, '$.function') IN ('code_grouping', 'dispatchGroupedCodes')
+          AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
         `;
-        const result = await executeQuery(query, []);
+        const result = await executeQuery(query, [selectedWorkspaceId]);
         setSequences(groupEntriesIntoSequences(result));
       } catch (error) {
         console.error("Error fetching entries:", error);

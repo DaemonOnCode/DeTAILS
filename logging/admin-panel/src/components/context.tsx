@@ -256,7 +256,9 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({
     ]);
 
     // cosine dot‐product
-    return e1.reduce((sum, v, i) => sum + v * e2[i], 0);
+    const res = e1.reduce((sum, v, i) => sum + v * e2[i], 0);
+    console.log("Similarity:", res, text1, text2);
+    return res;
   };
 
   const value: DatabaseContextType = {

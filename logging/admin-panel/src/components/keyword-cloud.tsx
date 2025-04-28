@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDatabase } from "./context";
 
-/** Type Definitions */
 interface DatabaseRow {
   id: number;
   created_at: string;
@@ -27,7 +26,8 @@ interface KeywordChange {
   type: "inserted" | "deleted" | "updated";
   keywordId: string;
   word?: string;
-  updatedFields?: Partial<Keyword>;
+  updatedFields?: { [key: string]: { from: any; to: any } };
+  similarity?: number;
 }
 
 interface SelectionChange {
@@ -35,8 +35,6 @@ interface SelectionChange {
   keywordId: string;
   word: string;
 }
-
-type Change = KeywordChange | SelectionChange;
 
 interface SequenceDiff {
   sequenceId: number;
@@ -49,7 +47,6 @@ interface SequenceDiff {
   stepwiseSelectionChanges: { step: number; changes: SelectionChange[] }[];
 }
 
-/** Helper Functions */
 const safeParseContext = (context: string): Context => {
   try {
     return JSON.parse(context);
@@ -81,12 +78,10 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
 const extractKeywords = (state: any): Map<string, Keyword> => {
   const keywords = new Map<string, Keyword>();
   let keywordArray: any[] = [];
-  const currentState =
-    typeof state === "string"
-      ? JSON.parse(state).current_state
-      : state.current_state;
-  if (state.context && state.context.keywords) {
-    keywordArray = state.context.keywords;
+  const parsedState = typeof state === "string" ? JSON.parse(state) : state;
+  const currentState = parsedState.current_state;
+  if (parsedState.context && parsedState.context.keywords) {
+    keywordArray = parsedState.context.keywords;
   } else if (currentState && Array.isArray(currentState)) {
     keywordArray = currentState;
   }
@@ -106,12 +101,10 @@ const extractKeywords = (state: any): Map<string, Keyword> => {
 
 const extractSelectedKeywords = (state: any): Set<string> => {
   const selected = new Set<string>();
-  const selectedArray =
-    typeof state === "string"
-      ? JSON.parse(state).selected_keywords
-      : state.selected_keywords;
-  if (Array.isArray(selectedArray)) {
-    selectedArray.forEach((id: string) => selected.add(id));
+  const parsedState = typeof state === "string" ? JSON.parse(state) : state;
+  const currentState = parsedState.current_state;
+  if (Array.isArray(currentState)) {
+    currentState.forEach((id: string) => selected.add(id));
   }
   return selected;
 };
@@ -131,20 +124,34 @@ const computeKeywordChanges = (
       changes.push({ type: "inserted", keywordId: id, word: currKw.word });
     } else {
       const prevKw = prevKeywords.get(id)!;
-      const updatedFields: Partial<Keyword> = {};
-      if (prevKw.word !== currKw.word) updatedFields.word = currKw.word;
-      if (prevKw.description !== currKw.description)
-        updatedFields.description = currKw.description;
+      const updatedFields: { [key: string]: { from: any; to: any } } = {};
+      if (prevKw.word !== currKw.word) {
+        updatedFields.word = { from: prevKw.word, to: currKw.word };
+      }
+      if (prevKw.description !== currKw.description) {
+        updatedFields.description = {
+          from: prevKw.description,
+          to: currKw.description,
+        };
+      }
       if (
         JSON.stringify(prevKw.inclusion_criteria) !==
         JSON.stringify(currKw.inclusion_criteria)
-      )
-        updatedFields.inclusion_criteria = currKw.inclusion_criteria;
+      ) {
+        updatedFields.inclusion_criteria = {
+          from: prevKw.inclusion_criteria,
+          to: currKw.inclusion_criteria,
+        };
+      }
       if (
         JSON.stringify(prevKw.exclusion_criteria) !==
         JSON.stringify(currKw.exclusion_criteria)
-      )
-        updatedFields.exclusion_criteria = currKw.exclusion_criteria;
+      ) {
+        updatedFields.exclusion_criteria = {
+          from: prevKw.exclusion_criteria,
+          to: currKw.exclusion_criteria,
+        };
+      }
       if (Object.keys(updatedFields).length > 0) {
         changes.push({
           type: "updated",
@@ -185,15 +192,24 @@ const computeSelectionChanges = (
   return changes;
 };
 
-/** KeywordsDiffViewer Component */
+const formatUpdatedFields = (updatedFields?: {
+  [key: string]: { from: any; to: any };
+}) => {
+  if (!updatedFields) return "-";
+  return Object.entries(updatedFields)
+    .map(([key, value]) => `${key}: ${value.from} → ${value.to}`)
+    .join(", ");
+};
+
 const KeywordsDiffViewer: React.FC = () => {
-  const { isDatabaseLoaded, executeQuery } = useDatabase();
+  const {
+    isDatabaseLoaded,
+    executeQuery,
+    selectedWorkspaceId,
+    calculateSimilarity,
+  } = useDatabase();
   const [sequences, setSequences] = useState<DatabaseRow[][]>([]);
-  const [diffs, setDiffs] = useState<SequenceDiff[]>([]);
-  const [totalInsertionsBetweenInitials, setTotalInsertionsBetweenInitials] =
-    useState(0);
-  const [totalDeletionsBetweenInitials, setTotalDeletionsBetweenInitials] =
-    useState(0);
+  const [sequenceDiffs, setSequenceDiffs] = useState<SequenceDiff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -203,9 +219,10 @@ const KeywordsDiffViewer: React.FC = () => {
         const query = `
           SELECT * FROM state_dumps
           WHERE json_extract(context, '$.function') IN ('keyword_cloud_table', 'setSelectedKeywords', 'setKeywords')
+          AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
         `;
-        const result = await executeQuery(query, []);
+        const result = await executeQuery(query, [selectedWorkspaceId]);
         setSequences(groupEntriesIntoSequences(result));
       } catch (error) {
         console.error("Error fetching entries:", error);
@@ -214,133 +231,152 @@ const KeywordsDiffViewer: React.FC = () => {
         setIsLoading(false);
       }
     };
-
     if (isDatabaseLoaded) fetchEntries();
-  }, [isDatabaseLoaded, executeQuery]);
+  }, [isDatabaseLoaded, executeQuery, selectedWorkspaceId]);
 
   useEffect(() => {
-    const computeDiffsAndTotals = async () => {
-      const computedDiffs = sequences.map((sequence, seqIndex) => {
-        const initialEntry = sequence[0];
-        const initialContext = safeParseContext(initialEntry.context);
-        const isRegeneration = initialContext.run === "regenerate";
-        const initialState = JSON.parse(initialEntry.state);
-        const finalState =
-          sequence.length > 1
-            ? JSON.parse(sequence[sequence.length - 1].state)
-            : initialState;
+    const computeDiffs = async () => {
+      const normCache = new Map<string, number>();
 
-        const initialKeywords = extractKeywords(initialState);
-        const finalKeywords = extractKeywords(finalState);
-        const initialSelected = extractSelectedKeywords(initialState);
-        const finalSelected = extractSelectedKeywords(finalState);
-
-        const keywordChanges = computeKeywordChanges(
-          initialKeywords,
-          finalKeywords
-        );
-        const selectionChanges = computeSelectionChanges(
-          initialSelected,
-          finalSelected,
-          finalKeywords
-        );
-
-        const stepwiseKeywordChanges: {
-          step: number;
-          changes: KeywordChange[];
-        }[] = [];
-        const stepwiseSelectionChanges: {
-          step: number;
-          changes: SelectionChange[];
-        }[] = [];
-        let prevKeywords = initialKeywords;
-        let prevSelected = initialSelected;
-
-        for (let i = 0; i < sequence.length - 1; i++) {
-          const nextEntry = sequence[i + 1];
-          const nextContext = safeParseContext(nextEntry.context);
-          const nextState = JSON.parse(nextEntry.state);
-
-          if (nextContext.function === "setKeywords") {
-            const nextKeywords = extractKeywords(nextState);
-            const stepChanges = computeKeywordChanges(
-              prevKeywords,
-              nextKeywords
-            );
-            if (stepChanges.length > 0) {
-              stepwiseKeywordChanges.push({
-                step: i + 1,
-                changes: stepChanges,
-              });
-            }
-            prevKeywords = nextKeywords;
-          } else if (nextContext.function === "setSelectedKeywords") {
-            const nextSelected = extractSelectedKeywords(nextState);
-            const stepChanges = computeSelectionChanges(
-              prevSelected,
-              nextSelected,
-              prevKeywords
-            );
-            if (stepChanges.length > 0) {
-              stepwiseSelectionChanges.push({
-                step: i + 1,
-                changes: stepChanges,
-              });
-            }
-            prevSelected = nextSelected;
-          }
+      const getNorm = async (word: string): Promise<number> => {
+        if (normCache.has(word)) {
+          return normCache.get(word)!;
         }
+        const squaredNorm = await calculateSimilarity(word, word);
+        const norm = Math.sqrt(squaredNorm);
+        normCache.set(word, norm);
+        return norm;
+      };
 
-        return {
-          sequenceId: seqIndex + 1,
-          initialTimestamp: new Date(initialEntry.created_at).toLocaleString(),
-          finalTimestamp: new Date(
-            sequence[sequence.length - 1].created_at
-          ).toLocaleString(),
-          isRegeneration,
-          keywordChanges,
-          selectionChanges,
-          stepwiseKeywordChanges,
-          stepwiseSelectionChanges,
-        };
-      });
+      const computedDiffs = await Promise.all(
+        sequences.map(async (sequence, seqIndex) => {
+          const initialEntry = sequence[0];
+          const initialContext = safeParseContext(initialEntry.context);
+          const isRegeneration = initialContext.run === "regenerate";
+          const initialState = JSON.parse(initialEntry.state);
+          const finalState =
+            sequence.length > 1
+              ? JSON.parse(sequence[sequence.length - 1].state)
+              : initialState;
 
-      setDiffs(computedDiffs);
+          const initialKeywords = extractKeywords(initialState);
+          const finalKeywords = extractKeywords(finalState);
+          const initialSelected = extractSelectedKeywords(initialState);
+          const finalSelected = extractSelectedKeywords(finalState);
 
-      const initialRuns = computedDiffs.filter((diff) => !diff.isRegeneration);
-      if (initialRuns.length >= 2) {
-        const firstInitialSequence = sequences[initialRuns[0].sequenceId - 1];
-        const secondInitialSequence = sequences[initialRuns[1].sequenceId - 1];
-        const firstInitialState = JSON.parse(firstInitialSequence[0].state);
-        const secondInitialState = JSON.parse(secondInitialSequence[0].state);
-        const firstKeywords = extractKeywords(firstInitialState);
-        const secondKeywords = extractKeywords(secondInitialState);
-        const changesBetweenInitials = computeKeywordChanges(
-          firstKeywords,
-          secondKeywords
-        );
-        const insertions = changesBetweenInitials.filter(
-          (change) => change.type === "inserted"
-        ).length;
-        const deletions = changesBetweenInitials.filter(
-          (change) => change.type === "deleted"
-        ).length;
-        setTotalInsertionsBetweenInitials(insertions);
-        setTotalDeletionsBetweenInitials(deletions);
-      } else {
-        setTotalInsertionsBetweenInitials(0);
-        setTotalDeletionsBetweenInitials(0);
-      }
+          const keywordChanges = computeKeywordChanges(
+            initialKeywords,
+            finalKeywords
+          );
+          const selectionChanges = computeSelectionChanges(
+            initialSelected,
+            finalSelected,
+            finalKeywords
+          );
+
+          for (const change of keywordChanges) {
+            if (change.type === "updated" && change.updatedFields?.word) {
+              const dotProduct = await calculateSimilarity(
+                change.updatedFields.word.from,
+                change.updatedFields.word.to
+              );
+              const normPrev = await getNorm(change.updatedFields.word.from);
+              const normCurr = await getNorm(change.updatedFields.word.to);
+              change.similarity =
+                normPrev * normCurr > 0
+                  ? dotProduct / (normPrev * normCurr)
+                  : 0;
+            }
+          }
+
+          const stepwiseKeywordChanges: {
+            step: number;
+            changes: KeywordChange[];
+          }[] = [];
+          const stepwiseSelectionChanges: {
+            step: number;
+            changes: SelectionChange[];
+          }[] = [];
+          let prevKeywords = initialKeywords;
+          let prevSelected = initialSelected;
+
+          for (let i = 0; i < sequence.length - 1; i++) {
+            const nextEntry = sequence[i + 1];
+            const nextContext = safeParseContext(nextEntry.context);
+            const nextState = JSON.parse(nextEntry.state);
+
+            if (nextContext.function === "setKeywords") {
+              const nextKeywords = extractKeywords(nextState);
+              const stepChanges = computeKeywordChanges(
+                prevKeywords,
+                nextKeywords
+              );
+              for (const change of stepChanges) {
+                if (change.type === "updated" && change.updatedFields?.word) {
+                  const dotProduct = await calculateSimilarity(
+                    change.updatedFields.word.from,
+                    change.updatedFields.word.to
+                  );
+                  const normPrev = await getNorm(
+                    change.updatedFields.word.from
+                  );
+                  const normCurr = await getNorm(change.updatedFields.word.to);
+                  change.similarity =
+                    normPrev * normCurr > 0
+                      ? dotProduct / (normPrev * normCurr)
+                      : 0;
+                }
+              }
+              if (stepChanges.length > 0) {
+                stepwiseKeywordChanges.push({
+                  step: i + 1,
+                  changes: stepChanges,
+                });
+              }
+              prevKeywords = nextKeywords;
+            } else if (nextContext.function === "setSelectedKeywords") {
+              const nextSelected = extractSelectedKeywords(nextState);
+              const stepChanges = computeSelectionChanges(
+                prevSelected,
+                nextSelected,
+                prevKeywords
+              );
+              if (stepChanges.length > 0) {
+                stepwiseSelectionChanges.push({
+                  step: i + 1,
+                  changes: stepChanges,
+                });
+              }
+              prevSelected = nextSelected;
+            }
+          }
+
+          return {
+            sequenceId: seqIndex + 1,
+            initialTimestamp: new Date(
+              initialEntry.created_at
+            ).toLocaleString(),
+            finalTimestamp: new Date(
+              sequence[sequence.length - 1].created_at
+            ).toLocaleString(),
+            isRegeneration,
+            keywordChanges,
+            selectionChanges,
+            stepwiseKeywordChanges,
+            stepwiseSelectionChanges,
+          };
+        })
+      );
+
+      setSequenceDiffs(computedDiffs);
     };
 
     if (sequences.length > 0) {
-      computeDiffsAndTotals();
+      computeDiffs();
     } else {
-      setDiffs([]);
-      setTotalInsertionsBetweenInitials(0);
-      setTotalDeletionsBetweenInitials(0);
+      setSequenceDiffs([]);
     }
-  }, [sequences]);
+  }, [sequences, calculateSimilarity]);
 
   if (isLoading)
     return <p className="p-4 text-gray-600">Loading sequences...</p>;
@@ -352,65 +388,93 @@ const KeywordsDiffViewer: React.FC = () => {
       <h1 className="text-2xl font-bold mb-4 text-gray-800">
         Keywords Diff Viewer
       </h1>
-      <div className="mb-4 text-gray-600">
-        <p>
-          <strong>Total number of regenerations:</strong>{" "}
-          {diffs.filter((seq) => seq.isRegeneration).length}
-        </p>
-        <p>
-          <strong>Total insertions between two initial runs:</strong>{" "}
-          {totalInsertionsBetweenInitials}
-        </p>
-        <p>
-          <strong>Total deletions between two initial runs:</strong>{" "}
-          {totalDeletionsBetweenInitials}
-        </p>
-      </div>
-      {diffs.length === 0 ? (
+      <p className="mb-4 text-gray-600">
+        Total number of regenerations:{" "}
+        {sequenceDiffs.filter((seq) => seq.isRegeneration).length}
+      </p>
+      {sequenceDiffs.length === 0 ? (
         <p className="text-gray-600">No sequences found.</p>
       ) : (
-        diffs.map((seqDiff) => (
+        sequenceDiffs.map((seqDiff) => (
           <div key={seqDiff.sequenceId} className="mb-8">
             <h2 className="text-xl font-semibold mb-2 text-gray-700">
               Sequence {seqDiff.sequenceId}: {seqDiff.initialTimestamp} to{" "}
               {seqDiff.finalTimestamp} (
               {seqDiff.isRegeneration ? "Regeneration" : "Initial Generation"})
             </h2>
-            <h3 className="text-lg font-medium mb-2 text-gray-700">
-              Initial vs Final Changes
-            </h3>
-            {seqDiff.keywordChanges.length > 0 ||
-            seqDiff.selectionChanges.length > 0 ? (
-              <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="p-2 border">Type</th>
-                    <th className="p-2 border">Keyword ID</th>
-                    <th className="p-2 border">Word</th>
-                    <th className="p-2 border">Updated Fields</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...seqDiff.keywordChanges, ...seqDiff.selectionChanges].map(
-                    (change, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
+
+            {seqDiff.keywordChanges.length > 0 ? (
+              <div className="mb-6">
+                <h3 className="text-lg font-medium mb-2 text-gray-700">
+                  Keyword Changes
+                </h3>
+                <table className="table-auto w-full border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="p-2 border">Type</th>
+                      <th className="p-2 border">Keyword ID</th>
+                      <th className="p-2 border">Word</th>
+                      <th className="p-2 border">Updated Fields</th>
+                      <th className="p-2 border">Similarity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seqDiff.keywordChanges.map((change, index) => (
+                      <tr
+                        key={change.keywordId || `keyword-change-${index}`}
+                        className="hover:bg-gray-50"
+                      >
                         <td className="p-2 border">{change.type}</td>
                         <td className="p-2 border">{change.keywordId}</td>
                         <td className="p-2 border">{change.word || "-"}</td>
                         <td className="p-2 border">
-                          {"updatedFields" in change && change.updatedFields
-                            ? JSON.stringify(change.updatedFields)
+                          {change.updatedFields
+                            ? formatUpdatedFields(change.updatedFields)
+                            : "-"}
+                        </td>
+                        <td className="p-2 border">
+                          {change.similarity !== undefined
+                            ? change.similarity.toFixed(4)
                             : "-"}
                         </td>
                       </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <p className="mb-4 text-gray-600">
-                No changes between initial and final states.
-              </p>
+              <p className="mb-4 text-gray-600">No keyword changes.</p>
+            )}
+
+            {seqDiff.selectionChanges.length > 0 ? (
+              <div className="mb-6">
+                <h3 className="text-lg font-medium mb-2 text-gray-700">
+                  Selection Changes
+                </h3>
+                <table className="table-auto w-full border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="p-2 border">Type</th>
+                      <th className="p-2 border">Keyword ID</th>
+                      <th className="p-2 border">Word</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seqDiff.selectionChanges.map((change, index) => (
+                      <tr
+                        key={change.keywordId || `selection-change-${index}`}
+                        className="hover:bg-gray-50"
+                      >
+                        <td className="p-2 border">{change.type}</td>
+                        <td className="p-2 border">{change.keywordId}</td>
+                        <td className="p-2 border">{change.word}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="mb-4 text-gray-600">No selection changes.</p>
             )}
 
             <h3 className="text-lg font-medium mb-2 text-gray-700">
@@ -418,40 +482,102 @@ const KeywordsDiffViewer: React.FC = () => {
             </h3>
             {seqDiff.stepwiseKeywordChanges.length > 0 ||
             seqDiff.stepwiseSelectionChanges.length > 0 ? (
-              [
-                ...seqDiff.stepwiseKeywordChanges,
-                ...seqDiff.stepwiseSelectionChanges,
-              ].map((step) => (
-                <div key={step.step} className="mb-4">
-                  <h4 className="text-md font-medium text-gray-600">
-                    Step {step.step}
-                  </h4>
-                  <table className="table-auto w-full border-collapse border border-gray-300">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="p-2 border">Type</th>
-                        <th className="p-2 border">Keyword ID</th>
-                        <th className="p-2 border">Word</th>
-                        <th className="p-2 border">Updated Fields</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {step.changes.map((change, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="p-2 border">{change.type}</td>
-                          <td className="p-2 border">{change.keywordId}</td>
-                          <td className="p-2 border">{change.word || "-"}</td>
-                          <td className="p-2 border">
-                            {"updatedFields" in change && change.updatedFields
-                              ? JSON.stringify(change.updatedFields)
-                              : "-"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ))
+              <>
+                {seqDiff.stepwiseKeywordChanges.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-md font-medium text-gray-600">
+                      Keyword Changes
+                    </h4>
+                    {seqDiff.stepwiseKeywordChanges.map((step) => (
+                      <div key={step.step} className="mb-4">
+                        <h5 className="text-sm font-medium text-gray-500">
+                          Step {step.step}
+                        </h5>
+                        <table className="table-auto w-full border-collapse border border-gray-300">
+                          <thead>
+                            <tr className="bg-gray-100">
+                              <th className="p-2 border">Type</th>
+                              <th className="p-2 border">Keyword ID</th>
+                              <th className="p-2 border">Word</th>
+                              <th className="p-2 border">Updated Fields</th>
+                              <th className="p-2 border">Similarity</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {step.changes.map((change, index) => (
+                              <tr
+                                key={
+                                  change.keywordId ||
+                                  `step-${step.step}-keyword-${index}`
+                                }
+                                className="hover:bg-gray-50"
+                              >
+                                <td className="p-2 border">{change.type}</td>
+                                <td className="p-2 border">
+                                  {change.keywordId}
+                                </td>
+                                <td className="p-2 border">
+                                  {change.word || "-"}
+                                </td>
+                                <td className="p-2 border">
+                                  {change.updatedFields
+                                    ? formatUpdatedFields(change.updatedFields)
+                                    : "-"}
+                                </td>
+                                <td className="p-2 border">
+                                  {change.similarity !== undefined
+                                    ? change.similarity.toFixed(4)
+                                    : "-"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {seqDiff.stepwiseSelectionChanges.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-md font-medium text-gray-600">
+                      Selection Changes
+                    </h4>
+                    {seqDiff.stepwiseSelectionChanges.map((step) => (
+                      <div key={step.step} className="mb-4">
+                        <h5 className="text-sm font-medium text-gray-500">
+                          Step {step.step}
+                        </h5>
+                        <table className="table-auto w-full border-collapse border border-gray-300">
+                          <thead>
+                            <tr className="bg-gray-100">
+                              <th className="p-2 border">Type</th>
+                              <th className="p-2 border">Keyword ID</th>
+                              <th className="p-2 border">Word</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {step.changes.map((change, index) => (
+                              <tr
+                                key={
+                                  change.keywordId ||
+                                  `step-${step.step}-selection-${index}`
+                                }
+                                className="hover:bg-gray-50"
+                              >
+                                <td className="p-2 border">{change.type}</td>
+                                <td className="p-2 border">
+                                  {change.keywordId}
+                                </td>
+                                <td className="p-2 border">{change.word}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
               <p className="text-gray-600">
                 No stepwise changes in this sequence.

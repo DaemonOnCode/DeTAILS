@@ -193,7 +193,12 @@ const parseDiffFromState = async (
 };
 
 const CodebookDiffViewer: React.FC = () => {
-  const { isDatabaseLoaded, executeQuery, calculateSimilarity } = useDatabase();
+  const {
+    isDatabaseLoaded,
+    executeQuery,
+    calculateSimilarity,
+    selectedWorkspaceId,
+  } = useDatabase();
   const [sequences, setSequences] = useState<DatabaseRow[][]>([]);
   const [sequenceDiffs, setSequenceDiffs] = useState<SequenceDiff[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -221,9 +226,12 @@ const CodebookDiffViewer: React.FC = () => {
         const query: string = `
           SELECT * FROM state_dumps
           WHERE json_extract(context, '$.function') IN ('manual_codebook_generation', 'initial_codebook', 'dispatchInitialCodebookTable')
+            AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
         `;
-        const result: DatabaseRow[] = await executeQuery(query, []);
+        const result: DatabaseRow[] = await executeQuery(query, [
+          selectedWorkspaceId,
+        ]);
         setSequences(groupCodebookSequences(result));
       } catch (error) {
         console.error("Error fetching entries:", error);

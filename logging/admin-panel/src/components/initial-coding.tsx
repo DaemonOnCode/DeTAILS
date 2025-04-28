@@ -39,6 +39,7 @@ interface FieldChange {
   resultId: string;
   oldValue: any;
   newValue: any;
+  similarity?: number; // Added for code and quote changes
 }
 
 interface CRUDChanges {
@@ -114,10 +115,11 @@ const extractResults = (
   return results;
 };
 
-const computeChanges = (
+const computeChanges = async (
   prevResults: Map<string, CodingResult>,
-  currResults: Map<string, CodingResult>
-): CRUDChanges => {
+  currResults: Map<string, CodingResult>,
+  getSimilarity: (textA: string, textB: string) => Promise<number>
+): Promise<CRUDChanges> => {
   const prevIds = new Set(prevResults.keys());
   const currIds = new Set(currResults.keys());
 
@@ -131,65 +133,68 @@ const computeChanges = (
 
   const commonIds = [...prevIds].filter((id) => currIds.has(id));
 
-  commonIds.forEach((id) => {
+  for (const id of commonIds) {
     const prev = prevResults.get(id);
     const curr = currResults.get(id);
     if (prev && curr) {
-      if (prev.model !== curr.model)
-        updated.push({
-          type: "model_changed",
-          resultId: id,
-          oldValue: prev.model,
-          newValue: curr.model,
-        });
-      if (prev.quote !== curr.quote)
+      if (prev.quote !== curr.quote) {
+        const similarity = await getSimilarity(prev.quote, curr.quote);
         updated.push({
           type: "quote_changed",
           resultId: id,
           oldValue: prev.quote,
           newValue: curr.quote,
+          similarity,
         });
-      if (prev.code !== curr.code)
+      }
+      if (prev.code !== curr.code) {
+        const similarity = await getSimilarity(prev.code, curr.code);
         updated.push({
           type: "code_changed",
           resultId: id,
           oldValue: prev.code,
           newValue: curr.code,
+          similarity,
         });
-      if (prev.explanation !== curr.explanation)
+      }
+      if (prev.explanation !== curr.explanation) {
         updated.push({
           type: "explanation_changed",
           resultId: id,
           oldValue: prev.explanation,
           newValue: curr.explanation,
         });
+      }
       if (
         JSON.stringify(prev.chat_history) !== JSON.stringify(curr.chat_history)
-      )
+      ) {
         updated.push({
           type: "chat_history_changed",
           resultId: id,
           oldValue: prev.chat_history,
           newValue: curr.chat_history,
         });
-      if (prev.is_marked !== curr.is_marked)
+      }
+      if (prev.is_marked !== curr.is_marked) {
         updated.push({
           type: "is_marked_changed",
           resultId: id,
           oldValue: prev.is_marked,
           newValue: curr.is_marked,
         });
+      }
       if (
         JSON.stringify(prev.range_marker) !== JSON.stringify(curr.range_marker)
-      )
+      ) {
         updated.push({
           type: "range_marker_changed",
           resultId: id,
           oldValue: prev.range_marker,
           newValue: curr.range_marker,
         });
+      }
     }
-  });
+  }
 
   return { inserted, updated, deleted };
 };
@@ -208,13 +213,20 @@ const areCodingResultsEqual = (a: CodingResult, b: CodingResult): boolean => {
 };
 
 const renderChangeDetails = (change: FieldChange): string => {
+  let base = `Result ID: ${change.resultId}, `;
   switch (change.type) {
-    case "model_changed":
-      return `Result ID: ${change.resultId}, Old Model: ${change.oldValue}, New Model: ${change.newValue}`;
     case "quote_changed":
-      return `Result ID: ${change.resultId}, Old Quote: ${change.oldValue}, New Quote: ${change.newValue}`;
+      base += `Old Quote: ${change.oldValue}, New Quote: ${change.newValue}`;
+      if (change.similarity !== undefined) {
+        base += `, \n\nSimilarity: ${change.similarity.toFixed(3)}`;
+      }
+      return base;
     case "code_changed":
-      return `Result ID: ${change.resultId}, Old Code: ${change.oldValue}, New Code: ${change.newValue}`;
+      base += `Old Code: ${change.oldValue}, New Code: ${change.newValue}`;
+      if (change.similarity !== undefined) {
+        base += `, \n\nSimilarity: ${change.similarity.toFixed(3)}`;
+      }
+      return base;
     case "explanation_changed":
       return `Result ID: ${change.resultId}, Old Explanation: ${change.oldValue}, New Explanation: ${change.newValue}`;
     case "chat_history_changed":
@@ -229,14 +241,18 @@ const renderChangeDetails = (change: FieldChange): string => {
 };
 
 const CodingResultsDiffViewer: React.FC = () => {
-  const { isDatabaseLoaded, executeQuery, calculateSimilarity } = useDatabase();
+  const {
+    isDatabaseLoaded,
+    executeQuery,
+    calculateSimilarity,
+    selectedWorkspaceId,
+  } = useDatabase();
   const [sequences, setSequences] = useState<DatabaseRow[][]>([]);
   const [sequenceDiffs, setSequenceDiffs] = useState<SequenceDiff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [openSteps, setOpenSteps] = useState<{ [key: number]: boolean }>({});
   const similarityCache = useRef(new Map<string, number>());
 
-  // Asynchronous similarity function with caching
   const getSimilarity = async (
     textA: string,
     textB: string
@@ -251,42 +267,15 @@ const CodingResultsDiffViewer: React.FC = () => {
     return sim;
   };
 
-  // Asynchronous coding result similarity calculation
   const codingResultSimilarity = async (
     resultA: CodingResult,
     resultB: CodingResult
   ): Promise<number> => {
-    const modelSim = resultA.model === resultB.model ? 1 : 0;
     const quoteSim = await getSimilarity(resultA.quote, resultB.quote);
     const codeSim = await getSimilarity(resultA.code, resultB.code);
-    const explanationSim = await getSimilarity(
-      resultA.explanation,
-      resultB.explanation
-    );
-    const chatHistorySim =
-      JSON.stringify(resultA.chat_history) ===
-      JSON.stringify(resultB.chat_history)
-        ? 1
-        : 0;
-    const isMarkedSim = resultA.is_marked === resultB.is_marked ? 1 : 0;
-    const rangeMarkerSim =
-      JSON.stringify(resultA.range_marker) ===
-      JSON.stringify(resultB.range_marker)
-        ? 1
-        : 0;
-    return (
-      (modelSim +
-        quoteSim +
-        codeSim +
-        explanationSim +
-        chatHistorySim +
-        isMarkedSim +
-        rangeMarkerSim) /
-      7
-    );
+    return (quoteSim + codeSim) / 2;
   };
 
-  // Asynchronous metrics computation
   const computeMetrics = async (
     initialResults: Map<string, CodingResult>,
     finalResults: Map<string, CodingResult>
@@ -304,7 +293,7 @@ const CodingResultsDiffViewer: React.FC = () => {
       const initialResult = initialResults.get(id)!;
       const finalResult = finalResults.get(id)!;
       if (areCodingResultsEqual(initialResult, finalResult)) {
-        TP += 1; // Unchanged coding result
+        TP += 1;
       } else {
         const similarityPromise = codingResultSimilarity(
           initialResult,
@@ -329,7 +318,6 @@ const CodingResultsDiffViewer: React.FC = () => {
     return { accuracy, precision, recall };
   };
 
-  // Fetch database entries
   useEffect(() => {
     const fetchEntries = async () => {
       setIsLoading(true);
@@ -337,9 +325,10 @@ const CodingResultsDiffViewer: React.FC = () => {
         const query = `
           SELECT * FROM state_dumps
           WHERE json_extract(context, '$.function') IN ('initial_codes', 'dispatchSampledPostResponse')
+          AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
         `;
-        const result = await executeQuery(query, []);
+        const result = await executeQuery(query, [selectedWorkspaceId]);
         setSequences(groupEntriesIntoSequences(result));
       } catch (error) {
         console.error("Error fetching entries:", error);
@@ -351,7 +340,6 @@ const CodingResultsDiffViewer: React.FC = () => {
     if (isDatabaseLoaded) fetchEntries();
   }, [isDatabaseLoaded, executeQuery]);
 
-  // Compute sequence diffs asynchronously
   useEffect(() => {
     const computeDiffs = async () => {
       const diffs = await Promise.all(
@@ -371,7 +359,11 @@ const CodingResultsDiffViewer: React.FC = () => {
               ? extractResults(finalState, "dispatch")
               : initialResults;
 
-          const changes = computeChanges(initialResults, finalResults);
+          const changes = await computeChanges(
+            initialResults,
+            finalResults,
+            getSimilarity
+          );
           const { accuracy, precision, recall } = await computeMetrics(
             initialResults,
             finalResults
@@ -382,7 +374,11 @@ const CodingResultsDiffViewer: React.FC = () => {
           for (let i = 1; i < sequence.length; i++) {
             const currState = JSON.parse(sequence[i].state);
             const currResults = extractResults(currState, "dispatch");
-            const stepChanges = computeChanges(prevResults, currResults);
+            const stepChanges = await computeChanges(
+              prevResults,
+              currResults,
+              getSimilarity
+            );
             if (
               stepChanges.inserted.length > 0 ||
               stepChanges.updated.length > 0 ||
@@ -465,7 +461,6 @@ const CodingResultsDiffViewer: React.FC = () => {
               Initial vs Final Changes
             </h3>
             <div>
-              {/* Inserted Results */}
               <h4 className="text-md font-medium text-gray-600">
                 Inserted Results
               </h4>
@@ -494,7 +489,6 @@ const CodingResultsDiffViewer: React.FC = () => {
                 <p className="mb-2 text-gray-600">No inserted results.</p>
               )}
 
-              {/* Updated Results */}
               <h4 className="text-md font-medium text-gray-600">
                 Updated Results
               </h4>
@@ -521,7 +515,6 @@ const CodingResultsDiffViewer: React.FC = () => {
                 <p className="mb-2 text-gray-600">No updated results.</p>
               )}
 
-              {/* Deleted Results */}
               <h4 className="text-md font-medium text-gray-600">
                 Deleted Results
               </h4>
@@ -565,7 +558,6 @@ const CodingResultsDiffViewer: React.FC = () => {
                   </h4>
                   {openSteps[step.step] && (
                     <div>
-                      {/* Stepwise Inserted Results */}
                       <h5 className="text-sm font-medium text-gray-500">
                         Inserted Results
                       </h5>
@@ -596,7 +588,6 @@ const CodingResultsDiffViewer: React.FC = () => {
                         </p>
                       )}
 
-                      {/* Stepwise Updated Results */}
                       <h5 className="text-sm font-medium text-gray-500">
                         Updated Results
                       </h5>
@@ -612,7 +603,7 @@ const CodingResultsDiffViewer: React.FC = () => {
                             {step.changes.updated.map((change, index) => (
                               <tr key={index} className="hover:bg-gray-50">
                                 <td className="p-2 border">{change.type}</td>
-                                <td className="p-2 border">
+                                <td className="p-2 border whitespace-pre-line">
                                   {renderChangeDetails(change)}
                                 </td>
                               </tr>
@@ -625,7 +616,6 @@ const CodingResultsDiffViewer: React.FC = () => {
                         </p>
                       )}
 
-                      {/* Stepwise Deleted Results */}
                       <h5 className="text-sm font-medium text-gray-500">
                         Deleted Results
                       </h5>

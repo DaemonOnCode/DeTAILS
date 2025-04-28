@@ -1,25 +1,18 @@
 import { ratio } from "fuzzball";
 
 function displayText(text) {
-  const result = text.replace(/\s+/g, " ").trim();
-  console.log(`displayText: Input "${text}" -> Output "${result}"`);
-  return result;
+  return text.replace(/\s+/g, " ").trim();
 }
 
 function normalizeText(text) {
-  const result = text
+  return text
     .toLowerCase()
     .replace(/\s+/g, " ")
     .replace(/[^\w\s]|_/g, "")
     .trim();
-  console.log(`normalizeText: Input "${text}" -> Output "${result}"`);
-  return result;
 }
 
 function traverseComments(comment, parentId) {
-  console.log(
-    `traverseComments: Processing comment ID ${comment.id} with parent ID ${parentId}`
-  );
   return [
     {
       id: comment.id,
@@ -32,9 +25,6 @@ function traverseComments(comment, parentId) {
 }
 
 function getQuoteParentId(element) {
-  console.log(
-    `getQuoteParentId: Processing element type "${element.type}" with ID "${element.id}"`
-  );
   switch (element.type) {
     case "title":
       return `${element.id}-title`;
@@ -47,10 +37,12 @@ function getQuoteParentId(element) {
   }
 }
 
-function getCodeToQuoteParentIds(post, codes) {
-  console.log(
-    `getCodeToQuoteParentIds: Starting for post ID "${post.id}" with ${codes.length} codes`
-  );
+function getCodeToQuoteMap(post, codes) {
+  console.log("DEBUG getCodeToQuoteMap called", {
+    post,
+    codes,
+  });
+  // Create a flat map of all elements in the post
   const transcriptFlatMap = [
     {
       id: post.id,
@@ -66,87 +58,78 @@ function getCodeToQuoteParentIds(post, codes) {
     },
     ...post.comments.flatMap((comment) => traverseComments(comment, post.id)),
   ];
-  console.log(
-    `transcriptFlatMap created with ${transcriptFlatMap.length} elements`
-  );
 
-  const codeToQuoteParentIds = {};
-  const uniqueCodes = Array.from(new Set(codes.map((c) => c.code)));
-  uniqueCodes.forEach((code) => {
-    codeToQuoteParentIds[code] = new Set();
-  });
-  console.log(
-    `Initialized codeToQuoteParentIds with ${uniqueCodes.length} unique codes`
-  );
+  // Collect all possible quote parent IDs
+  const allQuoteParentIds = new Set(transcriptFlatMap.map(getQuoteParentId));
 
-  codes
-    .filter((c) => c.rangeMarker)
-    .forEach((code) => {
+  // Initialize result maps
+  const llmCodesMap = {};
+  const humanCodesMap = {};
+  const mappedQuoteParentIds = new Set();
+
+  // Process each code
+  codes.forEach((code) => {
+    const targetMap = code.markedBy === "llm" ? llmCodesMap : humanCodesMap;
+    const quoteParentIds = new Set();
+
+    if (code.rangeMarker) {
+      // Exact match using rangeMarker
       const dataIndex = parseInt(code.rangeMarker.itemId);
-      console.log(
-        `Processing code "${code.code}" with rangeMarker, itemId: ${code.rangeMarker.itemId}, parsed index: ${dataIndex}`
-      );
       if (dataIndex >= 0 && dataIndex < transcriptFlatMap.length) {
         const element = transcriptFlatMap[dataIndex];
         const quoteParentId = getQuoteParentId(element);
-        codeToQuoteParentIds[code.code].add(quoteParentId);
-        console.log(
-          `Added quoteParentId "${quoteParentId}" to code "${code.code}"`
-        );
-      } else {
-        console.warn(`Invalid dataIndex ${dataIndex} for code "${code.code}"`);
+        quoteParentIds.add(quoteParentId);
       }
-    });
+    } else {
+      // Fuzzy matching across all elements
+      transcriptFlatMap.forEach((element) => {
+        const elementText = normalizeText(element.text);
+        const codeText = normalizeText(code.text);
+        const exactMatch = element.text.includes(code.text);
+        const fuzzyScore = exactMatch
+          ? 100
+          : ratio(elementText, codeText, { full_process: true });
+        if (fuzzyScore >= 85) {
+          const quoteParentId = getQuoteParentId(element);
+          quoteParentIds.add(quoteParentId);
+        }
+      });
+    }
 
-  const codesWithoutMarker = codes.filter((c) => !c.rangeMarker);
-  console.log(
-    `Processing ${codesWithoutMarker.length} codes without rangeMarker`
-  );
-  transcriptFlatMap.forEach((element) => {
-    const elementText = normalizeText(element.text);
-    codesWithoutMarker.forEach((code) => {
-      const codeText = normalizeText(code.text);
-      const exactMatch = element.text.includes(code.text);
-      const fuzzyScore = exactMatch
-        ? 100
-        : ratio(elementText, codeText, { full_process: true });
-      console.log(
-        `Comparing element ID "${element.id}" (type: ${element.type}) with code "${code.code}": exactMatch=${exactMatch}, fuzzyScore=${fuzzyScore}`
-      );
-      if (fuzzyScore >= 85) {
-        const quoteParentId = getQuoteParentId(element);
-        codeToQuoteParentIds[code.code].add(quoteParentId);
-        console.log(
-          `Matched quoteParentId "${quoteParentId}" to code "${code.code}" with score ${fuzzyScore}`
-        );
-      }
-    });
+    // Store the result using the code's unique ID
+    targetMap[code.id] = Array.from(quoteParentIds);
+    quoteParentIds.forEach((id) => mappedQuoteParentIds.add(id));
   });
 
-  const result = {};
-  for (const code in codeToQuoteParentIds) {
-    result[code] = Array.from(codeToQuoteParentIds[code]);
-  }
-  console.log(`Final result for post ID "${post.id}":`, result);
-  return result;
+  // Compute unmapped IDs
+  const unmappedIds = Array.from(allQuoteParentIds).filter(
+    (id) => !mappedQuoteParentIds.has(id)
+  );
+
+  console.log("DEBUG unmappedIds:", unmappedIds);
+
+  // Return the final map
+  return {
+    llmCodes: llmCodesMap,
+    humanCodes: humanCodesMap,
+    unmappedIds: unmappedIds,
+  };
 }
 
+// Update the worker to use the new function
 onmessage = (event) => {
   const { type, id, post, codes } = event.data;
-  console.log(`onmessage: Received event type "${type}"`);
+  console.log("DEBUG transcript-worker received message:", event.data);
   if (type === "getCodeToQuoteParentIds") {
     try {
-      console.log(
-        `Processing request for post ID "${post.id}" with ${codes.length} codes`
-      );
-      const result = getCodeToQuoteParentIds(post, codes);
+      console.log("DEBUG getCodeToQuoteParentIds called", {
+        post,
+        codes,
+      });
+      const result = getCodeToQuoteMap(post, codes);
       postMessage({ type: "getCodeToQuoteParentIdsResult", id, data: result });
-      console.log(`Sent result for post ID "${post.id}"`);
     } catch (error) {
-      console.error(
-        `Error processing post ID "${data?.post?.id}": ${error.message}`
-      );
-      postMessage({ type: "error", id, data: err.message });
+      postMessage({ type: "error", id, data: error.message });
     }
   }
 };
