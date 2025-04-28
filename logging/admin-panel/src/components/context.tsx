@@ -12,7 +12,6 @@ import WorkerPool from "./worker-pool";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPES = ["https://www.googleapis.com/auth/cloud-platform"];
 
-/** Exchange a Google service‐account JWT for an OAuth2 access token */
 export async function getGcpAccessToken(creds: Record<string, string>) {
   const iat = Math.floor(Date.now() / 1000);
   const exp = iat + 3600;
@@ -131,7 +130,6 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         reader.readAsArrayBuffer(file);
       });
 
-      // Broadcast the “loadDatabase” message to all workers
       await workerPoolRef.current.broadcastInit(
         { type: "loadDatabase", arrayBuffer },
         {
@@ -151,7 +149,6 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  /** Run any SQL query in a single available worker */
   const executeQuery = async (
     query: string,
     params?: any[],
@@ -178,7 +175,6 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  /** Once DB is loaded, fetch all distinct workspace_ids */
   useEffect(() => {
     if (!isDatabaseLoaded) return;
 
@@ -202,7 +198,6 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({
       });
   }, [isDatabaseLoaded]);
 
-  /** Load a Google service‐account JSON key */
   const loadApiKey = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -223,7 +218,6 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({
     reader.readAsText(file);
   };
 
-  /** Compute cosine dot‐product of two text embeddings via Vertex AI */
   const calculateSimilarity = async (text1: string, text2: string) => {
     if (!apiKeyCreds) throw new Error("API key not loaded");
     const accessToken = await getGcpAccessToken(apiKeyCreds);
@@ -255,7 +249,6 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({
       fetchEmbedding(text2),
     ]);
 
-    // cosine dot‐product
     const res = e1.reduce((sum, v, i) => sum + v * e2[i], 0);
     console.log("Similarity:", res, text1, text2);
     return res;

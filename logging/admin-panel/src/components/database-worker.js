@@ -59,24 +59,19 @@ self.onmessage = async (e) => {
 };
 
 async function fetchPostsAndCommentsBatch(datasetId, postIds) {
-  // 1) Sanity-check how many posts exist for this dataset
   const countStmt = database.prepare(
     "SELECT COUNT(*) AS cnt FROM posts WHERE dataset_id = ?"
   );
   countStmt.bind([datasetId]);
   countStmt.step();
   const { cnt } = countStmt.getAsObject();
-  // console.log(`DEBUG: datasetId=${datasetId} has ${cnt} rows in posts table`);
   countStmt.free();
 
-  // 2) Posts query
   const postQuery = `
     SELECT id, selftext, title 
     FROM posts 
     WHERE dataset_id = ? AND id IN (${postIds.map(() => "?").join(",")})
   `;
-  // console.log("DEBUG postQuery:", postQuery.trim());
-  // console.log("DEBUG postQuery bind params:", [datasetId, ...postIds]);
 
   const postStmt = database.prepare(postQuery);
   postStmt.bind([datasetId, ...postIds]);
@@ -88,7 +83,6 @@ async function fetchPostsAndCommentsBatch(datasetId, postIds) {
   }
   postStmt.free();
 
-  // 3) Comments recursive query
   const commentQuery = `
     WITH RECURSIVE comment_tree AS (
       SELECT id, body, parent_id, post_id
@@ -102,24 +96,16 @@ async function fetchPostsAndCommentsBatch(datasetId, postIds) {
     )
     SELECT * FROM comment_tree;
   `;
-  // console.log("DEBUG commentQuery:", commentQuery.trim());
-  // console.log("DEBUG commentQuery bind params:", [
-  //   datasetId,
-  //   ...postIds,
-  //   datasetId,
-  // ]);
 
   const commentStmt = database.prepare(commentQuery);
   commentStmt.bind([datasetId, ...postIds, datasetId]);
   const comments = [];
   while (commentStmt.step()) {
     const row = commentStmt.getAsObject();
-    // console.log("DEBUG fetched comment row:", row);
     comments.push(row);
   }
   commentStmt.free();
 
-  // 4) Reconstruct tree
   const commentMap = {};
   comments.forEach((comment) => {
     comment.comments = [];

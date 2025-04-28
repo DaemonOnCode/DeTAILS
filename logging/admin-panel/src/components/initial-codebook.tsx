@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDatabase } from "./context";
-
-// Type Definitions (unchanged)
-interface DatabaseRow {
-  id: number;
-  created_at: string;
-  state: string;
-  context: string;
-}
+import { DatabaseRow } from "../utils/types";
 
 interface CodeObject {
   id: string;
@@ -40,7 +33,6 @@ interface SequenceDiff {
   metrics: { inserted: number; deleted: number; updated: number };
 }
 
-// Helper Functions (unchanged)
 const safeParseContext = (context: string): any => {
   try {
     return JSON.parse(context);
@@ -349,82 +341,13 @@ const CodebookDiffViewer: React.FC = () => {
             </h2>
             <div className="mb-4 text-gray-600">
               <p>
-                <strong>Inserted Codes:</strong> {seqDiff.metrics.inserted}
-              </p>
-              <p>
-                <strong>Deleted Codes:</strong> {seqDiff.metrics.deleted}
-              </p>
-              <p>
                 <strong>Updated Codes:</strong> {seqDiff.metrics.updated}
               </p>
             </div>
-
-            {/* Overall Changes */}
             <h3 className="text-lg font-medium mb-2 text-gray-700">
               Overall Changes
             </h3>
             <div className="mb-4">
-              {/* Inserted Codes */}
-              <h4 className="text-md font-medium text-gray-600">
-                Inserted Codes
-              </h4>
-              {seqDiff.overallChanges.inserted.length > 0 ? (
-                <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border">Code</th>
-                      <th className="p-2 border">Definition</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {seqDiff.overallChanges.inserted.map(
-                      (code: CodeObject, index: number) => (
-                        <tr
-                          key={`overall-inserted-${index}`}
-                          className="hover:bg-gray-50"
-                        >
-                          <td className="p-2 border">{code.code}</td>
-                          <td className="p-2 border">{code.definition}</td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="mb-4 text-gray-600">No inserted codes.</p>
-              )}
-
-              {/* Deleted Codes */}
-              <h4 className="text-md font-medium text-gray-600">
-                Deleted Codes
-              </h4>
-              {seqDiff.overallChanges.deleted.length > 0 ? (
-                <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border">Code</th>
-                      <th className="p-2 border">Definition</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {seqDiff.overallChanges.deleted.map(
-                      (code: CodeObject, index: number) => (
-                        <tr
-                          key={`overall-deleted-${index}`}
-                          className="hover:bg-gray-50"
-                        >
-                          <td className="p-2 border">{code.code}</td>
-                          <td className="p-2 border">{code.definition}</td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="mb-4 text-gray-600">No deleted codes.</p>
-              )}
-
-              {/* Updated Codes */}
               <h4 className="text-md font-medium text-gray-600">
                 Updated Codes
               </h4>
@@ -463,8 +386,6 @@ const CodebookDiffViewer: React.FC = () => {
                 <p className="mb-4 text-gray-600">No updated codes.</p>
               )}
             </div>
-
-            {/* Stepwise Changes */}
             <h3 className="text-lg font-medium mb-2 text-gray-700">
               Stepwise Changes
             </h3>
@@ -480,7 +401,6 @@ const CodebookDiffViewer: React.FC = () => {
                     </h4>
                     {openSteps[step.step] && (
                       <div>
-                        {/* Inserted Codes */}
                         <h5 className="text-sm font-medium text-gray-500">
                           Inserted Codes
                         </h5>
@@ -514,7 +434,6 @@ const CodebookDiffViewer: React.FC = () => {
                           </p>
                         )}
 
-                        {/* Deleted Codes */}
                         <h5 className="text-sm font-medium text-gray-500">
                           Deleted Codes
                         </h5>
@@ -548,7 +467,6 @@ const CodebookDiffViewer: React.FC = () => {
                           </p>
                         )}
 
-                        {/* Updated Codes */}
                         <h5 className="text-sm font-medium text-gray-500">
                           Updated Codes
                         </h5>

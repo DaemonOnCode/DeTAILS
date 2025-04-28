@@ -1,18 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDatabase } from "./context";
-
-interface DatabaseRow {
-  id: number;
-  created_at: string;
-  state: string;
-  context: string;
-}
-
-interface Context {
-  function: string;
-  run?: string;
-  [key: string]: any;
-}
+import { DatabaseRow, Context } from "../utils/types";
 
 interface Keyword {
   id: string;
@@ -30,6 +18,11 @@ interface KeywordChange {
   similarity?: number;
 }
 
+// New interface to include step information
+interface SequenceKeywordChange extends KeywordChange {
+  step: number;
+}
+
 interface SelectionChange {
   type: "selected" | "deselected";
   keywordId: string;
@@ -41,10 +34,12 @@ interface SequenceDiff {
   initialTimestamp: string;
   finalTimestamp: string;
   isRegeneration: boolean;
-  keywordChanges: KeywordChange[];
+  keywordChanges: SequenceKeywordChange[]; // Updated to use SequenceKeywordChange
   selectionChanges: SelectionChange[];
   stepwiseKeywordChanges: { step: number; changes: KeywordChange[] }[];
   stepwiseSelectionChanges: { step: number; changes: SelectionChange[] }[];
+  totalKeywordChanges: number;
+  totalSelectionChanges: number;
 }
 
 const safeParseContext = (context: string): Context => {
@@ -211,6 +206,12 @@ const KeywordsDiffViewer: React.FC = () => {
   const [sequences, setSequences] = useState<DatabaseRow[][]>([]);
   const [sequenceDiffs, setSequenceDiffs] = useState<SequenceDiff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [openSteps, setOpenSteps] = useState<{ [key: string]: boolean }>({});
+
+  const toggleStep = (sequenceId: number, step: number) => {
+    const key = `${sequenceId}-${step}`;
+    setOpenSteps((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   useEffect(() => {
     const fetchEntries = async () => {
@@ -239,9 +240,7 @@ const KeywordsDiffViewer: React.FC = () => {
       const normCache = new Map<string, number>();
 
       const getNorm = async (word: string): Promise<number> => {
-        if (normCache.has(word)) {
-          return normCache.get(word)!;
-        }
+        if (normCache.has(word)) return normCache.get(word)!;
         const squaredNorm = await calculateSimilarity(word, word);
         const norm = Math.sqrt(squaredNorm);
         normCache.set(word, norm);
@@ -264,30 +263,11 @@ const KeywordsDiffViewer: React.FC = () => {
           const initialSelected = extractSelectedKeywords(initialState);
           const finalSelected = extractSelectedKeywords(finalState);
 
-          const keywordChanges = computeKeywordChanges(
-            initialKeywords,
-            finalKeywords
-          );
           const selectionChanges = computeSelectionChanges(
             initialSelected,
             finalSelected,
             finalKeywords
           );
-
-          for (const change of keywordChanges) {
-            if (change.type === "updated" && change.updatedFields?.word) {
-              const dotProduct = await calculateSimilarity(
-                change.updatedFields.word.from,
-                change.updatedFields.word.to
-              );
-              const normPrev = await getNorm(change.updatedFields.word.from);
-              const normCurr = await getNorm(change.updatedFields.word.to);
-              change.similarity =
-                normPrev * normCurr > 0
-                  ? dotProduct / (normPrev * normCurr)
-                  : 0;
-            }
-          }
 
           const stepwiseKeywordChanges: {
             step: number;
@@ -351,6 +331,21 @@ const KeywordsDiffViewer: React.FC = () => {
             }
           }
 
+          // Aggregate all stepwise keyword changes into keywordChanges
+          const keywordChanges: SequenceKeywordChange[] =
+            stepwiseKeywordChanges.flatMap((step) =>
+              step.changes.map((change) => ({ ...change, step: step.step }))
+            );
+
+          const totalKeywordChanges = stepwiseKeywordChanges.reduce(
+            (sum, step) => sum + step.changes.length,
+            0
+          );
+          const totalSelectionChanges = stepwiseSelectionChanges.reduce(
+            (sum, step) => sum + step.changes.length,
+            0
+          );
+
           return {
             sequenceId: seqIndex + 1,
             initialTimestamp: new Date(
@@ -364,6 +359,8 @@ const KeywordsDiffViewer: React.FC = () => {
             selectionChanges,
             stepwiseKeywordChanges,
             stepwiseSelectionChanges,
+            totalKeywordChanges,
+            totalSelectionChanges,
           };
         })
       );
@@ -371,11 +368,8 @@ const KeywordsDiffViewer: React.FC = () => {
       setSequenceDiffs(computedDiffs);
     };
 
-    if (sequences.length > 0) {
-      computeDiffs();
-    } else {
-      setSequenceDiffs([]);
-    }
+    if (sequences.length > 0) computeDiffs();
+    else setSequenceDiffs([]);
   }, [sequences, calculateSimilarity]);
 
   if (isLoading)
@@ -395,196 +389,233 @@ const KeywordsDiffViewer: React.FC = () => {
       {sequenceDiffs.length === 0 ? (
         <p className="text-gray-600">No sequences found.</p>
       ) : (
-        sequenceDiffs.map((seqDiff) => (
-          <div key={seqDiff.sequenceId} className="mb-8">
-            <h2 className="text-xl font-semibold mb-2 text-gray-700">
-              Sequence {seqDiff.sequenceId}: {seqDiff.initialTimestamp} to{" "}
-              {seqDiff.finalTimestamp} (
-              {seqDiff.isRegeneration ? "Regeneration" : "Initial Generation"})
-            </h2>
+        sequenceDiffs.map((seqDiff) => {
+          const allStepChanges = [
+            ...seqDiff.stepwiseKeywordChanges.map((change) => ({
+              step: change.step,
+              type: "keyword" as const,
+              changes: change.changes,
+            })),
+            ...seqDiff.stepwiseSelectionChanges.map((change) => ({
+              step: change.step,
+              type: "selection" as const,
+              changes: change.changes,
+            })),
+          ].sort((a, b) => a.step - b.step);
 
-            {seqDiff.keywordChanges.length > 0 ? (
-              <div className="mb-6">
-                <h3 className="text-lg font-medium mb-2 text-gray-700">
-                  Keyword Changes
-                </h3>
-                <table className="table-auto w-full border-collapse border border-gray-300">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border">Type</th>
-                      <th className="p-2 border">Keyword ID</th>
-                      <th className="p-2 border">Word</th>
-                      <th className="p-2 border">Updated Fields</th>
-                      <th className="p-2 border">Similarity</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {seqDiff.keywordChanges.map((change, index) => (
-                      <tr
-                        key={change.keywordId || `keyword-change-${index}`}
-                        className="hover:bg-gray-50"
-                      >
-                        <td className="p-2 border">{change.type}</td>
-                        <td className="p-2 border">{change.keywordId}</td>
-                        <td className="p-2 border">{change.word || "-"}</td>
-                        <td className="p-2 border">
-                          {change.updatedFields
-                            ? formatUpdatedFields(change.updatedFields)
-                            : "-"}
-                        </td>
-                        <td className="p-2 border">
-                          {change.similarity !== undefined
-                            ? change.similarity.toFixed(4)
-                            : "-"}
-                        </td>
+          return (
+            <div key={seqDiff.sequenceId} className="mb-8">
+              <h2 className="text-xl font-semibold mb-2 text-gray-700">
+                Sequence {seqDiff.sequenceId}: {seqDiff.initialTimestamp} to{" "}
+                {seqDiff.finalTimestamp} (
+                {seqDiff.isRegeneration ? "Regeneration" : "Initial Generation"}
+                ) - Total related concepts considered:{" "}
+                {seqDiff.totalKeywordChanges}, Total selection changes:{" "}
+                {seqDiff.totalSelectionChanges}
+              </h2>
+
+              {seqDiff.keywordChanges.length > 0 ? (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium mb-2 text-gray-700">
+                    Keyword Changes
+                  </h3>
+                  <table className="table-auto w-full border-collapse border border-gray-300">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="p-2 border">Step</th>
+                        <th className="p-2 border">Type</th>
+                        <th className="p-2 border">Keyword ID</th>
+                        <th className="p-2 border">Word</th>
+                        <th className="p-2 border">Updated Fields</th>
+                        <th className="p-2 border">Similarity</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="mb-4 text-gray-600">No keyword changes.</p>
-            )}
+                    </thead>
+                    <tbody>
+                      {seqDiff.keywordChanges.map((change, index) =>
+                        change.type === "updated" ? (
+                          <tr
+                            key={`${change.step}-${change.keywordId}-${change.type}-${index}`}
+                            className="hover:bg-gray-50"
+                          >
+                            <td className="p-2 border">{change.step}</td>
+                            <td className="p-2 border">{change.type}</td>
+                            <td className="p-2 border">{change.keywordId}</td>
+                            <td className="p-2 border">{change.word || "-"}</td>
+                            <td className="p-2 border">
+                              {change.updatedFields
+                                ? formatUpdatedFields(change.updatedFields)
+                                : "-"}
+                            </td>
+                            <td className="p-2 border">
+                              {change.similarity !== undefined
+                                ? change.similarity.toFixed(4)
+                                : "-"}
+                            </td>
+                          </tr>
+                        ) : (
+                          <></>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="mb-4 text-gray-600">No keyword changes.</p>
+              )}
 
-            {seqDiff.selectionChanges.length > 0 ? (
-              <div className="mb-6">
-                <h3 className="text-lg font-medium mb-2 text-gray-700">
-                  Selection Changes
-                </h3>
-                <table className="table-auto w-full border-collapse border border-gray-300">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border">Type</th>
-                      <th className="p-2 border">Keyword ID</th>
-                      <th className="p-2 border">Word</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {seqDiff.selectionChanges.map((change, index) => (
-                      <tr
-                        key={change.keywordId || `selection-change-${index}`}
-                        className="hover:bg-gray-50"
-                      >
-                        <td className="p-2 border">{change.type}</td>
-                        <td className="p-2 border">{change.keywordId}</td>
-                        <td className="p-2 border">{change.word}</td>
+              {seqDiff.selectionChanges.length > 0 ? (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium mb-2 text-gray-700">
+                    Selection Changes
+                  </h3>
+                  <table className="table-auto w-full border-collapse border border-gray-300">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="p-2 border">Type</th>
+                        <th className="p-2 border">Keyword ID</th>
+                        <th className="p-2 border">Word</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="mb-4 text-gray-600">No selection changes.</p>
-            )}
+                    </thead>
+                    <tbody>
+                      {seqDiff.selectionChanges.map((change, index) => (
+                        <tr
+                          key={change.keywordId || `selection-change-${index}`}
+                          className="hover:bg-gray-50"
+                        >
+                          <td className="p-2 border">{change.type}</td>
+                          <td className="p-2 border">{change.keywordId}</td>
+                          <td className="p-2 border">{change.word}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="mb-4 text-gray-600">
+                  No overall selection changes.
+                  {seqDiff.totalSelectionChanges > 0 && (
+                    <span>
+                      {" "}
+                      However, there were {seqDiff.totalSelectionChanges}{" "}
+                      intermediate selection changes. Check "Stepwise Changes"
+                      below.
+                    </span>
+                  )}
+                </p>
+              )}
 
-            <h3 className="text-lg font-medium mb-2 text-gray-700">
-              Stepwise Changes
-            </h3>
-            {seqDiff.stepwiseKeywordChanges.length > 0 ||
-            seqDiff.stepwiseSelectionChanges.length > 0 ? (
-              <>
-                {seqDiff.stepwiseKeywordChanges.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-md font-medium text-gray-600">
-                      Keyword Changes
-                    </h4>
-                    {seqDiff.stepwiseKeywordChanges.map((step) => (
-                      <div key={step.step} className="mb-4">
-                        <h5 className="text-sm font-medium text-gray-500">
-                          Step {step.step}
-                        </h5>
-                        <table className="table-auto w-full border-collapse border border-gray-300">
-                          <thead>
-                            <tr className="bg-gray-100">
-                              <th className="p-2 border">Type</th>
-                              <th className="p-2 border">Keyword ID</th>
-                              <th className="p-2 border">Word</th>
-                              <th className="p-2 border">Updated Fields</th>
-                              <th className="p-2 border">Similarity</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {step.changes.map((change, index) => (
-                              <tr
-                                key={
-                                  change.keywordId ||
-                                  `step-${step.step}-keyword-${index}`
-                                }
-                                className="hover:bg-gray-50"
-                              >
-                                <td className="p-2 border">{change.type}</td>
-                                <td className="p-2 border">
-                                  {change.keywordId}
-                                </td>
-                                <td className="p-2 border">
-                                  {change.word || "-"}
-                                </td>
-                                <td className="p-2 border">
-                                  {change.updatedFields
-                                    ? formatUpdatedFields(change.updatedFields)
-                                    : "-"}
-                                </td>
-                                <td className="p-2 border">
-                                  {change.similarity !== undefined
-                                    ? change.similarity.toFixed(4)
-                                    : "-"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {seqDiff.stepwiseSelectionChanges.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-md font-medium text-gray-600">
-                      Selection Changes
-                    </h4>
-                    {seqDiff.stepwiseSelectionChanges.map((step) => (
-                      <div key={step.step} className="mb-4">
-                        <h5 className="text-sm font-medium text-gray-500">
-                          Step {step.step}
-                        </h5>
-                        <table className="table-auto w-full border-collapse border border-gray-300">
-                          <thead>
-                            <tr className="bg-gray-100">
-                              <th className="p-2 border">Type</th>
-                              <th className="p-2 border">Keyword ID</th>
-                              <th className="p-2 border">Word</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {step.changes.map((change, index) => (
-                              <tr
-                                key={
-                                  change.keywordId ||
-                                  `step-${step.step}-selection-${index}`
-                                }
-                                className="hover:bg-gray-50"
-                              >
-                                <td className="p-2 border">{change.type}</td>
-                                <td className="p-2 border">
-                                  {change.keywordId}
-                                </td>
-                                <td className="p-2 border">{change.word}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="text-gray-600">
-                No stepwise changes in this sequence.
-              </p>
-            )}
-          </div>
-        ))
+              <h3 className="text-lg font-medium mb-2 text-gray-700">
+                Stepwise Changes
+              </h3>
+              {allStepChanges.length > 0 ? (
+                allStepChanges.map((stepChange) => {
+                  const key = `${seqDiff.sequenceId}-${stepChange.step}`;
+                  const isOpen = openSteps[key];
+                  return (
+                    <div key={stepChange.step} className="mb-4">
+                      <h4
+                        className="text-md font-medium text-gray-600 cursor-pointer"
+                        onClick={() =>
+                          toggleStep(seqDiff.sequenceId, stepChange.step)
+                        }
+                      >
+                        Step {stepChange.step}:{" "}
+                        {stepChange.type.charAt(0).toUpperCase() +
+                          stepChange.type.slice(1)}{" "}
+                        Changes {isOpen ? "▲" : "▼"}
+                      </h4>
+                      {isOpen && (
+                        <div>
+                          {stepChange.type === "keyword" ? (
+                            <table className="table-auto w-full border-collapse border border-gray-300">
+                              <thead>
+                                <tr className="bg-gray-100">
+                                  <th className="p-2 border">Type</th>
+                                  <th className="p-2 border">Keyword ID</th>
+                                  <th className="p-2 border">Word</th>
+                                  <th className="p-2 border">Updated Fields</th>
+                                  <th className="p-2 border">Similarity</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {stepChange.changes.map((change, index) => (
+                                  <tr
+                                    key={
+                                      change.keywordId ||
+                                      `step-${stepChange.step}-keyword-${index}`
+                                    }
+                                    className="hover:bg-gray-50"
+                                  >
+                                    <td className="p-2 border">
+                                      {change.type}
+                                    </td>
+                                    <td className="p-2 border">
+                                      {change.keywordId}
+                                    </td>
+                                    <td className="p-2 border">
+                                      {change.word || "-"}
+                                    </td>
+                                    <td className="p-2 border">
+                                      {change.updatedFields
+                                        ? formatUpdatedFields(
+                                            change.updatedFields
+                                          )
+                                        : "-"}
+                                    </td>
+                                    <td className="p-2 border">
+                                      {change.similarity !== undefined
+                                        ? change.similarity.toFixed(4)
+                                        : "-"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          ) : (
+                            <table className="table-auto w-full border-collapse border border-gray-300">
+                              <thead>
+                                <tr className="bg-gray-100">
+                                  <th className="p-2 border">Type</th>
+                                  <th className="p-2 border">Keyword ID</th>
+                                  <th className="p-2 border">Word</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {stepChange.changes.map((change, index) => (
+                                  <tr
+                                    key={
+                                      change.keywordId ||
+                                      `step-${stepChange.step}-selection-${index}`
+                                    }
+                                    className="hover:bg-gray-50"
+                                  >
+                                    <td className="p-2 border">
+                                      {change.type}
+                                    </td>
+                                    <td className="p-2 border">
+                                      {change.keywordId}
+                                    </td>
+                                    <td className="p-2 border">
+                                      {change.word}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-gray-600">
+                  No stepwise changes in this sequence.
+                </p>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   );

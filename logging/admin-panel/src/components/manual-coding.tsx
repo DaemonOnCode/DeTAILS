@@ -1,27 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDatabase } from "./context";
 import WorkerPool from "./worker-pool";
-
-// Type Definitions
-interface DatabaseRow {
-  id: number;
-  created_at: string;
-  state: string;
-  context: string;
-}
-
-interface CodingResult {
-  id: string;
-  model: string;
-  quote: string;
-  code: string;
-  explanation: string;
-  post_id: string;
-  chat_history: any | null;
-  is_marked: boolean | null;
-  range_marker: any | null;
-  response_type: "Human" | "LLM";
-}
+import { CodingResult, DatabaseRow } from "../utils/types";
 
 interface ComparisonChange {
   postId: string;

@@ -1,31 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDatabase } from "./context";
-
-// Type Definitions
-interface DatabaseRow {
-  id: number;
-  created_at: string;
-  state: string;
-  context: string;
-}
-
-interface Context {
-  function: string;
-  run?: string;
-  [key: string]: any;
-}
-
-interface CodingResult {
-  id: string;
-  model: string;
-  quote: string;
-  code: string;
-  explanation: string;
-  post_id: string;
-  chat_history: any | null;
-  is_marked: boolean | null;
-  range_marker: any | null;
-}
+import { DatabaseRow, Context, CodingResult } from "../utils/types";
 
 interface FieldChange {
   type:
@@ -39,7 +14,7 @@ interface FieldChange {
   resultId: string;
   oldValue: any;
   newValue: any;
-  similarity?: number; // Added for code and quote changes
+  similarity?: number;
 }
 
 interface CRUDChanges {
@@ -55,12 +30,10 @@ interface SequenceDiff {
   isRegeneration: boolean;
   changes: CRUDChanges;
   stepwiseChanges: { step: number; changes: CRUDChanges }[];
-  accuracy: number;
   precision: number;
   recall: number;
 }
 
-// Helper Functions
 const safeParseContext = (context: string): Context => {
   try {
     return JSON.parse(context);
@@ -110,6 +83,7 @@ const extractResults = (
       range_marker: result.range_marker
         ? JSON.parse(result.range_marker)
         : null,
+      response_type: result.response_type,
     });
   });
   return results;
@@ -199,17 +173,39 @@ const computeChanges = async (
   return { inserted, updated, deleted };
 };
 
-const areCodingResultsEqual = (a: CodingResult, b: CodingResult): boolean => {
-  return (
-    a.model === b.model &&
-    a.quote === b.quote &&
-    a.code === b.code &&
-    a.explanation === b.explanation &&
-    a.post_id === b.post_id &&
-    JSON.stringify(a.chat_history) === JSON.stringify(b.chat_history) &&
-    a.is_marked === b.is_marked &&
-    JSON.stringify(a.range_marker) === JSON.stringify(b.range_marker)
-  );
+const computeMetrics = async (
+  initialResults: Map<string, CodingResult>,
+  finalResults: Map<string, CodingResult>,
+  getSimilarity: (textA: string, textB: string) => Promise<number>
+): Promise<{ precision: number; recall: number }> => {
+  const initialIds = new Set(initialResults.keys());
+  const finalIds = new Set(finalResults.keys());
+  const commonIds = [...initialIds].filter((id) => finalIds.has(id));
+  const insertedIds = [...finalIds].filter((id) => !initialIds.has(id));
+  const deletedIds = [...initialIds].filter((id) => !finalIds.has(id));
+
+  let TP = 0;
+  for (const id of commonIds) {
+    const final = finalResults.get(id)!;
+    if (final.is_marked === true) {
+      const initial = initialResults.get(id)!;
+      const quoteSim = await getSimilarity(initial.quote, final.quote);
+      const codeSim = await getSimilarity(initial.code, final.code);
+      TP += (quoteSim + codeSim) / 2;
+    }
+  }
+  const falseMarkedCount = commonIds.filter((id) => {
+    const final = finalResults.get(id)!;
+    return final.is_marked === false;
+  }).length;
+  const FP = deletedIds.length + falseMarkedCount;
+
+  const FN = insertedIds.length;
+
+  const precision = TP + FP > 0 ? TP / (TP + FP) : 0;
+  const recall = TP + FN > 0 ? TP / (TP + FN) : 0;
+
+  return { precision, recall };
 };
 
 const renderChangeDetails = (change: FieldChange): string => {
@@ -267,57 +263,6 @@ const CodingResultsDiffViewer: React.FC = () => {
     return sim;
   };
 
-  const codingResultSimilarity = async (
-    resultA: CodingResult,
-    resultB: CodingResult
-  ): Promise<number> => {
-    const quoteSim = await getSimilarity(resultA.quote, resultB.quote);
-    const codeSim = await getSimilarity(resultA.code, resultB.code);
-    return (quoteSim + codeSim) / 2;
-  };
-
-  const computeMetrics = async (
-    initialResults: Map<string, CodingResult>,
-    finalResults: Map<string, CodingResult>
-  ): Promise<{ accuracy: number; precision: number; recall: number }> => {
-    const initialIds = new Set(initialResults.keys());
-    const finalIds = new Set(finalResults.keys());
-    const allIds = new Set([...initialIds, ...finalIds]);
-    const commonIds = [...initialIds].filter((id) => finalIds.has(id));
-
-    let TP = 0;
-    let FN_contribution = 0;
-    const similarityPromises: Promise<void>[] = [];
-
-    commonIds.forEach((id) => {
-      const initialResult = initialResults.get(id)!;
-      const finalResult = finalResults.get(id)!;
-      if (areCodingResultsEqual(initialResult, finalResult)) {
-        TP += 1;
-      } else {
-        const similarityPromise = codingResultSimilarity(
-          initialResult,
-          finalResult
-        ).then((similarity) => {
-          TP += similarity;
-          FN_contribution += 1 - similarity;
-        });
-        similarityPromises.push(similarityPromise);
-      }
-    });
-
-    await Promise.all(similarityPromises);
-
-    const FP = finalIds.size - commonIds.length;
-    const FN = initialIds.size - commonIds.length + FN_contribution;
-
-    const accuracy = allIds.size > 0 ? TP / allIds.size : 0;
-    const precision = TP + FP > 0 ? TP / (TP + FP) : 0;
-    const recall = TP + FN > 0 ? TP / (TP + FN) : 0;
-
-    return { accuracy, precision, recall };
-  };
-
   useEffect(() => {
     const fetchEntries = async () => {
       setIsLoading(true);
@@ -338,7 +283,7 @@ const CodingResultsDiffViewer: React.FC = () => {
       }
     };
     if (isDatabaseLoaded) fetchEntries();
-  }, [isDatabaseLoaded, executeQuery]);
+  }, [isDatabaseLoaded, executeQuery, selectedWorkspaceId]);
 
   useEffect(() => {
     const computeDiffs = async () => {
@@ -364,9 +309,11 @@ const CodingResultsDiffViewer: React.FC = () => {
             finalResults,
             getSimilarity
           );
-          const { accuracy, precision, recall } = await computeMetrics(
+          const { precision, recall } = await computeMetrics(
+            // Now async
             initialResults,
-            finalResults
+            finalResults,
+            getSimilarity // Pass getSimilarity
           );
 
           const stepwiseChanges: { step: number; changes: CRUDChanges }[] = [];
@@ -400,7 +347,6 @@ const CodingResultsDiffViewer: React.FC = () => {
             isRegeneration,
             changes,
             stepwiseChanges,
-            accuracy,
             precision,
             recall,
           };
@@ -430,7 +376,7 @@ const CodingResultsDiffViewer: React.FC = () => {
   return (
     <div className="p-4 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold mb-4 text-gray-800">
-        Coding Results Diff Viewer
+        Initial Coding Results
       </h1>
       <p className="mb-4 text-gray-600">
         Total number of regenerations: {totalRegenerations}
@@ -446,9 +392,6 @@ const CodingResultsDiffViewer: React.FC = () => {
               {seqDiff.isRegeneration ? "Regeneration" : "Initial Generation"})
             </h2>
             <div className="mb-4 text-gray-600">
-              <p>
-                <strong>Accuracy:</strong> {seqDiff.accuracy.toFixed(3)}
-              </p>
               <p>
                 <strong>Precision:</strong> {seqDiff.precision.toFixed(3)}
               </p>

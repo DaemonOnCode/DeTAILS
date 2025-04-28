@@ -1,19 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDatabase } from "./context";
-
-// Type Definitions
-interface DatabaseRow {
-  id: number;
-  created_at: string;
-  state: string;
-  context: string;
-}
-
-interface Context {
-  function: string;
-  run?: string;
-  [key: string]: any;
-}
+import { DatabaseRow, Context } from "../utils/types";
 
 interface KeywordResult {
   id: string | null;
@@ -30,10 +17,11 @@ interface FieldChange {
     | "description_changed"
     | "inclusion_criteria_changed"
     | "exclusion_criteria_changed"
-    | "isMarked_changed";
+    | "is_marked_changed";
   resultId: string;
   oldValue: any;
   newValue: any;
+  similarity?: number;
 }
 
 interface CRUDChanges {
@@ -54,12 +42,10 @@ interface SequenceDiff {
   isRegeneration: boolean;
   changes: CRUDChanges;
   stepwiseChanges: StepChange[];
-  accuracy: number;
   precision: number;
   recall: number;
 }
 
-// Helper Functions
 const safeParseContext = (context: string): Context => {
   try {
     return JSON.parse(context);
@@ -146,10 +132,11 @@ const mapInitialToIds = (
   return mappedResults;
 };
 
-const computeChanges = (
+const computeChanges = async (
   prevResults: Map<string, KeywordResult>,
-  currResults: Map<string, KeywordResult>
-): CRUDChanges => {
+  currResults: Map<string, KeywordResult>,
+  getSimilarity: (textA: string, textB: string) => Promise<number>
+): Promise<CRUDChanges> => {
   const prevKeys = new Set(prevResults.keys());
   const currKeys = new Set(currResults.keys());
 
@@ -163,82 +150,145 @@ const computeChanges = (
 
   const commonKeys = [...prevKeys].filter((key) => currKeys.has(key));
 
-  commonKeys.forEach((key) => {
+  for (const key of commonKeys) {
     const prev = prevResults.get(key);
     const curr = currResults.get(key);
     if (prev && curr) {
       if (prev.word !== curr.word) {
+        const similarity = await getSimilarity(prev.word, curr.word);
         updated.push({
           type: "word_changed",
           resultId: key,
           oldValue: prev.word,
           newValue: curr.word,
+          similarity,
         });
       }
       if (prev.description !== curr.description) {
+        const similarity = await getSimilarity(
+          prev.description,
+          curr.description
+        );
         updated.push({
           type: "description_changed",
           resultId: key,
           oldValue: prev.description,
           newValue: curr.description,
+          similarity,
         });
       }
       if (prev.inclusion_criteria !== curr.inclusion_criteria) {
+        const similarity = await getSimilarity(
+          prev.inclusion_criteria,
+          curr.inclusion_criteria
+        );
         updated.push({
           type: "inclusion_criteria_changed",
           resultId: key,
           oldValue: prev.inclusion_criteria,
           newValue: curr.inclusion_criteria,
+          similarity,
         });
       }
       if (prev.exclusion_criteria !== curr.exclusion_criteria) {
+        const similarity = await getSimilarity(
+          prev.exclusion_criteria,
+          curr.exclusion_criteria
+        );
         updated.push({
           type: "exclusion_criteria_changed",
           resultId: key,
           oldValue: prev.exclusion_criteria,
           newValue: curr.exclusion_criteria,
+          similarity,
         });
       }
       if (prev.isMarked !== curr.isMarked) {
         updated.push({
-          type: "isMarked_changed",
+          type: "is_marked_changed",
           resultId: key,
           oldValue: prev.isMarked,
           newValue: curr.isMarked,
         });
       }
     }
-  });
+  }
 
   return { inserted, updated, deleted };
 };
 
-// Metrics Helper Functions
-const areKeywordsEqual = (a: KeywordResult, b: KeywordResult): boolean => {
-  return (
-    a.word === b.word &&
-    a.description === b.description &&
-    a.inclusion_criteria === b.inclusion_criteria &&
-    a.exclusion_criteria === b.exclusion_criteria &&
-    a.isMarked === b.isMarked
-  );
-};
-
 const renderChangeDetails = (change: FieldChange): string => {
+  let base = `Keyword ID: ${change.resultId}, `;
   switch (change.type) {
     case "word_changed":
-      return `Keyword ID: ${change.resultId}, Old Word: ${change.oldValue}, New Word: ${change.newValue}`;
+      base += `Old Word: ${change.oldValue}, New Word: ${change.newValue}`;
+      break;
     case "description_changed":
-      return `Keyword ID: ${change.resultId}, Description Changed from "${change.oldValue}" to "${change.newValue}"`;
+      base += `Description Changed from "${change.oldValue}" to "${change.newValue}"`;
+      break;
     case "inclusion_criteria_changed":
-      return `Keyword ID: ${change.resultId}, Inclusion Criteria Changed from "${change.oldValue}" to "${change.newValue}"`;
+      base += `inclusion Criteria Changed from "${change.oldValue}" to "${change.newValue}"`;
+      break;
     case "exclusion_criteria_changed":
-      return `Keyword ID: ${change.resultId}, Exclusion Criteria Changed from "${change.oldValue}" to "${change.newValue}"`;
-    case "isMarked_changed":
-      return `Keyword ID: ${change.resultId}, Old Is Marked: ${change.oldValue}, New Is Marked: ${change.newValue}`;
+      base += `Exclusion Criteria Changed from "${change.oldValue}" to "${change.newValue}"`;
+      break;
+    case "is_marked_changed":
+      base += `Old Is Marked: ${change.oldValue}, New Is Marked: ${change.newValue}`;
+      break;
     default:
       return "";
   }
+  if (change.similarity !== undefined) {
+    base += `, Similarity: ${change.similarity.toFixed(3)}`;
+  }
+  return base;
+};
+
+const computeMetrics = async (
+  initialResults: Map<string, KeywordResult>,
+  finalResults: Map<string, KeywordResult>,
+  getSimilarity: (a: string, b: string) => Promise<number>
+): Promise<{ precision: number; recall: number }> => {
+  const initialKeys = new Set(initialResults.keys());
+  const finalKeys = new Set(finalResults.keys());
+
+  const common = [...initialKeys].filter((k) => finalKeys.has(k));
+  const inserted = [...finalKeys].filter((k) => !initialKeys.has(k));
+  const deleted = [...initialKeys].filter((k) => !finalKeys.has(k));
+
+  let TP = 0;
+  for (const key of common) {
+    const fin = finalResults.get(key)!;
+    if (fin.isMarked === true) {
+      const init = initialResults.get(key)!;
+
+      const fields: Array<
+        keyof Pick<
+          KeywordResult,
+          "word" | "description" | "inclusion_criteria" | "exclusion_criteria"
+        >
+      > = ["word", "description", "inclusion_criteria", "exclusion_criteria"];
+
+      const sims = await Promise.all(
+        fields.map((f) => getSimilarity(init[f] || "", fin[f] || ""))
+      );
+
+      const avgSim = sims.reduce((sum, x) => sum + x, 0) / sims.length;
+      TP += sims.every((s) => s === 1) ? 1 : avgSim;
+    }
+  }
+
+  const falseMarked = common.filter(
+    (k) => finalResults.get(k)!.isMarked === false
+  ).length;
+  const FP = deleted.length + falseMarked;
+
+  const FN = inserted.length;
+
+  const precision = TP + FP > 0 ? TP / (TP + FP) : 0;
+  const recall = TP + FN > 0 ? TP / (TP + FN) : 0;
+
+  return { precision, recall };
 };
 
 const KeywordTableDiffViewer: React.FC = () => {
@@ -254,7 +304,6 @@ const KeywordTableDiffViewer: React.FC = () => {
   const [openSteps, setOpenSteps] = useState<{ [key: number]: boolean }>({});
   const similarityCache = useRef(new Map<string, number>());
 
-  // Asynchronous similarity function with caching
   const getSimilarity = async (
     textA: string,
     textB: string
@@ -269,29 +318,6 @@ const KeywordTableDiffViewer: React.FC = () => {
     return sim;
   };
 
-  // Asynchronous keyword similarity calculation
-  const keywordSimilarity = async (
-    keywordA: KeywordResult,
-    keywordB: KeywordResult
-  ): Promise<number> => {
-    const wordSim = await getSimilarity(keywordA.word, keywordB.word);
-    const descSim = await getSimilarity(
-      keywordA.description,
-      keywordB.description
-    );
-    const inclSim = await getSimilarity(
-      keywordA.inclusion_criteria,
-      keywordB.inclusion_criteria
-    );
-    const exclSim = await getSimilarity(
-      keywordA.exclusion_criteria,
-      keywordB.exclusion_criteria
-    );
-    const isMarkedSim = keywordA.isMarked === keywordB.isMarked ? 1 : 0;
-    return (wordSim + descSim + inclSim + exclSim + isMarkedSim) / 5;
-  };
-
-  // Fetch database entries
   useEffect(() => {
     const fetchEntries = async () => {
       setIsLoading(true);
@@ -312,9 +338,8 @@ const KeywordTableDiffViewer: React.FC = () => {
       }
     };
     if (isDatabaseLoaded) fetchEntries();
-  }, [isDatabaseLoaded, executeQuery]);
+  }, [isDatabaseLoaded, executeQuery, selectedWorkspaceId]);
 
-  // Compute sequence diffs asynchronously
   useEffect(() => {
     const computeDiffs = async () => {
       const diffs = await Promise.all(
@@ -355,53 +380,54 @@ const KeywordTableDiffViewer: React.FC = () => {
               ? extractResults(finalState, "dispatch")
               : initialResults;
 
-          const changes = computeChanges(initialResults, finalResults);
-
-          // Calculate metrics
-          const initialKeys = new Set(initialResults.keys());
-          const finalKeys = new Set(finalResults.keys());
-          const allKeys = new Set([...initialKeys, ...finalKeys]);
-          const commonKeys = [...initialKeys].filter((key) =>
-            finalKeys.has(key)
+          const changes = await computeChanges(
+            initialResults,
+            finalResults,
+            getSimilarity
           );
 
-          let TP = 0;
-          let FN_contribution = 0;
-          const similarityPromises: Promise<void>[] = [];
+          // const initialKeys = new Set(initialResults.keys());
 
-          commonKeys.forEach((key) => {
-            const initialKeyword = initialResults.get(key)!;
-            const finalKeyword = finalResults.get(key)!;
-            if (areKeywordsEqual(initialKeyword, finalKeyword)) {
-              TP += 1; // Unchanged keyword
-            } else {
-              const similarityPromise = keywordSimilarity(
-                initialKeyword,
-                finalKeyword
-              ).then((similarity) => {
-                TP += similarity;
-                FN_contribution += 1 - similarity;
-              });
-              similarityPromises.push(similarityPromise);
-            }
-          });
+          // const finalKeys = new Set(finalResults.keys());
 
-          await Promise.all(similarityPromises);
+          // const groundTruthPositives = new Set(
+          //   [...finalResults.entries()]
+          //     .filter(([_, res]) => res.isMarked === true)
+          //     .map(([key]) => key)
+          // );
 
-          const FP = changes.inserted.length;
-          const FN = changes.deleted.length + FN_contribution;
+          // const TP = [...initialKeys].filter((key) =>
+          //   groundTruthPositives.has(key)
+          // ).length;
 
-          const accuracy = allKeys.size > 0 ? TP / allKeys.size : 0;
-          const precision = TP + FP > 0 ? TP / (TP + FP) : 0;
-          const recall = TP + FN > 0 ? TP / (TP + FN) : 0;
+          // const FP = [...initialKeys].filter(
+          //   (key) => !groundTruthPositives.has(key)
+          // ).length;
 
-          // Stepwise changes
+          // const FN = [...finalKeys].filter(
+          //   (key) => !initialKeys.has(key)
+          // ).length;
+
+          // const precision = TP + FP > 0 ? TP / (TP + FP) : 0;
+
+          // const recall = TP + FN > 0 ? TP / (TP + FN) : 0;
+
+          const { precision, recall } = await computeMetrics(
+            initialResults,
+            finalResults,
+            getSimilarity
+          );
+
           const stepwiseChanges: StepChange[] = [];
           let prevResults = initialResults;
           for (let i = 1; i < sequence.length; i++) {
             const currState = safeParseState(sequence[i].state);
             const currResults = extractResults(currState, "dispatch");
-            const stepChanges = computeChanges(prevResults, currResults);
+            const stepChanges = await computeChanges(
+              prevResults,
+              currResults,
+              getSimilarity
+            );
             stepwiseChanges.push({ step: i, changes: stepChanges });
             prevResults = currResults;
           }
@@ -413,7 +439,6 @@ const KeywordTableDiffViewer: React.FC = () => {
             isRegeneration,
             changes,
             stepwiseChanges,
-            accuracy,
             precision,
             recall,
           };
@@ -453,9 +478,6 @@ const KeywordTableDiffViewer: React.FC = () => {
             </h2>
             <div className="mb-4 text-gray-600">
               <p>
-                <strong>Accuracy:</strong> {seqDiff.accuracy.toFixed(3)}
-              </p>
-              <p>
                 <strong>Precision:</strong> {seqDiff.precision.toFixed(3)}
               </p>
               <p>
@@ -476,7 +498,7 @@ const KeywordTableDiffViewer: React.FC = () => {
                       <th className="p-2 border">ID</th>
                       <th className="p-2 border">Word</th>
                       <th className="p-2 border">Description</th>
-                      <th className="p-2 border">Inclusion Criteria</th>
+                      <th className="p-2 border">inclusion Criteria</th>
                       <th className="p-2 border">Exclusion Criteria</th>
                       <th className="p-2 border">Is Marked</th>
                     </tr>

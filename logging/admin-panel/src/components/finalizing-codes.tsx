@@ -1,19 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDatabase } from "./context";
-
-// Type Definitions
-interface DatabaseRow {
-  id: number;
-  created_at: string;
-  state: string;
-  context: string;
-}
-
-interface Context {
-  function: string;
-  run?: string;
-  [key: string]: any;
-}
+import { DatabaseRow, Context } from "../utils/types";
 
 interface GroupChange {
   type: "group_name_changed";
@@ -46,6 +33,15 @@ interface CodeMovement {
 
 type Change = GroupChange | GroupDeletion | GroupInsertion | CodeMovement;
 
+interface GroupMetric {
+  groupId: string;
+  initialName: string;
+  finalName: string | "Deleted";
+  precision: number;
+  recall: number;
+  similarity?: number; // Added optional similarity field
+}
+
 interface SequenceDiff {
   sequenceId: number;
   initialTimestamp: string;
@@ -53,12 +49,11 @@ interface SequenceDiff {
   isRegeneration: boolean;
   changes: Change[];
   stepwiseChanges: { step: number; changes: Change[] }[];
-  accuracy: number;
-  macro_precision: number;
-  macro_recall: number;
+  precision: number;
+  recall: number;
+  groupMetrics: GroupMetric[];
 }
 
-// Helper Functions
 const safeParseContext = (context: string): Context => {
   try {
     return JSON.parse(context);
@@ -161,6 +156,7 @@ const CodesDiffViewer: React.FC = () => {
   const [sequences, setSequences] = useState<DatabaseRow[][]>([]);
   const [sequenceDiffs, setSequenceDiffs] = useState<SequenceDiff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [openSteps, setOpenSteps] = useState<{ [key: string]: boolean }>({});
   const similarityCache = useRef(new Map<string, number>());
 
   const getGroupSimilarity = async (
@@ -169,9 +165,8 @@ const CodesDiffViewer: React.FC = () => {
   ): Promise<number> => {
     if (groupA === groupB) return 1.0;
     const key = [groupA, groupB].sort().join("-");
-    if (similarityCache.current.has(key)) {
+    if (similarityCache.current.has(key))
       return similarityCache.current.get(key)!;
-    }
     const similarity = await calculateSimilarity(groupA, groupB);
     similarityCache.current.set(key, similarity);
     return similarity;
@@ -237,46 +232,87 @@ const CodesDiffViewer: React.FC = () => {
     finalGroups: Map<string, string>,
     finalCodeToGroup: Map<string, string | null>
   ): Promise<{
-    accuracy: number;
-    macro_precision: number;
-    macro_recall: number;
+    precision: number;
+    recall: number;
+    groupMetrics: GroupMetric[];
   }> => {
-    const allCodes = new Set([
-      ...initialCodeToGroup.keys(),
-      ...finalCodeToGroup.keys(),
-    ]);
-    let TP = 0;
-    let FP = 0;
-    let FN = 0;
+    const initGroupToCodes = new Map<string, Set<string>>();
+    const finalGroupToCodes = new Map<string, Set<string>>();
 
-    for (const code of allCodes) {
-      const initialGroupId = initialCodeToGroup.get(code) || null;
-      const finalGroupId = finalCodeToGroup.get(code) || null;
-
-      if (initialGroupId === finalGroupId) {
-        if (initialGroupId !== null) {
-          const initialGroupName = initialGroups.get(initialGroupId)!;
-          const finalGroupName = finalGroups.get(finalGroupId ?? "")!;
-          const similarity = await getGroupSimilarity(
-            initialGroupName,
-            finalGroupName
-          );
-          TP += similarity;
-          FN += 1 - similarity;
-        } else {
-          TP += 1; // Both unplaced
-        }
-      } else {
-        FP += 1; // Code moved to a different group or inserted
-        FN += 1; // Code moved from a group or deleted
-      }
+    for (const [code, groupId] of initialCodeToGroup.entries()) {
+      if (groupId == null) continue;
+      if (!initGroupToCodes.has(groupId))
+        initGroupToCodes.set(groupId, new Set());
+      initGroupToCodes.get(groupId)!.add(code);
+    }
+    for (const [code, groupId] of finalCodeToGroup.entries()) {
+      if (groupId == null) continue;
+      if (!finalGroupToCodes.has(groupId))
+        finalGroupToCodes.set(groupId, new Set());
+      finalGroupToCodes.get(groupId)!.add(code);
     }
 
-    const accuracy = allCodes.size > 0 ? TP / allCodes.size : 0;
-    const macro_precision = TP + FP > 0 ? TP / (TP + FP) : 0;
-    const macro_recall = TP + FN > 0 ? TP / (TP + FN) : 0;
+    let totalSupport = 0;
+    let weightedPrecSum = 0;
+    let weightedRecSum = 0;
+    const groupMetrics: GroupMetric[] = [];
 
-    return { accuracy, macro_precision, macro_recall };
+    for (const [groupId] of initialGroups.entries()) {
+      const initCodes = initGroupToCodes.get(groupId) || new Set();
+      const finalCodes = finalGroupToCodes.get(groupId) || new Set();
+      const support = initCodes.size;
+      totalSupport += support;
+
+      let tp = 0;
+      for (const code of initCodes) {
+        if (finalCodes.has(code)) tp++;
+      }
+      const fn = support - tp;
+      let fp = 0;
+      for (const code of finalCodes) {
+        if (!initCodes.has(code)) fp++;
+      }
+
+      const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
+      const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
+
+      weightedPrecSum += precision * support;
+      weightedRecSum += recall * support;
+
+      const initialName = initialGroups.get(groupId)!;
+      const finalName = finalGroups.has(groupId)
+        ? finalGroups.get(groupId)!
+        : "Deleted";
+
+      let similarity: number | undefined;
+      if (finalName !== "Deleted") {
+        similarity = await getGroupSimilarity(initialName, finalName);
+      }
+
+      groupMetrics.push({
+        groupId,
+        initialName,
+        finalName,
+        precision,
+        recall,
+        similarity,
+      });
+    }
+
+    const weightedPrecision =
+      totalSupport > 0 ? weightedPrecSum / totalSupport : 0;
+    const weightedRecall = totalSupport > 0 ? weightedRecSum / totalSupport : 0;
+
+    return {
+      precision: weightedPrecision,
+      recall: weightedRecall,
+      groupMetrics,
+    };
+  };
+
+  const toggleStep = (sequenceId: number, step: number) => {
+    const key = `${sequenceId}-${step}`;
+    setOpenSteps((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   useEffect(() => {
@@ -300,7 +336,7 @@ const CodesDiffViewer: React.FC = () => {
     };
 
     if (isDatabaseLoaded) fetchEntries();
-  }, [isDatabaseLoaded, executeQuery]);
+  }, [isDatabaseLoaded, executeQuery, selectedWorkspaceId]);
 
   useEffect(() => {
     const computeDiffs = async () => {
@@ -331,13 +367,12 @@ const CodesDiffViewer: React.FC = () => {
             finalExtract.codeToGroup
           );
 
-          const { accuracy, macro_precision, macro_recall } =
-            await computeMetrics(
-              initialExtract.groups,
-              initialExtract.codeToGroup,
-              finalExtract.groups,
-              finalExtract.codeToGroup
-            );
+          const metrics = await computeMetrics(
+            initialExtract.groups,
+            initialExtract.codeToGroup,
+            finalExtract.groups,
+            finalExtract.codeToGroup
+          );
 
           const stepwiseChanges: { step: number; changes: Change[] }[] = [];
           for (let i = 0; i < sequence.length - 1; i++) {
@@ -376,18 +411,16 @@ const CodesDiffViewer: React.FC = () => {
             isRegeneration,
             changes,
             stepwiseChanges,
-            accuracy,
-            macro_precision,
-            macro_recall,
+            precision: metrics.precision,
+            recall: metrics.recall,
+            groupMetrics: metrics.groupMetrics,
           };
         })
       );
       setSequenceDiffs(diffs);
     };
 
-    if (sequences.length > 0) {
-      computeDiffs();
-    }
+    if (sequences.length > 0) computeDiffs();
   }, [sequences]);
 
   const totalRegenerations = sequenceDiffs.filter(
@@ -402,7 +435,7 @@ const CodesDiffViewer: React.FC = () => {
   return (
     <div className="p-4 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold mb-4 text-gray-800">
-        Codes Diff Viewer
+        Finalizing Codes Results
       </h1>
       <p className="mb-4 text-gray-600">
         Total number of regenerations: {totalRegenerations}
@@ -419,14 +452,10 @@ const CodesDiffViewer: React.FC = () => {
             </h2>
             <div className="mb-4 text-gray-600">
               <p>
-                <strong>Accuracy:</strong> {seqDiff.accuracy.toFixed(3)}
+                <strong>Precision:</strong> {seqDiff.precision.toFixed(3)}
               </p>
               <p>
-                <strong>Macro Precision:</strong>{" "}
-                {seqDiff.macro_precision.toFixed(3)}
-              </p>
-              <p>
-                <strong>Macro Recall:</strong> {seqDiff.macro_recall.toFixed(3)}
+                <strong>Recall:</strong> {seqDiff.recall.toFixed(3)}
               </p>
             </div>
 
@@ -459,32 +488,78 @@ const CodesDiffViewer: React.FC = () => {
             )}
 
             <h3 className="text-lg font-medium mb-2 text-gray-700">
+              Group Metrics
+            </h3>
+            {seqDiff.groupMetrics.length > 0 ? (
+              <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="p-2 border">Group ID</th>
+                    <th className="p-2 border">Initial Name</th>
+                    <th className="p-2 border">Final Name</th>
+                    <th className="p-2 border">Similarity</th>
+                    <th className="p-2 border">Precision</th>
+                    <th className="p-2 border">Recall</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {seqDiff.groupMetrics.map((metric, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="p-2 border">{metric.groupId}</td>
+                      <td className="p-2 border">{metric.initialName}</td>
+                      <td className="p-2 border">{metric.finalName}</td>
+                      <td className="p-2 border">
+                        {metric.similarity !== undefined
+                          ? metric.similarity.toFixed(3)
+                          : "N/A"}
+                      </td>
+                      <td className="p-2 border">
+                        {metric.precision.toFixed(3)}
+                      </td>
+                      <td className="p-2 border">{metric.recall.toFixed(3)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="mb-4 text-gray-600">No group metrics available.</p>
+            )}
+
+            <h3 className="text-lg font-medium mb-2 text-gray-700">
               Stepwise Changes
             </h3>
             {seqDiff.stepwiseChanges.length > 0 ? (
               seqDiff.stepwiseChanges.map((step) => (
                 <div key={step.step} className="mb-4">
-                  <h4 className="text-md font-medium text-gray-600">
-                    Step {step.step}
+                  <h4
+                    className="text-md font-medium text-gray-600 cursor-pointer"
+                    onClick={() => toggleStep(seqDiff.sequenceId, step.step)}
+                  >
+                    Step {step.step}{" "}
+                    {openSteps[`${seqDiff.sequenceId}-${step.step}`]
+                      ? "▲"
+                      : "▼"}
                   </h4>
-                  <table className="table-auto w-full border-collapse border border-gray-300">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="p-2 border">Type</th>
-                        <th className="p-2 border">Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {step.changes.map((change, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="p-2 border">{change.type}</td>
-                          <td className="p-2 border">
-                            {renderChangeDetails(change)}
-                          </td>
+                  {openSteps[`${seqDiff.sequenceId}-${step.step}`] && (
+                    <table className="table-auto w-full border-collapse border border-gray-300">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="p-2 border">Type</th>
+                          <th className="p-2 border">Details</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {step.changes.map((change, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="p-2 border">{change.type}</td>
+                            <td className="p-2 border">
+                              {renderChangeDetails(change)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               ))
             ) : (

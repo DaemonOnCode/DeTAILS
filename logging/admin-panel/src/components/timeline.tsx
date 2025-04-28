@@ -1,20 +1,12 @@
 import { useState, useEffect, useRef, JSX } from "react";
 import { useDatabase } from "./context";
-
-// **Type Definitions**
-interface DatabaseRow {
-  id: number;
-  created_at: string;
-  state: string;
-  context: string;
-}
+import { DatabaseRow } from "../utils/types";
 
 interface FunctionOption {
   value: string;
   label: string;
 }
 
-// **Utility Function**
 const toTitleCase = (str: string): string => {
   return str
     .split("_")
@@ -23,9 +15,8 @@ const toTitleCase = (str: string): string => {
 };
 
 function Timeline() {
-  const { isDatabaseLoaded, executeQuery } = useDatabase();
+  const { isDatabaseLoaded, executeQuery, selectedWorkspaceId } = useDatabase();
 
-  // **State Variables**
   const [entries, setEntries] = useState<DatabaseRow[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [filterFunction, setFilterFunction] = useState<string | null>(null);
@@ -33,12 +24,10 @@ function Timeline() {
   const [loadedEntries, setLoadedEntries] = useState<Set<number>>(new Set()); // Tracks loaded entry IDs
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // **Database Check**
   if (!isDatabaseLoaded) {
     return <p className="p-4">Please select a database first.</p>;
   }
 
-  // **Fetch Unique Functions for Filter**
   useEffect(() => {
     if (isDatabaseLoaded) {
       const fetchUniqueFunctions = async () => {
@@ -47,8 +36,9 @@ function Timeline() {
             SELECT DISTINCT json_extract(context, '$.function') AS function_name
             FROM state_dumps
             WHERE json_extract(context, '$.function') IS NOT NULL
+            AND json_extract(context, '$.workspace_id') = ?
           `;
-          const result = await executeQuery(query, []);
+          const result = await executeQuery(query, [selectedWorkspaceId]);
           const functions: FunctionOption[] = result
             .map((row: any) => ({
               value: row.function_name,
@@ -66,7 +56,6 @@ function Timeline() {
     }
   }, [isDatabaseLoaded, executeQuery]);
 
-  // **Fetch All Entries Initially**
   useEffect(() => {
     const fetchAllEntries = async () => {
       setLoading(true);
@@ -89,7 +78,6 @@ function Timeline() {
     fetchAllEntries();
   }, [filterFunction, executeQuery]);
 
-  // **Set Up Intersection Observer**
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
@@ -100,15 +88,13 @@ function Timeline() {
               const id = Number(entry.target.getAttribute("data-id"));
               newLoaded.add(id);
             }
-            // Note: We don’t remove IDs when entry.isIntersecting is false
           });
           return newLoaded;
         });
       },
-      { threshold: 0 } // Trigger when any part of the element is visible
+      { threshold: 0 }
     );
 
-    // Clean up observer on unmount
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect();
@@ -116,7 +102,6 @@ function Timeline() {
     };
   }, []);
 
-  // **Callback Ref to Observe Each Entry**
   const observeElement = (id: number) => (element: HTMLDivElement | null) => {
     if (element && observerRef.current) {
       observerRef.current.observe(element);
@@ -152,7 +137,6 @@ function Timeline() {
     );
   };
 
-  // **JSON Rendering with Error Handling**
   const renderJson = (jsonString: string): JSX.Element => {
     try {
       const parsed = JSON.parse(jsonString);
@@ -164,7 +148,6 @@ function Timeline() {
     }
   };
 
-  // **JSX Rendering**
   return (
     <div className="p-4 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4 text-gray-800">Timeline</h1>
@@ -204,8 +187,8 @@ function Timeline() {
           return (
             <div
               key={entry.id}
-              data-id={entry.id} // Used by Intersection Observer
-              ref={observeElement(entry.id)} // Observe this element
+              data-id={entry.id}
+              ref={observeElement(entry.id)}
               className="bg-white p-4 rounded-lg shadow-md border border-gray-200"
             >
               <p className="text-sm text-gray-500 mb-2">

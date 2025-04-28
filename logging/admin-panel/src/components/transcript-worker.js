@@ -42,7 +42,6 @@ function getCodeToQuoteMap(post, codes) {
     post,
     codes,
   });
-  // Create a flat map of all elements in the post
   const transcriptFlatMap = [
     {
       id: post.id,
@@ -59,21 +58,17 @@ function getCodeToQuoteMap(post, codes) {
     ...post.comments.flatMap((comment) => traverseComments(comment, post.id)),
   ];
 
-  // Collect all possible quote parent IDs
   const allQuoteParentIds = new Set(transcriptFlatMap.map(getQuoteParentId));
 
-  // Initialize result maps
   const llmCodesMap = {};
   const humanCodesMap = {};
   const mappedQuoteParentIds = new Set();
 
-  // Process each code
   codes.forEach((code) => {
     const targetMap = code.markedBy === "llm" ? llmCodesMap : humanCodesMap;
     const quoteParentIds = new Set();
 
     if (code.rangeMarker) {
-      // Exact match using rangeMarker
       const dataIndex = parseInt(code.rangeMarker.itemId);
       if (dataIndex >= 0 && dataIndex < transcriptFlatMap.length) {
         const element = transcriptFlatMap[dataIndex];
@@ -81,7 +76,6 @@ function getCodeToQuoteMap(post, codes) {
         quoteParentIds.add(quoteParentId);
       }
     } else {
-      // Fuzzy matching across all elements
       transcriptFlatMap.forEach((element) => {
         const elementText = normalizeText(element.text);
         const codeText = normalizeText(code.text);
@@ -96,19 +90,16 @@ function getCodeToQuoteMap(post, codes) {
       });
     }
 
-    // Store the result using the code's unique ID
     targetMap[code.id] = Array.from(quoteParentIds);
     quoteParentIds.forEach((id) => mappedQuoteParentIds.add(id));
   });
 
-  // Compute unmapped IDs
   const unmappedIds = Array.from(allQuoteParentIds).filter(
     (id) => !mappedQuoteParentIds.has(id)
   );
 
   console.log("DEBUG unmappedIds:", unmappedIds);
 
-  // Return the final map
   return {
     llmCodes: llmCodesMap,
     humanCodes: humanCodesMap,
@@ -116,7 +107,6 @@ function getCodeToQuoteMap(post, codes) {
   };
 }
 
-// Update the worker to use the new function
 onmessage = (event) => {
   const { type, id, post, codes } = event.data;
   console.log("DEBUG transcript-worker received message:", event.data);
