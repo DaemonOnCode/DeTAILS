@@ -264,18 +264,18 @@ const ThemesDiffViewer: React.FC = () => {
       const support = initCodes.size;
       totalSupport += support;
 
-      let tp = 0;
+      let TP = 0;
       for (const code of initCodes) {
-        if (finalCodes.has(code)) tp++;
+        if (finalCodes.has(code)) TP++;
       }
-      const fn = support - tp;
-      let fp = 0;
+      const FP = support - TP;
+      let FN = 0;
       for (const code of finalCodes) {
-        if (!initCodes.has(code)) fp++;
+        if (!initCodes.has(code)) FN++;
       }
 
-      const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
-      const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
+      const precision = TP + FP > 0 ? TP / (TP + FP) : 0;
+      const recall = TP + FN > 0 ? TP / (TP + FN) : 0;
 
       weightedPrecSum += precision * support;
       weightedRecSum += recall * support;

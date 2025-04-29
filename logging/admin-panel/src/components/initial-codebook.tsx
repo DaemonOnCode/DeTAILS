@@ -21,6 +21,7 @@ interface CodebookDiff {
       similarity?: number;
     }[];
   }[];
+  averageCosineSimilarity?: number;
 }
 
 interface SequenceDiff {
@@ -30,7 +31,12 @@ interface SequenceDiff {
   isRegeneration: boolean;
   overallChanges: CodebookDiff;
   stepwiseChanges: { step: number; changes: CodebookDiff }[];
-  metrics: { inserted: number; deleted: number; updated: number };
+  metrics: {
+    inserted: number;
+    deleted: number;
+    updated: number;
+    averageCosineSimilarity: number;
+  };
 }
 
 const safeParseContext = (context: string): any => {
@@ -102,6 +108,9 @@ const computeCodebookDiff = async (
     }[];
   }[] = [];
 
+  let similaritySum = 0;
+  const similarityCount = prevCodebook.length;
+
   for (const [codeName, currCode] of currMap) {
     if (prevMap.has(codeName)) {
       const prevCode = prevMap.get(codeName)!;
@@ -122,13 +131,24 @@ const computeCodebookDiff = async (
           newValue: currCode.definition,
           similarity,
         });
+        similaritySum += similarity;
+      } else {
+        similaritySum++;
       }
       if (changes.length > 0) {
         updated.push({ codeName, codeId: currCode.id, changes });
       }
     }
   }
-  return { inserted, deleted, updated };
+
+  console.log("Similarity Sum:", similaritySum, "Count:", similarityCount);
+  return {
+    inserted,
+    deleted,
+    updated,
+    averageCosineSimilarity:
+      similarityCount > 0 ? similaritySum / similarityCount : 0,
+  };
 };
 
 const parseDiffFromState = async (
@@ -281,10 +301,13 @@ const CodebookDiffViewer: React.FC = () => {
             inserted: number;
             deleted: number;
             updated: number;
+            averageCosineSimilarity: number;
           } = {
             inserted: overallChanges.inserted.length,
             deleted: overallChanges.deleted.length,
             updated: overallChanges.updated.length,
+            averageCosineSimilarity:
+              overallChanges.averageCosineSimilarity || 0,
           };
 
           return {
@@ -342,6 +365,10 @@ const CodebookDiffViewer: React.FC = () => {
             <div className="mb-4 text-gray-600">
               <p>
                 <strong>Updated Codes:</strong> {seqDiff.metrics.updated}
+              </p>
+              <p>
+                <strong>Average cosine similarity:</strong>{" "}
+                {seqDiff.metrics.averageCosineSimilarity.toFixed(3)}
               </p>
             </div>
             <h3 className="text-lg font-medium mb-2 text-gray-700">

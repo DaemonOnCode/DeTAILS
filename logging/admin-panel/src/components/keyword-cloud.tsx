@@ -18,7 +18,6 @@ interface KeywordChange {
   similarity?: number;
 }
 
-// New interface to include step information
 interface SequenceKeywordChange extends KeywordChange {
   step: number;
 }
@@ -34,12 +33,27 @@ interface SequenceDiff {
   initialTimestamp: string;
   finalTimestamp: string;
   isRegeneration: boolean;
-  keywordChanges: SequenceKeywordChange[]; // Updated to use SequenceKeywordChange
+  keywordChanges: SequenceKeywordChange[];
   selectionChanges: SelectionChange[];
   stepwiseKeywordChanges: { step: number; changes: KeywordChange[] }[];
   stepwiseSelectionChanges: { step: number; changes: SelectionChange[] }[];
   totalKeywordChanges: number;
   totalSelectionChanges: number;
+  metrics: {
+    initial_keywords: number;
+    selected_keywords: number;
+    TP: number;
+    WTP: string;
+    P: string;
+    R: string;
+    F1: string;
+    P_w: string;
+    R_w: string;
+    F1_w: string;
+    acceptance_rate: string;
+    update_rate: string;
+    deletion_rate: string;
+  };
 }
 
 const safeParseContext = (context: string): Context => {
@@ -72,22 +86,27 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
 
 const extractKeywords = (state: any): Map<string, Keyword> => {
   const keywords = new Map<string, Keyword>();
-  let keywordArray: any[] = [];
   const parsedState = typeof state === "string" ? JSON.parse(state) : state;
-  const currentState = parsedState.current_state;
-  if (parsedState.context && parsedState.context.keywords) {
-    keywordArray = parsedState.context.keywords;
-  } else if (currentState && Array.isArray(currentState)) {
-    keywordArray = currentState;
+  let keywordArray: any[] = [];
+
+  if (parsedState.keywords && Array.isArray(parsedState.keywords)) {
+    keywordArray = parsedState.keywords; // for keyword_cloud_table
+  } else if (
+    parsedState.current_state &&
+    Array.isArray(parsedState.current_state) &&
+    parsedState.current_state.every((kw: any) => kw.id && kw.word)
+  ) {
+    keywordArray = parsedState.current_state; // for setKeywords
   }
+
   keywordArray.forEach((kw: any) => {
     if (kw.id && kw.id !== "Unknown") {
       keywords.set(kw.id, {
         id: kw.id,
         word: kw.word,
-        description: kw.description,
-        inclusion_criteria: kw.inclusion_criteria,
-        exclusion_criteria: kw.exclusion_criteria,
+        description: kw.description || "",
+        inclusion_criteria: kw.inclusion_criteria || [],
+        exclusion_criteria: kw.exclusion_criteria || [],
       });
     }
   });
@@ -119,40 +138,12 @@ const computeKeywordChanges = (
       changes.push({ type: "inserted", keywordId: id, word: currKw.word });
     } else {
       const prevKw = prevKeywords.get(id)!;
-      const updatedFields: { [key: string]: { from: any; to: any } } = {};
       if (prevKw.word !== currKw.word) {
-        updatedFields.word = { from: prevKw.word, to: currKw.word };
-      }
-      if (prevKw.description !== currKw.description) {
-        updatedFields.description = {
-          from: prevKw.description,
-          to: currKw.description,
-        };
-      }
-      if (
-        JSON.stringify(prevKw.inclusion_criteria) !==
-        JSON.stringify(currKw.inclusion_criteria)
-      ) {
-        updatedFields.inclusion_criteria = {
-          from: prevKw.inclusion_criteria,
-          to: currKw.inclusion_criteria,
-        };
-      }
-      if (
-        JSON.stringify(prevKw.exclusion_criteria) !==
-        JSON.stringify(currKw.exclusion_criteria)
-      ) {
-        updatedFields.exclusion_criteria = {
-          from: prevKw.exclusion_criteria,
-          to: currKw.exclusion_criteria,
-        };
-      }
-      if (Object.keys(updatedFields).length > 0) {
         changes.push({
           type: "updated",
           keywordId: id,
           word: currKw.word,
-          updatedFields,
+          updatedFields: { word: { from: prevKw.word, to: currKw.word } },
         });
       }
     }
@@ -196,7 +187,7 @@ const formatUpdatedFields = (updatedFields?: {
     .join(", ");
 };
 
-const KeywordsDiffViewer: React.FC = () => {
+const RelatedConceptsDiffViewer: React.FC = () => {
   const {
     isDatabaseLoaded,
     executeQuery,
@@ -253,21 +244,9 @@ const KeywordsDiffViewer: React.FC = () => {
           const initialContext = safeParseContext(initialEntry.context);
           const isRegeneration = initialContext.run === "regenerate";
           const initialState = JSON.parse(initialEntry.state);
-          const finalState =
-            sequence.length > 1
-              ? JSON.parse(sequence[sequence.length - 1].state)
-              : initialState;
-
           const initialKeywords = extractKeywords(initialState);
-          const finalKeywords = extractKeywords(finalState);
-          const initialSelected = extractSelectedKeywords(initialState);
-          const finalSelected = extractSelectedKeywords(finalState);
-
-          const selectionChanges = computeSelectionChanges(
-            initialSelected,
-            finalSelected,
-            finalKeywords
-          );
+          let prevKeywords = initialKeywords;
+          let prevSelected = new Set<string>();
 
           const stepwiseKeywordChanges: {
             step: number;
@@ -277,8 +256,6 @@ const KeywordsDiffViewer: React.FC = () => {
             step: number;
             changes: SelectionChange[];
           }[] = [];
-          let prevKeywords = initialKeywords;
-          let prevSelected = initialSelected;
 
           for (let i = 0; i < sequence.length - 1; i++) {
             const nextEntry = sequence[i + 1];
@@ -331,7 +308,6 @@ const KeywordsDiffViewer: React.FC = () => {
             }
           }
 
-          // Aggregate all stepwise keyword changes into keywordChanges
           const keywordChanges: SequenceKeywordChange[] =
             stepwiseKeywordChanges.flatMap((step) =>
               step.changes.map((change) => ({ ...change, step: step.step }))
@@ -346,6 +322,71 @@ const KeywordsDiffViewer: React.FC = () => {
             0
           );
 
+          // Compute metrics
+          const latestKeywords = prevKeywords;
+          const latestSelected = prevSelected;
+          const I = new Set(initialKeywords.keys());
+          const S = latestSelected;
+          const commonIds = new Set([...I].filter((x) => S.has(x)));
+          let TP = 0;
+          let WTP = 0;
+          let kept_count = 0;
+          let updated_count = 0;
+
+          for (const id of commonIds) {
+            if (latestKeywords.has(id) && initialKeywords.has(id)) {
+              const initialWord = initialKeywords.get(id)!.word;
+              const finalWord = latestKeywords.get(id)!.word;
+              if (initialWord === finalWord) {
+                TP += 1;
+                WTP += 1;
+                kept_count += 1;
+              } else {
+                const dotProduct = await calculateSimilarity(
+                  initialWord,
+                  finalWord
+                );
+                const normInitial = await getNorm(initialWord);
+                const normFinal = await getNorm(finalWord);
+                const similarity =
+                  normInitial * normFinal > 0
+                    ? dotProduct / (normInitial * normFinal)
+                    : 0;
+                WTP += similarity;
+                updated_count += 1;
+              }
+            }
+          }
+
+          const I_size = I.size;
+          const S_size = S.size;
+          const P = I_size > 0 ? TP / I_size : 0;
+          const R = S_size > 0 ? TP / S_size : 0;
+          const F1 = P + R > 0 ? (2 * P * R) / (P + R) : 0;
+          const P_w = I_size > 0 ? WTP / I_size : 0;
+          const R_w = S_size > 0 ? WTP / S_size : 0;
+          const F1_w = P_w + R_w > 0 ? (2 * P_w * R_w) / (P_w + R_w) : 0;
+          const acceptance_rate = I_size > 0 ? kept_count / I_size : 0;
+          const update_rate = I_size > 0 ? updated_count / I_size : 0;
+          const deletion_rate =
+            I_size > 0 ? (I_size - kept_count - updated_count) / I_size : 0;
+
+          const metrics = {
+            initial_keywords: I_size,
+            selected_keywords: S_size - 1,
+            TP,
+            WTP: WTP.toFixed(4),
+            P: P.toFixed(4),
+            R: R.toFixed(4),
+            F1: F1.toFixed(4),
+            P_w: P_w.toFixed(4),
+            R_w: R_w.toFixed(4),
+            F1_w: F1_w.toFixed(4),
+            acceptance_rate: acceptance_rate.toFixed(4),
+            update_rate: update_rate.toFixed(4),
+            deletion_rate: deletion_rate.toFixed(4),
+          };
+
           return {
             sequenceId: seqIndex + 1,
             initialTimestamp: new Date(
@@ -356,11 +397,16 @@ const KeywordsDiffViewer: React.FC = () => {
             ).toLocaleString(),
             isRegeneration,
             keywordChanges,
-            selectionChanges,
+            selectionChanges: computeSelectionChanges(
+              new Set(),
+              latestSelected,
+              latestKeywords
+            ),
             stepwiseKeywordChanges,
             stepwiseSelectionChanges,
             totalKeywordChanges,
             totalSelectionChanges,
+            metrics,
           };
         })
       );
@@ -372,6 +418,70 @@ const KeywordsDiffViewer: React.FC = () => {
     else setSequenceDiffs([]);
   }, [sequences, calculateSimilarity]);
 
+  const metricNames: Record<string, { name: string; formula: string }> = {
+    initial_keywords: {
+      name: "Initial Related Concepts",
+      formula: "The total number of  related concepts in the initial set.",
+    },
+    selected_keywords: {
+      name: "Selected Related Concepts",
+      formula: "The total number of related concepts in the selected set.",
+    },
+    TP: {
+      name: "True Positives",
+      formula:
+        "The number of related concepts that are present in both the initial and selected sets with unchanged words.",
+    },
+    WTP: {
+      name: "Weighted True Positives",
+      formula:
+        "The sum of similarities for related concepts in both sets, where similarity is 1 if the word is unchanged, or cosine similarity between 0 and 1 if updated.",
+    },
+    P: {
+      name: "Precision",
+      formula:
+        "The ratio of true positives to the number of initial related concepts.",
+    },
+    R: {
+      name: "Recall",
+      formula:
+        "The ratio of true positives to the number of selected related concepts.",
+    },
+    F1: {
+      name: "F1 Score",
+      formula: "The harmonic mean of precision and recall.",
+    },
+    P_w: {
+      name: "Weighted Precision",
+      formula:
+        "The weighted true positives divided by the number of initial related concepts.",
+    },
+    R_w: {
+      name: "Weighted Recall",
+      formula:
+        "The weighted true positives divided by the number of selected related concepts.",
+    },
+    F1_w: {
+      name: "Weighted F1 Score",
+      formula: "The harmonic mean of weighted precision and weighted recall.",
+    },
+    acceptance_rate: {
+      name: "Acceptance Rate",
+      formula:
+        "The proportion of initial related concepts that were kept unchanged in the selected set.",
+    },
+    update_rate: {
+      name: "Update Rate",
+      formula:
+        "The proportion of initial related concepts that were updated in the selected set.",
+    },
+    deletion_rate: {
+      name: "Deletion Rate",
+      formula:
+        "The proportion of initial related concepts that were deleted and not present in the selected set.",
+    },
+  };
+
   if (isLoading)
     return <p className="p-4 text-gray-600">Loading sequences...</p>;
   if (!isDatabaseLoaded)
@@ -380,7 +490,7 @@ const KeywordsDiffViewer: React.FC = () => {
   return (
     <div className="p-4 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold mb-4 text-gray-800">
-        Keywords Diff Viewer
+        Related Concepts Diff Viewer
       </h1>
       <p className="mb-4 text-gray-600">
         Total number of regenerations:{" "}
@@ -409,22 +519,20 @@ const KeywordsDiffViewer: React.FC = () => {
                 Sequence {seqDiff.sequenceId}: {seqDiff.initialTimestamp} to{" "}
                 {seqDiff.finalTimestamp} (
                 {seqDiff.isRegeneration ? "Regeneration" : "Initial Generation"}
-                ) - Total related concepts considered:{" "}
-                {seqDiff.totalKeywordChanges}, Total selection changes:{" "}
-                {seqDiff.totalSelectionChanges}
+                )
               </h2>
 
-              {seqDiff.keywordChanges.length > 0 ? (
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium mb-2 text-gray-700">
-                    Keyword Changes
-                  </h3>
+              <div className="mb-6">
+                <h3 className="text-lg font-medium mb-2 text-gray-700">
+                  Related Concept Changes
+                </h3>
+                {seqDiff.keywordChanges.length > 0 ? (
                   <table className="table-auto w-full border-collapse border border-gray-300">
                     <thead>
                       <tr className="bg-gray-100">
                         <th className="p-2 border">Step</th>
                         <th className="p-2 border">Type</th>
-                        <th className="p-2 border">Keyword ID</th>
+                        <th className="p-2 border">Related Concept ID</th>
                         <th className="p-2 border">Word</th>
                         <th className="p-2 border">Updated Fields</th>
                         <th className="p-2 border">Similarity</th>
@@ -452,16 +560,41 @@ const KeywordsDiffViewer: React.FC = () => {
                                 : "-"}
                             </td>
                           </tr>
-                        ) : (
-                          <></>
-                        )
+                        ) : null
                       )}
                     </tbody>
                   </table>
+                ) : (
+                  <p className="mb-4 text-gray-600">
+                    No related concept changes.
+                  </p>
+                )}
+                <div className="mt-4">
+                  <h4 className="text-md font-medium mb-2 text-gray-700">
+                    Metrics
+                  </h4>
+                  <table className="table-auto w-full border-collapse border border-gray-300">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="p-2 border">Metric</th>
+                        <th className="p-2 border">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(seqDiff.metrics).map(([key, value]) => (
+                        <tr key={key}>
+                          <td className="p-2 border">
+                            {metricNames[key]
+                              ? `${metricNames[key].name} (${metricNames[key].formula})`
+                              : key}
+                          </td>
+                          <td className="p-2 border">{value}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ) : (
-                <p className="mb-4 text-gray-600">No keyword changes.</p>
-              )}
+              </div>
 
               {seqDiff.selectionChanges.length > 0 ? (
                 <div className="mb-6">
@@ -472,7 +605,7 @@ const KeywordsDiffViewer: React.FC = () => {
                     <thead>
                       <tr className="bg-gray-100">
                         <th className="p-2 border">Type</th>
-                        <th className="p-2 border">Keyword ID</th>
+                        <th className="p-2 border">Related Concept ID</th>
                         <th className="p-2 border">Word</th>
                       </tr>
                     </thead>
@@ -531,7 +664,9 @@ const KeywordsDiffViewer: React.FC = () => {
                               <thead>
                                 <tr className="bg-gray-100">
                                   <th className="p-2 border">Type</th>
-                                  <th className="p-2 border">Keyword ID</th>
+                                  <th className="p-2 border">
+                                    Related Concept ID
+                                  </th>
                                   <th className="p-2 border">Word</th>
                                   <th className="p-2 border">Updated Fields</th>
                                   <th className="p-2 border">Similarity</th>
@@ -576,7 +711,9 @@ const KeywordsDiffViewer: React.FC = () => {
                               <thead>
                                 <tr className="bg-gray-100">
                                   <th className="p-2 border">Type</th>
-                                  <th className="p-2 border">Keyword ID</th>
+                                  <th className="p-2 border">
+                                    Related Concept ID
+                                  </th>
                                   <th className="p-2 border">Word</th>
                                 </tr>
                               </thead>
@@ -621,4 +758,4 @@ const KeywordsDiffViewer: React.FC = () => {
   );
 };
 
-export default KeywordsDiffViewer;
+export default RelatedConceptsDiffViewer;

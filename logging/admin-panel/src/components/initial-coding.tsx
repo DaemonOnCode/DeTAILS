@@ -15,6 +15,8 @@ interface FieldChange {
   oldValue: any;
   newValue: any;
   similarity?: number;
+  code: string;
+  quote: string;
 }
 
 interface CRUDChanges {
@@ -119,6 +121,8 @@ const computeChanges = async (
           oldValue: prev.quote,
           newValue: curr.quote,
           similarity,
+          code: curr.code,
+          quote: curr.quote,
         });
       }
       if (prev.code !== curr.code) {
@@ -129,24 +133,8 @@ const computeChanges = async (
           oldValue: prev.code,
           newValue: curr.code,
           similarity,
-        });
-      }
-      if (prev.explanation !== curr.explanation) {
-        updated.push({
-          type: "explanation_changed",
-          resultId: id,
-          oldValue: prev.explanation,
-          newValue: curr.explanation,
-        });
-      }
-      if (
-        JSON.stringify(prev.chat_history) !== JSON.stringify(curr.chat_history)
-      ) {
-        updated.push({
-          type: "chat_history_changed",
-          resultId: id,
-          oldValue: prev.chat_history,
-          newValue: curr.chat_history,
+          code: curr.code,
+          quote: curr.quote,
         });
       }
       if (prev.is_marked !== curr.is_marked) {
@@ -155,16 +143,8 @@ const computeChanges = async (
           resultId: id,
           oldValue: prev.is_marked,
           newValue: curr.is_marked,
-        });
-      }
-      if (
-        JSON.stringify(prev.range_marker) !== JSON.stringify(curr.range_marker)
-      ) {
-        updated.push({
-          type: "range_marker_changed",
-          resultId: id,
-          oldValue: prev.range_marker,
-          newValue: curr.range_marker,
+          code: curr.code,
+          quote: curr.quote,
         });
       }
     }
@@ -184,14 +164,24 @@ const computeMetrics = async (
   const insertedIds = [...finalIds].filter((id) => !initialIds.has(id));
   const deletedIds = [...initialIds].filter((id) => !finalIds.has(id));
 
+  console.log("Before TP", commonIds, insertedIds, deletedIds);
   let TP = 0;
+  let unweightedTP = 0;
   for (const id of commonIds) {
     const final = finalResults.get(id)!;
     if (final.is_marked === true) {
       const initial = initialResults.get(id)!;
       const quoteSim = await getSimilarity(initial.quote, final.quote);
       const codeSim = await getSimilarity(initial.code, final.code);
+
+      console.log(
+        "TP similarity check",
+        quoteSim,
+        codeSim,
+        (quoteSim + codeSim) / 2
+      );
       TP += (quoteSim + codeSim) / 2;
+      unweightedTP++;
     }
   }
   const falseMarkedCount = commonIds.filter((id) => {
@@ -200,40 +190,15 @@ const computeMetrics = async (
   }).length;
   const FP = deletedIds.length + falseMarkedCount;
 
-  const FN = insertedIds.length;
+  const FN = insertedIds.filter((id) => {
+    const final = finalResults.get(id)!;
+    return final.is_marked === true;
+  }).length;
 
-  const precision = TP + FP > 0 ? TP / (TP + FP) : 0;
-  const recall = TP + FN > 0 ? TP / (TP + FN) : 0;
+  const precision = TP + FP > 0 ? TP / (unweightedTP + FP) : 0;
+  const recall = TP + FN > 0 ? TP / (unweightedTP + FN) : 0;
 
   return { precision, recall };
-};
-
-const renderChangeDetails = (change: FieldChange): string => {
-  let base = `Result ID: ${change.resultId}, `;
-  switch (change.type) {
-    case "quote_changed":
-      base += `Old Quote: ${change.oldValue}, New Quote: ${change.newValue}`;
-      if (change.similarity !== undefined) {
-        base += `, \n\nSimilarity: ${change.similarity.toFixed(3)}`;
-      }
-      return base;
-    case "code_changed":
-      base += `Old Code: ${change.oldValue}, New Code: ${change.newValue}`;
-      if (change.similarity !== undefined) {
-        base += `, \n\nSimilarity: ${change.similarity.toFixed(3)}`;
-      }
-      return base;
-    case "explanation_changed":
-      return `Result ID: ${change.resultId}, Old Explanation: ${change.oldValue}, New Explanation: ${change.newValue}`;
-    case "chat_history_changed":
-      return `Result ID: ${change.resultId}, Chat History Changed`;
-    case "is_marked_changed":
-      return `Result ID: ${change.resultId}, Old Is Marked: ${change.oldValue}, New Is Marked: ${change.newValue}`;
-    case "range_marker_changed":
-      return `Result ID: ${change.resultId}, Range Marker Changed`;
-    default:
-      return "";
-  }
 };
 
 const CodingResultsDiffViewer: React.FC = () => {
@@ -310,10 +275,9 @@ const CodingResultsDiffViewer: React.FC = () => {
             getSimilarity
           );
           const { precision, recall } = await computeMetrics(
-            // Now async
             initialResults,
             finalResults,
-            getSimilarity // Pass getSimilarity
+            getSimilarity
           );
 
           const stepwiseChanges: { step: number; changes: CRUDChanges }[] = [];
@@ -384,221 +348,454 @@ const CodingResultsDiffViewer: React.FC = () => {
       {sequenceDiffs.length === 0 ? (
         <p className="text-gray-600">No sequences found.</p>
       ) : (
-        sequenceDiffs.map((seqDiff) => (
-          <div key={seqDiff.sequenceId} className="mb-8">
-            <h2 className="text-xl font-semibold mb-2 text-gray-700">
-              Sequence {seqDiff.sequenceId}: {seqDiff.initialTimestamp} to{" "}
-              {seqDiff.finalTimestamp} (
-              {seqDiff.isRegeneration ? "Regeneration" : "Initial Generation"})
-            </h2>
-            <div className="mb-4 text-gray-600">
-              <p>
-                <strong>Precision:</strong> {seqDiff.precision.toFixed(3)}
-              </p>
-              <p>
-                <strong>Recall:</strong> {seqDiff.recall.toFixed(3)}
-              </p>
-            </div>
+        sequenceDiffs.map((seqDiff) => {
+          const groupedUpdates = seqDiff.changes.updated.reduce(
+            (acc, change) => {
+              if (!acc[change.type]) {
+                acc[change.type] = [];
+              }
+              acc[change.type].push(change);
+              return acc;
+            },
+            {} as { [key: string]: FieldChange[] }
+          );
 
-            <h3 className="text-lg font-medium mb-2 text-gray-700">
-              Initial vs Final Changes
-            </h3>
-            <div>
-              <h4 className="text-md font-medium text-gray-600">
-                Inserted Results
-              </h4>
-              {seqDiff.changes.inserted.length > 0 ? (
-                <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border">ID</th>
-                      <th className="p-2 border">Model</th>
-                      <th className="p-2 border">Quote</th>
-                      <th className="p-2 border">Code</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {seqDiff.changes.inserted.map((result) => (
-                      <tr key={result.id}>
-                        <td className="p-2 border">{result.id}</td>
-                        <td className="p-2 border">{result.model}</td>
-                        <td className="p-2 border">{result.quote}</td>
-                        <td className="p-2 border">{result.code}</td>
+          return (
+            <div key={seqDiff.sequenceId} className="mb-8">
+              <h2 className="text-xl font-semibold mb-2 text-gray-700">
+                Sequence {seqDiff.sequenceId}: {seqDiff.initialTimestamp} to{" "}
+                {seqDiff.finalTimestamp} (
+                {seqDiff.isRegeneration ? "Regeneration" : "Initial Generation"}
+                )
+              </h2>
+              <div className="mb-4 text-gray-600">
+                <p>
+                  <strong>Precision:</strong> {seqDiff.precision.toFixed(3)}
+                </p>
+                <p>
+                  <strong>Recall:</strong> {seqDiff.recall.toFixed(3)}
+                </p>
+              </div>
+
+              <h3 className="text-lg font-medium mb-2 text-gray-700">
+                Initial vs Final Changes
+              </h3>
+              <div>
+                <h4 className="text-md font-medium text-gray-600">
+                  Inserted Results
+                </h4>
+                {seqDiff.changes.inserted.length > 0 ? (
+                  <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="p-2 border">ID</th>
+                        <th className="p-2 border">Quote</th>
+                        <th className="p-2 border">Code</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="mb-2 text-gray-600">No inserted results.</p>
-              )}
+                    </thead>
+                    <tbody>
+                      {seqDiff.changes.inserted.map((result) => (
+                        <tr key={result.id}>
+                          <td className="p-2 border">{result.id}</td>
+                          <td className="p-2 border">{result.quote}</td>
+                          <td className="p-2 border">{result.code}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="mb-2 text-gray-600">No inserted results.</p>
+                )}
 
-              <h4 className="text-md font-medium text-gray-600">
-                Updated Results
-              </h4>
-              {seqDiff.changes.updated.length > 0 ? (
-                <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border">Type</th>
-                      <th className="p-2 border">Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {seqDiff.changes.updated.map((change, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="p-2 border">{change.type}</td>
-                        <td className="p-2 border">
-                          {renderChangeDetails(change)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="mb-2 text-gray-600">No updated results.</p>
-              )}
-
-              <h4 className="text-md font-medium text-gray-600">
-                Deleted Results
-              </h4>
-              {seqDiff.changes.deleted.length > 0 ? (
-                <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border">ID</th>
-                      <th className="p-2 border">Model</th>
-                      <th className="p-2 border">Quote</th>
-                      <th className="p-2 border">Code</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {seqDiff.changes.deleted.map((result) => (
-                      <tr key={result.id}>
-                        <td className="p-2 border">{result.id}</td>
-                        <td className="p-2 border">{result.model}</td>
-                        <td className="p-2 border">{result.quote}</td>
-                        <td className="p-2 border">{result.code}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="mb-2 text-gray-600">No deleted results.</p>
-              )}
-            </div>
-
-            <h3 className="text-lg font-medium mb-2 text-gray-700">
-              Stepwise Changes
-            </h3>
-            {seqDiff.stepwiseChanges.length > 0 ? (
-              seqDiff.stepwiseChanges.map((step) => (
-                <div key={step.step} className="mb-4">
-                  <h4
-                    className="text-md font-medium text-gray-600 cursor-pointer"
-                    onClick={() => toggleStep(step.step)}
-                  >
-                    Step {step.step} {openSteps[step.step] ? "▲" : "▼"}
-                  </h4>
-                  {openSteps[step.step] && (
-                    <div>
+                <h4 className="text-md font-medium text-gray-600">
+                  Updated Results
+                </h4>
+                {Object.entries(groupedUpdates).length > 0 ? (
+                  Object.entries(groupedUpdates).map(([type, changes]) => (
+                    <div key={type} className="mb-4">
                       <h5 className="text-sm font-medium text-gray-500">
-                        Inserted Results
+                        {type
+                          .replace(/_/g, " ")
+                          .replace(/\b\w/g, (c) => c.toUpperCase())}
                       </h5>
-                      {step.changes.inserted.length > 0 ? (
-                        <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
-                          <thead>
-                            <tr className="bg-gray-100">
-                              <th className="p-2 border">ID</th>
-                              <th className="p-2 border">Model</th>
-                              <th className="p-2 border">Quote</th>
-                              <th className="p-2 border">Code</th>
+                      <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
+                        <thead>
+                          <tr className="bg-gray-100">
+                            <th className="p-2 border">Result ID</th>
+                            <th className="p-2 border">Code</th>
+                            <th className="p-2 border">Quote</th>
+                            {type === "quote_changed" && (
+                              <>
+                                <th className="p-2 border">Old Quote</th>
+                                <th className="p-2 border">New Quote</th>
+                                <th className="p-2 border">Similarity</th>
+                              </>
+                            )}
+                            {type === "code_changed" && (
+                              <>
+                                <th className="p-2 border">Old Code</th>
+                                <th className="p-2 border">New Code</th>
+                                <th className="p-2 border">Similarity</th>
+                              </>
+                            )}
+                            {type === "explanation_changed" && (
+                              <>
+                                <th className="p-2 border">Old Explanation</th>
+                                <th className="p-2 border">New Explanation</th>
+                              </>
+                            )}
+                            {type === "is_marked_changed" && (
+                              <>
+                                <th className="p-2 border">Old Is Marked</th>
+                                <th className="p-2 border">New Is Marked</th>
+                              </>
+                            )}
+                            {type === "chat_history_changed" && (
+                              <th className="p-2 border">
+                                Chat History Changed
+                              </th>
+                            )}
+                            {type === "range_marker_changed" && (
+                              <th className="p-2 border">
+                                Range Marker Changed
+                              </th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {changes.map((change, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="p-2 border">{change.resultId}</td>
+                              <td className="p-2 border">{change.code}</td>
+                              <td className="p-2 border">{change.quote}</td>
+                              {type === "quote_changed" && (
+                                <>
+                                  <td className="p-2 border">
+                                    {change.oldValue}
+                                  </td>
+                                  <td className="p-2 border">
+                                    {change.newValue}
+                                  </td>
+                                  <td className="p-2 border">
+                                    {change.similarity?.toFixed(3)}
+                                  </td>
+                                </>
+                              )}
+                              {type === "code_changed" && (
+                                <>
+                                  <td className="p-2 border">
+                                    {change.oldValue}
+                                  </td>
+                                  <td className="p-2 border">
+                                    {change.newValue}
+                                  </td>
+                                  <td className="p-2 border">
+                                    {change.similarity?.toFixed(3)}
+                                  </td>
+                                </>
+                              )}
+                              {type === "explanation_changed" && (
+                                <>
+                                  <td className="p-2 border">
+                                    {change.oldValue}
+                                  </td>
+                                  <td className="p-2 border">
+                                    {change.newValue}
+                                  </td>
+                                </>
+                              )}
+                              {type === "is_marked_changed" && (
+                                <>
+                                  <td className="p-2 border">
+                                    {change.oldValue ? "Yes" : "No"}
+                                  </td>
+                                  <td className="p-2 border">
+                                    {change.newValue ? "Yes" : "No"}
+                                  </td>
+                                </>
+                              )}
+                              {type === "chat_history_changed" && (
+                                <td className="p-2 border">Yes</td>
+                              )}
+                              {type === "range_marker_changed" && (
+                                <td className="p-2 border">Yes</td>
+                              )}
                             </tr>
-                          </thead>
-                          <tbody>
-                            {step.changes.inserted.map((result) => (
-                              <tr key={result.id}>
-                                <td className="p-2 border">{result.id}</td>
-                                <td className="p-2 border">{result.model}</td>
-                                <td className="p-2 border">{result.quote}</td>
-                                <td className="p-2 border">{result.code}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <p className="mb-2 text-gray-600">
-                          No inserted results in this step.
-                        </p>
-                      )}
-
-                      <h5 className="text-sm font-medium text-gray-500">
-                        Updated Results
-                      </h5>
-                      {step.changes.updated.length > 0 ? (
-                        <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
-                          <thead>
-                            <tr className="bg-gray-100">
-                              <th className="p-2 border">Type</th>
-                              <th className="p-2 border">Details</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {step.changes.updated.map((change, index) => (
-                              <tr key={index} className="hover:bg-gray-50">
-                                <td className="p-2 border">{change.type}</td>
-                                <td className="p-2 border whitespace-pre-line">
-                                  {renderChangeDetails(change)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <p className="mb-2 text-gray-600">
-                          No updated results in this step.
-                        </p>
-                      )}
-
-                      <h5 className="text-sm font-medium text-gray-500">
-                        Deleted Results
-                      </h5>
-                      {step.changes.deleted.length > 0 ? (
-                        <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
-                          <thead>
-                            <tr className="bg-gray-100">
-                              <th className="p-2 border">ID</th>
-                              <th className="p-2 border">Model</th>
-                              <th className="p-2 border">Quote</th>
-                              <th className="p-2 border">Code</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {step.changes.deleted.map((result) => (
-                              <tr key={result.id}>
-                                <td className="p-2 border">{result.id}</td>
-                                <td className="p-2 border">{result.model}</td>
-                                <td className="p-2 border">{result.quote}</td>
-                                <td className="p-2 border">{result.code}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <p className="mb-2 text-gray-600">
-                          No deleted results in this step.
-                        </p>
-                      )}
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-600">
-                No stepwise changes in this sequence.
-              </p>
-            )}
-          </div>
-        ))
+                  ))
+                ) : (
+                  <p className="mb-2 text-gray-600">No updated results.</p>
+                )}
+
+                <h4 className="text-md font-medium text-gray-600">
+                  Deleted Results
+                </h4>
+                {seqDiff.changes.deleted.length > 0 ? (
+                  <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="p-2 border">ID</th>
+                        <th className="p-2 border">Quote</th>
+                        <th className="p-2 border">Code</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {seqDiff.changes.deleted.map((result) => (
+                        <tr key={result.id}>
+                          <td className="p-2 border">{result.id}</td>
+                          <td className="p-2 border">{result.quote}</td>
+                          <td className="p-2 border">{result.code}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="mb-2 text-gray-600">No deleted results.</p>
+                )}
+              </div>
+
+              <h3 className="text-lg font-medium mb-2 text-gray-700">
+                Stepwise Changes
+              </h3>
+              {seqDiff.stepwiseChanges.length > 0 ? (
+                seqDiff.stepwiseChanges.map((step) => (
+                  <div key={step.step} className="mb-4">
+                    <h4
+                      className="text-md font-medium text-gray-600 cursor-pointer"
+                      onClick={() => toggleStep(step.step)}
+                    >
+                      Step {step.step} {openSteps[step.step] ? "▲" : "▼"}
+                    </h4>
+                    {openSteps[step.step] && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-500">
+                          Inserted Results
+                        </h5>
+                        {step.changes.inserted.length > 0 ? (
+                          <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
+                            <thead>
+                              <tr className="bg-gray-100">
+                                <th className="p-2 border">ID</th>
+                                <th className="p-2 border">Quote</th>
+                                <th className="p-2 border">Code</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {step.changes.inserted.map((result) => (
+                                <tr key={result.id}>
+                                  <td className="p-2 border">{result.id}</td>
+                                  <td className="p-2 border">{result.quote}</td>
+                                  <td className="p-2 border">{result.code}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <p className="mb-2 text-gray-600">
+                            No inserted results in this step.
+                          </p>
+                        )}
+
+                        <h5 className="text-sm font-medium text-gray-500">
+                          Updated Results
+                        </h5>
+                        {step.changes.updated.length > 0 ? (
+                          Object.entries(
+                            step.changes.updated.reduce((acc, change) => {
+                              if (!acc[change.type]) {
+                                acc[change.type] = [];
+                              }
+                              acc[change.type].push(change);
+                              return acc;
+                            }, {} as { [key: string]: FieldChange[] })
+                          ).map(([type, changes]) => (
+                            <div key={type} className="mb-4">
+                              <h6 className="text-xs font-medium text-gray-400">
+                                {type
+                                  .replace(/_/g, " ")
+                                  .replace(/\b\w/g, (c) => c.toUpperCase())}
+                              </h6>
+                              <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
+                                <thead>
+                                  <tr className="bg-gray-100">
+                                    <th className="p-2 border">Result ID</th>
+                                    <th className="p-2 border">Code</th>
+                                    <th className="p-2 border">Quote</th>
+                                    {type === "quote_changed" && (
+                                      <>
+                                        <th className="p-2 border">
+                                          Old Quote
+                                        </th>
+                                        <th className="p-2 border">
+                                          New Quote
+                                        </th>
+                                        <th className="p-2 border">
+                                          Similarity
+                                        </th>
+                                      </>
+                                    )}
+                                    {type === "code_changed" && (
+                                      <>
+                                        <th className="p-2 border">Old Code</th>
+                                        <th className="p-2 border">New Code</th>
+                                        <th className="p-2 border">
+                                          Similarity
+                                        </th>
+                                      </>
+                                    )}
+                                    {type === "explanation_changed" && (
+                                      <>
+                                        <th className="p-2 border">
+                                          Old Explanation
+                                        </th>
+                                        <th className="p-2 border">
+                                          New Explanation
+                                        </th>
+                                      </>
+                                    )}
+                                    {type === "is_marked_changed" && (
+                                      <>
+                                        <th className="p-2 border">
+                                          Old Is Marked
+                                        </th>
+                                        <th className="p-2 border">
+                                          New Is Marked
+                                        </th>
+                                      </>
+                                    )}
+                                    {type === "chat_history_changed" && (
+                                      <th className="p-2 border">
+                                        Chat History Changed
+                                      </th>
+                                    )}
+                                    {type === "range_marker_changed" && (
+                                      <th className="p-2 border">
+                                        Range Marker Changed
+                                      </th>
+                                    )}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {changes.map((change, index) => (
+                                    <tr
+                                      key={index}
+                                      className="hover:bg-gray-50"
+                                    >
+                                      <td className="p-2 border">
+                                        {change.resultId}
+                                      </td>
+                                      <td className="p-2 border">
+                                        {change.code}
+                                      </td>
+                                      <td className="p-2 border">
+                                        {change.quote}
+                                      </td>
+                                      {type === "quote_changed" && (
+                                        <>
+                                          <td className="p-2 border">
+                                            {change.oldValue}
+                                          </td>
+                                          <td className="p-2 border">
+                                            {change.newValue}
+                                          </td>
+                                          <td className="p-2 border">
+                                            {change.similarity?.toFixed(3)}
+                                          </td>
+                                        </>
+                                      )}
+                                      {type === "code_changed" && (
+                                        <>
+                                          <td className="p-2 border">
+                                            {change.oldValue}
+                                          </td>
+                                          <td className="p-2 border">
+                                            {change.newValue}
+                                          </td>
+                                          <td className="p-2 border">
+                                            {change.similarity?.toFixed(3)}
+                                          </td>
+                                        </>
+                                      )}
+                                      {type === "explanation_changed" && (
+                                        <>
+                                          <td className="p-2 border">
+                                            {change.oldValue}
+                                          </td>
+                                          <td className="p-2 border">
+                                            {change.newValue}
+                                          </td>
+                                        </>
+                                      )}
+                                      {type === "is_marked_changed" && (
+                                        <>
+                                          <td className="p-2 border">
+                                            {change.oldValue ? "Yes" : "No"}
+                                          </td>
+                                          <td className="p-2 border">
+                                            {change.newValue ? "Yes" : "No"}
+                                          </td>
+                                        </>
+                                      )}
+                                      {type === "chat_history_changed" && (
+                                        <td className="p-2 border">Yes</td>
+                                      )}
+                                      {type === "range_marker_changed" && (
+                                        <td className="p-2 border">Yes</td>
+                                      )}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="mb-2 text-gray-600">
+                            No updated results in this step.
+                          </p>
+                        )}
+
+                        <h5 className="text-sm font-medium text-gray-500">
+                          Deleted Results
+                        </h5>
+                        {step.changes.deleted.length > 0 ? (
+                          <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
+                            <thead>
+                              <tr className="bg-gray-100">
+                                <th className="p-2 border">ID</th>
+                                <th className="p-2 border">Quote</th>
+                                <th className="p-2 border">Code</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {step.changes.deleted.map((result) => (
+                                <tr key={result.id}>
+                                  <td className="p-2 border">{result.id}</td>
+                                  <td className="p-2 border">{result.quote}</td>
+                                  <td className="p-2 border">{result.code}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <p className="mb-2 text-gray-600">
+                            No deleted results in this step.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-600">
+                  No stepwise changes in this sequence.
+                </p>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   );

@@ -49,7 +49,7 @@ const Bucket: FC<BucketProps> = ({
         if (isEditing) {
             onUpdateName(theme.id, debouncedNewName.trim());
         }
-    }, [debouncedNewName, isEditing, onUpdateName, theme.id]);
+    }, [debouncedNewName, isEditing, theme.id]);
 
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setNewName(e.target.value);

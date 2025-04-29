@@ -258,7 +258,7 @@ def normalize_text(text: str) -> str:
     text = text.strip()
     return text
 
-def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript: str, parent_function_name: str = "") -> list[dict]:
+def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript: str, parent_function_name: str = "", post_id: str = "") -> list[dict]:
     normalized_transcript = normalize_text(transcript)
 
     hallucination_filtered_codes = []
@@ -282,6 +282,7 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
                 "function": "llm_response_after_filtering_hallucinations",
                 "parent_function_name": parent_function_name,
                 "workspace_id": workspace_id,
+                "post_id": post_id,
             }),
         )
     )
@@ -313,6 +314,7 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
                 "function": "llm_response_after_filtering_duplicates",
                 "parent_function_name": parent_function_name,
                 "workspace_id": workspace_id,
+                "post_id": post_id,
             }),
         )
     )
@@ -358,10 +360,17 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
     delete_query = """
         DELETE FROM qect
         WHERE id NOT IN (
-            SELECT MIN(id)
-            FROM qect
-            WHERE dataset_id = ? AND codebook_type = ?
-            GROUP BY LOWER(TRIM(code)), LOWER(TRIM(quote))
+            SELECT id
+            FROM (
+                SELECT id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY LOWER(TRIM(code)), LOWER(TRIM(quote))
+                        ORDER BY created_at ASC, id ASC
+                    ) AS rn
+                FROM qect
+                WHERE dataset_id = ? AND codebook_type = ?
+            ) AS sub
+            WHERE rn = 1
         )
         AND dataset_id = ? AND codebook_type = ?
     """
@@ -383,7 +392,9 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
                 "duplicates_removed": duplicates_removed,
                 "dataset_id": dataset_id,
                 "codebook_type": codebook_type,
-                "generation_type": generation_type
+                "generation_type": generation_type,
+                "count_before": count_before,
+                "count_after": count_after,
             }),
             context=json.dumps({
                 "function": "llm_response_after_filtering_duplicates",
@@ -394,7 +405,7 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
     )
 
 
-def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, workspace_id: str, model: str, codebook_type: str, parent_function_name: str = ""):
+def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, workspace_id: str, model: str, codebook_type: str, parent_function_name: str = "", post_id: str = "") -> List[Dict[str, Any]]:
     initial_responses = responses
     responses = list(filter(lambda response: response.get("code") and response.get("quote") and response.get("explanation"), responses))
     qect_repo.insert_batch(
@@ -432,6 +443,7 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
                 "dataset_id": dataset_id,
                 "parent_function_name": parent_function_name,
                 "workspace_id": workspace_id,
+                "post_id": post_id,
             }),
         )
     )

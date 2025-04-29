@@ -15,13 +15,19 @@ function NavBar() {
           </Link>
         </li>
         <li>
-          <Link to="/keyword-cloud" className="text-white hover:text-gray-300">
-            Keyword Cloud
+          <Link
+            to="/related-concepts"
+            className="text-white hover:text-gray-300"
+          >
+            Related Concepts
           </Link>
         </li>
         <li>
-          <Link to="/keyword-table" className="text-white hover:text-gray-300">
-            Keyword Table
+          <Link
+            to="/concept-outline"
+            className="text-white hover:text-gray-300"
+          >
+            Concept Outline
           </Link>
         </li>
         <li>

@@ -500,20 +500,6 @@ const CodingComparisonViewer: React.FC = () => {
       <h1 className="text-2xl font-bold mb-4">
         Human vs LLM Coding Comparison
       </h1>
-      <div className="mb-4">
-        <label className="mr-2">Filter:</label>
-        <select
-          value={filter}
-          onChange={(e) =>
-            handleFilterChange(e.target.value as "both" | "human" | "llm")
-          }
-          className="p-2 border rounded"
-        >
-          <option value="both">Both</option>
-          <option value="human">Human Only</option>
-          <option value="llm">LLM Only</option>
-        </select>
-      </div>
       {overallMetrics && (
         <div className="mb-8 p-4 bg-gray-50 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-2">Overall Metrics</h2>

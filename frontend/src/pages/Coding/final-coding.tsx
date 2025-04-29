@@ -57,7 +57,7 @@ const FinalCodingPage = () => {
         loadingRoute: PAGE_ROUTES.FINAL_CODING,
         loaderRoute: LOADER_ROUTES.FINAL_CODING_LOADER,
         loaderParams: { text: 'Final Coding in Progress' },
-        remoteRoute: REMOTE_SERVER_ROUTES.FINAL_CODING,
+        remoteRoute: REMOTE_SERVER_ROUTES.REDO_FINAL_CODING,
         useLLM: true,
         buildBody: () => JSON.stringify({ model: settings.ai.model }),
         nextRoute: PAGE_ROUTES.FINAL_CODING,

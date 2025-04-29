@@ -726,7 +726,7 @@ async def generate_codes_endpoint(request: Request,
                         code["postId"] = post_id
                         code["id"] = str(uuid4())
 
-                    codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-initial-codes")
+                    codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-initial-codes", post_id=post_id)
                     function_progress_repo.update({
                         "function_id": function_id,
                     }, {
@@ -734,7 +734,7 @@ async def generate_codes_endpoint(request: Request,
                             "function_id": function_id
                         }).current + 1
                     })
-                    codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="generate-initial-codes")
+                    codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="generate-initial-codes", post_id=post_id)
 
                 await send_ipc_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
@@ -814,7 +814,7 @@ async def generate_codes_endpoint(request: Request,
             StateDump(
                 state=json.dumps({ 
                     "dataset_id": dataset_id,
-                    "post_ids": selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "sampled"}, ["post_id"], map_to_model=False),
+                    "post_ids": list(map(lambda x: x["post_id"],selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "sampled"}, ["post_id"], map_to_model=False))),
                     "results": qect_repo.find({"dataset_id": dataset_id, "codebook_type": CodebookType.INITIAL.value}, map_to_model=False),
                 }),
                 context=json.dumps({
@@ -950,7 +950,7 @@ async def final_coding_endpoint(
                     code["postId"] = post_id
                     code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="final-coding")
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="final-coding", post_id=post_id)
                 function_progress_repo.update({
                         "function_id": function_id,
                     }, {
@@ -959,7 +959,7 @@ async def final_coding_endpoint(
                         }).current + 1
                     })
 
-                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="final-coding")
+                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="final-coding", post_id=post_id)
 
             await send_ipc_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
@@ -1468,9 +1468,9 @@ async def generate_codes_endpoint(
                         code["postId"] = post_id
                         code["id"] = str(uuid4())
 
-                    codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="remake-codebook")
+                    codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="remake-codebook", post_id=post_id)
 
-                    codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="remake-codebook")
+                    codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="remake-codebook", post_id=post_id)
 
                 await send_ipc_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
                 return codes
@@ -1553,7 +1553,7 @@ async def generate_codes_endpoint(
             StateDump(
                 state=json.dumps({
                     "dataset_id": dataset_id,
-                    "post_ids": selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "sampled"}, ["post_id"], map_to_model=False),
+                    "post_ids": list(map(lambda x: x["post_id"],selected_post_ids_repo.find({"dataset_id": dataset_id, "type": "sampled"}, ["post_id"], map_to_model=False))),
                     "results": final_results,
                     "feedback": request_body.feedback
                 }),
@@ -1675,6 +1675,7 @@ async def redo_final_coding_endpoint(
                     research_questions=json.dumps(research_questions),
                     post_transcript=transcript,
                     current_codebook=json.dumps(summarized_current_codebook),
+                    feedback = request_body.feedback,
                     store_response=True,
                     cacheable_args={
                         "args":[],
@@ -1698,9 +1699,9 @@ async def redo_final_coding_endpoint(
                     code["postId"] = post_id
                     code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-final-coding")
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-final-coding", post_id=post_id)
 
-                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="redo-final-coding")
+                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="redo-final-coding", post_id=post_id)
             await send_ipc_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
@@ -2318,8 +2319,8 @@ async def generate_deductive_codes_endpoint(
                     code["postId"] = post_id
                     code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-deductive-codes")
-                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes")
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-deductive-codes", post_id=post_id)
+                codes = insert_responses_into_db(codes, dataset_id, workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes", post_id=post_id)
             await send_ipc_message(app_id, f"Dataset {dataset_id}: Generated codes for post {post_id}...")
             return codes
 
