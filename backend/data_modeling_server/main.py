@@ -62,8 +62,9 @@ def run_http():
     uvicorn.run(
         "app_http:app", 
         port=8080,
-        reload=False,
-        workers=3,  
+        reload=True
+        # reload=False,
+        # workers=3,  
     )
 
 def run_ws():

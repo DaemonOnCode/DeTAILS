@@ -1,9 +1,9 @@
 class ContextPrompt:
-    keyword_json_template = """
+    concept_json_template = """
 {{
-  "keywords": [
+  "concepts": [
     {{
-      "word": "ExtractedKeyword",
+      "word": "ExtractedConcept",
       "description": "Explanation of the word and its relevance to the main topic and additional information.",
       "inclusion_criteria": ["Criteria 1", "Criteria 2", "..."],
       "exclusion_criteria": ["Criteria 1", "Criteria 2", "..."]
@@ -22,7 +22,7 @@ class ContextPrompt:
      a) First pass: Holistic understanding of {mainTopic}
      b) Second pass: Note interesting features
      c) Third pass: Pattern identification
-   - Generate "immersion_notes" for each keyword
+   - Generate "immersion_notes" for each concept
 
 2. INITIAL OBSERVATION DOCUMENTATION:
    - Flag content related to {researchQuestions}
@@ -33,14 +33,14 @@ class ContextPrompt:
    - Distinguish between:
      • Semantic: Surface-level meanings
      • Latent: Underlying ideas/assumptions
-   - Tag each keyword with "code_type"
+   - Tag each concept with "code_type"
 
-You are also instructed to identify 20 highly relevant keywords that will serve as the foundation for building context in a qualitative research study.
+You are also instructed to identify 20 highly relevant concepts that will serve as the foundation for building context in a qualitative research study.
 
-Each keyword should come with:
+Each concept should come with:
 - A clear description explaining its relevance to the main topic.
-- Inclusion criteria specifying when the keyword should be applied in coding.
-- Exclusion criteria specifying when the keyword should not be applied to prevent misclassification.
+- Inclusion criteria specifying when the concept should be applied in coding.
+- Exclusion criteria specifying when the concept should not be applied to prevent misclassification.
 
 Output must be strictly in the JSON format described.""",
             """\nTextual Data: \n{context}\n\n"""
@@ -64,15 +64,15 @@ Include in JSON:
 2. code_type classification
 3. Data excerpts supporting inclusion/exclusion
 
-I need a structured list of 20 keywords with coding guidelines to establish context for deductive thematic analysis, based on:
+I need a structured list of 20 concepts with coding guidelines to establish context for deductive thematic analysis, based on:
 - Main Topic: {mainTopic}
 - Research Questions: {researchQuestions}
 - Additional Information: {additionalInfo}
 
-Return exactly 20 keywords in the following JSON format:
+Return exactly 20 concepts in the following JSON format:
 
 ```json
-{ContextPrompt.keyword_json_template}
+{ContextPrompt.concept_json_template}
 ```
 Important:
 - Only return the JSON object—no explanations, summaries, or additional text.
@@ -83,49 +83,49 @@ Important:
     def regenerationPromptTemplate(mainTopic: str,
                                    researchQuestions: str,
                                    additionalInfo: str,
-                                   selectedKeywords: str,
-                                   unselectedKeywords: str,
+                                   selectedConcepts: str,
+                                   unselectedConcepts: str,
                                    extraFeedback: str):
 
         return [
-            f"""You are an advanced AI specializing in qualitative research and thematic coding. Your task is to refine previously generated keywords based on selected themes, unselected themes, and new feedback.
+            f"""You are an advanced AI specializing in qualitative research and thematic coding. Your task is to refine previously generated concepts based on selected themes, unselected themes, and new feedback.
 
 ### New Inputs:
-- Selected Keywords (DO NOT include these keywords): {selectedKeywords}
-- Unselected Keywords (DO NOT include these keywords): {unselectedKeywords}
+- Selected Concepts (DO NOT include these concepts): {selectedConcepts}
+- Unselected Concepts (DO NOT include these concepts): {unselectedConcepts}
 - Extra Feedback: {extraFeedback}
 
 ### Process
 1. Re-evaluating the Context
    - Analyze the main topic, research questions, and additional information.
-   - Use selected themes as a basis for improving keyword selection.
-   - REMOVE any keywords related to unselected themes.
+   - Use selected themes as a basis for improving concept selection.
+   - REMOVE any concepts related to unselected themes.
 
-2. Improving Keyword Selection
-   - Modify existing keywords based on feedback.
-   - Remove irrelevant or redundant keywords.
-   - Introduce new keywords if necessary.
-   - Ensure keywords align with selected themes while excluding unselected ones.
+2. Improving Concept Selection
+   - Modify existing concepts based on feedback.
+   - Remove irrelevant or redundant concepts.
+   - Introduce new concepts if necessary.
+   - Ensure concepts align with selected themes while excluding unselected ones.
 
-3. Providing Updated Information for Each Keyword
-   - Description: Explain the revised keyword's relevance.
-   - Inclusion Criteria: When should this keyword be applied?
+3. Providing Updated Information for Each Concept
+   - Description: Explain the revised concept's relevance.
+   - Inclusion Criteria: When should this concept be applied?
    - Exclusion Criteria: When should it not be applied?
 
 4. Output Formatting
    Your response must be strictly in JSON format, following this structure:
 
 ```json
-{ContextPrompt.keyword_json_template}
+{ContextPrompt.concept_json_template}
 ```
 
 ### Important Notes
 - DO NOT include explanations, summaries, or additional text.
 - Ensure JSON is valid and properly formatted.
-- Provide exactly 5 refined keywords.
-- REMOVE keywords related to unselected themes.
+- Provide exactly 5 refined concepts.
+- REMOVE concepts related to unselected themes.
 
-Proceed with refining the keywords.
+Proceed with refining the concepts.
 """,
             """\nTextual Data: \n{context}\n\n"""
         ]
@@ -134,30 +134,30 @@ Proceed with refining the keywords.
     def refined_context_builder(mainTopic: str,
                                     researchQuestions: str,
                                     additionalInfo: str,
-                                    selectedKeywords: str,
-                                    unselectedKeywords: str,
+                                    selectedConcepts: str,
+                                    unselectedConcepts: str,
                                     extraFeedback: str):
 
         return f"""
-I need a refined list of 5 keywords based on the following research inputs:
+I need a refined list of 5 concepts based on the following research inputs:
 
 - Main Topic: {mainTopic}
 - Research Questions: {researchQuestions}
 - Additional Information: {additionalInfo}
-- Selected Keywords: {selectedKeywords}
-- Unselected Keywords (DO NOT include keywords related to these themes): {unselectedKeywords}
+- Selected Concepts: {selectedConcepts}
+- Unselected Concepts (DO NOT include concepts related to these themes): {unselectedConcepts}
 - Extra Feedback: {extraFeedback}
 
 Instructions:
-- Modify existing keywords based on feedback.
-- Generate keywords consisting 1-3 words only.
+- Modify existing concepts based on feedback.
+- Generate concepts consisting 1-3 words only.
 - Adjust descriptions, inclusion, and exclusion criteria.
-- REMOVE any keywords related to unselected themes.
+- REMOVE any concepts related to unselected themes.
 - Keep JSON format strict.
 
 Output Format:
 ```json
-{ContextPrompt.keyword_json_template}
+{ContextPrompt.concept_json_template}
 ```
 
 Proceed with the refinement.
@@ -169,7 +169,7 @@ class InitialCodePrompts:
     def initial_code_prompt(main_topic: str,
                             additional_info: str,
                             research_questions: str,
-                            keyword_table: str,
+                            concept_table: str,
                             post_transcript: str):
         return f"""
 PHASE 2 (Generating Initial Codes) Requirements:
@@ -182,7 +182,7 @@ PHASE 2 (Generating Initial Codes) Requirements:
    - Do not generate codes for off-topic content or segments that do not relate to the main research focus. Avoid generic labels such as "N/A", "irrelevant", "off-topic", or similar.
 
 2. CONSTANT COMPARISON:
-   - Compare newly generated codes with existing ones in the provided keyword table.
+   - Compare newly generated codes with existing ones in the provided concept table.
    - Highlight similarities or differences in how {main_topic} is handled.
 
 3. CODING TYPES:
@@ -193,13 +193,13 @@ PHASE 2 (Generating Initial Codes) Requirements:
 
 Only generate codes that directly contribute to understanding the phenomenon under study. Exclude any codes that do not have a clear link to the main topic or research questions.
 
-You are an advanced AI model specializing in qualitative research and deductive thematic analysis using Braun and Clarke's method. Your task is to extract thematic codes from the given post transcript using the provided keyword table.
+You are an advanced AI model specializing in qualitative research and deductive thematic analysis using Braun and Clarke's method. Your task is to extract thematic codes from the given post transcript using the provided concept table.
 
 Main Topic: {main_topic}
 Additional Information: {additional_info}
 Research Questions: {research_questions}
 
-Keyword Table (JSON): {keyword_table}
+Concept Table (JSON): {concept_table}
 
 Post transcript: {post_transcript}
 
@@ -237,7 +237,7 @@ Generate your output strictly in valid JSON format as follows:
     {{
       "quote": "Exact phrase from the transcript.",
       "explanation": "How it relates to the code and research focus.",
-      "code": "Relevant keyword or code derived from the transcript.",
+      "code": "Relevant concept or code derived from the transcript.",
     }}
     // Additional code objects...
   ]
@@ -260,7 +260,7 @@ class FinalCoding:
     @staticmethod
     def final_coding_prompt(final_codebook: str,
                                 post_transcript: str,
-                                keyword_table: str,
+                                concept_table: str,
                                 main_topic: str,
                                 additional_info: str = "",
                                 research_questions: str = ""):
@@ -276,9 +276,9 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
   (Structured thematic codes)  
   {final_codebook}
 
-- **Keyword Table:**  
+- **Concept Table:**  
   (JSON format with inclusion/exclusion criteria)  
-  {keyword_table}
+  {concept_table}
 
 - **Post Transcript:**  
   {post_transcript}
@@ -289,7 +289,7 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
   Recognize that your analysis may range from superficial to deeply nuanced. Aim for compelling and insightful interpretations that are well supported by the data.
 
 - **Deductive Orientation:**  
-  Your coding is guided by pre-established theoretical constructs. Use the final codebook and keyword table as analytical lenses, ensuring that your code assignments reflect these predefined frameworks.
+  Your coding is guided by pre-established theoretical constructs. Use the final codebook and concept table as analytical lenses, ensuring that your code assignments reflect these predefined frameworks.
 
 - **Focus of Meaning:**  
   - **Semantic:** Identify and capture the explicit, surface-level content in the transcript.
@@ -304,7 +304,7 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
 
 1. **Analyze the Post Transcript:**
    - Read the transcript carefully and compare its phrases with the codes in the final codebook.
-   - Reference the relevant keywords and criteria from the keyword table.
+   - Reference the relevant concepts and criteria from the concept table.
    - Ensure that you only code transcript segments directly related to the main topic and research questions.
    - Avoid forced or generic classifications; assign codes only when they are clearly supported by the provided materials.
 
@@ -314,7 +314,7 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
      "codes": [
        {{
          "quote": "Exact phrase from the transcript.",
-         "explanation": "Concise rationale explaining the code assignment based on the final codebook and keyword table.",
+         "explanation": "Concise rationale explaining the code assignment based on the final codebook and concept table.",
          "code": "Assigned code from the final codebook"
        }}
        // Additional code objects...
@@ -626,10 +626,10 @@ No additional commentary outside the JSON object.
 
 class RemakerPrompts:
     @staticmethod
-    def codebook_remake_prompt(main_topic: str,
+    def redo_initial_coding_prompt(main_topic: str,
                                additional_info: str,
                                research_questions: str,
-                               keyword_table: str,
+                               concept_table: str,
                                post_transcript: str,
                                current_codebook: str,
                                feedback: str):
@@ -642,7 +642,7 @@ PHASE 3 (Complete Codebook Remake) Requirements:
 - Analyze the Post Transcript for segments relevant to the research focus.
   Transcript: 
   {post_transcript}
-- Use the Keyword Table (JSON) with its inclusion/exclusion criteria: {keyword_table}
+- Use the Concept Table (JSON) with its inclusion/exclusion criteria: {concept_table}
 
 ### Analytical Assumptions and Considerations
 
@@ -680,7 +680,7 @@ Generate your output strictly in valid JSON format as follows:
     {{
       "quote": "Exact phrase from the transcript or current codebook.",
       "explanation": "Explanation of the code and its relevance.",
-      "code": "Updated or new keyword/code."
+      "code": "Updated or new concept/code."
     }}
     // Additional code objects...
   ]
@@ -691,12 +691,12 @@ No additional text outside the JSON.
 """
 
     @staticmethod
-    def final_codebook_remake_prompt(main_topic: str,
+    def redo_final_coding_prompt(main_topic: str,
                                     additional_info: str,
                                     research_questions: str,
                                     final_codebook: str,
                                     current_codebook: str,
-                                    keyword_table: str,
+                                    concept_table: str,
                                     post_transcript: str,
                                     feedback: str):
         return f"""
@@ -708,7 +708,7 @@ PHASE 3 (Deductive Codebook Remake) Requirements:
 - Address the **Research Questions:** {research_questions}.
 - Utilize the **Final Codebook** (structured thematic codes in JSON format): {final_codebook}
 - Evaluate the **CURRENT CODEBOOK SUMMARY:** {current_codebook} used in the deductive coding phase.
-- Refer to the **Keyword Table** (JSON with inclusion/exclusion criteria): {keyword_table}
+- Refer to the **Concept Table** (JSON with inclusion/exclusion criteria): {concept_table}
 - Analyze the Post Transcript for segments that are directly relevant:
   {post_transcript}
 
@@ -718,7 +718,7 @@ PHASE 3 (Deductive Codebook Remake) Requirements:
   Aim for an analysis that is compelling, nuanced, and insightful, while acknowledging that interpretations may vary in depth.
 
 - **Deductive Orientation:**  
-  Your updated codebook should reflect the deductive framework provided by the final codebook and keyword table. Codes must align with these pre-established theoretical constructs.
+  Your updated codebook should reflect the deductive framework provided by the final codebook and concept table. Codes must align with these pre-established theoretical constructs.
 
 - **Focus of Meaning:**  
   - **Semantic:** Capture explicit, surface-level meanings.
@@ -745,7 +745,7 @@ Generate your output strictly in valid JSON format as follows:
     {{
       "quote": "Exact phrase from the transcript or current codebook.",
       "explanation": "Explanation of the code and its relevance.",
-      "code": "Updated or new keyword/code."
+      "code": "Updated or new concept/code."
     }}
     // Additional code objects...
   ]
@@ -1140,9 +1140,9 @@ class ConceptOutline:
             "Your response must be in JSON format as a list of objects, each containing "
             """
             {{
-              "keywords": [
+              "concepts": [
                 {{
-                  "word": "ExtractedKeyword",
+                  "word": "ExtractedConcept",
                   "description": "Explanation of the word and its relevance to the main topic and additional information.",
                   "inclusion_criteria": ["Criteria 1", "Criteria 2", "..."],
                   "exclusion_criteria": ["Criteria 1", "Criteria 2", "..."]

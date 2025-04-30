@@ -16,7 +16,7 @@ class SamplePostsRequest(BaseModel):
 class SelectedPostIdsRequest(BaseModel):
     pass
     
-class RegenerateKeywordsRequest(BaseCodingRouteRequest):
+class RegenerateConceptsRequest(BaseCodingRouteRequest):
     extraFeedback: str = ""
 
 
@@ -24,7 +24,7 @@ class GenerateInitialCodesRequest(BaseCodingRouteRequest):
     pass
 
 
-class FinalCodingRequest(BaseCodingRouteRequest):
+class GenerateFinalCodesRequest(BaseCodingRouteRequest):
     pass
 
   
@@ -43,11 +43,11 @@ class RefineCodeRequest(BaseModel):
     model: str
 
 
-class RemakeCodebookRequest(GenerateInitialCodesRequest):
+class RedoInitialCodingRequest(GenerateInitialCodesRequest):
     feedback: str = ""
 
 
-class RemakeFinalCodesRequest(FinalCodingRequest):
+class RedoFinalCodingRequest(GenerateFinalCodesRequest):
     feedback: str = ""
 
 class GroupCodesRequest(BaseCodingRouteRequest):
@@ -69,7 +69,7 @@ class GenerateDeductiveCodesRequest(BaseModel):
     codebook: dict
     post_ids: list
 
-class GenerateKeywordDefinitionsRequest(BaseModel):
+class GenerateConceptDefinitionsRequest(BaseModel):
     model: str
 
 class GetCodedDataRequest(BaseModel):

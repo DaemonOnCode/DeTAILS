@@ -17,13 +17,13 @@ class TorrentDownloadProgressRepository(BaseRepository[TorrentDownloadProgress])
     def delete_progress_for_run(self, run_id: str):
         return self.delete({"run_id": run_id})
     
-    def get_current_status(self, workspace_id: str, dataset_id: str) -> str:
+    def get_current_status(self, workspace_id: str) -> str:
         query = """
         WITH overall AS (
   SELECT 
     run_id,
     workspace_id,
-    dataset_id,
+    workspace_id,
     status,
     progress,
     completed_files,
@@ -34,7 +34,7 @@ class TorrentDownloadProgressRepository(BaseRepository[TorrentDownloadProgress])
     files_already_downloaded,
     messages
   FROM torrent_download_progress
-  WHERE workspace_id = ? AND dataset_id = ?
+  WHERE workspace_id = ? AND workspace_id = ?
 )
 SELECT json_object(
   'overall', json_object(
@@ -61,7 +61,7 @@ SELECT json_object(
     FROM pipeline_steps ps
     WHERE ps.run_id = o.run_id
       AND ps.workspace_id = o.workspace_id
-      AND ps.dataset_id = o.dataset_id
+      AND ps.workspace_id = o.workspace_id
     ORDER BY CASE ps.step_label
         WHEN 'Metadata' THEN 1
         WHEN 'Verification' THEN 2
@@ -86,12 +86,12 @@ SELECT json_object(
     FROM file_status fs
     WHERE fs.run_id = o.run_id
       AND fs.workspace_id = o.workspace_id
-      AND fs.dataset_id = o.dataset_id
+      AND fs.workspace_id = o.workspace_id
   )
 ) AS run_state
 FROM overall o;
         """
-        rows = self.execute_raw_query(query, (workspace_id, dataset_id), keys=True)
+        rows = self.execute_raw_query(query, (workspace_id, workspace_id), keys=True)
         print(rows)
         return rows
     

@@ -11,12 +11,12 @@ class CommentsRepository(BaseRepository[Comment]):
         super().__init__("comments", Comment, *args, **kwargs)
         self.index_comments()
 
-    def fetch_unprocessed_comments(self, dataset_id: str, batch_size: int, num_threads: int):
+    def fetch_unprocessed_comments(self, workspace_id: str, batch_size: int, num_threads: int):
         tokenized_comment_ids = list(map(lambda x: x["comment_id"], self.execute_raw_query("SELECT comment_id FROM tokenized_comments", keys=True)))
 
         query_builder = self.query_builder()
         query, params = query_builder.select("id", "body") \
-            .where("dataset_id", dataset_id) \
+            .where("workspace_id", workspace_id) \
             .where("id", 
                    tokenized_comment_ids, 
                    operator="NOT IN") \
@@ -30,19 +30,19 @@ class CommentsRepository(BaseRepository[Comment]):
         index_sqls = [ 
         """
         CREATE INDEX IF NOT EXISTS idx_comments_dataset_post_parent
-        ON comments(dataset_id, post_id, parent_id);
+        ON comments(workspace_id, post_id, parent_id);
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_comments_dataset_parent
-        ON comments(dataset_id, parent_id);
+        ON comments(workspace_id, parent_id);
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_comments_by_post
-        ON comments(dataset_id, post_id);
+        ON comments(workspace_id, post_id);
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_comments_good
-        ON comments(dataset_id, post_id)
+        ON comments(workspace_id, post_id)
         WHERE body IS NOT NULL
             AND TRIM(body) <> ''
             AND body NOT IN ('[removed]', '[deleted]');
@@ -53,7 +53,7 @@ class CommentsRepository(BaseRepository[Comment]):
                 conn.execute(sql)
                 conn.commit()
     
-    def get_comments_by_post_optimized(self, dataset_id: str, post_id: str):
+    def get_comments_by_post_optimized(self, workspace_id: str, post_id: str):
         recursive_sql = """
         WITH RECURSIVE comment_tree AS (
         SELECT
@@ -66,7 +66,7 @@ class CommentsRepository(BaseRepository[Comment]):
         FROM comments
         WHERE
             post_id    = ?
-            AND dataset_id = ?
+            AND workspace_id = ?
             AND parent_id  = post_id
 
         UNION ALL
@@ -81,7 +81,7 @@ class CommentsRepository(BaseRepository[Comment]):
         JOIN comment_tree AS ct
             ON c.parent_id = ct.id
         WHERE
-            c.dataset_id = ?
+            c.workspace_id = ?
         )
         SELECT *
         FROM comment_tree;
@@ -89,7 +89,7 @@ class CommentsRepository(BaseRepository[Comment]):
 
         rows = self.execute_raw_query(
             recursive_sql,
-            (post_id, dataset_id, dataset_id),
+            (post_id, workspace_id, workspace_id),
             keys=True
         )
         print(rows)

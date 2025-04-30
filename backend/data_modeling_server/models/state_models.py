@@ -5,7 +5,7 @@ from pydantic import BaseModel
 class SaveStateRequest(BaseModel):
     workspace_id: str
     user_email: str
-    dataset_id: str
+    workspace_id: str
     page_url: str = "/"
     coding_context: Dict[str, Any]
     collection_context: Dict[str, Any]
@@ -36,9 +36,9 @@ class CodingContext(BaseModel):
     main_topic: Optional[str] = None
     additional_info: Optional[str] = None
     context_files: dict = {}
-    keywords: list = []
-    selected_keywords: list = []
-    keyword_table: list = []
+    concepts: list = []
+    selected_concepts: list = []
+    concept_table: list = []
     references_data: dict = {}
     themes: list = []
     grouped_codes: list = []

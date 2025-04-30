@@ -47,24 +47,24 @@ def get_temperature_and_random_seed():
         return settings["ai"]["temperature"], settings["ai"]["randomSeed"]
 
 
-def initialize_vector_store(dataset_id: str, model: str, embeddings: Any):
+def initialize_vector_store(workspace_id: str, model: str, embeddings: Any):
     chroma_client = HttpClient(host="localhost", port=CHROMA_PORT)
     vector_store = Chroma(
         embedding_function=embeddings,
-        collection_name=f"{dataset_id.replace('-','_')}_{model.replace(':','_')}"[:60],
+        collection_name=f"{workspace_id.replace('-','_')}_{model.replace(':','_')}"[:60],
         client=chroma_client,
         client_settings=ChromaDBSettings(anonymized_telemetry=False)
     )
     return vector_store
 
 @log_execution_time()
-async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[UploadFile], vector_store: Chroma):
+async def save_context_files(app_id: str, workspace_id: str, contextFiles: List[UploadFile], vector_store: Chroma):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     
-    await send_ipc_message(app_id, f"Dataset {dataset_id}: Uploading files...")
+    await send_ipc_message(app_id, f"Dataset {workspace_id}: Uploading files...")
     await asyncio.sleep(5)
 
-    print(f"Processing context files for dataset {dataset_id}..., num files: {len(contextFiles)}")
+    print(f"Processing context files for dataset {workspace_id}..., num files: {len(contextFiles)}")
 
     for file in contextFiles:
         print(f"Processing file: {file.filename}, size: {file.size}")
@@ -74,7 +74,7 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
 
     for file in os.listdir(CONTEXT_FILES_DIR):
         file_path = os.path.join(CONTEXT_FILES_DIR, file)
-        if os.path.isfile(file_path) and file.startswith(dataset_id):
+        if os.path.isfile(file_path) and file.startswith(workspace_id):
             os.remove(file_path)
 
     for file in contextFiles:
@@ -85,7 +85,7 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
             try:
                 file_name = file.filename
 
-                temp_file_path = os.path.join(CONTEXT_FILES_DIR, f"{dataset_id}_{time.time()}_{file_name}")
+                temp_file_path = os.path.join(CONTEXT_FILES_DIR, f"{workspace_id}_{time.time()}_{file_name}")
                 with open(temp_file_path, "wb") as temp_file:
                     temp_file.write(file_content)
 
@@ -108,26 +108,25 @@ async def save_context_files(app_id: str, dataset_id: str, contextFiles: List[Up
                 await run_in_threadpool(vector_store.add_documents, chunks)
 
                 success = True
-                await send_ipc_message(app_id, f"Dataset {dataset_id}: Successfully processed file {file_name}.")
+                await send_ipc_message(app_id, f"Dataset {workspace_id}: Successfully processed file {file_name}.")
             except Exception as e:
                 retries -= 1
                 await send_ipc_message(app_id, 
-                    f"WARNING: Dataset {dataset_id}: Error processing file {file.filename} - {str(e)}. Retrying... ({3 - retries}/3)"
+                    f"WARNING: Dataset {workspace_id}: Error processing file {file.filename} - {str(e)}. Retrying... ({3 - retries}/3)"
                 )
                 if retries == 0:
                     await send_ipc_message(app_id, 
-                        f"ERROR: Dataset {dataset_id}: Failed to process file {file.filename} after multiple attempts."
+                        f"ERROR: Dataset {workspace_id}: Failed to process file {file.filename} after multiple attempts."
                     )
                     raise e
 
-    await send_ipc_message(app_id, f"Dataset {dataset_id}: Files uploaded successfully.")
+    await send_ipc_message(app_id, f"Dataset {workspace_id}: Files uploaded successfully.")
     await asyncio.sleep(1)
 
 
 @log_execution_time()
 async def process_llm_task(
     app_id: str,
-    dataset_id: str,
     workspace_id: str,
     manager: ConnectionManager,
     llm_model: str,
@@ -153,7 +152,7 @@ async def process_llm_task(
     if not function_id:
         function_id = str(uuid4()) 
 
-    await send_ipc_message(app_id, f"Dataset {dataset_id}: LLM process started...")
+    await send_ipc_message(app_id, f"Dataset {workspace_id}: LLM process started...")
 
     while retries > 0 and not success:
         try:
@@ -166,7 +165,7 @@ async def process_llm_task(
                 if not rag_prompt_builder_func:
                     raise ValueError("RAG mode requires a 'rag_prompt_builder_func'.")
 
-                await send_ipc_message(app_id, f"Dataset {dataset_id}: Using Retrieval-Augmented Generation (RAG)...")
+                await send_ipc_message(app_id, f"Dataset {workspace_id}: Using Retrieval-Augmented Generation (RAG)...")
 
                 prompt_template = ChatPromptTemplate.from_messages([
                     ("system", rag_prompt_builder_func(**prompt_params)),  
@@ -180,7 +179,7 @@ async def process_llm_task(
                 if not prompt_builder_func:
                     raise ValueError("Standard LLM invocation requires a 'prompt_builder_func'.")
 
-                await send_ipc_message(app_id, f"Dataset {dataset_id}: Running direct LLM task...")
+                await send_ipc_message(app_id, f"Dataset {workspace_id}: Running direct LLM task...")
 
                 print("Cacheable Args in collector", cacheable_args)
                 if cacheable_args:
@@ -191,7 +190,7 @@ async def process_llm_task(
                     print("Prompt Text", prompt_text)
                     if stream_output:
                         async for chunk in llm_instance.stream(prompt_text):
-                            await send_ipc_message(app_id, f"Dataset {dataset_id}: {chunk}")
+                            await send_ipc_message(app_id, f"Dataset {workspace_id}: {chunk}")
                     else:
                        job_id, response_future = await llm_queue_manager.submit_task(llm_instance.invoke, function_id, prompt_text)
 
@@ -201,7 +200,7 @@ async def process_llm_task(
             state_dump_repo.insert(
                 StateDump(
                     state=json.dumps({
-                        "dataset_id": dataset_id,
+                        "workspace_id": workspace_id,
                         "model": llm_model,
                         "response": response,
                         "id": function_id,
@@ -210,7 +209,7 @@ async def process_llm_task(
                         "function": "llm_response_before_processing",
                         "post_id": post_id,
                         "retriever": bool(retriever),
-                        "dataset_id": dataset_id,
+                        "workspace_id": workspace_id,
                         "function_id": function_id,
                         "parent_function_name": parent_function_name,
                         "workspace_id": workspace_id,
@@ -225,12 +224,12 @@ async def process_llm_task(
             extracted_data = json.loads(json_str, strict=False)
 
             success = True
-            await send_ipc_message(app_id, f"Dataset {dataset_id}: LLM process completed successfully.")
+            await send_ipc_message(app_id, f"Dataset {workspace_id}: LLM process completed successfully.")
 
             if store_response and post_id:
                 llm_responses_repo.insert(
                     LlmResponse(
-                        dataset_id=dataset_id,
+                        workspace_id=workspace_id,
                         model=llm_model,
                         response=response.lower(),
                         id=str(uuid4()),
@@ -243,10 +242,10 @@ async def process_llm_task(
         except Exception as e:
             retries -= 1
             await send_ipc_message(app_id, 
-                f"WARNING: Dataset {dataset_id}: Error processing LLM response - {str(e)}. Retrying... ({retries}/{max_retries})"
+                f"WARNING: Dataset {workspace_id}: Error processing LLM response - {str(e)}. Retrying... ({retries}/{max_retries})"
             )
             if retries == 0:
-                await send_ipc_message(app_id, f"ERROR: Dataset {dataset_id}: LLM failed after multiple attempts.")
+                await send_ipc_message(app_id, f"ERROR: Dataset {workspace_id}: LLM failed after multiple attempts.")
                 extracted_data = []
 
     return extracted_data
@@ -351,9 +350,9 @@ def filter_duplicate_codes(codes: List[Dict[str, Any]], parent_function_name: st
     
     return filtered_codes
 
-def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation_type: str, workspace_id: str, parent_function_name: str):
+def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generation_type: str, parent_function_name: str):
     count_before = qect_repo.count({
-        "dataset_id": dataset_id,
+        "workspace_id": workspace_id,
         "codebook_type": codebook_type,
     })
 
@@ -368,17 +367,17 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
                         ORDER BY created_at ASC, id ASC
                     ) AS rn
                 FROM qect
-                WHERE dataset_id = ? AND codebook_type = ?
+                WHERE workspace_id = ? AND codebook_type = ?
             ) AS sub
             WHERE rn = 1
         )
-        AND dataset_id = ? AND codebook_type = ?
+        AND workspace_id = ? AND codebook_type = ?
     """
-    params = (dataset_id, codebook_type, dataset_id, codebook_type)
+    params = (workspace_id, codebook_type, workspace_id, codebook_type)
     qect_repo.execute_raw_query(delete_query, params)
     
     count_after = qect_repo.count({
-        "dataset_id": dataset_id,
+        "workspace_id": workspace_id,
         "codebook_type": codebook_type,
     })
     
@@ -390,7 +389,7 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
         StateDump(
             state=json.dumps({
                 "duplicates_removed": duplicates_removed,
-                "dataset_id": dataset_id,
+                "workspace_id": workspace_id,
                 "codebook_type": codebook_type,
                 "generation_type": generation_type,
                 "count_before": count_before,
@@ -405,7 +404,7 @@ def filter_duplicate_codes_in_db(dataset_id: str, codebook_type: str, generation
     )
 
 
-def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, workspace_id: str, model: str, codebook_type: str, parent_function_name: str = "", post_id: str = "") -> List[Dict[str, Any]]:
+def insert_responses_into_db(responses: List[Dict[str, Any]], workspace_id: str, model: str, codebook_type: str, parent_function_name: str = "", post_id: str = "") -> List[Dict[str, Any]]:
     initial_responses = responses
     responses = list(filter(lambda response: response.get("code") and response.get("quote") and response.get("explanation"), responses))
     qect_repo.insert_batch(
@@ -413,7 +412,6 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
             map(
                 lambda code: QectResponse(
                     id=code["id"],
-                    dataset_id=dataset_id,
                     workspace_id=workspace_id,
                     model=model,
                     quote=code["quote"],
@@ -440,7 +438,7 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], dataset_id: str, w
             context=json.dumps({
                 "function": "llm_response_after_filtering_empty_columns",
                 "codebook_type": codebook_type,
-                "dataset_id": dataset_id,
+                "workspace_id": workspace_id,
                 "parent_function_name": parent_function_name,
                 "workspace_id": workspace_id,
                 "post_id": post_id,
@@ -457,7 +455,6 @@ async def cluster_words_with_llm(
     words: List[str],
     llm_model: str,
     app_id: str,
-    dataset_id: str,
     manager: Any, 
     llm_instance: Any,  
     llm_queue_manager: Any,  
@@ -481,7 +478,6 @@ async def cluster_words_with_llm(
             extracted_data = await process_llm_task(
                 app_id=app_id,
                 workspace_id = workspace_id, 
-                dataset_id=dataset_id,
                 manager=manager,
                 llm_model=llm_model,
                 regex_pattern=regex_pattern,
@@ -498,7 +494,6 @@ async def cluster_words_with_llm(
             extracted_data = await process_llm_task(
                 app_id=app_id,
                 workspace_id = workspace_id,
-                dataset_id=dataset_id,
                 manager=manager,
                 llm_model=llm_model,
                 regex_pattern=regex_pattern,
@@ -559,7 +554,7 @@ def truncate_text(text: str, max_tokens: int, llm_instance: Any) -> str:
     return llm_instance.detokenize(truncated_tokens)
 
 async def stream_qect_pages(
-    dataset_id: str,
+    workspace_id: str,
     codebook_types: List[int],
     page_size: int = 500
 ) -> AsyncGenerator[List[Dict[str, Any]], None]:
@@ -567,13 +562,13 @@ async def stream_qect_pages(
     types_placeholders = ", ".join("?" for _ in codebook_types)
     base_sql = (
         f"SELECT * FROM {table} "
-        f"WHERE dataset_id = ? AND codebook_type IN ({types_placeholders}) AND is_marked = 1 "
+        f"WHERE workspace_id = ? AND codebook_type IN ({types_placeholders}) AND is_marked = 1 "
         f"ORDER BY rowid "
         f"LIMIT ? OFFSET ?"
     )
     offset = 0
     while True:
-        params = [dataset_id, *codebook_types, page_size, offset]
+        params = [workspace_id, *codebook_types, page_size, offset]
         rows = qect_repo.execute_raw_query(base_sql, tuple(params), keys=True)
         if not rows:
             break
@@ -585,7 +580,6 @@ async def summarize_with_llm(
     texts: List[str],
     llm_model: str,
     app_id: str,
-    dataset_id: str,
     manager: Any,
     llm_instance: Any,
     llm_queue_manager: Any,
@@ -637,11 +631,10 @@ async def summarize_with_llm(
 
     async def summarize_chunk(chunk: List[str]) -> Dict[str, Any]:
         prompt = prompt_fn(**{**kwargs, 'texts': chunk})
-        for attempt in range(retries):
+        for _ in range(retries):
             out = await process_llm_task(
                 workspace_id=workspace_id,
                 app_id=app_id,
-                dataset_id=dataset_id,
                 manager=manager,
                 llm_model=llm_model,
                 regex_pattern=r"```json\s*(\{.*?\})\s*```",
@@ -674,7 +667,6 @@ async def summarize_with_llm(
             texts=combined_texts,
             llm_model=llm_model,
             app_id=app_id,
-            dataset_id=dataset_id,
             manager=manager,
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
@@ -729,7 +721,6 @@ async def batch_multiple_codes_task(
     codes_map: Dict[str, List[str]],
     workspace_id: str,
     app_id: str,
-    dataset_id: str,
     manager: Any,
     llm_model: str,
     parent_function_name: str,
@@ -761,7 +752,6 @@ async def batch_multiple_codes_task(
         out = await process_llm_task(
             workspace_id=workspace_id,
             app_id=app_id,
-            dataset_id=dataset_id,
             manager=manager,
             llm_model=llm_model,
             regex_pattern=r"```json\s*(\{.*?\})\s*```",
@@ -787,7 +777,6 @@ async def _flush_and_summarize(
     interim: Dict[str, str],
     workspace_id: str,
     app_id: str,
-    dataset_id: str,
     manager: Any,
     llm_model: str,
     parent_function_name: str,
@@ -811,7 +800,6 @@ async def _flush_and_summarize(
                     texts=todo[code],
                     llm_model=llm_model,
                     app_id=app_id,
-                    dataset_id=dataset_id,
                     manager=manager,
                     llm_instance=llm_instance,
                     llm_queue_manager=llm_queue_manager,
@@ -823,7 +811,7 @@ async def _flush_and_summarize(
                 ))]
             result_map = await batch_multiple_codes_task(
                 batch, todo,
-                workspace_id, app_id, dataset_id,
+                workspace_id, app_id,
                 manager, llm_model, parent_function_name,
                 llm_instance, llm_queue_manager,
                 retries, store_response
@@ -837,7 +825,6 @@ async def summarize_codebook_explanations(
     workspace_id: str,
     llm_model: str,
     app_id: str,
-    dataset_id: str,
     manager: Any,
     parent_function_name: str,
     llm_instance: Any,
@@ -854,7 +841,7 @@ async def summarize_codebook_explanations(
     grouped: Dict[str, List[str]] = defaultdict(list)
     interim: Dict[str, str] = {}
 
-    async for page in stream_qect_pages(dataset_id, codebook_types, page_size):
+    async for page in stream_qect_pages(workspace_id, codebook_types, page_size):
         for row in page:
             raw = row['code']
             code = code_transform(raw) if code_transform else raw
@@ -863,7 +850,7 @@ async def summarize_codebook_explanations(
         if len(grouped) >= flush_threshold:
             new = await _flush_and_summarize(
                 grouped, interim,
-                workspace_id, app_id, dataset_id, manager,
+                workspace_id, app_id, manager,
                 llm_model, parent_function_name, llm_instance,
                 llm_queue_manager, max_input_tokens, retries,
                 store_response, concurrency_limit
@@ -874,7 +861,7 @@ async def summarize_codebook_explanations(
     if grouped:
         new = await _flush_and_summarize(
             grouped, interim,
-            workspace_id, app_id, dataset_id, manager,
+            workspace_id, app_id, workspace_id, manager,
             llm_model, parent_function_name, llm_instance,
             llm_queue_manager, max_input_tokens, retries,
             store_response, concurrency_limit
@@ -896,7 +883,6 @@ async def summarize_codebook_explanations(
                 texts=sums,
                 llm_model=llm_model,
                 app_id=app_id,
-                dataset_id=dataset_id,
                 manager=manager,
                 llm_instance=llm_instance,
                 llm_queue_manager=llm_queue_manager,
@@ -929,18 +915,18 @@ def _apply_type_filters(responseTypes: List[str], filters: List[str], params: Li
 selected_post_ids_repo = SelectedPostIdsRepository()
 
 def stream_selected_post_ids(
-    dataset_id: str,
+    workspace_id: str,
     responseTypes: List[str],
     page_size: int = 100
 ) -> Generator[list[Any], Any, None]:
     params = []
     base_sql = (
         f"SELECT post_id FROM selected_post_ids "
-        f"WHERE dataset_id = ? AND type IN ({', '.join('?' for _ in responseTypes)}) "
+        f"WHERE workspace_id = ? AND type IN ({', '.join('?' for _ in responseTypes)}) "
         f"ORDER BY rowid "
         f"LIMIT ? OFFSET ?"
     )
-    params.append(dataset_id)
+    params.append(workspace_id)
     for responseType in responseTypes:
         params.append(responseType)
     params.append(page_size)

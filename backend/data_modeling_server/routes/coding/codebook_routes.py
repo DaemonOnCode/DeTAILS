@@ -1,0 +1,272 @@
+import json
+import time
+from typing import Optional
+from uuid import uuid4
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from constants import STUDY_DATABASE_PATH
+from controllers.coding_controller import process_llm_task, summarize_codebook_explanations
+from database import (
+    FunctionProgressRepository, 
+    QectRepository, 
+    CodingContextRepository,
+    SelectedPostIdsRepository,
+    ResearchQuestionsRepository,
+    ConceptEntriesRepository,
+    InitialCodebookEntriesRepository,
+    ThemeEntriesRepository,
+    GroupedCodeEntriesRepository,
+    ManualCodebookEntriesRepository
+)
+from database.state_dump_table import StateDumpsRepository
+from errors.request_errors import RequestError
+from headers.app_id import get_app_id
+from headers.workspace_id import get_workspace_id
+from models.coding_models import GenerateCodebookWithoutQuotesRequest, RegenerateCodebookWithoutQuotesRequest
+from models.table_dataclasses import CodebookType, InitialCodebookEntry, ManualCodebookEntry, StateDump
+from services.langchain_llm import LangchainLLMService, get_llm_service
+from services.llm_service import GlobalQueueManager, get_llm_manager
+from routes.websocket_routes import manager
+from utils.prompts import GenerateCodebookWithoutQuotes
+
+router = APIRouter(dependencies=[Depends(get_app_id), Depends(get_workspace_id)])
+
+
+function_progress_repo = FunctionProgressRepository()
+coding_context_repo = CodingContextRepository()
+research_question_repo = ResearchQuestionsRepository()
+concept_entries_repo = ConceptEntriesRepository()
+selected_post_ids_repo = SelectedPostIdsRepository()
+qect_repo = QectRepository()
+initial_codebook_repo = InitialCodebookEntriesRepository()
+grouped_codes_repo = GroupedCodeEntriesRepository()
+themes_repo = ThemeEntriesRepository()
+manual_codebook_repo = ManualCodebookEntriesRepository()
+
+state_dump_repo = StateDumpsRepository(
+    database_path = STUDY_DATABASE_PATH
+)
+
+@router.post("/generate-codebook-without-quotes")
+async def generate_codebook_without_quotes_endpoint(
+    request: Request,
+    request_body: GenerateCodebookWithoutQuotesRequest,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
+):
+    workspace_id = request.headers.get("x-workspace-id")
+    app_id = request.headers.get("x-app-id")
+
+    start_time = time.time()
+
+    llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
+
+    manual_coding = bool(qect_repo.find(
+        {"workspace_id": workspace_id, "codebook_type": CodebookType.FINAL.value},
+        map_to_model=False,
+        limit=1
+    ))
+
+    codebook_types = [CodebookType.INITIAL.value]
+    if manual_coding:
+        codebook_types.append(CodebookType.FINAL.value)
+
+    if qect_repo.count({"workspace_id": workspace_id, "codebook_type": codebook_types, "is_marked": True}) == 0:
+        raise RequestError(status_code=400, message="No responses available.")
+
+
+    if manual_coding and manual_codebook_repo.count({"workspace_id": request.headers.get("x-workspace-id")}) > 0:
+        return {
+            "message": "Codebook generated successfully!",
+            "data": {codebook_entries.code: codebook_entries.definition for codebook_entries in manual_codebook_repo.find({"workspace_id": request.headers.get("x-workspace-id")})}
+        }
+    
+    if manual_coding and qect_repo.count({"workspace_id": workspace_id}) == 0 and grouped_codes_repo.count({"coding_context_id": workspace_id}) == 0:
+        raise HTTPException(status_code=400, detail="No responses found for the dataset.")
+    
+    def to_higher(code: str) -> Optional[str]:
+        if not manual_coding:
+            return code
+        entry = grouped_codes_repo.find_one({
+            "coding_context_id": workspace_id,
+            "code": code
+        })
+        return entry.higher_level_code if entry else None
+    
+    function_name = "manual_codebook_generation" if manual_coding else "initial_codebook"
+    
+    summarized_dict = await summarize_codebook_explanations(
+        workspace_id = workspace_id,
+        codebook_types = codebook_types,
+        llm_model = request_body.model,
+        app_id = app_id,
+        manager = manager,
+        parent_function_name = function_name,
+        llm_instance = llm,
+        llm_queue_manager = llm_queue_manager,
+        code_transform = to_higher,
+        max_input_tokens = 128000,
+        retries = 3,
+        flush_threshold = 200,
+        page_size = 500,
+        concurrency_limit = 4,
+        store_response = False
+    )
+    
+    summarized_grouped_ec = {code: [summary] for code, summary in summarized_dict.items()}
+
+    print(summarized_grouped_ec)
+
+    try:
+        initial_codebook_repo.delete({"coding_context_id": workspace_id})
+    except Exception as e:
+        print(e)
+    
+    parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
+        app_id=app_id,
+        manager=manager,
+        llm_model=request_body.model,
+        parent_function_name=function_name,
+        regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+        prompt_builder_func=GenerateCodebookWithoutQuotes.generate_codebook_without_quotes_prompt,
+        llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
+        codes=json.dumps(summarized_grouped_ec)  
+    )
+
+    state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "workspace_id": workspace_id,
+                    "codebook": parsed_response,
+                }),
+                context=json.dumps({
+                    "function": function_name,
+                    "run":"initial",
+                    "workspace_id": request.headers.get("x-workspace-id"),
+                    "time_taken": time.time() - start_time,
+                }),
+            )
+        )
+    
+    if manual_coding:
+        manual_codebook_repo.insert_batch(
+                [
+                    ManualCodebookEntry(
+                        id=str(uuid4()),
+                        workspace_id=request.headers.get("x-workspace-id"),
+                        code= pr[0],
+                        definition= pr[1]
+                    ) for pr in  parsed_response.items() 
+                ]
+            )
+    else:
+        initial_codebook_repo.insert_batch(
+                [
+                    InitialCodebookEntry(
+                        id=str(uuid4()),
+                        coding_context_id=request.headers.get("x-workspace-id"),
+                        code= pr[0],
+                        definition= pr[1],
+                        manual_coding=manual_coding
+                    ) for pr in  parsed_response.items() 
+                ]
+            )
+
+
+    return {
+        "message": "Codebook generated successfully!",
+        "data": parsed_response if manual_coding else {}
+    }
+    
+@router.post("/regenerate-codebook-without-quotes")
+async def regenerate_codebook_without_quotes_endpoint(
+    request: Request,
+    request_body: RegenerateCodebookWithoutQuotesRequest,
+    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
+    llm_service: LangchainLLMService = Depends(get_llm_service)
+):
+    workspace_id = request.headers.get("x-workspace-id")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
+
+    app_id = request.headers.get("x-app-id")
+
+    start_time = time.time()
+
+    llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
+
+    summarized_dict = await summarize_codebook_explanations(
+        workspace_id = workspace_id,
+        codebook_types = [CodebookType.INITIAL.value],
+        llm_model = request_body.model,
+        app_id = app_id,
+        manager = manager,
+        parent_function_name = "initial_codebook",
+        llm_instance = llm,
+        llm_queue_manager = llm_queue_manager,
+        max_input_tokens = 128000,
+        retries = 3,
+        flush_threshold = 200,
+        page_size = 500,
+        concurrency_limit = 4,
+        store_response = False
+    )
+
+    summarized_grouped_ec = {code: [summary] for code, summary in summarized_dict.items()}
+
+    previous_codebook = initial_codebook_repo.find_one({"coding_context_id": workspace_id}, map_to_model=False)
+
+    previous_codebook_json = json.dumps(previous_codebook)
+
+    try:
+        initial_codebook_repo.delete({"coding_context_id": workspace_id})
+    except Exception as e:
+        print(e)
+
+    parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
+        app_id=app_id,
+        manager=manager,
+        llm_model=request_body.model,
+        regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+        prompt_builder_func=GenerateCodebookWithoutQuotes.regenerate_codebook_without_quotes_prompt,
+        llm_instance=llm,
+        parent_function_name="initial_codebook",
+        llm_queue_manager=llm_queue_manager,
+        codes=json.dumps(summarized_grouped_ec),  
+        previous_codebook=previous_codebook_json  ,
+        feedback = request_body.feedback
+    )
+
+    initial_codebook_repo.insert_batch(
+            [
+                InitialCodebookEntry(
+                    id=str(uuid4()),
+                    coding_context_id=request.headers.get("x-workspace-id"),
+                    code= pr[0],
+                    definition= pr[1],
+                    manual_coding=False
+                ) for pr in  parsed_response.items() 
+            ]
+        )
+
+    state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "workspace_id": workspace_id,
+                    "codebook": parsed_response,
+                }),
+                context=json.dumps({
+                    "function": "initial_codebook",
+                    "run":"regenerate",
+                    "workspace_id": request.headers.get("x-workspace-id"),
+                    "time_taken": time.time() - start_time,
+                }),
+            )
+        )
+
+    return {
+        "message": "Codebook regenerated successfully!",
+    }

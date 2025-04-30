@@ -29,12 +29,13 @@ from .background_job import BackgroundJobsRepository
 from .coding_context_table import CodingContextRepository
 from .context_file_table import ContextFilesRepository
 from .research_question_table import ResearchQuestionsRepository
-from .keyword_table import KeywordsRepository
-from .selected_keywords_table import SelectedKeywordsRepository
-from .keyword_entry_table import KeywordEntriesRepository
+from .concept_table import ConceptsRepository
+from .selected_concepts_table import SelectedConceptsRepository
+from .concept_entry_table import ConceptEntriesRepository
 from .collection_context_table import CollectionContextRepository
 from .manual_codebook_table import ManualCodebookEntriesRepository
 from .manual_post_state_table import ManualPostStatesRepository
+from .initial_codebook_table import InitialCodebookEntriesRepository
 from .initialize import initialize_database, initialize_study_database
 from .db_helpers import execute_query, execute_query_with_retry
 
@@ -69,14 +70,15 @@ __all__ = [
     "CodingContextRepository",
     "ContextFilesRepository",
     "ResearchQuestionsRepository",
-    "KeywordsRepository",
-    "SelectedKeywordsRepository",
-    "KeywordEntriesRepository",
+    "ConceptsRepository",
+    "SelectedConceptsRepository",
+    "ConceptEntriesRepository",
     "GroupedCodeEntriesRepository",
     "ThemeEntriesRepository",
     "CollectionContextRepository",
     "ManualCodebookEntriesRepository",
     "ManualPostStatesRepository",
+    "InitialCodebookEntriesRepository",
     "initialize_database",
     "initialize_study_database",
     "execute_query",

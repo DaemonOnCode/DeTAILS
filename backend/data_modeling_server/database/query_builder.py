@@ -111,7 +111,6 @@ class QueryBuilder(Generic[T]):
         if operator not in ("=", "!=", ">", "<", ">=", "<=", "IN", "NOT IN"):
             raise ValueError(f"Invalid operator: {operator}")
         self._validate_column(column)
-        # normalize & validate here as well
         if value is not None:
             if isinstance(value, list):
                 if operator.upper() not in ('IN', 'NOT IN'):
@@ -165,6 +164,8 @@ class QueryBuilder(Generic[T]):
         for column, value in filters.items():
             if isinstance(value, list):
                 clause, p = self._format_filter(column, 'IN', value)
+            elif isinstance(value, tuple):
+                clause, p = self._format_filter(column, value[0], value[1])
             else:
                 clause, p = self._format_filter(column, '=', value)
             clauses.append(clause)
@@ -208,19 +209,15 @@ class QueryBuilder(Generic[T]):
         for row in data_list:
             if list(row.keys()) != keys:
                 raise ValueError("All dictionaries in data_list must have the same keys.")
-
-            # 2) normalize & validate each value
             for key in keys:
                 self._validate_column(key)
                 val = self._normalize_value(key, row[key])
                 self._validate_value(key, val)
                 row[key] = val
 
-        # 3) build SQL
         columns = ", ".join(keys)
         placeholders = ", ".join("?" for _ in keys)
         query = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders})"
-        # 4) collect params in consistent key order
         params_list = [tuple(row[k] for k in keys) for row in data_list]
         return query, params_list
 
@@ -236,6 +233,8 @@ class QueryBuilder(Generic[T]):
         for column, value in filters.items():
             if isinstance(value, list):
                 clause, p = self._format_filter(column, 'IN', value)
+            elif isinstance(value, tuple):
+                clause, p = self._format_filter(column, value[0], value[1])
             else:
                 clause, p = self._format_filter(column, '=', value)
             clauses.append(clause)
@@ -256,6 +255,8 @@ class QueryBuilder(Generic[T]):
         for column, value in filters.items():
             if isinstance(value, list):
                 clause, p = self._format_filter(column, 'IN', value)
+            elif isinstance(value, tuple):
+                clause, p = self._format_filter(column, value[0], value[1])
             else:
                 clause, p = self._format_filter(column, '=', value)
             clauses.append(clause)

@@ -330,12 +330,11 @@ def delete_run(run_id: str):
     file_repo.delete_files_for_run(run_id)
     print(f"Run {run_id} deleted successfully.")
 
-def create_dataset(description: str, dataset_id: str = None, workspace_id: str = None):
-    dataset_id = dataset_id or str(uuid4())
+def create_dataset(description: str, workspace_id: str = None):
+    workspace_id = workspace_id or str(uuid4())
     state_dump_repo.insert(
         StateDump(
             state=json.dumps({
-                "dataset_id": dataset_id,
                 "workspace_id": workspace_id
             }),
             context=json.dumps({
@@ -344,22 +343,22 @@ def create_dataset(description: str, dataset_id: str = None, workspace_id: str =
             }),
         )
     )
-    dataset_repo.insert(Dataset(id=dataset_id, name="", description=description, workspace_id=workspace_id))
-    return dataset_id
+    dataset_repo.insert(Dataset(id=workspace_id, name="", description=description, workspace_id=workspace_id))
+    return workspace_id
 
 def list_datasets():
     return dataset_repo.find()
 
-def update_dataset(dataset_id: str, **kwargs):
-    dataset_repo.update({"id": dataset_id}, kwargs)
+def update_dataset(workspace_id: str, **kwargs):
+    dataset_repo.update({"id": workspace_id}, kwargs)
     return {"message": "Dataset updated successfully"}
 
-def delete_dataset(dataset_id: str):
-    dataset_repo.delete({"id": dataset_id})
+def delete_dataset(workspace_id: str):
+    dataset_repo.delete({"id": workspace_id})
     return {"message": "Dataset deleted successfully"}
 
 def get_reddit_posts_by_batch(
-    dataset_id: str,
+    workspace_id: str,
     batch: int,
     offset: int,
     all: bool = False,
@@ -371,12 +370,12 @@ def get_reddit_posts_by_batch(
     items_per_page: int = 10,
     get_all_ids: bool = False
 ):
-    params = [dataset_id]
+    params = [workspace_id]
 
     if hide_removed:
         base_query = """
         FROM posts p
-        WHERE p.dataset_id = ?
+        WHERE p.workspace_id = ?
         AND (
             (p.title    NOT IN ('[removed]','[deleted]')
             AND p.selftext NOT IN ('[removed]','[deleted]'))
@@ -384,7 +383,7 @@ def get_reddit_posts_by_batch(
             EXISTS (
             SELECT 1
             FROM comments c
-            WHERE c.dataset_id = p.dataset_id
+            WHERE c.workspace_id = p.workspace_id
                 AND c.post_id    = p.id
             )
         )
@@ -392,7 +391,7 @@ def get_reddit_posts_by_batch(
     else:
         base_query = """
         FROM posts p
-        WHERE p.dataset_id = ?
+        WHERE p.workspace_id = ?
         """
 
     if search_term:
@@ -472,8 +471,8 @@ def get_reddit_posts_by_batch(
         "end_date":    end_date
     }
 
-def get_reddit_post_titles(dataset_id: str):
-    return post_repo.find({"dataset_id": dataset_id}, columns=["id", "title"])
+def get_reddit_post_titles(workspace_id: str):
+    return post_repo.find({"workspace_id": workspace_id}, columns=["id", "title"])
 
 def count_comments(comments):
     total = len(comments)
@@ -481,23 +480,23 @@ def count_comments(comments):
         total += count_comments(comment.get("comments", []))
     return total
 
-def get_reddit_post_by_id(dataset_id: str, post_id: str, columns: list = None):
+def get_reddit_post_by_id(workspace_id: str, post_id: str, columns: list = None):
     # comment_repo.index_comments()
     post = post_repo.find(
-        {"dataset_id": dataset_id, "id": post_id}, 
+        {"workspace_id": workspace_id, "id": post_id}, 
         columns=columns,
         map_to_model=not columns
     )
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    comments = get_comments_recursive(post_id, dataset_id)
+    comments = get_comments_recursive(post_id, workspace_id)
     return {**post[0], "comments": comments}
 
 @log_execution_time()
-def get_comments_recursive(post_id: str, dataset_id: str):
+def get_comments_recursive(post_id: str, workspace_id: str):
 
-    comments = comment_repo.get_comments_by_post_optimized(dataset_id, post_id)
+    comments = comment_repo.get_comments_by_post_optimized(workspace_id, post_id)
     # print("Comments fetched:", comments)
 
     comment_map = {comment["id"]: comment for comment in comments}
@@ -512,11 +511,11 @@ def get_comments_recursive(post_id: str, dataset_id: str):
     return [comment for comment in comments if comment["parent_id"] is None or comment["parent_id"] == post_id]
 
 
-async def upload_dataset_file(file: UploadFile, dataset_id: str) -> str:
+async def upload_dataset_file(file: UploadFile, workspace_id: str) -> str:
     if not file.filename.endswith(".json"):
         raise HTTPException(status_code=400, detail="Only JSON files are allowed.")
     
-    file_path = f"{DATASETS_DIR}/{dataset_id}/{file.filename}"
+    file_path = f"{DATASETS_DIR}/{workspace_id}/{file.filename}"
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
     async with async_open(file_path, "wb") as f:
@@ -541,21 +540,21 @@ def omit_first_if_matches_structure(data: list) -> list:
     return data
 
 
-def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: dict[str, datetime] = None, is_primary: bool = False) -> dict:
-    existing_posts_count = post_repo.count({"dataset_id": dataset_id})
+def parse_reddit_files(workspace_id: str, dataset_path: str = None, date_filter: dict[str, datetime] = None, is_primary: bool = False) -> dict:
+    existing_posts_count = post_repo.count({"workspace_id": workspace_id})
     if existing_posts_count > 0:
-        post_repo.delete({"dataset_id": dataset_id})
+        post_repo.delete({"workspace_id": workspace_id})
 
-    existing_comments_count = comment_repo.count({"dataset_id": dataset_id})
+    existing_comments_count = comment_repo.count({"workspace_id": workspace_id})
     if existing_comments_count > 0:
-        comment_repo.delete({"dataset_id": dataset_id})
+        comment_repo.delete({"workspace_id": workspace_id})
 
-    if study_posts_repo.count({"dataset_id": dataset_id}) > 0:
-        study_posts_repo.delete({"dataset_id": dataset_id})
-    if study_comments_repo.count({"dataset_id": dataset_id}) > 0:
-        study_comments_repo.delete({"dataset_id": dataset_id})
+    if study_posts_repo.count({"workspace_id": workspace_id}) > 0:
+        study_posts_repo.delete({"workspace_id": workspace_id})
+    if study_comments_repo.count({"workspace_id": workspace_id}) > 0:
+        study_comments_repo.delete({"workspace_id": workspace_id})
 
-    dataset_path = dataset_path or os.path.join(DATASETS_DIR, dataset_id)
+    dataset_path = dataset_path or os.path.join(DATASETS_DIR, workspace_id)
     
     all_files = []
     try:
@@ -666,7 +665,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     author=p.get("author", ""),
                     hide_score=p.get("hide_score", 0),
                     subreddit_id=p.get("subreddit_id", ""),
-                    dataset_id=dataset_id
+                    workspace_id=workspace_id
                 ))
             post_repo.insert_batch(posts)
             study_posts_repo.insert_batch(posts)
@@ -695,8 +694,8 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                 if not c.get("id", ""):
                     print(f"Skipping comment without id: {c}")
                     continue
-                if not dataset_id:
-                    print(f"Skipping comment without dataset_id: {c}")
+                if not workspace_id:
+                    print(f"Skipping comment without workspace_id: {c}")
                     continue
                 if not post_id:
                     print(f"Skipping comment with invalid post_id: {c}")
@@ -719,12 +718,12 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     subreddit_id=c.get("subreddit_id", ""),
                     retrieved_on=c.get("retrieved_on", 0),
                     gilded=c.get("gilded", 0),
-                    dataset_id=dataset_id 
+                    workspace_id=workspace_id 
                 ))
             seen = set()
             unique_comments = []
             for comment in comments:
-                key = (comment.id, comment.dataset_id, comment.post_id, comment.parent_id)
+                key = (comment.id, comment.workspace_id, comment.post_id, comment.parent_id)
                 if key not in seen:
                     seen.add(key)
                     unique_comments.append(comment)
@@ -732,7 +731,7 @@ def parse_reddit_files(dataset_id: str, dataset_path: str = None, date_filter: d
                     print(f"Skipping duplicate comment with key: {key}")
             comment_repo.insert_batch(unique_comments)
             study_comments_repo.insert_batch(unique_comments)
-    update_dataset(dataset_id, name=subreddit)
+    update_dataset(workspace_id, name=subreddit)
 
     return {"message": "Reddit dataset parsed successfully"}
 
@@ -1275,7 +1274,6 @@ async def get_reddit_data_from_torrent(
     manager: ConnectionManager,
     app_id: str,
     run_id: str,
-    dataset_id: str,
     workspace_id: str,
     subreddit: str,
     start_month: str = "2005-06",
@@ -1393,7 +1391,7 @@ async def get_reddit_data_from_torrent(
     update_run_progress(run_id, message, current_download_dir=download_dir)
 
     file_repo.insert_batch(
-        list(map(lambda f: FileStatus(run_id=run_id, file_name=f, workspace_id=workspace_id, dataset_id=dataset_id), files_to_process_actually))
+        list(map(lambda f: FileStatus(run_id=run_id, file_name=f, workspace_id=workspace_id), files_to_process_actually))
     )
 
     torrent_to_use = await verify_torrent_with_retry(manager, app_id, run_id, c, torrent_to_use, magnet_link, TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
@@ -1411,8 +1409,8 @@ async def get_reddit_data_from_torrent(
     return all_output_files
 
 
-def filter_posts_by_deleted(dataset_id: str):
-    return post_repo.get_filtered_post_ids(dataset_id)
+def filter_posts_by_deleted(workspace_id: str):
+    return post_repo.get_filtered_post_ids(workspace_id)
 
 
 def get_all_torrent_data():
@@ -1579,7 +1577,7 @@ async def check_primary_torrent(
         return {"status": False, "files": [], "total_size": 0, "error": "Subreddit not found"}
     
 
-async def get_post_transcripts_csv(dataset_id: str, post_ids: List[str], csv_file: str) -> None:
+async def get_post_transcripts_csv(workspace_id: str, post_ids: List[str], csv_file: str) -> None:
     sem = asyncio.Semaphore(os.cpu_count())
     transcripts = [None] * len(post_ids) 
     next_index = 0
@@ -1588,7 +1586,7 @@ async def get_post_transcripts_csv(dataset_id: str, post_ids: List[str], csv_fil
     async def fetch_post_transcript(post_id: str, index: int) -> None:
         async with sem:
             try:
-                post = await asyncio.to_thread(get_reddit_post_by_id, dataset_id, post_id, ["id", "title", "selftext"])
+                post = await asyncio.to_thread(get_reddit_post_by_id, workspace_id, post_id, ["id", "title", "selftext"])
                 transcript = await anext(generate_transcript(post))
             except HTTPException as e:
                 print(f"Post {post_id} not found: {e.detail}")
@@ -1617,13 +1615,13 @@ async def get_post_transcripts_csv(dataset_id: str, post_ids: List[str], csv_fil
 
 
 
-def get_post_and_comments_from_id(post_id: str, dataset_id: str) -> Dict[str, Any]:
+def get_post_and_comments_from_id(post_id: str, workspace_id: str) -> Dict[str, Any]:
     posts_repo = PostsRepository()
     comments_repo = CommentsRepository()
 
-    post = posts_repo.find_one({"id": post_id, "dataset_id": dataset_id}, columns=["id", "title", "selftext"], map_to_model=False)
+    post = posts_repo.find_one({"id": post_id, "workspace_id": workspace_id}, columns=["id", "title", "selftext"], map_to_model=False)
 
-    comments = comments_repo.find({"post_id": post_id, "dataset_id": dataset_id}, columns=["id", "body", "parent_id", "author"], map_to_model=False)
+    comments = comments_repo.find({"post_id": post_id, "workspace_id": workspace_id}, columns=["id", "body", "parent_id", "author"], map_to_model=False)
 
     comment_map = {comment["id"]: comment for comment in comments}
 

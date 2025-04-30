@@ -13,8 +13,8 @@ class QectRepository(BaseRepository[QectResponse]):
     def index_qect_responses(self):
         index_sqls = [
             """
-            CREATE INDEX IF NOT EXISTS idx_qect_response_dataset_id
-            ON qect(dataset_id);
+            CREATE INDEX IF NOT EXISTS idx_qect_response_workspace_id
+            ON qect(workspace_id);
             """,
             """
             CREATE INDEX IF NOT EXISTS idx_qect_response_workspace_id
@@ -38,11 +38,11 @@ class QectRepository(BaseRepository[QectResponse]):
             """,
             """
             CREATE INDEX IF NOT EXISTS idx_qect_response_dataset_codebook
-            ON qect(dataset_id, codebook_type);
+            ON qect(workspace_id, codebook_type);
             """,
             """
             CREATE INDEX IF NOT EXISTS idx_qect_response_dataset_response
-            ON qect(dataset_id, response_type);
+            ON qect(workspace_id, response_type);
             """,
             """
             CREATE INDEX IF NOT EXISTS idx_qect_response_workspace_codebook

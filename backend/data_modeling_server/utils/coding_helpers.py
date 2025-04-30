@@ -11,8 +11,10 @@ def process_comments(comments, prefix=""):
         result.append(label + comment['body'])
         if 'comments' in comment and comment['comments']:
             result.extend(
-                process_comments(comment['comments'],
-                                 prefix=current_number + ".")
+                process_comments(
+                    comment['comments'],
+                    prefix=current_number + "."
+                )
             )
     return result
 
@@ -64,6 +66,7 @@ async def generate_transcript(
         async for chunk in _generate_chunks_async(post, token_checker, max_tokens):
             await asyncio.sleep(0)
             yield chunk
+
 
 def generate_context_with_codebook(references, main_code, codebook):
     context = ""

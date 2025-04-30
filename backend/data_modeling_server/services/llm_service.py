@@ -3,7 +3,6 @@ from collections import defaultdict
 from datetime import datetime
 from functools import lru_cache
 import json
-import sys
 import threading
 import time
 import concurrent
@@ -15,7 +14,7 @@ from config import CustomSettings
 from constants import STUDY_DATABASE_PATH
 from database import LlmPendingTaskRepository, LlmFunctionArgsRepository
 from database.state_dump_table import StateDumpsRepository
-from models import LlmPendingTask, LlmFunctionArgs
+from models import LlmPendingTask
 from models.table_dataclasses import StateDump
 
 state_dump_repo = StateDumpsRepository(
@@ -208,12 +207,6 @@ class GlobalQueueManager:
                         break
                 pending_jobs_count = self.pending_task_repo.count(filters={"status": "pending"})
                 print(f"[STATUS] Pending tasks: {pending_count}, Queue size: {queue_size}, DB pending: {pending_jobs_count}, function_cache: {len(self.function_cache)}, Current cutoff: {self.cutoff}")
-                # for k in self.function_cache.keys():
-                #     print(f"[STATUS] Function {k} cached", self.cacheable_args.get(k, {"args": [], "kwargs": {}}))
-                    # if self.cacheable_args[k].get("args"):
-                    #     print(f"[STATUS] Cacheable args: {len(self.cacheable_args['args'])} for function {k}")
-                    # if self.cacheable_args[k].get("kwargs"):
-                    #     print(f"[STATUS] Cacheable kwargs: {len(self.cacheable_args['kwargs'])} for function {k}")
             except Exception as e:
                 print(f"[STATUS] Error in status check: {e}")
             except asyncio.CancelledError:
@@ -235,19 +228,6 @@ class GlobalQueueManager:
                     for task in pending_tasks:
                         job_id = task.task_id
                         print(f"[ENQUEUE] Processing task {job_id}")
-                        # with self._lock:
-                        #     cfut = self.pending_tasks.pop(job_id, None)
-                            # if not cfut:
-                            #     print(f"[ENQUEUE] No local future for {job_id}, marking failed")
-                            #     self.pending_task_repo.update(
-                            #         filters={"task_id": job_id},
-                            #         updates={
-                            #             "status": "failed",
-                            #             "error": "No pending future found",
-                            #             "completed_at": datetime.now()
-                            #         }
-                            #     )
-                            #     continue
                         with self._lock:
                             cfut = self.pending_tasks.get(job_id, None)
                         if cfut:
@@ -280,6 +260,7 @@ class GlobalQueueManager:
                                     if not callable(prompt_builder_func):
                                         raise ValueError("prompt_builder_func must be a callable function")
                                     full_kwargs.pop("prompt_builder_func", None)
+                                    # Construct the prompt text
                                     prompt_text = prompt_builder_func(*full_args, **full_kwargs)
                                     full_args = [prompt_text]
                                     full_kwargs = {}
@@ -403,14 +384,14 @@ class GlobalQueueManager:
                                 if self.cancelled_jobs_count[function_key] >= self.cancel_threshold:
                                     print(f"[WORKER {worker_id}] Cancelling all jobs for function {function_key}")
                                     for jid in self.function_jobs.get(function_key, []):
-                                        if jid in self.pending_tasks and jid != job_id:  # Skip the current job
+                                        if jid in self.pending_tasks and jid != job_id: 
                                             self.pending_tasks[jid].cancel()
                                             self.pending_task_repo.update(
                                                 filters={"task_id": jid},
                                                 updates={"status": "cancelled", "completed_at": datetime.now()}
                                             )
                                             print(f"[WORKER {worker_id}] Cancelled job {jid}")
-                                    self.cancelled_jobs_count[function_key] = 0  # Reset counter
+                                    self.cancelled_jobs_count[function_key] = 0  
                         else:
                             print(f"[WORKER {worker_id}] Job {job_id} failed: {e}")
                             cfut.set_exception(e)
@@ -528,7 +509,7 @@ class GlobalQueueManager:
                 variable_args = [args[i] for i in range(len(args)) if i not in cacheable_args.get("args", [])]
                 variable_kwargs = {k: v for k, v in kwargs.items() if k not in cacheable_args.get("kwargs", [])}
 
-                self.function_jobs[function_key].append(job_id)  # Track the job
+                self.function_jobs[function_key].append(job_id) 
                 task = LlmPendingTask(
                     task_id=job_id,
                     status="pending",
@@ -547,7 +528,6 @@ class GlobalQueueManager:
 @lru_cache
 def get_llm_manager():
     try:
-        
         return GlobalQueueManager(
             max_queue_size=20,
             num_workers=5,

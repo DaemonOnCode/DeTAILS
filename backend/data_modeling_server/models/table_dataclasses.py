@@ -99,9 +99,8 @@ class Workspace(BaseDataclass):
 @dataclass
 class WorkspaceState(BaseDataclass):
     user_email: str = field(metadata={"primary_key": True})
-    workspace_id: str = field(metadata={"primary_key": True})
+    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
     # Collection Context
-    dataset_id: Optional[str] = field(metadata={"foreign_key": "datasets(id)"})
     mode_input: Optional[str] = None
     selected_data : Optional[str] = None
     metadata: Optional[str] = None
@@ -115,9 +114,9 @@ class WorkspaceState(BaseDataclass):
     additional_info: Optional[str] = None
     context_files: Optional[str] = None 
     research_questions: Optional[str] = None 
-    keywords: Optional[str] = None 
-    selected_keywords: Optional[str] = None 
-    keyword_table: Optional[str] = None 
+    concepts: Optional[str] = None 
+    selected_concepts: Optional[str] = None 
+    concept_table: Optional[str] = None 
     references_data: Optional[str] = None 
     sampled_post_ids: Optional[str] = None 
     unseen_post_ids: Optional[str] = None 
@@ -142,14 +141,14 @@ class WorkspaceState(BaseDataclass):
 
 @dataclass
 class SelectedPostId(BaseDataclass):
-    dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
+    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
     type: Optional[str] = field(metadata={"not_null": True}, default="ungrouped")  # "sampled" or "unseen" or "test" corresponding to sampledPostReponse, UnseenPostResponse, and manualCoding Responses or "ungrouped"
 
 
 @dataclass
 class Rule(BaseDataclass):
-    dataset_id: str = field(metadata={"not_null": True})
+    workspace_id: str = field(metadata={"not_null": True, "foreign_key": "workspaces(id)"})
     step: int = field(metadata={"not_null": True})
     fields: str = field(metadata={"not_null": True})
     words: str = field(metadata={"not_null": True})
@@ -160,14 +159,14 @@ class Rule(BaseDataclass):
 
 @dataclass
 class TokenStat(BaseDataclass):
-    dataset_id: str = field(metadata={"primary_key": True})
+    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
     removed_tokens: Optional[str] = None
     included_tokens: Optional[str] = None
 
 
 @dataclass
 class TokenStatDetailed(BaseDataclass):
-    dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
+    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
     token: str = field(metadata={"primary_key": True})
     status: str = field(metadata={"primary_key": True})
     pos: Optional[str] = None
@@ -180,7 +179,7 @@ class TokenStatDetailed(BaseDataclass):
 @dataclass
 class Model(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
-    dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
     model_name: Optional[str] = None
     method: Optional[str] = None
     topics: Optional[str] = None
@@ -203,7 +202,7 @@ class Dataset(BaseDataclass):
 @dataclass
 class Post(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
-    dataset_id: str = field(metadata={"primary_key": True,"foreign_key": "datasets(id)", "not_null": True})
+    workspace_id: str = field(metadata={"primary_key": True,"foreign_key": "workspaces(id)", "not_null": True})
     title: str = field(metadata={"not_null": True})
     over_18: Optional[int] = None
     subreddit: Optional[str] = None
@@ -224,7 +223,7 @@ class Post(BaseDataclass):
 @dataclass
 class Comment(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
-    dataset_id: str = field(metadata={"primary_key": True,"foreign_key": "datasets(id)", "not_null": True})
+    workspace_id: str = field(metadata={"primary_key": True,"foreign_key": "workspaces(id)", "not_null": True})
     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)", "not_null": True})
     parent_id: Optional[str] = field(metadata={"primary_key": True})
     body: Optional[str] = None
@@ -241,7 +240,7 @@ class Comment(BaseDataclass):
 
 @dataclass
 class TokenizedPost(BaseDataclass):
-    dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
+    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
     title: Optional[str] = None
     selftext: Optional[str] = None
@@ -249,7 +248,7 @@ class TokenizedPost(BaseDataclass):
 
 @dataclass
 class TokenizedComment(BaseDataclass):
-    dataset_id: str = field(metadata={"primary_key": True, "foreign_key": "datasets(id)"})
+    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
     comment_id: str = field(metadata={"primary_key": True, "foreign_key": "comments(id)"})
     body: Optional[str] = None
 
@@ -257,7 +256,7 @@ class TokenizedComment(BaseDataclass):
 @dataclass
 class LlmResponse(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
-    dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
     model: str = field(metadata={"not_null": True})
     post_id: str = field(metadata={"foreign_key": "posts(id)"})
     response: str = field(metadata={"not_null": True})
@@ -285,14 +284,13 @@ class TempTokenStat(BaseDataclass):
     count_docs: int
     tfidf_min: float
     tfidf_max: float
-    dataset_id: str = field(metadata={"primary_key": True}),
+    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"}),
     token: str = field(metadata={"primary_key": True}),
     pos: str = field(metadata={"primary_key": True}),
 
 @dataclass
 class TorrentDownloadProgress(BaseDataclass):
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "primary_key": True})
-    dataset_id: str = field(metadata={"foreign_key": "datasets(id)", "primary_key": True})
     run_id: str = field(metadata={"not_null": True})
     subreddit: str = field(metadata={"not_null": True})
     start_month: str = field(metadata={"not_null": True})
@@ -310,7 +308,6 @@ class TorrentDownloadProgress(BaseDataclass):
 class PipelineStep(BaseDataclass):
     run_id: str = field(metadata={"not_null": True, "primary_key": True})
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
-    dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
     step_label: str = field(metadata={"primary_key": True})  # e.g., Metadata, Downloading, Parsing
     status: str = field(default="idle")  # idle, in-progress, complete, error
     progress: Optional[float] = field(default=0.0)
@@ -321,7 +318,6 @@ class PipelineStep(BaseDataclass):
 class FileStatus(BaseDataclass):
     run_id: str = field(metadata={"not_null": True, "primary_key": True})
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
-    dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
     file_name: str = field(metadata={"primary_key": True})  
     status: str = field(default="in-progress") 
     progress: Optional[float] = field(default=0.0)  
@@ -333,7 +329,6 @@ class FileStatus(BaseDataclass):
 @dataclass
 class FunctionProgress(BaseDataclass):
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
-    dataset_id: str = field(metadata={"foreign_key": "datasets(id)"})
     name: Optional[str] = field(metadata={"not_null": True, "primary_key": True})
     function_id: str = field(metadata={"not_null": True})
     status: str = field(default="idle")
@@ -356,7 +351,6 @@ class CodebookType(Enum):
 @dataclass
 class QectResponse(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
-    dataset_id: str = field(metadata={"foreign_key": "workspaces(id)"})
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
     model: str = field(metadata={"not_null": True})
     quote: str = field(metadata={"not_null": True})
@@ -440,20 +434,20 @@ class ResearchQuestion(BaseDataclass):
     id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
 
 @dataclass
-class Keyword(BaseDataclass):
+class Concept(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
     word: str = field(metadata={"not_null": True})
 
 @dataclass
-class SelectedKeyword(BaseDataclass):
+class SelectedConcept(BaseDataclass):
     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
-    keyword_id: str = field(metadata={"primary_key": True, "foreign_key": "keywords(id)"})
+    concept_id: str = field(metadata={"primary_key": True, "foreign_key": "concepts(id)"})
     id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
 
 
 @dataclass
-class KeywordEntry(BaseDataclass):
+class ConceptEntry(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
     word: str = field(metadata={"not_null": True})

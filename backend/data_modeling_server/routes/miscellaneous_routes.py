@@ -24,19 +24,19 @@ function_progress_repo = FunctionProgressRepository()
 
 @router.post("/get-link-from-post", response_model=dict)
 async def get_reddit_post_link_endpoint(request: RedditPostLinkRequest):
-    if not request.postId or not request.datasetId:
+    if not request.postId or not request.workspaceId:
         raise HTTPException(status_code=400, detail="Post ID and Dataset ID are required.")
 
-    dataset_id = request.datasetId
+    workspace_id = request.workspaceId
     post_id = request.postId
     comment_slice = request.commentSlice    
 
-    post_data = posts_repo.find_one({"id": post_id, "dataset_id": dataset_id}, columns=["id", "selftext", "title", "subreddit", "url", "permalink"], map_to_model=False)
+    post_data = posts_repo.find_one({"id": post_id, "workspace_id": workspace_id}, columns=["id", "selftext", "title", "subreddit", "url", "permalink"], map_to_model=False)
 
     if not post_data:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    comment_data = comments_repo.find({"post_id": post_id, "dataset_id": dataset_id}, columns=["parent_id", "body", "id"], map_to_model=False)
+    comment_data = comments_repo.find({"post_id": post_id, "workspace_id": workspace_id}, columns=["parent_id", "body", "id"], map_to_model=False)
 
     print(f"Post data: {post_data}", f"Comment data: {comment_data}")
 
@@ -59,22 +59,22 @@ async def get_reddit_post_link_endpoint(request: RedditPostLinkRequest):
 
 @router.post("/get-post-from-id")
 async def get_post_from_id_endpoint(request: RedditPostByIdRequest):
-    if not request.postId or not request.datasetId:
+    if not request.postId or not request.workspaceId:
         raise HTTPException(status_code=400, detail="Post ID and Dataset ID are required.")
 
-    dataset_id = request.datasetId
+    workspace_id = request.workspaceId
     post_id = request.postId
 
-    return get_post_and_comments_from_id(post_id, dataset_id)
+    return get_post_and_comments_from_id(post_id, workspace_id)
 
 
 @router.post("/get-post-title-from-id-batch")
 async def get_post_title_from_id_batch_endpoint(request: RedditPostIDAndTitleRequestBatch):
-    if not request.post_ids or not request.dataset_id:
-        raise HTTPException(status_code=400, detail="Missing post_ids or dataset_id")
+    if not request.post_ids or not request.workspace_id:
+        raise HTTPException(status_code=400, detail="Missing post_ids or workspace_id")
     
     post_titles = posts_repo.find(
-        filters={"dataset_id": request.dataset_id, "id": request.post_ids},
+        filters={"workspace_id": request.workspace_id, "id": request.post_ids},
         columns=["id", "title", "selftext"],
         map_to_model=False
     )
@@ -87,11 +87,11 @@ async def get_post_title_from_id_endpoint(
     request: RedditPostIDAndTitleRequest
 ):
     post_id = request.post_id
-    dataset_id = request.dataset_id
-    if not post_id or not dataset_id: 
-        return HTTPException(status_code=400, detail="Missing post_id or dataset_id")
+    workspace_id = request.workspace_id
+    if not post_id or not workspace_id: 
+        return HTTPException(status_code=400, detail="Missing post_id or workspace_id")
 
-    post = posts_repo.find_one({"dataset_id": dataset_id, "id": post_id}, columns=["id", "title", "selftext"])
+    post = posts_repo.find_one({"workspace_id": workspace_id, "id": post_id}, columns=["id", "title", "selftext"])
     return post
 
 @router.get("/check-transmission")
@@ -213,14 +213,14 @@ async def get_function_progress(
     request_body: FunctionProgressRequest
 ):
     workspace_id = request_body.workspace_id
-    dataset_id = request_body.workspace_id
+    workspace_id = request_body.workspace_id
     name = request_body.name
 
     try:
         return function_progress_repo.find_one(
             {
                 "workspace_id": workspace_id,
-                "dataset_id": dataset_id,
+                "workspace_id": workspace_id,
                 "name": name
             }
         )

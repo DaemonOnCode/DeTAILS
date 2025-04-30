@@ -82,7 +82,7 @@ FRONTEND_PAGE_MAPPER = {
     "/code/loading-data/dataset-creation": "dataset_creation",
     "/code/coding/initial-coding": "initial_coding",
     "/code/coding/initial-codebook": "initial_codebook",
-    "/code/coding/final-coding": "final_coding",
+    "/code/coding/generate-final-codes": "final_coding",
     "/code/reviewing-codes": "reviewing_codes",
     "/code/generating-themes": "generating_themes",
     "/code/report": "report"
@@ -90,8 +90,8 @@ FRONTEND_PAGE_MAPPER = {
 
 PAGE_TO_STATES = {
     "context": ["contextFiles", "mainTopic", "additionalInfo", "researchQuestions"],
-    "related_concepts": ["keywords", "selectedKeywords"],
-    "concept_outline": ["keywordTable"],
+    "related_concepts": ["concepts", "selectedConcepts"],
+    "concept_outline": ["conceptOutlineTable"],
     "initial_coding": ["sampledPostResponse", "sampledPostIds", "unseenPostIds"],
     "initial_codebook": ["initialCodebookTable"],
     "final_coding": ["unseenPostResponse"],

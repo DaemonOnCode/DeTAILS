@@ -8,13 +8,13 @@ from config import CustomSettings
 from database.base_class import BaseRepository
 from database.grouped_code_table import GroupedCodeEntriesRepository
 from database.initial_codebook_table import InitialCodebookEntriesRepository
-from database.keyword_entry_table import KeywordEntriesRepository
+from database.concept_entry_table import ConceptEntriesRepository
 from database.qect_table import QectRepository
 from database.theme_table import ThemeEntriesRepository
-from models.table_dataclasses import BaseDataclass, CodebookType, GroupedCodeEntry, InitialCodebookEntry, KeywordEntry, QectResponse, ResponseCreatorType, ThemeEntry
+from models.table_dataclasses import BaseDataclass, CodebookType, GroupedCodeEntry, InitialCodebookEntry, ConceptEntry, QectResponse, ResponseCreatorType, ThemeEntry
 
 
-keyword_entries_repo = KeywordEntriesRepository()
+concept_entries_repo = ConceptEntriesRepository()
 qect_repo = QectRepository()
 initial_codebook_repo = InitialCodebookEntriesRepository()
 grouped_code_repo = GroupedCodeEntriesRepository()
@@ -23,7 +23,6 @@ themes_repo = ThemeEntriesRepository()
 Diff = Dict[str, List[Any]]
 
 def merge_diffs(diff1: Diff, diff2: Diff) -> Diff:
-    # 1) Just concatenate inserted/deleted lists
     merged_inserted = diff1.get("inserted", []) + diff2.get("inserted", [])
     merged_deleted  = diff1.get("deleted",  []) + diff2.get("deleted",  [])
 
@@ -81,14 +80,14 @@ def restore_diff(repo: BaseRepository, model_class: BaseDataclass, diff_to_resto
 
     return diff
 
-def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> Dict[str, Any]:
+def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> Dict[str, Any]:
     action_type = action["type"]
     diff = {"inserted": [], "deleted": [], "updated": []}
 
     if action_type == "INITIALIZE":
-        diff["deleted"] = keyword_entries_repo.delete_returning({"coding_context_id": workspace_id})
+        diff["deleted"] = concept_entries_repo.delete_returning({"coding_context_id": workspace_id})
         for entry_data in action["entries"]:
-            entry = KeywordEntry(
+            entry = ConceptEntry(
                 id=entry_data.get("id", str(uuid4())),
                 coding_context_id=workspace_id,
                 word=entry_data["word"],
@@ -97,43 +96,43 @@ def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> D
                 exclusion_criteria=entry_data.get("exclusion_criteria"),
                 is_marked=entry_data.get("isMarked")
             )
-            inserted_row = keyword_entries_repo.insert_returning(entry)
+            inserted_row = concept_entries_repo.insert_returning(entry)
             diff["inserted"].append(inserted_row)
 
     elif action_type == "SET_ALL_CORRECT":
-        old_rows = keyword_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"])
+        old_rows = concept_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"])
         old_is_marked = {row["id"]: row["is_marked"] for row in old_rows}
-        updated_rows = keyword_entries_repo.update_returning({"coding_context_id": workspace_id}, {"is_marked": True})
+        updated_rows = concept_entries_repo.update_returning({"coding_context_id": workspace_id}, {"is_marked": True})
         diff["updated"] = [
             {"id": row["id"], "changes": {"is_marked": {"old": old_is_marked.get(row["id"]), "new": True}}}
             for row in updated_rows if old_is_marked.get(row["id"]) != True
         ]
 
     elif action_type == "SET_ALL_INCORRECT":
-        old_rows = keyword_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"])
+        old_rows = concept_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"])
         old_is_marked = {row["id"]: row["is_marked"] for row in old_rows}
-        updated_rows = keyword_entries_repo.update_returning({"coding_context_id": workspace_id}, {"is_marked": False})
+        updated_rows = concept_entries_repo.update_returning({"coding_context_id": workspace_id}, {"is_marked": False})
         diff["updated"] = [
             {"id": row["id"], "changes": {"is_marked": {"old": old_is_marked.get(row["id"]), "new": False}}}
             for row in updated_rows if old_is_marked.get(row["id"]) != False
         ]
 
     elif action_type == "SET_ALL_UNMARKED":
-        old_rows = keyword_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"])
+        old_rows = concept_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"])
         old_is_marked = {row["id"]: row["is_marked"] for row in old_rows}
-        updated_rows = keyword_entries_repo.update_returning({"coding_context_id": workspace_id}, {"is_marked": None})
+        updated_rows = concept_entries_repo.update_returning({"coding_context_id": workspace_id}, {"is_marked": None})
         diff["updated"] = [
             {"id": row["id"], "changes": {"is_marked": {"old": old_is_marked.get(row["id"]), "new": None}}}
             for row in updated_rows if old_is_marked.get(row["id"]) is not None
         ]
 
     elif action_type == "ADD_MANY":
-        current_entries = keyword_entries_repo.find({"coding_context_id": workspace_id})
+        current_entries = concept_entries_repo.find({"coding_context_id": workspace_id})
         existing_words = {entry.word for entry in current_entries}
         new_entries = [entry for entry in action["entries"] if entry["word"] not in existing_words]
-        diff["deleted"] = keyword_entries_repo.delete_returning({"coding_context_id": workspace_id, "is_marked": [False, None]})
+        diff["deleted"] = concept_entries_repo.delete_returning({"coding_context_id": workspace_id, "is_marked": [False, None]})
         for entry_data in new_entries:
-            entry = KeywordEntry(
+            entry = ConceptEntry(
                 id=entry_data.get("id", str(uuid4())),
                 coding_context_id=workspace_id,
                 word=entry_data["word"],
@@ -142,15 +141,15 @@ def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> D
                 exclusion_criteria=entry_data.get("exclusion_criteria"),
                 is_marked=entry_data.get("isMarked")
             )
-            inserted_row = keyword_entries_repo.insert_returning(entry)
+            inserted_row = concept_entries_repo.insert_returning(entry)
             diff["inserted"].append(inserted_row)
 
     elif action_type == "UPDATE_FIELD":
-        entries = keyword_entries_repo.find({"coding_context_id": workspace_id})
+        entries = concept_entries_repo.find({"coding_context_id": workspace_id})
         if 0 <= action["index"] < len(entries):
             entry = entries[action["index"]]
             old_value = getattr(entry, action["field"])
-            updated_rows = keyword_entries_repo.update_returning(
+            updated_rows = concept_entries_repo.update_returning(
                 {"id": entry.id},
                 {action["field"]: action["value"]}
             )
@@ -161,11 +160,11 @@ def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> D
                 }]
 
     elif action_type == "TOGGLE_MARK":
-        entries = keyword_entries_repo.find({"coding_context_id": workspace_id})
+        entries = concept_entries_repo.find({"coding_context_id": workspace_id})
         if 0 <= action["index"] < len(entries):
             entry = entries[action["index"]]
             old_is_marked = entry.is_marked
-            updated_rows = keyword_entries_repo.update_returning(
+            updated_rows = concept_entries_repo.update_returning(
                 {"id": entry.id},
                 {"is_marked": action["isMarked"]}
             )
@@ -177,7 +176,7 @@ def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> D
 
     elif action_type == "ADD_ROW":
         entry_data = action.get("entry", {})
-        entry = KeywordEntry(
+        entry = ConceptEntry(
             id=entry_data.get("id", str(uuid4())),
             coding_context_id=workspace_id,
             word=entry_data.get("word", ""),
@@ -186,12 +185,12 @@ def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> D
             exclusion_criteria=entry_data.get("exclusion_criteria", ""),
             is_marked=True
         )
-        inserted_row = keyword_entries_repo.insert_returning(entry)
+        inserted_row = concept_entries_repo.insert_returning(entry)
         diff["inserted"].append(inserted_row)
 
     elif action_type == "UNDO_DELETE_ROW":
         entry_data = action["entry"]
-        entry = KeywordEntry(
+        entry = ConceptEntry(
             id=entry_data.get("id", str(uuid4())),
             coding_context_id=workspace_id,
             word=entry_data["word"],
@@ -200,23 +199,23 @@ def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> D
             exclusion_criteria=entry_data.get("exclusion_criteria"),
             is_marked=entry_data.get("isMarked")
         )
-        inserted_row = keyword_entries_repo.insert_returning(entry)
+        inserted_row = concept_entries_repo.insert_returning(entry)
         diff["inserted"].append(inserted_row)
 
     elif action_type == "DELETE_ROW":
-        entries = keyword_entries_repo.find({"coding_context_id": workspace_id})
+        entries = concept_entries_repo.find({"coding_context_id": workspace_id})
         print(f"Deleting row at index {action['index']} from entries: {entries}")
         if 0 <= action["index"] < len(entries):
             entry = entries[action["index"]]
-            diff["deleted"] = keyword_entries_repo.delete_returning({"id": entry.id})
+            diff["deleted"] = concept_entries_repo.delete_returning({"id": entry.id})
 
     elif action_type == "RESET":
-        diff["deleted"] = keyword_entries_repo.delete_returning({"coding_context_id": workspace_id})
+        diff["deleted"] = concept_entries_repo.delete_returning({"coding_context_id": workspace_id})
 
     elif action_type == "RESTORE_STATE":
-        diff["deleted"] = keyword_entries_repo.delete_returning({"coding_context_id": workspace_id})
+        diff["deleted"] = concept_entries_repo.delete_returning({"coding_context_id": workspace_id})
         for entry_data in action["payload"]:
-            entry = KeywordEntry(
+            entry = ConceptEntry(
                 id=entry_data.get("id", str(uuid4())),
                 coding_context_id=workspace_id,
                 word=entry_data["word"],
@@ -225,11 +224,11 @@ def process_keyword_table_action(workspace_id: str, action: Dict[str, Any]) -> D
                 exclusion_criteria=entry_data.get("exclusion_criteria"),
                 is_marked=bool(entry_data.get("isMarked"))
             )
-            inserted_row = keyword_entries_repo.insert_returning(entry)
+            inserted_row = concept_entries_repo.insert_returning(entry)
             diff["inserted"].append(inserted_row)
 
     elif action_type == "RESTORE_DIFF":
-        diff = restore_diff(keyword_entries_repo, KeywordEntry, action["payload"])
+        diff = restore_diff(concept_entries_repo, ConceptEntry, action["payload"])
 
     else:
         raise ValueError(f"Unknown action type: {action_type}")
@@ -761,7 +760,6 @@ def process_action(
         if response_data["code"].strip() and response_data["quote"].strip():
             new_response = QectResponse(
                 id=str(uuid4()),
-                dataset_id=response_data.get("datasetId", workspace_id),
                 workspace_id=workspace_id,
                 model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
@@ -786,7 +784,6 @@ def process_action(
         for response_data in new_responses:
             new_response = QectResponse(
                 id=response_data.get("id", str(uuid4())),
-                dataset_id=response_data.get("datasetId", workspace_id),
                 workspace_id=workspace_id,
                 model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
@@ -811,7 +808,6 @@ def process_action(
         for response_data in new_responses:
             new_response = QectResponse(
                 id=response_data.get("id", str(uuid4())),
-                dataset_id=response_data.get("datasetId", workspace_id),
                 workspace_id=workspace_id,
                 model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
@@ -835,7 +831,6 @@ def process_action(
         for response_data in new_responses:
             new_response = QectResponse(
                 id=str(uuid4()),
-                dataset_id=response_data.get("datasetId", workspace_id),
                 workspace_id=workspace_id,
                 model=response_data.get("model", settings.ai.model),
                 quote=response_data["quote"],
@@ -947,7 +942,7 @@ def process_action(
                 existing = qect_repo.find_one({"id": response_id})
                 if existing:
                     updates = {
-                        "dataset_id": response_data.get("datasetId", existing.dataset_id),
+                        "workspace_id": workspace_id,
                         "model": response_data.get("model", existing.model),
                         "quote": response_data.get("quote", existing.quote),
                         "code": response_data.get("code", existing.code),
@@ -963,7 +958,6 @@ def process_action(
                 else:
                     new_response = QectResponse(
                         id=response_id,
-                        dataset_id=response_data.get("datasetId", workspace_id),
                         workspace_id=workspace_id,
                         model=response_data.get("model", settings.ai.model),
                         quote=response_data.get("quote", ""),
