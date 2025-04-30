@@ -68,11 +68,11 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
   let currentSequence: DatabaseRow[] = [];
   for (const entry of entries) {
     const context = safeParseContext(entry.context);
-    if (context.function === "keyword_table") {
+    if (context.function === "concept_table") {
       if (currentSequence.length > 0) sequences.push(currentSequence);
       currentSequence = [entry];
     } else if (
-      context.function === "dispatchKeywordsTable" &&
+      context.function === "dispatchConceptOutlinesTable" &&
       currentSequence.length > 0
     ) {
       currentSequence.push(entry);
@@ -318,7 +318,7 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
       try {
         const query = `
           SELECT * FROM state_dumps
-          WHERE json_extract(context, '$.function') IN ('keyword_table', 'dispatchKeywordsTable')
+          WHERE json_extract(context, '$.function') IN ('concept_table', 'dispatchConceptOutlinesTable')
           AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
         `;
@@ -535,23 +535,23 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {seqDiff.changes.inserted.map((keyword) => (
-                        <tr key={keyword.id || keyword.word}>
-                          <td className="p-2 border">{keyword.id || "N/A"}</td>
+                      {seqDiff.changes.inserted.map((concept) => (
+                        <tr key={concept.id || concept.word}>
+                          <td className="p-2 border">{concept.id || "N/A"}</td>
                           <td className="p-2 border">
-                            {keyword.word || "N/A"}
+                            {concept.word || "N/A"}
                           </td>
-                          <td className="p-2 border">{keyword.description}</td>
+                          <td className="p-2 border">{concept.description}</td>
                           <td className="p-2 border">
-                            {keyword.inclusion_criteria}
-                          </td>
-                          <td className="p-2 border">
-                            {keyword.exclusion_criteria}
+                            {concept.inclusion_criteria}
                           </td>
                           <td className="p-2 border">
-                            {keyword.isMarked === null
+                            {concept.exclusion_criteria}
+                          </td>
+                          <td className="p-2 border">
+                            {concept.isMarked === null
                               ? "N/A"
-                              : keyword.isMarked
+                              : concept.isMarked
                               ? "Yes"
                               : "No"}
                           </td>
@@ -657,23 +657,23 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {seqDiff.changes.deleted.map((keyword) => (
-                        <tr key={keyword.id || keyword.word}>
-                          <td className="p-2 border">{keyword.id || "N/A"}</td>
+                      {seqDiff.changes.deleted.map((concept) => (
+                        <tr key={concept.id || concept.word}>
+                          <td className="p-2 border">{concept.id || "N/A"}</td>
                           <td className="p-2 border">
-                            {keyword.word || "N/A"}
+                            {concept.word || "N/A"}
                           </td>
-                          <td className="p-2 border">{keyword.description}</td>
+                          <td className="p-2 border">{concept.description}</td>
                           <td className="p-2 border">
-                            {keyword.inclusion_criteria}
-                          </td>
-                          <td className="p-2 border">
-                            {keyword.exclusion_criteria}
+                            {concept.inclusion_criteria}
                           </td>
                           <td className="p-2 border">
-                            {keyword.isMarked === null
+                            {concept.exclusion_criteria}
+                          </td>
+                          <td className="p-2 border">
+                            {concept.isMarked === null
                               ? "N/A"
-                              : keyword.isMarked
+                              : concept.isMarked
                               ? "Yes"
                               : "No"}
                           </td>
@@ -722,27 +722,27 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {step.changes.inserted.map((keyword) => (
-                                <tr key={keyword.id || keyword.word}>
+                              {step.changes.inserted.map((concept) => (
+                                <tr key={concept.id || concept.word}>
                                   <td className="p-2 border">
-                                    {keyword.id || "N/A"}
+                                    {concept.id || "N/A"}
                                   </td>
                                   <td className="p-2 border">
-                                    {keyword.word || "N/A"}
+                                    {concept.word || "N/A"}
                                   </td>
                                   <td className="p-2 border">
-                                    {keyword.description}
+                                    {concept.description}
                                   </td>
                                   <td className="p-2 border">
-                                    {keyword.inclusion_criteria}
+                                    {concept.inclusion_criteria}
                                   </td>
                                   <td className="p-2 border">
-                                    {keyword.exclusion_criteria}
+                                    {concept.exclusion_criteria}
                                   </td>
                                   <td className="p-2 border">
-                                    {keyword.isMarked === null
+                                    {concept.isMarked === null
                                       ? "N/A"
-                                      : keyword.isMarked
+                                      : concept.isMarked
                                       ? "Yes"
                                       : "No"}
                                   </td>
@@ -804,27 +804,27 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {step.changes.deleted.map((keyword) => (
-                                <tr key={keyword.id || keyword.word}>
+                              {step.changes.deleted.map((concept) => (
+                                <tr key={concept.id || concept.word}>
                                   <td className="p-2 border">
-                                    {keyword.id || "N/A"}
+                                    {concept.id || "N/A"}
                                   </td>
                                   <td className="p-2 border">
-                                    {keyword.word || "N/A"}
+                                    {concept.word || "N/A"}
                                   </td>
                                   <td className="p-2 border">
-                                    {keyword.description}
+                                    {concept.description}
                                   </td>
                                   <td className="p-2 border">
-                                    {keyword.inclusion_criteria}
+                                    {concept.inclusion_criteria}
                                   </td>
                                   <td className="p-2 border">
-                                    {keyword.exclusion_criteria}
+                                    {concept.exclusion_criteria}
                                   </td>
                                   <td className="p-2 border">
-                                    {keyword.isMarked === null
+                                    {concept.isMarked === null
                                       ? "N/A"
-                                      : keyword.isMarked
+                                      : concept.isMarked
                                       ? "Yes"
                                       : "No"}
                                   </td>

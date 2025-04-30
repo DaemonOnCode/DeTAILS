@@ -12,7 +12,7 @@ self.onmessage = async (e) => {
     params,
     page,
     pageSize,
-    datasetId,
+    workspaceId,
     postIds,
   } = e.data;
 
@@ -46,7 +46,7 @@ self.onmessage = async (e) => {
     }
   } else if (type === "fetchPostsAndCommentsBatch") {
     try {
-      const results = await fetchPostsAndCommentsBatch(datasetId, postIds);
+      const results = await fetchPostsAndCommentsBatch(workspaceId, postIds);
       self.postMessage({
         type: "fetchPostsAndCommentsBatchResult",
         data: results,
@@ -58,22 +58,22 @@ self.onmessage = async (e) => {
   }
 };
 
-async function fetchPostsAndCommentsBatch(datasetId, postIds) {
+async function fetchPostsAndCommentsBatch(workspaceId, postIds) {
   // const countStmt = database.prepare(
-  //   "SELECT COUNT(*) AS cnt FROM posts WHERE dataset_id = ?"
+  //   "SELECT COUNT(*) AS cnt FROM posts WHERE workspace_id = ?"
   // );
-  // countStmt.bind([datasetId]);
+  // countStmt.bind([workspaceId]);
   // countStmt.step();
   // countStmt.free();
 
   const postQuery = `
     SELECT id, selftext, title 
     FROM posts 
-    WHERE dataset_id = ? AND id IN (${postIds.map(() => "?").join(",")})
+    WHERE workspace_id = ? AND id IN (${postIds.map(() => "?").join(",")})
   `;
 
   const postStmt = database.prepare(postQuery);
-  postStmt.bind([datasetId, ...postIds]);
+  postStmt.bind([workspaceId, ...postIds]);
   const posts = [];
   while (postStmt.step()) {
     const row = postStmt.getAsObject();
@@ -85,18 +85,20 @@ async function fetchPostsAndCommentsBatch(datasetId, postIds) {
     WITH RECURSIVE comment_tree AS (
       SELECT id, body, parent_id, post_id
       FROM comments
-      WHERE dataset_id = ? AND post_id IN (${postIds.map(() => "?").join(",")})
+      WHERE workspace_id = ? AND post_id IN (${postIds
+        .map(() => "?")
+        .join(",")})
       UNION ALL
       SELECT c.id, c.body, c.parent_id, c.post_id
       FROM comments c
       INNER JOIN comment_tree ct ON c.parent_id = ct.id
-      WHERE c.dataset_id = ?
+      WHERE c.workspace_id = ?
     )
     SELECT * FROM comment_tree;
   `;
 
   const commentStmt = database.prepare(commentQuery);
-  commentStmt.bind([datasetId, ...postIds, datasetId]);
+  commentStmt.bind([workspaceId, ...postIds, workspaceId]);
   const comments = [];
   while (commentStmt.step()) {
     const row = commentStmt.getAsObject();

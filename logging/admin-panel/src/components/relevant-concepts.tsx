@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useDatabase } from "./context";
 import { DatabaseRow, Context } from "../utils/types";
 
-interface Keyword {
+interface Concept {
   id: string;
   word: string;
   description?: string;
@@ -10,21 +10,21 @@ interface Keyword {
   exclusion_criteria?: string[];
 }
 
-interface KeywordChange {
+interface ConceptChange {
   type: "inserted" | "deleted" | "updated";
-  keywordId: string;
+  conceptId: string;
   word?: string;
   updatedFields?: { [key: string]: { from: any; to: any } };
   similarity?: number;
 }
 
-interface SequenceKeywordChange extends KeywordChange {
+interface SequenceConceptChange extends ConceptChange {
   step: number;
 }
 
 interface SelectionChange {
   type: "selected" | "deselected";
-  keywordId: string;
+  conceptId: string;
   word: string;
 }
 
@@ -33,15 +33,15 @@ interface SequenceDiff {
   initialTimestamp: string;
   finalTimestamp: string;
   isRegeneration: boolean;
-  keywordChanges: SequenceKeywordChange[];
+  conceptChanges: SequenceConceptChange[];
   selectionChanges: SelectionChange[];
-  stepwiseKeywordChanges: { step: number; changes: KeywordChange[] }[];
+  stepwiseConceptChanges: { step: number; changes: ConceptChange[] }[];
   stepwiseSelectionChanges: { step: number; changes: SelectionChange[] }[];
-  totalKeywordChanges: number;
+  totalConceptChanges: number;
   totalSelectionChanges: number;
   metrics: {
-    initial_keywords: number;
-    selected_keywords: number;
+    initial_concepts: number;
+    selected_concepts: number;
     TP: number;
     WTP: string;
     P: string;
@@ -69,12 +69,12 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
   let currentSequence: DatabaseRow[] = [];
   for (const entry of entries) {
     const context = safeParseContext(entry.context);
-    if (context.function === "keyword_cloud_table") {
+    if (context.function === "concept_cloud_table") {
       if (currentSequence.length > 0) sequences.push(currentSequence);
       currentSequence = [entry];
     } else if (
-      (context.function === "setSelectedKeywords" ||
-        context.function === "setKeywords") &&
+      (context.function === "setSelectedConcepts" ||
+        context.function === "setConcepts") &&
       currentSequence.length > 0
     ) {
       currentSequence.push(entry);
@@ -84,24 +84,24 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
   return sequences;
 };
 
-const extractKeywords = (state: any): Map<string, Keyword> => {
-  const keywords = new Map<string, Keyword>();
+const extractConcepts = (state: any): Map<string, Concept> => {
+  const concepts = new Map<string, Concept>();
   const parsedState = typeof state === "string" ? JSON.parse(state) : state;
-  let keywordArray: any[] = [];
+  let conceptArray: any[] = [];
 
-  if (parsedState.keywords && Array.isArray(parsedState.keywords)) {
-    keywordArray = parsedState.keywords;
+  if (parsedState.concepts && Array.isArray(parsedState.concepts)) {
+    conceptArray = parsedState.concepts;
   } else if (
     parsedState.current_state &&
     Array.isArray(parsedState.current_state) &&
     parsedState.current_state.every((kw: any) => kw.id && kw.word)
   ) {
-    keywordArray = parsedState.current_state;
+    conceptArray = parsedState.current_state;
   }
 
-  keywordArray.forEach((kw: any) => {
+  conceptArray.forEach((kw: any) => {
     if (kw.id && kw.id !== "Unknown") {
-      keywords.set(kw.id, {
+      concepts.set(kw.id, {
         id: kw.id,
         word: kw.word,
         description: kw.description || "",
@@ -110,10 +110,10 @@ const extractKeywords = (state: any): Map<string, Keyword> => {
       });
     }
   });
-  return keywords;
+  return concepts;
 };
 
-const extractSelectedKeywords = (state: any): Set<string> => {
+const extractSelectedConcepts = (state: any): Set<string> => {
   const selected = new Set<string>();
   const parsedState = typeof state === "string" ? JSON.parse(state) : state;
   const currentState = parsedState.current_state;
@@ -123,25 +123,25 @@ const extractSelectedKeywords = (state: any): Set<string> => {
   return selected;
 };
 
-const computeKeywordChanges = (
-  prevKeywords: Map<string, Keyword>,
-  currKeywords: Map<string, Keyword>
-): KeywordChange[] => {
-  const changes: KeywordChange[] = [];
-  prevKeywords.forEach((prevKw, id) => {
-    if (!currKeywords.has(id)) {
-      changes.push({ type: "deleted", keywordId: id, word: prevKw.word });
+const computeConceptChanges = (
+  prevConcepts: Map<string, Concept>,
+  currConcepts: Map<string, Concept>
+): ConceptChange[] => {
+  const changes: ConceptChange[] = [];
+  prevConcepts.forEach((prevKw, id) => {
+    if (!currConcepts.has(id)) {
+      changes.push({ type: "deleted", conceptId: id, word: prevKw.word });
     }
   });
-  currKeywords.forEach((currKw, id) => {
-    if (!prevKeywords.has(id)) {
-      changes.push({ type: "inserted", keywordId: id, word: currKw.word });
+  currConcepts.forEach((currKw, id) => {
+    if (!prevConcepts.has(id)) {
+      changes.push({ type: "inserted", conceptId: id, word: currKw.word });
     } else {
-      const prevKw = prevKeywords.get(id)!;
+      const prevKw = prevConcepts.get(id)!;
       if (prevKw.word !== currKw.word) {
         changes.push({
           type: "updated",
-          keywordId: id,
+          conceptId: id,
           word: currKw.word,
           updatedFields: { word: { from: prevKw.word, to: currKw.word } },
         });
@@ -154,24 +154,24 @@ const computeKeywordChanges = (
 const computeSelectionChanges = (
   prevSelected: Set<string>,
   currSelected: Set<string>,
-  keywords: Map<string, Keyword>
+  concepts: Map<string, Concept>
 ): SelectionChange[] => {
   const changes: SelectionChange[] = [];
   prevSelected.forEach((id) => {
-    if (!currSelected.has(id) && keywords.has(id)) {
+    if (!currSelected.has(id) && concepts.has(id)) {
       changes.push({
         type: "deselected",
-        keywordId: id,
-        word: keywords.get(id)!.word,
+        conceptId: id,
+        word: concepts.get(id)!.word,
       });
     }
   });
   currSelected.forEach((id) => {
-    if (!prevSelected.has(id) && keywords.has(id)) {
+    if (!prevSelected.has(id) && concepts.has(id)) {
       changes.push({
         type: "selected",
-        keywordId: id,
-        word: keywords.get(id)!.word,
+        conceptId: id,
+        word: concepts.get(id)!.word,
       });
     }
   });
@@ -210,7 +210,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
       try {
         const query = `
           SELECT * FROM state_dumps
-          WHERE json_extract(context, '$.function') IN ('keyword_cloud_table', 'setSelectedKeywords', 'setKeywords')
+          WHERE json_extract(context, '$.function') IN ('concept_cloud_table', 'setSelectedConcepts', 'setConcepts')
           AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
         `;
@@ -244,13 +244,13 @@ const RelatedConceptsDiffViewer: React.FC = () => {
           const initialContext = safeParseContext(initialEntry.context);
           const isRegeneration = initialContext.run === "regenerate";
           const initialState = JSON.parse(initialEntry.state);
-          const initialKeywords = extractKeywords(initialState);
-          let prevKeywords = initialKeywords;
+          const initialConcepts = extractConcepts(initialState);
+          let prevConcepts = initialConcepts;
           let prevSelected = new Set<string>();
 
-          const stepwiseKeywordChanges: {
+          const stepwiseConceptChanges: {
             step: number;
-            changes: KeywordChange[];
+            changes: ConceptChange[];
           }[] = [];
           const stepwiseSelectionChanges: {
             step: number;
@@ -262,11 +262,11 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             const nextContext = safeParseContext(nextEntry.context);
             const nextState = JSON.parse(nextEntry.state);
 
-            if (nextContext.function === "setKeywords") {
-              const nextKeywords = extractKeywords(nextState);
-              const stepChanges = computeKeywordChanges(
-                prevKeywords,
-                nextKeywords
+            if (nextContext.function === "setConcepts") {
+              const nextConcepts = extractConcepts(nextState);
+              const stepChanges = computeConceptChanges(
+                prevConcepts,
+                nextConcepts
               );
               for (const change of stepChanges) {
                 if (change.type === "updated" && change.updatedFields?.word) {
@@ -285,18 +285,18 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                 }
               }
               if (stepChanges.length > 0) {
-                stepwiseKeywordChanges.push({
+                stepwiseConceptChanges.push({
                   step: i + 1,
                   changes: stepChanges,
                 });
               }
-              prevKeywords = nextKeywords;
-            } else if (nextContext.function === "setSelectedKeywords") {
-              const nextSelected = extractSelectedKeywords(nextState);
+              prevConcepts = nextConcepts;
+            } else if (nextContext.function === "setSelectedConcepts") {
+              const nextSelected = extractSelectedConcepts(nextState);
               const stepChanges = computeSelectionChanges(
                 prevSelected,
                 nextSelected,
-                prevKeywords
+                prevConcepts
               );
               if (stepChanges.length > 0) {
                 stepwiseSelectionChanges.push({
@@ -308,12 +308,12 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             }
           }
 
-          const keywordChanges: SequenceKeywordChange[] =
-            stepwiseKeywordChanges.flatMap((step) =>
+          const conceptChanges: SequenceConceptChange[] =
+            stepwiseConceptChanges.flatMap((step) =>
               step.changes.map((change) => ({ ...change, step: step.step }))
             );
 
-          const totalKeywordChanges = stepwiseKeywordChanges.reduce(
+          const totalConceptChanges = stepwiseConceptChanges.reduce(
             (sum, step) => sum + step.changes.length,
             0
           );
@@ -322,9 +322,9 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             0
           );
 
-          const latestKeywords = prevKeywords;
+          const latestConcepts = prevConcepts;
           const latestSelected = prevSelected;
-          const I = new Set(initialKeywords.keys());
+          const I = new Set(initialConcepts.keys());
           const S = latestSelected;
           const commonIds = new Set([...I].filter((x) => S.has(x)));
           let TP = 0;
@@ -333,9 +333,9 @@ const RelatedConceptsDiffViewer: React.FC = () => {
           let updated_count = 0;
 
           for (const id of commonIds) {
-            if (latestKeywords.has(id) && initialKeywords.has(id)) {
-              const initialWord = initialKeywords.get(id)!.word;
-              const finalWord = latestKeywords.get(id)!.word;
+            if (latestConcepts.has(id) && initialConcepts.has(id)) {
+              const initialWord = initialConcepts.get(id)!.word;
+              const finalWord = latestConcepts.get(id)!.word;
               if (initialWord === finalWord) {
                 TP += 1;
                 WTP += 1;
@@ -371,8 +371,8 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             I_size > 0 ? (I_size - kept_count - updated_count) / I_size : 0;
 
           const metrics = {
-            initial_keywords: I_size,
-            selected_keywords: S_size,
+            initial_concepts: I_size,
+            selected_concepts: S_size,
             TP,
             WTP: WTP.toFixed(4),
             P: P.toFixed(4),
@@ -395,15 +395,15 @@ const RelatedConceptsDiffViewer: React.FC = () => {
               sequence[sequence.length - 1].created_at
             ).toLocaleString(),
             isRegeneration,
-            keywordChanges,
+            conceptChanges,
             selectionChanges: computeSelectionChanges(
               new Set(),
               latestSelected,
-              latestKeywords
+              latestConcepts
             ),
-            stepwiseKeywordChanges,
+            stepwiseConceptChanges,
             stepwiseSelectionChanges,
-            totalKeywordChanges,
+            totalConceptChanges,
             totalSelectionChanges,
             metrics,
           };
@@ -418,11 +418,11 @@ const RelatedConceptsDiffViewer: React.FC = () => {
   }, [sequences, calculateSimilarity]);
 
   const metricNames: Record<string, { name: string; formula: string }> = {
-    initial_keywords: {
+    initial_concepts: {
       name: "Initial Related Concepts",
       formula: "The total number of  related concepts in the initial set.",
     },
-    selected_keywords: {
+    selected_concepts: {
       name: "Selected Related Concepts",
       formula: "The total number of related concepts in the selected set.",
     },
@@ -500,9 +500,9 @@ const RelatedConceptsDiffViewer: React.FC = () => {
       ) : (
         sequenceDiffs.map((seqDiff) => {
           const allStepChanges = [
-            ...seqDiff.stepwiseKeywordChanges.map((change) => ({
+            ...seqDiff.stepwiseConceptChanges.map((change) => ({
               step: change.step,
-              type: "keyword" as const,
+              type: "concept" as const,
               changes: change.changes,
             })),
             ...seqDiff.stepwiseSelectionChanges.map((change) => ({
@@ -525,7 +525,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                 <h3 className="text-lg font-medium mb-2 text-gray-700">
                   Related Concept Changes
                 </h3>
-                {seqDiff.keywordChanges.length > 0 ? (
+                {seqDiff.conceptChanges.length > 0 ? (
                   <table className="table-auto w-full border-collapse border border-gray-300">
                     <thead>
                       <tr className="bg-gray-100">
@@ -538,15 +538,15 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {seqDiff.keywordChanges.map((change, index) =>
+                      {seqDiff.conceptChanges.map((change, index) =>
                         change.type === "updated" ? (
                           <tr
-                            key={`${change.step}-${change.keywordId}-${change.type}-${index}`}
+                            key={`${change.step}-${change.conceptId}-${change.type}-${index}`}
                             className="hover:bg-gray-50"
                           >
                             <td className="p-2 border">{change.step}</td>
                             <td className="p-2 border">{change.type}</td>
-                            <td className="p-2 border">{change.keywordId}</td>
+                            <td className="p-2 border">{change.conceptId}</td>
                             <td className="p-2 border">{change.word || "-"}</td>
                             <td className="p-2 border">
                               {change.updatedFields
@@ -611,11 +611,11 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                     <tbody>
                       {seqDiff.selectionChanges.map((change, index) => (
                         <tr
-                          key={change.keywordId || `selection-change-${index}`}
+                          key={change.conceptId || `selection-change-${index}`}
                           className="hover:bg-gray-50"
                         >
                           <td className="p-2 border">{change.type}</td>
-                          <td className="p-2 border">{change.keywordId}</td>
+                          <td className="p-2 border">{change.conceptId}</td>
                           <td className="p-2 border">{change.word}</td>
                         </tr>
                       ))}
@@ -658,7 +658,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                       </h4>
                       {isOpen && (
                         <div>
-                          {stepChange.type === "keyword" ? (
+                          {stepChange.type === "concept" ? (
                             <table className="table-auto w-full border-collapse border border-gray-300">
                               <thead>
                                 <tr className="bg-gray-100">
@@ -675,8 +675,8 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                                 {stepChange.changes.map((change, index) => (
                                   <tr
                                     key={
-                                      change.keywordId ||
-                                      `step-${stepChange.step}-keyword-${index}`
+                                      change.conceptId ||
+                                      `step-${stepChange.step}-concept-${index}`
                                     }
                                     className="hover:bg-gray-50"
                                   >
@@ -684,7 +684,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                                       {change.type}
                                     </td>
                                     <td className="p-2 border">
-                                      {change.keywordId}
+                                      {change.conceptId}
                                     </td>
                                     <td className="p-2 border">
                                       {change.word || "-"}
@@ -720,7 +720,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                                 {stepChange.changes.map((change, index) => (
                                   <tr
                                     key={
-                                      change.keywordId ||
+                                      change.conceptId ||
                                       `step-${stepChange.step}-selection-${index}`
                                     }
                                     className="hover:bg-gray-50"
@@ -729,7 +729,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                                       {change.type}
                                     </td>
                                     <td className="p-2 border">
-                                      {change.keywordId}
+                                      {change.conceptId}
                                     </td>
                                     <td className="p-2 border">
                                       {change.word}

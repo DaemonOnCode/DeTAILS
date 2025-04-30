@@ -99,7 +99,7 @@ const ManualCodingComparisonViewer: React.FC = () => {
         workerPoolRef.current!.runTask<any[]>(
           {
             type: "fetchPostsAndCommentsBatch",
-            datasetId: selectedWorkspaceId as string,
+            workspaceId: selectedWorkspaceId as string,
             postIds: chunk,
           },
           {
