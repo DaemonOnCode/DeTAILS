@@ -20,6 +20,11 @@ import {
     Explanation
 } from '../types/Coding/shared';
 
+type TextMarker = {
+    itemId: string;
+    range: [number, number];
+} | null;
+
 interface ITranscriptContext {
     review: boolean;
     selectedText: string | null;
@@ -63,14 +68,13 @@ interface ITranscriptContext {
     }>;
     selectionRangeRef: MutableRefObject<Range | null>;
     containerRef: RefObject<HTMLDivElement>;
-    selectedTextMarker: {
-        itemId: string;
-        range: [number, number];
-    } | null;
-    setSelectedTextMarker: SetState<{
-        itemId: string;
-        range: [number, number];
-    } | null>;
+    selectedTextMarker: TextMarker | null;
+    setSelectedTextMarker: SetState<TextMarker | null>;
+    isValidSelection: (
+        selectedText: string,
+        marker: TextMarker | null,
+        container: HTMLElement | null
+    ) => boolean;
 }
 
 const TranscriptContext = createContext<ITranscriptContext>({
@@ -109,7 +113,8 @@ const TranscriptContext = createContext<ITranscriptContext>({
     selectionRangeRef: { current: null },
     containerRef: { current: null },
     selectedTextMarker: null,
-    setSelectedTextMarker: () => {}
+    setSelectedTextMarker: () => {},
+    isValidSelection: () => false
 });
 
 export const TranscriptContextProvider: FC<{
@@ -196,10 +201,7 @@ export const TranscriptContextProvider: FC<{
     const [hoveredCodeText, setHoveredCodeText] = useState<string[] | null>(null);
     const [additionalCodes, setAdditionalCodes] = useState<string[]>([]);
     const [switchModalOn, setSwitchModalOn] = useState(false);
-    const [selectedTextMarker, setSelectedTextMarker] = useState<{
-        itemId: string;
-        range: [number, number];
-    } | null>(null);
+    const [selectedTextMarker, setSelectedTextMarker] = useState<TextMarker | null>(null);
 
     const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
 
@@ -248,6 +250,19 @@ export const TranscriptContextProvider: FC<{
         }
     }, [selectedSegment, hoveredSegment, allExplanations]);
 
+    function isValidSelection(
+        selectedText: string,
+        marker: TextMarker | null,
+        container: HTMLElement | null
+    ): marker is TextMarker {
+        if (!selectedText.trim() || !marker || !container) return false;
+
+        const [start, end] = marker.range;
+        if (start >= end) return false;
+
+        return !!container.querySelector(`span[data-segment-id^="${marker.itemId}|"]`);
+    }
+
     const handleTextSelection = (_selectionRef: React.MutableRefObject<Range | null>): void => {
         console.log('Handling text selection from TranscriptContext');
         const selection = window.getSelection();
@@ -263,7 +278,6 @@ export const TranscriptContextProvider: FC<{
         if (!overallSelectedText) return;
 
         console.log('Overall selected text (quote):', overallSelectedText);
-        setSelectedText(overallSelectedText);
 
         const startNode = range.startContainer.parentElement;
         const endNode = range.endContainer.parentElement;
@@ -284,16 +298,18 @@ export const TranscriptContextProvider: FC<{
         const startItemId = findItemIdFromElement(startNode);
         const endItemId = findItemIdFromElement(endNode);
 
-        if (!startItemId || !endItemId) {
-            console.log('Could not find data-segment-id for either start or end.');
+        console.log('Start item ID:', startItemId, 'End item ID:', endItemId);
+
+        if (!startItemId || !endItemId || startItemId !== endItemId) {
+            // alert('Please select text within a single comment only to make changes.');
+
+            console.log(
+                'Selection invalid (either started outside, ended outside, or spanned two comments).'
+            );
             return;
         }
 
-        if (startItemId !== endItemId) {
-            console.log('Selection spans multiple items; not handled.');
-            return;
-        }
-
+        console.log('Start and end item IDs match:', startItemId, overallSelectedText);
         const selectedItemId = startItemId;
         const container = document.getElementById('transcript-container');
         if (!container) {
@@ -343,6 +359,7 @@ export const TranscriptContextProvider: FC<{
 
         console.log('Selected item ID:', selectedItemId);
         console.log('Relative selection offsets:', relativeSelectionStart, relativeSelectionEnd);
+        setSelectedText(overallSelectedText);
 
         setSelectedTextMarker({
             itemId: selectedItemId,
@@ -480,7 +497,8 @@ export const TranscriptContextProvider: FC<{
             selectionRangeRef,
             containerRef,
             selectedTextMarker,
-            setSelectedTextMarker
+            setSelectedTextMarker,
+            isValidSelection
         }),
         [
             review,

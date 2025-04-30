@@ -54,7 +54,7 @@ const EditHighlightModal: FC<EditHighlightModalProps> = ({
                 {phase === 'selectHighlight' && (
                     <>
                         <h2 className="text-xl font-semibold mb-4">
-                            Edit Highlight – Select a Quote to Change
+                            Edit Highlight - Select a Quote to Change
                         </h2>
                         <input
                             type="text"
@@ -92,7 +92,7 @@ const EditHighlightModal: FC<EditHighlightModalProps> = ({
                 {phase === 'selectReplacement' && (
                     <>
                         <h2 className="text-xl font-semibold mb-4">
-                            Edit Highlight – Confirm New Text Region
+                            Edit Highlight - Confirm New Text Region
                         </h2>
                         <p className="mb-4">
                             <span className="font-semibold">Selected Quote:</span>{' '}

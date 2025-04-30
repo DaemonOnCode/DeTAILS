@@ -219,7 +219,11 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const calculateSimilarity = async (text1: string, text2: string) => {
-    if (!apiKeyCreds) throw new Error("API key not loaded");
+    if (!apiKeyCreds) {
+      console.error("API key credentials not loaded");
+      if (text1 === text2) return 1;
+      else return 0;
+    }
     const accessToken = await getGcpAccessToken(apiKeyCreds);
     const projectId = apiKeyCreds.project_id;
     const location = "us-central1";

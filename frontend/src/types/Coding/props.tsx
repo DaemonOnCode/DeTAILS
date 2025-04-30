@@ -79,6 +79,7 @@ export type HighlightModalProps = {
     removeSelection: () => void;
     hidden: boolean;
     setHidden: SetState<boolean>;
+    showAddNewCode?: boolean;
 };
 
 export type EditHighlightModalProps = {
@@ -232,6 +233,7 @@ export type PostTranscriptProps = {
     showBackButton?: boolean;
     codebookCodes?: string[];
     manualCoding?: boolean;
+    showAddCodeinHighlight?: boolean;
 };
 
 export interface CodeViewProps {

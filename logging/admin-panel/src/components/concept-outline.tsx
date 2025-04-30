@@ -502,28 +502,17 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                 <p className="mt-2">
                   <strong>Weighted Recall:</strong> {seqDiff.recall.toFixed(3)}
                 </p>
-                {/* <p className="mb-2 text-sm text-gray-500">
-                  <strong>Weighted True Positives</strong>: The sum of
-                  similarities for concept outlines present in both the initial
-                  and final sets and marked true in the final set, where
-                  similarity is 1 if all fields are identical, or the average
-                  cosine similarity across fields otherwise.
-                </p> */}
                 <p className="mb-2 text-sm text-gray-500">
                   <strong>Weighted Precision</strong>: True Positives (Correct
                   from start i.e. 1 + cosine similarity of edited i.e. &lt; 1) /
                   Number of True positives (total no.) + False Positives
                   (deleted or marked false by user)
-                  {/* The weighted true positives
-                  divided by the number of initial concept outlines. */}
                 </p>
                 <p className="mb-4 text-sm text-gray-500">
                   <strong>Weighted Recall</strong>: True Positives (Correct from
                   start i.e. 1 + cosine similarity of edited i.e. &lt; 1) /
                   Number of True positives (total no.) + False Negatives (total
                   number of new rows added by user)
-                  {/* The weighted true positives divided
-                  by the number of selected concept outlines. */}
                 </p>
               </div>
               <h3 className="text-lg font-medium mb-2 text-gray-700">

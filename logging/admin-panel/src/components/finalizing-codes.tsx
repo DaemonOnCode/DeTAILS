@@ -39,7 +39,7 @@ interface GroupMetric {
   finalName: string | "Deleted";
   precision: number;
   recall: number;
-  similarity?: number; // Added optional similarity field
+  similarity?: number;
 }
 
 interface SequenceDiff {
@@ -146,7 +146,7 @@ const renderChangeDetails = (change: Change): string => {
   }
 };
 
-const CodesDiffViewer: React.FC = () => {
+const ReviewingCodesDiffViewer: React.FC = () => {
   const {
     isDatabaseLoaded,
     executeQuery,
@@ -574,4 +574,4 @@ const CodesDiffViewer: React.FC = () => {
   );
 };
 
-export default CodesDiffViewer;
+export default ReviewingCodesDiffViewer;

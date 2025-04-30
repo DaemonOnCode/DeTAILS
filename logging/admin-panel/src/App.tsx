@@ -2,12 +2,12 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import { DatabaseProvider } from "./components/context";
 import NavBar from "./components/navbar";
-import SelectDBFile from "./components/select-db-file";
+import SelectDBFile from "./components/upload-file";
 import FinalCoding from "./components/final-coding";
 import FinalizingCodes from "./components/finalizing-codes";
 import InitialCoding from "./components/initial-coding";
-import RelatedConcepts from "./components/keyword-cloud";
-import ConceptOutline from "./components/keyword-table";
+import RelatedConcepts from "./components/relevant-concepts";
+import ConceptOutline from "./components/concept-outline";
 import Themes from "./components/themes";
 import Timeline from "./components/timeline";
 import ErrorRates from "./components/error-rates";

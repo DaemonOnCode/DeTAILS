@@ -90,13 +90,13 @@ const extractKeywords = (state: any): Map<string, Keyword> => {
   let keywordArray: any[] = [];
 
   if (parsedState.keywords && Array.isArray(parsedState.keywords)) {
-    keywordArray = parsedState.keywords; // for keyword_cloud_table
+    keywordArray = parsedState.keywords;
   } else if (
     parsedState.current_state &&
     Array.isArray(parsedState.current_state) &&
     parsedState.current_state.every((kw: any) => kw.id && kw.word)
   ) {
-    keywordArray = parsedState.current_state; // for setKeywords
+    keywordArray = parsedState.current_state;
   }
 
   keywordArray.forEach((kw: any) => {
@@ -322,7 +322,6 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             0
           );
 
-          // Compute metrics
           const latestKeywords = prevKeywords;
           const latestSelected = prevSelected;
           const I = new Set(initialKeywords.keys());
@@ -373,7 +372,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
 
           const metrics = {
             initial_keywords: I_size,
-            selected_keywords: S_size - 1,
+            selected_keywords: S_size,
             TP,
             WTP: WTP.toFixed(4),
             P: P.toFixed(4),

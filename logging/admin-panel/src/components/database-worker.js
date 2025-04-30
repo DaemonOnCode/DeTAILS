@@ -59,13 +59,12 @@ self.onmessage = async (e) => {
 };
 
 async function fetchPostsAndCommentsBatch(datasetId, postIds) {
-  const countStmt = database.prepare(
-    "SELECT COUNT(*) AS cnt FROM posts WHERE dataset_id = ?"
-  );
-  countStmt.bind([datasetId]);
-  countStmt.step();
-  const { cnt } = countStmt.getAsObject();
-  countStmt.free();
+  // const countStmt = database.prepare(
+  //   "SELECT COUNT(*) AS cnt FROM posts WHERE dataset_id = ?"
+  // );
+  // countStmt.bind([datasetId]);
+  // countStmt.step();
+  // countStmt.free();
 
   const postQuery = `
     SELECT id, selftext, title 
@@ -78,7 +77,6 @@ async function fetchPostsAndCommentsBatch(datasetId, postIds) {
   const posts = [];
   while (postStmt.step()) {
     const row = postStmt.getAsObject();
-    console.log("DEBUG fetched post row:", row);
     posts.push(row);
   }
   postStmt.free();
@@ -105,6 +103,35 @@ async function fetchPostsAndCommentsBatch(datasetId, postIds) {
     comments.push(row);
   }
   commentStmt.free();
+
+  // console.log(
+  //   `DEBUG fetched ${posts.length} posts and ${comments.length} comments`
+  // );
+
+  let totalCount = 0;
+  posts.forEach((post) => {
+    console.log("Selftext present:", !!post.selftext, post.id);
+    totalCount += !!post.selftext ? 1 : 0;
+    console.log("Title present:", !!post.title, post.id);
+    totalCount += !!post.title ? 1 : 0;
+    let commentCount = 0;
+    comments.forEach((comment) => {
+      if (comment.post_id === post.id) {
+        commentCount++;
+      }
+    });
+    console.log("Comment count for post:", commentCount, post.id);
+    totalCount += commentCount;
+  });
+
+  console.log("Total count of posts and comments:", totalCount, "id:", postIds);
+
+  console.log(
+    "▶️ raw comments length:",
+    comments.length,
+    "unique IDs:",
+    new Set(comments.map((c) => c.id)).size
+  );
 
   const commentMap = {};
   comments.forEach((comment) => {

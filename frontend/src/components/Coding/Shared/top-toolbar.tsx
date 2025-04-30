@@ -27,12 +27,7 @@ const TopToolbar: FC<TopToolbarProps> = ({
     const disableAddHighlightModal = !selectionRefArray.some(
         (ref) => !!ref.current?.toString().trim().length
     );
-    // !(
-    //     topSelectionRef.current?.toString().trim().length ||
-    //     bottomSelectionRef.current?.toString().trim().length
-    // ) ?? true;
 
-    // Close dropdown on click outside
     const handleBlur = (
         event: React.FocusEvent<HTMLDivElement>,
         setter: (value: boolean) => void
@@ -51,7 +46,6 @@ const TopToolbar: FC<TopToolbarProps> = ({
         <div
             className="bg-gray-200 p-3 border-b flex items-center space-x-6"
             id="transcript-toolbar">
-            {/* Code Actions Dropdown */}
             {!manualCoding && (
                 <div
                     className="relative"
@@ -97,7 +91,6 @@ const TopToolbar: FC<TopToolbarProps> = ({
                 </div>
             )}
 
-            {/* Highlight Actions Dropdown */}
             <div
                 className="relative"
                 tabIndex={0}
@@ -146,7 +139,6 @@ const TopToolbar: FC<TopToolbarProps> = ({
                 )}
             </div>
 
-            {/* Show Codebook Button (conditionally rendered) */}
             {showCodebookButton && (
                 <button
                     className="flex items-center px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"

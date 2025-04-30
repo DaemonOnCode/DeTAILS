@@ -264,6 +264,7 @@ class BaseRepository(Generic[T]):
             if keys:
                 conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
+            print(query, params, "execute raw query")
             result = cursor.execute(query, params)
             conn.commit()
             if keys:

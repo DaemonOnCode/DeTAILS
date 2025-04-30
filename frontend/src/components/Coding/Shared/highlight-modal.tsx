@@ -14,7 +14,8 @@ const HighlightModal: FC<HighlightModalProps> = ({
     restoreSelection,
     removeSelection,
     hidden,
-    setHidden
+    setHidden,
+    showAddNewCode = true
 }) => {
     useEffect(() => {
         restoreSelection();
@@ -54,7 +55,7 @@ const HighlightModal: FC<HighlightModalProps> = ({
                             {code}
                         </option>
                     ))}
-                    <option value="addNewCode">+ Add New Code</option>
+                    {showAddNewCode && <option value="addNewCode">+ Add New Code</option>}
                 </select>
                 {addReasoning && (
                     <textarea

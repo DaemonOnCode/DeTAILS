@@ -137,24 +137,6 @@ const computeChanges = async (
           quote: curr.quote,
         });
       }
-      // if (prev.explanation !== curr.explanation) {
-      //   updated.push({
-      //     type: "explanation_changed",
-      //     resultId: id,
-      //     oldValue: prev.explanation,
-      //     newValue: curr.explanation,
-      //   });
-      // }
-      // if (
-      //   JSON.stringify(prev.chat_history) !== JSON.stringify(curr.chat_history)
-      // ) {
-      //   updated.push({
-      //     type: "chat_history_changed",
-      //     resultId: id,
-      //     oldValue: prev.chat_history,
-      //     newValue: curr.chat_history,
-      //   });
-      // }
       if (prev.is_marked !== curr.is_marked) {
         updated.push({
           type: "is_marked_changed",
@@ -165,16 +147,6 @@ const computeChanges = async (
           quote: curr.quote,
         });
       }
-      // if (
-      //   JSON.stringify(prev.range_marker) !== JSON.stringify(curr.range_marker)
-      // ) {
-      //   updated.push({
-      //     type: "range_marker_changed",
-      //     resultId: id,
-      //     oldValue: prev.range_marker,
-      //     newValue: curr.range_marker,
-      //   });
-      // }
     }
   }
 
@@ -223,7 +195,7 @@ const computeMetrics = async (
   return { precision, recall };
 };
 
-const CodingResultsDiffViewer: React.FC = () => {
+const FinalCodingResultsDiffViewer: React.FC = () => {
   const {
     isDatabaseLoaded,
     executeQuery,
@@ -799,4 +771,4 @@ const CodingResultsDiffViewer: React.FC = () => {
   );
 };
 
-export default CodingResultsDiffViewer;
+export default FinalCodingResultsDiffViewer;

@@ -41,7 +41,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     clearedToLeaveRef,
     showBackButton = true,
     codebookCodes = [],
-    manualCoding
+    manualCoding,
+    showAddCodeinHighlight = true
 }) => {
     const {
         selectedText,
@@ -61,7 +62,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         chatHistories,
         switchModalOn,
         setSwitchModalOn,
-        selectedTextMarker
+        selectedTextMarker,
+        isValidSelection
     } = useTranscriptContext();
 
     const { performWithUndo, performWithUndoForReducer, batch } = useUndo();
@@ -233,11 +235,11 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         console.log('Applying code to selection:', selectedText, selectedCode, type);
         if (!selectedText && isHighlightModalOpen) {
             alert(
-                'Please select text. Make sure you explicitly select the text in an active tab, which can be distinguished by a blue border.'
+                'Please select text. If you have selected some text, make sure you explicitly select a single text.'
             );
             return;
         }
-        if (!selectedCode && isHighlightModalOpen) {
+        if ((!selectedCode || selectedCode === 'null') && isHighlightModalOpen) {
             alert('Please select a code.');
             return;
         }
@@ -248,6 +250,12 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         } | null = null;
         switch (type) {
             case 'ADD_HIGHLIGHT':
+                if (!isValidSelection(selectedText, selectedTextMarker, containerRef.current)) {
+                    alert(
+                        'Please select text. If you have selected some text, make sure you explicitly select a single text.'
+                    );
+                    return;
+                }
                 batch(() => {
                     performWithUndoForReducer(codeResponses, dispatchCodeResponse, {
                         type: 'ADD_RESPONSE',
@@ -461,6 +469,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         setReasoning={setReasoning}
                         restoreSelection={restoreSelection}
                         removeSelection={removeSelection}
+                        showAddNewCode={showAddCodeinHighlight}
                     />
                 )}
                 {isEditHighlightModalOpen && isActive && (

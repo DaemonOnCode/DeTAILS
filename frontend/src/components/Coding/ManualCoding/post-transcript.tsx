@@ -1,10 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useImperativeHandle } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import { useCodingContext } from '../../../context/coding-context';
 import { useCollectionContext } from '../../../context/collection-context';
 import { useLogger } from '../../../context/logging-context';
-import useServerUtils from '../../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../../utility/timer';
 import TopToolbar from '../Shared/top-toolbar';
@@ -12,7 +9,6 @@ import PostTranscript from '../CodingTranscript/post-transcript';
 import { TranscriptContextProvider } from '../../../context/transcript-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { useManualCodingContext } from '../../../context/manual-coding-context';
-import { useWorkspaceContext } from '../../../context/workspace-context';
 
 const TranscriptPage = ({
     id,
@@ -316,6 +312,7 @@ const TranscriptPage = ({
                             setIsEditHighlightModalOpen={setIsEditHighlightModalOpen}
                             setDeleteIsHighlightModalOpen={setDeleteIsHighlightModalOpen}
                             manualCoding
+                            showAddCodeinHighlight={false}
                         />
                     </TranscriptContextProvider>
                 </div>

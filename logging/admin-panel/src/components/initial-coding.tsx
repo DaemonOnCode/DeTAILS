@@ -201,7 +201,7 @@ const computeMetrics = async (
   return { precision, recall };
 };
 
-const CodingResultsDiffViewer: React.FC = () => {
+const InitialCodingResultsDiffViewer: React.FC = () => {
   const {
     isDatabaseLoaded,
     executeQuery,
@@ -801,4 +801,4 @@ const CodingResultsDiffViewer: React.FC = () => {
   );
 };
 
-export default CodingResultsDiffViewer;
+export default InitialCodingResultsDiffViewer;

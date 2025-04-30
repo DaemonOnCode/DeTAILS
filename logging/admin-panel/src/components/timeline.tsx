@@ -21,7 +21,7 @@ function Timeline() {
   const [loading, setLoading] = useState<boolean>(false);
   const [filterFunction, setFilterFunction] = useState<string | null>(null);
   const [uniqueFunctions, setUniqueFunctions] = useState<FunctionOption[]>([]);
-  const [loadedEntries, setLoadedEntries] = useState<Set<number>>(new Set()); // Tracks loaded entry IDs
+  const [loadedEntries, setLoadedEntries] = useState<Set<number>>(new Set());
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   if (!isDatabaseLoaded) {
@@ -108,9 +108,8 @@ function Timeline() {
     }
   };
 
-  // **Recursive JSON Rendering**
   const renderJsonRecursive = (data: any, depth: number = 0): JSX.Element => {
-    if (depth > 5) return <span>...</span>;
+    if (depth > 7) return <span>...</span>;
     if (typeof data === "object" && data !== null) {
       if (Array.isArray(data)) {
         return (

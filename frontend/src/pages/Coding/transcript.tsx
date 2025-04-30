@@ -750,9 +750,7 @@ const TranscriptPage = () => {
     const [isEditHighlightModalOpen, setIsEditHighlightModalOpen] = useState(false);
     const [isDeleteHighlightModalOpen, setDeleteIsHighlightModalOpen] = useState(false);
 
-    const [activeTranscript, setActiveTranscript] = useState<'top' | 'bottom' | null>(
-        splitIsTrue ? null : 'bottom'
-    );
+    const [activeTranscript, setActiveTranscript] = useState<'top' | 'bottom' | null>('bottom');
 
     const [selectedText, setSelectedText] = useState<string | null>(null);
 
@@ -960,7 +958,7 @@ const TranscriptPage = () => {
 
                     <div
                         className={`${splitCodebook ? 'h-[60%]' : 'h-full'} flex-1 flex flex-col overflow-hidden`}
-                        onClick={(e) => handleSetActiveTranscript(e, null)}>
+                        onClick={(e) => handleSetActiveTranscript(e, 'bottom')}>
                         {codebookIsTrue && state === 'review' && (
                             <div className="flex justify-center p-3 gap-x-6">
                                 <button

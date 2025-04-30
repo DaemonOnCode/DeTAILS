@@ -26,7 +26,7 @@ interface ComparisonMetrics {
   cohenKappa: number;
 }
 
-const CodingComparisonViewer: React.FC = () => {
+const ManualCodingComparisonViewer: React.FC = () => {
   const {
     isDatabaseLoaded,
     executeQuery,
@@ -60,7 +60,6 @@ const CodingComparisonViewer: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"both" | "human" | "llm">("both");
 
   const similarityCache = useRef<Map<string, number>>(new Map());
 
@@ -136,20 +135,23 @@ const CodingComparisonViewer: React.FC = () => {
           AND json_extract(context, '$.workspace_id') = ?`,
           [selectedWorkspaceId]
         );
-        const manualPostIds = manualPostIdsQuery.flatMap((row: any) => {
-          try {
-            const state = JSON.parse(row.state);
-            return state.groups?.manual || [];
-          } catch (e) {
-            console.error("Failed to parse state JSON:", e);
-            return [];
+        const manualPostIds: string[] = manualPostIdsQuery.flatMap(
+          (row: any) => {
+            try {
+              const state = JSON.parse(row.state);
+              return state.groups?.manual || [];
+            } catch (e) {
+              console.error("Failed to parse state JSON:", e);
+              return [];
+            }
           }
-        });
+        );
         if (manualPostIds.length === 0) {
           throw new Error(
             "No manual post IDs found in state_dumps for sample_posts."
           );
         }
+        console.log(`Number of manual post IDs: ${manualPostIds.length}`);
 
         setLoadingStep("Fetching state dumps");
         const rows: DatabaseRow[] = await executeQuery(
@@ -158,6 +160,9 @@ const CodingComparisonViewer: React.FC = () => {
           AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC`,
           [selectedWorkspaceId]
+        );
+        console.log(
+          `Fetched ${rows.length} state dump rows for coding responses.`
         );
 
         setLoadingStep("Processing responses");
@@ -186,30 +191,23 @@ const CodingComparisonViewer: React.FC = () => {
             }
           }
         }
+        console.log(`Total coding responses: ${allResponses.length}`);
 
-        const humanResponses = allResponses.filter(
-          (r) => r.response_type === "Human"
-        );
-        const llmResponses = allResponses.filter(
-          (r) => r.response_type === "LLM"
-        );
-
-        const allPostIds = Array.from(
-          new Set(allResponses.map((r) => r.post_id))
-        );
-        const allPosts = await batchFetchPostsAndComments(allPostIds);
-
+        const allPosts = await batchFetchPostsAndComments(manualPostIds);
         const postMap: Record<string, any> = {};
         allPosts.forEach((post) => {
           postMap[post.id] = post;
         });
+        console.log(`Number of posts fetched: ${allPosts.length}`);
 
         const postGroups: Record<
           string,
           { human: CodingResult[]; llm: CodingResult[] }
         > = {};
+        manualPostIds.forEach((postId) => {
+          postGroups[postId] = { human: [], llm: [] };
+        });
         allResponses.forEach((r) => {
-          postGroups[r.post_id] ??= { human: [], llm: [] };
           postGroups[r.post_id][
             r.response_type === "Human" ? "human" : "llm"
           ].push(r);
@@ -225,7 +223,7 @@ const CodingComparisonViewer: React.FC = () => {
           }
         > = {};
         await Promise.all(
-          allPostIds.map(async (postId, idx) => {
+          manualPostIds.map(async (postId, idx) => {
             const post = postMap[postId];
             const { human, llm } = postGroups[postId];
             const allCodes = [
@@ -250,33 +248,30 @@ const CodingComparisonViewer: React.FC = () => {
               unmappedIds: string[];
             }>(
               {
-                type: "getCodeToQuoteParentIds",
+                type: "getCodeToQuoteIds",
                 post,
                 id: idx.toString(),
                 codes: allCodes,
               },
               {
-                responseType: "getCodeToQuoteParentIdsResult",
+                responseType: "getCodeToQuoteIdsResult",
                 errorType: "error",
               }
             );
+            console.log(`Post ${postId} mapping completed`, map, allCodes);
             codeToQuoteMaps[postId] = map;
           })
         );
 
-        // Step 1: Build a code ID to code value mapping
         const codeIdToValue: Record<string, string> = {};
         allResponses.forEach((response) => {
           codeIdToValue[response.id] = response.code;
         });
 
-        // Step 2: Collect all unique code values and quote IDs
         const allCodes = new Set<string>();
         const allQuoteIds = new Set<string>();
-        for (const postId of allPostIds) {
+        for (const postId of manualPostIds) {
           const { llmCodes, humanCodes, unmappedIds } = codeToQuoteMaps[postId];
-
-          // Collect all quote IDs
           unmappedIds.forEach((qId) => allQuoteIds.add(qId));
           Object.values(humanCodes)
             .flat()
@@ -285,17 +280,15 @@ const CodingComparisonViewer: React.FC = () => {
             .flat()
             .forEach((qId) => allQuoteIds.add(qId));
 
-          // Collect all code values
           for (const codeId in humanCodes) allCodes.add(codeIdToValue[codeId]);
           for (const codeId in llmCodes) allCodes.add(codeIdToValue[codeId]);
         }
+        console.log(`Total unique quote IDs: ${allQuoteIds.size}`);
 
-        // Step 3: Map code values to quote IDs for each rater
         const humanCodeValueToQuoteIds: Record<string, Set<string>> = {};
         const llmCodeValueToQuoteIds: Record<string, Set<string>> = {};
-        for (const postId of allPostIds) {
+        for (const postId of manualPostIds) {
           const { llmCodes, humanCodes } = codeToQuoteMaps[postId];
-
           for (const codeId in humanCodes) {
             const codeValue = codeIdToValue[codeId];
             if (!humanCodeValueToQuoteIds[codeValue])
@@ -304,7 +297,6 @@ const CodingComparisonViewer: React.FC = () => {
               humanCodeValueToQuoteIds[codeValue].add(qId)
             );
           }
-
           for (const codeId in llmCodes) {
             const codeValue = codeIdToValue[codeId];
             if (!llmCodeValueToQuoteIds[codeValue])
@@ -315,13 +307,16 @@ const CodingComparisonViewer: React.FC = () => {
           }
         }
 
-        // Step 4: Calculate Kappa for each code value and accumulate sums
         const codeKappas: { code: string; kappa: number }[] = [];
         let sumA = 0;
         let sumB = 0;
         let sumC = 0;
         let sumD = 0;
+
         for (const codeValue of allCodes) {
+          console.log(
+            `Starting Cohen's Kappa calculation for code: ${codeValue}`
+          );
           const humanSet = humanCodeValueToQuoteIds[codeValue] || new Set();
           const llmSet = llmCodeValueToQuoteIds[codeValue] || new Set();
 
@@ -344,7 +339,6 @@ const CodingComparisonViewer: React.FC = () => {
           sumC += c;
           sumD += d;
 
-          // Calculate Cohen's Kappa
           const N = a + b + c + d;
           const p0 = (a + d) / N; // Observed agreement
           const pHumanYes = (a + b) / N;
@@ -355,22 +349,21 @@ const CodingComparisonViewer: React.FC = () => {
           console.table({
             codeValue,
             overlap: a,
-            humanAgree: b,
-            llmAgree: c,
+            "human Agree": b,
+            "llm Agree": c,
             disagree: d,
             total: N,
             p0: p0,
             pe: pe,
             kappa: kappa,
           });
+
           codeKappas.push({ code: codeValue, kappa });
         }
 
         const averageKappa =
           codeKappas.reduce((sum, { kappa }) => sum + kappa, 0) /
           codeKappas.length;
-
-        // Calculate total N as number of codes times number of quotes
         const totalN = allCodes.size * allQuoteIds.size;
         const percentageAgreement = totalN > 0 ? (sumA + sumD) / totalN : 0;
 
@@ -395,43 +388,19 @@ const CodingComparisonViewer: React.FC = () => {
           const allL = new Set(llm.map((r) => r.quote));
           const changes: ComparisonChange[] = [];
 
-          if (filter !== "llm") {
-            for (const q of [...allH].filter((q) => !allL.has(q))) {
-              const hr = human.find((r) => r.quote === q)!;
+          for (const q of [...allH].filter((q) => allL.has(q))) {
+            const hr = human.find((r) => r.quote === q)!;
+            const lr = llm.find((r) => r.quote === q)!;
+            if (hr.code !== lr.code) {
+              const sim = await getSimilarity(hr.code, lr.code);
               changes.push({
                 postId,
                 quote: q,
-                type: "human_only",
+                type: "same_quote_different_code",
                 humanCode: hr.code,
-              });
-            }
-          }
-          if (filter !== "human") {
-            for (const q of [...allL].filter((q) => !allH.has(q))) {
-              const lr = llm.find((r) => r.quote === q)!;
-              changes.push({
-                postId,
-                quote: q,
-                type: "llm_only",
                 llmCode: lr.code,
+                codeSimilarity: sim,
               });
-            }
-          }
-          if (filter === "both") {
-            for (const q of [...allH].filter((q) => allL.has(q))) {
-              const hr = human.find((r) => r.quote === q)!;
-              const lr = llm.find((r) => r.quote === q)!;
-              if (hr.code !== lr.code) {
-                const sim = await getSimilarity(hr.code, lr.code);
-                changes.push({
-                  postId,
-                  quote: q,
-                  type: "same_quote_different_code",
-                  humanCode: hr.code,
-                  llmCode: lr.code,
-                  codeSimilarity: sim,
-                });
-              }
             }
           }
           diffs.push({ postId, changes });
@@ -463,13 +432,8 @@ const CodingComparisonViewer: React.FC = () => {
     isDatabaseLoaded,
     executeQuery,
     calculateSimilarity,
-    filter,
     selectedWorkspaceId,
   ]);
-
-  const handleFilterChange = (newFilter: "both" | "human" | "llm") => {
-    setFilter(newFilter);
-  };
 
   if (isLoading) {
     return (
@@ -600,4 +564,4 @@ const CodingComparisonViewer: React.FC = () => {
   );
 };
 
-export default CodingComparisonViewer;
+export default ManualCodingComparisonViewer;

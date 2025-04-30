@@ -24,7 +24,7 @@ function traverseComments(comment, parentId) {
   ];
 }
 
-function getQuoteParentId(element) {
+function getQuoteId(element) {
   switch (element.type) {
     case "title":
       return `${element.id}-title`;
@@ -38,10 +38,6 @@ function getQuoteParentId(element) {
 }
 
 function getCodeToQuoteMap(post, codes) {
-  console.log("DEBUG getCodeToQuoteMap called", {
-    post,
-    codes,
-  });
   const transcriptFlatMap = [
     {
       id: post.id,
@@ -58,22 +54,22 @@ function getCodeToQuoteMap(post, codes) {
     ...post.comments.flatMap((comment) => traverseComments(comment, post.id)),
   ];
 
-  const allQuoteParentIds = new Set(transcriptFlatMap.map(getQuoteParentId));
+  const allQuoteIds = new Set(transcriptFlatMap.map(getQuoteId));
 
   const llmCodesMap = {};
   const humanCodesMap = {};
-  const mappedQuoteParentIds = new Set();
+  const mappedQuoteIds = new Set();
 
   codes.forEach((code) => {
     const targetMap = code.markedBy === "llm" ? llmCodesMap : humanCodesMap;
-    const quoteParentIds = new Set();
+    const quoteIds = new Set();
 
     if (code.rangeMarker) {
       const dataIndex = parseInt(code.rangeMarker.itemId);
       if (dataIndex >= 0 && dataIndex < transcriptFlatMap.length) {
         const element = transcriptFlatMap[dataIndex];
-        const quoteParentId = getQuoteParentId(element);
-        quoteParentIds.add(quoteParentId);
+        const quoteId = getQuoteId(element);
+        quoteIds.add(quoteId);
       }
     } else {
       transcriptFlatMap.forEach((element) => {
@@ -84,21 +80,19 @@ function getCodeToQuoteMap(post, codes) {
           ? 100
           : ratio(elementText, codeText, { full_process: true });
         if (fuzzyScore >= 85) {
-          const quoteParentId = getQuoteParentId(element);
-          quoteParentIds.add(quoteParentId);
+          const quoteId = getQuoteId(element);
+          quoteIds.add(quoteId);
         }
       });
     }
 
-    targetMap[code.id] = Array.from(quoteParentIds);
-    quoteParentIds.forEach((id) => mappedQuoteParentIds.add(id));
+    targetMap[code.id] = Array.from(quoteIds);
+    quoteIds.forEach((id) => mappedQuoteIds.add(id));
   });
 
-  const unmappedIds = Array.from(allQuoteParentIds).filter(
-    (id) => !mappedQuoteParentIds.has(id)
+  const unmappedIds = Array.from(allQuoteIds).filter(
+    (id) => !mappedQuoteIds.has(id)
   );
-
-  console.log("DEBUG unmappedIds:", unmappedIds);
 
   return {
     llmCodes: llmCodesMap,
@@ -110,14 +104,10 @@ function getCodeToQuoteMap(post, codes) {
 onmessage = (event) => {
   const { type, id, post, codes } = event.data;
   console.log("DEBUG transcript-worker received message:", event.data);
-  if (type === "getCodeToQuoteParentIds") {
+  if (type === "getCodeToQuoteIds") {
     try {
-      console.log("DEBUG getCodeToQuoteParentIds called", {
-        post,
-        codes,
-      });
       const result = getCodeToQuoteMap(post, codes);
-      postMessage({ type: "getCodeToQuoteParentIdsResult", id, data: result });
+      postMessage({ type: "getCodeToQuoteIdsResult", id, data: result });
     } catch (error) {
       postMessage({ type: "error", id, data: error.message });
     }
