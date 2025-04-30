@@ -39,11 +39,11 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
     }>({});
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isSelectingAll, setIsSelectingAll] = useState(false);
 
     const location = useLocation();
     const { fetchData } = useApi();
-    const { datasetId, isLocked, setIsLocked, dataFilters, setDataFilters, modeInput } =
-        useCollectionContext();
+    const { isLocked, setIsLocked, dataFilters, setDataFilters } = useCollectionContext();
     const { checkIfDataExists, openModal, abortRequests, resetDataAfterPage } = useLoadingContext();
     const { currentWorkspace } = useWorkspaceContext();
 
@@ -116,7 +116,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
         const requestBody = {
             workspace_id: currentWorkspace!.id,
-            dataset_id: datasetId,
             all: false,
             search_term: debouncedSearchTerm,
             start_time: startTime,
@@ -161,7 +160,6 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
 
         const requestBody = {
             workspace_id: currentWorkspace!.id,
-            dataset_id: datasetId,
             batch: 0,
             offset: 0,
             all: true,
@@ -193,8 +191,15 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         if (selectedData.length === totalCount) {
             setSelectedData([]);
         } else {
-            const allIds = await fetchAllMatchingPostIds();
-            setSelectedData(allIds);
+            setIsSelectingAll(true);
+            try {
+                const allIds = await fetchAllMatchingPostIds();
+                setSelectedData(allIds);
+            } catch (error) {
+                console.error('Error selecting all posts:', error);
+            } finally {
+                setIsSelectingAll(false);
+            }
         }
     };
 
@@ -300,9 +305,13 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 />
                 <button
                     onClick={toggleSelectAll}
-                    className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 mr-4"
-                    disabled={isLocked}>
-                    {selectAllLabel}
+                    className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 mr-4 flex items-center justify-center"
+                    disabled={isLocked || isSelectingAll}>
+                    {isSelectingAll ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                    ) : (
+                        selectAllLabel
+                    )}
                 </button>
                 <button
                     id="reddit-table-filter-button"

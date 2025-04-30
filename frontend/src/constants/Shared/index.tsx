@@ -57,7 +57,7 @@ export enum TooltipMessages {
     Next = 'Proceed to the next page',
     SelectAll = 'Select all items',
     DeselectAll = 'Unselect all items',
-    RefreshKeywords = 'Let the LLM generate new keywords'
+    RefreshConcepts = 'Let the LLM generate new concepts'
 }
 
 export const LOADER_TO_ROUTE_MAP: Record<string, string> = {

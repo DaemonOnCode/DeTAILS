@@ -1,16 +1,11 @@
 import { useRef, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useCodingContext } from '../../context/coding-context';
-import { useCollectionContext } from '../../context/collection-context';
 import { useLoadingContext } from '../../context/loading-context';
 import { useLogger } from '../../context/logging-context';
-import { useWorkspaceContext } from '../../context/workspace-context';
-import useServerUtils from '../../hooks/Shared/get-server-url';
-import { useApi } from '../../hooks/Shared/use-api';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { createTimer } from '../../utility/timer';
@@ -32,7 +27,6 @@ const InitialCodeBook = () => {
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const navigate = useNavigate();
-    const { fetchLLMData } = useApi();
     const { settings } = useSettings();
 
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -60,7 +54,7 @@ const InitialCodeBook = () => {
 
     const stepRoute = location.pathname;
 
-    const { scrollRef: tableRef, storageKey } = useScrollRestoration('initial-codebook-table');
+    const { scrollRef: tableRef } = useScrollRestoration('initial-codebook-table');
 
     const handleDefinitionChange = (index: number, newDefinition: string) => {
         const action = {
@@ -83,7 +77,7 @@ const InitialCodeBook = () => {
         loadingRoute: PAGE_ROUTES.FINAL_CODING,
         loaderRoute: LOADER_ROUTES.FINAL_CODING_LOADER,
         loaderParams: { text: 'Final Coding in Progress' },
-        remoteRoute: REMOTE_SERVER_ROUTES.FINAL_CODING,
+        remoteRoute: REMOTE_SERVER_ROUTES.GENERATE_FINAL_CODES,
         useLLM: true,
         buildBody: () => JSON.stringify({ model: settings.ai.model }),
         onSuccess: (data) => console.log('Results:', data)
@@ -165,18 +159,15 @@ const InitialCodeBook = () => {
             pageId={location.pathname}
             excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.INITIAL_CODING_CODEBOOK}`}>
             <div className="h-page flex flex-col">
-                {/* Header */}
                 <header className="flex-none py-4">
                     <h1>Initial Codebook</h1>
                 </header>
 
-                {/* Main content with scrollable table */}
                 <main className="flex-1 overflow-hidden flex flex-col">
                     <div className="flex-1 overflow-auto" ref={tableRef}>
                         <table
                             className="w-full border-separate border-spacing-0"
                             id="initial-codebook-table">
-                            {/* Table Header */}
                             <thead className="sticky top-0">
                                 <tr className="bg-gray-200">
                                     <th
@@ -191,7 +182,6 @@ const InitialCodeBook = () => {
                                     </th>
                                 </tr>
                             </thead>
-                            {/* Table Body */}
                             <tbody>
                                 {initialCodebookTable.map((entry, index) => (
                                     <VirtualizedTableRow

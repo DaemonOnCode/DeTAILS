@@ -7,8 +7,8 @@ import {
     IReference,
     InitialCodebookCode,
     InitialCodebookTableAction,
-    KeywordEntry,
-    KeywordsTableAction,
+    ConceptEntry,
+    ConceptsTableAction,
     Mode,
     SampleDataResponseReducerActions,
     SetState,
@@ -80,7 +80,7 @@ export interface IModelingContext {
     stopListening: () => void;
 }
 
-export type Keyword = { id: string; word: string };
+export type Concept = { id: string; word: string };
 
 export type AsyncDispatch<T> = Dispatch<T> | ((...args: any[]) => Promise<any>);
 
@@ -93,18 +93,18 @@ export interface ICodingContext {
     setMainTopic: SetState<string>;
     additionalInfo?: string;
     setAdditionalInfo: SetState<string>;
-    keywords: Keyword[];
-    setKeywords: SetState<Keyword[]>;
-    selectedKeywords: string[];
-    setSelectedKeywords: SetState<string[]>;
+    concepts: Concept[];
+    setConcepts: SetState<Concept[]>;
+    selectedConcepts: string[];
+    setSelectedConcepts: SetState<string[]>;
     references: {
         [code: string]: IReference[];
     };
     setReferences: SetState<{
         [code: string]: IReference[];
     }>;
-    keywordTable: KeywordEntry[];
-    dispatchKeywordsTable: AsyncDispatch<KeywordsTableAction>;
+    conceptOutlineTable: ConceptEntry[];
+    dispatchConceptOutlinesTable: AsyncDispatch<ConceptsTableAction>;
     updateContext: (updates: Partial<ICodingContext>) => void;
     resetContext: () => void;
     dispatchSampledPostResponse: AsyncDispatch<SampleDataResponseReducerActions>;

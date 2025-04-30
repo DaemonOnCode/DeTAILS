@@ -13,19 +13,19 @@ const useRedditData = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
 
-    const { modeInput, setModeInput, datasetId, setDatasetId } = useCollectionContext();
+    const { modeInput, setModeInput, setDatasetId } = useCollectionContext();
     const { currentWorkspace } = useWorkspaceContext();
     const { fetchData } = useApi();
 
     useEffect(() => {
-        if (!modeInput && !datasetId) {
+        if (!modeInput && !currentWorkspace.id) {
             setData({});
         }
-    }, [modeInput, datasetId]);
+    }, [modeInput, currentWorkspace.id]);
 
     const sendFolderToBackendServer = async (folderPath: string) => {
         const files: string[] = fs.readdirSync(folderPath);
-        let dataset_id: string = '';
+        let workspace_id: string = '';
         for (const file of files) {
             const filePath = path.join(folderPath, file);
 
@@ -37,7 +37,6 @@ const useRedditData = () => {
 
                     formData.append('file', blob, file);
                     formData.append('description', 'Dataset Description');
-                    formData.append('dataset_id', dataset_id);
                     formData.append('workspace_id', currentWorkspace?.id ?? '');
 
                     const uploadResponse = await fetchData(
@@ -53,7 +52,7 @@ const useRedditData = () => {
                         setError(uploadResponse.error.name);
                     } else {
                         const result = uploadResponse.data;
-                        dataset_id = result.dataset_id;
+                        workspace_id = result.workspace_id;
                         console.log(`File ${file} uploaded successfully`, result);
                     }
                 } catch (error) {
@@ -61,24 +60,23 @@ const useRedditData = () => {
                 }
             }
         }
-        console.log('Dataset ID:', dataset_id);
-        setDatasetId(dataset_id);
+        console.log('Dataset ID:', workspace_id);
+        setDatasetId(workspace_id);
 
         const parseResponse = await fetchData(REMOTE_SERVER_ROUTES.PARSE_REDDIT_DATA, {
             method: 'POST',
-            body: JSON.stringify({ dataset_id })
+            body: JSON.stringify({ workspace_id })
         });
 
         if (parseResponse.error) {
             console.error('Failed to parse Reddit data:', parseResponse.error);
         }
 
-        return dataset_id;
+        return workspace_id;
     };
 
     const getRedditPostDataByBatch = async (
         workspaceId: string,
-        datasetId: string,
         batch: number,
         offset: number,
         all: boolean = false,
@@ -90,7 +88,7 @@ const useRedditData = () => {
         itemsPerPage: number = 10
     ) => {
         console.log('Fetching data from remote server', {
-            datasetId,
+            workspaceId: currentWorkspace.id,
             batch,
             offset,
             all,
@@ -104,7 +102,6 @@ const useRedditData = () => {
 
         const requestBody = {
             workspace_id: workspaceId,
-            dataset_id: datasetId,
             batch,
             offset,
             all,
@@ -139,17 +136,12 @@ const useRedditData = () => {
             }
             let folderPath = modeInput.split('|')?.[2];
 
-            let currentDatasetId = datasetId;
+            let currentDatasetId = currentWorkspace.id;
             if (addToDb) {
                 currentDatasetId = await sendFolderToBackendServer(folderPath);
             }
-            console.log('Data sent to server, dataset_id: ', currentDatasetId);
-            const parsedData = await getRedditPostDataByBatch(
-                currentWorkspace!.id,
-                currentDatasetId,
-                10,
-                0
-            );
+            console.log('Data sent to server, workspace_id: ', currentDatasetId);
+            const parsedData = await getRedditPostDataByBatch(currentWorkspace!.id, 10, 0);
             setData(parsedData);
             setError(null);
         } catch (err) {
@@ -173,7 +165,6 @@ const useRedditData = () => {
             method: 'POST',
             body: JSON.stringify({
                 subreddit: subreddit,
-                dataset_id: datasetId,
                 workspace_id: currentWorkspace!.id,
                 download_dir: downloadDirectory
             })
@@ -216,7 +207,6 @@ const useRedditData = () => {
                             start_date: torrentStart,
                             end_date: torrentEnd,
                             submissions_only: torrentPostsOnly,
-                            dataset_id: datasetId,
                             workspace_id: currentWorkspace.id,
                             use_fallback: useFallback,
                             download_dir: downloadDirectory
@@ -233,12 +223,7 @@ const useRedditData = () => {
                 }
             }
 
-            const parsedData = await getRedditPostDataByBatch(
-                currentWorkspace!.id,
-                datasetId,
-                10,
-                0
-            );
+            const parsedData = await getRedditPostDataByBatch(currentWorkspace!.id, 10, 0);
             setData(parsedData);
             setError(null);
             return {
@@ -259,7 +244,7 @@ const useRedditData = () => {
     const handleLoadTorrentFromFiles = async (data: [string, string[]]) => {
         const subreddit = data[0][0],
             files = data[0][1];
-        console.log('Loading torrent data from files:', subreddit, files, datasetId);
+        console.log('Loading torrent data from files:', subreddit, files, currentWorkspace.id);
         const torrentFilesResponse = await fetchData(
             REMOTE_SERVER_ROUTES.PREPARE_REDDIT_TORRENT_DATA_FROM_FILES,
             {
@@ -267,7 +252,7 @@ const useRedditData = () => {
                 body: JSON.stringify({
                     subreddit: subreddit,
                     files: files,
-                    dataset_id: datasetId
+                    workspace_id: currentWorkspace.id
                 })
             }
         );

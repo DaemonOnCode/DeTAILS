@@ -3,10 +3,8 @@ import { useModelingContext } from '../../context/modeling-context';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/DataModeling/shared';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import { toast } from 'react-toastify';
 import { useWorkspaceContext } from '../../context/workspace-context';
-import { useCollectionContext } from '../../context/collection-context';
 import { useApi } from '../../hooks/Shared/use-api';
 
 const Topbar = () => {
@@ -17,7 +15,6 @@ const Topbar = () => {
     const [newName, setNewName] = useState('');
 
     const { currentWorkspace } = useWorkspaceContext();
-    const { datasetId } = useCollectionContext();
     const { fetchData } = useApi();
 
     const navigate = useNavigate();
@@ -35,8 +32,7 @@ const Topbar = () => {
                 body: JSON.stringify({
                     model_id: editModelId,
                     new_model_name: newName,
-                    workspace_id: currentWorkspace?.id || '',
-                    dataset_id: datasetId ?? ''
+                    workspace_id: currentWorkspace?.id || ''
                 })
             });
 
@@ -64,8 +60,7 @@ const Topbar = () => {
                 method: 'DELETE',
                 body: JSON.stringify({
                     model_id: id,
-                    workspace_id: currentWorkspace?.id || '',
-                    dataset_id: datasetId ?? ''
+                    workspace_id: currentWorkspace?.id || ''
                 })
             });
             if (error) {

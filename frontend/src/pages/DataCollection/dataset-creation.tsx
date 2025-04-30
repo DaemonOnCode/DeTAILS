@@ -19,17 +19,15 @@ import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import RedditTableRenderer from '../../components/Shared/reddit-table-renderer';
 import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import { useLoadingContext } from '../../context/loading-context';
-import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { useManualCodingContext } from '../../context/manual-coding-context';
 import { useNextHandler } from '../../hooks/Coding/use-handler-factory';
 
 const DataViewerPage = () => {
-    const { type, datasetId, selectedData, setSelectedData, modeInput, isLocked } =
-        useCollectionContext();
+    const { type, selectedData, setSelectedData, modeInput, isLocked } = useCollectionContext();
     const navigate = useNavigate();
-    const { setSampledPostIds, setUnseenPostIds, keywordTable } = useCodingContext();
+    const { setSampledPostIds, setUnseenPostIds } = useCodingContext();
     const { settings } = useSettings();
     const { loadFolderData, loadTorrentData } = useRedditData();
     const logger = useLogger();
@@ -128,7 +126,6 @@ const DataViewerPage = () => {
         buildBody: () =>
             JSON.stringify({
                 workspace_id: currentWorkspace!.id,
-                dataset_id: datasetId,
                 post_ids: postIds,
                 divisions: settings.general.manualCoding ? 3 : 2,
                 ...(!settings.general.manualCoding

@@ -22,7 +22,7 @@ const redditHandler = (...ctxs) => {
 
     ipcMain.handle(
         'render-reddit-webview',
-        async (event, url, text, postId = '', datasetId = '', getFromPostData = true) => {
+        async (event, url, text, postId = '', workspaceId = '', getFromPostData = true) => {
             electronLogger.log('url', url, globalCtx.getState());
             if (url?.startsWith('/r/')) {
                 url = 'https://www.reddit.com' + url;
@@ -77,7 +77,7 @@ const redditHandler = (...ctxs) => {
 
                 const url = `${config.backendURL[globalCtx.getState().processing]}/${config.backendRoutes.GET_REDDIT_POST_BY_ID}`;
 
-                console.log('url', url, postId, datasetId);
+                console.log('url', url, postId, workspaceId);
 
                 const res = await fetch(url, {
                     method: 'POST',
@@ -85,7 +85,7 @@ const redditHandler = (...ctxs) => {
                         'Content-Type': 'application/json',
                         'X-App-Id': globalCtx.getState().settings.app.id
                     },
-                    body: JSON.stringify({ postId, datasetId })
+                    body: JSON.stringify({ postId, workspaceId })
                 });
                 postData = await res.json();
             }
@@ -265,100 +265,103 @@ const redditHandler = (...ctxs) => {
         }
     };
 
-    ipcMain.handle('get-link-from-post', async (event, postId, commentSlice, datasetId, dbPath) => {
-        electronLogger.log(
-            'get-link-from-post',
-            postId,
-            commentSlice,
-            datasetId,
-            globalCtx.getState()
-        );
-
-        if (config.backendURL[globalCtx.getState().processing]) {
-            const res = await fetch(
-                `${config.backendURL[globalCtx.getState().processing]}/${config.backendRoutes.GET_POST_LINK_FROM_ID}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ postId, commentSlice, datasetId })
-                }
+    ipcMain.handle(
+        'get-link-from-post',
+        async (event, postId, commentSlice, workspaceId, dbPath) => {
+            electronLogger.log(
+                'get-link-from-post',
+                postId,
+                commentSlice,
+                workspaceId,
+                globalCtx.getState()
             );
-            const data = await res.json();
 
-            electronLogger.log('Data from backend:', data);
-            return data.link;
-        }
-        let link = '';
+            if (config.backendURL[globalCtx.getState().processing]) {
+                const res = await fetch(
+                    `${config.backendURL[globalCtx.getState().processing]}/${config.backendRoutes.GET_POST_LINK_FROM_ID}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ postId, commentSlice, workspaceId })
+                    }
+                );
+                const data = await res.json();
 
-        await logger.info('Getting link from post:', postId);
-        electronLogger.log('Post Data:', postData, commentSlice);
+                electronLogger.log('Data from backend:', data);
+                return data.link;
+            }
+            let link = '';
 
-        const normalizeText = (text) => text.toLowerCase().replace(/\s+/g, ' ').trim();
+            await logger.info('Getting link from post:', postId);
+            electronLogger.log('Post Data:', postData, commentSlice);
 
-        const normalizedCommentSlice = normalizeText(commentSlice);
+            const normalizeText = (text) => text.toLowerCase().replace(/\s+/g, ' ').trim();
 
-        if (
-            normalizeText(postData.title).includes(normalizedCommentSlice) ||
-            normalizeText(postData.selftext).includes(normalizedCommentSlice)
-        ) {
-            electronLogger.log('Found in post:', postId);
-            await logger.info('Link found (post):', postId);
-            link = linkCreator(postId, 'post', postId, postData.subreddit);
-        } else {
-            const searchSlice = (comment, normalizedCommentSlice) => {
-                if (!normalizedCommentSlice) {
-                    electronLogger.error('Selected text is empty or null');
+            const normalizedCommentSlice = normalizeText(commentSlice);
+
+            if (
+                normalizeText(postData.title).includes(normalizedCommentSlice) ||
+                normalizeText(postData.selftext).includes(normalizedCommentSlice)
+            ) {
+                electronLogger.log('Found in post:', postId);
+                await logger.info('Link found (post):', postId);
+                link = linkCreator(postId, 'post', postId, postData.subreddit);
+            } else {
+                const searchSlice = (comment, normalizedCommentSlice) => {
+                    if (!normalizedCommentSlice) {
+                        electronLogger.error('Selected text is empty or null');
+                        return null;
+                    }
+
+                    const normalizedBody = normalizeText(comment?.body || '');
+
+                    if (normalizedBody.includes(normalizedCommentSlice)) {
+                        electronLogger.log('Found in comment:', comment.body);
+                        return comment.id;
+                    }
+
+                    if (comment?.comments?.length) {
+                        for (const subComment of comment.comments) {
+                            const result = searchSlice(subComment, normalizedCommentSlice);
+                            if (result) {
+                                return result;
+                            }
+                        }
+                    }
+
                     return null;
-                }
+                };
 
-                const normalizedBody = normalizeText(comment?.body || '');
-
-                if (normalizedBody.includes(normalizedCommentSlice)) {
-                    electronLogger.log('Found in comment:', comment.body);
-                    return comment.id;
-                }
-
-                if (comment?.comments?.length) {
-                    for (const subComment of comment.comments) {
-                        const result = searchSlice(subComment, normalizedCommentSlice);
+                let commentId = null;
+                if (postData.comments?.length) {
+                    for (const comment of postData.comments) {
+                        const result = searchSlice(comment, normalizedCommentSlice);
                         if (result) {
-                            return result;
+                            commentId = result;
+                            break;
                         }
                     }
                 }
 
-                return null;
-            };
-
-            let commentId = null;
-            if (postData.comments?.length) {
-                for (const comment of postData.comments) {
-                    const result = searchSlice(comment, normalizedCommentSlice);
-                    if (result) {
-                        commentId = result;
-                        break;
-                    }
+                if (commentId) {
+                    electronLogger.log('Found in comment:', commentId);
+                    link = linkCreator(commentId, 'comment', postId, postData.subreddit);
                 }
             }
 
-            if (commentId) {
-                electronLogger.log('Found in comment:', commentId);
-                link = linkCreator(commentId, 'comment', postId, postData.subreddit);
+            electronLogger.log('Link:', link);
+
+            if (link) {
+                await logger.info('Link found (Comment):-', link);
+                return link;
             }
+
+            await logger.info('Link not found for:', postId);
+            return linkCreator(postId, 'post', postId, postData.subreddit);
         }
-
-        electronLogger.log('Link:', link);
-
-        if (link) {
-            await logger.info('Link found (Comment):-', link);
-            return link;
-        }
-
-        await logger.info('Link not found for:', postId);
-        return linkCreator(postId, 'post', postId, postData.subreddit);
-    });
+    );
 
     ipcMain.handle('capture-reddit-screenshot', async (event, url) => {
         const chromeLauncher = await import('chrome-launcher');

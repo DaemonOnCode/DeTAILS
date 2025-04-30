@@ -36,8 +36,6 @@ const formatRouteName = (path: string, workspaceName: string = 'Temporary') => {
         .replaceAll('<_> ', '');
 };
 
-// Define keywords to filter out paths
-
 interface SidebarProps {
     routes: AppRouteArray;
     isCollapsed: boolean;

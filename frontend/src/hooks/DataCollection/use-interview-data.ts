@@ -45,7 +45,7 @@ const useInterviewData = () => {
                 throw new Error(`Failed to upload file: ${uploadResponse.error.message}`);
             }
             const result = uploadResponse.data;
-            return result.dataset_id;
+            return result.workspace_id;
         } catch (error) {
             console.error('Error uploading interview file:', error);
             throw error;
@@ -63,7 +63,7 @@ const useInterviewData = () => {
                 throw new Error(`Failed to upload text data: ${textResponse.error.message}`);
             }
             const result = textResponse.data;
-            return result.dataset_id;
+            return result.workspace_id;
         } catch (error) {
             console.error('Error uploading interview text data:', error);
             throw error;
@@ -80,17 +80,17 @@ const useInterviewData = () => {
                 throw new Error('No interview data provided');
             }
 
-            let dataset_id = '';
+            let workspace_id = '';
             const ext = path.extname(modeInput).toLowerCase();
             if (['.txt', '.pdf', '.docx'].includes(ext)) {
-                dataset_id = await sendInterviewFileToBackend(modeInput);
+                workspace_id = await sendInterviewFileToBackend(modeInput);
             } else {
-                dataset_id = await sendInterviewTextToBackend(modeInput);
+                workspace_id = await sendInterviewTextToBackend(modeInput);
             }
 
             const parseResponse = await fetchData(REMOTE_SERVER_ROUTES.PARSE_INTERVIEW_DATA, {
                 method: 'POST',
-                body: JSON.stringify({ dataset_id })
+                body: JSON.stringify({ workspace_id })
             });
 
             if (parseResponse.error) {

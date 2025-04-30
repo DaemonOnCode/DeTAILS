@@ -7,16 +7,10 @@ import { useLogger } from '../../context/logging-context';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
 import { useCodingContext } from '../../context/coding-context';
-import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import getServerUtils from '../../hooks/Shared/get-server-url';
-import { getCodingLoaderUrl } from '../../utility/get-loader-url';
-import { useLoadingContext } from '../../context/loading-context';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
-import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
-import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
 import { useNextHandler } from '../../hooks/Coding/use-handler-factory';
 
@@ -37,17 +31,11 @@ const ContextPage = () => {
         setAdditionalInfo,
         setMainTopic,
         removeContextFile,
-        setKeywords,
         researchQuestions: globalResearchQuestions,
-        setResearchQuestions,
-        dispatchKeywordsTable
+        setResearchQuestions
     } = useCodingContext();
     const { settings } = useSettings();
-    const { loadingState, loadingDispatch } = useLoadingContext();
-    const { datasetId } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { getServerUrl } = getServerUtils();
-    const { fetchLLMData } = useApi();
 
     const [localMainTopic, setLocalMainTopic] = useState(globalMainTopic);
     const [localAdditionalInfo, setLocalAdditionalInfo] = useState(globalAdditionalInfo);
@@ -84,7 +72,6 @@ const ContextPage = () => {
         { target: '#proceed-next-step', content: 'Proceed to next step', placement: 'top left' }
     ];
 
-    // Handlers for updating local state and triggering debounced global updates
     const handleMainTopicChange = (value: string) => {
         setLocalMainTopic(value);
         debouncedSetMainTopic(value);
@@ -191,9 +178,6 @@ const ContextPage = () => {
             navigate(PAGE_ROUTES.RELATED_CONCEPTS);
         },
         checkUnsaved: () => {
-            if (!datasetId) {
-                throw new Error('Dataset ID is missing');
-            }
             if (newQuestion.trim() !== '') {
                 alert(
                     "You have an unsaved research question. Please click 'Add' to include it or clear the text before proceeding."

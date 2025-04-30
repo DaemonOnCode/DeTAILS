@@ -3,10 +3,9 @@ import RulesTable from '../../components/DataCleaning/rules-table';
 import WordPanel, { WordDetail } from '../../components/DataCleaning/word-panel';
 import CreateRuleModal from '../../components/DataCleaning/rule-modal';
 import { Rule } from '../../types/DataCleaning/shared';
-import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useApi } from '../../hooks/Shared/use-api';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 const HomePage = () => {
     const [rules, setRules] = useState<Rule[]>([]);
@@ -24,7 +23,7 @@ const HomePage = () => {
         uniqueTokens: 0
     });
 
-    const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
 
@@ -36,7 +35,7 @@ const HomePage = () => {
             const { data, error } = await fetchData<Rule[]>('data-filtering/datasets/rules', {
                 method: 'POST',
 
-                body: JSON.stringify({ dataset_id: datasetId })
+                body: JSON.stringify({ workspace_id: currentWorkspace.id })
             });
             if (error) {
                 console.error('Error fetching rules:', error);
@@ -56,22 +55,22 @@ const HomePage = () => {
                     fetchData<any>('data-filtering/datasets/processed-posts', {
                         method: 'POST',
 
-                        body: JSON.stringify({ dataset_id: datasetId })
+                        body: JSON.stringify({ workspace_id: currentWorkspace.id })
                     }),
                     fetchData<any>('data-filtering/datasets/processed-comments', {
                         method: 'POST',
 
-                        body: JSON.stringify({ dataset_id: datasetId })
+                        body: JSON.stringify({ workspace_id: currentWorkspace.id })
                     }),
                     fetchData<any>('data-filtering/datasets/included-words', {
                         method: 'POST',
 
-                        body: JSON.stringify({ dataset_id: datasetId })
+                        body: JSON.stringify({ workspace_id: currentWorkspace.id })
                     }),
                     fetchData<any>('data-filtering/datasets/removed-words', {
                         method: 'POST',
 
-                        body: JSON.stringify({ dataset_id: datasetId })
+                        body: JSON.stringify({ workspace_id: currentWorkspace.id })
                     })
                 ]);
 
@@ -111,7 +110,7 @@ const HomePage = () => {
             const { error } = await fetchData('data-filtering/datasets/apply-rules', {
                 method: 'POST',
                 body: JSON.stringify({
-                    dataset_id: datasetId,
+                    workspace_id: currentWorkspace.id,
                     rules
                 })
             });
@@ -135,7 +134,7 @@ const HomePage = () => {
             const { error } = await fetchData('data-filtering/datasets/add-rules', {
                 method: 'POST',
                 body: JSON.stringify({
-                    dataset_id: datasetId,
+                    workspace_id: currentWorkspace.id,
                     rules: updatedRules
                 })
             });
@@ -156,14 +155,14 @@ const HomePage = () => {
             if (deleteAll) {
                 const { error } = await fetchData('data-filtering/datasets/delete-rules', {
                     method: 'POST',
-                    body: JSON.stringify({ dataset_id: datasetId })
+                    body: JSON.stringify({ workspace_id: currentWorkspace.id })
                 });
                 if (error) console.error('Error deleting all rules:', error);
             } else {
                 const { error } = await fetchData('data-filtering/datasets/rules', {
                     method: 'POST',
                     body: JSON.stringify({
-                        dataset_id: datasetId,
+                        workspace_id: currentWorkspace.id,
                         rules: updatedRules
                     })
                 });
@@ -181,7 +180,7 @@ const HomePage = () => {
             const { error } = await fetchData('data-filtering/datasets/rules', {
                 method: 'POST',
                 body: JSON.stringify({
-                    dataset_id: datasetId,
+                    workspace_id: currentWorkspace.id,
                     rules: updatedRules
                 })
             });

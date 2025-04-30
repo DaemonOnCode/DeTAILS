@@ -30,7 +30,6 @@ export const ModelingContext = createContext<IModelingContext>({
 export const ModelingProvider: FC<ILayout> = ({ children }) => {
     const { registerCallback, unregisterCallback } = useWebSocket();
     const location = useLocation();
-    const { datasetId } = useCollectionContext();
     const { currentWorkspace } = useWorkspaceContext();
     const { getServerUrl } = useServerUtils();
     const navigate = useNavigate();
@@ -90,16 +89,15 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
         console.log('message', message);
         const data: {
             type: string;
-            dataset_id: string;
+            workspace_id: string;
             model_id: string;
             model_name: string;
-            workspace_id: string;
             message: string;
             num_topics: number;
         } = JSON.parse(message);
         console.log('data', data, typeof data);
 
-        if (data.dataset_id !== datasetId || data.workspace_id !== currentWorkspace?.id) {
+        if (data.workspace_id !== currentWorkspace.id) {
             console.log('Message not for this workspace');
             return;
         }
@@ -181,7 +179,6 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
                         },
                         body: JSON.stringify({
                             model_id: model.id,
-                            dataset_id: datasetId || '',
                             workspace_id: currentWorkspace?.id || ''
                         })
                     });
@@ -245,21 +242,20 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
     }, [models, activeModelId]);
 
     useEffect(() => {
-        console.log('Current workspace:', currentWorkspace, datasetId);
-        if (!currentWorkspace || !datasetId) return;
-        console.log('Fetching models for dataset:', datasetId);
+        console.log('Current workspace:', currentWorkspace, currentWorkspace.id);
+        if (!currentWorkspace || !currentWorkspace.id) return;
+        console.log('Fetching models for dataset:', currentWorkspace.id);
         fetch(getServerUrl(REMOTE_SERVER_ROUTES.LIST_MODELS), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                workspace_id: currentWorkspace.id,
-                dataset_id: datasetId
+                workspace_id: currentWorkspace.id
             })
         }).then(async (res) => {
             const data: {
-                dataset_id: string;
+                workspace_id: string;
                 finished_at: string;
                 id: string;
                 method: string;
@@ -285,7 +281,7 @@ export const ModelingProvider: FC<ILayout> = ({ children }) => {
                 )
             );
         });
-    }, [datasetId, currentWorkspace]);
+    }, [currentWorkspace.id, currentWorkspace]);
 
     const updateContext = (updates: Partial<IModelingContext>) => {
         setModels(updates.models ?? []);

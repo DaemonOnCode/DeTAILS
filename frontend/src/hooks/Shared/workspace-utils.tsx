@@ -27,7 +27,6 @@ const useWorkspaceUtils = () => {
             workspace_id: currentWorkspace?.id || '',
             user_email: user?.email || '',
             page_url: `${location.pathname}${location.search}`,
-            dataset_id: '',
             collection_context: {},
             modeling_context: {},
             coding_context: {},

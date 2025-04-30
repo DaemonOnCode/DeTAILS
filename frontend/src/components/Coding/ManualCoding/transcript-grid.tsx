@@ -1,25 +1,24 @@
 import { useState, useEffect } from 'react';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import { useCollectionContext } from '../../../context/collection-context';
 import PostCards from '../CodingTranscript/post-cards';
 import { FetchResponse, useApi } from '../../../hooks/Shared/use-api';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 
 const fetchPostData = async (
     postIds: string[],
-    datasetId: string,
+    workspaceId: string,
     fetchData: <T = any>(
         route: string,
         options?: RequestInit,
         customAbortController?: AbortController | null
     ) => Promise<FetchResponse<T>>
 ) => {
-    if (!postIds.length || !datasetId) {
+    if (!postIds.length || !workspaceId) {
         return [];
     }
     const { data, error } = await fetchData<any>(REMOTE_SERVER_ROUTES.GET_POST_ID_TITLE_BATCH, {
         method: 'POST',
-        body: JSON.stringify({ post_ids: postIds, dataset_id: datasetId })
+        body: JSON.stringify({ post_ids: postIds, workspace_id: workspaceId })
     });
     if (error) {
         console.error('Failed to fetch data:', error);

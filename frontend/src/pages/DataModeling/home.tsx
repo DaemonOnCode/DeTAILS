@@ -1,24 +1,15 @@
 import { useEffect, useRef } from 'react';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import { useModelingContext } from '../../context/modeling-context';
 import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-import { useCollectionContext } from '../../context/collection-context';
 import { useWorkspaceContext } from '../../context/workspace-context';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../constants/DataModeling/shared';
-import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 
 const HomePage = () => {
-    const { addNewModel, models, addModel, setActiveModelId, activeModelId } = useModelingContext();
-    const { datasetId } = useCollectionContext();
     const { currentWorkspace } = useWorkspaceContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
 
     const { getServerUrl } = useServerUtils();
     const hasSavedRef = useRef(false);
-
-    const navigate = useNavigate();
 
     useEffect(() => {
         // if (models.length > 0 && !addNewModel) {
@@ -49,8 +40,7 @@ const HomePage = () => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                workspace_id: currentWorkspace?.id,
-                dataset_id: datasetId
+                workspace_id: currentWorkspace?.id
             })
         });
 

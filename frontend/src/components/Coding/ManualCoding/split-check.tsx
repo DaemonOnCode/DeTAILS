@@ -24,14 +24,14 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
     const bottomSelectionRef = useRef<Range | null>(null);
 
     const { fetchData } = useApi();
-    const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
 
     const [codeResponses, setCodeResponses] = useState([]);
     const [codebookCodes, setCodebookCodes] = useState([]);
 
-    const fetchPostById = async (postId: string, datasetId: string, showLoading = true) => {
-        console.log('Fetching post:', postId, datasetId);
-        if (!postId || !datasetId) return;
+    const fetchPostById = async (postId: string, showLoading = true) => {
+        console.log('Fetching post:', postId, currentWorkspace.id);
+        if (!postId || !currentWorkspace.id) return;
         if (showLoading) {
             setLoading(true);
         }
@@ -63,9 +63,9 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
 
     useEffect(() => {
         if (id) {
-            fetchPostById(id, datasetId);
+            fetchPostById(id);
         }
-    }, [id, datasetId]);
+    }, [id]);
 
     const humanResponses = codeResponses.filter((r) => r.responseType === 'Human');
     const llmResponses = codeResponses.filter((r) => r.responseType === 'LLM');

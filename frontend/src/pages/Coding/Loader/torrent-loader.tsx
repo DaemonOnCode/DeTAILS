@@ -84,7 +84,7 @@ const TorrentLoader: React.FC = () => {
     const [downloadedFiles, setDownloadedFiles] = useState<string[]>([]);
 
     const { currentWorkspace } = useWorkspaceContext();
-    const { datasetId, modeInput } = useCollectionContext();
+    const { modeInput } = useCollectionContext();
     const { fetchData } = useApi();
     const location = useLocation();
     const { abortRequestsByRoute, loadingDispatch } = useLoadingContext();
@@ -105,7 +105,7 @@ const TorrentLoader: React.FC = () => {
     const loadRunState = async () => {
         const { data, error } = await fetchData(REMOTE_SERVER_ROUTES.GET_TORRENT_STATUS, {
             method: 'POST',
-            body: JSON.stringify({ workspace_id: currentWorkspace?.id, dataset_id: datasetId })
+            body: JSON.stringify({ workspace_id: currentWorkspace?.id })
         });
         if (error) {
             console.error('Error fetching run state:', error);

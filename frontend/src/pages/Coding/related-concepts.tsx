@@ -6,7 +6,7 @@ import {
     WORD_CLOUD_MIN_THRESHOLD
 } from '../../constants/Coding/shared';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
-import KeywordCloud from '../../components/Coding/RelevantConcepts/cloud';
+import ConceptCloud from '../../components/Coding/RelevantConcepts/cloud';
 import { useLogger } from '../../context/logging-context';
 import { REMOTE_SERVER_ROUTES, TooltipMessages } from '../../constants/Shared';
 import { createTimer } from '../../utility/timer';
@@ -18,21 +18,21 @@ import { DetailsLLMIcon } from '../../components/Shared/Icons';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { useLoadingContext } from '../../context/loading-context';
-import { Keyword } from '../../types/Shared';
+import { Concept } from '../../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { toast } from 'react-toastify';
 import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
 
-const KeywordCloudPage: FC = () => {
+const ConceptCloudPage: FC = () => {
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
 
     const logger = useLogger();
     const navigate = useNavigate();
 
-    const { mainTopic, selectedKeywords, setSelectedKeywords, setKeywords, keywords } =
+    const { mainTopic, selectedConcepts, setSelectedConcepts, setConcepts, concepts } =
         useCodingContext();
     const { settings } = useSettings();
     const location = useLocation();
@@ -62,12 +62,12 @@ const KeywordCloudPage: FC = () => {
         };
     }, []);
 
-    const toggleKeywordSelection = (keyword: Keyword) => {
-        if (keyword.word === mainTopic) return;
-        setSelectedKeywords((prevSelected) =>
-            prevSelected.some((k) => k === keyword.id)
-                ? prevSelected.filter((k) => k !== keyword.id)
-                : [...prevSelected, keyword.id]
+    const toggleConceptSelection = (concept: Concept) => {
+        if (concept.word === mainTopic) return;
+        setSelectedConcepts((prevSelected) =>
+            prevSelected.some((k) => k === concept.id)
+                ? prevSelected.filter((k) => k !== concept.id)
+                : [...prevSelected, concept.id]
         );
     };
 
@@ -83,18 +83,18 @@ const KeywordCloudPage: FC = () => {
         if (await checkIfDataExists(location.pathname)) {
             openModal('relevant-concepts-feedback-submitted', async () => {
                 await resetDataAfterPage(location.pathname);
-                await refreshKeywordCloud();
+                await refreshConceptCloud();
             });
         } else {
             loadingDispatch({
                 type: 'SET_REST_UNDONE',
                 route: location.pathname
             });
-            refreshKeywordCloud();
+            refreshConceptCloud();
         }
     };
 
-    const refreshKeywordCloud = useRetryHandler({
+    const refreshConceptCloud = useRetryHandler({
         startLog: 'Regenerating Relevant concepts',
         doneLog: 'Relevant concepts refreshed',
         loadingRoute: PAGE_ROUTES.RELATED_CONCEPTS,
@@ -114,7 +114,7 @@ const KeywordCloudPage: FC = () => {
         }
     });
 
-    const refreshKeywords = () => {
+    const refreshConcepts = () => {
         setIsFeedbackOpen(true);
     };
 
@@ -137,41 +137,41 @@ const KeywordCloudPage: FC = () => {
 
     const handleSelectAll = (selectAll: boolean) => {
         if (selectAll) {
-            setSelectedKeywords([...keywords.map((k) => k.id), '1']);
+            setSelectedConcepts([...concepts.map((k) => k.id), '1']);
         } else {
-            setSelectedKeywords([
-                ...keywords.filter((k) => k.word === mainTopic).map((k) => k.id),
+            setSelectedConcepts([
+                ...concepts.filter((k) => k.word === mainTopic).map((k) => k.id),
                 '1'
             ]);
         }
     };
 
-    const checkIfReady = selectedKeywords.length > WORD_CLOUD_MIN_THRESHOLD;
-    const allSelected = keywords.every((keyword) => selectedKeywords.find((k) => k === keyword.id));
+    const checkIfReady = selectedConcepts.length > WORD_CLOUD_MIN_THRESHOLD;
+    const allSelected = concepts.every((concept) => selectedConcepts.find((k) => k === concept.id));
     console.log(
         'allSelected',
         allSelected,
-        'selectedKeywords',
-        selectedKeywords,
-        'keywords',
-        keywords
+        'selectedConcepts',
+        selectedConcepts,
+        'concepts',
+        concepts
     );
 
     const steps: TutorialStep[] = [
         {
-            target: '#keyword-cloud',
+            target: '#concept-cloud',
             content:
-                'This is your Relevant Concepts page. Click on concepts to select or deselect them. The main topic is fixed. You can edit or delete the keywords as you wish.',
+                'This is your Relevant Concepts page. Click on concepts to select or deselect them. The main topic is fixed. You can edit or delete the concepts as you wish.',
             placement: 'bottom'
         },
         {
-            target: '.keyword2',
+            target: '.concept2',
             content:
                 'These are your concepts. Click on them to select or deselect them. You can also edit or delete by clicking on the respective icon when hovering.',
             placement: 'right'
         },
         {
-            target: '.refresh-keywords-btn',
+            target: '.refresh-concepts-btn',
             content:
                 'Click here to refresh the Relevant concepts with new suggestions based on your feedback.',
             placement: 'left'
@@ -208,14 +208,14 @@ const KeywordCloudPage: FC = () => {
                         These related concepts are generated using the context you provided DeTAILS.
                         Please select 5 or more to proceed{' '}
                     </p>
-                    <div id="keyword-cloud" className="w-full">
-                        <KeywordCloud
+                    <div id="concept-cloud" className="w-full">
+                        <ConceptCloud
                             mainTopic={mainTopic}
-                            keywords={keywords}
-                            selectedKeywords={selectedKeywords}
-                            toggleKeywordSelection={toggleKeywordSelection}
-                            setKeywords={setKeywords}
-                            setSelectedKeywords={setSelectedKeywords}
+                            concepts={concepts}
+                            selectedConcepts={selectedConcepts}
+                            toggleConceptSelection={toggleConceptSelection}
+                            setConcepts={setConcepts}
+                            setSelectedConcepts={setSelectedConcepts}
                         />
                     </div>
                     <div className="absolute bottom-0 right-0 flex flex-col gap-y-4">
@@ -235,9 +235,9 @@ const KeywordCloudPage: FC = () => {
                             </button>
                         )}
                         <button
-                            title={TooltipMessages.RefreshKeywords}
-                            onClick={refreshKeywords}
-                            className="refresh-keywords-btn bg-gray-600 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
+                            title={TooltipMessages.RefreshConcepts}
+                            onClick={refreshConcepts}
+                            className="refresh-concepts-btn bg-gray-600 text-white px-2 md:px-4 py-1 md:py-2 rounded-md hover:bg-gray-600 my-1 md:my-2 lg:text-base text-xs flex justify-center items-center gap-2">
                             <DetailsLLMIcon className="h-6 w-6" /> Redo with feedback
                         </button>
                     </div>
@@ -248,7 +248,7 @@ const KeywordCloudPage: FC = () => {
                     nextPage={PAGE_ROUTES.CONCEPT_OUTLINE}
                     isReady={checkIfReady}
                     onNextClick={(e) => handleNextClick(e)}
-                    disabledTooltipText="Select atleast 5 keywords"
+                    disabledTooltipText={`Select atleast ${WORD_CLOUD_MIN_THRESHOLD} concepts`}
                 />
 
                 {isFeedbackOpen && (
@@ -259,11 +259,11 @@ const KeywordCloudPage: FC = () => {
                             </h2>
                             <p className=" mb-3">
                                 Word list:{' '}
-                                {keywords
+                                {concepts
                                     .filter(
-                                        (keyword) => !selectedKeywords.find((k) => k === keyword.id)
+                                        (concept) => !selectedConcepts.find((k) => k === concept.id)
                                     )
-                                    .map((keyword) => keyword.word)
+                                    .map((concept) => concept.word)
                                     .join(', ')}
                             </p>
                             <textarea
@@ -293,4 +293,4 @@ const KeywordCloudPage: FC = () => {
     );
 };
 
-export default KeywordCloudPage;
+export default ConceptCloudPage;

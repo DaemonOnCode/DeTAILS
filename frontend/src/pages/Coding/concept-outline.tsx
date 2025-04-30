@@ -17,8 +17,8 @@ import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 
 const { ipcRenderer } = window.require('electron');
 
-const KeywordsTablePage: FC = () => {
-    const { keywordTable, dispatchKeywordsTable } = useCodingContext();
+const ConceptsTablePage: FC = () => {
+    const { conceptOutlineTable, dispatchConceptOutlinesTable } = useCodingContext();
     const [saving, setSaving] = useState(false);
     const { loadingState } = useLoadingContext();
     const { performWithUndoForReducer } = useUndo();
@@ -33,15 +33,15 @@ const KeywordsTablePage: FC = () => {
 
     const steps = [
         {
-            target: '#keywords-header',
+            target: '#concepts-header',
             content:
-                'Welcome to the Keywords Table page. Here you can review and edit your keyword entries.',
+                'Welcome to the Concepts Table page. Here you can review and edit your concept entries.',
             placement: 'bottom'
         },
         {
             target: '#table-section',
             content:
-                'Review your keywords above. You can edit each field directly in the table if you wish to make changes.',
+                'Review your concepts above. You can edit each field directly in the table if you wish to make changes.',
             placement: 'bottom'
         },
         {
@@ -63,23 +63,23 @@ const KeywordsTablePage: FC = () => {
     ];
 
     const handleSaveCsv = async () => {
-        await logger.info('Saving KeywordTable as CSV');
+        await logger.info('Saving ConceptTable as CSV');
         setSaving(true);
-        const result = await saveCSV(ipcRenderer, keywordTable, 'KeywordTable');
+        const result = await saveCSV(ipcRenderer, conceptOutlineTable, 'ConceptTable');
         console.log(result);
         setSaving(false);
-        toast.success('Keyword Table saved as CSV');
-        await logger.info('KeywordTable saved as CSV');
+        toast.success('Concept Table saved as CSV');
+        await logger.info('ConceptTable saved as CSV');
     };
 
     const handleSaveExcel = async () => {
-        await logger.info('Saving KeywordTable as Excel');
+        await logger.info('Saving ConceptTable as Excel');
         setSaving(true);
-        const result = await saveExcel(ipcRenderer, keywordTable, 'KeywordTable');
+        const result = await saveExcel(ipcRenderer, conceptOutlineTable, 'ConceptTable');
         console.log(result);
         setSaving(false);
-        toast.success('Keyword Table saved as Excel');
-        await logger.info('KeywordTable saved as Excel');
+        toast.success('Concept Table saved as Excel');
+        await logger.info('ConceptTable saved as Excel');
     };
 
     useEffect(() => {
@@ -93,34 +93,34 @@ const KeywordsTablePage: FC = () => {
         };
     }, []);
 
-    const { scrollRef: tableRef, storageKey } = useScrollRestoration('keyword-table');
+    const { scrollRef: tableRef, storageKey } = useScrollRestoration('concept-table');
 
     useEffect(() => {
-        if (tableRef.current && keywordTable.length > 0) {
+        if (tableRef.current && conceptOutlineTable.length > 0) {
             const savedPosition = sessionStorage.getItem(storageKey);
             if (savedPosition) {
                 tableRef.current.scrollTop = parseInt(savedPosition, 10);
             }
         }
-    }, [keywordTable, tableRef, storageKey]);
+    }, [conceptOutlineTable, tableRef, storageKey]);
 
     const onFieldChange = (index: number, field: string, value: any) => {
         const action = { type: 'UPDATE_FIELD', index, field, value };
-        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action, false);
+        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action, false);
     };
 
     const onToggleMark = (index: number, isMarked: boolean | undefined) => {
         const action = { type: 'TOGGLE_MARK', index, isMarked };
-        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
+        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action);
     };
 
     const onDeleteRow = (index: number) => {
         const action = { type: 'DELETE_ROW', index };
-        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
+        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action);
     };
 
     const handleToggleAllSelectOrReject = (isSelect: boolean) => {
-        const allAlreadySetTo = keywordTable.every((r) => r.isMarked === isSelect);
+        const allAlreadySetTo = conceptOutlineTable.every((r) => r.isMarked === isSelect);
         const finalDecision = allAlreadySetTo ? undefined : isSelect;
 
         let action;
@@ -129,12 +129,12 @@ const KeywordsTablePage: FC = () => {
         } else {
             action = { type: finalDecision ? 'SET_ALL_CORRECT' : 'SET_ALL_INCORRECT' };
         }
-        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
+        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action);
     };
 
     const handleAddNewRow = () => {
         const action = { type: 'ADD_ROW' };
-        performWithUndoForReducer(keywordTable, dispatchKeywordsTable, action);
+        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action);
         setTimeout(() => {
             if (tableRef.current) {
                 tableRef.current.scrollTo({
@@ -162,7 +162,7 @@ const KeywordsTablePage: FC = () => {
         );
     }
 
-    const isReadyCheck = keywordTable.some((entry) => entry.isMarked === true);
+    const isReadyCheck = conceptOutlineTable.some((entry) => entry.isMarked === true);
 
     return (
         <>
@@ -171,7 +171,7 @@ const KeywordsTablePage: FC = () => {
                 pageId={location.pathname}
                 excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}`}>
                 <div className="h-page flex flex-col">
-                    <header id="keywords-header" className="flex-none py-4">
+                    <header id="concepts-header" className="flex-none py-4">
                         <p>Please validate and manage the Concept outline entries below:</p>
                     </header>
 
@@ -215,7 +215,7 @@ const KeywordsTablePage: FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {keywordTable.map((entry, index) => (
+                                    {conceptOutlineTable.map((entry, index) => (
                                         <ConceptOutlineRow
                                             key={index}
                                             entry={entry}
@@ -268,4 +268,4 @@ const KeywordsTablePage: FC = () => {
     );
 };
 
-export default KeywordsTablePage;
+export default ConceptsTablePage;

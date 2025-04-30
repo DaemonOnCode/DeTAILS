@@ -14,7 +14,7 @@ import {
     RedditPosts,
     SetState
 } from './shared';
-import { Keyword } from '../Shared';
+import { Concept } from '../Shared';
 
 export type PaginationControlsProps = {
     currentPage: number;
@@ -172,13 +172,13 @@ export type ThemeCloudProps = {
     setThemes: SetState<string[]>;
 };
 
-export type KeywordCloudProps = {
+export type ConceptCloudProps = {
     mainTopic: string;
-    keywords: Keyword[];
-    selectedKeywords: string[];
-    toggleKeywordSelection: (keyword: Keyword) => void;
-    setKeywords: SetState<Keyword[]>;
-    setSelectedKeywords: SetState<string[]>;
+    concepts: Concept[];
+    selectedConcepts: string[];
+    toggleConceptSelection: (concept: Concept) => void;
+    setConcepts: SetState<Concept[]>;
+    setSelectedConcepts: SetState<string[]>;
 };
 
 export type PostTranscriptProps = {
@@ -186,7 +186,7 @@ export type PostTranscriptProps = {
         author: string;
         comments: Comments[];
         created_utc: number;
-        dataset_id: string;
+        workspace_id: string;
         domain: string;
         hide_score: boolean;
         id: string;

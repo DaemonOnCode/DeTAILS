@@ -9,6 +9,7 @@ import PostTranscript from '../CodingTranscript/post-transcript';
 import { TranscriptContextProvider } from '../../../context/transcript-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { useManualCodingContext } from '../../../context/manual-coding-context';
+import { useWorkspaceContext } from '../../../context/workspace-context';
 
 const TranscriptPage = ({
     id,
@@ -28,7 +29,7 @@ const TranscriptPage = ({
         updatePostState,
         postStates
     } = useManualCodingContext();
-    const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
@@ -107,9 +108,9 @@ const TranscriptPage = ({
     const [codeResponses, setCodeResponses] = useState([]);
     const [codebookCodes, setCodebookCodes] = useState([]);
 
-    const fetchPostById = async (postId: string, datasetId: string, showLoading = true) => {
-        console.log('Fetching post:', postId, datasetId);
-        if (!postId || !datasetId) return;
+    const fetchPostById = async (postId: string, showLoading = true) => {
+        console.log('Fetching post:', postId, currentWorkspace.id);
+        if (!postId || !currentWorkspace.id) return;
         if (showLoading) {
             setLoading(true);
         }
@@ -157,9 +158,9 @@ const TranscriptPage = ({
 
     useEffect(() => {
         if (id) {
-            fetchPostById(id, datasetId);
+            fetchPostById(id);
         }
-    }, [id, datasetId]);
+    }, [id]);
 
     const handleSetActiveTranscript = (
         e: React.MouseEvent<HTMLDivElement>,
@@ -178,12 +179,12 @@ const TranscriptPage = ({
         refetchRef,
         () => ({
             refresh: () => {
-                if (id && datasetId) {
-                    fetchPostById(id, datasetId, false);
+                if (id && currentWorkspace.id) {
+                    fetchPostById(id, false);
                 }
             }
         }),
-        [id, datasetId]
+        [id, currentWorkspace.id]
     );
 
     const dispatchAndRefetch = useCallback(

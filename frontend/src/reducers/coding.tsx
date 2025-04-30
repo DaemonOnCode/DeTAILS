@@ -1,7 +1,7 @@
 import e from 'express';
 import {
-    KeywordEntry,
-    KeywordsTableAction,
+    ConceptEntry,
+    ConceptsTableAction,
     BaseResponseHandlerActions,
     IQECResponse,
     SampleDataResponseReducerActions,
@@ -15,11 +15,11 @@ import {
     BaseBucketAction
 } from '../types/Coding/shared';
 
-export const keywordTableReducer = (
-    state: KeywordEntry[],
-    action: KeywordsTableAction
-): KeywordEntry[] => {
-    console.log('Action:', action, 'Keyword Table');
+export const conceptOutlineTableReducer = (
+    state: ConceptEntry[],
+    action: ConceptsTableAction
+): ConceptEntry[] => {
+    console.log('Action:', action, 'Concept Table');
     switch (action.type) {
         case 'INITIALIZE':
             return [...action.entries];
@@ -53,7 +53,7 @@ export const keywordTableReducer = (
                     : entry
             );
         case 'ADD_ROW':
-            let newRow: KeywordEntry = {
+            let newRow: ConceptEntry = {
                 word: '',
                 description: '',
                 codes: [],

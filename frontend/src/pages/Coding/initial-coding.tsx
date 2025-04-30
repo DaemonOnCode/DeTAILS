@@ -60,7 +60,7 @@ const CodebookCreation = () => {
         loadingRoute: PAGE_ROUTES.INITIAL_CODING,
         loaderRoute: LOADER_ROUTES.FINAL_CODING_LOADER,
         loaderParams: { text: 'Initial Coding in Progress' },
-        remoteRoute: REMOTE_SERVER_ROUTES.REMAKE_CODEBOOK,
+        remoteRoute: REMOTE_SERVER_ROUTES.REDO_INITIAL_CODING,
         useLLM: true,
         buildBody: () => JSON.stringify({ model: settings.ai.model }),
         nextRoute: PAGE_ROUTES.INITIAL_CODING,

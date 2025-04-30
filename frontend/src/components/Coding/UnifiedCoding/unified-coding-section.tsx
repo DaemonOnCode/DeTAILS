@@ -21,6 +21,7 @@ import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../../constant
 import { useCollectionContext } from '../../../context/collection-context';
 import { downloadFileWithStreaming } from '../../../utility/file-downloader';
 import { usePaginatedResponses } from '../../../hooks/Coding/use-paginated-responses';
+import { useWorkspaceContext } from '../../../context/workspace-context';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
@@ -65,7 +66,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     const navigate = useNavigate();
     const location = useLocation();
     const { fetchData } = useApi();
-    const { datasetId } = useCollectionContext();
+    const { currentWorkspace } = useWorkspaceContext();
     const {
         sampledPostIds,
         unseenPostIds,
@@ -231,7 +232,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     const downloadTranscripts = async () => {
         const payload = {
-            dataset_id: datasetId,
+            workspace_id: currentWorkspace?.id,
             post_ids: [
                 ...(responseTypes.find((type) => type === 'sampled') ? sampledPostIds : []),
                 ...(responseTypes.find((type) => type === 'unseen') ? unseenPostIds : [])

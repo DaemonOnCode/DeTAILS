@@ -1,5 +1,5 @@
 import { Dispatch, ReactNode, SetStateAction } from 'react';
-import { Keyword } from '../Shared';
+import { Concept } from '../Shared';
 
 export interface ILayout {
     children: ReactNode;
@@ -22,8 +22,8 @@ export interface IWordBox {
     height: number;
 }
 
-export interface IKeywordBox {
-    text: Keyword;
+export interface IConceptBox {
+    text: Concept;
     x: number;
     y: number;
     width: number;
@@ -198,7 +198,7 @@ export type FullRedditData = {
     [id: string]: RedditPosts[string] & { comments: RedditComments };
 };
 
-export interface KeywordEntry {
+export interface ConceptEntry {
     word: string;
     description: string;
     codes?: string[];
@@ -213,7 +213,7 @@ export type Comments = {
     comments: Comments[];
     controversiality: number;
     created_utc: number;
-    dataset_id: string;
+    workspace_id: string;
     gilded: number;
     id: string;
     parent_id: string;
@@ -266,19 +266,19 @@ type Action<T> =
           code: string;
       };
 
-export type KeywordsTableAction =
-    | { type: 'INITIALIZE'; entries: KeywordEntry[] }
-    | { type: 'ADD_MANY'; entries: KeywordEntry[] }
-    | { type: 'UPDATE_FIELD'; index: number; field: keyof KeywordEntry; value: string | string[] }
+export type ConceptsTableAction =
+    | { type: 'INITIALIZE'; entries: ConceptEntry[] }
+    | { type: 'ADD_MANY'; entries: ConceptEntry[] }
+    | { type: 'UPDATE_FIELD'; index: number; field: keyof ConceptEntry; value: string | string[] }
     | { type: 'TOGGLE_MARK'; index: number; isMarked?: boolean }
-    | { type: 'ADD_ROW'; entry?: KeywordEntry }
+    | { type: 'ADD_ROW'; entry?: ConceptEntry }
     | { type: 'DELETE_ROW'; index: number }
     | { type: 'SET_ALL_CORRECT' }
     | { type: 'SET_ALL_INCORRECT' }
     | { type: 'SET_ALL_UNMARKED' }
-    | { type: 'UNDO_DELETE_ROW'; entry: KeywordEntry; index: number }
+    | { type: 'UNDO_DELETE_ROW'; entry: ConceptEntry; index: number }
     | { type: 'RESET' }
-    | { type: 'RESTORE_STATE'; payload: KeywordEntry[] };
+    | { type: 'RESTORE_STATE'; payload: ConceptEntry[] };
 
 export type BaseResponseHandlerActions<T> =
     | { type: 'SET_CORRECT'; index: number }

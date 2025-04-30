@@ -14,6 +14,7 @@ import DeleteHighlightModal from '../Shared/delete-highlight-modal';
 import SwitchModal from './switch-modal';
 import lodash from 'lodash';
 import { useUndo } from '../../../hooks/Shared/use-undo';
+import { useWorkspaceContext } from '../../../context/workspace-context';
 
 const PostTranscript: FC<PostTranscriptProps> = ({
     post,
@@ -67,6 +68,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     } = useTranscriptContext();
 
     const { performWithUndo, performWithUndoForReducer, batch } = useUndo();
+    const { currentWorkspace } = useWorkspaceContext();
 
     const [processedSegments, setProcessedSegments] = useState<Segment[]>([]);
     const [codeSet, setCodeSet] = useState<string[]>([]);
@@ -408,7 +410,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     <div className="flex-1 overflow-y-auto">
                         <RelatedCodes
                             postId={post.id}
-                            datasetId={post.dataset_id}
+                            workspaceId={currentWorkspace?.id ?? ''}
                             codeSet={additionalCodes}
                             codeResponses={codeResponses}
                             codeColors={codeColors}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
@@ -12,16 +12,13 @@ import ValidationTable from '../../components/Coding/UnifiedCoding/validation-ta
 import Bucket from '../../components/Coding/Themes/bucket';
 import { useCodingContext } from '../../context/coding-context';
 import { DetailsLLMIcon } from '../../components/Shared/Icons';
-import { useCollectionContext } from '../../context/collection-context';
 import { useLoadingContext } from '../../context/loading-context';
 import { useSettings } from '../../context/settings-context';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
-import { useApi } from '../../hooks/Shared/use-api';
 import { useLogger } from '../../context/logging-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';
 import { getGroupedCodeOfSubCode } from '../../utility/theme-finder';
-import { toast } from 'react-toastify';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import { usePaginatedResponses } from '../../hooks/Coding/use-paginated-responses';
@@ -33,10 +30,8 @@ const FinalzingCodes = () => {
     const { loadingState, openModal, checkIfDataExists, resetDataAfterPage, loadingDispatch } =
         useLoadingContext();
     const { performWithUndoForReducer } = useUndo();
-    const { datasetId } = useCollectionContext();
     const { settings } = useSettings();
     const navigate = useNavigate();
-    const { fetchLLMData } = useApi();
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);

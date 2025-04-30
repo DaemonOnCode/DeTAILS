@@ -59,8 +59,6 @@ const FinalCoding = () => {
 
         if (match) {
             console.log('Match:', match);
-            const datasetId = match[1];
-            const postId = match[2];
             setPostsFinished((prev) => prev + 1);
         }
     };
@@ -76,7 +74,6 @@ const FinalCoding = () => {
             method: 'POST',
             body: JSON.stringify({
                 name: headingText.includes('Final') ? 'final' : 'initial',
-                dataset_id: currentWorkspace!.id,
                 workspace_id: currentWorkspace!.id
             })
         });

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, FC } from 'react';
-import { IKeywordBox } from '../../../types/Coding/shared';
-import { KeywordCloudProps } from '../../../types/Coding/props';
+import { IConceptBox } from '../../../types/Coding/shared';
+import { ConceptCloudProps } from '../../../types/Coding/props';
 import { FiEdit, FiTrash2 } from 'react-icons/fi';
 import { useUndo } from '../../../hooks/Shared/use-undo';
-import { Keyword } from '../../../types/Shared';
+import { Concept } from '../../../types/Shared';
 import { v4 as uuidv4 } from 'uuid';
 
 const MAIN_TOPIC_FONT_SIZE = 20;
@@ -23,9 +23,9 @@ function measureTextWidth(text: string, fontSize: number): number {
     return 50;
 }
 
-function areKeywordsColliding(
-    a: IKeywordBox,
-    b: IKeywordBox,
+function areConceptsColliding(
+    a: IConceptBox,
+    b: IConceptBox,
     padding: number = PADDING_BETWEEN_WORDS
 ): boolean {
     return !(
@@ -53,8 +53,8 @@ function interleaveArray<T>(arr: T[]): T[] {
     return result;
 }
 
-interface DraggingKeyword {
-    text: Keyword;
+interface DraggingConcept {
+    text: Concept;
     startX: number;
     startY: number;
     mouseStartX: number;
@@ -63,37 +63,37 @@ interface DraggingKeyword {
     height: number;
 }
 
-const KeywordCloud: FC<KeywordCloudProps> = ({
+const ConceptCloud: FC<ConceptCloudProps> = ({
     mainTopic,
-    keywords,
-    selectedKeywords,
-    toggleKeywordSelection,
-    setKeywords,
-    setSelectedKeywords
+    concepts,
+    selectedConcepts,
+    toggleConceptSelection,
+    setConcepts,
+    setSelectedConcepts
 }) => {
-    // console.log('Rendering KeywordCloud', mainTopic, keywords, selectedKeywords);
+    // console.log('Rendering ConceptCloud', mainTopic, concepts, selectedConcepts);
     const { performWithUndo } = useUndo();
     const svgRef = useRef<SVGSVGElement | null>(null);
-    const [placedKeywords, setPlacedKeywords] = useState<(IKeywordBox & { rotation: number })[]>(
+    const [placedConcepts, setPlacedConcepts] = useState<(IConceptBox & { rotation: number })[]>(
         []
     );
     const [radius, setRadius] = useState<number>(0);
     const [editingWordId, setEditingWordId] = useState<string | null>(null);
     const [newWord, setNewWord] = useState<string>('');
-    const [hoveredKeyword, setHoveredKeyword] = useState<string | null>(null);
-    const [draggingKeyword, setDraggingKeyword] = useState<DraggingKeyword | null>(null);
+    const [hoveredConcept, setHoveredConcept] = useState<string | null>(null);
+    const [draggingConcept, setDraggingConcept] = useState<DraggingConcept | null>(null);
 
     const handleEdit = (wordId: string) => {
         setEditingWordId(wordId);
-        setNewWord(keywords.find((k) => k.id === wordId)?.word || '');
+        setNewWord(concepts.find((k) => k.id === wordId)?.word || '');
     };
 
     const saveEdit = () => {
-        performWithUndo([keywords, selectedKeywords], [setKeywords, setSelectedKeywords], () => {
-            setKeywords((prev) =>
+        performWithUndo([concepts, selectedConcepts], [setConcepts, setSelectedConcepts], () => {
+            setConcepts((prev) =>
                 prev.map((k) => (k.id === editingWordId ? { ...k, word: newWord } : k))
             );
-            setSelectedKeywords((prev) =>
+            setSelectedConcepts((prev) =>
                 prev.find((sk) => sk === editingWordId) ? prev : [...prev, editingWordId]
             );
         });
@@ -101,20 +101,20 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
         setNewWord('');
     };
 
-    const handleDelete = (word: Keyword) => {
-        performWithUndo([keywords], [setKeywords], () => {
-            setKeywords((prev) => prev.filter((k) => k.id !== word.id));
+    const handleDelete = (word: Concept) => {
+        performWithUndo([concepts], [setConcepts], () => {
+            setConcepts((prev) => prev.filter((k) => k.id !== word.id));
         });
     };
 
-    const updateKeywordPosition = (textId: string, newX: number, newY: number) => {
-        setPlacedKeywords((prev) =>
+    const updateConceptPosition = (textId: string, newX: number, newY: number) => {
+        setPlacedConcepts((prev) =>
             prev.map((k) => (k.text.id === textId ? { ...k, x: newX, y: newY } : k))
         );
     };
 
-    const handleDragStart = (e: React.MouseEvent, keyword: IKeywordBox & { rotation: number }) => {
-        if (keyword.text.word === mainTopic) return; // Prevent dragging main topic
+    const handleDragStart = (e: React.MouseEvent, concept: IConceptBox & { rotation: number }) => {
+        if (concept.text.word === mainTopic) return; // Prevent dragging main topic
         e.preventDefault();
         e.stopPropagation();
         if (svgRef.current) {
@@ -125,20 +125,20 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             if (!svgCTM) return;
             const inverseCTM = svgCTM.inverse();
             const svgPoint = pt.matrixTransform(inverseCTM);
-            setDraggingKeyword({
-                text: keyword.text,
-                startX: keyword.x,
-                startY: keyword.y,
+            setDraggingConcept({
+                text: concept.text,
+                startX: concept.x,
+                startY: concept.y,
                 mouseStartX: svgPoint.x,
                 mouseStartY: svgPoint.y,
-                width: keyword.width,
-                height: keyword.height
+                width: concept.width,
+                height: concept.height
             });
         }
     };
 
     useEffect(() => {
-        if (!draggingKeyword || !svgRef.current) return;
+        if (!draggingConcept || !svgRef.current) return;
 
         const handleMouseMove = (e: MouseEvent) => {
             const pt = svgRef.current!.createSVGPoint();
@@ -148,15 +148,15 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             if (!svgCTM) return;
             const inverseCTM = svgCTM.inverse();
             const svgPoint = pt.matrixTransform(inverseCTM);
-            const deltaX = svgPoint.x - draggingKeyword.mouseStartX;
-            const deltaY = svgPoint.y - draggingKeyword.mouseStartY;
-            const newX = draggingKeyword.startX + deltaX;
-            const newY = draggingKeyword.startY + deltaY;
-            updateKeywordPosition(draggingKeyword.text.id, newX, newY);
+            const deltaX = svgPoint.x - draggingConcept.mouseStartX;
+            const deltaY = svgPoint.y - draggingConcept.mouseStartY;
+            const newX = draggingConcept.startX + deltaX;
+            const newY = draggingConcept.startY + deltaY;
+            updateConceptPosition(draggingConcept.text.id, newX, newY);
         };
 
         const handleMouseUp = (e: MouseEvent) => {
-            if (!svgRef.current || !draggingKeyword) return;
+            if (!svgRef.current || !draggingConcept) return;
             const pt = svgRef.current.createSVGPoint();
             pt.x = e.clientX;
             pt.y = e.clientY;
@@ -164,20 +164,20 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             if (!svgCTM) return;
             const inverseCTM = svgCTM.inverse();
             const svgPoint = pt.matrixTransform(inverseCTM);
-            const deltaX = svgPoint.x - draggingKeyword.mouseStartX;
-            const deltaY = svgPoint.y - draggingKeyword.mouseStartY;
-            const newX = draggingKeyword.startX + deltaX;
-            const newY = draggingKeyword.startY + deltaY;
-            const centerX = newX + draggingKeyword.width / 2;
-            const centerY = newY + draggingKeyword.height / 2;
+            const deltaX = svgPoint.x - draggingConcept.mouseStartX;
+            const deltaY = svgPoint.y - draggingConcept.mouseStartY;
+            const newX = draggingConcept.startX + deltaX;
+            const newY = draggingConcept.startY + deltaY;
+            const centerX = newX + draggingConcept.width / 2;
+            const centerY = newY + draggingConcept.height / 2;
             if (Math.sqrt(centerX * centerX + centerY * centerY) > radius) {
-                updateKeywordPosition(
-                    draggingKeyword.text.id,
-                    draggingKeyword.startX,
-                    draggingKeyword.startY
+                updateConceptPosition(
+                    draggingConcept.text.id,
+                    draggingConcept.startX,
+                    draggingConcept.startY
                 );
             }
-            setDraggingKeyword(null);
+            setDraggingConcept(null);
         };
 
         window.addEventListener('mousemove', handleMouseMove);
@@ -186,7 +186,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [draggingKeyword, radius]);
+    }, [draggingConcept, radius]);
 
     useEffect(() => {
         const deviceWidth = window.screen.width;
@@ -195,19 +195,19 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
         const baseRadius = deviceDiameter / 2;
         setRadius(baseRadius);
 
-        const normalizedKeywords = keywords.map((k) => ({
+        const normalizedConcepts = concepts.map((k) => ({
             id: k.id || uuidv4(),
             word: typeof k.word === 'string' ? k.word : String(k.word)
         }));
 
-        const mainKeyword = mainTopic;
+        const mainConcept = mainTopic;
 
-        const mainW = measureTextWidth(mainKeyword, MAIN_TOPIC_FONT_SIZE) + 30;
+        const mainW = measureTextWidth(mainConcept, MAIN_TOPIC_FONT_SIZE) + 30;
         const mainH = MAIN_TOPIC_FONT_SIZE + 10;
-        const mainBox: IKeywordBox & { rotation: number } = {
+        const mainBox: IConceptBox & { rotation: number } = {
             text: {
                 id: uuidv4(),
-                word: mainKeyword
+                word: mainConcept
             },
             x: -mainW / 2,
             y: -mainH / 2,
@@ -217,8 +217,8 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
         };
 
         const mainRadius = Math.hypot(mainW, mainH) / 2 + PADDING_BETWEEN_WORDS;
-        const otherKeywords = normalizedKeywords.filter((k) => k.word !== mainTopic);
-        let measured = otherKeywords.map((k) => ({
+        const otherConcepts = normalizedConcepts.filter((k) => k.word !== mainTopic);
+        let measured = otherConcepts.map((k) => ({
             text: k,
             width: measureTextWidth(k.word, OTHER_KEYWORD_FONT_SIZE) + 30,
             height: OTHER_KEYWORD_FONT_SIZE + 10
@@ -228,7 +228,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
         const orderedWords = interleaveArray(measured);
         const totalWords = orderedWords.length;
 
-        const placedPhrases: (IKeywordBox & { rotation: number })[] = [mainBox];
+        const placedPhrases: (IConceptBox & { rotation: number })[] = [mainBox];
 
         orderedWords.forEach((item, sortedIndex) => {
             const halfDiagonal = Math.sqrt((item.width / 2) ** 2 + (item.height / 2) ** 2);
@@ -238,7 +238,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             const baseAngle = (2 * Math.PI * sortedIndex) / totalWords - Math.PI / 2;
             let candidateAngle = baseAngle;
 
-            let candidateBox: IKeywordBox = {
+            let candidateBox: IConceptBox = {
                 text: item.text,
                 x: 0,
                 y: 0,
@@ -270,7 +270,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
 
                     let collision = false;
                     for (const placedBox of placedPhrases) {
-                        if (areKeywordsColliding(candidateBox, placedBox)) {
+                        if (areConceptsColliding(candidateBox, placedBox)) {
                             collision = true;
                             break;
                         }
@@ -288,12 +288,12 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
             placedPhrases.push({ ...candidateBox, rotation });
         });
 
-        setPlacedKeywords(placedPhrases);
-    }, [keywords, mainTopic]);
+        setPlacedConcepts(placedPhrases);
+    }, [concepts, mainTopic]);
 
-    const sortedKeywords = [...placedKeywords].sort((a, b) => {
-        if (a.text.id === hoveredKeyword) return 1;
-        if (b.text.id === hoveredKeyword) return -1;
+    const sortedConcepts = [...placedConcepts].sort((a, b) => {
+        if (a.text.id === hoveredConcept) return 1;
+        if (b.text.id === hoveredConcept) return -1;
         return 0;
     });
 
@@ -339,7 +339,7 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                 style={{ display: 'block', borderRadius: '50%' }}>
                 <circle cx="0" cy="0" r={radius} className="fill-gray-100" stroke="#ccc" />
 
-                {sortedKeywords.map((kw) => {
+                {sortedConcepts.map((kw) => {
                     if (kw.text.word === mainTopic) return null;
                     const centerX = kw.x + kw.width / 2;
                     const centerY = kw.y + kw.height / 2;
@@ -356,9 +356,9 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                     );
                 })}
 
-                {sortedKeywords.map((kw, idx) => {
+                {sortedConcepts.map((kw, idx) => {
                     const isMain = kw.text.word === mainTopic;
-                    const isSelected = selectedKeywords.some((sk) => sk === kw.text.id || isMain);
+                    const isSelected = selectedConcepts.some((sk) => sk === kw.text.id || isMain);
                     const bgClass = isSelected
                         ? 'bg-blue-200 text-blue-700'
                         : isMain
@@ -375,13 +375,13 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
                             style={{ overflow: 'visible' }}>
                             <div
                                 onMouseDown={!isMain ? (e) => handleDragStart(e, kw) : undefined}
-                                onMouseEnter={() => setHoveredKeyword(kw.text.id)}
-                                onMouseLeave={() => setHoveredKeyword(null)}
+                                onMouseEnter={() => setHoveredConcept(kw.text.id)}
+                                onMouseLeave={() => setHoveredConcept(null)}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    toggleKeywordSelection && toggleKeywordSelection(kw.text);
+                                    toggleConceptSelection && toggleConceptSelection(kw.text);
                                 }}
-                                className={`keyword${idx} cursor-pointer group relative flex items-center justify-center w-full h-full rounded-lg font-bold transition duration-200 transform hover:scale-125 ${bgClass}`}
+                                className={`concept${idx} cursor-pointer group relative flex items-center justify-center w-full h-full rounded-lg font-bold transition duration-200 transform hover:scale-125 ${bgClass}`}
                                 style={{
                                     fontSize: isMain
                                         ? MAIN_TOPIC_FONT_SIZE
@@ -426,4 +426,4 @@ const KeywordCloud: FC<KeywordCloudProps> = ({
     );
 };
 
-export default KeywordCloud;
+export default ConceptCloud;

@@ -14,14 +14,14 @@ interface ChatExplanationProps {
         fullText: string;
     };
     postId: string;
-    datasetId: string;
+    workspaceId: string;
     dispatchFunction: (action: any) => void;
     existingChatHistory: ChatMessage[];
 }
 
 const ChatExplanation: FC<ChatExplanationProps> = ({
     initialExplanationWithCode,
-    datasetId,
+    workspaceId,
     postId,
     dispatchFunction,
     existingChatHistory
@@ -112,7 +112,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         setMessages(newMsgs);
 
         const payload = {
-            dataset_id: datasetId,
+            workspace_id: workspaceId,
             post_id: postId,
             code: prevCode,
             quote: initialExplanationWithCode.fullText,
@@ -301,7 +301,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
 
         const partialHistory = messages.slice(0, idx).map((m) => `${m.sender}: ${m.text}`);
         const payload = {
-            dataset_id: datasetId,
+            workspace_id: workspaceId,
             post_id: postId,
             code: prevCode,
             quote: initialExplanationWithCode.fullText,

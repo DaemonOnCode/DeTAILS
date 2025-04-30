@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext, FC, useMemo } fr
 import { useLocation } from 'react-router-dom';
 import { useLoadingContext } from './loading-context';
 import { PAGE_ROUTES } from '../constants/Coding/shared';
-import { ICodingContext, Keyword } from '../types/Shared';
+import { ICodingContext, Concept } from '../types/Shared';
 import {
     IFile,
     IReference,
@@ -10,9 +10,9 @@ import {
     IQECTTyResponse,
     ThemeBucket,
     GroupedCodeBucket,
-    KeywordEntry,
+    ConceptEntry,
     InitialCodebookCode,
-    KeywordsTableAction,
+    ConceptsTableAction,
     SampleDataResponseReducerActions,
     BaseResponseHandlerActions,
     InitialCodebookTableAction,
@@ -32,19 +32,17 @@ export const CodingContext = createContext<ICodingContext>({
     setMainTopic: async () => {},
     additionalInfo: '',
     setAdditionalInfo: async () => {},
-    keywords: [],
-    setKeywords: async () => {},
-    selectedKeywords: [],
-    setSelectedKeywords: async () => {},
+    concepts: [],
+    setConcepts: async () => {},
+    selectedConcepts: [],
+    setSelectedConcepts: async () => {},
     references: {},
     setReferences: async () => {},
-    keywordTable: [],
-    dispatchKeywordsTable: async () => {},
+    conceptOutlineTable: [],
+    dispatchConceptOutlinesTable: async () => {},
     updateContext: async () => {},
     resetContext: async () => {},
-    // sampledPostResponse: [],
     dispatchSampledPostResponse: async () => {},
-    // unseenPostResponse: [],
     dispatchUnseenPostResponse: async () => {},
     dispatchAllPostResponse: async () => {},
     themes: [],
@@ -70,10 +68,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     const [mainTopic, setMainTopicState] = useState<string>('');
     const [additionalInfo, setAdditionalInfoState] = useState<string>('');
     const [researchQuestions, setResearchQuestionsState] = useState<string[]>([]);
-    const [keywords, setKeywordsState] = useState<Keyword[]>([]);
-    const [selectedKeywords, setSelectedKeywordsState] = useState<string[]>([]);
+    const [concepts, setConceptsState] = useState<Concept[]>([]);
+    const [selectedConcepts, setSelectedConceptsState] = useState<string[]>([]);
     const [references, setReferencesState] = useState<{ [code: string]: IReference[] }>({});
-    const [keywordTable, setKeywordTableState] = useState<KeywordEntry[]>([]);
+    const [conceptOutlineTable, setConceptTableState] = useState<ConceptEntry[]>([]);
     const [sampledPostResponse, setSampledPostResponseState] = useState<IQECResponse[]>([]);
     const [unseenPostResponse, setUnseenPostResponseState] = useState<IQECTTyResponse[]>([]);
     const [themes, setThemesState] = useState<ThemeBucket[]>([]);
@@ -105,10 +103,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         mainTopic: setMainTopicState,
         additionalInfo: setAdditionalInfoState,
         researchQuestions: setResearchQuestionsState,
-        keywords: setKeywordsState,
-        selectedKeywords: setSelectedKeywordsState,
+        concepts: setConceptsState,
+        selectedConcepts: setSelectedConceptsState,
         references: setReferencesState,
-        keywordTable: setKeywordTableState,
+        conceptOutlineTable: setConceptTableState,
         sampledPostResponse: setSampledPostResponseState,
         unseenPostResponse: setUnseenPostResponseState,
         themes: setThemesState,
@@ -123,10 +121,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         mainTopic: () => setMainTopicState(''),
         additionalInfo: () => setAdditionalInfoState(''),
         researchQuestions: () => setResearchQuestionsState([]),
-        keywords: () => setKeywordsState([]),
-        selectedKeywords: () => setSelectedKeywordsState([]),
+        concepts: () => setConceptsState([]),
+        selectedConcepts: () => setSelectedConceptsState([]),
         references: () => setReferencesState({}),
-        keywordTable: () => setKeywordTableState([]),
+        conceptOutlineTable: () => setConceptTableState([]),
         sampledPostResponse: () => setSampledPostResponseState([]),
         unseenPostResponse: () => setUnseenPostResponseState([]),
         themes: () => setThemesState([]),
@@ -177,17 +175,17 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             [PAGE_ROUTES.RELATED_CONCEPTS]: {
                 relatedStates: [
                     {
-                        name: 'setKeywords'
+                        name: 'setConcepts'
                     },
                     {
-                        name: 'selectedKeywords'
+                        name: 'selectedConcepts'
                     }
                 ]
             },
             [PAGE_ROUTES.CONCEPT_OUTLINE]: {
                 relatedStates: [
                     {
-                        name: 'dispatchKeywordsTable'
+                        name: 'dispatchConceptOutlinesTable'
                     }
                 ]
             },
@@ -246,9 +244,9 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             contextFiles,
             mainTopic,
             additionalInfo,
-            keywords,
-            selectedKeywords,
-            keywordTable,
+            concepts,
+            selectedConcepts,
+            conceptOutlineTable,
             sampledPostResponse,
             unseenPostResponse,
             themes,
@@ -282,8 +280,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                 'mainTopic',
                 'additionalInfo',
                 'researchQuestions',
-                'keywords',
-                'selectedKeywords',
+                'concepts',
+                'selectedConcepts',
                 'initialCodebookTable',
                 'groupedCodes',
                 'unplacedSubCodes',
@@ -298,8 +296,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                 'additionalInfo',
                 'researchQuestions'
             ],
-            [PAGE_ROUTES.RELATED_CONCEPTS]: ['keywords', 'selectedKeywords'],
-            [PAGE_ROUTES.CONCEPT_OUTLINE]: ['keywordTable'],
+            [PAGE_ROUTES.RELATED_CONCEPTS]: ['concepts', 'selectedConcepts'],
+            [PAGE_ROUTES.CONCEPT_OUTLINE]: ['conceptOutlineTable'],
             [PAGE_ROUTES.INITIAL_CODING]: ['sampledPostResponse', 'sampledPostIds'],
             [PAGE_ROUTES.INITIAL_CODEBOOK]: ['initialCodebookTable'],
             [PAGE_ROUTES.FINAL_CODING]: ['unseenPostResponse', 'unseenPostIds'],
@@ -379,28 +377,28 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     else setAdditionalInfoState((prev) => prev);
                     return data;
                 }),
-            keywords,
-            setKeywords: (kwsOrUpdater) =>
-                lockedUpdate('set-keywords', async () => {
-                    const newKeywords =
-                        typeof kwsOrUpdater === 'function' ? kwsOrUpdater(keywords) : kwsOrUpdater;
-                    const data = await saveCodingContext('setKeywords', { keywords: newKeywords });
-                    if (data.keywords) setKeywordsState(data.keywords);
-                    else setKeywordsState((prev) => [...prev]);
+            concepts,
+            setConcepts: (kwsOrUpdater) =>
+                lockedUpdate('set-concepts', async () => {
+                    const newConcepts =
+                        typeof kwsOrUpdater === 'function' ? kwsOrUpdater(concepts) : kwsOrUpdater;
+                    const data = await saveCodingContext('setConcepts', { concepts: newConcepts });
+                    if (data.concepts) setConceptsState(data.concepts);
+                    else setConceptsState((prev) => [...prev]);
                     return data;
                 }),
-            selectedKeywords,
-            setSelectedKeywords: (skwsOrUpdater) =>
-                lockedUpdate('set-selected-keywords', async () => {
-                    const newSelectedKeywords =
+            selectedConcepts,
+            setSelectedConcepts: (skwsOrUpdater) =>
+                lockedUpdate('set-selected-concepts', async () => {
+                    const newSelectedConcepts =
                         typeof skwsOrUpdater === 'function'
-                            ? skwsOrUpdater(selectedKeywords)
+                            ? skwsOrUpdater(selectedConcepts)
                             : skwsOrUpdater;
-                    const data = await saveCodingContext('setSelectedKeywords', {
-                        selectedKeywords: newSelectedKeywords
+                    const data = await saveCodingContext('setSelectedConcepts', {
+                        selectedConcepts: newSelectedConcepts
                     });
-                    if (data.selectedKeywords) setSelectedKeywordsState(data.selectedKeywords);
-                    else setSelectedKeywordsState((prev) => [...prev]);
+                    if (data.selectedConcepts) setSelectedConceptsState(data.selectedConcepts);
+                    else setSelectedConceptsState((prev) => [...prev]);
                     return data;
                 }),
             references,
@@ -416,12 +414,14 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     if (data.references) setReferencesState(data.references);
                     return data;
                 }),
-            keywordTable,
-            dispatchKeywordsTable: (action: KeywordsTableAction) =>
-                lockedUpdate('dispatch-keywords-table', async () => {
-                    const data = await saveCodingContext('dispatchKeywordsTable', { action });
-                    if (data.keywordTable) setKeywordTableState(data.keywordTable);
-                    else setKeywordTableState((prev) => [...prev]);
+            conceptOutlineTable,
+            dispatchConceptOutlinesTable: (action: ConceptsTableAction) =>
+                lockedUpdate('dispatch-concepts-table', async () => {
+                    const data = await saveCodingContext('dispatchConceptOutlinesTable', {
+                        action
+                    });
+                    if (data.conceptOutlineTable) setConceptTableState(data.conceptOutlineTable);
+                    else setConceptTableState((prev) => [...prev]);
                     return data;
                 }),
             updateContext: (updates: Partial<ICodingContext>) =>
@@ -431,10 +431,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     if (data.mainTopic) setMainTopicState(data.mainTopic);
                     if (data.additionalInfo) setAdditionalInfoState(data.additionalInfo);
                     if (data.researchQuestions) setResearchQuestionsState(data.researchQuestions);
-                    if (data.keywords) setKeywordsState(data.keywords);
-                    if (data.selectedKeywords) setSelectedKeywordsState(data.selectedKeywords);
+                    if (data.concepts) setConceptsState(data.concepts);
+                    if (data.selectedConcepts) setSelectedConceptsState(data.selectedConcepts);
                     if (data.references) setReferencesState(data.references);
-                    if (data.keywordTable) setKeywordTableState(data.keywordTable);
+                    if (data.conceptOutlineTable) setConceptTableState(data.conceptOutlineTable);
                     if (data.sampledPostResponse)
                         setSampledPostResponseState(data.sampledPostResponse);
                     if (data.unseenPostResponse)
@@ -457,10 +457,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         setMainTopicState('');
                         setAdditionalInfoState('');
                         setResearchQuestionsState([]);
-                        setKeywordsState([]);
-                        setSelectedKeywordsState([]);
+                        setConceptsState([]);
+                        setSelectedConceptsState([]);
                         setReferencesState({});
-                        setKeywordTableState([]);
+                        setConceptTableState([]);
                         setSampledPostResponseState([]);
                         setUnseenPostResponseState([]);
                         setThemesState([]);
@@ -567,10 +567,10 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             contextFiles,
             mainTopic,
             additionalInfo,
-            keywords,
-            selectedKeywords,
+            concepts,
+            selectedConcepts,
             references,
-            keywordTable,
+            conceptOutlineTable,
             sampledPostResponse,
             unseenPostResponse,
             themes,

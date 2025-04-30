@@ -7,7 +7,6 @@ import { useCollectionContext } from '../../context/collection-context';
 import { useApi } from '../../hooks/Shared/use-api';
 
 const ModelInfo = () => {
-    const { datasetId } = useCollectionContext();
     const { models, activeModelId } = useModelingContext();
 
     const currentModel = models.find((model) => model.id === activeModelId)!;
@@ -27,7 +26,7 @@ const ModelInfo = () => {
         try {
             const { data, error } = await fetchData<{
                 id: string;
-                dataset_id: string;
+                workspace_id: string;
                 model_name: string;
                 type: string;
                 topics: string[];
@@ -40,7 +39,6 @@ const ModelInfo = () => {
                     method: 'POST',
                     body: JSON.stringify({
                         model_id: activeModelId,
-                        dataset_id: datasetId ?? '',
                         workspace_id: currentWorkspace?.id ?? ''
                     })
                 },

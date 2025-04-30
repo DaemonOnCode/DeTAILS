@@ -4,7 +4,6 @@ import { useWebSocket } from '../../../context/websocket-context';
 import { useCodingContext } from '../../../context/coding-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import { useCollectionContext } from '../../../context/collection-context';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 
 const CodebookAnimation: React.FC = () => {
@@ -26,7 +25,6 @@ const CodebookAnimation: React.FC = () => {
     );
 
     const { fetchData } = useApi();
-    const { datasetId } = useCollectionContext();
     const { currentWorkspace } = useWorkspaceContext();
 
     const [postsFinished, setPostsFinished] = useState<number>(0);
@@ -48,13 +46,10 @@ const CodebookAnimation: React.FC = () => {
 
         if (match) {
             console.log('Match:', match);
-            const datasetId = match[1];
             const postId = match[2];
 
             console.log('Sampled post ids:', sampledPostIds, 'Post id:', postId);
-            // if (sampledPostIds.includes(postId)) {
             setPostsFinished((prev) => prev + 1);
-            // }
         }
     };
 
@@ -66,7 +61,6 @@ const CodebookAnimation: React.FC = () => {
             method: 'POST',
             body: JSON.stringify({
                 name: 'codebook',
-                dataset_id: datasetId,
                 workspace_id: currentWorkspace!.id
             })
         });

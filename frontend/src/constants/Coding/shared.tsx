@@ -73,7 +73,7 @@ export enum LOADER_ROUTES {
     CODING_VALIDATION_LOADER = 'coding-validation-loader',
     FINAL_LOADER = 'final-loader',
     THEME_LOADER = 'theme-loader',
-    KEYWORD_TABLE_LOADER = 'keyword-table-loader',
+    KEYWORD_TABLE_LOADER = 'concept-table-loader',
     FINAL_CODING_LOADER = 'final-coding-loader',
     THEME_GENERATION_LOADER = 'theme-generation-loader',
     DETAILS_LOADER = 'details-loader',
@@ -83,7 +83,7 @@ export enum LOADER_ROUTES {
 
 export const DB_PATH = '../executables/test.db';
 
-export const WORD_CLOUD_MIN_THRESHOLD = 5;
+export const WORD_CLOUD_MIN_THRESHOLD = 1;
 
 export const FLASHCARDS_MIN_THRESHOLD = 10;
 

@@ -1,12 +1,11 @@
-import { FC, useState, useMemo } from 'react';
-import { useCodingContext } from '../../../context/coding-context';
+import { FC } from 'react';
 import { useTranscriptContext } from '../../../context/transcript-context';
 import ChatExplanation from './chat-explanation';
 import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
 
 interface RelatedCodesProps {
     postId: string;
-    datasetId: string;
+    workspaceId: string;
     codeSet: string[];
     codeResponses: any[];
     codeColors: Record<string, string>;
@@ -22,7 +21,7 @@ interface RelatedCodesProps {
 
 const RelatedCodes: FC<RelatedCodesProps> = ({
     postId,
-    datasetId,
+    workspaceId,
     codeResponses,
     codeSet,
     codeCounts,
@@ -92,7 +91,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                                     initialExplanationWithCode={explanationItem}
                                     existingChatHistory={existingChat}
                                     postId={postId}
-                                    datasetId={datasetId}
+                                    workspaceId={workspaceId}
                                     dispatchFunction={dispatchFunction}
                                 />
                             );

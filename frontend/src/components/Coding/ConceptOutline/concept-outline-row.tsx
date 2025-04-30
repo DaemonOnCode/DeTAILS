@@ -1,18 +1,18 @@
 import { FC, useState, useEffect, useMemo } from 'react';
 import { FaTrash } from 'react-icons/fa';
 import debounce from 'lodash/debounce';
-import { KeywordEntry } from '../../../types/Coding/shared';
+import { ConceptEntry } from '../../../types/Coding/shared';
 import { DEBOUNCE_DELAY } from '../../../constants/Shared';
 
-interface KeywordTableRowProps {
-    entry: KeywordEntry;
+interface ConceptTableRowProps {
+    entry: ConceptEntry;
     index: number;
     onFieldChange: (index: number, field: string, value: any) => void;
     onToggleMark: (index: number, isMarked: boolean | undefined) => void;
     onDeleteRow: (index: number) => void;
 }
 
-const KeywordTableRow: FC<KeywordTableRowProps> = ({
+const ConceptTableRow: FC<ConceptTableRowProps> = ({
     entry,
     index,
     onFieldChange,
@@ -133,4 +133,4 @@ const KeywordTableRow: FC<KeywordTableRowProps> = ({
     );
 };
 
-export default KeywordTableRow;
+export default ConceptTableRow;
