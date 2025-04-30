@@ -126,10 +126,10 @@ export const TranscriptContextProvider: FC<{
 }> = ({ children, review, codeResponses, postId, splitCheck = false }) => {
     console.log('Running provider', review);
 
-    const worker = useMemo(
-        () => new Worker(new URL('../workers/transcript.worker.ts', import.meta.url)),
-        []
-    );
+    const worker = useMemo(() => {
+        const url = `${process.env.PUBLIC_URL}/workers/transcript.worker.js`;
+        return new Worker(url, { type: 'module' });
+    }, []);
 
     const [allExplanations, setAllExplanations] = useState<Explanation[]>(
         codeResponses

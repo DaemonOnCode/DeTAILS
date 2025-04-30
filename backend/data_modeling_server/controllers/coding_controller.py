@@ -861,7 +861,7 @@ async def summarize_codebook_explanations(
     if grouped:
         new = await _flush_and_summarize(
             grouped, interim,
-            workspace_id, app_id, workspace_id, manager,
+            workspace_id, app_id, manager,
             llm_model, parent_function_name, llm_instance,
             llm_queue_manager, max_input_tokens, retries,
             store_response, concurrency_limit

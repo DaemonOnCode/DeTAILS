@@ -16,6 +16,13 @@ import {
 } from '../Coding/shared';
 import { Dispatch, RefObject } from 'react';
 import { IModelState } from '../DataModeling/shared';
+import {
+    ModeType,
+    MetadataState,
+    Dataset,
+    DataAction,
+    MetadataAction
+} from '../DataCollection/shared';
 
 export interface User {
     id: string;
@@ -45,23 +52,6 @@ export interface AuthContextType {
     logout: () => void;
     remoteProcessing: boolean;
     setProcessing: (processing: boolean) => Promise<void>;
-}
-
-export interface ICollectionContext {
-    currentMode: Mode;
-    toggleMode: () => void;
-    modeInput: string;
-    setModeInput: SetState<string>;
-    interviewInput: string[];
-    setInterviewInput: SetState<string[]>;
-    subreddit: string;
-    setSubreddit: SetState<string>;
-    selectedPosts: string[];
-    setSelectedPosts: SetState<string[]>;
-    datasetId: string;
-    setDatasetId: SetState<string>;
-    updateContext: (updates: Partial<ICollectionContext>) => void;
-    resetContext: () => void;
 }
 
 export interface IModelingContext {
@@ -244,4 +234,25 @@ export interface IManualCodingContext {
     updateContext: (updates: Partial<IManualCodingContext>) => Promise<void>;
     resetContext: () => Promise<void>;
     generateCodebook: () => Promise<void>;
+}
+
+export interface ICollectionContext {
+    type: ModeType;
+    metadata: MetadataState;
+    dataset: Dataset;
+    datasetId: string;
+    modeInput: string;
+    selectedData: string[];
+    dataFilters: Record<string, any>;
+    isLocked: boolean;
+    setIsLocked: SetState<boolean>;
+    setDataFilters: SetState<Record<string, any>>;
+    datasetDispatch: React.Dispatch<DataAction>;
+    setDatasetId: SetState<string>;
+    setModeInput: SetState<string>;
+    metadataDispatch: React.Dispatch<MetadataAction>;
+    setType: SetState<ModeType>;
+    setSelectedData: SetState<string[]>;
+    updateContext: (updates: Partial<ICollectionContext>) => void;
+    resetContext: () => void;
 }

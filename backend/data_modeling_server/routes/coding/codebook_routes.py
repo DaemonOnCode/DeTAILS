@@ -118,7 +118,10 @@ async def generate_codebook_without_quotes_endpoint(
     print(summarized_grouped_ec)
 
     try:
-        initial_codebook_repo.delete({"coding_context_id": workspace_id})
+        if not manual_coding:
+            initial_codebook_repo.delete({"coding_context_id": workspace_id})
+        else:
+            initial_codebook_repo.delete({"coding_context_id": workspace_id, "manual_coding": True})
     except Exception as e:
         print(e)
     

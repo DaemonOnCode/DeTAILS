@@ -29,3 +29,4 @@ electron-builder.yaml
 client_secret_*
 favicon_io*
 out/*
+public/workers

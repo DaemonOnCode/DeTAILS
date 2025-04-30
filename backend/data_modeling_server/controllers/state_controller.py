@@ -441,111 +441,6 @@ def add_state_to_dump(state: str, workspace_id: str, function: str, origin: str)
         )
     )
 
-
-dispatch_configs = {
-    "dispatchConceptOutlinesTable": {
-        "response_key": "conceptOutlineTable",
-        "process_func": process_concept_table_action,
-        "repo": concept_entries_repo,
-        "conditions": lambda ws: {"coding_context_id": ws},
-        "format_func": lambda ke: {
-            "id": ke.id,
-            "word": ke.word,
-            "description": ke.description,
-            "inclusion_criteria": ke.inclusion_criteria,
-            "exclusion_criteria": ke.exclusion_criteria,
-            "isMarked": bool(ke.is_marked)
-        }
-    },
-    "dispatchSampledPostResponse": {
-        "response_key": "sampledPostResponse",
-        "process_func": process_sampled_post_response_action,
-        "repo": qect_repo,
-        "conditions": lambda ws: {"workspace_id": ws, "codebook_type": CodebookType.INITIAL.value},
-        "format_func": lambda response: {
-            "id": response.id,
-            "quote": response.quote,
-            "code": response.code,
-            "explanation": response.explanation,
-            "postId": response.post_id,
-            "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
-            "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
-            "comment": "",
-            "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
-        }
-    },
-    "dispatchInitialCodebookTable": {
-        "response_key": "initialCodebookTable",
-        "process_func": process_initial_codebook_table_action,
-        "repo": initial_codebook_repo,
-        "conditions": lambda ws: {"coding_context_id": ws},
-        "format_func": lambda entry: entry.to_dict()
-    },
-    "dispatchUnseenPostResponse": {
-        "response_key": "unseenPostResponse",
-        "process_func": process_unseen_post_response_action,
-        "repo": qect_repo,
-        "conditions": lambda ws: {"workspace_id": ws, "codebook_type": CodebookType.FINAL.value},
-        "format_func": lambda response: {
-            "id": response.id,
-            "quote": response.quote,
-            "code": response.code,
-            "explanation": response.explanation,
-            "postId": response.post_id,
-            "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
-            "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
-            "comment": "",
-            "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
-            "type": response.response_type,
-        }
-    },
-    "dispatchAllPostResponse": {
-        "response_key": "allPostResponse",
-        "process_func": process_all_responses_action,
-        "repo": qect_repo,
-        "conditions": lambda ws: {"workspace_id": ws},
-        "format_func": lambda response: {
-            "id": response.id,
-            "quote": response.quote,
-            "code": response.code,
-            "explanation": response.explanation,
-            "postId": response.post_id,
-            "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
-            "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
-            "comment": "",
-            "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
-        }
-    },
-    "dispatchGroupedCodes": {
-        "response_key": "groupedCodes",
-        "process_func": process_grouped_codes_action,
-        "repo": grouped_codes_repo,
-        "conditions": lambda ws: {"coding_context_id": ws},
-        "format_func": lambda entries: [
-            {"id": hid, "name": higher_level_codes[hid], "codes": list(filter(bool, codes))}
-            for hid, codes in defaultdict(list, {
-                entry.higher_level_code_id: [entry.code]
-                for entry in entries
-            }).items()
-            if (higher_level_codes := {e.higher_level_code_id: e.higher_level_code for e in entries})
-        ]
-    },
-    "dispatchThemes": {
-        "response_key": "themes",
-        "process_func": process_themes_action,
-        "repo": themes_repo,
-        "conditions": lambda ws: {"coding_context_id": ws},
-        "format_func": lambda entries: [
-            {"id": tid, "name": theme_names[tid], "codes": list(filter(bool, codes))}
-            for tid, codes in defaultdict(list, {
-                entry["theme_id"]: [entry["higher_level_code"]]
-                for entry in entries
-            }).items()
-            if (theme_names := {e["theme_id"]: e["theme"] for e in entries})
-        ]
-    }
-}
-
 def load_concept_outline_table(workspace_id: str) -> List[Dict[str, Any]]:
     concept_entries = concept_entries_repo.find({"coding_context_id": workspace_id})
     return [
@@ -627,6 +522,28 @@ def load_themes(workspace_id: str) -> Dict[str, tuple[str, List[str]]]:
             theme_names[entry["theme_id"]] = entry["theme"]
     return {tid: (tname, codes) for tid, tname in theme_names.items() for codes in [themes_dict[tid]]}
 
+def format_grouped_codes(entries):
+    grouped_codes_dict = defaultdict(list)
+    for entry in entries:
+        grouped_codes_dict[entry.higher_level_code_id].append(entry.code)
+    higher_level_codes = {e.higher_level_code_id: e.higher_level_code for e in entries}
+    return [
+        {"id": hid, "name": higher_level_codes[hid], "codes": list(filter(bool, codes))}
+        for hid, codes in grouped_codes_dict.items()
+    ]
+
+def format_themes(entries):
+    themes_dict = defaultdict(list)
+    theme_names = {}
+    for entry in entries:
+        themes_dict[entry["theme_id"]].append(entry["higher_level_code"])
+        if entry["theme_id"] not in theme_names:
+            theme_names[entry["theme_id"]] = entry["theme"]
+    return [
+        {"id": tid, "name": theme_names[tid], "codes": list(filter(bool, codes))}
+        for tid, codes in themes_dict.items()
+    ]
+
 load_functions = {
     "mainTopic": load_main_topic,
     "additionalInfo": load_additional_info,
@@ -665,4 +582,96 @@ load_functions = {
         {"id": tid, "name": tname, "codes": list(filter(bool, codes))}
         for tid, (tname, codes) in load_themes(ws).items()
     ],
+}
+
+
+
+dispatch_configs = {
+    "dispatchConceptOutlinesTable": {
+        "response_key": "conceptOutlineTable",
+        "process_func": process_concept_table_action,
+        "repo": concept_entries_repo,
+        "conditions": lambda ws: {"coding_context_id": ws},
+        "format_func": lambda ke: {
+            "id": ke.id,
+            "word": ke.word,
+            "description": ke.description,
+            "inclusion_criteria": ke.inclusion_criteria,
+            "exclusion_criteria": ke.exclusion_criteria,
+            "isMarked": bool(ke.is_marked)
+        }
+    },
+    "dispatchSampledPostResponse": {
+        "response_key": "sampledPostResponse",
+        "process_func": process_sampled_post_response_action,
+        "repo": qect_repo,
+        "conditions": lambda ws: {"workspace_id": ws, "codebook_type": CodebookType.INITIAL.value},
+        "format_func": lambda response: {
+            "id": response.id,
+            "quote": response.quote,
+            "code": response.code,
+            "explanation": response.explanation,
+            "postId": response.post_id,
+            "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
+            "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
+            "comment": "",
+            "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
+        }
+    },
+    "dispatchInitialCodebookTable": {
+        "response_key": "initialCodebookTable",
+        "process_func": process_initial_codebook_table_action,
+        "repo": initial_codebook_repo,
+        "conditions": lambda ws: {"coding_context_id": ws},
+        "format_func": lambda entry: entry.to_dict()
+    },
+    "dispatchUnseenPostResponse": {
+        "response_key": "unseenPostResponse",
+        "process_func": process_unseen_post_response_action,
+        "repo": qect_repo,
+        "conditions": lambda ws: {"workspace_id": ws, "codebook_type": CodebookType.FINAL.value},
+        "format_func": lambda response: {
+            "id": response.id,
+            "quote": response.quote,
+            "code": response.code,
+            "explanation": response.explanation,
+            "postId": response.post_id,
+            "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
+            "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
+            "comment": "",
+            "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
+            "type": response.response_type,
+        }
+    },
+    "dispatchAllPostResponse": {
+        "response_key": "allPostResponse",
+        "process_func": process_all_responses_action,
+        "repo": qect_repo,
+        "conditions": lambda ws: {"workspace_id": ws},
+        "format_func": lambda response: {
+            "id": response.id,
+            "quote": response.quote,
+            "code": response.code,
+            "explanation": response.explanation,
+            "postId": response.post_id,
+            "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
+            "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
+            "comment": "",
+            "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
+        }
+    },
+    "dispatchGroupedCodes": {
+        "response_key": "groupedCodes",
+        "process_func": process_grouped_codes_action,
+        "repo": grouped_codes_repo,
+        "conditions": lambda ws: {"coding_context_id": ws},
+        "format_func": format_grouped_codes
+    },
+    "dispatchThemes": {
+        "response_key": "themes",
+        "process_func": process_themes_action,
+        "repo": themes_repo,
+        "conditions": lambda ws: {"coding_context_id": ws},
+        "format_func": format_themes
+    }
 }

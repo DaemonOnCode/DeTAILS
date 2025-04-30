@@ -265,6 +265,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
 
         const appRoutes = Object.keys(initialPageState);
         const pageIndex = appRoutes.indexOf(page);
+        console.log('Page index:', pageIndex);
         if (pageIndex === -1) return;
 
         const routesToReset = appRoutes.slice(pageIndex + 1);

@@ -87,8 +87,10 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             data = sampled_responses + unseen_responses
         else:
             data = config["repo"].find(config["conditions"](workspace_id))
+            print(f"Finding data for operation type: {operation_type}", data)
         
         formatted_data = config["format_func"](data) if operation_type in ["dispatchGroupedCodes", "dispatchThemes"] else [config["format_func"](item) for item in data]
+        print("Formatted data:", formatted_data, "operation type:", operation_type)
         dump_helper({
             "action": action,
             "diff": diff,
@@ -615,7 +617,7 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
         collection_context_repo.insert(collection_context)
 
     if operation_type == "setType":
-        new_type = request_body.get("newType") or "reddit"
+        new_type = request_body.get("newType", None) or "reddit"
         old_context = collection_context_repo.find_one(
             {"id": workspace_id}, columns=["type"], map_to_model=False, fail_silently=True
         )
@@ -759,9 +761,9 @@ async def load_collection_context(request: Request, request_body: Dict[str, Any]
 
     response = {}
     if "type" in states:
-        response["type"] = collection_context.type if hasattr(collection_context, "type") else "reddit"
+        response["type"] = collection_context.type if hasattr(collection_context, "type") and collection_context.type is not None else "reddit"
     if "metadata" in states:
-        response["metadata"] = collection_context.metadata if hasattr(collection_context, "metadata") else {}
+        response["metadata"] = collection_context.metadata if hasattr(collection_context, "metadata") and collection_context.metadata is not None else {}
     if "modeInput" in states:
         response["modeInput"] = collection_context.mode_input
     if "selectedData" in states:

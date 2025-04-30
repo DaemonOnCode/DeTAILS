@@ -20,7 +20,6 @@ from database import (
     ErrorLogRepository, CodingContextRepository,
     ContextFilesRepository, ResearchQuestionsRepository,
 )
-from database.full_qect_table import FullQectRepository
 from database.initialize import initialize_study_database
 from database.state_dump_table import StateDumpsRepository
 from constants import PATHS, get_default_transmission_cmd
@@ -62,9 +61,9 @@ def run_http():
     uvicorn.run(
         "app_http:app", 
         port=8080,
-        reload=True
-        # reload=False,
-        # workers=3,  
+        # reload=True,
+        reload=False,
+        workers=3,  
     )
 
 def run_ws():
@@ -78,8 +77,14 @@ if __name__ == "__main__":
     os.makedirs(DATASETS_DIR, exist_ok=True)
     os.makedirs(PATHS["transmission"], exist_ok=True)
 
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        multiprocessing.freeze_support()
+    # if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    multiprocessing.freeze_support()
+    if sys.platform.startswith("win"):
+        multiprocessing.set_start_method("spawn")
+    else:
+        multiprocessing.set_start_method("fork")
+
+    
 
     p_http = Process(target=run_http, name="http-server")
     p_http.start()

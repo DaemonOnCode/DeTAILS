@@ -26,7 +26,9 @@ module.exports = {
     },
     packagerConfig: {
         name: 'DeTAILS',
-        asar: true,
+        asar: {
+            unpack: '**/*.worker.js'
+        },
         appCategoryType: 'public.app-category.developer-tools',
         icon: 'public/details-icon',
         extraResource: [extraResourcePath]

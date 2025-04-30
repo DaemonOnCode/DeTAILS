@@ -74,13 +74,13 @@ const UploadDataPage = () => {
         if (!processDataRef.current?.run) return;
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
+            route: PAGE_ROUTES.DATASET_CREATION
         });
 
         await processDataRef.current?.run();
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
+            route: PAGE_ROUTES.DATASET_CREATION
         });
     };
 

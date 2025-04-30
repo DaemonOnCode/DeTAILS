@@ -15,57 +15,18 @@ import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
 import { useApi } from '../hooks/Shared/use-api';
 import { SetState } from '../types/Coding/shared';
 import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
+import {
+    ModeType,
+    MetadataState,
+    Dataset,
+    RedditData,
+    InterviewData,
+    MetadataAction,
+    DataAction
+} from '../types/DataCollection/shared';
+import { ICollectionContext } from '../types/Shared';
 
-export type ModeType = 'reddit' | 'interview' | null;
-
-export interface RedditMetadata {
-    type: 'reddit';
-    source: 'folder' | 'url';
-    subreddit: string;
-}
-
-export interface InterviewMetadata {
-    type: 'interview';
-    source: 'folder';
-}
-
-export type MetadataState = RedditMetadata | InterviewMetadata | null;
-
-export type RedditData = any;
-export type InterviewData = any;
-export type Dataset = RedditData[] | InterviewData[];
-
-export type MetadataAction =
-    | { type: 'SET_SOURCE'; payload: 'folder' | 'url' }
-    | { type: 'SET_SUBREDDIT'; payload: string }
-    | { type: 'RESET_METADATA' };
-
-export type DataAction =
-    | { type: 'ADD_DATA'; payload: RedditData | InterviewData }
-    | { type: 'RESET_DATA' };
-
-export interface ExtendedICollectionContext {
-    type: ModeType;
-    metadata: MetadataState;
-    dataset: Dataset;
-    datasetId: string;
-    modeInput: string;
-    selectedData: string[];
-    dataFilters: Record<string, any>;
-    isLocked: boolean;
-    setIsLocked: SetState<boolean>;
-    setDataFilters: SetState<Record<string, any>>;
-    datasetDispatch: React.Dispatch<DataAction>;
-    setDatasetId: SetState<string>;
-    setModeInput: SetState<string>;
-    metadataDispatch: React.Dispatch<MetadataAction>;
-    setType: SetState<ModeType>;
-    setSelectedData: SetState<string[]>;
-    updateContext: (updates: Partial<ExtendedICollectionContext>) => void;
-    resetContext: () => void;
-}
-
-const defaultContext: ExtendedICollectionContext = {
+const defaultContext: ICollectionContext = {
     type: null,
     metadata: null,
     dataset: [],
@@ -86,7 +47,7 @@ const defaultContext: ExtendedICollectionContext = {
     datasetDispatch: () => {}
 };
 
-export const CollectionContext = createContext<ExtendedICollectionContext>(defaultContext);
+export const CollectionContext = createContext<ICollectionContext>(defaultContext);
 
 export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
     const location = useLocation();
@@ -244,7 +205,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
         setDatasetIdState(datasetId);
     };
 
-    const updateContext = async (updates: Partial<ExtendedICollectionContext>) => {
+    const updateContext = async (updates: Partial<ICollectionContext>) => {
         if (updates.type !== undefined) await setType(updates.type);
         if (updates.metadata) {
             if (updates.metadata.source !== undefined)
@@ -374,7 +335,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
         }
     }, [location.pathname]);
 
-    const value: ExtendedICollectionContext = {
+    const value: ICollectionContext = {
         type,
         metadata,
         dataset,

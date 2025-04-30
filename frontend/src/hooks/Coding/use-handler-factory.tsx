@@ -67,7 +67,13 @@ export function useNextHandler<T>(config: HandlerConfig<T>) {
             if (error) {
                 console.error(`${config.startLog} error:`, error);
                 if (error.name !== 'AbortError') {
-                    toast.error(`${config.startLog} failed. ${error.message ?? ''}`);
+                    if (typeof error.message === 'string') {
+                        toast.error(`${config.startLog} failed. ${error.message ?? ''}`);
+                    } else {
+                        toast.error(
+                            `${config.startLog} failed. ${JSON.stringify(error.message) ?? ''}`
+                        );
+                    }
                     if (config.nextRoute)
                         navigate(config.nextRoute ?? `${location.pathname}${location.search}`);
                     else navigate(config.errorRoute ?? `${location.pathname}${location.search}`);
