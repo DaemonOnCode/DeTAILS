@@ -56,6 +56,8 @@ interface SequenceDiff {
   totalSelectionChanges: number;
   initialMetrics: Metrics;
   finalMetrics: Metrics;
+  totalGenerated: number;
+  totalSelected: number;
 }
 
 const safeParseContext = (context: string): Context => {
@@ -190,55 +192,56 @@ const computeMetrics = async (
   initialConcepts: Map<string, Concept>,
   currentConcepts: Map<string, Concept>,
   currentSelected: Set<string>,
-  calculateSimilarity: (word1: string, word2: string) => Promise<number>,
-  getNorm: (word: string) => Promise<number>
+  calculateSimilarity: (w1: string, w2: string) => Promise<number>,
+  getNorm: (w: string) => Promise<number>,
+  totalGenerated: number
 ): Promise<Metrics> => {
   const I = new Set(initialConcepts.keys());
-  const S = currentSelected;
-  const commonIds = new Set([...I].filter((x) => S.has(x)));
+  const commonIds = new Set([...I].filter((id) => currentSelected.has(id)));
+
   let TP = 0;
   let WTP = 0;
   let kept_count = 0;
   let updated_count = 0;
 
   for (const id of commonIds) {
-    if (currentConcepts.has(id) && initialConcepts.has(id)) {
-      const initialWord = initialConcepts.get(id)!.word;
-      const finalWord = currentConcepts.get(id)!.word;
-      if (initialWord === finalWord) {
-        TP += 1;
-        WTP += 1;
-        kept_count += 1;
-      } else {
-        const dotProduct = await calculateSimilarity(initialWord, finalWord);
-        const normInitial = await getNorm(initialWord);
-        const normFinal = await getNorm(finalWord);
-        const similarity =
-          normInitial * normFinal > 0
-            ? dotProduct / (normInitial * normFinal)
-            : 0;
-        WTP += similarity;
-        updated_count += 1;
-      }
+    const initWord = initialConcepts.get(id)!.word;
+    const finalWord = currentConcepts.get(id)!.word;
+    if (initWord === finalWord) {
+      TP++;
+      WTP++;
+      kept_count++;
+    } else {
+      const dot = await calculateSimilarity(initWord, finalWord);
+      const n1 = await getNorm(initWord);
+      const n2 = await getNorm(finalWord);
+      const sim = n1 * n2 > 0 ? dot / (n1 * n2) : 0;
+      WTP += sim;
+      updated_count++;
     }
   }
 
-  const I_size = I.size;
-  const S_size = S.size;
-  const P = I_size > 0 ? TP / I_size : 0;
-  const R = S_size > 0 ? TP / S_size : 0;
+  // const totalGenerated = currentConcepts.size;
+  console.log("total generations", totalGenerated);
+  const totalSelectedInitials = commonIds.size;
+
+  const P = totalGenerated > 0 ? TP / totalGenerated : 0;
+  const R = totalSelectedInitials > 0 ? TP / totalSelectedInitials : 0;
   const F1 = P + R > 0 ? (2 * P * R) / (P + R) : 0;
-  const P_w = I_size > 0 ? WTP / I_size : 0;
-  const R_w = S_size > 0 ? WTP / S_size : 0;
+  const P_w = totalGenerated > 0 ? WTP / totalGenerated : 0;
+  const R_w = totalSelectedInitials > 0 ? WTP / totalSelectedInitials : 0;
   const F1_w = P_w + R_w > 0 ? (2 * P_w * R_w) / (P_w + R_w) : 0;
-  const acceptance_rate = I_size > 0 ? kept_count / I_size : 0;
-  const update_rate = I_size > 0 ? updated_count / I_size : 0;
+
+  const acceptance_rate = totalGenerated > 0 ? kept_count / totalGenerated : 0;
+  const update_rate = totalGenerated > 0 ? updated_count / totalGenerated : 0;
   const deletion_rate =
-    I_size > 0 ? (I_size - kept_count - updated_count) / I_size : 0;
+    totalGenerated > 0
+      ? (totalGenerated - kept_count - updated_count) / totalGenerated
+      : 0;
 
   return {
-    initial_concepts: I_size,
-    selected_concepts: S_size,
+    initial_concepts: initialConcepts.size,
+    selected_concepts: totalSelectedInitials,
     TP,
     WTP: WTP.toString(),
     P: P.toString(),
@@ -283,8 +286,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
     const fetchEntries = async () => {
       setIsLoading(true);
       try {
-        const query = `
-          SELECT * FROM state_dumps
+        const query = `           SELECT * FROM state_dumps
           WHERE json_extract(context, '$.function') IN ('concept_cloud_table', 'setSelectedConcepts', 'setConcepts')
           AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
@@ -321,38 +323,55 @@ const RelatedConceptsDiffViewer: React.FC = () => {
               c.function === "concept_cloud_table" && c.run !== "regenerate"
             );
           })!;
-          const initialConcepts = extractConcepts(
-            JSON.parse(conceptDump.state)
-          );
-          const initialIds = new Set(initialConcepts.keys());
-          const firstSelection = sequence.find(
-            (e) =>
-              safeParseContext(e.context).function === "setSelectedConcepts"
-          );
-          const initialSelected = new Set<string>();
 
-          const aggregatedSelected = new Set(initialSelected);
-          let prevSelected = initialSelected;
+          const initialState = JSON.parse(conceptDump.state);
+          const initialConcepts = extractConcepts(initialState);
 
+          const mainTopicWord =
+            initialState.main_topic || initialState.mainTopic;
+
+          // Collect all IDs across the sequence where the word matches the main topic word
+          const mainTopicIds = new Set<string>();
+          for (const entry of sequence) {
+            const cctx = safeParseContext(entry.context);
+            if (
+              cctx.function === "concept_cloud_table" ||
+              cctx.function === "setConcepts"
+            ) {
+              const st = JSON.parse(entry.state);
+              const stepConcepts = extractConcepts(st);
+              for (const [id, concept] of stepConcepts) {
+                if (concept.word === mainTopicWord) {
+                  mainTopicIds.add(id);
+                }
+              }
+            }
+          }
+
+          // Remove all main topic IDs from initial concepts
+          mainTopicIds.forEach((id) => initialConcepts.delete(id));
+
+          const generatedMap = new Map<string, string>();
+          initialConcepts.forEach((c, id) => {
+            generatedMap.set(id, c.word);
+          });
+
+          // const initialIds = new Set(initialConcepts.keys());
           let prevConcepts = initialConcepts;
           const aggregatedConcepts = new Map(initialConcepts);
+
+          const initialSelected = new Set<string>();
+          let prevSelected = initialSelected;
+          const aggregatedSelected = new Set<string>();
 
           const initialMetrics = await computeMetrics(
             initialConcepts,
             initialConcepts,
             initialSelected,
             calculateSimilarity,
-            getNorm
+            getNorm,
+            initialConcepts.size
           );
-
-          // // Temporary fix: Subtract two from initial selected concepts as per user request
-          // const adjustedInitialMetrics = {
-          //   ...initialMetrics,
-          //   selected_concepts: Math.max(
-          //     0,
-          //     initialMetrics.selected_concepts - 2
-          //   ),
-          // };
 
           const stepwiseConceptChanges: {
             step: number;
@@ -374,6 +393,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             ) {
               const regenConcepts = extractConcepts(nextState);
               const regenChanges: ConceptChange[] = [];
+
               regenConcepts.forEach((newKw, id) => {
                 if (!prevConcepts.has(id)) {
                   regenChanges.push({
@@ -414,20 +434,21 @@ const RelatedConceptsDiffViewer: React.FC = () => {
               }
 
               for (const change of regenChanges) {
-                switch (change.type) {
-                  case "inserted":
-                    aggregatedConcepts.set(
-                      change.conceptId,
-                      regenConcepts.get(change.conceptId)!
-                    );
-                    break;
-                  case "updated":
-                    const orig = aggregatedConcepts.get(change.conceptId)!;
-                    aggregatedConcepts.set(change.conceptId, {
-                      ...orig,
-                      word: change.word!,
-                    });
-                    break;
+                if (mainTopicIds.has(change.conceptId)) continue;
+                if (change.type === "inserted") {
+                  aggregatedConcepts.set(
+                    change.conceptId,
+                    regenConcepts.get(change.conceptId)!
+                  );
+                  generatedMap.set(change.conceptId, change.word!);
+                }
+                if (change.type === "updated") {
+                  const orig = aggregatedConcepts.get(change.conceptId)!;
+                  aggregatedConcepts.set(change.conceptId, {
+                    ...orig,
+                    word: change.word!,
+                  });
+                  generatedMap.set(change.conceptId, change.word!);
                 }
               }
               prevConcepts = new Map(aggregatedConcepts);
@@ -460,11 +481,16 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                 });
               }
               for (const change of stepChanges) {
+                if (mainTopicIds.has(change.conceptId)) continue;
                 switch (change.type) {
                   case "inserted":
                     aggregatedConcepts.set(
                       change.conceptId,
                       nextConcepts.get(change.conceptId)!
+                    );
+                    generatedMap.set(
+                      change.conceptId,
+                      nextConcepts.get(change.conceptId)!.word
                     );
                     break;
                   case "deleted":
@@ -476,15 +502,17 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                       ...orig,
                       word: change.word!,
                     });
+                    generatedMap.set(change.conceptId, change.word!);
                     break;
                 }
               }
               prevConcepts = nextConcepts;
             } else if (nextContext.function === "setSelectedConcepts") {
               const rawNext = extractSelectedConcepts(nextState);
-              // only keep IDs that *actually exist* in our running concept list
               const nextSelected = new Set(
-                Array.from(rawNext).filter((id) => aggregatedConcepts.has(id))
+                Array.from(rawNext).filter(
+                  (id) => !mainTopicIds.has(id) && aggregatedConcepts.has(id)
+                )
               );
               const stepChanges = computeSelectionChanges(
                 prevSelected,
@@ -520,18 +548,19 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             (sum, step) => sum + step.changes.length,
             0
           );
+          const totalGenerated = generatedMap.size;
+          const totalSelected = Array.from(aggregatedSelected).filter(
+            (id) => !mainTopicIds.has(id)
+          ).length;
 
           const finalMetrics = await computeMetrics(
-            aggregatedConcepts,
+            initialConcepts,
             aggregatedConcepts,
             aggregatedSelected,
             calculateSimilarity,
-            getNorm
+            getNorm,
+            totalGenerated
           );
-
-          const neverSelected = Array.from(initialConcepts.entries())
-            .filter(([id]) => !aggregatedSelected.has(id))
-            .map(([conceptId, c]) => ({ conceptId, word: c.word }));
 
           return {
             sequenceId: seqIndex + 1,
@@ -551,6 +580,8 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             totalSelectionChanges,
             initialMetrics,
             finalMetrics,
+            totalGenerated,
+            totalSelected,
           };
         })
       );
@@ -569,7 +600,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
         formula: "The total number of related concepts in the initial set.",
       },
       selected_concepts: {
-        name: "Selected Related Concepts",
+        name: "Count of Selected Related Concepts",
         formula: "The total number of related concepts in the selected set.",
       },
       TP: {
@@ -585,7 +616,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
       P: {
         name: "Precision",
         formula:
-          "The ratio of true positives to the number of initial related concepts.",
+          "The ratio of true positives to the number of total related concepts.",
       },
       R: {
         name: "Recall",
@@ -599,7 +630,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
       P_w: {
         name: "Weighted Precision",
         formula:
-          "The weighted true positives divided by the number of initial related concepts.",
+          "The weighted true positives divided by the number of total related concepts.",
       },
       R_w: {
         name: "Weighted Recall",
@@ -611,19 +642,19 @@ const RelatedConceptsDiffViewer: React.FC = () => {
         formula: "The harmonic mean of weighted precision and weighted recall.",
       },
       acceptance_rate: {
-        name: "Acceptance Rate",
+        name: "Selected without update Rate",
         formula:
-          "The proportion of initial related concepts that were kept unchanged in the selected set.",
+          "The proportion of selected related concepts (not including updated) by the total generated concepts.",
       },
       update_rate: {
-        name: "Update Rate",
+        name: "Updated then selected Rate",
         formula:
-          "The proportion of initial related concepts that were updated in the selected set.",
+          "The proportion of updated related concepts which are present in selected related concepts divided by the total generated concepts.",
       },
       deletion_rate: {
-        name: "Deletion Rate",
+        name: "Either deleted or not selected Rate",
         formula:
-          "The proportion of initial related concepts that were deleted and not present in the selected set.",
+          "The proportion of unselected or deleted related concepts and not present in the total concepts.",
       },
     };
 
@@ -721,6 +752,21 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
+                      <tr>
+                        <td className="p-2 border">
+                          Total Generated Concepts (Initial + Regenerated)
+                        </td>
+                        <td className="p-2 border">—</td>
+                        <td className="p-2 border">{seqDiff.totalGenerated}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 border">
+                          Current Concepts Count (All before proceeding,
+                          selected + unselected)
+                        </td>
+                        <td className="p-2 border">—</td>
+                        <td className="p-2 border">{seqDiff.totalSelected}</td>
+                      </tr>
                       {Object.keys(seqDiff.initialMetrics).map((key) => {
                         const metricKey = key as keyof Metrics;
                         return (

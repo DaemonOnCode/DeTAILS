@@ -379,10 +379,10 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
               </h2>
               <div className="mb-4 text-gray-600">
                 <p>
-                  <strong>Precision:</strong> {seqDiff.precision}
+                  <strong>Weighted Precision:</strong> {seqDiff.precision}
                 </p>
                 <p>
-                  <strong>Recall:</strong> {seqDiff.recall}
+                  <strong>Weighted Recall:</strong> {seqDiff.recall}
                 </p>
               </div>
 

@@ -359,6 +359,11 @@ def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generati
         "codebook_type": codebook_type,
     })
 
+    before_delete = qect_repo.find({
+        "workspace_id": workspace_id,
+        "codebook_type": codebook_type,
+    })
+
     delete_query = """
         DELETE FROM qect
         WHERE id NOT IN (
@@ -392,6 +397,8 @@ def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generati
     })
 
     print(f"Duplicates removed: {duplicates_removed}, Count before: {count_before}, Count after: {count_after}")
+
+    before_delete_response_ids = list(map(lambda x: x.id, before_delete))
     
     state_dump_repo.insert(
         StateDump(
@@ -402,7 +409,7 @@ def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generati
                 "generation_type": generation_type,
                 "count_before": count_before,
                 "count_after": count_after,
-                "duplicate_filtered_codes": after_delete
+                "duplicate_filtered_codes": list(filter(lambda x: x.id not in before_delete_response_ids, after_delete))
             }, cls=DataClassEncoder),
             context=json.dumps({
                 "function": "llm_response_after_filtering_duplicates",

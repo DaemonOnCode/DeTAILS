@@ -111,7 +111,9 @@ function ErrorRates() {
             const func = context.function;
             const postId = context.post_id;
             return (
-              func === "llm_response_after_filtering_duplicates" && !postId
+              func === "llm_response_after_filtering_duplicates" &&
+              !postId &&
+              context.funtion_id === functionId
             );
           } catch (e) {
             return false;
@@ -208,14 +210,12 @@ function ErrorRates() {
           }
         }
 
-        // Add global duplicates to each post's afterDuplicates
         for (const postId in postData) {
           postData[postId]["afterDuplicates"] =
             (postData[postId]["afterDuplicates"] || 0) +
             (globalDuplicateCounts[postId] || 0);
         }
 
-        // Compute error rates
         const individual: RateData[] = [];
         let totalInput = 0;
         let totalOutput = 0;
