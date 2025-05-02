@@ -12,8 +12,6 @@ import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { useLoadingContext } from '../../context/loading-context';
-import { toast } from 'react-toastify';
-import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { useRetryHandler, useNextHandler } from '../../hooks/Coding/use-handler-factory';
 
@@ -27,7 +25,6 @@ const FinalCodingPage = () => {
     const logger = useLogger();
     const navigate = useNavigate();
     const { saveWorkspaceData } = useWorkspaceUtils();
-    const { fetchLLMData } = useApi();
 
     const { loadingState, loadingDispatch, openModal, resetDataAfterPage, checkIfDataExists } =
         useLoadingContext();
@@ -127,7 +124,7 @@ const FinalCodingPage = () => {
                     <UnifiedCodingPage
                         postIds={unseenPostIds}
                         // data={unseenPostResponse}
-                        responseTypes={['sampled', 'unseen']}
+                        responseTypes={['sampled_copy', 'unseen']}
                         dispatchFunction={dispatchUnseenPostResponse}
                         // showThemes
                         showRerunCoding

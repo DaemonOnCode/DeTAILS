@@ -79,6 +79,7 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
     }
   }
   if (currentSequence.length > 0) sequences.push(currentSequence);
+  console.log("Sequences", sequences);
   return sequences;
 };
 
@@ -96,6 +97,7 @@ const extractResults = (
   }
   const resultsArray =
     stateType === "generation" ? state?.results : state?.current_state;
+  console.log(resultsArray, "Concept results");
   if (Array.isArray(resultsArray)) {
     resultsArray.forEach((result: any, index: number) => {
       const word = result.word || "";
@@ -116,7 +118,8 @@ const extractResults = (
           description: result.description || "",
           inclusion_criteria: normalizeCriteria(result.inclusion_criteria),
           exclusion_criteria: normalizeCriteria(result.exclusion_criteria),
-          isMarked: result.isMarked !== undefined ? result.isMarked : null,
+          isMarked:
+            result.is_marked !== undefined ? Boolean(result.is_marked) : null,
         });
       } else {
         console.error(
@@ -130,22 +133,22 @@ const extractResults = (
 };
 
 const mapInitialToIds = (
-  initialResults: Map<string, ConceptOutlineResult>,
-  firstDispatchResults: Map<string, ConceptOutlineResult>
+  initial: Map<string, ConceptOutlineResult>,
+  dispatch: Map<string, ConceptOutlineResult>
 ): Map<string, ConceptOutlineResult> => {
-  const mappedResults = new Map<string, ConceptOutlineResult>();
-  initialResults.forEach((result, word) => {
-    const dispatchResult = [...firstDispatchResults.values()].find(
-      (dr) => dr.word === word
-    );
-    const key = dispatchResult?.id || word;
-    mappedResults.set(key, {
+  const mapped = new Map<string, ConceptOutlineResult>();
+
+  initial.forEach((result) => {
+    const dr = [...dispatch.values()].find((d) => d.word === result.word);
+    const id = dr?.id ?? result.id;
+
+    mapped.set(id!, {
       ...result,
-      id: dispatchResult?.id || null,
-      isMarked: dispatchResult?.isMarked ?? null,
+      id,
     });
   });
-  return mappedResults;
+
+  return mapped;
 };
 
 const computeChanges = async (
@@ -156,6 +159,8 @@ const computeChanges = async (
   const prevKeys = new Set(prevResults.keys());
   const currKeys = new Set(currResults.keys());
 
+  // console.log("Previous keys:", prevKeys, "Current keys:", currKeys);
+
   const inserted = [...currKeys]
     .filter((key) => !prevKeys.has(key))
     .map((key) => currResults.get(key)!);
@@ -165,6 +170,15 @@ const computeChanges = async (
   const updated: FieldChange[] = [];
 
   const commonKeys = [...prevKeys].filter((key) => currKeys.has(key));
+
+  // console.log(
+  //   "Common keys:",
+  //   commonKeys,
+  //   "Inserted keys:",
+  //   inserted,
+  //   "Deleted keys:",
+  //   deleted
+  // );
 
   for (const key of commonKeys) {
     const prev = prevResults.get(key);
@@ -249,15 +263,21 @@ const computeMetrics = async (
   const initialKeys = new Set(initialResults.keys());
   const finalKeys = new Set(finalResults.keys());
 
+  // console.log("Initial keys:", initialKeys, "Final keys:", finalKeys);
+
   const common = [...initialKeys].filter((k) => finalKeys.has(k));
   const inserted = [...finalKeys].filter((k) => !initialKeys.has(k));
   const deleted = [...initialKeys].filter((k) => !finalKeys.has(k));
 
-  let unweightedTP = 0;
+  console.log(`Number of common concept outlines: ${common.length}`);
+  console.log(`Number of inserted concept outlines: ${inserted.length}`);
+  console.log(`Number of deleted concept outlines: ${deleted.length}`);
 
+  let unweightedTP = 0;
   let TP = 0;
   for (const key of common) {
     const fin = finalResults.get(key)!;
+    // console.log(finalResults.get(key), "finalResults", key);
     if (fin.isMarked === true) {
       const init = initialResults.get(key)!;
       const fields: Array<keyof Omit<ConceptOutlineResult, "id" | "isMarked">> =
@@ -266,8 +286,12 @@ const computeMetrics = async (
         fields.map((f) => getSimilarity(init[f] || "", fin[f] || ""))
       );
       const avgSim = sims.reduce((sum, x) => sum + x, 0) / sims.length;
-      TP += sims.every((s) => s === 1) ? 1 : avgSim;
+      const contribution = sims.every((s) => s === 1) ? 1 : avgSim;
+      TP += contribution;
       unweightedTP++;
+      console.log(
+        `Common marked true: key=${key}, contribution=${contribution}`
+      );
     }
   }
 
@@ -279,8 +303,19 @@ const computeMetrics = async (
     (key) => finalResults.get(key)!.isMarked === true
   ).length;
 
+  console.log(`Number of common marked true: ${unweightedTP}`);
+  console.log(`Number of common marked false: ${falseMarked}`);
+  console.log(`Number of inserted marked true: ${FN}`);
+  console.log(`TP (sum of similarities): ${TP}`);
+  console.log(`FP: ${FP}`);
+  console.log(`FN: ${FN}`);
+  console.log(`Tp/TP: ${TP / unweightedTP}`, TP, unweightedTP);
+
   const precision = TP + FP > 0 ? TP / (unweightedTP + FP) : 0;
   const recall = TP + FN > 0 ? TP / (unweightedTP + FN) : 0;
+
+  console.log(`Precision: ${precision}`);
+  console.log(`Recall: ${recall}`);
 
   return { precision, recall };
 };
@@ -323,6 +358,7 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
           ORDER BY created_at ASC
         `;
         const result = await executeQuery(query, [selectedWorkspaceId]);
+        console.log("Fetched entries:", result);
         setSequences(groupEntriesIntoSequences(result));
       } catch (error) {
         console.error("Error fetching entries:", error);
@@ -338,6 +374,7 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
     const computeDiffs = async () => {
       const diffs = await Promise.all(
         sequences.map(async (sequence, seqIndex) => {
+          console.group(`Sequence ${seqIndex + 1}`);
           const initialEntry = sequence[0];
           const initialContext = safeParseContext(initialEntry.context);
           const isRegeneration = initialContext.run === "regenerate";
@@ -348,6 +385,9 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
           const finalTimestamp = new Date(
             finalEntry.created_at
           ).toLocaleString();
+
+          console.log(`Initial timestamp: ${initialTimestamp}`);
+          console.log(`Final timestamp: ${finalTimestamp}`);
 
           const initialState = safeParseState(initialEntry.state);
           let initialResults = extractResults(initialState, "generation");
@@ -375,6 +415,7 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
               ? extractResults(finalState, "dispatch")
               : initialResults;
 
+          console.log(initialResults, finalResults, "Result comparison");
           const changes = await computeChanges(
             initialResults,
             finalResults,
@@ -401,6 +442,7 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
             prevResults = currResults;
           }
 
+          console.groupEnd();
           return {
             sequenceId: seqIndex + 1,
             initialTimestamp,
@@ -456,7 +498,7 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
         return "";
     }
     if (change.similarity !== undefined) {
-      base += `, Similarity: ${change.similarity.toFixed(3)}`;
+      base += `, Similarity: ${change.similarity}`;
     }
     return base;
   };
@@ -496,11 +538,10 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
               </h2>
               <div className="mb-4 text-gray-600">
                 <p>
-                  <strong>Weighted Precision:</strong>{" "}
-                  {seqDiff.precision.toFixed(3)}
+                  <strong>Weighted Precision:</strong> {seqDiff.precision}
                 </p>
                 <p className="mt-2">
-                  <strong>Weighted Recall:</strong> {seqDiff.recall.toFixed(3)}
+                  <strong>Weighted Recall:</strong> {seqDiff.recall}
                 </p>
                 <p className="mb-2 text-sm text-gray-500">
                   <strong>Weighted Precision</strong>: True Positives (Correct
@@ -616,7 +657,7 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                               )}
                               {type !== "is_marked_changed" && (
                                 <td className="p-2 border">
-                                  {change.similarity?.toFixed(3) || "-"}
+                                  {change.similarity || "-"}
                                 </td>
                               )}
                               {type === "is_marked_changed" && (

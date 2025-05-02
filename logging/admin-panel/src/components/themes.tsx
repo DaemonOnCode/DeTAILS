@@ -451,10 +451,10 @@ const ThemesDiffViewer: React.FC = () => {
             </h2>
             <div className="mb-4 text-gray-600">
               <p>
-                <strong>Precision:</strong> {seqDiff.precision.toFixed(3)}
+                <strong>Precision:</strong> {seqDiff.precision}
               </p>
               <p>
-                <strong>Recall:</strong> {seqDiff.recall.toFixed(3)}
+                <strong>Recall:</strong> {seqDiff.recall}
               </p>
             </div>
 
@@ -509,13 +509,11 @@ const ThemesDiffViewer: React.FC = () => {
                       <td className="p-2 border">{metric.finalName}</td>
                       <td className="p-2 border">
                         {metric.similarity !== undefined
-                          ? metric.similarity.toFixed(3)
+                          ? metric.similarity
                           : "N/A"}
                       </td>
-                      <td className="p-2 border">
-                        {metric.precision.toFixed(3)}
-                      </td>
-                      <td className="p-2 border">{metric.recall.toFixed(3)}</td>
+                      <td className="p-2 border">{metric.precision}</td>
+                      <td className="p-2 border">{metric.recall}</td>
                     </tr>
                   ))}
                 </tbody>

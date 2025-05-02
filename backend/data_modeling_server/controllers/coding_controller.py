@@ -12,14 +12,14 @@ from chromadb import HttpClient
 from fastapi import UploadFile
 
 from chromadb.config import Settings as ChromaDBSettings
-from constants import CHROMA_PORT, CODEBOOK_TYPE_MAP, CONTEXT_FILES_DIR, PATHS, STUDY_DATABASE_PATH
+from constants import CHROMA_PORT, CONTEXT_FILES_DIR, PATHS, STUDY_DATABASE_PATH
 from database.qect_table import QectRepository
 from database.selected_post_ids_table import SelectedPostIdsRepository
 from database.state_dump_table import StateDumpsRepository
 from decorators import log_execution_time
 from ipc import send_ipc_message
-from models.table_dataclasses import CodebookType, LlmResponse, QectResponse, ResponseCreatorType, StateDump
-from routes.websocket_routes import ConnectionManager, manager
+from models.table_dataclasses import CodebookType, DataClassEncoder, LlmResponse, QectResponse, ResponseCreatorType, StateDump
+from routes.websocket_routes import ConnectionManager
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
@@ -31,11 +31,11 @@ from starlette.concurrency import run_in_threadpool
 
 from services.llm_service import GlobalQueueManager
 from database import LlmResponsesRepository
-from database.db_helpers import execute_query
 from utils.prompts import TopicClustering
 
 llm_responses_repo = LlmResponsesRepository()
 qect_repo = QectRepository()
+selected_post_ids_repo = SelectedPostIdsRepository()
 
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
@@ -194,7 +194,7 @@ async def process_llm_task(
                     else:
                        job_id, response_future = await llm_queue_manager.submit_task(llm_instance.invoke, function_id, prompt_text)
 
-            response = await response_future
+            response = await asyncio.wait_for(response_future, timeout=5 * 60)
 
             response = response["answer"] if retriever else response.content
             state_dump_repo.insert(
@@ -257,7 +257,7 @@ def normalize_text(text: str) -> str:
     text = text.strip()
     return text
 
-def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript: str, parent_function_name: str = "", post_id: str = "") -> list[dict]:
+def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript: str, parent_function_name: str = "", post_id: str = "", function_id: str = None) -> list[dict]:
     normalized_transcript = normalize_text(transcript)
 
     hallucination_filtered_codes = []
@@ -282,6 +282,7 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
                 "parent_function_name": parent_function_name,
                 "workspace_id": workspace_id,
                 "post_id": post_id,
+                "function_id": function_id
             }),
         )
     )
@@ -314,6 +315,7 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
                 "parent_function_name": parent_function_name,
                 "workspace_id": workspace_id,
                 "post_id": post_id,
+                "function_id": function_id
             }),
         )
     )
@@ -321,7 +323,7 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
     return duplicate_filtered_codes
 
 
-def filter_duplicate_codes(codes: List[Dict[str, Any]], parent_function_name: str, workspace_id: str) -> List[Dict[str, Any]]:
+def filter_duplicate_codes(codes: List[Dict[str, Any]], parent_function_name: str, workspace_id: str, function_id: str = None) -> List[Dict[str, Any]]:
     seen_pairs = set()
     filtered_codes = []
     for code in codes:
@@ -344,13 +346,14 @@ def filter_duplicate_codes(codes: List[Dict[str, Any]], parent_function_name: st
                 "function": "llm_response_after_filtering_duplicates",
                 "parent_function_name": parent_function_name,
                 "workspace_id": workspace_id,
+                "function_id": function_id
             }),
         )
     )
     
     return filtered_codes
 
-def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generation_type: str, parent_function_name: str):
+def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generation_type: str, parent_function_name: str, function_id: str = None):
     count_before = qect_repo.count({
         "workspace_id": workspace_id,
         "codebook_type": codebook_type,
@@ -383,28 +386,35 @@ def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generati
     
     duplicates_removed = count_before - count_after
 
+    after_delete = qect_repo.find({
+        "workspace_id": workspace_id,
+        "codebook_type": codebook_type,
+    })
+
     print(f"Duplicates removed: {duplicates_removed}, Count before: {count_before}, Count after: {count_after}")
     
     state_dump_repo.insert(
         StateDump(
             state=json.dumps({
-                "duplicates_removed": duplicates_removed,
+                "difference": duplicates_removed,
                 "workspace_id": workspace_id,
                 "codebook_type": codebook_type,
                 "generation_type": generation_type,
                 "count_before": count_before,
                 "count_after": count_after,
-            }),
+                "duplicate_filtered_codes": after_delete
+            }, cls=DataClassEncoder),
             context=json.dumps({
                 "function": "llm_response_after_filtering_duplicates",
                 "parent_function_name": parent_function_name,
                 "workspace_id": workspace_id,
+                "function_id": function_id
             }),
         )
     )
 
 
-def insert_responses_into_db(responses: List[Dict[str, Any]], workspace_id: str, model: str, codebook_type: str, parent_function_name: str = "", post_id: str = "") -> List[Dict[str, Any]]:
+def insert_responses_into_db(responses: List[Dict[str, Any]], workspace_id: str, model: str, codebook_type: str, parent_function_name: str = "", post_id: str = "", function_id: str = None) -> List[Dict[str, Any]]:
     initial_responses = responses
     responses = list(filter(lambda response: response.get("code") and response.get("quote") and response.get("explanation"), responses))
     qect_repo.insert_batch(
@@ -442,6 +452,7 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], workspace_id: str,
                 "parent_function_name": parent_function_name,
                 "workspace_id": workspace_id,
                 "post_id": post_id,
+                "function_id": function_id
             }),
         )
     )
@@ -899,20 +910,21 @@ def _apply_type_filters(responseTypes: List[str], filters: List[str], params: Li
     conds = []
     if not responseTypes:
         conds = [
-            "(r.codebook_type = 'final' AND r.response_type = 'LLM')",
+            "(r.codebook_type = 'final')",
             "(r.codebook_type = 'initial')",
             "(r.codebook_type = 'manual')",
+            "(r.codebook_type = 'initial_copy')"
         ]
     else:
         if 'unseen' in responseTypes:
-            conds.append("(r.codebook_type = 'final' AND r.response_type = 'LLM')")
+            conds.append("(r.codebook_type = 'final')")
+        if 'sampled_copy' in responseTypes:
+            conds.append("(r.codebook_type = 'initial_copy')")
         if 'sampled' in responseTypes:
             conds.append("r.codebook_type = 'initial'")
         if 'manual' in responseTypes:
             conds.append("r.codebook_type = 'manual'")
     filters.append(f"({' OR '.join(conds)})")
-
-selected_post_ids_repo = SelectedPostIdsRepository()
 
 def stream_selected_post_ids(
     workspace_id: str,

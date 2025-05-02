@@ -121,7 +121,7 @@ const TranscriptPage = ({
                 allCodes: string[];
             }>(REMOTE_SERVER_ROUTES.GET_POST_TRANSCRIPT_DATA, {
                 method: 'POST',
-                body: JSON.stringify({ postId, manualCoding: true })
+                body: JSON.stringify({ postId, manualCoding: true, responseTypes: ['manual'] })
             });
             if (error) {
                 console.error('Error fetching post:', error);

@@ -26,6 +26,7 @@ def execute_query(query: str, params: tuple = (), keys = False) -> List[tuple]:
         if keys:
             conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
+        print(f"Executing query: {query} with params: {params}")
         cursor.execute(query, params)
         conn.commit()
         if keys:

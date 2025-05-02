@@ -64,10 +64,8 @@ def get_current_download_dir():
 
 
 def normalize_file_key(file_key: str, current_download_dir: str = None) -> str:
-    """
-    If the file_key is an absolute path that starts with TRANSMISSION_DOWNLOAD_DIR,
-    convert it to a relative path; otherwise, return the key unchanged.
-    """
+    # If the file_key is an absolute path that starts with TRANSMISSION_DOWNLOAD_DIR,
+    # convert it to a relative path; otherwise, return the key unchanged.
     if current_download_dir is None:
         TRANSMISSION_DOWNLOAD_DIR_ABS = get_current_download_dir()
     else:

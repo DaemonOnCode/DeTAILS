@@ -18,7 +18,7 @@ from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from ipc import send_ipc_message
 from models.coding_models import GenerateConceptDefinitionsRequest, RegenerateConceptsRequest
-from models.table_dataclasses import Concept, ConceptEntry, SelectedConcept, StateDump
+from models.table_dataclasses import Concept, ConceptEntry, DataClassEncoder, SelectedConcept, StateDump
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from routes.websocket_routes import manager
@@ -234,6 +234,7 @@ async def generate_definitions_endpoint(
                 description=entry.get("description"),
                 inclusion_criteria=", ".join(entry.get("inclusion_criteria")),
                 exclusion_criteria=", ".join(entry.get("exclusion_criteria")),
+                is_marked=True
             )
             for entry in results
         ]
@@ -253,8 +254,8 @@ async def generate_definitions_endpoint(
                 "research_questions": researchQuestions,
                 "additional_info": additionalInfo,
                 "concepts": batch_words,
-                "results": results
-            }),
+                "results": concept_entries
+            }, cls=DataClassEncoder),
             context=json.dumps({
                 "function": "concept_table",
                 "run":"initial",

@@ -9,7 +9,12 @@ import {
 } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import debounce from 'lodash/debounce';
-import { BaseResponseHandlerActions } from '../../../types/Coding/shared';
+import {
+    BaseResponseHandlerActions,
+    CoderType,
+    ResponseType,
+    SelectedTypeFilter
+} from '../../../types/Coding/shared';
 import { useCodingContext } from '../../../context/coding-context';
 import LeftPanel from './left-panel';
 import ReviewToggle from './review-toggle';
@@ -18,14 +23,13 @@ import { DetailsLLMIcon } from '../../Shared/Icons';
 import { toast } from 'react-toastify';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../../constants/Shared';
-import { useCollectionContext } from '../../../context/collection-context';
 import { downloadFileWithStreaming } from '../../../utility/file-downloader';
 import { usePaginatedResponses } from '../../../hooks/Coding/use-paginated-responses';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 
 interface UnifiedCodingPageProps {
     postIds: string[];
-    responseTypes?: ('sampled' | 'unseen' | 'manual')[];
+    responseTypes?: ResponseType[];
     dispatchFunction: (action: any, refreshRef?: RefObject<any>) => void;
     review?: boolean;
     showThemes?: boolean;
@@ -39,13 +43,12 @@ interface UnifiedCodingPageProps {
     manualCoding?: boolean;
     onPostSelect?: (postId: string | null) => void;
     showCoderType?: boolean;
-    coderType?: 'Human' | 'LLM';
+    coderType?: CoderType;
     applyFilters?: boolean;
 }
 
 const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     postIds: _postIds,
-    // data,
     review: reviewParam,
     responseTypes = ['sampled'],
     dispatchFunction,
@@ -72,14 +75,15 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         unseenPostIds,
         dispatchSampledPostResponse,
         dispatchUnseenPostResponse,
-        dispatchAllPostResponse
+        dispatchAllPostResponse,
+        dispatchSampledCopyPostResponse
     } = useCodingContext();
 
     const [review, setReview] = useState(reviewParam ?? true);
     const [filter, setFilter] = useState<string | null>(null);
-    const [selectedTypeFilter, setSelectedTypeFilter] = useState<
-        'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All'
-    >(showCoderType ? 'All' : 'New Data');
+    const [selectedTypeFilter, setSelectedTypeFilter] = useState<SelectedTypeFilter>(
+        showCoderType ? 'All' : 'New Data'
+    );
 
     const [activeTab, setActiveTab] = useState<'posts' | 'codes'>('posts');
     const [searchQuery, setSearchQuery] = useState('');
@@ -118,7 +122,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         );
         setActiveTab(tab);
         setFilter(selected);
-        setSelectedTypeFilter(type as 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All');
+        setSelectedTypeFilter(type as SelectedTypeFilter);
     }, [location.search]);
 
     const debouncedUpdateUrl = useMemo(
@@ -166,7 +170,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         if (selectedTypeFilter === 'Codebook') {
             console.log(action, 'route dispatch codebook updating sample');
             // @ts-ignore
-            dispatchResult = dispatchSampledPostResponse({ ...action }, refreshRef);
+            dispatchResult = dispatchSampledCopyPostResponse({ ...action }, refreshRef);
         } else if (selectedTypeFilter === 'New Data') {
             console.log(action, 'route dispatch newdata updating unseen');
             // @ts-ignore
@@ -234,7 +238,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         const payload = {
             workspace_id: currentWorkspace?.id,
             post_ids: [
-                ...(responseTypes.find((type) => type === 'sampled') ? sampledPostIds : []),
+                ...(responseTypes.find((type) => type === 'sampled_copy') ? sampledPostIds : []),
                 ...(responseTypes.find((type) => type === 'unseen') ? unseenPostIds : [])
             ]
         };
@@ -265,13 +269,6 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         },
         [refresh, selectedTypeFilter]
     );
-
-    const effectiveDispatch = dispatchWithRefresh;
-    // useMemo(()=>{
-    //     return coderType && !(selectedTypeFilter === 'Human' || selectedTypeFilter === 'LLM')
-    //     ? routeDispatch
-    //     : dispatchFunction
-    // }, [coderType, selectedTypeFilter, dispatchFunction]);
 
     const handleViewTranscript = useCallback(
         (postId: string | null) => {
@@ -324,7 +321,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     );
 
     const handleUpdateResponses = (updatedResponses: any[]) => {
-        effectiveDispatch({
+        dispatchWithRefresh({
             type: 'SET_PARTIAL_RESPONSES',
             responses: updatedResponses
         });
@@ -332,7 +329,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     const handleSelectedTypeFilter = (type: string) => {
         setFilter(null);
-        setSelectedTypeFilter(type as 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All');
+        setSelectedTypeFilter(type as SelectedTypeFilter);
     };
 
     const handleReRunCoding = () => {
@@ -402,7 +399,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                     <div className="flex-1 overflow-y-auto px-6">
                         <ValidationTable
                             codeResponses={Object.values(responsesByPostId).flat() as any[]}
-                            dispatchCodeResponses={effectiveDispatch}
+                            dispatchCodeResponses={dispatchWithRefresh}
                             onViewTranscript={handleViewTranscript}
                             review={review}
                             showThemes={showThemes}

@@ -4,19 +4,19 @@ import {
     usePaginatedPostsMetadata,
     usePaginatedCodesMetadata
 } from '../../../hooks/Coding/use-paginated-metadata';
-import { SetState } from '../../../types/Coding/shared';
+import { ResponseType, SelectedTypeFilter, SetState } from '../../../types/Coding/shared';
 import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
 import { useInfiniteScroll } from '../../../hooks/Coding/use-infinite-scroll';
 import { DEBOUNCE_DELAY } from '../../../constants/Shared';
 import useDebounce from '../../../hooks/Shared/use-debounce';
 
 interface LeftPanelProps {
-    responseTypes: ('sampled' | 'unseen' | 'manual')[];
+    responseTypes: ResponseType[];
     activeTab: 'posts' | 'codes';
     filter: string | null;
     onFilterSelect: (f: string | null) => void;
     showTypeFilterDropdown?: boolean;
-    selectedTypeFilter: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
+    selectedTypeFilter: SelectedTypeFilter;
     handleSelectedTypeFilter?: SetState<string>;
     showCoderType?: boolean;
     setActiveTab: SetState<'posts' | 'codes'>;
@@ -41,7 +41,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
     selectedItem,
     setSelectedItem
 }) => {
-    const { scrollRef: listRef, storageKey } = useScrollRestoration('left-panel');
+    const { scrollRef: listRef } = useScrollRestoration('left-panel');
 
     const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
 

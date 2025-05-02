@@ -2,8 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApi } from '../Shared/use-api';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
-
-type ResponseType = 'sampled' | 'unseen' | 'manual';
+import { ResponseType, SelectedTypeFilter } from '../../types/Coding/shared';
 
 interface BaseArgs {
     pageSize?: number;
@@ -11,7 +10,6 @@ interface BaseArgs {
     searchTerm?: string;
 }
 
-// --- Posts metadata ---
 export function usePaginatedPostsMetadata({
     pageSize = 20,
     responseTypes,
@@ -20,7 +18,7 @@ export function usePaginatedPostsMetadata({
     selectedTypeFilter = 'New Data'
 }: {
     pageSize?: number;
-    responseTypes: ('sampled' | 'unseen' | 'manual')[];
+    responseTypes: ResponseType[];
     searchTerm?: string;
     onlyCoded?: boolean;
     selectedTypeFilter?: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
@@ -91,14 +89,13 @@ export function usePaginatedPostsMetadata({
     };
 }
 
-// --- Codes metadata ---
 export function usePaginatedCodesMetadata({
     pageSize = 50,
     responseTypes,
     searchTerm = '',
     selectedTypeFilter = 'New Data'
 }: BaseArgs & {
-    selectedTypeFilter?: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
+    selectedTypeFilter?: SelectedTypeFilter;
 }) {
     const { fetchData } = useApi();
     const [page, setPage] = useState(1);

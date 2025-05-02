@@ -82,7 +82,7 @@ FRONTEND_PAGE_MAPPER = {
     "/code/loading-data/dataset-creation": "dataset_creation",
     "/code/coding/initial-coding": "initial_coding",
     "/code/coding/initial-codebook": "initial_codebook",
-    "/code/coding/generate-final-codes": "final_coding",
+    "/code/coding/final-coding": "final_coding",
     "/code/reviewing-codes": "reviewing_codes",
     "/code/generating-themes": "generating_themes",
     "/code/report": "report"
@@ -106,5 +106,6 @@ PAGE_TO_STATES = {
 CODEBOOK_TYPE_MAP = {
     "sampled": "initial",
     "unseen": "final",
-    "manual": "manual"
+    "manual": "manual",
+    "sampled_copy": "initial_copy",
 }

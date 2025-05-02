@@ -1,11 +1,12 @@
 import asyncio
+from datetime import datetime
 import json
 import time
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from constants import STUDY_DATABASE_PATH
-from controllers.coding_controller import filter_codes_by_transcript,insert_responses_into_db, process_llm_task, stream_selected_post_ids, summarize_codebook_explanations
+from controllers.coding_controller import filter_codes_by_transcript, filter_duplicate_codes_in_db,insert_responses_into_db, process_llm_task, stream_qect_pages, stream_selected_post_ids, summarize_codebook_explanations
 from controllers.collection_controller import get_reddit_post_by_id
 from database import (
     FunctionProgressRepository, 
@@ -22,7 +23,7 @@ from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from ipc import send_ipc_message
 from models.coding_models import GenerateFinalCodesRequest, RedoFinalCodingRequest
-from models.table_dataclasses import CodebookType, FunctionProgress, StateDump
+from models.table_dataclasses import CodebookType, FunctionProgress, GenerationType, QectResponse, StateDump
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
@@ -71,7 +72,7 @@ async def final_coding_endpoint(
     main_topic = coding_context.main_topic
     additional_info = coding_context.additional_info or ""
     research_questions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
-    concept_table = concept_entries_repo.find({"coding_context_id": workspace_id}, map_to_model=False)
+    concept_table = concept_entries_repo.find({"coding_context_id": workspace_id, "is_marked": True}, map_to_model=False)
 
     start_time = time.time()
 
@@ -159,7 +160,7 @@ async def final_coding_endpoint(
                     code["postId"] = post_id
                     code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="final-coding", post_id=post_id)
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="final-coding", post_id=post_id, function_id=function_id)
                 function_progress_repo.update({
                         "function_id": function_id,
                     }, {
@@ -168,7 +169,7 @@ async def final_coding_endpoint(
                         }).current + 1
                     })
 
-                codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="final-coding", post_id=post_id)
+                codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="final-coding", post_id=post_id, function_id=function_id)
 
             await send_ipc_message(app_id, f"Dataset {workspace_id}: Generated codes for post {post_id}...")
             return codes
@@ -181,6 +182,27 @@ async def final_coding_endpoint(
             await asyncio.gather(*(process_post(post_id) for post_id in batch))
             
         await send_ipc_message(app_id, f"Dataset {workspace_id}: All posts processed successfully.")
+
+        async for batch in stream_qect_pages(
+            workspace_id=workspace_id,
+            codebook_types=[CodebookType.INITIAL.value],
+        ):
+            for row in batch:
+                row["id"] = str(uuid4())
+                row["codebook_type"] = CodebookType.INITIAL_COPY.value
+                row["created_at"] = datetime.now()
+
+            qect_repo.insert_batch(list(map(lambda x: QectResponse(**x), batch)))
+
+
+        filter_duplicate_codes_in_db(
+            workspace_id=workspace_id,
+            codebook_type=CodebookType.FINAL.value,
+            generation_type=GenerationType.INITIAL.value,
+            parent_function_name="final-coding", 
+            function_id=function_id
+        )
+
 
         state_dump_repo.insert(
             StateDump(
@@ -198,6 +220,12 @@ async def final_coding_endpoint(
                 }),
             )
         )
+
+        function_progress_repo.update({
+            "function_id": function_id,
+        }, {
+            "status": "completed",
+        })
 
         return {
             "message": "Final coding completed successfully!",
@@ -232,7 +260,7 @@ async def redo_final_coding_endpoint(
     main_topic = coding_context.main_topic
     additional_info = coding_context.additional_info or ""
     research_questions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
-    concept_table = concept_entries_repo.find({"coding_context_id": workspace_id}, map_to_model=False)
+    concept_table = concept_entries_repo.find({"coding_context_id": workspace_id, "is_marked": True}, map_to_model=False)
 
     start_time = time.time()
 
@@ -253,7 +281,7 @@ async def redo_final_coding_endpoint(
 
         summarized_current_codebook_dict = await summarize_codebook_explanations(
             workspace_id = workspace_id,
-            codebook_types = [CodebookType.FINAL.value],
+            codebook_types = [CodebookType.INITIAL_COPY.value, CodebookType.FINAL.value],
             llm_model = request_body.model,
             app_id = app_id,
             manager = manager,
@@ -291,6 +319,7 @@ async def redo_final_coding_endpoint(
                     app_id=app_id,
                     post_id=post_id,
                     manager=manager,
+                    function_id=function_id,
                     llm_model=request_body.model,
                     regex_pattern=r"```json\s*([\s\S]*?)\s*```",
                     prompt_builder_func=RemakerPrompts.redo_final_coding_prompt,
@@ -328,9 +357,9 @@ async def redo_final_coding_endpoint(
                     code["postId"] = post_id
                     code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-final-coding", post_id=post_id)
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-final-coding", post_id=post_id, function_id=function_id)
 
-                codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="redo-final-coding", post_id=post_id)
+                codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.FINAL.value, parent_function_name="redo-final-coding", post_id=post_id, function_id=function_id)
             await send_ipc_message(app_id, f"Dataset {workspace_id}: Generated codes for post {post_id}...")
             return codes
 
@@ -343,6 +372,14 @@ async def redo_final_coding_endpoint(
 
 
         await send_ipc_message(app_id, f"Dataset {workspace_id}: All posts processed successfully.")
+
+        filter_duplicate_codes_in_db(
+            workspace_id=workspace_id,
+            codebook_type=CodebookType.FINAL.value,
+            generation_type=GenerationType.LATEST.value,
+            parent_function_name="redo-final-coding", 
+            function_id=function_id
+        )
 
         state_dump_repo.insert(
             StateDump(
@@ -361,6 +398,12 @@ async def redo_final_coding_endpoint(
                 }),
             )
         )
+
+        function_progress_repo.update({
+            "function_id": function_id,
+        }, {
+            "status": "completed",
+        })
 
         return {
             "message": "Final coding completed successfully!"

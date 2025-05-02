@@ -77,7 +77,7 @@ async def theme_generation_endpoint(
     summaries = await summarize_codebook_explanations(
         workspace_id = workspace_id,
         codebook_types = [
-            CodebookType.INITIAL.value,
+            CodebookType.INITIAL_COPY.value,
             CodebookType.FINAL.value
         ],
         llm_model = request_body.model,
@@ -224,7 +224,7 @@ async def redo_theme_generation_endpoint(
         llm_instance = llm,
         llm_queue_manager = llm_queue_manager,
         codebook_types = [
-            CodebookType.INITIAL.value,
+            CodebookType.INITIAL_COPY.value,
             CodebookType.FINAL.value
         ],
         code_transform = to_higher,

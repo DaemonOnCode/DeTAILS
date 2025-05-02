@@ -36,7 +36,7 @@ from models import WorkspaceState, Workspace
 from models.state_models import CodingContext, CollectionContext, LoadingContext, ManualCodingContext, ModelingContext
 from models.table_dataclasses import CodebookType, DataClassEncoder, StateDump
 from utils.chroma_export import chroma_export_cli, chroma_import
-from utils.reducers import process_all_responses_action, process_concept_table_action, process_grouped_codes_action, process_initial_codebook_table_action, process_sampled_post_response_action, process_themes_action, process_unseen_post_response_action
+from utils.reducers import process_all_responses_action, process_concept_table_action, process_grouped_codes_action, process_initial_codebook_table_action, process_sampled_copy_post_response_action, process_sampled_post_response_action, process_themes_action, process_unseen_post_response_action
 
 workspace_state_repo = WorkspaceStatesRepository()
 workspaces_repo = WorkspacesRepository()
@@ -478,6 +478,30 @@ def load_sampled_post_response(workspace_id: str) -> List[Dict[str, Any]]:
         for qr in qect_responses
     ]
 
+def load_sampled_copy_post_response(workspace_id: str) -> List[Dict[str, Any]]:
+    sampled_posts = selected_posts_repo.find({"workspace_id": workspace_id, "type": "sampled"})
+    post_ids = [sp.post_id for sp in sampled_posts]
+    qect_responses = qect_repo.find({
+        "workspace_id": workspace_id,
+        "post_id": post_ids,
+        "codebook_type": CodebookType.INITIAL_COPY.value
+    })
+    return [
+        {
+            "id": qr.id,
+            "quote": qr.quote,
+            "code": qr.code,
+            "explanation": qr.explanation,
+            "postId": qr.post_id,
+            "chatHistory": json.loads(qr.chat_history) if qr.chat_history else None,
+            "isMarked": bool(qr.is_marked) if qr.is_marked is not None else None,
+            "comment": "",
+            "rangeMarker": json.loads(qr.range_marker) if qr.range_marker else None,
+        }
+        for qr in qect_responses
+    ]
+
+
 def load_main_topic(workspace_id: str) -> str:
     coding_context = coding_context_repo.find_one({"id": workspace_id}, fail_silently=True)
     return coding_context.main_topic or "" if coding_context else ""
@@ -553,6 +577,7 @@ load_functions = {
     "selectedConcepts": load_selected_concepts,
     "conceptOutlineTable": load_concept_outline_table,
     "sampledPostResponse": load_sampled_post_response,
+    "sampledCopyPostResponse": load_sampled_copy_post_response,
     "sampledPostIds": lambda ws: [sp.post_id for sp in selected_posts_repo.find({"workspace_id": ws, "type": "sampled"})],
     "unseenPostIds": lambda ws: [sp.post_id for sp in selected_posts_repo.find({"workspace_id": ws, "type": "unseen"})],
     "unseenPostResponse": lambda ws: [
@@ -624,6 +649,23 @@ dispatch_configs = {
         "repo": initial_codebook_repo,
         "conditions": lambda ws: {"coding_context_id": ws},
         "format_func": lambda entry: entry.to_dict()
+    },
+    "dispatchSampledCopyPostResponse": {
+        "response_key": "sampledCopyPostResponse",
+        "process_func": process_sampled_copy_post_response_action,
+        "repo": qect_repo,
+        "conditions": lambda ws: {"workspace_id": ws, "codebook_type": CodebookType.INITIAL_COPY.value},
+        "format_func": lambda response: {
+            "id": response.id,
+            "quote": response.quote,
+            "code": response.code,
+            "explanation": response.explanation,
+            "postId": response.post_id,
+            "chatHistory": json.loads(response.chat_history) if response.chat_history else None,
+            "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
+            "comment": "",
+            "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
+        }
     },
     "dispatchUnseenPostResponse": {
         "response_key": "unseenPostResponse",

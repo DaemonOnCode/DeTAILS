@@ -30,32 +30,14 @@ def create_workspace(data):
         )
     )
 
-    # execute_query(
-    #     "INSERT INTO workspaces (id, name, description, user_email) VALUES (?, ?, ?, ?)",
-    #     (workspace_id, data.name, data.description, data.user_email),
-    # )
     return workspace_repo.find_one({
         "id": workspace_id
     }).to_dict()
 
 def get_workspaces(user_email: str):
     return workspace_repo.find({"user_email": user_email})
-    # return execute_query(
-    #     "SELECT * FROM workspaces WHERE user_email = ?", (user_email,), keys=True
-    # )
 
 def update_workspace(data):
-    # updates = []
-    # params = []
-    # if data.name:
-    #     updates.append("name = ?")
-    #     params.append(data.name)
-    # if data.description:
-    #     updates.append("description = ?")
-    #     params.append(data.description)
-    # params.append(data.id)
-    # query = f"UPDATE workspaces SET {', '.join(updates)} WHERE id = ?"
-    # execute_query(query, tuple(params))
     state_dump_repo.insert(
         StateDump(
             state=json.dumps({
@@ -102,17 +84,9 @@ def create_temp_workspace(user_email: str):
     except Exception as e:
         print(e)
         existing_workspace = None
-    # existing_workspace = execute_query(
-    #     "SELECT id FROM workspaces WHERE user_email = ? AND name = ?",
-    #     (user_email, "Temporary Workspace"),
-    #     keys=True,
-    # )
-    
     if existing_workspace:
-        # Return the existing temporary workspace ID
         return {"message": "Temporary workspace already exists.", "id": existing_workspace.id}
 
-    # Create a new temporary workspace
     workspace_id = str(uuid4())
     workspace_repo.insert(Workspace(
         id=workspace_id,
@@ -120,10 +94,6 @@ def create_temp_workspace(user_email: str):
         description= "This is a temporary workspace.",
         user_email=user_email
     ))
-    # execute_query(
-    #     "INSERT INTO workspaces (id, name, description, user_email) VALUES (?, ?, ?, ?)",
-    #     (workspace_id, "Temporary Workspace", "This is a temporary workspace.", user_email),
-    # )
 
     return workspace_id
 
@@ -132,7 +102,3 @@ def upgrade_workspace_from_temp(workspace_id: str, new_name: str):
         "name":new_name,
         "description": 'Upgraded from temporary workspace'
     })
-    # execute_query(
-    #     "UPDATE workspaces SET name = ?, description = 'Upgraded workspace' WHERE id = ?",
-    #     (new_name, workspace_id),
-    # )

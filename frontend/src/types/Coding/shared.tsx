@@ -431,3 +431,9 @@ export type BaseBucketAction =
     | { type: 'MOVE_CODE'; payload: { code: string; targetBucketId: string } }
     | { type: 'MOVE_UNPLACED_TO_MISC' }
     | { type: 'RESTORE_STATE'; payload: GroupedCodeBucket[] | ThemeBucket[] };
+
+export type ResponseType = 'sampled' | 'unseen' | 'manual' | 'sampled_copy';
+
+export type SelectedTypeFilter = 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
+
+export type CoderType = 'Human' | 'LLM';

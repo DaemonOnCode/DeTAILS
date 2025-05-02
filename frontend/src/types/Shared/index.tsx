@@ -112,6 +112,7 @@ export interface ICodingContext {
     setUnseenPostIds: SetState<string[]>;
     initialCodebookTable: InitialCodebookCode[];
     dispatchInitialCodebookTable: AsyncDispatch<InitialCodebookTableAction>;
+    dispatchSampledCopyPostResponse: AsyncDispatch<SampleDataResponseReducerActions>;
 }
 
 export interface Workspace {

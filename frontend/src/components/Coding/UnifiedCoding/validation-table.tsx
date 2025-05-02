@@ -191,7 +191,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                         key={row.id}
                                         className={`transition-all duration-200 ${!review ? 'hover:bg-blue-200 cursor-pencil' : 'hover:bg-gray-100'} ${editIndex === row.id ? 'bg-yellow-100' : ''}`}
                                         onClick={() => !review && onViewTranscript(row.postId)}>
-                                        <td className="border border-gray-300 p-2 max-w-48">
+                                        <td className="border border-gray-300 p-2 max-w-48 overflow-wrap">
                                             {editIndex === row.id ? (
                                                 <input
                                                     type="text"
@@ -213,7 +213,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             )}
                                         </td>
                                         {'subCode' in row && (
-                                            <td className="border border-gray-300 p-2">
+                                            <td className="border border-gray-300 p-2 overflow-wrap">
                                                 {editIndex === row.id ? (
                                                     <input
                                                         type="text"
@@ -281,7 +281,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             )}
                                         </td>
                                         {showThemes && 'theme' in row && (
-                                            <td className="border border-gray-300 p-2">
+                                            <td className="border border-gray-300 p-2 overflow-wrap">
                                                 {editIndex === row.id ? (
                                                     <input
                                                         type="text"
@@ -304,7 +304,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
                                             </td>
                                         )}
                                         {showCoderType && 'type' in row && (
-                                            <td className="border border-gray-300 p-2">
+                                            <td className="border border-gray-300 p-2 overflow-wrap">
                                                 {editIndex === row.id ? (
                                                     <input
                                                         type="text"

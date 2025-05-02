@@ -368,7 +368,7 @@ const CodebookDiffViewer: React.FC = () => {
               </p>
               <p>
                 <strong>Average cosine similarity:</strong>{" "}
-                {seqDiff.metrics.averageCosineSimilarity.toFixed(3)}
+                {seqDiff.metrics.averageCosineSimilarity}
               </p>
             </div>
             <h3 className="text-lg font-medium mb-2 text-gray-700">
@@ -402,7 +402,7 @@ const CodebookDiffViewer: React.FC = () => {
                             <td className="p-2 border">{change.oldValue}</td>
                             <td className="p-2 border">{change.newValue}</td>
                             <td className="p-2 border">
-                              {change.similarity?.toFixed(3) || "N/A"}
+                              {change.similarity || "N/A"}
                             </td>
                           </tr>
                         ))
@@ -529,7 +529,7 @@ const CodebookDiffViewer: React.FC = () => {
                                         {change.newValue}
                                       </td>
                                       <td className="p-2 border">
-                                        {change.similarity?.toFixed(3) || "N/A"}
+                                        {change.similarity || "N/A"}
                                       </td>
                                     </tr>
                                   ))

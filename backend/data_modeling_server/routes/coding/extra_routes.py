@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 
 from config import Settings, CustomSettings
-from constants import STUDY_DATABASE_PATH
-from controllers.coding_controller import filter_codes_by_transcript, insert_responses_into_db, process_llm_task, stream_selected_post_ids
+from constants import CODEBOOK_TYPE_MAP, STUDY_DATABASE_PATH
+from controllers.coding_controller import filter_codes_by_transcript, filter_duplicate_codes_in_db, insert_responses_into_db, process_llm_task, stream_selected_post_ids
 from controllers.collection_controller import count_comments, get_reddit_post_by_id
 from database import (
     ManualPostStatesRepository, SelectedPostIdsRepository,
@@ -29,7 +29,7 @@ from models.coding_models import (
     SamplePostsRequest, TranscriptRequest
 )
 from models.table_dataclasses import (
-    CodebookType, ManualPostState,
+    CodebookType, GenerationType, ManualPostState,
     StateDump
 )
 from routes.websocket_routes import manager
@@ -396,8 +396,8 @@ async def generate_deductive_codes_endpoint(
                     code["postId"] = post_id
                     code["id"] = str(uuid4())
 
-                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-deductive-codes", post_id=post_id)
-                codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes", post_id=post_id)
+                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-deductive-codes", post_id=post_id, function_id=function_id)
+                codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes", post_id=post_id, function_id=function_id)
             await send_ipc_message(app_id, f"Dataset {workspace_id}: Generated codes for post {post_id}...")
             return codes
 
@@ -408,6 +408,14 @@ async def generate_deductive_codes_endpoint(
             
             await asyncio.gather(*(process_post(post_id) for post_id in batch))
 
+
+        filter_duplicate_codes_in_db(
+            workspace_id=workspace_id,
+            codebook_type=CodebookType.MANUAL.value,
+            generation_type=GenerationType.INITIAL.value,
+            parent_function_name="redo-final-coding", 
+            function_id=function_id
+        )
         state_dump_repo.insert(
             StateDump(
                 state=json.dumps({
@@ -418,7 +426,8 @@ async def generate_deductive_codes_endpoint(
                     "function": "generate_deductive_codes",
                     "run":"initial",
                     "workspace_id": request.headers.get("x-workspace-id"),
-                    "time_taken": time.time() - start_time,
+                    "time_taken": time.time() - start_time, 
+                    "function_id": function_id
                 }),
             )
         )
@@ -463,31 +472,40 @@ async def get_transcript_data_endpoint(
         r.quote,
         r.explanation,
         CASE
-        WHEN :manualCoding = 1 THEN COALESCE(g.higher_level_code, r.code)
-        ELSE r.code
+          WHEN :manualCoding = 1
+            THEN COALESCE(g.higher_level_code, r.code)
+          ELSE
+            r.code
         END AS code,
         r.response_type,
-        r.codebook_type,
         r.chat_history,
         r.range_marker,
         r.is_marked
     FROM qect r
     JOIN selected_post_ids p
-        ON r.post_id    = p.post_id
-    AND r.workspace_id = p.workspace_id
+      ON r.post_id    = p.post_id
+     AND r.workspace_id = p.workspace_id
     LEFT JOIN grouped_code_entries g
-        ON g.coding_context_id = r.workspace_id   
-    AND g.code              = r.code        
+      ON g.coding_context_id = r.workspace_id   
+     AND g.code              = r.code        
     WHERE r.workspace_id = :workspace_id
-        AND r.post_id    = :post_id;
+      AND r.post_id      = :post_id
     """
 
-    params = {
+    params: Dict[str, Any] = {
         "manualCoding": 1 if request_body.manualCoding else 0,
-        "workspace_id":   workspace_id,
-        "post_id":      post_id,
+        "workspace_id": workspace_id,
+        "post_id":     post_id,
     }
+
+    if request_body.responseTypes:
+        placeholders = ", ".join(f":rt{i}" for i in range(len(request_body.responseTypes)))
+        resp_sql += f"\n  AND r.codebook_type IN ({placeholders})"
+        for i, v in enumerate(request_body.responseTypes):
+            params[f"rt{i}"] = CODEBOOK_TYPE_MAP.get(v, v)
+
     resp_rows = execute_query(resp_sql, params, keys=True)
+
 
     responses: List[Dict[str, Any]] = []
     for row in resp_rows:
@@ -498,7 +516,6 @@ async def get_transcript_data_endpoint(
             "explanation": row["explanation"],
             "code": row["code"],
             "responseType": row["response_type"],
-            "codebookType": row["codebook_type"],
             "chatHistory": json.loads(row["chat_history"]) if row["chat_history"] else None,
             "rangeMarker": json.loads(row["range_marker"]) if row["range_marker"] else None,
             "isMarked": bool(row["is_marked"]) if row["is_marked"] is not None else None,

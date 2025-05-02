@@ -668,7 +668,7 @@ def process_action(
         if force:
             updated_rows = qect_repo.update_returning({
                 "workspace_id": workspace_id,
-                "codebook_type": [CodebookType.INITIAL.value, CodebookType.FINAL.value],
+                "codebook_type": [CodebookType.INITIAL_COPY.value, CodebookType.FINAL.value],
             }, {"is_marked": True})
             diff["updated"] = [
                 {"id": row["id"], "changes": {"is_marked": {"old": None, "new": True}}}
@@ -703,7 +703,7 @@ def process_action(
         if force:
             updated_rows = qect_repo.update_returning({
                 "workspace_id": workspace_id,
-                "codebook_type": [CodebookType.INITIAL.value, CodebookType.FINAL.value],
+                "codebook_type": [CodebookType.INITIAL_COPY.value, CodebookType.FINAL.value],
             }, {"is_marked": False})
             diff["updated"] = [
                 {"id": row["id"], "changes": {"is_marked": {"old": None, "new": True}}}
@@ -994,6 +994,16 @@ def process_sampled_post_response_action(workspace_id: str, action: Dict[str, An
         strict_action_type=False
     )
 
+def process_sampled_copy_post_response_action(workspace_id: str, action: Dict[str, Any]) -> Dict[str, Any]:
+    return process_action(
+        workspace_id=workspace_id,
+        action=action,
+        codebook_type=CodebookType.INITIAL_COPY.value,
+        default_response_type=ResponseCreatorType.LLM.value,
+        use_index=True,
+        strict_action_type=False
+    )
+
 def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any]) -> Dict[str, Any]:
     return process_action(
         workspace_id=workspace_id,
@@ -1018,7 +1028,7 @@ def process_all_responses_action(workspace_id: str, action: Dict[str, Any]) -> D
     initial_diff = process_action(
         workspace_id=workspace_id,
         action=action,
-        codebook_type=CodebookType.INITIAL.value,
+        codebook_type=CodebookType.INITIAL_COPY.value,
         default_response_type=ResponseCreatorType.LLM.value,
         use_index=True,
         strict_action_type=False,

@@ -62,7 +62,7 @@ async def generate_codes_endpoint(
     mainTopic = coding_context.main_topic
     additionalInfo = coding_context.additional_info or ""
     researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
-    concept_table = concept_entries_repo.find({"coding_context_id": workspace_id}, map_to_model=False)
+    concept_table = concept_entries_repo.find({"coding_context_id": workspace_id, "is_marked": True}, map_to_model=False)
 
 
     start_time = time.time()
@@ -73,10 +73,10 @@ async def generate_codes_endpoint(
         raise HTTPException(status_code=400, detail="No posts available for coding.")
 
     try:
-        if function_progress_repo.find_one({"name": "initial"}):
-            function_progress_repo.delete({"name": "initial"})
+        if function_progress_repo.find_one({"name": "initial", "workspace_id": workspace_id}):
+            function_progress_repo.delete({"name": "initial", "workspace_id": workspace_id})
     except Exception as e:
-        print(f"Error in generate_codes_endpoint: {e}")
+        print(f"No row found: {e}")
         
 
     function_progress_repo.insert(FunctionProgress(
@@ -244,6 +244,12 @@ async def generate_codes_endpoint(
             )
         )
 
+        function_progress_repo.update({
+            "function_id": function_id,
+        }, {
+            "status": "completed",
+        })
+
         return {
             "message": "Initial codes generated successfully!",
         }
@@ -279,7 +285,7 @@ async def generate_codes_endpoint(
     mainTopic = coding_context.main_topic
     additionalInfo = coding_context.additional_info or ""
     researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
-    concept_table = concept_entries_repo.find({"coding_context_id": workspace_id}, map_to_model=False)
+    concept_table = concept_entries_repo.find({"coding_context_id": workspace_id, "is_marked": True}, map_to_model=False)
 
     function_progress_repo.insert(FunctionProgress(
         workspace_id=workspace_id,
@@ -301,7 +307,7 @@ async def generate_codes_endpoint(
             llm_model = request_body.model,
             app_id = app_id,
             manager = manager,
-            parent_function_name = "remake-codebook",
+            parent_function_name = "redo-initial-coding",
             llm_instance = llm,
             llm_queue_manager = llm_queue_manager,
             max_input_tokens = 128000,
@@ -340,7 +346,7 @@ async def generate_codes_endpoint(
                         regex_pattern=r"```json\s*([\s\S]*?)\s*```",
                         prompt_builder_func=RemakerPrompts.redo_initial_coding_prompt,
                         llm_instance=llm,
-                        parent_function_name="remake-codebook",
+                        parent_function_name="redo-initial-coding",
                         llm_queue_manager=llm_queue_manager,
                         main_topic=mainTopic,
                         additional_info=additionalInfo,
@@ -372,9 +378,9 @@ async def generate_codes_endpoint(
                         code["postId"] = post_id
                         code["id"] = str(uuid4())
 
-                    codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="remake-codebook", post_id=post_id)
+                    codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-initial-coding", post_id=post_id, function_id=function_id)
 
-                    codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="remake-codebook", post_id=post_id)
+                    codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="redo-initial-coding", post_id=post_id, function_id=function_id)
 
                 await send_ipc_message(app_id, f"Dataset {workspace_id}: Generated codes for post {post_id}...")
                 return codes
@@ -417,7 +423,7 @@ async def generate_codes_endpoint(
             manager,
             llm,
             llm_queue_manager,
-            parent_function_name="remake-codebook",
+            parent_function_name="redo-initial-coding",
         )
 
         print("Clustered words with LLM", res)
@@ -449,7 +455,8 @@ async def generate_codes_endpoint(
             workspace_id=workspace_id,
             codebook_type=CodebookType.INITIAL.value,
             generation_type=GenerationType.LATEST.value,
-            parent_function_name="initial-codes"
+            parent_function_name="redo-initial-coding",
+            function_id=function_id
         )
         state_dump_repo.insert(
             StateDump(
@@ -468,6 +475,12 @@ async def generate_codes_endpoint(
                 }),
             )
         )
+
+        function_progress_repo.update({
+            "function_id": function_id,
+        }, {
+            "status": "completed",
+        })
 
         return {
             "message": "Initial codes generated successfully!",

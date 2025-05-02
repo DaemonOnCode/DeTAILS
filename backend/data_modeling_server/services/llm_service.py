@@ -280,13 +280,6 @@ class GlobalQueueManager:
                                 print(f"[ENQUEUE] Failed to enqueue task {job_id}: {e}")
                         else:
                             print(f"[ENQUEUE] No local future found for task {job_id}, marking failed")
-                            with self._lock:
-                                orig_fut = self.pending_tasks.pop(job_id, None)
-                            if orig_fut:
-                                orig_fut.set_exception(
-                                    RuntimeError(f"No pending future to process task {job_id}")
-                                )
-
                             self.pending_task_repo.update(
                                 filters={"task_id": job_id},
                                 updates={
@@ -535,7 +528,7 @@ def get_llm_manager():
             status_check_interval=15.0,
             enable_status_check=True,
             cancel_threshold=1,
-            idle_threshold=15,
+            idle_threshold=60,
             cutoff=300,
         )
     except Exception as e:

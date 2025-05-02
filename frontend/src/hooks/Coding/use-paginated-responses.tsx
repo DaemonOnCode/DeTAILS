@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApi } from '../Shared/use-api';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { ResponseType, SelectedTypeFilter } from '../../types/Coding/shared';
 
 export interface PaginatedArgs {
-    responseTypes: ('sampled' | 'unseen' | 'manual')[];
+    responseTypes: ResponseType[];
     pageSize?: number;
     filterCode?: string | null;
     searchTerm?: string;
-    selectedTypeFilter?: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
+    selectedTypeFilter?: SelectedTypeFilter;
     postId?: string | null;
     markedTrue?: boolean;
 }

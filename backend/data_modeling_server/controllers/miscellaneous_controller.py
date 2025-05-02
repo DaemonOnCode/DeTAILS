@@ -9,11 +9,10 @@ def get_credential_path(settings: config.CustomSettings):
     return settings.ai.googleCredentialsPath
 
 def normalize_text(text: str) -> str:
-    """Normalize text by lowercasing, trimming, and replacing multiple spaces with a single space."""
     return ' '.join(text.lower().split()) if text else ""
 
 def search_slice(comment: Comment, normalized_comment_slice: str) -> str | None:
-        """Recursively search for the text slice in comments."""
+        # Recursively search for the text slice in comments
         if not normalized_comment_slice:
             return None
 

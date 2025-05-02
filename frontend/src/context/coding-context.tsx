@@ -56,7 +56,8 @@ export const CodingContext = createContext<ICodingContext>({
     unseenPostIds: [],
     setUnseenPostIds: async () => {},
     initialCodebookTable: [],
-    dispatchInitialCodebookTable: async () => {}
+    dispatchInitialCodebookTable: async () => {},
+    dispatchSampledCopyPostResponse: async () => {}
 });
 
 export const CodingProvider: FC<ILayout> = ({ children }) => {
@@ -74,6 +75,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     const [conceptOutlineTable, setConceptTableState] = useState<ConceptEntry[]>([]);
     const [sampledPostResponse, setSampledPostResponseState] = useState<IQECResponse[]>([]);
     const [unseenPostResponse, setUnseenPostResponseState] = useState<IQECTTyResponse[]>([]);
+    const [sampledCopyPostResponse, setSampledCopyPostResponseState] = useState<IQECResponse[]>([]);
     const [themes, setThemesState] = useState<ThemeBucket[]>([]);
     const [unplacedCodes, setUnplacedCodesState] = useState<string[]>([]);
     const [groupedCodes, setGroupedCodesState] = useState<GroupedCodeBucket[]>([]);
@@ -109,29 +111,12 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         conceptOutlineTable: setConceptTableState,
         sampledPostResponse: setSampledPostResponseState,
         unseenPostResponse: setUnseenPostResponseState,
+        sampledCopyPostResponse: setSampledCopyPostResponseState,
         themes: setThemesState,
         groupedCodes: setGroupedCodesState,
         sampledPostIds: setSampledPostIdsState,
         unseenPostIds: setUnseenPostIdsState,
         initialCodebookTable: setInitialCodebookTableState
-    };
-
-    const resetFunctions: Record<string, () => void> = {
-        contextFiles: () => setContextFilesState({}),
-        mainTopic: () => setMainTopicState(''),
-        additionalInfo: () => setAdditionalInfoState(''),
-        researchQuestions: () => setResearchQuestionsState([]),
-        concepts: () => setConceptsState([]),
-        selectedConcepts: () => setSelectedConceptsState([]),
-        references: () => setReferencesState({}),
-        conceptOutlineTable: () => setConceptTableState([]),
-        sampledPostResponse: () => setSampledPostResponseState([]),
-        unseenPostResponse: () => setUnseenPostResponseState([]),
-        themes: () => setThemesState([]),
-        groupedCodes: () => setGroupedCodesState([]),
-        sampledPostIds: () => setSampledPostIdsState([]),
-        unseenPostIds: () => setUnseenPostIdsState([]),
-        initialCodebookTable: () => setInitialCodebookTableState([])
     };
 
     const fetchStates = async (stateNames: string[]) => {
@@ -195,16 +180,13 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         name: 'dispatchSampledPostResponse'
                     },
                     {
-                        name: 'setSampledPostResponseCopy'
-                    },
-                    {
                         name: 'setSampledPostIds'
                     },
                     {
                         name: 'setUnseenPostIds'
                     }
                 ],
-                downloadData: { name: 'codebook', data: sampledPostResponse }
+                downloadData: { name: 'codebook' }
             },
             [PAGE_ROUTES.INITIAL_CODEBOOK]: {
                 relatedStates: [
@@ -217,6 +199,9 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                 relatedStates: [
                     {
                         name: 'dispatchUnseenPostResponse'
+                    },
+                    {
+                        name: 'dispatchSampledCopyPostResponse'
                     }
                 ],
                 downloadData: { name: 'final_codebook' }
@@ -247,8 +232,6 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             concepts,
             selectedConcepts,
             conceptOutlineTable,
-            sampledPostResponse,
-            unseenPostResponse,
             themes,
             unplacedCodes
         ]
@@ -298,9 +281,9 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             ],
             [PAGE_ROUTES.RELATED_CONCEPTS]: ['concepts', 'selectedConcepts'],
             [PAGE_ROUTES.CONCEPT_OUTLINE]: ['conceptOutlineTable'],
-            [PAGE_ROUTES.INITIAL_CODING]: ['sampledPostResponse', 'sampledPostIds'],
+            [PAGE_ROUTES.INITIAL_CODING]: ['sampledPostIds'],
             [PAGE_ROUTES.INITIAL_CODEBOOK]: ['initialCodebookTable'],
-            [PAGE_ROUTES.FINAL_CODING]: ['unseenPostResponse', 'unseenPostIds'],
+            [PAGE_ROUTES.FINAL_CODING]: ['unseenPostIds'],
             [PAGE_ROUTES.REVIEWING_CODES]: ['groupedCodes', 'unplacedSubCodes'],
             [PAGE_ROUTES.GENERATING_THEMES]: ['themes', 'unplacedCodes']
         };
@@ -439,6 +422,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         setSampledPostResponseState(data.sampledPostResponse);
                     if (data.unseenPostResponse)
                         setUnseenPostResponseState(data.unseenPostResponse);
+                    if (data.sampledCopyPostResponse)
+                        setSampledCopyPostResponseState(data.sampledCopyPostResponse);
                     if (data.themes) setThemesState(data.themes);
                     if (data.unplacedCodes) setUnplacedCodesState(data.unplacedCodes);
                     if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
@@ -463,6 +448,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         setConceptTableState([]);
                         setSampledPostResponseState([]);
                         setUnseenPostResponseState([]);
+                        setSampledCopyPostResponseState([]);
                         setThemesState([]);
                         setGroupedCodesState([]);
                         setSampledPostIdsState([]);
@@ -478,6 +464,28 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                 lockedUpdate('dispatch-sampled-post-response', async () => {
                     const data = await saveCodingContext('dispatchSampledPostResponse', { action });
                     console.log('Sampled Post Response:', data);
+                    refreshRef?.current?.refresh();
+                    refreshRef?.current?.refresh();
+                    console.log(
+                        'Refreshing data... from context after refreshing',
+                        refreshRef?.current
+                    );
+                    refreshRef?.current?.refresh();
+                    console.log(
+                        'Refreshing data... from context after refreshing',
+                        refreshRef?.current
+                    );
+                    return data;
+                }),
+            dispatchSampledCopyPostResponse: (
+                action: SampleDataResponseReducerActions,
+                refreshRef: any = null
+            ) =>
+                lockedUpdate('dispatch-sampled-copy-post-response', async () => {
+                    const data = await saveCodingContext('dispatchSampledCopyPostResponse', {
+                        action
+                    });
+                    console.log('Sampled Post Copy Response:', data);
                     refreshRef?.current?.refresh();
                     refreshRef?.current?.refresh();
                     console.log(
@@ -571,8 +579,6 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             selectedConcepts,
             references,
             conceptOutlineTable,
-            sampledPostResponse,
-            unseenPostResponse,
             themes,
             unplacedCodes,
             groupedCodes,

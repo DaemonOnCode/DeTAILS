@@ -13,6 +13,7 @@ import { ILoadingState, ILoadingContext, StepHandle, ModalCallbacks } from '../t
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
 import {
     PAGE_ROUTES as CODING_PAGE_ROUTES,
+    ROUTES as CODING_ROUTES,
     LOADER_ROUTES as CODING_LOADER_ROUTES
 } from '../constants/Coding/shared';
 import { loadingReducer } from '../reducers/loading';
@@ -77,7 +78,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
     const handleDownloadAndProceed = async (e: React.MouseEvent) => {
         try {
             setShowProceedConfirmModal(false);
-            await resetDataAfterPage(location.pathname, true);
+            await resetDataAfterPage(location.pathname, true, location.search);
             if (activeModalId && modalCallbacks[activeModalId]) {
                 const result = modalCallbacks[activeModalId](e);
                 if (result instanceof Promise) {
@@ -97,7 +98,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
     const handleProceedWithoutDownload = async (e: React.MouseEvent) => {
         try {
             setShowProceedConfirmModal(false);
-            await resetDataAfterPage(location.pathname, false);
+            await resetDataAfterPage(location.pathname, false, location.search);
             if (activeModalId && modalCallbacks[activeModalId]) {
                 const result = modalCallbacks[activeModalId](e);
                 if (result instanceof Promise) {
@@ -192,6 +193,16 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         }
     };
 
+    const routeMatchMap: Record<string, { pathname: string; minSearch?: string }> = {
+        [CODING_PAGE_ROUTES.INITIAL_CODING]: {
+            pathname: `/${SHARED_ROUTES.CODING}/transcript`
+        },
+        [CODING_PAGE_ROUTES.FINAL_CODING]: {
+            pathname: `/${SHARED_ROUTES.CODING}/transcript`,
+            minSearch: 'type='
+        }
+    };
+
     const requestArrayRef = useRef<Record<string, ((...e: any) => void)[]> | null>(
         Object.fromEntries(Object.keys(initialPageState).map((route) => [route, []]))
     );
@@ -209,6 +220,21 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
                 ref: refObj ?? initialPageState[route as keyof typeof initialPageState].stepRef
             }
         });
+    };
+
+    const resolveRoute = (pathname: string, search: string): string => {
+        console.log('Resolving route:', pathname, search);
+        for (const [routeKey, { pathname: rulePath, minSearch }] of Object.entries(routeMatchMap)) {
+            console.log('Checking route:', routeKey, rulePath, minSearch);
+            if (!pathname.startsWith(rulePath)) continue;
+
+            if (minSearch) {
+                if (search.includes(minSearch)) return routeKey;
+            } else {
+                if (!search.includes('type=')) return routeKey;
+            }
+        }
+        return pathname;
     };
 
     const checkIfDataExists = async (page: string): Promise<boolean> => {
@@ -260,12 +286,13 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         }
     };
 
-    const resetDataAfterPage = async (page: string, download = false) => {
-        console.log('Resetting data after page:', page);
+    const resetDataAfterPage = async (page: string, download = false, search = null) => {
+        console.log('Resetting data after page route:', page);
 
+        const currentRouteKey = resolveRoute(page, search ?? '');
         const appRoutes = Object.keys(initialPageState);
-        const pageIndex = appRoutes.indexOf(page);
-        console.log('Page index:', pageIndex);
+        const pageIndex = appRoutes.indexOf(currentRouteKey);
+        console.log('Page index route:', pageIndex, appRoutes, currentRouteKey);
         if (pageIndex === -1) return;
 
         const routesToReset = appRoutes.slice(pageIndex + 1);
@@ -289,7 +316,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
 
         loadingDispatch({
             type: 'SET_REST_UNDONE',
-            route: page
+            route: currentRouteKey
         });
         for (const route of routesToReset) {
             console.log('Dispatching RESET_PAGE_DATA for:', route);

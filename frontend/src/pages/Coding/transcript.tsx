@@ -38,7 +38,11 @@ const TranscriptPage = () => {
     const codebookIsTrue = codebook === 'true';
     const splitCodebook = !(codebookIsTrue && !splitIsTrue);
 
-    const { dispatchUnseenPostResponse, dispatchSampledPostResponse } = useCodingContext();
+    const {
+        dispatchUnseenPostResponse,
+        dispatchSampledPostResponse,
+        dispatchSampledCopyPostResponse
+    } = useCodingContext();
     const { currentWorkspace } = useWorkspaceContext();
 
     const allClearedToLeaveRef = useRef<{ check: boolean } | null>(null);
@@ -534,10 +538,10 @@ const TranscriptPage = () => {
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: ['sampled'],
+                    responses: ['sampled_copy'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
-                        return dispatchSampledPostResponse(
+                        return dispatchSampledCopyPostResponse(
                             {
                                 ...args[0]
                             },
@@ -560,7 +564,7 @@ const TranscriptPage = () => {
                 review: false,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.FINAL_CODING, false),
                 codebook: {
-                    responses: ['sampled', 'unseen'],
+                    responses: ['sampled_copy', 'unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         return dispatchUnseenPostResponse(
@@ -575,10 +579,10 @@ const TranscriptPage = () => {
                 },
                 topTranscript: null,
                 bottomTranscript: {
-                    responses: ['sampled'],
+                    responses: ['sampled_copy'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review:', args);
-                        return dispatchSampledPostResponse(
+                        return dispatchSampledCopyPostResponse(
                             {
                                 ...args[0]
                             },
@@ -642,7 +646,7 @@ const TranscriptPage = () => {
                 review: false,
                 backFunction: createBackFunction(CODING_PAGE_ROUTES.FINAL_CODING, false),
                 codebook: {
-                    responses: ['sampled', 'unseen'],
+                    responses: ['sampled_copy', 'unseen'],
                     dispatchFunction: (...args: any) => {
                         console.log('Dispatching to Review with codebook:', args);
                         return dispatchUnseenPostResponse(
@@ -773,14 +777,6 @@ const TranscriptPage = () => {
     const [codeResponses, setCodeResponses] = useState([]);
     const [codebookCodes, setCodebookCodes] = useState([]);
 
-    const handleUpdateResponses = (updatedResponses: any[]) => {
-        console.log('Updated responses:', updatedResponses);
-        dispatchUnseenPostResponse({
-            type: 'SET_PARTIAL_RESPONSES',
-            responses: updatedResponses
-        });
-    };
-
     const fetchPostById = async (postId: string, workspaceId: string, showLoading = true) => {
         console.log('Fetching post:', postId, workspaceId);
         if (!postId || !workspaceId) return;
@@ -794,7 +790,10 @@ const TranscriptPage = () => {
                 allCodes: string[];
             }>(REMOTE_SERVER_ROUTES.GET_POST_TRANSCRIPT_DATA, {
                 method: 'POST',
-                body: JSON.stringify({ postId })
+                body: JSON.stringify({
+                    postId,
+                    responseTypes: currentConfig?.bottomTranscript?.responses
+                })
             });
             if (error) {
                 console.error('Error fetching post:', error);

@@ -20,7 +20,6 @@ const UploadDataPage = () => {
 
     console.log('Selected data:', datasetType);
     const navigate = useNavigate();
-    const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const { loadingState, loadingDispatch } = useLoadingContext();
     const location = useLocation();

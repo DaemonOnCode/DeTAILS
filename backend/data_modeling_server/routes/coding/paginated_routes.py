@@ -34,7 +34,7 @@ async def paginated_posts(
     SELECT COUNT(DISTINCT p.post_id)
       FROM selected_post_ids p
       JOIN qect r
-        ON r.post_id    = p.post_id
+        ON r.post_id = p.post_id
        AND r.workspace_id = p.workspace_id
      WHERE {where}
     """
@@ -45,7 +45,7 @@ async def paginated_posts(
     SELECT DISTINCT p.post_id
       FROM selected_post_ids p
       JOIN qect r
-        ON r.post_id    = p.post_id
+        ON r.post_id = p.post_id
        AND r.workspace_id = p.workspace_id
      WHERE {where}
   ORDER BY p.post_id DESC
@@ -87,13 +87,32 @@ async def paginated_responses(
         and not (len(req.responseTypes or []) == 1 and req.responseTypes[0] == "sampled")
     ):
         if req.selectedTypeFilter == "New Data":
-            filters.append("p.type = ?"); params.append("unseen")
+            filters.append("p.type = ?")
+            params.append("unseen")
         else:
-            filters.append("p.type = ?"); params.append("sampled")
+            filters.append("p.type = ?")
+            params.append("sampled")
     elif req.responseTypes:
-        ph = ",".join("?" for _ in req.responseTypes)
+        temp_filters = set()
+        temp_params = set()
+        if "sampled" in req.responseTypes:
+            temp_filters.add("p.type = ?")
+            temp_params.add("sampled")
+        if "unseen" in req.responseTypes:
+            temp_filters.add("p.type = ?")
+            temp_params.add("unseen")
+        if "manual" in req.responseTypes:
+            temp_filters.add("p.type = ?")
+            temp_params.add("manual")
+        if "sampled_copy" in req.responseTypes:
+            temp_filters.add("p.type = ?")
+            temp_params.add("sampled")
+        ph = ",".join("?" for _ in temp_params)
         filters.append(f"p.type IN ({ph})")
-        params.extend(req.responseTypes)
+        params.extend(list(temp_params))
+
+    _apply_type_filters(req.responseTypes, filters, params)
+
 
     if req.selectedTypeFilter == "Human":
         filters.append("r.response_type = ?"); params.append("Human")
@@ -201,7 +220,15 @@ async def paginated_posts_metadata(
         if req.responseTypes:
             type_placeholders = ", ".join(["?" for _ in req.responseTypes])
             type_filter = f"p.type IN ({type_placeholders})"
-            type_params = req.responseTypes
+            type_params = []
+            if "sampled" in req.responseTypes:
+                type_params.append("sampled")
+            if "unseen" in req.responseTypes:
+                type_params.append("unseen")
+            if "manual" in req.responseTypes:
+                type_params.append("manual")
+            if "sampled_copy" in req.responseTypes:
+                type_params.append("sampled")
         else:
             type_filter = "1=1" 
             type_params = []
@@ -228,7 +255,6 @@ async def paginated_posts_metadata(
         EXISTS (
             SELECT 1 FROM qect r
             WHERE r.post_id = p.post_id AND r.workspace_id = p.workspace_id
-            AND r.code IS NOT NULL
         )
         """
         filters.append(subquery)
@@ -256,7 +282,6 @@ async def paginated_posts_metadata(
     WHERE p.workspace_id = ? AND ({type_filter}) AND EXISTS (
         SELECT 1 FROM qect r
         WHERE r.post_id = p.post_id AND r.workspace_id = p.workspace_id
-        AND r.code IS NOT NULL
     )
     """
     total_coded_posts = execute_query(total_coded_sql, [workspace_id] + type_params)[0][0]
@@ -301,6 +326,8 @@ async def paginated_codes(
         response_filters.append("r.codebook_type = 'final'")
     if "manual" in req.responseTypes:
         response_filters.append("r.codebook_type = 'manual'")
+    if "sampled_copy" in req.responseTypes:
+        response_filters.append("r.codebook_type = 'initial_copy'")
     
     if response_filters:
         filters.append("(" + " OR ".join(response_filters) + ")")

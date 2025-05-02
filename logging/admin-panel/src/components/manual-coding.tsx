@@ -6,7 +6,7 @@ import { CodingResult, DatabaseRow } from "../utils/types";
 interface ComparisonChange {
   postId: string;
   quote: string;
-  type: "same_quote_different_code" | "human_only" | "llm_only";
+  type: "same_quote_different_code" | "human" | "llm" | "same_quote_same_code";
   humanCode?: string;
   llmCode?: string;
   codeSimilarity?: number;
@@ -162,15 +162,31 @@ const ManualCodingComparisonViewer: React.FC = () => {
           [selectedWorkspaceId]
         );
         console.log(
-          `Fetched ${rows.length} state dump rows for coding responses.`
+          `Fetched ${rows.length} state dump rows for coding responses.`,
+          rows
         );
 
         setLoadingStep("Processing responses");
         const allResponses: CodingResult[] = [];
+        const seenResponseIds = new Set();
         for (const row of rows) {
           const state = JSON.parse(row.state);
-          for (const resp of state.codebook || []) {
-            if (manualPostIds.includes(resp.post_id)) {
+          const context = JSON.parse(row.context);
+          const functionType = context.function.startsWith("dispatch")
+            ? "dispatch"
+            : "generation";
+          const resultArray =
+            (functionType === "dispatch"
+              ? state.current_state
+              : state.codebook) ?? [];
+
+          console.log("State dump size", resultArray, resultArray.length);
+
+          for (const resp of resultArray) {
+            if (
+              manualPostIds.includes(resp.post_id) &&
+              !seenResponseIds.has(resp.id)
+            ) {
               allResponses.push({
                 id: resp.id,
                 model: resp.model,
@@ -188,6 +204,7 @@ const ManualCodingComparisonViewer: React.FC = () => {
                   : null,
                 response_type: resp.response_type,
               });
+              seenResponseIds.add(resp.id);
             }
           }
         }
@@ -207,6 +224,7 @@ const ManualCodingComparisonViewer: React.FC = () => {
         manualPostIds.forEach((postId) => {
           postGroups[postId] = { human: [], llm: [] };
         });
+
         allResponses.forEach((r) => {
           postGroups[r.post_id][
             r.response_type === "Human" ? "human" : "llm"
@@ -370,7 +388,8 @@ const ManualCodingComparisonViewer: React.FC = () => {
         setLoadingStep("Analyzing differences & metrics");
         let totalLlm = 0,
           markedLlm = 0,
-          addedCorrect = 0;
+          addedCorrect = 0,
+          exactCodeMatches = 0;
         const diffs: PostDiff[] = [];
 
         for (const postId in postGroups) {
@@ -391,6 +410,30 @@ const ManualCodingComparisonViewer: React.FC = () => {
           for (const q of [...allH].filter((q) => allL.has(q))) {
             const hr = human.find((r) => r.quote === q)!;
             const lr = llm.find((r) => r.quote === q)!;
+            if (hr.code === lr.code) {
+              changes.push({
+                postId,
+                quote: q,
+                type: "same_quote_same_code",
+                humanCode: hr.code,
+                llmCode: lr.code,
+              });
+              exactCodeMatches++;
+            } else {
+              const sim = await getSimilarity(hr.code, lr.code);
+              changes.push({
+                postId,
+                quote: q,
+                type: "same_quote_different_code",
+                humanCode: hr.code,
+                llmCode: lr.code,
+                codeSimilarity: sim,
+              });
+            }
+          }
+          for (const q of [...allH].filter((q) => allL.has(q))) {
+            const hr = human.find((r) => r.quote === q)!;
+            const lr = llm.find((r) => r.quote === q)!;
             if (hr.code !== lr.code) {
               const sim = await getSimilarity(hr.code, lr.code);
               changes.push({
@@ -402,6 +445,28 @@ const ManualCodingComparisonViewer: React.FC = () => {
                 codeSimilarity: sim,
               });
             }
+          }
+
+          const humanOnlyQuotes = [...allH].filter((q) => !allL.has(q));
+          for (const q of humanOnlyQuotes) {
+            const hr = human.find((r) => r.quote === q)!;
+            changes.push({
+              postId,
+              quote: q,
+              type: "human",
+              humanCode: hr.code,
+            });
+          }
+
+          const llmOnlyQuotes = [...allL].filter((q) => !allH.has(q));
+          for (const q of llmOnlyQuotes) {
+            const lr = llm.find((r) => r.quote === q)!;
+            changes.push({
+              postId,
+              quote: q,
+              type: "llm",
+              llmCode: lr.code,
+            });
           }
           diffs.push({ postId, changes });
         }
@@ -470,7 +535,7 @@ const ManualCodingComparisonViewer: React.FC = () => {
           <ul className="list-disc pl-5">
             <li>
               <strong>LLM Acceptance Rate:</strong>{" "}
-              {overallMetrics.llmAcceptanceRate.toFixed(3)}
+              {overallMetrics.llmAcceptanceRate}
             </li>
             <li>
               <strong>LLM Added Correct:</strong>{" "}
@@ -485,18 +550,18 @@ const ManualCodingComparisonViewer: React.FC = () => {
             </li>
             <li>
               <strong>Percentage Agreement:</strong>{" "}
-              {overallMetrics.percentageAgreement.toFixed(3)}
+              {overallMetrics.percentageAgreement}
             </li>
             <li>
               <strong>Average Cohen’s Kappa:</strong>{" "}
-              {overallMetrics.cohenKappa.toFixed(3)}
+              {overallMetrics.cohenKappa}
             </li>
           </ul>
         </div>
       )}
       {codeKappas.length > 0 && (
         <div className="mb-8 p-4 bg-gray-50 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-2">Per-Code Cohen’s Kappa</h2>
+          <h2 className="text-xl font-semibold mb-2">Per-Code Cohen's Kappa</h2>
           <table className="w-full">
             <thead>
               <tr>
@@ -508,7 +573,7 @@ const ManualCodingComparisonViewer: React.FC = () => {
               {codeKappas.map(({ code, kappa }) => (
                 <tr key={code}>
                   <td>{code}</td>
-                  <td>{kappa.toFixed(3)}</td>
+                  <td>{kappa}</td>
                 </tr>
               ))}
             </tbody>
@@ -519,7 +584,7 @@ const ManualCodingComparisonViewer: React.FC = () => {
         <div key={postId} className="mb-8 p-4 bg-white rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-2">Post ID: {postId}</h2>
           {changes.length === 0 ? (
-            <p className="text-gray-600">No differences found.</p>
+            <p className="text-gray-600">No code-quote pairs found.</p>
           ) : (
             <div className="space-y-4">
               {changes.map((chg, i) => (
@@ -539,17 +604,21 @@ const ManualCodingComparisonViewer: React.FC = () => {
                         <strong>LLM Code:</strong> {chg.llmCode}
                       </p>
                       <p>
-                        <strong>Similarity:</strong>{" "}
-                        {chg.codeSimilarity?.toFixed(3)}
+                        <strong>Similarity:</strong> {chg.codeSimilarity}
                       </p>
                     </>
                   )}
-                  {chg.type === "human_only" && (
+                  {chg.type === "same_quote_same_code" && (
+                    <p>
+                      <strong>Code (both):</strong> {chg.humanCode}
+                    </p>
+                  )}
+                  {chg.type === "human" && (
                     <p>
                       <strong>Human Code:</strong> {chg.humanCode}
                     </p>
                   )}
-                  {chg.type === "llm_only" && (
+                  {chg.type === "llm" && (
                     <p>
                       <strong>LLM Code:</strong> {chg.llmCode}
                     </p>

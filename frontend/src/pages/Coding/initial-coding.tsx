@@ -7,18 +7,16 @@ import { useLogger } from '../../context/logging-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { useLoadingContext } from '../../context/loading-context';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
 
-const CodebookCreation = () => {
+const InitialCoding = () => {
     const [searchParams] = useSearchParams();
     const reviewParam = searchParams.get('review') !== 'false';
 
@@ -30,7 +28,6 @@ const CodebookCreation = () => {
     const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const navigate = useNavigate();
-    const { fetchLLMData } = useApi();
 
     const { loadingState, loadingDispatch, checkIfDataExists, resetDataAfterPage, openModal } =
         useLoadingContext();
@@ -166,4 +163,4 @@ const CodebookCreation = () => {
     );
 };
 
-export default CodebookCreation;
+export default InitialCoding;

@@ -114,7 +114,7 @@ const FinalzingCodes = () => {
         loadPreviousPage
     } = usePaginatedResponses({
         pageSize: 10,
-        responseTypes: ['sampled', 'unseen'],
+        responseTypes: ['sampled_copy', 'unseen'],
         markedTrue: true
     });
 

@@ -81,7 +81,12 @@ const extractResults = (
       chat_history: result.chat_history
         ? JSON.parse(result.chat_history)
         : null,
-      is_marked: result.is_marked !== null ? Boolean(result.is_marked) : null,
+      is_marked:
+        stateType === "generation"
+          ? true
+          : result.is_marked !== null
+          ? Boolean(result.is_marked)
+          : null,
       range_marker: result.range_marker
         ? JSON.parse(result.range_marker)
         : null,
@@ -364,10 +369,10 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
               </h2>
               <div className="mb-4 text-gray-600">
                 <p>
-                  <strong>Precision:</strong> {seqDiff.precision.toFixed(3)}
+                  <strong>Precision:</strong> {seqDiff.precision}
                 </p>
                 <p>
-                  <strong>Recall:</strong> {seqDiff.recall.toFixed(3)}
+                  <strong>Recall:</strong> {seqDiff.recall}
                 </p>
               </div>
 
@@ -463,7 +468,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                     {change.newValue}
                                   </td>
                                   <td className="p-2 border">
-                                    {change.similarity?.toFixed(3)}
+                                    {change.similarity}
                                   </td>
                                 </>
                               )}
@@ -476,7 +481,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                     {change.newValue}
                                   </td>
                                   <td className="p-2 border">
-                                    {change.similarity?.toFixed(3)}
+                                    {change.similarity}
                                   </td>
                                 </>
                               )}
@@ -676,7 +681,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                             {change.newValue}
                                           </td>
                                           <td className="p-2 border">
-                                            {change.similarity?.toFixed(3)}
+                                            {change.similarity}
                                           </td>
                                         </>
                                       )}
@@ -689,7 +694,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                             {change.newValue}
                                           </td>
                                           <td className="p-2 border">
-                                            {change.similarity?.toFixed(3)}
+                                            {change.similarity}
                                           </td>
                                         </>
                                       )}

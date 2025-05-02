@@ -28,32 +28,34 @@ interface SelectionChange {
   word: string;
 }
 
+interface Metrics {
+  initial_concepts: number;
+  selected_concepts: number;
+  TP: number;
+  WTP: string;
+  P: string;
+  R: string;
+  F1: string;
+  P_w: string;
+  R_w: string;
+  F1_w: string;
+  acceptance_rate: string;
+  update_rate: string;
+  deletion_rate: string;
+}
+
 interface SequenceDiff {
   sequenceId: number;
   initialTimestamp: string;
   finalTimestamp: string;
-  isRegeneration: boolean;
   conceptChanges: SequenceConceptChange[];
   selectionChanges: SelectionChange[];
   stepwiseConceptChanges: { step: number; changes: ConceptChange[] }[];
   stepwiseSelectionChanges: { step: number; changes: SelectionChange[] }[];
   totalConceptChanges: number;
   totalSelectionChanges: number;
-  metrics: {
-    initial_concepts: number;
-    selected_concepts: number;
-    TP: number;
-    WTP: string;
-    P: string;
-    R: string;
-    F1: string;
-    P_w: string;
-    R_w: string;
-    F1_w: string;
-    acceptance_rate: string;
-    update_rate: string;
-    deletion_rate: string;
-  };
+  initialMetrics: Metrics;
+  finalMetrics: Metrics;
 }
 
 const safeParseContext = (context: string): Context => {
@@ -69,15 +71,21 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
   let currentSequence: DatabaseRow[] = [];
   for (const entry of entries) {
     const context = safeParseContext(entry.context);
-    if (context.function === "concept_cloud_table") {
+    if (
+      context.function === "concept_cloud_table" &&
+      context.run !== "regenerate"
+    ) {
       if (currentSequence.length > 0) sequences.push(currentSequence);
       currentSequence = [entry];
-    } else if (
-      (context.function === "setSelectedConcepts" ||
-        context.function === "setConcepts") &&
-      currentSequence.length > 0
-    ) {
-      currentSequence.push(entry);
+    } else if (currentSequence.length > 0) {
+      if (
+        context.function === "setSelectedConcepts" ||
+        context.function === "setConcepts" ||
+        (context.function === "concept_cloud_table" &&
+          context.run === "regenerate")
+      ) {
+        currentSequence.push(entry);
+      }
     }
   }
   if (currentSequence.length > 0) sequences.push(currentSequence);
@@ -178,6 +186,73 @@ const computeSelectionChanges = (
   return changes;
 };
 
+const computeMetrics = async (
+  initialConcepts: Map<string, Concept>,
+  currentConcepts: Map<string, Concept>,
+  currentSelected: Set<string>,
+  calculateSimilarity: (word1: string, word2: string) => Promise<number>,
+  getNorm: (word: string) => Promise<number>
+): Promise<Metrics> => {
+  const I = new Set(initialConcepts.keys());
+  const S = currentSelected;
+  const commonIds = new Set([...I].filter((x) => S.has(x)));
+  let TP = 0;
+  let WTP = 0;
+  let kept_count = 0;
+  let updated_count = 0;
+
+  for (const id of commonIds) {
+    if (currentConcepts.has(id) && initialConcepts.has(id)) {
+      const initialWord = initialConcepts.get(id)!.word;
+      const finalWord = currentConcepts.get(id)!.word;
+      if (initialWord === finalWord) {
+        TP += 1;
+        WTP += 1;
+        kept_count += 1;
+      } else {
+        const dotProduct = await calculateSimilarity(initialWord, finalWord);
+        const normInitial = await getNorm(initialWord);
+        const normFinal = await getNorm(finalWord);
+        const similarity =
+          normInitial * normFinal > 0
+            ? dotProduct / (normInitial * normFinal)
+            : 0;
+        WTP += similarity;
+        updated_count += 1;
+      }
+    }
+  }
+
+  const I_size = I.size;
+  const S_size = S.size;
+  const P = I_size > 0 ? TP / I_size : 0;
+  const R = S_size > 0 ? TP / S_size : 0;
+  const F1 = P + R > 0 ? (2 * P * R) / (P + R) : 0;
+  const P_w = I_size > 0 ? WTP / I_size : 0;
+  const R_w = S_size > 0 ? WTP / S_size : 0;
+  const F1_w = P_w + R_w > 0 ? (2 * P_w * R_w) / (P_w + R_w) : 0;
+  const acceptance_rate = I_size > 0 ? kept_count / I_size : 0;
+  const update_rate = I_size > 0 ? updated_count / I_size : 0;
+  const deletion_rate =
+    I_size > 0 ? (I_size - kept_count - updated_count) / I_size : 0;
+
+  return {
+    initial_concepts: I_size,
+    selected_concepts: S_size,
+    TP,
+    WTP: WTP.toString(),
+    P: P.toString(),
+    R: R.toString(),
+    F1: F1.toString(),
+    P_w: P_w.toString(),
+    R_w: R_w.toString(),
+    F1_w: F1_w.toString(),
+    acceptance_rate: acceptance_rate.toString(),
+    update_rate: update_rate.toString(),
+    deletion_rate: deletion_rate.toString(),
+  };
+};
+
 const formatUpdatedFields = (updatedFields?: {
   [key: string]: { from: any; to: any };
 }) => {
@@ -240,13 +315,44 @@ const RelatedConceptsDiffViewer: React.FC = () => {
 
       const computedDiffs = await Promise.all(
         sequences.map(async (sequence, seqIndex) => {
-          const initialEntry = sequence[0];
-          const initialContext = safeParseContext(initialEntry.context);
-          const isRegeneration = initialContext.run === "regenerate";
-          const initialState = JSON.parse(initialEntry.state);
-          const initialConcepts = extractConcepts(initialState);
+          const conceptDump = sequence.find((e) => {
+            const c = safeParseContext(e.context);
+            return (
+              c.function === "concept_cloud_table" && c.run !== "regenerate"
+            );
+          })!;
+          const initialConcepts = extractConcepts(
+            JSON.parse(conceptDump.state)
+          );
+          const initialIds = new Set(initialConcepts.keys());
+          const firstSelection = sequence.find(
+            (e) =>
+              safeParseContext(e.context).function === "setSelectedConcepts"
+          );
+          const initialSelected = new Set<string>();
+
+          const aggregatedSelected = new Set(initialSelected);
+          let prevSelected = initialSelected;
+
           let prevConcepts = initialConcepts;
-          let prevSelected = new Set<string>();
+          const aggregatedConcepts = new Map(initialConcepts);
+
+          const initialMetrics = await computeMetrics(
+            initialConcepts,
+            initialConcepts,
+            initialSelected,
+            calculateSimilarity,
+            getNorm
+          );
+
+          // // Temporary fix: Subtract two from initial selected concepts as per user request
+          // const adjustedInitialMetrics = {
+          //   ...initialMetrics,
+          //   selected_concepts: Math.max(
+          //     0,
+          //     initialMetrics.selected_concepts - 2
+          //   ),
+          // };
 
           const stepwiseConceptChanges: {
             step: number;
@@ -262,7 +368,70 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             const nextContext = safeParseContext(nextEntry.context);
             const nextState = JSON.parse(nextEntry.state);
 
-            if (nextContext.function === "setConcepts") {
+            if (
+              nextContext.function === "concept_cloud_table" &&
+              nextContext.run === "regenerate"
+            ) {
+              const regenConcepts = extractConcepts(nextState);
+              const regenChanges: ConceptChange[] = [];
+              regenConcepts.forEach((newKw, id) => {
+                if (!prevConcepts.has(id)) {
+                  regenChanges.push({
+                    type: "inserted",
+                    conceptId: id,
+                    word: newKw.word,
+                  });
+                } else {
+                  const old = prevConcepts.get(id)!;
+                  if (old.word !== newKw.word) {
+                    regenChanges.push({
+                      type: "updated",
+                      conceptId: id,
+                      word: newKw.word,
+                      updatedFields: {
+                        word: { from: old.word, to: newKw.word },
+                      },
+                    });
+                  }
+                }
+              });
+
+              for (const change of regenChanges) {
+                if (change.type === "updated") {
+                  const { from, to } = change.updatedFields!.word;
+                  const dot = await calculateSimilarity(from, to);
+                  const n1 = await getNorm(from);
+                  const n2 = await getNorm(to);
+                  change.similarity = n1 * n2 > 0 ? dot / (n1 * n2) : 0;
+                }
+              }
+
+              if (regenChanges.length > 0) {
+                stepwiseConceptChanges.push({
+                  step: i + 1,
+                  changes: regenChanges,
+                });
+              }
+
+              for (const change of regenChanges) {
+                switch (change.type) {
+                  case "inserted":
+                    aggregatedConcepts.set(
+                      change.conceptId,
+                      regenConcepts.get(change.conceptId)!
+                    );
+                    break;
+                  case "updated":
+                    const orig = aggregatedConcepts.get(change.conceptId)!;
+                    aggregatedConcepts.set(change.conceptId, {
+                      ...orig,
+                      word: change.word!,
+                    });
+                    break;
+                }
+              }
+              prevConcepts = new Map(aggregatedConcepts);
+            } else if (nextContext.function === "setConcepts") {
               const nextConcepts = extractConcepts(nextState);
               const stepChanges = computeConceptChanges(
                 prevConcepts,
@@ -290,9 +459,33 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                   changes: stepChanges,
                 });
               }
+              for (const change of stepChanges) {
+                switch (change.type) {
+                  case "inserted":
+                    aggregatedConcepts.set(
+                      change.conceptId,
+                      nextConcepts.get(change.conceptId)!
+                    );
+                    break;
+                  case "deleted":
+                    aggregatedConcepts.delete(change.conceptId);
+                    break;
+                  case "updated":
+                    const orig = aggregatedConcepts.get(change.conceptId)!;
+                    aggregatedConcepts.set(change.conceptId, {
+                      ...orig,
+                      word: change.word!,
+                    });
+                    break;
+                }
+              }
               prevConcepts = nextConcepts;
             } else if (nextContext.function === "setSelectedConcepts") {
-              const nextSelected = extractSelectedConcepts(nextState);
+              const rawNext = extractSelectedConcepts(nextState);
+              // only keep IDs that *actually exist* in our running concept list
+              const nextSelected = new Set(
+                Array.from(rawNext).filter((id) => aggregatedConcepts.has(id))
+              );
               const stepChanges = computeSelectionChanges(
                 prevSelected,
                 nextSelected,
@@ -303,6 +496,12 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                   step: i + 1,
                   changes: stepChanges,
                 });
+              }
+              for (const sel of stepChanges) {
+                if (sel.type === "selected")
+                  aggregatedSelected.add(sel.conceptId);
+                else if (sel.type === "deselected")
+                  aggregatedSelected.delete(sel.conceptId);
               }
               prevSelected = nextSelected;
             }
@@ -322,90 +521,36 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             0
           );
 
-          const latestConcepts = prevConcepts;
-          const latestSelected = prevSelected;
-          const I = new Set(initialConcepts.keys());
-          const S = latestSelected;
-          const commonIds = new Set([...I].filter((x) => S.has(x)));
-          let TP = 0;
-          let WTP = 0;
-          let kept_count = 0;
-          let updated_count = 0;
+          const finalMetrics = await computeMetrics(
+            aggregatedConcepts,
+            aggregatedConcepts,
+            aggregatedSelected,
+            calculateSimilarity,
+            getNorm
+          );
 
-          for (const id of commonIds) {
-            if (latestConcepts.has(id) && initialConcepts.has(id)) {
-              const initialWord = initialConcepts.get(id)!.word;
-              const finalWord = latestConcepts.get(id)!.word;
-              if (initialWord === finalWord) {
-                TP += 1;
-                WTP += 1;
-                kept_count += 1;
-              } else {
-                const dotProduct = await calculateSimilarity(
-                  initialWord,
-                  finalWord
-                );
-                const normInitial = await getNorm(initialWord);
-                const normFinal = await getNorm(finalWord);
-                const similarity =
-                  normInitial * normFinal > 0
-                    ? dotProduct / (normInitial * normFinal)
-                    : 0;
-                WTP += similarity;
-                updated_count += 1;
-              }
-            }
-          }
-
-          const I_size = I.size;
-          const S_size = S.size;
-          const P = I_size > 0 ? TP / I_size : 0;
-          const R = S_size > 0 ? TP / S_size : 0;
-          const F1 = P + R > 0 ? (2 * P * R) / (P + R) : 0;
-          const P_w = I_size > 0 ? WTP / I_size : 0;
-          const R_w = S_size > 0 ? WTP / S_size : 0;
-          const F1_w = P_w + R_w > 0 ? (2 * P_w * R_w) / (P_w + R_w) : 0;
-          const acceptance_rate = I_size > 0 ? kept_count / I_size : 0;
-          const update_rate = I_size > 0 ? updated_count / I_size : 0;
-          const deletion_rate =
-            I_size > 0 ? (I_size - kept_count - updated_count) / I_size : 0;
-
-          const metrics = {
-            initial_concepts: I_size,
-            selected_concepts: S_size,
-            TP,
-            WTP: WTP.toFixed(4),
-            P: P.toFixed(4),
-            R: R.toFixed(4),
-            F1: F1.toFixed(4),
-            P_w: P_w.toFixed(4),
-            R_w: R_w.toFixed(4),
-            F1_w: F1_w.toFixed(4),
-            acceptance_rate: acceptance_rate.toFixed(4),
-            update_rate: update_rate.toFixed(4),
-            deletion_rate: deletion_rate.toFixed(4),
-          };
+          const neverSelected = Array.from(initialConcepts.entries())
+            .filter(([id]) => !aggregatedSelected.has(id))
+            .map(([conceptId, c]) => ({ conceptId, word: c.word }));
 
           return {
             sequenceId: seqIndex + 1,
-            initialTimestamp: new Date(
-              initialEntry.created_at
-            ).toLocaleString(),
+            initialTimestamp: new Date(conceptDump.created_at).toLocaleString(),
             finalTimestamp: new Date(
               sequence[sequence.length - 1].created_at
             ).toLocaleString(),
-            isRegeneration,
             conceptChanges,
             selectionChanges: computeSelectionChanges(
-              new Set(),
-              latestSelected,
-              latestConcepts
+              initialSelected,
+              aggregatedSelected,
+              aggregatedConcepts
             ),
             stepwiseConceptChanges,
             stepwiseSelectionChanges,
             totalConceptChanges,
             totalSelectionChanges,
-            metrics,
+            initialMetrics,
+            finalMetrics,
           };
         })
       );
@@ -417,69 +562,70 @@ const RelatedConceptsDiffViewer: React.FC = () => {
     else setSequenceDiffs([]);
   }, [sequences, calculateSimilarity]);
 
-  const metricNames: Record<string, { name: string; formula: string }> = {
-    initial_concepts: {
-      name: "Initial Related Concepts",
-      formula: "The total number of  related concepts in the initial set.",
-    },
-    selected_concepts: {
-      name: "Selected Related Concepts",
-      formula: "The total number of related concepts in the selected set.",
-    },
-    TP: {
-      name: "True Positives",
-      formula:
-        "The number of related concepts that are present in both the initial and selected sets with unchanged words.",
-    },
-    WTP: {
-      name: "Weighted True Positives",
-      formula:
-        "The sum of similarities for related concepts in both sets, where similarity is 1 if the word is unchanged, or cosine similarity between 0 and 1 if updated.",
-    },
-    P: {
-      name: "Precision",
-      formula:
-        "The ratio of true positives to the number of initial related concepts.",
-    },
-    R: {
-      name: "Recall",
-      formula:
-        "The ratio of true positives to the number of selected related concepts.",
-    },
-    F1: {
-      name: "F1 Score",
-      formula: "The harmonic mean of precision and recall.",
-    },
-    P_w: {
-      name: "Weighted Precision",
-      formula:
-        "The weighted true positives divided by the number of initial related concepts.",
-    },
-    R_w: {
-      name: "Weighted Recall",
-      formula:
-        "The weighted true positives divided by the number of selected related concepts.",
-    },
-    F1_w: {
-      name: "Weighted F1 Score",
-      formula: "The harmonic mean of weighted precision and weighted recall.",
-    },
-    acceptance_rate: {
-      name: "Acceptance Rate",
-      formula:
-        "The proportion of initial related concepts that were kept unchanged in the selected set.",
-    },
-    update_rate: {
-      name: "Update Rate",
-      formula:
-        "The proportion of initial related concepts that were updated in the selected set.",
-    },
-    deletion_rate: {
-      name: "Deletion Rate",
-      formula:
-        "The proportion of initial related concepts that were deleted and not present in the selected set.",
-    },
-  };
+  const metricNames: Record<keyof Metrics, { name: string; formula: string }> =
+    {
+      initial_concepts: {
+        name: "Initial Related Concepts",
+        formula: "The total number of related concepts in the initial set.",
+      },
+      selected_concepts: {
+        name: "Selected Related Concepts",
+        formula: "The total number of related concepts in the selected set.",
+      },
+      TP: {
+        name: "True Positives",
+        formula:
+          "The number of related concepts that are present in both the initial and selected sets with unchanged words.",
+      },
+      WTP: {
+        name: "Weighted True Positives",
+        formula:
+          "The sum of similarities for related concepts in both sets, where similarity is 1 if the word is unchanged, or cosine similarity between 0 and 1 if updated.",
+      },
+      P: {
+        name: "Precision",
+        formula:
+          "The ratio of true positives to the number of initial related concepts.",
+      },
+      R: {
+        name: "Recall",
+        formula:
+          "The ratio of true positives to the number of selected related concepts.",
+      },
+      F1: {
+        name: "F1 Score",
+        formula: "The harmonic mean of precision and recall.",
+      },
+      P_w: {
+        name: "Weighted Precision",
+        formula:
+          "The weighted true positives divided by the number of initial related concepts.",
+      },
+      R_w: {
+        name: "Weighted Recall",
+        formula:
+          "The weighted true positives divided by the number of selected related concepts.",
+      },
+      F1_w: {
+        name: "Weighted F1 Score",
+        formula: "The harmonic mean of weighted precision and weighted recall.",
+      },
+      acceptance_rate: {
+        name: "Acceptance Rate",
+        formula:
+          "The proportion of initial related concepts that were kept unchanged in the selected set.",
+      },
+      update_rate: {
+        name: "Update Rate",
+        formula:
+          "The proportion of initial related concepts that were updated in the selected set.",
+      },
+      deletion_rate: {
+        name: "Deletion Rate",
+        formula:
+          "The proportion of initial related concepts that were deleted and not present in the selected set.",
+      },
+    };
 
   if (isLoading)
     return <p className="p-4 text-gray-600">Loading sequences...</p>;
@@ -491,10 +637,6 @@ const RelatedConceptsDiffViewer: React.FC = () => {
       <h1 className="text-2xl font-bold mb-4 text-gray-800">
         Related Concepts Diff Viewer
       </h1>
-      <p className="mb-4 text-gray-600">
-        Total number of regenerations:{" "}
-        {sequenceDiffs.filter((seq) => seq.isRegeneration).length}
-      </p>
       {sequenceDiffs.length === 0 ? (
         <p className="text-gray-600">No sequences found.</p>
       ) : (
@@ -516,9 +658,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             <div key={seqDiff.sequenceId} className="mb-8">
               <h2 className="text-xl font-semibold mb-2 text-gray-700">
                 Sequence {seqDiff.sequenceId}: {seqDiff.initialTimestamp} to{" "}
-                {seqDiff.finalTimestamp} (
-                {seqDiff.isRegeneration ? "Regeneration" : "Initial Generation"}
-                )
+                {seqDiff.finalTimestamp}
               </h2>
 
               <div className="mb-6">
@@ -555,7 +695,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                             </td>
                             <td className="p-2 border">
                               {change.similarity !== undefined
-                                ? change.similarity.toFixed(4)
+                                ? change.similarity
                                 : "-"}
                             </td>
                           </tr>
@@ -570,26 +710,34 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                 )}
                 <div className="mt-4">
                   <h4 className="text-md font-medium mb-2 text-gray-700">
-                    Metrics
+                    Metrics: Initial vs Final
                   </h4>
                   <table className="table-auto w-full border-collapse border border-gray-300">
                     <thead>
                       <tr className="bg-gray-100">
                         <th className="p-2 border">Metric</th>
-                        <th className="p-2 border">Value</th>
+                        <th className="p-2 border">Initial</th>
+                        <th className="p-2 border">Final</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(seqDiff.metrics).map(([key, value]) => (
-                        <tr key={key}>
-                          <td className="p-2 border">
-                            {metricNames[key]
-                              ? `${metricNames[key].name} (${metricNames[key].formula})`
-                              : key}
-                          </td>
-                          <td className="p-2 border">{value}</td>
-                        </tr>
-                      ))}
+                      {Object.keys(seqDiff.initialMetrics).map((key) => {
+                        const metricKey = key as keyof Metrics;
+                        return (
+                          <tr key={metricKey}>
+                            <td className="p-2 border">
+                              {metricNames[metricKey]?.name || metricKey} (
+                              {metricNames[metricKey]?.formula || metricKey})
+                            </td>
+                            <td className="p-2 border">
+                              {seqDiff.initialMetrics[metricKey]}
+                            </td>
+                            <td className="p-2 border">
+                              {seqDiff.finalMetrics[metricKey]}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -698,7 +846,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                                     </td>
                                     <td className="p-2 border">
                                       {change.similarity !== undefined
-                                        ? change.similarity.toFixed(4)
+                                        ? change.similarity
                                         : "-"}
                                     </td>
                                   </tr>

@@ -27,6 +27,7 @@ class ConnectionManager:
 
     async def send_message(self, app_id: str, message: str):
         # await asyncio.sleep(0)
+        print(f"Sending message to {app_id}: {message}")
         if app_id in self.active_connections:
             websocket = self.active_connections[app_id]
             try:

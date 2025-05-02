@@ -81,13 +81,22 @@ const extractResults = (
       chat_history: result.chat_history
         ? JSON.parse(result.chat_history)
         : null,
-      is_marked: result.is_marked !== null ? Boolean(result.is_marked) : null,
+      is_marked:
+        stateType === "generation"
+          ? true
+          : result.is_marked !== null
+          ? Boolean(result.is_marked)
+          : null,
       range_marker: result.range_marker
         ? JSON.parse(result.range_marker)
         : null,
       response_type: result.response_type,
     });
   });
+  console.log(
+    `Extracted ${results.size} results from ${stateType} state.`,
+    resultsArray
+  );
   return results;
 };
 
@@ -164,26 +173,26 @@ const computeMetrics = async (
   const insertedIds = [...finalIds].filter((id) => !initialIds.has(id));
   const deletedIds = [...initialIds].filter((id) => !finalIds.has(id));
 
-  console.log("Before TP", commonIds, insertedIds, deletedIds);
+  console.log(
+    "Before TP",
+    commonIds.length,
+    commonIds,
+    insertedIds,
+    deletedIds
+  );
   let TP = 0;
   let unweightedTP = 0;
   for (const id of commonIds) {
+    const initial = initialResults.get(id)!;
     const final = finalResults.get(id)!;
-    if (final.is_marked === true) {
-      const initial = initialResults.get(id)!;
-      const quoteSim = await getSimilarity(initial.quote, final.quote);
-      const codeSim = await getSimilarity(initial.code, final.code);
-
-      console.log(
-        "TP similarity check",
-        quoteSim,
-        codeSim,
-        (quoteSim + codeSim) / 2
-      );
-      TP += (quoteSim + codeSim) / 2;
-      unweightedTP++;
-    }
+    const quoteSim = await getSimilarity(initial.quote, final.quote);
+    const codeSim = await getSimilarity(initial.code, final.code);
+    const avgSim = (quoteSim + codeSim) / 2;
+    console.log("TP similarity check", quoteSim, codeSim, avgSim);
+    TP += avgSim;
+    unweightedTP++;
   }
+
   const falseMarkedCount = commonIds.filter((id) => {
     const final = finalResults.get(id)!;
     return final.is_marked === false;
@@ -195,8 +204,8 @@ const computeMetrics = async (
     return final.is_marked === true;
   }).length;
 
-  const precision = TP + FP > 0 ? TP / (unweightedTP + FP) : 0;
-  const recall = TP + FN > 0 ? TP / (unweightedTP + FN) : 0;
+  const precision = unweightedTP + FP > 0 ? TP / (unweightedTP + FP) : 0;
+  const recall = unweightedTP + FN > 0 ? TP / (unweightedTP + FN) : 0;
 
   return { precision, recall };
 };
@@ -370,10 +379,10 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
               </h2>
               <div className="mb-4 text-gray-600">
                 <p>
-                  <strong>Precision:</strong> {seqDiff.precision.toFixed(3)}
+                  <strong>Precision:</strong> {seqDiff.precision}
                 </p>
                 <p>
-                  <strong>Recall:</strong> {seqDiff.recall.toFixed(3)}
+                  <strong>Recall:</strong> {seqDiff.recall}
                 </p>
               </div>
 
@@ -477,7 +486,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
                                     {change.newValue}
                                   </td>
                                   <td className="p-2 border">
-                                    {change.similarity?.toFixed(3)}
+                                    {change.similarity}
                                   </td>
                                 </>
                               )}
@@ -490,7 +499,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
                                     {change.newValue}
                                   </td>
                                   <td className="p-2 border">
-                                    {change.similarity?.toFixed(3)}
+                                    {change.similarity}
                                   </td>
                                 </>
                               )}
@@ -702,7 +711,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
                                             {change.newValue}
                                           </td>
                                           <td className="p-2 border">
-                                            {change.similarity?.toFixed(3)}
+                                            {change.similarity}
                                           </td>
                                         </>
                                       )}
@@ -715,7 +724,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
                                             {change.newValue}
                                           </td>
                                           <td className="p-2 border">
-                                            {change.similarity?.toFixed(3)}
+                                            {change.similarity}
                                           </td>
                                         </>
                                       )}

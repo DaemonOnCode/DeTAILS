@@ -58,7 +58,7 @@ async def group_codes_endpoint(
 
     app_id = request.headers.get("x-app-id")
 
-    if qect_repo.count({"workspace_id": workspace_id, "codebook_type": [CodebookType.INITIAL.value,CodebookType.FINAL.value], "is_marked": True}) == 0:
+    if qect_repo.count({"workspace_id": workspace_id, "codebook_type": [CodebookType.INITIAL_COPY.value,CodebookType.FINAL.value], "is_marked": True}) == 0:
         raise RequestError(status_code=400, message="No codes available for grouping.")
 
     start_time = time.time()
@@ -67,7 +67,7 @@ async def group_codes_endpoint(
 
     summarized_explanations = await summarize_codebook_explanations(
         workspace_id=workspace_id,
-        codebook_types=[CodebookType.INITIAL.value, CodebookType.FINAL.value],
+        codebook_types=[CodebookType.INITIAL_COPY.value, CodebookType.FINAL.value],
         llm_model=request_body.model,
         app_id=app_id,
         manager=manager,
@@ -183,7 +183,7 @@ async def regroup_codes_endpoint(
 
     app_id = request.headers.get("x-app-id")
 
-    if qect_repo.count({"workspace_id": workspace_id, "codebook_type": [CodebookType.INITIAL.value,CodebookType.FINAL.value], "is_marked": True}) == 0:
+    if qect_repo.count({"workspace_id": workspace_id, "codebook_type": [CodebookType.INITIAL_COPY.value,CodebookType.FINAL.value], "is_marked": True}) == 0:
         raise RequestError(status_code=400, message="No codes available for grouping.")
 
 
@@ -194,7 +194,7 @@ async def regroup_codes_endpoint(
     summarized_explanations = await summarize_codebook_explanations(
         workspace_id = workspace_id,
         codebook_types = [
-            CodebookType.INITIAL.value,
+            CodebookType.INITIAL_COPY.value,
             CodebookType.FINAL.value
         ],
         llm_model = request_body.model,

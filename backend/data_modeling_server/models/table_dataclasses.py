@@ -347,6 +347,7 @@ class CodebookType(Enum):
     INITIAL = "initial"
     FINAL = "final"
     MANUAL = "manual"
+    INITIAL_COPY = "initial_copy"
 
 @dataclass
 class QectResponse(BaseDataclass):

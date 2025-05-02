@@ -17,10 +17,6 @@ class QectRepository(BaseRepository[QectResponse]):
             ON qect(workspace_id);
             """,
             """
-            CREATE INDEX IF NOT EXISTS idx_qect_response_workspace_id
-            ON qect(workspace_id);
-            """,
-            """
             CREATE INDEX IF NOT EXISTS idx_qect_response_post_id
             ON qect(post_id);
             """,
@@ -37,21 +33,25 @@ class QectRepository(BaseRepository[QectResponse]):
             ON qect(response_type);
             """,
             """
-            CREATE INDEX IF NOT EXISTS idx_qect_response_dataset_codebook
-            ON qect(workspace_id, codebook_type);
-            """,
-            """
-            CREATE INDEX IF NOT EXISTS idx_qect_response_dataset_response
-            ON qect(workspace_id, response_type);
-            """,
-            """
             CREATE INDEX IF NOT EXISTS idx_qect_response_workspace_codebook
             ON qect(workspace_id, codebook_type);
             """,
             """
             CREATE INDEX IF NOT EXISTS idx_qect_response_workspace_response
             ON qect(workspace_id, response_type);
+            """,
             """
+            CREATE INDEX IF NOT EXISTS idx_qect_workspace_post
+            ON qect(workspace_id, post_id);
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_qect_workspace_codebook_marked
+            ON qect(workspace_id, codebook_type, is_marked);
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_qect_workspace_code
+            ON qect(workspace_id, code);
+            """,
         ]
 
         with tuned_connection(self.database_path) as conn:

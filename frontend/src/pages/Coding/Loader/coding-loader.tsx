@@ -1,13 +1,10 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect, useTransition } from 'react';
 import { generateRandomText } from '../../../utility/random-text-generator';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ROUTES } from '../../../constants/Coding/shared';
-import { useSettings } from '../../../context/settings-context';
+import { useSearchParams } from 'react-router-dom';
 import { useCodingContext } from '../../../context/coding-context';
 import { useWebSocket } from '../../../context/websocket-context';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
-import { useCollectionContext } from '../../../context/collection-context';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 
@@ -21,14 +18,13 @@ const highlightColors = [
     'bg-indigo-300'
 ];
 
-const FinalCoding = () => {
+const CodingLoader = () => {
     const { registerCallback, unregisterCallback } = useWebSocket();
     const { unseenPostIds, sampledPostIds } = useCodingContext();
 
     const [highlightedWords, setHighlightedWords] = useState<{ index: number; color: string }[]>(
         []
     );
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const headingText = searchParams.get('text') || 'Final Coding in Progress';
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -37,19 +33,9 @@ const FinalCoding = () => {
 
     const [isPending, startTransition] = useTransition();
 
-    const { settings } = useSettings();
-
     const [postsFinished, setPostsFinished] = useState<number>(0);
 
     const currentPostIds = headingText.includes('Final') ? unseenPostIds : sampledPostIds;
-    console.log(
-        'Current post IDs:',
-        currentPostIds,
-        headingText,
-        currentPostIds.length,
-        unseenPostIds,
-        sampledPostIds
-    );
 
     const handleWebsocketMessage = (message: string) => {
         console.log('Websocket message:', message);
@@ -170,4 +156,4 @@ const FinalCoding = () => {
     );
 };
 
-export default FinalCoding;
+export default CodingLoader;

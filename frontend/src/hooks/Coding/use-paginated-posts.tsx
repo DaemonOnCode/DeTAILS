@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApi } from '../Shared/use-api';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { ResponseType } from '../../types/Coding/shared';
 
 export interface PaginatedPostsResponse {
     postIds: string[];
@@ -19,7 +20,7 @@ export function usePaginatedPosts({
     pageSize?: number;
     filterCode?: string | null;
     searchTerm?: string;
-    responseTypes: ('sampled' | 'unseen' | 'manual')[];
+    responseTypes: ResponseType[];
 }) {
     const { fetchData } = useApi();
 
