@@ -7,19 +7,26 @@ import { nodePolyfills } from "vite-plugin-node-polyfills";
 export default defineConfig({
   plugins: [
     nodePolyfills({
-      // Specific modules that should not be polyfilled.
       exclude: [],
-      // Whether to polyfill specific globals.
       globals: {
-        Buffer: true, // can also be 'build', 'dev', or false
+        Buffer: true,
         global: true,
         process: true,
       },
-      // Whether to polyfill `node:` protocol imports.
       protocolImports: true,
     }),
     react(),
     tailwindcss(),
     tsconfigPaths(),
+    {
+      name: "configure-response-headers",
+      configureServer: (server) => {
+        server.middlewares.use((_req, res, next) => {
+          res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+          res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+          next();
+        });
+      },
+    },
   ],
 });

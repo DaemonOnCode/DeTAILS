@@ -398,7 +398,7 @@ def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generati
 
     print(f"Duplicates removed: {duplicates_removed}, Count before: {count_before}, Count after: {count_after}")
 
-    before_delete_response_ids = list(map(lambda x: x.id, before_delete))
+    after_delete_response_ids = list(map(lambda x: x.id, after_delete))
     
     state_dump_repo.insert(
         StateDump(
@@ -409,7 +409,7 @@ def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generati
                 "generation_type": generation_type,
                 "count_before": count_before,
                 "count_after": count_after,
-                "duplicate_filtered_codes": list(filter(lambda x: x.id not in before_delete_response_ids, after_delete))
+                "duplicate_filtered_codes": list(filter(lambda x: x.id not in after_delete_response_ids, before_delete))
             }, cls=DataClassEncoder),
             context=json.dumps({
                 "function": "llm_response_after_filtering_duplicates",

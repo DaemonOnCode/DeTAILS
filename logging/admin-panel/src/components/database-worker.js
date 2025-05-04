@@ -7,7 +7,7 @@ self.onmessage = async (e) => {
   const {
     type,
     id,
-    arrayBuffer,
+    sharedArrayBuffer,
     query,
     params,
     page,
@@ -23,7 +23,8 @@ self.onmessage = async (e) => {
           locateFile: (file) => `https://sql.js.org/dist/${file}`,
         });
       }
-      database = new SQL.Database(new Uint8Array(arrayBuffer));
+      const sharedView = new Uint8Array(sharedArrayBuffer);
+      database = new SQL.Database(sharedView);
       self.postMessage({ type: "databaseLoaded", data: null, id });
     } catch (error) {
       self.postMessage({ type: "error", data: error.message, id });

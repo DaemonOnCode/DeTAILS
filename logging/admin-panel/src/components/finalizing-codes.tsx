@@ -36,10 +36,20 @@ type Change = GroupChange | GroupDeletion | GroupInsertion | CodeMovement;
 interface GroupMetric {
   groupId: string;
   initialName: string;
-  finalName: string | "Deleted";
+  finalName: string | "Deleted" | "Inserted";
+  initialCodeCount: number;
+  finalCodeCount: number;
   precision: number;
   recall: number;
   similarity?: number;
+  jaccard: number;
+  effectiveNameChange?: boolean;
+}
+
+interface ConfusionMatrixEntry {
+  initialGroupId: string;
+  finalGroupId: string;
+  count: number;
 }
 
 interface SequenceDiff {
@@ -51,7 +61,12 @@ interface SequenceDiff {
   stepwiseChanges: { step: number; changes: Change[] }[];
   precision: number;
   recall: number;
+  macroPrecision: number;
+  macroRecall: number;
   groupMetrics: GroupMetric[];
+  confusionMatrix: ConfusionMatrixEntry[];
+  initialGroupsObj: { [id: string]: string };
+  finalGroupsObj: { [id: string]: string };
 }
 
 const safeParseContext = (context: string): Context => {
@@ -119,6 +134,223 @@ const extractGroupsAndMappings = (
   }
 
   return { groups, codeToGroup };
+};
+
+const computeMetrics = async (
+  initialGroups: Map<string, string>,
+  initialCodeToGroup: Map<string, string | null>,
+  finalGroups: Map<string, string>,
+  finalCodeToGroup: Map<string, string | null>,
+  calculateSimilarity: (a: string, b: string) => Promise<number>
+): Promise<{
+  precision: number;
+  recall: number;
+  macroPrecision: number;
+  macroRecall: number;
+  groupMetrics: GroupMetric[];
+  confusionMatrix: ConfusionMatrixEntry[];
+}> => {
+  console.log("Starting group metrics calculation");
+
+  const initGroupToCodes = new Map<string, Set<string>>();
+  const finalGroupToCodes = new Map<string, Set<string>>();
+  const allCodes = new Set([
+    ...initialCodeToGroup.keys(),
+    ...finalCodeToGroup.keys(),
+  ]);
+
+  for (const [code, groupId] of initialCodeToGroup.entries()) {
+    const group = groupId || "unplaced";
+    if (!initGroupToCodes.has(group)) initGroupToCodes.set(group, new Set());
+    initGroupToCodes.get(group)!.add(code);
+  }
+  for (const [code, groupId] of finalCodeToGroup.entries()) {
+    const group = groupId || "unplaced";
+    if (!finalGroupToCodes.has(group)) finalGroupToCodes.set(group, new Set());
+    finalGroupToCodes.get(group)!.add(code);
+  }
+
+  const confusionMatrix: ConfusionMatrixEntry[] = [];
+  for (const code of allCodes) {
+    const initGroup = initialCodeToGroup.get(code) || "unplaced";
+    const finalGroup = finalCodeToGroup.get(code) || "unplaced";
+    const entry = confusionMatrix.find(
+      (e) => e.initialGroupId === initGroup && e.finalGroupId === finalGroup
+    );
+    if (entry) {
+      entry.count++;
+    } else {
+      confusionMatrix.push({
+        initialGroupId: initGroup,
+        finalGroupId: finalGroup,
+        count: 1,
+      });
+    }
+  }
+  console.log("Confusion Matrix:", confusionMatrix);
+
+  const groupMapping = new Map<string, string>();
+  const mappedFinalGroups = new Set<string>();
+  for (const groupId of [...initialGroups.keys(), "unplaced"]) {
+    if (finalGroups.has(groupId) || groupId === "unplaced") {
+      groupMapping.set(groupId, groupId);
+      mappedFinalGroups.add(groupId);
+      console.log(
+        `Mapped initial group ${groupId} to final group ${groupId} by ID`
+      );
+    }
+  }
+
+  const remainingInitialGroups = Array.from(initialGroups.keys()).filter(
+    (groupId) => !groupMapping.has(groupId)
+  );
+  for (const initGroupId of remainingInitialGroups) {
+    const initCodes = initGroupToCodes.get(initGroupId) || new Set();
+    let maxJaccard = 0;
+    let bestMatch: string | null = null;
+    for (const [finalGroupId, finalCodes] of finalGroupToCodes) {
+      if (mappedFinalGroups.has(finalGroupId)) continue;
+      const intersection = new Set(
+        [...initCodes].filter((code) => finalCodes.has(code))
+      );
+      const union = new Set([...initCodes, ...finalCodes]);
+      const jaccard = intersection.size / union.size;
+      if (jaccard > maxJaccard) {
+        maxJaccard = jaccard;
+        bestMatch = finalGroupId;
+      }
+    }
+    if (maxJaccard >= 0.5 && bestMatch) {
+      groupMapping.set(initGroupId, bestMatch);
+      mappedFinalGroups.add(bestMatch);
+      console.log(
+        `Mapped initial group ${initGroupId} to final group ${bestMatch} by Jaccard similarity: ${maxJaccard}`
+      );
+    } else {
+      console.log(
+        `No suitable mapping found for initial group ${initGroupId} (deleted)`
+      );
+    }
+  }
+
+  let totalSupport = 0;
+  let weightedPrecSum = 0;
+  let weightedRecSum = 0;
+  const groupMetrics: GroupMetric[] = [];
+  let macroPrecisionSum = 0;
+  let macroRecallSum = 0;
+  let macroCount = 0;
+
+  for (const [groupId, initialName] of [
+    ...initialGroups,
+    ["unplaced", "Unplaced"],
+  ]) {
+    const initCodes = initGroupToCodes.get(groupId) || new Set();
+    const mappedGroupId = groupMapping.get(groupId);
+    const finalCodes: Set<string> = mappedGroupId
+      ? finalGroupToCodes.get(mappedGroupId) || new Set()
+      : new Set();
+    const support = initCodes.size;
+    totalSupport += support;
+
+    const TP = [...initCodes].filter((code) => finalCodes.has(code)).length;
+    const FP = [...initCodes].filter((code) => !finalCodes.has(code)).length;
+    const FN = [...finalCodes].filter((code) => !initCodes.has(code)).length;
+
+    const jaccard =
+      initCodes.size + finalCodes.size - TP > 0
+        ? TP / (initCodes.size + finalCodes.size - TP)
+        : 0;
+
+    const precision = TP + FP > 0 ? TP / (TP + FP) : 0;
+    const recall = TP + FN > 0 ? TP / (TP + FN) : 0;
+
+    weightedPrecSum += precision * support;
+    weightedRecSum += recall * support;
+
+    const finalName = mappedGroupId
+      ? finalGroups.get(mappedGroupId) || "Unplaced"
+      : "Unplaced";
+    const similarity =
+      finalName !== "Unplaced" && initialName !== finalName
+        ? await calculateSimilarity(initialName, finalName)
+        : undefined;
+    const effectiveNameChange =
+      !!mappedGroupId &&
+      initialName !== finalName &&
+      jaccard >= 0.8 &&
+      (similarity || 1.0) < 0.5;
+
+    groupMetrics.push({
+      groupId,
+      initialName,
+      finalName,
+      initialCodeCount: initCodes.size,
+      finalCodeCount: finalCodes.size,
+      precision,
+      recall,
+      similarity,
+      jaccard,
+      effectiveNameChange,
+    });
+
+    // Only include in macro average if either initial or final code count is greater than 0
+    if (initCodes.size > 0 || finalCodes.size > 0) {
+      macroPrecisionSum += precision;
+      macroRecallSum += recall;
+      macroCount++;
+    }
+
+    console.log(
+      `Group ${groupId} metrics: TP=${TP}, FP=${FP}, FN=${FN}, Precision=${precision}, Recall=${recall}, Initial Code Count=${initCodes.size}, Final Code Count=${finalCodes.size}`
+    );
+  }
+
+  for (const [groupId, finalName] of finalGroups) {
+    if (!mappedFinalGroups.has(groupId)) {
+      const finalCodes = finalGroupToCodes.get(groupId) || new Set();
+      groupMetrics.push({
+        groupId,
+        initialName: "Inserted",
+        finalName,
+        initialCodeCount: 0,
+        finalCodeCount: finalCodes.size,
+        precision: 0,
+        recall: 0,
+        jaccard: 0,
+      });
+      // For inserted groups, include in macro if finalCodeCount > 0
+      if (finalCodes.size > 0) {
+        macroPrecisionSum += 0; // precision is 0
+        macroRecallSum += 0; // recall is 0
+        macroCount++;
+      }
+      console.log(
+        `Inserted group ${groupId} with name ${finalName}, Initial Code Count=0, Final Code Count=${finalCodes.size}`
+      );
+    }
+  }
+
+  const weightedPrecision =
+    totalSupport > 0 ? weightedPrecSum / totalSupport : 0;
+  const weightedRecall = totalSupport > 0 ? weightedRecSum / totalSupport : 0;
+
+  const macroPrecision = macroCount > 0 ? macroPrecisionSum / macroCount : 0;
+  const macroRecall = macroCount > 0 ? macroRecallSum / macroCount : 0;
+
+  console.log(
+    `Weighted Precision: ${weightedPrecision}, Weighted Recall: ${weightedRecall}, Macro Precision: ${macroPrecision}, Macro Recall: ${macroRecall}`
+  );
+  console.log("Finished group metrics calculation");
+
+  return {
+    precision: weightedPrecision,
+    recall: weightedRecall,
+    macroPrecision,
+    macroRecall,
+    groupMetrics,
+    confusionMatrix,
+  };
 };
 
 const renderChangeDetails = (change: Change): string => {
@@ -226,90 +458,6 @@ const ReviewingCodesDiffViewer: React.FC = () => {
     return changes;
   };
 
-  const computeMetrics = async (
-    initialGroups: Map<string, string>,
-    initialCodeToGroup: Map<string, string | null>,
-    finalGroups: Map<string, string>,
-    finalCodeToGroup: Map<string, string | null>
-  ): Promise<{
-    precision: number;
-    recall: number;
-    groupMetrics: GroupMetric[];
-  }> => {
-    const initGroupToCodes = new Map<string, Set<string>>();
-    const finalGroupToCodes = new Map<string, Set<string>>();
-
-    for (const [code, groupId] of initialCodeToGroup.entries()) {
-      if (groupId == null) continue;
-      if (!initGroupToCodes.has(groupId))
-        initGroupToCodes.set(groupId, new Set());
-      initGroupToCodes.get(groupId)!.add(code);
-    }
-    for (const [code, groupId] of finalCodeToGroup.entries()) {
-      if (groupId == null) continue;
-      if (!finalGroupToCodes.has(groupId))
-        finalGroupToCodes.set(groupId, new Set());
-      finalGroupToCodes.get(groupId)!.add(code);
-    }
-
-    let totalSupport = 0;
-    let weightedPrecSum = 0;
-    let weightedRecSum = 0;
-    const groupMetrics: GroupMetric[] = [];
-
-    for (const [groupId] of initialGroups.entries()) {
-      const initCodes = initGroupToCodes.get(groupId) || new Set();
-      const finalCodes = finalGroupToCodes.get(groupId) || new Set();
-      const support = initCodes.size;
-      totalSupport += support;
-
-      let TP = 0;
-      for (const code of initCodes) {
-        if (finalCodes.has(code)) TP++;
-      }
-      const FP = support - TP;
-      let FN = 0;
-      for (const code of finalCodes) {
-        if (!initCodes.has(code)) FN++;
-      }
-
-      const precision = TP + FP > 0 ? TP / (TP + FP) : 0;
-      const recall = TP + FN > 0 ? TP / (TP + FN) : 0;
-
-      weightedPrecSum += precision * support;
-      weightedRecSum += recall * support;
-
-      const initialName = initialGroups.get(groupId)!;
-      const finalName = finalGroups.has(groupId)
-        ? finalGroups.get(groupId)!
-        : "Deleted";
-
-      let similarity: number | undefined;
-      if (finalName !== "Deleted") {
-        similarity = await getGroupSimilarity(initialName, finalName);
-      }
-
-      groupMetrics.push({
-        groupId,
-        initialName,
-        finalName,
-        precision,
-        recall,
-        similarity,
-      });
-    }
-
-    const weightedPrecision =
-      totalSupport > 0 ? weightedPrecSum / totalSupport : 0;
-    const weightedRecall = totalSupport > 0 ? weightedRecSum / totalSupport : 0;
-
-    return {
-      precision: weightedPrecision,
-      recall: weightedRecall,
-      groupMetrics,
-    };
-  };
-
   const toggleStep = (sequenceId: number, step: number) => {
     const key = `${sequenceId}-${step}`;
     setOpenSteps((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -371,7 +519,8 @@ const ReviewingCodesDiffViewer: React.FC = () => {
             initialExtract.groups,
             initialExtract.codeToGroup,
             finalExtract.groups,
-            finalExtract.codeToGroup
+            finalExtract.codeToGroup,
+            calculateSimilarity
           );
 
           const stepwiseChanges: { step: number; changes: Change[] }[] = [];
@@ -413,7 +562,12 @@ const ReviewingCodesDiffViewer: React.FC = () => {
             stepwiseChanges,
             precision: metrics.precision,
             recall: metrics.recall,
+            macroPrecision: metrics.macroPrecision,
+            macroRecall: metrics.macroRecall,
             groupMetrics: metrics.groupMetrics,
+            confusionMatrix: metrics.confusionMatrix,
+            initialGroupsObj: Object.fromEntries(initialExtract.groups),
+            finalGroupsObj: Object.fromEntries(finalExtract.groups),
           };
         })
       );
@@ -421,7 +575,7 @@ const ReviewingCodesDiffViewer: React.FC = () => {
     };
 
     if (sequences.length > 0) computeDiffs();
-  }, [sequences]);
+  }, [sequences, calculateSimilarity]);
 
   const totalRegenerations = sequenceDiffs.filter(
     (seq) => seq.isRegeneration
@@ -456,6 +610,12 @@ const ReviewingCodesDiffViewer: React.FC = () => {
               </p>
               <p>
                 <strong>Weighted Recall:</strong> {seqDiff.recall}
+              </p>
+              <p>
+                <strong>Macro Precision:</strong> {seqDiff.macroPrecision}
+              </p>
+              <p>
+                <strong>Macro Recall:</strong> {seqDiff.macroRecall}
               </p>
             </div>
 
@@ -497,17 +657,33 @@ const ReviewingCodesDiffViewer: React.FC = () => {
                     <th className="p-2 border">Group ID</th>
                     <th className="p-2 border">Initial Name</th>
                     <th className="p-2 border">Final Name</th>
+                    <th className="p-2 border">Initial Code Count</th>
+                    <th className="p-2 border">Final Code Count</th>
                     <th className="p-2 border">Similarity</th>
                     <th className="p-2 border">Precision</th>
                     <th className="p-2 border">Recall</th>
+                    <th className="p-2 border">Jaccard</th>
+                    <th className="p-2 border">Effective Name Change</th>
                   </tr>
                 </thead>
                 <tbody>
                   {seqDiff.groupMetrics.map((metric, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="p-2 border">{metric.groupId}</td>
-                      <td className="p-2 border">{metric.initialName}</td>
-                      <td className="p-2 border">{metric.finalName}</td>
+                      <td className="p-2 border">
+                        {metric.initialName === "Deleted" ||
+                        metric.initialName === "Inserted"
+                          ? "-"
+                          : metric.initialName}
+                      </td>
+                      <td className="p-2 border">
+                        {metric.finalName === "Deleted" ||
+                        metric.finalName === "Inserted"
+                          ? "-"
+                          : metric.finalName}
+                      </td>
+                      <td className="p-2 border">{metric.initialCodeCount}</td>
+                      <td className="p-2 border">{metric.finalCodeCount}</td>
                       <td className="p-2 border">
                         {metric.similarity !== undefined
                           ? metric.similarity
@@ -515,12 +691,54 @@ const ReviewingCodesDiffViewer: React.FC = () => {
                       </td>
                       <td className="p-2 border">{metric.precision}</td>
                       <td className="p-2 border">{metric.recall}</td>
+                      <td className="p-2 border">{metric.jaccard}</td>
+                      <td className="p-2 border">
+                        {metric.effectiveNameChange ? "Yes" : "No"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : (
               <p className="mb-4 text-gray-600">No group metrics available.</p>
+            )}
+
+            <h3 className="text-lg font-medium mb-2 text-gray-700">
+              Confusion Matrix
+            </h3>
+            {seqDiff.confusionMatrix.length > 0 ? (
+              <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="p-2 border">Initial Group</th>
+                    <th className="p-2 border">Final Group</th>
+                    <th className="p-2 border">Code Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {seqDiff.confusionMatrix.map((entry, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="p-2 border">
+                        {entry.initialGroupId === "unplaced"
+                          ? "unplaced"
+                          : seqDiff.initialGroupsObj[entry.initialGroupId] ||
+                            "unknown"}
+                      </td>
+                      <td className="p-2 border">
+                        {entry.finalGroupId === "unplaced"
+                          ? "unplaced"
+                          : seqDiff.finalGroupsObj[entry.finalGroupId] ||
+                            "unknown"}
+                      </td>
+                      <td className="p-2 border">{entry.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="mb-4 text-gray-600">
+                No confusion matrix data available.
+              </p>
             )}
 
             <h3 className="text-lg font-medium mb-2 text-gray-700">

@@ -123,19 +123,17 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({
     setSelectedWorkspaceId(null);
 
     try {
-      const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsArrayBuffer(file);
-      });
+      const arrayBuffer = await file.arrayBuffer();
+      const sharedArrayBuffer = new SharedArrayBuffer(arrayBuffer.byteLength);
+      const sharedView = new Uint8Array(sharedArrayBuffer);
+      const originalView = new Uint8Array(arrayBuffer);
+      sharedView.set(originalView);
 
       await workerPoolRef.current.broadcastInit(
-        { type: "loadDatabase", arrayBuffer },
+        { type: "loadDatabase", sharedArrayBuffer },
         {
           responseType: "databaseLoaded",
           errorType: "error",
-          transferable: [arrayBuffer],
         }
       );
 

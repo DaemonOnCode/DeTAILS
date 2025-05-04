@@ -32,7 +32,7 @@ export default class WorkerPool {
     baseMessage: Omit<Message, "id">,
     options: TaskOptions
   ): Promise<void> {
-    const { responseType, errorType = "error", transferable } = options;
+    const { responseType, errorType = "error" } = options;
 
     await Promise.all(
       this.workers.map((worker) => {
@@ -47,22 +47,8 @@ export default class WorkerPool {
           }
           worker.addEventListener("message", listener);
 
-          let message: any = { ...baseMessage, id: msgId };
-          let transferList: Transferable[] = [];
-          if (transferable) {
-            transferList = transferable.map((item) => {
-              if (item instanceof ArrayBuffer) {
-                const copy = item.slice(0);
-                if ("arrayBuffer" in message) {
-                  message = { ...message, arrayBuffer: copy };
-                }
-                return copy;
-              }
-              return item;
-            });
-          }
-
-          worker.postMessage(message, transferList);
+          const message = { ...baseMessage, id: msgId };
+          worker.postMessage(message);
         });
       })
     );
