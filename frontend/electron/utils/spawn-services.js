@@ -115,7 +115,7 @@ const osResourcePaths = Object.freeze({
         'DeTAILS',
         'executables'
     ),
-    LINUX: path.join(app.getPath('home'), '.config', 'DeTAILS', 'executables')
+    LINUX: path.join(app.getPath('home'), '.config', 'details', 'executables')
 });
 
 // Function to copy binaries only if they do not exist

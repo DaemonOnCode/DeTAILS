@@ -57,7 +57,7 @@ fi
 
 build_ripgrep() {
     echo "Entering ripgrep"
-    cd "$ROOT_DIR/ripgrep" || exit
+    cd "$ROOT_DIR/backend/ripgrep" || exit
     echo "Building ripgrep"
     cargo build --release --features 'pcre2'
     echo "Copying the built ripgrep"

@@ -528,7 +528,7 @@ def get_llm_manager():
             status_check_interval=15.0,
             enable_status_check=True,
             cancel_threshold=1,
-            idle_threshold=60,
+            idle_threshold=15,
             cutoff=300,
         )
     except Exception as e:
