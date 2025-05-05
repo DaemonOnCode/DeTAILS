@@ -89,6 +89,8 @@ build_chroma() {
   cd "$PROJECT_ROOT/backend/chroma"
   source ./linenv/bin/activate
   cd chromadb/cli
+  rm -rf build
+  rm -rf dist/cli
   pyinstaller cli.spec
   deactivate
   mkdir -p "$PROJECT_ROOT/executables/chroma"

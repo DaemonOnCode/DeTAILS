@@ -119,6 +119,8 @@ build_chroma() {
   cd "$PROJECT_ROOT/backend/chroma"
   source ./env/bin/activate
   cd chromadb/cli
+  rm -rf build
+  rm -rf dist/cli
   pyinstaller cli.spec
   deactivate
   mkdir -p "$PROJECT_ROOT/executables_mac/chroma"

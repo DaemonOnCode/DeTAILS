@@ -46,6 +46,17 @@ function Invoke-ComponentBuild {
             Set-Location -Path "chromadb\cli"
         }
 
+        # Remove stale build outputs before building:
+        if ($componentName -eq "backend") {
+            Write-Host "Cleaning previous backend dist/build folders..."
+            Remove-Item -Path ".\dist" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path ".\build" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        elseif ($componentName -eq "chromadb") {
+            Write-Host "Cleaning previous chromadb CLI artifact (only cli.exe)..."
+            Remove-Item -Path ".\dist\cli.exe" -Force -ErrorAction SilentlyContinue
+        }
+
         # Execute build commands
         Write-Host "Building $componentName..."
         if ($componentName -eq "ollama") {
@@ -112,7 +123,7 @@ Invoke-ComponentBuild -componentName "ripgrep" -folderName "ripgrep" -buildComma
 Invoke-ComponentBuild -componentName "zstd" -folderName "zstd" -buildCommands "cmake -G 'MinGW Makefiles' .. ; make" -artifactPath "programs\zstd.exe" -destSubDir "zstd"
 
 # Build backend
-Invoke-ComponentBuild -componentName "backend" -folderName "data-modeling-server" -buildCommands "pyinstaller main.spec" -artifactPath "dist\main.exe" -destSubDir "data-modeling-server"
+Invoke-ComponentBuild -componentName "backend" -folderName "data_modeling_server" -buildCommands "pyinstaller main.spec" -artifactPath "dist\main.exe" -destSubDir "data-modeling-server"
 
 # Build chromadb
 Invoke-ComponentBuild -componentName "chromadb" -folderName "chroma" -buildCommands "pyinstaller cli.spec" -artifactPath "dist\cli.exe" -destSubDir "chroma"
