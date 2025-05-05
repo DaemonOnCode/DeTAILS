@@ -15,6 +15,7 @@ const { createMenu } = require('./utils/menu');
 const { createContext } = require('./utils/context');
 const { electronLogger } = require('./utils/electron-logger');
 const { killProcess } = require('./utils/kill-process');
+const { cleanupOldMEIFoldersByCount } = require('./utils/temp-cleanup');
 
 const newConfig = require('../src/config')('electron');
 
@@ -50,10 +51,11 @@ const cleanupAndExit = async (globalCtx, signal) => {
 
     electronLogger.log(`Received signal: ${signal}`);
     await logger.info('Process exited', { signal });
-    for (const { name, process: child } of spawnedProcesses) {
-        electronLogger.log(`Terminating process: ${name}`);
-        killProcess(child);
-    }
+    const killPromises = spawnedProcesses.map(({ name, process: child }) => {
+        electronLogger.log(`Terminating process: ${name} (pid=${child.pid})`);
+        return killProcess(child);
+    });
+    await Promise.all(killPromises);
     try {
         globalCtx.getState().websocket.close();
         globalCtx.setState({ websocket: null });
@@ -71,6 +73,12 @@ const cleanupAndExit = async (globalCtx, signal) => {
 app.commandLine.appendSwitch('force-color-profile', 'srgb');
 
 app.whenReady().then(async () => {
+    // Cleanup old _MEI folders as needed for Linux
+    if (process.platform === 'linux') {
+        electronLogger.log('Cleaning up old _MEI folders...');
+        cleanupOldMEIFoldersByCount(2);
+    }
+
     let globalCtx = createContext('global', {
         ...config
     });

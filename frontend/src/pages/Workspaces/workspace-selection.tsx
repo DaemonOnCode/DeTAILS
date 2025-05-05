@@ -10,9 +10,7 @@ import {
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import { useAuth } from '../../context/auth-context';
-import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 import { useToast } from '../../context/toast-context';
 import { useApi } from '../../hooks/Shared/use-api';
@@ -38,6 +36,8 @@ const WorkspaceSelectionPage: React.FC = () => {
         workspaceLoading: loading
     } = useWorkspaceContext();
 
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
     const { fetchData } = useApi();
 
     const [newWorkspaceName, setNewWorkspaceName] = useState<string>('');
@@ -53,40 +53,53 @@ const WorkspaceSelectionPage: React.FC = () => {
         const fetchWorkspaces = async () => {
             if (isLoading.current) return;
             isLoading.current = true;
-            try {
-                setWorkspaceLoading(true);
-                const route = `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
-                    user?.email || ''
-                )}`;
-                const workspaceResponse = await fetchData(route);
-                if (workspaceResponse.error) {
-                    console.error('Error fetching workspaces:', workspaceResponse.error.message);
-                    return;
+            setWorkspaceLoading(true);
+
+            const maxRetries = 5;
+            const baseDelayMs = 2000;
+
+            const route = `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(
+                user?.email || ''
+            )}`;
+
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    const { error, data } = await fetchData(route);
+                    if (error) throw new Error(error.message.error_message);
+
+                    if (Array.isArray(data) && data.length) {
+                        setWorkspaces(
+                            data.map((ws: any) => ({
+                                id: ws.id,
+                                name: ws.name,
+                                description: ws.description || '',
+                                updatedAt: ws.updated_at || ''
+                            }))
+                        );
+                    } else {
+                        console.log('No workspaces found.');
+                    }
+                    break;
+                } catch (err: any) {
+                    console.warn(`Attempt ${attempt} failed: ${err.message}`);
+                    if (attempt === maxRetries) {
+                        showToast({
+                            type: 'error',
+                            message: 'Unable to load workspaces after multiple attempts.'
+                        });
+                    } else {
+                        const delay = baseDelayMs * 2 ** (attempt - 1);
+                        await sleep(delay);
+                    }
                 }
-                const data = workspaceResponse.data;
-                if (Array.isArray(data) && data.length > 0) {
-                    console.log('Workspaces:', data);
-                    const newWorkspaces = data.map((workspace: any) => ({
-                        id: workspace.id,
-                        name: workspace.name,
-                        description: workspace.description || '',
-                        updatedAt: workspace.updated_at || ''
-                    }));
-                    setWorkspaces(newWorkspaces);
-                    setWorkspaceLoading(false);
-                } else {
-                    console.log('No workspaces found.');
-                }
-            } catch (error: any) {
-                console.error('Error fetching workspaces:', error);
-            } finally {
-                isLoading.current = false;
-                setWorkspaceLoading(false);
             }
+
+            setWorkspaceLoading(false);
+            isLoading.current = false;
         };
 
         if (user?.email) fetchWorkspaces();
-    }, [user?.email, setWorkspaceLoading, setWorkspaces, fetchData]);
+    }, [user?.email, fetchData]);
 
     const handleAddWorkspace = async () => {
         if (!newWorkspaceName.trim()) {

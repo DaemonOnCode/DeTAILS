@@ -15,161 +15,157 @@ const { ipcRenderer } = window.require('electron');
 
 type CallbackFn = (message: string) => void;
 
-const WebSocketContext = createContext({
-    registerCallback: (event: string, callback: CallbackFn) => {},
-    unregisterCallback: (event: string) => {},
+interface IWebSocketContext {
+    registerCallback(event: string, cb: CallbackFn): void;
+    unregisterCallback(event: string): void;
+    serviceStarting: boolean;
+}
+
+const WebSocketContext = createContext<IWebSocketContext>({
+    registerCallback: () => {},
+    unregisterCallback: () => {},
     serviceStarting: true
 });
 
-const WebSocketSingleton = (() => {
-    let isInitialized = false;
-    let retryCount = 0;
-    let checkBackend = false;
-
-    const initialize = (
-        handleMessage: (event: any, message: string) => void,
-        monitorWebSocketStatus: (checkBackend: boolean) => void,
-        localProcessing: boolean
-    ) => {
-        checkBackend = localProcessing;
-        if (isInitialized) return;
-
-        ipcRenderer.removeAllListeners('ws-message');
-        ipcRenderer.on('ws-message', handleMessage);
-
-        monitorWebSocketStatus(checkBackend);
-
-        isInitialized = true;
-        console.log('WebSocket singleton initialized');
-    };
-
-    const attemptReconnect = (initiateWebSocketConnection: () => void) => {
-        retryCount += 1;
-        if (retryCount > 10) {
-            // toast.error('WebSocket server is offline. Max retries reached.');
-            return;
-        }
-        const retryDelay = Math.pow(2, retryCount) * 1000;
-        console.log(`Reconnecting WebSocket in ${retryDelay / 1000}s...`);
-        setTimeout(initiateWebSocketConnection, retryDelay);
-    };
-
-    const deinitialize = async () => {
-        console.log('Deinitializing WebSocket Singleton...');
-
-        ipcRenderer.removeAllListeners('ws-message');
-        ipcRenderer.removeAllListeners('ws-connected');
-        ipcRenderer.removeAllListeners('ws-closed');
-        ipcRenderer.removeAllListeners('service-started');
-        ipcRenderer.removeAllListeners('service-stopped');
-
-        retryCount = 0;
-        isInitialized = false;
-
-        try {
-            await ipcRenderer.invoke('disconnect-ws');
-        } catch (error) {
-            console.error('Failed to disconnect WebSocket:', error);
-        }
-
-        console.log('WebSocket Singleton successfully deinitialized.');
-    };
-
-    return {
-        isInitialized,
-        initialize,
-        resetRetryCount: () => {
-            retryCount = 0;
-        },
-        attemptReconnect,
-        deinitialize
-    };
-})();
-
 export const WebSocketProvider: FC<ILayout> = ({ children }) => {
-    const { remoteProcessing, isAuthenticated, user } = useAuth();
-    const messageCallbacks = useRef<{ [key: string]: CallbackFn }>({});
+    const { remoteProcessing, isAuthenticated } = useAuth();
+
     const [serviceStarting, setServiceStarting] = useState(true);
+    const messageCallbacks = useRef<Record<string, CallbackFn>>({});
     const lastPingRef = useRef<Date | null>(null);
     const pingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const registerCallback = (event: string, callback: CallbackFn) => {
-        if (!messageCallbacks.current[event]) {
-            messageCallbacks.current[event] = callback;
+    const retryCountRef = useRef(0);
+    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const MAX_RETRIES = 25;
+    const BASE_DELAY = 2000;
+    const clearReconnectTimeout = () => {
+        if (reconnectTimeoutRef.current) {
+            console.log('Clearing pending reconnect timeout');
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
         }
     };
 
-    const unregisterCallback = (event: string) => {
-        delete messageCallbacks.current[event];
+    const resetRetryCount = () => {
+        console.log('Resetting retry count');
+        retryCountRef.current = 0;
+        clearReconnectTimeout();
     };
 
-    const handleMessage = (event: any, message: string) => {
-        if (message === 'ping') {
-            lastPingRef.current = new Date();
-            resetPingTimeout();
-            return;
-        }
-
-        Object.values(messageCallbacks.current).forEach((callback) => callback(message));
-    };
-
-    const resetPingTimeout = () => {
+    const resetPingTimeout = useCallback(() => {
         if (pingTimeoutRef.current) {
             clearTimeout(pingTimeoutRef.current);
         }
-
+        console.log('Starting 60s ping watchdog');
         pingTimeoutRef.current = setTimeout(() => {
-            const now = new Date();
-            if (lastPingRef.current && now.getTime() - lastPingRef.current.getTime() > 60000) {
+            const now = Date.now();
+            if (lastPingRef.current && now - lastPingRef.current.getTime() > 60_000) {
+                console.error('No ping received in 60s - backend service may be down');
                 toast.error('No response from backend in the last 60 seconds.');
             }
-        }, 60000);
+        }, 60_000);
+    }, []);
+
+    const handleMessage = useCallback(
+        (_: any, message: string) => {
+            console.log('Received ws-message:', message);
+            if (message === 'ping') {
+                console.log('Handling ping');
+                lastPingRef.current = new Date();
+                resetPingTimeout();
+                return;
+            }
+            Object.values(messageCallbacks.current).forEach((cb) => cb(message));
+        },
+        [resetPingTimeout]
+    );
+
+    const registerCallback = (event: string, cb: CallbackFn) => {
+        console.log(`Registering callback for event "${event}"`);
+        messageCallbacks.current[event] = cb;
     };
 
-    const initiateWebSocketConnection = () => {
-        ipcRenderer.invoke('connect-ws', '').catch((error: any) => {
-            console.error('Failed to initiate WebSocket connection:', error);
-        });
+    const unregisterCallback = (event: string) => {
+        console.log(`Unregistering callback for event "${event}"`);
+        delete messageCallbacks.current[event];
     };
+
+    const performConnect = useCallback(async () => {
+        console.log(`Performing connect-ws (retry #${retryCountRef.current}, after backoff)`);
+        try {
+            await ipcRenderer.invoke('connect-ws', '');
+            console.log(`ipcRenderer.invoke("connect-ws") returned—waiting for ws-connected event`);
+        } catch (err: any) {
+            console.warn('connect-ws invoke failed:', err);
+            scheduleReconnect();
+        }
+    }, []);
+
+    const scheduleReconnect = useCallback(() => {
+        clearReconnectTimeout();
+        retryCountRef.current += 1;
+        const attempt = retryCountRef.current;
+        if (attempt > MAX_RETRIES) {
+            console.error(`Max retry count ${MAX_RETRIES} reached; giving up`);
+            toast.error('WebSocket server is offline. Max retries reached.');
+            return;
+        }
+        const delay = Math.min(BASE_DELAY * 2 ** (attempt - 1), 30_000);
+        console.log(`Scheduling reconnect attempt #${attempt} in ${delay}ms`);
+        reconnectTimeoutRef.current = setTimeout(() => {
+            performConnect();
+        }, delay);
+    }, [performConnect]);
 
     const monitorWebSocketStatus = useCallback(
-        (checkBackend = false) => {
+        (checkBackend: boolean) => {
+            console.log(
+                `Wiring up ws-connected and ws-closed handlers (checkBackend=${checkBackend})`
+            );
+
             ipcRenderer.on('ws-connected', () => {
-                console.log('WebSocket connected');
-                WebSocketSingleton.resetRetryCount();
+                console.log('Received ws-connected event');
+                resetRetryCount();
                 lastPingRef.current = new Date();
                 resetPingTimeout();
                 if (checkBackend) {
+                    console.log('Backend check done; clearing serviceStarting');
                     setServiceStarting(false);
                 }
             });
 
             ipcRenderer.on('ws-closed', () => {
-                if (!isAuthenticated) return;
-                WebSocketSingleton.attemptReconnect(initiateWebSocketConnection);
+                console.warn('Received ws-closed event');
+                if (!isAuthenticated) {
+                    console.log('Not authenticated; skipping reconnect');
+                    return;
+                }
+                scheduleReconnect();
             });
         },
-        [isAuthenticated]
+        [isAuthenticated, resetPingTimeout, scheduleReconnect]
     );
 
     const pollBackendServices = () => {
-        console.log('Polling backend services...');
+        console.log('Polling backend services…');
         setServiceStarting(true);
-        initiateWebSocketConnection();
 
-        const handleServiceStarted = (event: any, serviceName: string) => {
-            console.log('Service started:', serviceName);
+        retryCountRef.current = 0;
+        performConnect();
+
+        const handleServiceStarted = (_: any, serviceName: string) => {
+            console.log('Service started event:', serviceName);
             if (serviceName === 'backend') {
-                console.log('Backend service started');
+                console.info('Backend service is up');
                 toast.info('Backend service started');
             }
-            initiateWebSocketConnection();
+            performConnect();
         };
-
-        const handleServiceStopped = (event: any, serviceName: string) => {
-            console.log('Service stopped:', serviceName);
+        const handleServiceStopped = (_: any, serviceName: string) => {
+            console.log('Service stopped event:', serviceName);
             if (serviceName === 'backend') {
-                console.log('Backend service stopped');
+                console.error('Backend service has stopped');
                 toast.error('Backend service stopped. Restart the application.');
             }
         };
@@ -178,55 +174,70 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         ipcRenderer.on('service-stopped', handleServiceStopped);
 
         return () => {
+            console.log('Cleaning up service-started/stopped listeners');
             ipcRenderer.removeListener('service-started', handleServiceStarted);
             ipcRenderer.removeListener('service-stopped', handleServiceStopped);
         };
     };
 
     useEffect(() => {
-        console.log('Auth changed:', isAuthenticated, user);
         if (!isAuthenticated) {
-            console.log('User logged out. De-initializing WebSocket...');
-
-            //
-            WebSocketSingleton.deinitialize();
-
+            console.log('User logged out; tearing down WebSocket…');
+            clearReconnectTimeout();
+            if (pingTimeoutRef.current) {
+                clearTimeout(pingTimeoutRef.current);
+                pingTimeoutRef.current = null;
+            }
+            ipcRenderer.removeAllListeners('ws-message');
+            ipcRenderer.removeAllListeners('ws-connected');
+            ipcRenderer.removeAllListeners('ws-closed');
+            ipcRenderer.invoke('disconnect-ws').catch((err) => {
+                console.error('Error disconnecting ws on logout:', err);
+            });
             setServiceStarting(false);
         }
     }, [isAuthenticated]);
 
     useEffect(() => {
-        WebSocketSingleton.initialize(handleMessage, monitorWebSocketStatus, !remoteProcessing);
+        console.log(`WebSocketProvider effect running; remoteProcessing=${remoteProcessing}`);
+        ipcRenderer.removeAllListeners('ws-message');
+        ipcRenderer.on('ws-message', handleMessage);
 
-        let cleanup = () => {
-            console.log('User logged out. De-initializing WebSocket...');
-        };
+        monitorWebSocketStatus(!remoteProcessing);
+
+        let cleanupServices = () => {};
+
         if (remoteProcessing) {
+            console.log('Remote mode: skipping local backend poll');
             setServiceStarting(false);
-            initiateWebSocketConnection();
+            retryCountRef.current = 0;
+            performConnect();
         } else {
-            cleanup = pollBackendServices();
+            console.log('Local mode: polling backend services');
+            cleanupServices = pollBackendServices();
         }
 
         return () => {
             console.log('WebSocketProvider cleanup');
-            cleanup();
-            if (!isAuthenticated) {
-                WebSocketSingleton.deinitialize();
+            cleanupServices();
+            clearReconnectTimeout();
+            if (pingTimeoutRef.current) {
+                clearTimeout(pingTimeoutRef.current);
+                pingTimeoutRef.current = null;
             }
+            ipcRenderer.removeAllListeners('ws-message');
+            ipcRenderer.removeAllListeners('ws-connected');
+            ipcRenderer.removeAllListeners('ws-closed');
+            ipcRenderer.invoke('disconnect-ws').catch((err) => {
+                console.error('Error disconnecting ws on cleanup:', err);
+            });
             setServiceStarting(false);
-            if (pingTimeoutRef.current) clearTimeout(pingTimeoutRef.current);
-            ipcRenderer.invoke('disconnect-ws');
         };
-    }, [remoteProcessing]);
+    }, [remoteProcessing, handleMessage, monitorWebSocketStatus, performConnect]);
 
     return (
         <WebSocketContext.Provider
-            value={{
-                registerCallback,
-                unregisterCallback,
-                serviceStarting
-            }}>
+            value={{ registerCallback, unregisterCallback, serviceStarting }}>
             {children}
         </WebSocketContext.Provider>
     );

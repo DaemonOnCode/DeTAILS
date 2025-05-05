@@ -48,7 +48,7 @@ export const UndoProvider: FC<{ children: ReactNode }> = ({ children }) => {
         return () => {
             ipcRenderer.removeListener('undo', handleUndo);
         };
-    }, [undo]);
+    }, []);
 
     const value = { logOperation, undo };
 

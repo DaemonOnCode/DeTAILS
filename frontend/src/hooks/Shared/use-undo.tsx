@@ -182,19 +182,19 @@ export function useUndo() {
         console.log('UNDO: Reducer action dispatched, undo function logged');
     }
 
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.ctrlKey && event.key === 'z') {
-                console.log('Undo triggered via keyboard shortcut');
-                undo();
-            }
-        };
+    // useEffect(() => {
+    //     const handleKeyDown = (event: KeyboardEvent) => {
+    //         if (event.ctrlKey && event.key === 'z') {
+    //             console.log('Undo triggered via keyboard shortcut');
+    //             undo();
+    //         }
+    //     };
 
-        window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [undo]);
+    //     window.addEventListener('keydown', handleKeyDown);
+    //     return () => {
+    //         window.removeEventListener('keydown', handleKeyDown);
+    //     };
+    // }, [undo]);
 
     return {
         registerState,

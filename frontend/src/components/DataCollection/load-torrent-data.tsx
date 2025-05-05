@@ -229,17 +229,7 @@ const TorrentDataTab = ({
                         <ol className="list-decimal ml-6 mb-4">
                             <li>
                                 Install Transmission daemon using your package manager, e.g. run{' '}
-                                <code>sudo apt-get install transmission-daemon</code> on
-                                Debian/Ubuntu.
-                            </li>
-                            {/* <li>
-                                Configure the daemon (check the config file in{' '}
-                                <code>~/.config/transmission/</code> or{' '}
-                                <code>/etc/transmission-daemon/settings.json</code>).
-                            </li> */}
-                            <li>
-                                Restart the daemon with{' '}
-                                <code>sudo service transmission-daemon restart</code>.
+                                <code>sudo apt install transmission-daemon</code> on Debian/Ubuntu.
                             </li>
                         </ol>
                     </div>

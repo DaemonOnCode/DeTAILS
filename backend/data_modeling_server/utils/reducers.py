@@ -369,14 +369,14 @@ def process_grouped_codes_action(workspace_id: str, action: Dict[str, Any]) -> D
             raise ValueError("code, targetBucketId are required for MOVE_CODE")
         code = payload["code"]
         target_bucket_id = payload["targetBucketId"]
-        target_bucket = grouped_code_repo.find_one({"higher_level_code_id": target_bucket_id})
-        if not target_bucket:
-            raise ValueError(f"Target bucket with ID {target_bucket_id} does not exist")
+        target_bucket = grouped_code_repo.find_one({"higher_level_code_id": target_bucket_id}, fail_silently=True)
+        # if not target_bucket:
+        #     raise ValueError(f"Target bucket with ID {target_bucket_id} does not exist")
         old_rows = grouped_code_repo.find({"coding_context_id": workspace_id, "code": code})
         old_values = {row["id"]: {"higher_level_code": row["higher_level_code"], "higher_level_code_id": row["higher_level_code_id"]} for row in old_rows}
         updated_rows = grouped_code_repo.update_returning(
             {"coding_context_id": workspace_id, "code": code},
-            {"higher_level_code_id": target_bucket_id, "higher_level_code": target_bucket.higher_level_code}
+            {"higher_level_code_id": target_bucket_id, "higher_level_code": target_bucket.higher_level_code if hasattr(target_bucket, "higher_level_code") else None}
         )
         diff["updated"] = [
             {
@@ -521,13 +521,13 @@ def process_themes_action(workspace_id: str, action: Dict[str, Any]) -> Dict[str
         code = payload["code"]
         target_theme_id = payload["targetThemeId"]
         target_bucket = themes_repo.find_one({"theme_id": target_theme_id}, fail_silently=True)
-        if not target_bucket:
-            raise ValueError(f"Target theme with ID {target_theme_id} does not exist")
+        # if not target_bucket:
+        #     raise ValueError(f"Target theme with ID {target_theme_id} does not exist")
         old_rows = themes_repo.find({"coding_context_id": workspace_id, "higher_level_code": code})
         old_values = {row["id"]: {"theme": row["theme"], "theme_id": row["theme_id"]} for row in old_rows}
         updated_rows = themes_repo.update_returning(
             {"coding_context_id": workspace_id, "higher_level_code": code},
-            {"theme": target_bucket.theme, "theme_id": target_theme_id}
+            {"theme": target_bucket.theme if hasattr(target_bucket, "theme") else None, "theme_id": target_theme_id}
         )
         diff["updated"] = [
             {
