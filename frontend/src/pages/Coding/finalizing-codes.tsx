@@ -229,7 +229,8 @@ const FinalzingCodes = () => {
         },
         {
             target: '#finalized-code-table',
-            content: 'This table displays all the code responses.',
+            content:
+                'This table displays all the code responses mapped to their respective finalized codes.',
             placement: 'top'
         },
         {

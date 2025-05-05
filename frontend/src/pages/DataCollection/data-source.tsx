@@ -5,7 +5,6 @@ import LoadInterview from '../../components/DataCollection/load-interviews';
 import NavigationBottomBar from '../../components/Coding/Shared/navigation-bottom-bar';
 import { PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import { useLogger } from '../../context/logging-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';

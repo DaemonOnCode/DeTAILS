@@ -35,7 +35,7 @@ const ConceptsTablePage: FC = () => {
         {
             target: '#concepts-header',
             content:
-                'Welcome to the Concepts Table page. Here you can review and edit your concept entries.',
+                'Welcome to the Concept Outline page. Here you can review and edit your concept outlines.',
             placement: 'bottom'
         },
         {
@@ -52,7 +52,7 @@ const ConceptsTablePage: FC = () => {
         },
         {
             target: '#control-buttons',
-            content: 'Use these buttons to add new rows or save your table as CSV/Excel.',
+            content: 'Use these buttons to add new rows or save your outlines as CSV/Excel.',
             placement: 'top'
         },
         {

@@ -86,13 +86,13 @@ const InitialCoding = () => {
         {
             target: '#coding-controls',
             content:
-                'Use these controls to download the codebook or toggle review mode for coding responses.',
+                'Use these controls to download the initial codes or toggle review mode for coding responses.',
             placement: 'bottom'
         },
         {
             target: '#redo-coding-btn',
             content:
-                'Use this button to create a new codebook based on the previous codebook and some optional feedback.',
+                'Use this button to create a new initial codes based on the previously generated codes and some optional feedback.',
             placement: 'top'
         },
         {
