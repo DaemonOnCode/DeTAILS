@@ -122,8 +122,8 @@ const extractThemesAndMappings = (
     if (state.current_state && Array.isArray(state.current_state)) {
       const themeSet = new Map<string, string>();
       state.current_state.forEach((item: any) => {
-        if (item.code) {
-          codeToTheme.set(item.code, item.theme_id);
+        if (item.higher_level_code) {
+          codeToTheme.set(item.higher_level_code, item.theme_id);
           if (item.theme_id && !themeSet.has(item.theme_id)) {
             themeSet.set(item.theme_id, item.theme);
           }

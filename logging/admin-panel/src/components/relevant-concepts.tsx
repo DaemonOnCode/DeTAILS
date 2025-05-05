@@ -192,26 +192,29 @@ const computeMetrics = async (
   initialConcepts: Map<string, Concept>,
   currentConcepts: Map<string, Concept>,
   currentSelected: Set<string>,
+  initialWords: Map<string, string>,
   calculateSimilarity: (w1: string, w2: string) => Promise<number>,
   getNorm: (w: string) => Promise<number>,
   totalGenerated: number
 ): Promise<Metrics> => {
-  const I = new Set(initialConcepts.keys());
-  const commonIds = new Set([...I].filter((id) => currentSelected.has(id)));
-
   let TP = 0;
   let WTP = 0;
   let kept_count = 0;
   let updated_count = 0;
 
-  for (const id of commonIds) {
-    const initWord = initialConcepts.get(id)!.word;
+  for (const id of currentSelected) {
+    const initWord = initialWords.get(id) || "";
+    console.log("initWord", initWord, "finalWord", id, currentConcepts.get(id));
+
+    if (!currentConcepts.has(id)) continue;
+
     const finalWord = currentConcepts.get(id)!.word;
+
     if (initWord === finalWord) {
       TP++;
-      WTP++;
+      WTP += 1;
       kept_count++;
-    } else {
+    } else if (initWord && finalWord) {
       const dot = await calculateSimilarity(initWord, finalWord);
       const n1 = await getNorm(initWord);
       const n2 = await getNorm(finalWord);
@@ -221,27 +224,25 @@ const computeMetrics = async (
     }
   }
 
-  // const totalGenerated = currentConcepts.size;
-  console.log("total generations", totalGenerated);
-  const totalSelectedInitials = commonIds.size;
+  const totalSelected = currentSelected.size;
+  const totalInitial = initialConcepts.size;
 
   const P = totalGenerated > 0 ? TP / totalGenerated : 0;
-  const R = totalSelectedInitials > 0 ? TP / totalSelectedInitials : 0;
+  const R = totalSelected > 0 ? TP / totalSelected : 0;
   const F1 = P + R > 0 ? (2 * P * R) / (P + R) : 0;
+
   const P_w = totalGenerated > 0 ? WTP / totalGenerated : 0;
-  const R_w = totalSelectedInitials > 0 ? WTP / totalSelectedInitials : 0;
+  const R_w = totalSelected > 0 ? WTP / totalSelected : 0;
   const F1_w = P_w + R_w > 0 ? (2 * P_w * R_w) / (P_w + R_w) : 0;
 
   const acceptance_rate = totalGenerated > 0 ? kept_count / totalGenerated : 0;
   const update_rate = totalGenerated > 0 ? updated_count / totalGenerated : 0;
   const deletion_rate =
-    totalGenerated > 0
-      ? (totalGenerated - kept_count - updated_count) / totalGenerated
-      : 0;
+    totalGenerated > 0 ? (totalGenerated - totalSelected) / totalGenerated : 0;
 
   return {
-    initial_concepts: initialConcepts.size,
-    selected_concepts: totalSelectedInitials,
+    initial_concepts: totalInitial,
+    selected_concepts: totalSelected,
     TP,
     WTP: WTP.toString(),
     P: P.toString(),
@@ -286,7 +287,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
     const fetchEntries = async () => {
       setIsLoading(true);
       try {
-        const query = `           SELECT * FROM state_dumps
+        const query = `SELECT * FROM state_dumps
           WHERE json_extract(context, '$.function') IN ('concept_cloud_table', 'setSelectedConcepts', 'setConcepts')
           AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
@@ -330,7 +331,6 @@ const RelatedConceptsDiffViewer: React.FC = () => {
           const mainTopicWord =
             initialState.main_topic || initialState.mainTopic;
 
-          // Collect all IDs across the sequence where the word matches the main topic word
           const mainTopicIds = new Set<string>();
           for (const entry of sequence) {
             const cctx = safeParseContext(entry.context);
@@ -348,15 +348,18 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             }
           }
 
-          // Remove all main topic IDs from initial concepts
           mainTopicIds.forEach((id) => initialConcepts.delete(id));
+
+          const initialWords = new Map<string, string>();
+          for (const [id, concept] of initialConcepts) {
+            initialWords.set(id, concept.word);
+          }
 
           const generatedMap = new Map<string, string>();
           initialConcepts.forEach((c, id) => {
             generatedMap.set(id, c.word);
           });
 
-          // const initialIds = new Set(initialConcepts.keys());
           let prevConcepts = initialConcepts;
           const aggregatedConcepts = new Map(initialConcepts);
 
@@ -368,6 +371,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             initialConcepts,
             initialConcepts,
             initialSelected,
+            initialWords,
             calculateSimilarity,
             getNorm,
             initialConcepts.size
@@ -401,6 +405,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                     conceptId: id,
                     word: newKw.word,
                   });
+                  initialWords.set(id, newKw.word);
                 } else {
                   const old = prevConcepts.get(id)!;
                   if (old.word !== newKw.word) {
@@ -459,6 +464,9 @@ const RelatedConceptsDiffViewer: React.FC = () => {
                 nextConcepts
               );
               for (const change of stepChanges) {
+                if (change.type === "inserted") {
+                  initialWords.set(change.conceptId, change.word!);
+                }
                 if (change.type === "updated" && change.updatedFields?.word) {
                   const dotProduct = await calculateSimilarity(
                     change.updatedFields.word.from,
@@ -557,6 +565,7 @@ const RelatedConceptsDiffViewer: React.FC = () => {
             initialConcepts,
             aggregatedConcepts,
             aggregatedSelected,
+            initialWords,
             calculateSimilarity,
             getNorm,
             totalGenerated

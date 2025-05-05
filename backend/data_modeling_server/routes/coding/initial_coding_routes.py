@@ -225,7 +225,8 @@ async def generate_codes_endpoint(
             workspace_id=workspace_id,
             codebook_type=CodebookType.INITIAL.value,
             generation_type=GenerationType.INITIAL.value,
-            parent_function_name="generate-initial-codes"
+            parent_function_name="generate-initial-codes",
+            function_id=function_id
         )
         state_dump_repo.insert(
             StateDump(

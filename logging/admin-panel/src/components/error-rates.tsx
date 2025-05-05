@@ -305,84 +305,89 @@ function ErrorRates() {
             <h2 className="text-xl font-semibold mb-2 text-gray-700">
               {parent}
             </h2>
-            {Object.entries(functionIdData).map(([functionId, rates]) => (
-              <div key={functionId} className="mb-6 ml-4">
-                <h3 className="text-lg font-medium mb-2 text-gray-600">
-                  Sequence: {functionId}
-                </h3>
-                <h4 className="text-md font-medium mb-2 text-gray-600">
-                  Individual Post Error Rates
-                </h4>
-                <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
-                  <thead>
-                    <tr>
-                      <th className="p-2 border bg-gray-100 text-gray-700">
-                        Post ID
-                      </th>
-                      <th className="p-2 border bg-gray-100 text-gray-700">
-                        Initial Count
-                      </th>
-                      <th className="p-2 border bg-gray-100 text-gray-700">
-                        Removed by Hallucinations
-                      </th>
-                      <th className="p-2 border bg-gray-100 text-gray-700">
-                        Removed by Empty Columns
-                      </th>
-                      <th className="p-2 border bg-gray-100 text-gray-700">
-                        Removed by Duplicates
-                      </th>
-                      <th className="p-2 border bg-gray-100 text-gray-700">
-                        Final Count
-                      </th>
-                      <th className="p-2 border bg-gray-100 text-gray-700">
-                        Error Rate
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rates.individual.map((data) => (
-                      <tr key={data.postId}>
-                        <td className="p-2 border text-gray-600">
-                          {data.postId}
-                        </td>
-                        <td className="p-2 border text-gray-600">
-                          {data.initialCount}
-                        </td>
-                        <td className="p-2 border text-gray-600">
-                          {data.removedByHallucinations}
-                        </td>
-                        <td className="p-2 border text-gray-600">
-                          {data.removedByEmptyColumns}
-                        </td>
-                        <td className="p-2 border text-gray-600">
-                          {data.removedByDuplicates}
-                        </td>
-                        <td className="p-2 border text-gray-600">
-                          {data.finalCount}
-                        </td>
-                        <td className="p-2 border text-gray-600">
-                          {data.errorRate * 100}%
-                        </td>
+            {Object.entries(functionIdData).map(([functionId, rates]) => {
+              if (rates.total.input === 0) {
+                return null;
+              }
+              return (
+                <div key={functionId} className="mb-6 ml-4">
+                  <h3 className="text-lg font-medium mb-2 text-gray-600">
+                    Sequence: {functionId}
+                  </h3>
+                  <h4 className="text-md font-medium mb-2 text-gray-600">
+                    Individual Post Error Rates
+                  </h4>
+                  <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
+                    <thead>
+                      <tr>
+                        <th className="p-2 border bg-gray-100 text-gray-700">
+                          Post ID
+                        </th>
+                        <th className="p-2 border bg-gray-100 text-gray-700">
+                          Initial Count
+                        </th>
+                        <th className="p-2 border bg-gray-100 text-gray-700">
+                          Removed by Hallucinations
+                        </th>
+                        <th className="p-2 border bg-gray-100 text-gray-700">
+                          Removed by Empty Columns
+                        </th>
+                        <th className="p-2 border bg-gray-100 text-gray-700">
+                          Removed by Duplicates
+                        </th>
+                        <th className="p-2 border bg-gray-100 text-gray-700">
+                          Final Count
+                        </th>
+                        <th className="p-2 border bg-gray-100 text-gray-700">
+                          Error Rate
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <p className="mb-2 text-gray-700">
-                  <strong>Total Input Count:</strong> {rates.total.input}
-                </p>
-                <p className="mb-2 text-gray-700">
-                  <strong>Total Output Count:</strong> {rates.total.output}
-                </p>
-                <p className="mb-2 text-gray-700">
-                  <strong>Total Coded Post Count:</strong>{" "}
-                  {rates.total.codedPostCount}
-                </p>
-                <p className="mb-4 text-gray-700">
-                  <strong>Weighted Total Error Rate:</strong>{" "}
-                  {rates.total.error_rate * 100}%
-                </p>
-              </div>
-            ))}
+                    </thead>
+                    <tbody>
+                      {rates.individual.map((data) => (
+                        <tr key={data.postId}>
+                          <td className="p-2 border text-gray-600">
+                            {data.postId}
+                          </td>
+                          <td className="p-2 border text-gray-600">
+                            {data.initialCount}
+                          </td>
+                          <td className="p-2 border text-gray-600">
+                            {data.removedByHallucinations}
+                          </td>
+                          <td className="p-2 border text-gray-600">
+                            {data.removedByEmptyColumns}
+                          </td>
+                          <td className="p-2 border text-gray-600">
+                            {data.removedByDuplicates}
+                          </td>
+                          <td className="p-2 border text-gray-600">
+                            {data.finalCount}
+                          </td>
+                          <td className="p-2 border text-gray-600">
+                            {data.errorRate * 100}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="mb-2 text-gray-700">
+                    <strong>Total Input Count:</strong> {rates.total.input}
+                  </p>
+                  <p className="mb-2 text-gray-700">
+                    <strong>Total Output Count:</strong> {rates.total.output}
+                  </p>
+                  <p className="mb-2 text-gray-700">
+                    <strong>Total Coded Post Count:</strong>{" "}
+                    {rates.total.codedPostCount}
+                  </p>
+                  <p className="mb-4 text-gray-700">
+                    <strong>Weighted Total Error Rate:</strong>{" "}
+                    {rates.total.error_rate * 100}%
+                  </p>
+                </div>
+              );
+            })}
           </div>
         );
       })}
