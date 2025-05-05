@@ -34,9 +34,10 @@ const menuTemplate = (state) => {
                             filters: [{ name: 'ZIP', extensions: ['zip'] }]
                         });
                         if (!canceled && filePaths.length > 0) {
-                            globalCtx
-                                .getState()
-                                .mainWindow.webContents.send('menu-import-workspace', filePaths[0]);
+                            state.mainWindow.webContents.send(
+                                'menu-import-workspace',
+                                filePaths[0]
+                            );
                         }
                     }
                 },

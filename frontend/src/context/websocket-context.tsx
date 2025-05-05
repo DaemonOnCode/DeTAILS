@@ -30,210 +30,201 @@ const WebSocketContext = createContext<IWebSocketContext>({
 export const WebSocketProvider: FC<ILayout> = ({ children }) => {
     const { remoteProcessing, isAuthenticated } = useAuth();
 
+    //— state & refs
     const [serviceStarting, setServiceStarting] = useState(true);
-    const messageCallbacks = useRef<Record<string, CallbackFn>>({});
-    const lastPingRef = useRef<Date | null>(null);
-    const pingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const messageCbs = useRef<Record<string, CallbackFn>>({});
+    const lastPing = useRef<Date | null>(null);
+    const pingTimer = useRef<NodeJS.Timeout | null>(null);
 
-    const retryCountRef = useRef(0);
-    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const retryCount = useRef(0);
+    const reconnectTimer = useRef<NodeJS.Timeout | null>(null);
+
     const MAX_RETRIES = 25;
     const BASE_DELAY = 2000;
-    const clearReconnectTimeout = () => {
-        if (reconnectTimeoutRef.current) {
-            console.log('Clearing pending reconnect timeout');
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = null;
+
+    /** Ensure we never leave a dangling timeout */
+    const clearTimers = () => {
+        if (pingTimer.current) {
+            clearTimeout(pingTimer.current);
+            pingTimer.current = null;
+        }
+        if (reconnectTimer.current) {
+            clearTimeout(reconnectTimer.current);
+            reconnectTimer.current = null;
         }
     };
 
-    const resetRetryCount = () => {
-        console.log('Resetting retry count');
-        retryCountRef.current = 0;
-        clearReconnectTimeout();
-    };
-
-    const resetPingTimeout = useCallback(() => {
-        if (pingTimeoutRef.current) {
-            clearTimeout(pingTimeoutRef.current);
+    /** Reset retry state after a successful connection */
+    const resetRetries = useCallback(() => {
+        retryCount.current = 0;
+        if (reconnectTimer.current) {
+            clearTimeout(reconnectTimer.current);
+            reconnectTimer.current = null;
         }
-        console.log('Starting 60s ping watchdog');
-        pingTimeoutRef.current = setTimeout(() => {
+    }, []);
+
+    /** Watchdog: if no ping in 60s, warn */
+    const schedulePingWatchdog = useCallback(() => {
+        if (pingTimer.current) clearTimeout(pingTimer.current);
+        pingTimer.current = setTimeout(() => {
             const now = Date.now();
-            if (lastPingRef.current && now - lastPingRef.current.getTime() > 60_000) {
-                console.error('No ping received in 60s - backend service may be down');
+            if (lastPing.current && now - lastPing.current.getTime() > 60_000) {
+                console.error('No ping in 60s');
                 toast.error('No response from backend in the last 60 seconds.');
             }
         }, 60_000);
     }, []);
 
-    const handleMessage = useCallback(
-        (_: any, message: string) => {
-            console.log('Received ws-message:', message);
-            if (message === 'ping') {
-                console.log('Handling ping');
-                lastPingRef.current = new Date();
-                resetPingTimeout();
+    /** Handle raw messages from the main process */
+    const handleWsMessage = useCallback(
+        (_: any, raw: string) => {
+            // ping
+            if (raw === 'ping') {
+                lastPing.current = new Date();
+                schedulePingWatchdog();
                 return;
             }
-            Object.values(messageCallbacks.current).forEach((cb) => cb(message));
+            // dispatch to all registered callbacks
+            Object.values(messageCbs.current).forEach((cb) => cb(raw));
         },
-        [resetPingTimeout]
+        [schedulePingWatchdog]
     );
 
-    const registerCallback = (event: string, cb: CallbackFn) => {
-        console.log(`Registering callback for event "${event}"`);
-        messageCallbacks.current[event] = cb;
-    };
-
-    const unregisterCallback = (event: string) => {
-        console.log(`Unregistering callback for event "${event}"`);
-        delete messageCallbacks.current[event];
-    };
-
-    const performConnect = useCallback(async () => {
-        console.log(`Performing connect-ws (retry #${retryCountRef.current}, after backoff)`);
+    /** Send the `connect-ws` IPC, catch failure to trigger a retry schedule */
+    const doConnect = useCallback(async () => {
         try {
-            await ipcRenderer.invoke('connect-ws', '');
-            console.log(`ipcRenderer.invoke("connect-ws") returned—waiting for ws-connected event`);
-        } catch (err: any) {
-            console.warn('connect-ws invoke failed:', err);
+            await ipcRenderer.invoke('connect-ws');
+            // we’ll get a 'ws-connected' event next
+        } catch (err) {
+            console.warn('invoke(connect-ws) failed:', err);
+            // schedule next retry
             scheduleReconnect();
         }
     }, []);
 
+    /** Schedule an exponential‐backoff reconnect */
     const scheduleReconnect = useCallback(() => {
-        clearReconnectTimeout();
-        retryCountRef.current += 1;
-        const attempt = retryCountRef.current;
-        if (attempt > MAX_RETRIES) {
-            console.error(`Max retry count ${MAX_RETRIES} reached; giving up`);
+        retryCount.current += 1;
+        if (retryCount.current > MAX_RETRIES) {
             toast.error('WebSocket server is offline. Max retries reached.');
             return;
         }
-        const delay = Math.min(BASE_DELAY * 2 ** (attempt - 1), 30_000);
-        console.log(`Scheduling reconnect attempt #${attempt} in ${delay}ms`);
-        reconnectTimeoutRef.current = setTimeout(() => {
-            performConnect();
+        const delay = Math.min(BASE_DELAY * 2 ** (retryCount.current - 1), 30_000);
+        console.log(`Reconnecting in ${delay}ms (attempt #${retryCount.current})`);
+        if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = setTimeout(() => {
+            doConnect();
         }, delay);
-    }, [performConnect]);
+    }, [doConnect]);
 
-    const monitorWebSocketStatus = useCallback(
-        (checkBackend: boolean) => {
-            console.log(
-                `Wiring up ws-connected and ws-closed handlers (checkBackend=${checkBackend})`
-            );
-
-            ipcRenderer.on('ws-connected', () => {
-                console.log('Received ws-connected event');
-                resetRetryCount();
-                lastPingRef.current = new Date();
-                resetPingTimeout();
-                if (checkBackend) {
-                    console.log('Backend check done; clearing serviceStarting');
+    /** Hook up the `ws-connected` and `ws-closed` listeners */
+    const setupStatusListeners = useCallback(
+        (waitForBackend: boolean) => {
+            const onOpen = () => {
+                console.log('ws-connected');
+                resetRetries();
+                lastPing.current = new Date();
+                schedulePingWatchdog();
+                if (waitForBackend) {
                     setServiceStarting(false);
                 }
-            });
+            };
 
-            ipcRenderer.on('ws-closed', () => {
-                console.warn('Received ws-closed event');
-                if (!isAuthenticated) {
-                    console.log('Not authenticated; skipping reconnect');
-                    return;
-                }
+            const onClose = () => {
+                console.warn('ws-closed');
+                if (!isAuthenticated) return;
                 scheduleReconnect();
-            });
+            };
+
+            ipcRenderer.on('ws-connected', onOpen);
+            ipcRenderer.on('ws-closed', onClose);
+
+            return () => {
+                ipcRenderer.removeListener('ws-connected', onOpen);
+                ipcRenderer.removeListener('ws-closed', onClose);
+            };
         },
-        [isAuthenticated, resetPingTimeout, scheduleReconnect]
+        [isAuthenticated, resetRetries, schedulePingWatchdog, scheduleReconnect]
     );
 
-    const pollBackendServices = () => {
-        console.log('Polling backend services…');
+    /** If we're in local mode, watch for service start/stop */
+    const pollLocalBackend = useCallback(() => {
         setServiceStarting(true);
+        retryCount.current = 0;
+        doConnect();
 
-        retryCountRef.current = 0;
-        performConnect();
-
-        const handleServiceStarted = (_: any, serviceName: string) => {
-            console.log('Service started event:', serviceName);
-            if (serviceName === 'backend') {
-                console.info('Backend service is up');
+        const onStarted = (_: any, svc: string) => {
+            console.log(`service-started: ${svc}`);
+            if (svc === 'backend') {
                 toast.info('Backend service started');
             }
-            performConnect();
+            doConnect();
         };
-        const handleServiceStopped = (_: any, serviceName: string) => {
-            console.log('Service stopped event:', serviceName);
-            if (serviceName === 'backend') {
-                console.error('Backend service has stopped');
+        const onStopped = (_: any, svc: string) => {
+            console.error(`service-stopped: ${svc}`);
+            if (svc === 'backend') {
                 toast.error('Backend service stopped. Restart the application.');
             }
         };
 
-        ipcRenderer.on('service-started', handleServiceStarted);
-        ipcRenderer.on('service-stopped', handleServiceStopped);
+        ipcRenderer.on('service-started', onStarted);
+        ipcRenderer.on('service-stopped', onStopped);
 
         return () => {
-            console.log('Cleaning up service-started/stopped listeners');
-            ipcRenderer.removeListener('service-started', handleServiceStarted);
-            ipcRenderer.removeListener('service-stopped', handleServiceStopped);
+            ipcRenderer.removeListener('service-started', onStarted);
+            ipcRenderer.removeListener('service-stopped', onStopped);
         };
+    }, [doConnect]);
+
+    /** Public API for consumers */
+    const registerCallback = (event: string, cb: CallbackFn) => {
+        messageCbs.current[event] = cb;
+    };
+    const unregisterCallback = (event: string) => {
+        delete messageCbs.current[event];
     };
 
+    /** 1) Tear down on logout */
     useEffect(() => {
         if (!isAuthenticated) {
-            console.log('User logged out; tearing down WebSocket…');
-            clearReconnectTimeout();
-            if (pingTimeoutRef.current) {
-                clearTimeout(pingTimeoutRef.current);
-                pingTimeoutRef.current = null;
-            }
+            clearTimers();
             ipcRenderer.removeAllListeners('ws-message');
             ipcRenderer.removeAllListeners('ws-connected');
             ipcRenderer.removeAllListeners('ws-closed');
-            ipcRenderer.invoke('disconnect-ws').catch((err) => {
-                console.error('Error disconnecting ws on logout:', err);
-            });
+            ipcRenderer.invoke('disconnect-ws').catch(console.error);
             setServiceStarting(false);
         }
     }, [isAuthenticated]);
 
+    /** 2) Main hookup: ws-message, status listeners, connect or poll */
     useEffect(() => {
-        console.log(`WebSocketProvider effect running; remoteProcessing=${remoteProcessing}`);
+        // always listen for messages
         ipcRenderer.removeAllListeners('ws-message');
-        ipcRenderer.on('ws-message', handleMessage);
+        ipcRenderer.on('ws-message', handleWsMessage);
 
-        monitorWebSocketStatus(!remoteProcessing);
+        // status
+        const teardownStatus = setupStatusListeners(!remoteProcessing);
 
-        let cleanupServices = () => {};
-
+        // either remote (just connect once) or local (poll)
+        let teardownBackend = () => {};
         if (remoteProcessing) {
-            console.log('Remote mode: skipping local backend poll');
             setServiceStarting(false);
-            retryCountRef.current = 0;
-            performConnect();
+            retryCount.current = 0;
+            doConnect();
         } else {
-            console.log('Local mode: polling backend services');
-            cleanupServices = pollBackendServices();
+            teardownBackend = pollLocalBackend();
         }
 
+        // cleanup
         return () => {
-            console.log('WebSocketProvider cleanup');
-            cleanupServices();
-            clearReconnectTimeout();
-            if (pingTimeoutRef.current) {
-                clearTimeout(pingTimeoutRef.current);
-                pingTimeoutRef.current = null;
-            }
+            teardownStatus();
+            teardownBackend();
+            clearTimers();
             ipcRenderer.removeAllListeners('ws-message');
-            ipcRenderer.removeAllListeners('ws-connected');
-            ipcRenderer.removeAllListeners('ws-closed');
-            ipcRenderer.invoke('disconnect-ws').catch((err) => {
-                console.error('Error disconnecting ws on cleanup:', err);
-            });
+            ipcRenderer.invoke('disconnect-ws').catch(console.error);
             setServiceStarting(false);
         };
-    }, [remoteProcessing, handleMessage, monitorWebSocketStatus, performConnect]);
+    }, [remoteProcessing, handleWsMessage, setupStatusListeners, pollLocalBackend, doConnect]);
 
     return (
         <WebSocketContext.Provider
