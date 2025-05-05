@@ -101,8 +101,11 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGINT,  shutdown)
     signal.signal(signal.SIGTERM, shutdown)
-    signal.signal(signal.SIGQUIT, shutdown)
-    signal.signal(signal.SIGHUP,  shutdown)
+    if sys.platform.startswith("win"):
+        signal.signal(signal.SIGBREAK, shutdown)
+    else:
+        signal.signal(signal.SIGQUIT, shutdown)
+        signal.signal(signal.SIGHUP,  shutdown)
 
     try:
         while True:

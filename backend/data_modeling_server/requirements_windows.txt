@@ -88,7 +88,7 @@ kubernetes==31.0.0
 langchain==0.3.13
 langchain-chroma==0.1.4
 langchain-community==0.3.11
-langchain-core==0.3.33
+langchain-core
 langchain-google-genai==2.0.9
 langchain-google-vertexai==2.0.13
 langchain-ollama==0.2.1

@@ -123,10 +123,10 @@ Invoke-ComponentBuild -componentName "ripgrep" -folderName "ripgrep" -buildComma
 Invoke-ComponentBuild -componentName "zstd" -folderName "zstd" -buildCommands "cmake -G 'MinGW Makefiles' .. ; make" -artifactPath "programs\zstd.exe" -destSubDir "zstd"
 
 # Build backend
-Invoke-ComponentBuild -componentName "backend" -folderName "data_modeling_server" -buildCommands "pyinstaller main.spec" -artifactPath "dist\main.exe" -destSubDir "data-modeling-server"
+Invoke-ComponentBuild -componentName "backend" -folderName "data_modeling_server" -buildCommands "python -m PyInstaller main.spec" -artifactPath "dist\main.exe" -destSubDir "data-modeling-server"
 
 # Build chromadb
-Invoke-ComponentBuild -componentName "chromadb" -folderName "chroma" -buildCommands "pyinstaller cli.spec" -artifactPath "dist\cli.exe" -destSubDir "chroma"
+Invoke-ComponentBuild -componentName "chromadb" -folderName "chroma" -buildCommands "python -m PyInstaller cli.spec" -artifactPath "dist\cli.exe" -destSubDir "chroma"
 
 # Build ollama
 $ollamaFolder = "ollama-0.4.2"

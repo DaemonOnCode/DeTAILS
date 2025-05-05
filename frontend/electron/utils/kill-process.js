@@ -17,7 +17,7 @@ async function killProcess(spawnedProcess) {
 
     try {
         if (process.platform === 'win32') {
-            execSync(`taskkill /PID ${pid}`);
+            execSync(`taskkill /F /T /PID ${pid}`);
         } else {
             process.kill(pid, 'SIGINT');
         }
