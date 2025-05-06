@@ -143,12 +143,12 @@ flowchart LR
 
 ```
 .
-├── frontend/         # React UI & Electron Wrapper
-│   ├── electron/     # Electron-specific code (main process, handlers)
+├── frontend/  # React UI & Electron Wrapper
+│   ├── electron/  # Electron-specific code (main process, handlers)
 │   │   ├── handles/
 │   │   ├── templates/
 │   │   ├── utils/
-│   └── src/          # React application source code
+│   └── src/ # React application source code
 │       ├── components/
 │       ├── constants/
 │       ├── hooks/
@@ -159,7 +159,7 @@ flowchart LR
 │       ├── types/
 │       ├── utility/
 │       └── App.tsx     # Main React App component
-├── backend/          # Backend services and tools source
+├── backend/  # Backend services and tools source
 │   ├── data_modeling_server/ # Main FastAPI application
 │   │   ├── controllers/
 │   │   ├── database/
@@ -169,14 +169,16 @@ flowchart LR
 │   │   ├── middlewares/
 │   │   ├── models/
 │   │   ├── routes/
-│   │   ├── services/  # Integration logic (Transmission, LLMs, etc.)
+│   │   ├── services/ # Integration logic (Transmission, LLMs, etc.)
 │   │   ├── utils/
-│   │   └── main.py    # FastAPI entry point
-│   ├── chroma/       # ChromaDB
+│   │   ├── app_ws.py # Websocket endpoint FastAPI entry point
+│   │   ├── app_http.py # HTTP FastAPI entry point
+│   │   └── main.py # Main entry point
+│   ├── chroma/ # ChromaDB
 │   ├── ollama-0.4.2/ # Ollama
-│   ├── ripgrep/      # Ripgrep
-│   └── zstd/         # Zstandard
-├── executables_mac/      # Build scripts to make executables for MacOS
+│   ├── ripgrep/ # Ripgrep
+│   └── zstd/ # Zstandard
+├── executables_mac/ # Build scripts to make executables for MacOS
 ├── executables_linux/ # Build scripts to make executables for Linux
 ├── executables_windows/ # Build scripts to make executables for Windows
 └── README.md
@@ -197,6 +199,7 @@ DeTAILS reads a single JSON credentials file from GCP to configure OAuth. Follow
   - In the [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials), click **Create Credentials → OAuth client ID**, choose **Desktop application** and fill out the rest of the required information
   - Download the resulting `client-*.json` file.
   - Add the client json file path in the .env file inside frontend folder
+  - For builds, explicitly mention the path in `frontend/electron/handles/authentication.js`
 
 - **Prerequisites:** Node.js, npm
 - **Steps:**
