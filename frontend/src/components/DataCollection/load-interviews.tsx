@@ -12,17 +12,14 @@ export interface InterviewFile {
 }
 
 const LoadInterview: FC = () => {
-    // Retrieve context values.
     const { modeInput, setModeInput, type } = useCollectionContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
 
-    // State to manage file view modal.
     const [fileViewModalOpen, setFileViewModalOpen] = useState(false);
     const [selectedFilePath, setSelectedFilePath] = useState('');
 
     useEffect(() => {
-        // On unmount, save workspace data once.
         return () => {
             if (!hasSavedRef.current) {
                 saveWorkspaceData();
@@ -31,7 +28,6 @@ const LoadInterview: FC = () => {
         };
     }, [saveWorkspaceData]);
 
-    // If the current data type is not interview, show a warning.
     if (modeInput && type !== 'interview') {
         return (
             <div className="flex flex-col p-4">
@@ -43,12 +39,9 @@ const LoadInterview: FC = () => {
     }
 
     const handleFileSelect = async () => {
-        // Invoke the Electron IPC method. Your main process returns an array
-        // of objects each with fileName and filePath.
         const result: InterviewFile[] = await ipcRenderer.invoke('select-files');
         console.log('Selected files:', result);
 
-        // If there are already files, append the new ones; otherwise, set the new list.
         let existingFiles: InterviewFile[] = [];
         if (modeInput && modeInput.startsWith('interview:')) {
             try {
@@ -61,7 +54,6 @@ const LoadInterview: FC = () => {
         setModeInput(`interview:${JSON.stringify(newFiles)}`);
     };
 
-    // Handler to remove a file from the list.
     const handleRemoveFile = (filePath: string) => {
         try {
             const files = JSON.parse(
@@ -74,13 +66,11 @@ const LoadInterview: FC = () => {
         }
     };
 
-    // When a file card is clicked, open the modal with the file.
     const handleRenderFile = (filePath: string) => {
         setSelectedFilePath(filePath);
         setFileViewModalOpen(true);
     };
 
-    // Data is considered loaded if modeInput is a non‑empty string.
     const isDataLoaded = modeInput && modeInput.length > 0;
 
     return (
@@ -129,7 +119,6 @@ const LoadInterview: FC = () => {
                     </main>
                 </div>
             )}
-            {/* Render the FileViewModal if open */}
             {selectedFilePath !== '' && (
                 <FileViewModal
                     filePath={selectedFilePath}

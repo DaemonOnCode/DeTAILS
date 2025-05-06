@@ -1,6 +1,6 @@
 import React, { FC, useState, useRef } from 'react';
 import { TopToolbarProps } from '../../../types/Coding/props';
-import { FaCode, FaHighlighter, FaBook } from 'react-icons/fa'; // Added FaBook for Codebook icon
+import { FaCode, FaHighlighter, FaBook } from 'react-icons/fa';
 
 const TopToolbar: FC<TopToolbarProps> = ({
     selectedPost,

@@ -35,20 +35,20 @@ export const CodingRouter: RouteObject[] = [
         path: ROUTES.BACKGROUND_RESEARCH,
         children: [
             { path: ROUTES.LLM_CONTEXT_V2, element: <ContextPage />, index: true },
-            { path: ROUTES.KEYWORD_CLOUD, element: <RelevantConceptsPage /> },
-            { path: ROUTES.KEYWORD_TABLE, element: <ConceptOutlinePage /> }
+            { path: ROUTES.RELATED_CONCEPTS, element: <RelevantConceptsPage /> },
+            { path: ROUTES.CONCEPT_OUTLINE, element: <ConceptOutlinePage /> }
         ]
     },
     {
         path: ROUTES.LOAD_DATA,
         children: [
-            { path: ROUTES.DATA_SOURCE, element: <CollectionHomePage />, index: true },
+            { path: ROUTES.DATA_TYPE, element: <CollectionHomePage />, index: true },
             {
-                path: ROUTES.DATASET_CREATION,
+                path: ROUTES.DATA_SOURCE,
                 element: <DataSourcePage />
             },
             {
-                path: ROUTES.DATA_VIEWER,
+                path: ROUTES.DATASET_CREATION,
                 element: <DatasetCreationPage />
             }
         ]

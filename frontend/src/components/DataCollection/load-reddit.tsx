@@ -6,7 +6,7 @@ import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import TorrentDataTab from '../../components/DataCollection/load-torrent-data';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
-import { LOADER_ROUTES, ROUTES } from '../../constants/Coding/shared';
+import { LOADER_ROUTES, PAGE_ROUTES, ROUTES } from '../../constants/Coding/shared';
 import { useLoadingContext } from '../../context/loading-context';
 import { TORRENT_END_DATE, TORRENT_START_DATE } from '../../constants/DataCollection/shared';
 import { useSettings } from '../../context/settings-context';
@@ -126,7 +126,7 @@ const LoadReddit: FC<{
     ) => {
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
+            route: PAGE_ROUTES.DATASET_CREATION
         });
         abortRequests(location.pathname);
         navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
@@ -155,9 +155,9 @@ const LoadReddit: FC<{
         });
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
-            route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
+            route: PAGE_ROUTES.DATASET_CREATION
         });
-        navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`);
+        navigate(PAGE_ROUTES.DATASET_CREATION);
     };
 
     const handleLoadTorrent = async () => {

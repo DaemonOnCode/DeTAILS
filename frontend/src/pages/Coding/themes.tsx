@@ -266,7 +266,7 @@ const ThemesPage = () => {
                 steps={steps}
                 lastPage
                 pageId={location.pathname}
-                excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.THEMATIC_ANALYSIS}`}>
+                excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.THEMES}`}>
                 <div className="h-page flex flex-col">
                     <header id="themes-header" className="py-4">
                         <div className="flex justify-between items-center">
