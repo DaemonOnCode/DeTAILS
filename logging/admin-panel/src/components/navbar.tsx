@@ -71,6 +71,11 @@ function NavBar() {
             Manual Coding
           </Link>
         </li>
+        <li>
+          <Link to="/global-coding" className="text-white hover:text-gray-300">
+            Global Coding
+          </Link>
+        </li>
       </ul>
     </nav>
   );

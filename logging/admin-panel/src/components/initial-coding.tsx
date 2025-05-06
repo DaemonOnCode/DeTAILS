@@ -345,6 +345,32 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       )
     );
 
+    const updatedResults: CodingResult[] = [];
+    initialResults.forEach((initialResult, id) => {
+      const finalResult = finalResults.get(id);
+      if (
+        finalResult &&
+        (initialResult.quote !== finalResult.quote ||
+          initialResult.code !== finalResult.code)
+      ) {
+        const llmResponse: CodingResult = {
+          ...initialResult,
+          response_type: "LLM",
+        };
+        const humanResponse: CodingResult = {
+          ...finalResult,
+          id: `${finalResult.id}_human`,
+          response_type: "Human",
+        };
+        updatedResults.push(llmResponse, humanResponse);
+        finalResults.delete(id);
+      }
+    });
+
+    updatedResults.forEach((result) => {
+      finalResults.set(result.id, result);
+    });
+
     const changes = await computeChanges(
       initialResults,
       finalResults,
@@ -376,7 +402,6 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       prevResults = currResults;
     }
 
-    // Calculate new metrics: LLM Added Correct
     const humanAccepted = Array.from(finalResults.values()).filter(
       (r) => r.response_type === "Human" && r.is_marked
     );
@@ -389,7 +414,6 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       (q) => !humanQuotes.has(q)
     ).length;
 
-    // Calculate Cohen's Kappa and other new metrics
     const sampledPostIdsQuery = await executeQuery(
       `SELECT state FROM state_dumps 
           WHERE json_extract(context, '$.function') = 'sample_posts'
@@ -539,6 +563,9 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
         else if (llmApplied) c++;
         else d++;
       }
+      if (a === 0 && b === 0 && c === 0) {
+        continue;
+      }
       sumA += a;
       sumB += b;
       sumC += c;
@@ -672,14 +699,14 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
             );
           } else {
             const seqDiff = state.diff!;
-            const groupedUpdates = seqDiff.changes.updated.reduce(
-              (acc, change) => {
-                if (!acc[change.type]) acc[change.type] = [];
-                acc[change.type].push(change);
-                return acc;
-              },
-              {} as { [key: string]: FieldChange[] }
-            );
+            const groupedUpdates = (() => {
+              const updates: { [key: string]: FieldChange[] } = {};
+              seqDiff.changes.updated.forEach((change) => {
+                if (!updates[change.type]) updates[change.type] = [];
+                updates[change.type].push(change);
+              });
+              return updates;
+            })();
 
             return (
               <div key={seqDiff.sequenceId} className="mb-8">
