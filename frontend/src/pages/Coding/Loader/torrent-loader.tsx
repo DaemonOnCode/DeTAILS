@@ -7,7 +7,7 @@ import { useCollectionContext } from '../../../context/collection-context';
 import useRedditData from '../../../hooks/DataCollection/use-reddit-data';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../../constants/Shared';
-import { ROUTES } from '../../../constants/Coding/shared';
+import { PAGE_ROUTES, ROUTES } from '../../../constants/Coding/shared';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 import { useLoadingContext } from '../../../context/loading-context';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -249,17 +249,17 @@ const TorrentLoader: React.FC = () => {
             }
             loadingDispatch({
                 type: 'SET_REST_UNDONE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`
+                route: PAGE_ROUTES.DATASET_CREATION
             });
             loadingDispatch({
                 type: 'SET_FIRST_RUN_DONE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`
+                route: PAGE_ROUTES.DATASET_CREATION
             });
             loadingDispatch({
                 type: 'SET_LOADING_DONE_ROUTE',
-                route: `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`
+                route: PAGE_ROUTES.DATASET_CREATION
             });
-            navigate(`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_VIEWER}`);
+            navigate(PAGE_ROUTES.DATASET_CREATION);
         } catch (error) {
             logger.error(`Retry failed: ${error}`);
         }

@@ -15,7 +15,6 @@ import {
     ThemeBucket
 } from '../Coding/shared';
 import { Dispatch, RefObject } from 'react';
-import { IModelState } from '../DataModeling/shared';
 import {
     ModeType,
     MetadataState,
@@ -52,22 +51,6 @@ export interface AuthContextType {
     logout: () => void;
     remoteProcessing: boolean;
     setProcessing: (processing: boolean) => Promise<void>;
-}
-
-export interface IModelingContext {
-    models: IModelState[];
-    addModel: (id: string, modelName: string, type: string) => void;
-    updateModelName: (id: string, newName: string) => void;
-    removeModel: (id: string) => void;
-    toggleProcessing: (id: string) => void;
-    activeModelId: string | null;
-    setActiveModelId: (id: string) => void;
-    addNewModel: boolean;
-    setAddNewModel: SetState<boolean>;
-    updateContext: (updates: Partial<IModelingContext>) => void;
-    resetContext: () => void;
-    startListening: () => void;
-    stopListening: () => void;
 }
 
 export type Concept = { id: string; word: string };

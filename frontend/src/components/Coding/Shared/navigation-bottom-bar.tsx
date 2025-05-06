@@ -1,9 +1,8 @@
-import { FC, useImperativeHandle, useState } from 'react';
+import { FC } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { NavigationBottomBarProps } from '../../../types/Coding/props';
 import { TooltipMessages } from '../../../constants/Shared';
 import { useLoadingContext } from '../../../context/loading-context';
-import { ROUTES as SHARED_ROUTES } from '../../../constants/Shared';
 
 const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
     isReady,

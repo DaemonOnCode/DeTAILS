@@ -5,8 +5,6 @@ import { ROUTES } from '../constants/Shared';
 import { SharedRouter } from './shared-router';
 import { CodingRouter } from './coding-router';
 import { DataCollectionRouter } from './data-collection-router';
-import { DataModelingRouter } from './data-modeling-router';
-import { DataCleaningRouter } from './data-cleaning-router';
 import { WorkspaceSelectionPage } from '../pages/Workspaces';
 import { Layout } from '../components/Shared/layout';
 import { ProtectedRoute } from '../components/Shared/protected-route';
@@ -35,14 +33,6 @@ export const AppRoutes: RouteObject[] = [
                             {
                                 path: ROUTES.DATA_COLLECTION,
                                 children: DataCollectionRouter
-                            },
-                            {
-                                path: ROUTES.CLEANING,
-                                children: DataCleaningRouter
-                            },
-                            {
-                                path: ROUTES.DATA_MODELING,
-                                children: DataModelingRouter
                             },
                             {
                                 path: ROUTES.CODING,
