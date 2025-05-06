@@ -42,7 +42,7 @@ const SplitCheckPage = ({ id, onBack }: { id: string; onBack: () => void }) => {
                 allCodes: string[];
             }>(REMOTE_SERVER_ROUTES.GET_POST_TRANSCRIPT_DATA, {
                 method: 'POST',
-                body: JSON.stringify({ postId })
+                body: JSON.stringify({ postId, responseTypes: ['manual'] })
             });
             if (error) {
                 console.error('Error fetching post:', error);

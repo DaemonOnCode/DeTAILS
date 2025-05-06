@@ -194,6 +194,22 @@ async def final_coding_endpoint(
 
             qect_repo.insert_batch(list(map(lambda x: QectResponse(**x), batch)))
 
+        state_dump_repo.insert(
+            StateDump(
+                state=json.dumps({
+                    "workspace_id": workspace_id,
+                    "post_ids": selected_post_ids_repo.find({"workspace_id": workspace_id, "type": "sampled"}, ["post_id"], map_to_model=False),
+                    "results": qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.INITIAL_COPY.value}, map_to_model=False),
+                }),
+                context=json.dumps({
+                    "function": "final_codes_initial_responses_copy",
+                    "run":"initial",
+                    "function_id": function_id,
+                    "workspace_id": workspace_id,
+                }),
+            )
+        )
+
 
         filter_duplicate_codes_in_db(
             workspace_id=workspace_id,

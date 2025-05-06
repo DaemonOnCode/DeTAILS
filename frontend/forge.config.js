@@ -2,6 +2,7 @@ const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 const path = require('path');
 const fs = require('fs');
+const rimraf = require('rimraf');
 
 const extraResourcePath =
     process.platform === 'win32'
@@ -15,12 +16,12 @@ module.exports = {
         prePackage: () => {
             console.log('Cleaning old builds...');
             const outDir = path.join(__dirname, 'out');
-            const makeDir = path.join(__dirname, 'make');
+            if (process.platform === 'win32') {
+                rimraf.sync(outDir);
+                return;
+            }
             if (fs.existsSync(outDir)) {
                 fs.rmSync(outDir, { recursive: true, force: true });
-            }
-            if (fs.existsSync(makeDir)) {
-                fs.rmSync(makeDir, { recursive: true, force: true });
             }
         }
     },

@@ -232,8 +232,8 @@ async def generate_definitions_endpoint(
                 coding_context_id=workspace_id,
                 word=entry.get("word"),
                 description=entry.get("description"),
-                inclusion_criteria=", ".join(entry.get("inclusion_criteria")),
-                exclusion_criteria=", ".join(entry.get("exclusion_criteria")),
+                inclusion_criteria=", ".join(entry.get("inclusion_criteria", [])),
+                exclusion_criteria=", ".join(entry.get("exclusion_criteria", [])),
                 is_marked=True
             )
             for entry in results
