@@ -15,12 +15,11 @@ from database import (
     ResearchQuestionsRepository,
     ConceptEntriesRepository,
 )
-from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from ipc import send_ipc_message
 from models.coding_models import GenerateInitialCodesRequest, RedoInitialCodingRequest
-from models.table_dataclasses import CodebookType, FunctionProgress, GenerationType, StateDump
+from models.table_dataclasses import CodebookType, FunctionProgress, GenerationType
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
@@ -38,9 +37,6 @@ concept_entries_repo = ConceptEntriesRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
 qect_repo = QectRepository()
 
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 @router.post("/generate-initial-codes")
 async def generate_codes_endpoint(
@@ -227,22 +223,6 @@ async def generate_codes_endpoint(
             generation_type=GenerationType.INITIAL.value,
             parent_function_name="generate-initial-codes",
             function_id=function_id
-        )
-        state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({ 
-                    "workspace_id": workspace_id,
-                    "post_ids": list(map(lambda x: x["post_id"],selected_post_ids_repo.find({"workspace_id": workspace_id, "type": "sampled"}, ["post_id"], map_to_model=False))),
-                    "results": qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.INITIAL.value}, map_to_model=False),
-                }),
-                context=json.dumps({
-                    "function": "initial_codes",
-                    "run":"initial",
-                    "function_id": function_id,
-                    "workspace_id": workspace_id,
-                    "time_taken": time.time() - start_time,
-                }),
-            )
         )
 
         function_progress_repo.update({
@@ -458,23 +438,6 @@ async def generate_codes_endpoint(
             generation_type=GenerationType.LATEST.value,
             parent_function_name="redo-initial-coding",
             function_id=function_id
-        )
-        state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "post_ids": list(map(lambda x: x["post_id"],selected_post_ids_repo.find({"workspace_id": workspace_id, "type": "sampled"}, ["post_id"], map_to_model=False))),
-                    "results": final_results,
-                    "feedback": request_body.feedback
-                }),
-                context=json.dumps({
-                    "function": "initial_codes",
-                    "run":"regenerate",
-                    "function_id": function_id,
-                    "workspace_id": workspace_id,
-                    "time_taken": time.time() - start_time,
-                }),
-            )
         )
 
         function_progress_repo.update({

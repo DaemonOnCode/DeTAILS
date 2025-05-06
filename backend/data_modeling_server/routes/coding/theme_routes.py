@@ -18,12 +18,11 @@ from database import (
     ThemeEntriesRepository,
     GroupedCodeEntriesRepository
 )
-from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from ipc import send_ipc_message
 from models.coding_models import RedoThemeGenerationRequest, ThemeGenerationRequest
-from models.table_dataclasses import CodebookType, StateDump, ThemeEntry
+from models.table_dataclasses import CodebookType, ThemeEntry
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from routes.websocket_routes import manager
@@ -42,10 +41,6 @@ qect_repo = QectRepository()
 initial_codebook_repo = InitialCodebookEntriesRepository()
 grouped_codes_repo = GroupedCodeEntriesRepository()
 themes_repo = ThemeEntriesRepository()
-
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 
 
@@ -168,22 +163,6 @@ async def theme_generation_endpoint(
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Theme generation completed.")
 
     await asyncio.sleep(5)
-
-    state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "themes": themes,
-                    "unplaced_codes": unplaced_codes,
-                }),
-                context=json.dumps({
-                    "function": "theme_generation",
-                    "run":"initial",
-                    "workspace_id": request.headers.get("x-workspace-id"),
-                    "time_taken": time.time() - start_time,
-                }),
-            )
-        )
 
     return {
         "message": "Themes generated successfully!",
@@ -312,22 +291,6 @@ async def redo_theme_generation_endpoint(
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Theme generation redo completed.")
 
     await asyncio.sleep(5)
-
-    state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "themes": themes,
-                    "unplaced_codes": unplaced_codes
-                }),
-                context=json.dumps({
-                    "function": "theme_generation",
-                    "run":"regenerate",
-                    "workspace_id": request.headers.get("x-workspace-id"),
-                    "time_taken": time.time() - start_time,
-                }),
-            )
-        )
 
     return {
         "message": "Themes regenerated successfully!",

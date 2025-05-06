@@ -1,19 +1,16 @@
 import asyncio
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import csv
 import ctypes
 from datetime import datetime
 import errno
 import json
-import multiprocessing
-import multiprocessing.queues
 import os
 from pathlib import Path
 import re
 import shutil
 import tempfile
 import time
-from typing import Any, Counter, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 from aiofiles import open as async_open
 import aiofiles
@@ -22,13 +19,12 @@ from transmission_rpc import Client, Torrent, File as TorrentFile
 from dateutil.relativedelta import relativedelta
 
 import config
-from constants import DATASETS_DIR, PATHS, STUDY_DATABASE_PATH, UPLOAD_DIR
+from constants import DATASETS_DIR, PATHS, UPLOAD_DIR
 from database import DatasetsRepository, CommentsRepository, PostsRepository, PipelineStepsRepository, FileStatusRepository, TorrentDownloadProgressRepository, SelectedPostIdsRepository
-from database.state_dump_table import StateDumpsRepository
 from decorators.execution_time_logger import log_execution_time
 from ipc import send_ipc_message
-from models import Dataset, Comment, Post, TorrentDownloadProgress
-from models.table_dataclasses import FileStatus, StateDump
+from models import Dataset, Comment, Post
+from models.table_dataclasses import FileStatus
 from routes.websocket_routes import ConnectionManager
 from utils.coding_helpers import generate_transcript
 
@@ -41,15 +37,6 @@ pipeline_repo = PipelineStepsRepository()
 file_repo = FileStatusRepository()
 progress_repo = TorrentDownloadProgressRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
-study_posts_repo = PostsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
-study_comments_repo = CommentsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 
 def get_current_download_dir():
@@ -330,17 +317,6 @@ def delete_run(run_id: str):
 
 def create_dataset(description: str, workspace_id: str = None):
     workspace_id = workspace_id or str(uuid4())
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "workspace_id": workspace_id
-            }),
-            context=json.dumps({
-                "function": "create_dataset",
-                "workspace_id": workspace_id,
-            }),
-        )
-    )
     dataset_repo.insert(Dataset(id=workspace_id, name="", description=description, workspace_id=workspace_id))
     return workspace_id
 
@@ -547,11 +523,6 @@ def parse_reddit_files(workspace_id: str, dataset_path: str = None, date_filter:
     if existing_comments_count > 0:
         comment_repo.delete({"workspace_id": workspace_id})
 
-    if study_posts_repo.count({"workspace_id": workspace_id}) > 0:
-        study_posts_repo.delete({"workspace_id": workspace_id})
-    if study_comments_repo.count({"workspace_id": workspace_id}) > 0:
-        study_comments_repo.delete({"workspace_id": workspace_id})
-
     dataset_path = dataset_path or os.path.join(DATASETS_DIR, workspace_id)
     
     all_files = []
@@ -666,7 +637,6 @@ def parse_reddit_files(workspace_id: str, dataset_path: str = None, date_filter:
                     workspace_id=workspace_id
                 ))
             post_repo.insert_batch(posts)
-            study_posts_repo.insert_batch(posts)
 
         elif file["type"] == "comments":
             comments = []
@@ -728,7 +698,6 @@ def parse_reddit_files(workspace_id: str, dataset_path: str = None, date_filter:
                 else:
                     print(f"Skipping duplicate comment with key: {key}")
             comment_repo.insert_batch(unique_comments)
-            study_comments_repo.insert_batch(unique_comments)
     update_dataset(workspace_id, name=subreddit)
 
     return {"message": "Reddit dataset parsed successfully"}
@@ -1298,33 +1267,6 @@ async def get_reddit_data_from_torrent(
     if not os.path.exists(academic_folder):
         os.makedirs(academic_folder, exist_ok=True)
 
-    # if not use_fallback:
-    #     primary_hash = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
-    #     torrents = c.get_torrents()
-    #     torrent_to_use = next((t for t in torrents if t.hashString == primary_hash), None)
-    #     if not torrent_to_use:
-    #         torrent_to_use = c.add_torrent(PRIMARY_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
-        
-    #     torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, torrent_to_use)
-    #     files_to_process = get_files_to_process_primary(torrent_to_use.get_files(), subreddit, submissions_only)
-    #     magnet_link = PRIMARY_MAGNET_LINK
-    #     message = f"Using primary torrent for subreddit '{subreddit}'."
-    # else:
-    #     fallback_hash = FALLBACK_MAGNET_LINK.split("btih:")[1].split("&")[0]
-    #     torrents = c.get_torrents()
-    #     torrent_to_use = next((t for t in torrents if t.hashString == fallback_hash), None)
-    #     if not torrent_to_use:
-    #         torrent_to_use = c.add_torrent(FALLBACK_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
-        
-    #     torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, torrent_to_use)
-    #     wanted_range = generate_month_range(start_month, end_month)
-    #     files_to_process = get_files_to_process_fallback(torrent_to_use.get_files(), wanted_range, submissions_only)
-    #     magnet_link = FALLBACK_MAGNET_LINK
-    #     message = f"Using fallback torrent with range {start_month} to {end_month}."
-    
-    # await send_ipc_message(app_id, message)
-    # update_run_progress(run_id, message, current_download_dir=current_download_dir)
-
     if not use_fallback:
         torrent_hash_string = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
         magnet_link = PRIMARY_MAGNET_LINK
@@ -1546,22 +1488,6 @@ async def check_primary_torrent(
         await send_ipc_message(app_id, message)
         update_run_progress(run_id, message, current_download_dir=download_dir)
         return {"status": False, "files": primary_files, "error": "Insufficient disk space"}
-
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "subreddit": subreddit,
-                "primary_files": primary_files,
-                "status": len(primary_files) > 0,
-                "total_size": total_size,
-                "available_space": available_space,
-            }),
-            context=json.dumps({
-                "function": "check_primary_torrent",
-                "workspace_id": workspace_id,
-            }),
-        )
-    )
 
     if len(primary_files) > 0:
         message = f"Found subreddit '{subreddit}' in primary torrent. Files available: {len(primary_files)}, Total size: {total_size} bytes"

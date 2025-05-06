@@ -16,12 +16,10 @@ from database import (
     PipelineStepsRepository, TorrentDownloadProgressRepository,
     QectRepository, FunctionProgressRepository,
     LlmPendingTaskRepository, LlmFunctionArgsRepository,
-    SelectedPostIdsRepository,
-    ErrorLogRepository, CodingContextRepository,
+    SelectedPostIdsRepository, CodingContextRepository,
     ContextFilesRepository, ResearchQuestionsRepository,
 )
 from database.initialize import initialize_study_database
-from database.state_dump_table import StateDumpsRepository
 from constants import PATHS, get_default_transmission_cmd
 
 
@@ -50,10 +48,6 @@ initialize_database([
     LlmPendingTaskRepository, LlmFunctionArgsRepository,
     SelectedPostIdsRepository, CodingContextRepository,
     ContextFilesRepository, ResearchQuestionsRepository,
-])
-initialize_study_database([
-    QectRepository, ErrorLogRepository, StateDumpsRepository,
-    PostsRepository, CommentsRepository
 ])
 FunctionProgressRepository().delete({}, all=True)
 

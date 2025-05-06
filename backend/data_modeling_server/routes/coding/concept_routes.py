@@ -13,12 +13,11 @@ from database import (
     ConceptsRepository,
     SelectedConceptsRepository
 )
-from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from ipc import send_ipc_message
 from models.coding_models import GenerateConceptDefinitionsRequest, RegenerateConceptsRequest
-from models.table_dataclasses import Concept, ConceptEntry, DataClassEncoder, SelectedConcept, StateDump
+from models.table_dataclasses import Concept, ConceptEntry, DataClassEncoder, SelectedConcept
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from routes.websocket_routes import manager
@@ -33,9 +32,6 @@ research_question_repo = ResearchQuestionsRepository()
 concepts_repo = ConceptsRepository()
 selected_concepts_repo = SelectedConceptsRepository()
 
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 @router.post("/build-context-from-topic")
 async def build_context_from_interests_endpoint(
@@ -116,30 +112,6 @@ async def build_context_from_interests_endpoint(
     )
     
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Processing complete.")
-
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "workspace_id": workspace_id,
-                "main_topic": mainTopic,
-                "research_questions": researchQuestions,
-                "additional_info": additionalInfo,
-                "concepts": [
-                    {
-                        "id": concepts_with_ids[idx].id,
-                         **word,
-                    }
-                    for idx, word in enumerate(concepts_list)
-                ]
-            }),
-            context=json.dumps({
-                "function": "concept_cloud_table",
-                "run":"initial",
-                "workspace_id": request.headers.get("x-workspace-id"),
-                "time_taken": time.time() - start_time,
-            }),
-        )
-    )
     return {
         "message": "Context built successfully!",   
     }
@@ -245,25 +217,6 @@ async def generate_definitions_endpoint(
             print(e)
 
         concept_entries_repo.insert_batch(concept_entries)
-
-        state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "workspace_id": workspace_id,
-                "main_topic": mainTopic,
-                "research_questions": researchQuestions,
-                "additional_info": additionalInfo,
-                "concepts": batch_words,
-                "results": concept_entries
-            }, cls=DataClassEncoder),
-            context=json.dumps({
-                "function": "concept_table",
-                "run":"initial",
-                "workspace_id": request.headers.get("x-workspace-id"),
-                "time_taken": time.time() - start_time,
-            }),
-        )
-    )
     
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Processing complete.")
     
@@ -346,31 +299,6 @@ async def regenerate_concepts_endpoint(
     concepts_repo.insert_batch(concepts_with_ids)
 
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Processing complete.")
-
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "workspace_id": workspace_id,
-                "main_topic": mainTopic,
-                "research_questions": researchQuestions,
-                "additional_info": additionalInfo,
-                "feedback": request_body.extraFeedback,
-                "concepts": [
-                    {
-                        "id": concepts_with_ids[idx].id,
-                        **word,
-                    }
-                    for idx, word in enumerate(concepts_list)
-                ]
-            }),
-            context=json.dumps({
-                "function": "concept_cloud_table",
-                "run":"regenerate",
-                "workspace_id": request.headers.get("x-workspace-id"),
-                "time_taken": time.time() - start_time,
-            }),
-        )
-    )
 
     return {
         "message": "Concepts regenerated successfully!",

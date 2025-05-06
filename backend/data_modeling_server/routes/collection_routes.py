@@ -17,7 +17,6 @@ from controllers.collection_controller import (
     update_run_progress, upload_dataset_file
 )
 from database import PipelineStepsRepository, TorrentDownloadProgressRepository
-from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from ipc import send_ipc_message
 from models.collection_models import (
@@ -26,16 +25,12 @@ from models.collection_models import (
     ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, 
     ParseRedditPostByIdRequest, ParseRedditPostsRequest
 )
-from constants import DATASETS_DIR, STUDY_DATABASE_PATH, TEMP_DIR
+from constants import DATASETS_DIR, TEMP_DIR
 from models import PipelineStep, TorrentDownloadProgress
 from services.transmission_service import GlobalTransmissionDaemonManager, get_transmission_manager
 from routes.websocket_routes import manager
 
 router = APIRouter(dependencies=[Depends(get_app_id)])
-
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 @router.post("/datasets")
 async def upload_dataset_endpoint(request: Request ,file: UploadFile = File(...), description: str = Form(None), workspace_id: str = Form(None)):

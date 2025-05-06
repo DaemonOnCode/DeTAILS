@@ -18,7 +18,6 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         self.logging_thread.start()
 
     def log_worker(self):
-        """Worker function running in a separate thread to process log entries."""
         while True:
             try:
                 log_entry = self.log_queue.get()

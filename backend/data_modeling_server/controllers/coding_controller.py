@@ -13,12 +13,12 @@ from fastapi import UploadFile
 
 from chromadb.config import Settings as ChromaDBSettings
 from constants import CHROMA_PORT, CONTEXT_FILES_DIR, PATHS, STUDY_DATABASE_PATH
-from database.qect_table import QectRepository
-from database.selected_post_ids_table import SelectedPostIdsRepository
-from database.state_dump_table import StateDumpsRepository
+from database import( 
+    QectRepository, SelectedPostIdsRepository
+)
 from decorators import log_execution_time
 from ipc import send_ipc_message
-from models.table_dataclasses import CodebookType, DataClassEncoder, LlmResponse, QectResponse, ResponseCreatorType, StateDump
+from models.table_dataclasses import CodebookType, DataClassEncoder, LlmResponse, QectResponse, ResponseCreatorType
 from routes.websocket_routes import ConnectionManager
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -36,10 +36,6 @@ from utils.prompts import TopicClustering
 llm_responses_repo = LlmResponsesRepository()
 qect_repo = QectRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
-
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 def get_temperature_and_random_seed():
     with open(PATHS["settings"], "r") as f:
@@ -197,25 +193,7 @@ async def process_llm_task(
             response = await asyncio.wait_for(response_future, timeout=5 * 60)
 
             response = response["answer"] if retriever else response.content
-            state_dump_repo.insert(
-                StateDump(
-                    state=json.dumps({
-                        "workspace_id": workspace_id,
-                        "model": llm_model,
-                        "response": response,
-                        "id": function_id,
-                    }),
-                    context=json.dumps({
-                        "function": "llm_response_before_processing",
-                        "post_id": post_id,
-                        "retriever": bool(retriever),
-                        "workspace_id": workspace_id,
-                        "function_id": function_id,
-                        "parent_function_name": parent_function_name,
-                        "workspace_id": workspace_id,
-                    }),
-                )
-            )
+
             match = re.search(regex_pattern, response, re.DOTALL)
             if not match:
                 raise Exception("No valid structured data found in LLM response.")
@@ -268,24 +246,6 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
             hallucination_filtered_codes.append(code)
         else:
             print(f"Filtered out code entry, quote not found in transcript: {quote}")
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "hallucination_filtered_codes": hallucination_filtered_codes,
-                "initial_codes": codes,
-                "difference": len(codes) - len(hallucination_filtered_codes),
-                "code_count": len(codes),
-                "filtered_code_count": len(hallucination_filtered_codes),
-            }),
-            context=json.dumps({
-                "function": "llm_response_after_filtering_hallucinations",
-                "parent_function_name": parent_function_name,
-                "workspace_id": workspace_id,
-                "post_id": post_id,
-                "function_id": function_id
-            }),
-        )
-    )
     
     seen_pairs = set()
     duplicate_filtered_codes = []
@@ -300,25 +260,6 @@ def filter_codes_by_transcript(workspace_id: str, codes: list[dict], transcript:
             seen_pairs.add(pair)
         else:
             print(f"Filtered out duplicate code entry: code={code_value}, quote={quote}")
-    
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "duplicate_filtered_codes": duplicate_filtered_codes,
-                "hallucination_filtered_codes": hallucination_filtered_codes,
-                "difference": len(hallucination_filtered_codes) - len(duplicate_filtered_codes),
-                "code_count": len(hallucination_filtered_codes),
-                "filtered_code_count": len(duplicate_filtered_codes),
-            }),
-            context=json.dumps({
-                "function": "llm_response_after_filtering_duplicates",
-                "parent_function_name": parent_function_name,
-                "workspace_id": workspace_id,
-                "post_id": post_id,
-                "function_id": function_id
-            }),
-        )
-    )
     
     return duplicate_filtered_codes
 
@@ -336,21 +277,6 @@ def filter_duplicate_codes(codes: List[Dict[str, Any]], parent_function_name: st
         else:
             print(f"Filtered out duplicate code entry: code={code_value}, quote={quote}")
 
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "filtered_codes": filtered_codes,
-                "initial_codes": codes,
-            }),
-            context=json.dumps({
-                "function": "llm_response_after_filtering_duplicates",
-                "parent_function_name": parent_function_name,
-                "workspace_id": workspace_id,
-                "function_id": function_id
-            }),
-        )
-    )
-    
     return filtered_codes
 
 def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generation_type: str, parent_function_name: str, function_id: str = None):
@@ -399,26 +325,7 @@ def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generati
     print(f"Duplicates removed: {duplicates_removed}, Count before: {count_before}, Count after: {count_after}")
 
     after_delete_response_ids = list(map(lambda x: x.id, after_delete))
-    
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "difference": duplicates_removed,
-                "workspace_id": workspace_id,
-                "codebook_type": codebook_type,
-                "generation_type": generation_type,
-                "count_before": count_before,
-                "count_after": count_after,
-                "duplicate_filtered_codes": list(filter(lambda x: x.id not in after_delete_response_ids, before_delete))
-            }, cls=DataClassEncoder),
-            context=json.dumps({
-                "function": "llm_response_after_filtering_duplicates",
-                "parent_function_name": parent_function_name,
-                "workspace_id": workspace_id,
-                "function_id": function_id
-            }),
-        )
-    )
+
 
 
 def insert_responses_into_db(responses: List[Dict[str, Any]], workspace_id: str, model: str, codebook_type: str, parent_function_name: str = "", post_id: str = "", function_id: str = None) -> List[Dict[str, Any]]:
@@ -441,26 +348,6 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], workspace_id: str,
                 ), 
                 responses
             )
-        )
-    )
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "final_responses": responses,
-                "initial_responses": initial_responses,
-                "response_count": len(responses),
-                "initial_response_count": len(initial_responses),
-                "difference": len(initial_responses) - len(responses),
-            }),
-            context=json.dumps({
-                "function": "llm_response_after_filtering_empty_columns",
-                "codebook_type": codebook_type,
-                "workspace_id": workspace_id,
-                "parent_function_name": parent_function_name,
-                "workspace_id": workspace_id,
-                "post_id": post_id,
-                "function_id": function_id
-            }),
         )
     )
     return responses
@@ -545,19 +432,6 @@ async def cluster_words_with_llm(
             else:
                 raise ValueError(f"Failed to process single word after retries: {chunk}")
 
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "final_clusters": current_clusters,
-                "initial_words": words,
-                "cluster_count": len(current_clusters.keys()),
-            }),
-            context=json.dumps({
-                "function": "llm_clustering_response",
-                "workspace_id": workspace_id,
-            }),
-        )
-    )
     return current_clusters
 
 

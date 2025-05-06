@@ -1,34 +1,15 @@
-import json
 from uuid import uuid4
 
-# from database.db_helpers import execute_query
-from constants import STUDY_DATABASE_PATH
 from database import WorkspacesRepository
-from database.state_dump_table import StateDumpsRepository
 from models import Workspace
-from models.table_dataclasses import StateDump
 
 workspace_repo = WorkspacesRepository()
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 def create_workspace(data):
     workspace_id = str(uuid4())
     print("Created workspace ID: ", workspace_id)
 
     workspace_repo.insert(Workspace(id=workspace_id, name=data.name, description= data.description, user_email=data.user_email))
-
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "workspace_id": workspace_id,
-            }),
-            context=json.dumps({
-                "function": "create_workspace",
-            }),
-        )
-    )
 
     return workspace_repo.find_one({
         "id": workspace_id
@@ -38,18 +19,6 @@ def get_workspaces(user_email: str):
     return workspace_repo.find({"user_email": user_email})
 
 def update_workspace(data):
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "workspace_id": data.id,
-                "name": data.name,
-                "description": data.description
-            }),
-            context=json.dumps({
-                "function": "update_workspace",
-            }),
-        )
-    )
     workspace_repo.update(
         {"id": data.id}, 
         {
@@ -59,18 +28,7 @@ def update_workspace(data):
     )
 
 def delete_workspace(workspace_id: str):
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "workspace_id": workspace_id,
-            }),
-            context=json.dumps({
-                "function": "delete_workspace",
-            }),
-        )
-    )
     workspace_repo.delete({"id": workspace_id})
-    # execute_query("DELETE FROM workspaces WHERE id = ?", (workspace_id,))
 
 
 def create_temp_workspace(user_email: str):

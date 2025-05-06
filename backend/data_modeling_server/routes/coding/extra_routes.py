@@ -19,7 +19,6 @@ from database import (
     ManualPostStatesRepository, SelectedPostIdsRepository,
     QectRepository, FunctionProgressRepository
 )
-from database.state_dump_table import StateDumpsRepository
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from ipc import send_ipc_message
@@ -30,7 +29,6 @@ from models.coding_models import (
 )
 from models.table_dataclasses import (
     CodebookType, GenerationType, ManualPostState,
-    StateDump
 )
 from routes.websocket_routes import manager
 from services.langchain_llm import LangchainLLMService, get_llm_service
@@ -48,11 +46,6 @@ manual_post_state_repo = ManualPostStatesRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
 qect_repo = QectRepository()
 function_progress_repo = FunctionProgressRepository()
-
-
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 @router.post("/get-selected-post-ids")
 async def get_selected_post_ids_endpoint(
@@ -230,23 +223,6 @@ async def sample_posts_endpoint(
 
     result = {group_names[i]: groups[i] for i in range(divisions)}
 
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "workspace_id": workspace_id,
-                "sample_size": sample_size,
-                "divisions": divisions,
-                "groups": result,
-                "post_comments": post_comments
-            }),
-            context=json.dumps({
-                "function": "sample_posts",
-                "workspace_id": workspace_id,
-                "time_taken": time.time() - start_time,
-            }),
-        )
-    )
-
     for group_name, post_ids in result.items():
         selected_post_ids_repo.bulk_update(
             [
@@ -290,27 +266,6 @@ async def refine_single_code_endpoint(
         chat_history=chat_history,
         user_comment=user_comment
     )
-
-
-    state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "post_id": request_body.post_id,
-                    "quote": request_body.quote,
-                    "code": request_body.code,
-                    "parsed_response": parsed_response,
-                    "chat_history": request_body.chat_history,
-                    "user_comment": user_comment,
-                }),
-                context=json.dumps({
-                    "function": "refine_single_code",
-                    "run":"initial",
-                    "workspace_id": request.headers.get("x-workspace-id"),
-                    "time_taken": time.time() - start_time,
-                }),
-            )
-        )
 
     return parsed_response
 
@@ -416,21 +371,7 @@ async def generate_deductive_codes_endpoint(
             parent_function_name="redo-final-coding", 
             function_id=function_id
         )
-        state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "codebook": qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.MANUAL.value}, map_to_model=False),
-                }),
-                context=json.dumps({
-                    "function": "generate_deductive_codes",
-                    "run":"initial",
-                    "workspace_id": request.headers.get("x-workspace-id"),
-                    "time_taken": time.time() - start_time, 
-                    "function_id": function_id
-                }),
-            )
-        )
+
         await send_ipc_message(app_id, f"Dataset {workspace_id}: All posts processed successfully.")
 
         return {

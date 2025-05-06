@@ -18,12 +18,11 @@ from database import (
     GroupedCodeEntriesRepository,
     ManualCodebookEntriesRepository
 )
-from database.state_dump_table import StateDumpsRepository
 from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from models.coding_models import GenerateCodebookWithoutQuotesRequest, RegenerateCodebookWithoutQuotesRequest
-from models.table_dataclasses import CodebookType, InitialCodebookEntry, ManualCodebookEntry, StateDump
+from models.table_dataclasses import CodebookType, InitialCodebookEntry, ManualCodebookEntry
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from routes.websocket_routes import manager
@@ -42,10 +41,6 @@ initial_codebook_repo = InitialCodebookEntriesRepository()
 grouped_codes_repo = GroupedCodeEntriesRepository()
 themes_repo = ThemeEntriesRepository()
 manual_codebook_repo = ManualCodebookEntriesRepository()
-
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 @router.post("/generate-codebook-without-quotes")
 async def generate_codebook_without_quotes_endpoint(
@@ -137,21 +132,6 @@ async def generate_codebook_without_quotes_endpoint(
         llm_queue_manager=llm_queue_manager,
         codes=json.dumps(summarized_grouped_ec)  
     )
-
-    state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "codebook": parsed_response,
-                }),
-                context=json.dumps({
-                    "function": function_name,
-                    "run":"initial",
-                    "workspace_id": request.headers.get("x-workspace-id"),
-                    "time_taken": time.time() - start_time,
-                }),
-            )
-        )
     
     if manual_coding:
         manual_codebook_repo.insert_batch(
@@ -253,21 +233,6 @@ async def regenerate_codebook_without_quotes_endpoint(
                     manual_coding=False
                 ) for pr in  parsed_response.items() 
             ]
-        )
-
-    state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "codebook": parsed_response,
-                }),
-                context=json.dumps({
-                    "function": "initial_codebook",
-                    "run":"regenerate",
-                    "workspace_id": request.headers.get("x-workspace-id"),
-                    "time_taken": time.time() - start_time,
-                }),
-            )
         )
 
     return {

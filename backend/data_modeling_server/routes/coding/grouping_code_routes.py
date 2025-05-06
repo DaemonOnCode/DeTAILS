@@ -16,12 +16,11 @@ from database import (
     ThemeEntriesRepository,
     GroupedCodeEntriesRepository
 )
-from database.state_dump_table import StateDumpsRepository
 from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from models.coding_models import GroupCodesRequest,  RegroupCodesRequest
-from models.table_dataclasses import CodebookType, GroupedCodeEntry, StateDump
+from models.table_dataclasses import CodebookType, GroupedCodeEntry
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from routes.websocket_routes import manager
@@ -39,10 +38,6 @@ qect_repo = QectRepository()
 initial_codebook_repo = InitialCodebookEntriesRepository()
 grouped_codes_repo = GroupedCodeEntriesRepository()
 themes_repo = ThemeEntriesRepository()
-
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 
 @router.post("/group-codes")
@@ -148,22 +143,6 @@ async def group_codes_endpoint(
                 higher_level_code_id = None,
                 coding_context_id=workspace_id,
             ) 
-        )
-
-    state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "higher_level_codes": higher_level_codes,
-                    "unplaced_codes": unplaced_codes,
-                }),
-                context=json.dumps({
-                    "function": "code_grouping",
-                    "run":"initial",
-                    "workspace_id": request.headers.get("x-workspace-id"),
-                    "time_taken": time.time() - start_time,
-                }),
-            )
         )
 
     return {
@@ -282,22 +261,6 @@ async def regroup_codes_endpoint(
                 higher_level_code_id = None,
                 coding_context_id=workspace_id,
             ) 
-        )
-
-    state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "higher_level_codes": higher_level_codes,
-                    "unplaced_codes": unplaced_codes,
-                }),
-                context=json.dumps({
-                    "function": "code_grouping",
-                    "run":"regenerate",
-                    "workspace_id": request.headers.get("x-workspace-id"),
-                    "time_taken": time.time() - start_time,
-                }),
-            )
         )
 
 

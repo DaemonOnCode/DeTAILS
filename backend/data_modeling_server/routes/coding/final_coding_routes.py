@@ -17,13 +17,12 @@ from database import (
     ConceptEntriesRepository,
     InitialCodebookEntriesRepository
 )
-from database.state_dump_table import StateDumpsRepository
 from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from ipc import send_ipc_message
 from models.coding_models import GenerateFinalCodesRequest, RedoFinalCodingRequest
-from models.table_dataclasses import CodebookType, FunctionProgress, GenerationType, QectResponse, StateDump
+from models.table_dataclasses import CodebookType, FunctionProgress, GenerationType, QectResponse
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
@@ -42,9 +41,6 @@ selected_post_ids_repo = SelectedPostIdsRepository()
 qect_repo = QectRepository()
 initial_codebook_repo = InitialCodebookEntriesRepository()
 
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 
 
@@ -194,47 +190,12 @@ async def final_coding_endpoint(
 
             qect_repo.insert_batch(list(map(lambda x: QectResponse(**x), batch)))
 
-        state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "post_ids": selected_post_ids_repo.find({"workspace_id": workspace_id, "type": "sampled"}, ["post_id"], map_to_model=False),
-                    "results": qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.INITIAL_COPY.value}, map_to_model=False),
-                }),
-                context=json.dumps({
-                    "function": "final_codes_initial_responses_copy",
-                    "run":"initial",
-                    "function_id": function_id,
-                    "workspace_id": workspace_id,
-                }),
-            )
-        )
-
-
         filter_duplicate_codes_in_db(
             workspace_id=workspace_id,
             codebook_type=CodebookType.FINAL.value,
             generation_type=GenerationType.INITIAL.value,
             parent_function_name="final-coding", 
             function_id=function_id
-        )
-
-
-        state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "post_ids": selected_post_ids_repo.find({"workspace_id": workspace_id, "type": "unseen"}, ["post_id"], map_to_model=False),
-                    "results": qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.FINAL.value}, map_to_model=False),
-                }),
-                context=json.dumps({
-                    "function": "final_codes",
-                    "run":"initial",
-                    "function_id": function_id,
-                    "workspace_id": workspace_id,
-                    "time_taken": time.time() - start_time,
-                }),
-            )
         )
 
         function_progress_repo.update({
@@ -396,25 +357,7 @@ async def redo_final_coding_endpoint(
             parent_function_name="redo-final-coding", 
             function_id=function_id
         )
-
-        state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "post_ids": selected_post_ids_repo.find({"workspace_id": workspace_id, "type": "unseen"}, ["post_id"], map_to_model=False),
-                    "results": qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.FINAL.value}, map_to_model=False),
-                    "feedback": request_body.feedback
-                }),
-                context=json.dumps({
-                    "function": "final_codes",
-                    "run":"regenerate",
-                    "function_id": function_id,
-                    "workspace_id": workspace_id,
-                    "time_taken": time.time() - start_time,
-                }),
-            )
-        )
-
+        
         function_progress_repo.update({
             "function_id": function_id,
         }, {

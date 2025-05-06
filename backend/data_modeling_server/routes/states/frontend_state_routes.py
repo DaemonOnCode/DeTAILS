@@ -4,12 +4,9 @@ from fastapi.responses import FileResponse
 import pandas as pd
 import tempfile
 from typing import Any, Dict, List
-from collections import defaultdict
 import json
 
-from constants import STUDY_DATABASE_PATH
 from controllers.state_controller import (
-    add_state_to_dump, 
     get_grouped_code, 
     get_theme_by_code, 
     dispatch_configs,
@@ -32,8 +29,13 @@ from database import (
     ThemeEntriesRepository
 )
 from constants import FRONTEND_PAGE_MAPPER, PAGE_TO_STATES, STUDY_DATABASE_PATH, TEMP_DIR
-from database.state_dump_table import StateDumpsRepository
-from models.table_dataclasses import CodebookType, CodingContext, CollectionContext, ContextFile, Concept, ManualCodebookEntry, ManualPostState, ResearchQuestion, SelectedConcept, SelectedPostId
+from models.table_dataclasses import (
+    CodebookType, CodingContext, 
+    CollectionContext, ContextFile, 
+    Concept, ManualCodebookEntry, 
+    ManualPostState, ResearchQuestion, 
+    SelectedConcept, SelectedPostId
+)
 from utils.reducers import process_manual_coding_responses_action
 
 coding_context_repo = CodingContextRepository()
@@ -50,9 +52,7 @@ themes_repo = ThemeEntriesRepository()
 collection_context_repo = CollectionContextRepository()
 manual_post_state_repo = ManualPostStatesRepository()
 manual_codebook_repo = ManualCodebookEntriesRepository()
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
+
 
 router = APIRouter()
 
@@ -61,8 +61,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
     workspace_id = request.headers.get("x-workspace-id")
     if not workspace_id:
         raise HTTPException(status_code=400, detail="workspaceId is required")
-
-    dump_helper = lambda state_dict: add_state_to_dump(state=state_dict, workspace_id=workspace_id, function=operation_type, origin="save-coding-context")
     try:
         if not coding_context_repo.find_one({"id": workspace_id}, fail_silently=True):
             coding_context = CodingContext(id=workspace_id)
@@ -91,11 +89,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         
         formatted_data = config["format_func"](data) if operation_type in ["dispatchGroupedCodes", "dispatchThemes"] else [config["format_func"](item) for item in data]
         print("Formatted data:", formatted_data, "operation type:", operation_type)
-        dump_helper({
-            "action": action,
-            "diff": diff,
-            "current_state": data
-        })
         return {"success": True, config["response_key"]: formatted_data, "diff": diff}
 
     if operation_type == "addContextFile":
@@ -107,10 +100,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         inserted_row = context_files_repo.insert_returning(context_file)
         files = context_files_repo.find({"coding_context_id": workspace_id})
         diff = {"inserted": [inserted_row]}
-        dump_helper({
-            "current_state": files,
-            "diff": diff,
-        })  
         return {
             "success": True,
             "contextFiles": {f.file_path: f.file_name for f in files},
@@ -128,10 +117,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             inserted_rows.append(context_files_repo.insert_returning(context_file))
         files = context_files_repo.find({"coding_context_id": workspace_id})
         diff = {"inserted": inserted_rows}
-        dump_helper({
-            "current_state": files,
-            "diff": diff,
-        })  
         return {
             "success": True,
             "contextFiles": {f.file_path: f.file_name for f in files},
@@ -146,10 +131,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         deleted_rows = context_files_repo.delete_returning({"coding_context_id": workspace_id, "file_path": file_path})
         files = context_files_repo.find({"coding_context_id": workspace_id})
         diff = {"deleted": deleted_rows}
-        dump_helper({
-            "current_state": files,
-            "diff": diff,
-        })
         return {
             "success": True,
             "contextFiles": {f.file_path: f.file_name for f in files},
@@ -166,10 +147,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         old_main_topic = old_context["main_topic"] if old_context else None
         coding_context_repo.update({"id": workspace_id}, {"main_topic": main_topic})
         diff = {"updated": {"main_topic": {"old": old_main_topic, "new": main_topic}}}
-        dump_helper({
-            "current_state": main_topic,
-            "diff": diff,
-        })
         return {"success": True, "mainTopic": main_topic, "diff": diff}
 
     elif operation_type == "setAdditionalInfo":
@@ -182,10 +159,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         old_additional_info = old_context["additional_info"] if old_context else None
         coding_context_repo.update({"id": workspace_id}, {"additional_info": additional_info})
         diff = {"updated": {"additional_info": {"old": old_additional_info, "new": additional_info}}}
-        dump_helper({
-            "current_state": additional_info,
-            "diff": diff,
-        })
         return {"success": True, "additionalInfo": additional_info, "diff": diff}
 
     elif operation_type == "setResearchQuestions":
@@ -199,10 +172,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             inserted_row = research_question_repo.insert_returning(rq)
             inserted_rows.append(inserted_row)
         diff = {"deleted": deleted_rows, "inserted": inserted_rows}
-        dump_helper({
-            "current_state": research_questions,
-            "diff": diff,
-        })
         return {"success": True, "researchQuestions": research_questions, "diff": diff}
 
     elif operation_type == "setConcepts":
@@ -216,10 +185,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             inserted_row = concepts_repo.insert_returning(concept)
             inserted_rows.append(inserted_row)
         diff = {"deleted": deleted_rows, "inserted": inserted_rows}
-        dump_helper({
-            "current_state": concepts,
-            "diff": diff,
-        })
         return {"success": True, "concepts": concepts, "diff": diff}
 
     elif operation_type == "setSelectedConcepts":
@@ -233,10 +198,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             inserted_row = selected_concepts_repo.insert_returning(skw)
             inserted_rows.append(inserted_row)
         diff = {"deleted": deleted_rows, "inserted": inserted_rows}
-        dump_helper({
-            "current_state": selected_concepts,
-            "diff": diff
-        })
         return {"success": True, "selectedConcepts": selected_concepts, "diff": diff}
 
     elif operation_type == "resetContext":
@@ -248,9 +209,6 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
             {"id": workspace_id},
             {"main_topic": None, "additional_info": None}
         )
-        dump_helper({
-            "current_state": {}
-        })
         return {"success": True, "message": "Context reset successfully"}
 
     else:
@@ -289,8 +247,6 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
     if not operation_type:
         raise HTTPException(status_code=400, detail="Operation type is required")
 
-
-    dump_helper = lambda state_dict: add_state_to_dump(state=state_dict, workspace_id=workspace_id, function=operation_type, origin="save-collection-context")
     try:
         collection_context = collection_context_repo.find_one({"id": workspace_id})
         if not collection_context:
@@ -307,10 +263,6 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
         old_type = old_context["type"] if old_context else None
         collection_context_repo.update({"id": workspace_id}, {"type": new_type})
         diff = {"updated": {"type": {"old": old_type, "new": new_type}}}
-        dump_helper({
-            "current_state": new_type,
-            "diff": diff
-        })  
         return {"success": True, "type": new_type, "diff": diff}
 
     elif operation_type == "setMetadataSource":
@@ -324,10 +276,6 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
         metadata["source"] = source
         collection_context_repo.update({"id": workspace_id}, {"metadata": json.dumps(metadata)})
         diff = {"updated": {"metadata.source": {"old": old_source, "new": source}}}
-        dump_helper({
-            "current_state": source,
-            "diff": diff
-        })  
         return {"success": True, "source": source, "diff": diff}
 
 
@@ -341,10 +289,6 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
         new_metadata["subreddit"] = subreddit
         collection_context_repo.update({"id": workspace_id}, {"metadata": json.dumps(new_metadata)})
         diff = {"updated": {"metadata.subreddit": {"old": old_subreddit, "new": subreddit}}}
-        dump_helper({
-            "current_state": subreddit,
-            "diff": diff
-        })  
         return {"success": True, "subreddit": subreddit, "diff": diff}
 
     elif operation_type == "setModeInput":
@@ -352,10 +296,6 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
         old_mode_input = collection_context.mode_input
         collection_context_repo.update({"id": workspace_id}, {"mode_input": mode_input})
         diff = {"updated": {"mode_input": {"old": old_mode_input, "new": mode_input}}}
-        dump_helper({
-            "current_state": mode_input,
-            "diff": diff
-        })  
         return {"success": True, "modeInput": mode_input, "diff": diff}
 
     elif operation_type == "setSelectedData":
@@ -369,10 +309,6 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
             inserted_row = selected_posts_repo.insert_returning(post)
             inserted_rows.append(inserted_row)
         diff = {"deleted": deleted_rows, "inserted": inserted_rows}
-        dump_helper({
-            "current_state": selected_data,
-            "diff": diff
-        })  
         return {"success": True, "selectedData": selected_data, "diff": diff}
 
     elif operation_type == "setDataFilters":
@@ -383,10 +319,6 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
         new_data_filters = json.dumps(data_filters)
         collection_context_repo.update({"id": workspace_id}, {"data_filters": new_data_filters})
         diff = {"updated": {"data_filters": {"old": old_data_filters, "new": new_data_filters}}}
-        dump_helper({
-            "current_state": data_filters,
-            "diff": diff
-        })  
         return {"success": True, "dataFilters": data_filters, "diff": diff}
 
     elif operation_type == "setIsLocked":
@@ -395,10 +327,6 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
         new_is_locked = bool(is_locked)
         collection_context_repo.update({"id": workspace_id}, {"is_locked": new_is_locked})
         diff = {"updated": {"is_locked": {"old": old_is_locked, "new": new_is_locked}}}
-        dump_helper({
-            "current_state": is_locked,
-            "diff": diff
-        })  
         return {"success": True, "isLocked": new_is_locked, "diff": diff}
 
     elif operation_type == "resetContext":
@@ -414,9 +342,6 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
             }
         )
         selected_posts_repo.delete({"workspace_id": workspace_id})
-        dump_helper({
-            "current_state": {}
-        })
         return {"success": True}
 
     else:
@@ -468,7 +393,6 @@ async def save_manual_coding_context(request: Request, request_body: Dict[str, A
     if not operation_type:
         raise HTTPException(status_code=400, detail="Operation type is required")
     
-    dump_helper = lambda state_dict: add_state_to_dump(state=state_dict, workspace_id=workspace_id, function=operation_type, origin="save-manual-context")
     if operation_type == "addPostIds":
         new_post_ids = request_body.get("newPostIds", [])
         inserted_rows = []
@@ -480,10 +404,6 @@ async def save_manual_coding_context(request: Request, request_body: Dict[str, A
                 inserted_rows.append(inserted_row)
         post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
         diff = {"inserted": inserted_rows}
-        dump_helper({
-            "current_state": new_post_ids,
-            "diff": diff
-        })  
         return {
             "success": True,
             "postStates": {ps.post_id: bool(ps.is_marked) for ps in post_states},
@@ -502,10 +422,6 @@ async def save_manual_coding_context(request: Request, request_body: Dict[str, A
         manual_post_state_repo.update({"workspace_id": workspace_id, "post_id": post_id}, {"is_marked": bool(state)})
         diff = {"updated": {"is_marked": {"old": old_is_marked, "new": bool(state)}}}
         post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
-        dump_helper({
-            "current_state": post_states,
-            "diff": diff
-        })  
         return {
             "success": True,
             "postStates": {ps.post_id: ps.is_marked for ps in post_states},
@@ -518,11 +434,6 @@ async def save_manual_coding_context(request: Request, request_body: Dict[str, A
             raise HTTPException(status_code=400, detail="Invalid action")
         diff = process_manual_coding_responses_action(workspace_id, action)
         responses = qect_repo.find({"workspace_id": workspace_id, "codebook_type": "manual"})
-        dump_helper({
-            "action": action,
-            "diff": diff,
-            "current_state": responses
-        })
         return {"success": True, "manualCodingResponses": [{
                 "id": r["id"],
                 "model": r["model"],
@@ -554,9 +465,6 @@ async def save_manual_coding_context(request: Request, request_body: Dict[str, A
         post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
         codebook_entries = manual_codebook_repo.find({"workspace_id": workspace_id})
         responses = qect_repo.find({"workspace_id": workspace_id, "codebook_type": "manual"})
-        dump_helper({
-            "current_state": {},
-        })  
         return {
             "success": True,
             "postStates": {ps.post_id: ps.is_marked for ps in post_states},
@@ -567,9 +475,6 @@ async def save_manual_coding_context(request: Request, request_body: Dict[str, A
         manual_post_state_repo.delete({"workspace_id": workspace_id})
         manual_codebook_repo.delete({"workspace_id": workspace_id})
         qect_repo.delete({"workspace_id": workspace_id, "codebook_type": "manual"})
-        dump_helper({
-            "current_state": {}
-        })
         return {"success": True}
 
     else:

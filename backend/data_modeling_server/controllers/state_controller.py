@@ -31,10 +31,9 @@ from database import (
     ManualPostStatesRepository,
     ManualCodebookEntriesRepository
 )
-from database.state_dump_table import StateDumpsRepository
 from models import WorkspaceState, Workspace
 from models.state_models import CodingContext, CollectionContext, LoadingContext, ManualCodingContext, ModelingContext
-from models.table_dataclasses import CodebookType, DataClassEncoder, StateDump
+from models.table_dataclasses import CodebookType
 from utils.chroma_export import chroma_export_cli, chroma_import
 from utils.reducers import process_all_responses_action, process_concept_table_action, process_grouped_codes_action, process_initial_codebook_table_action, process_sampled_copy_post_response_action, process_sampled_post_response_action, process_themes_action, process_unseen_post_response_action
 
@@ -54,29 +53,8 @@ themes_repo = ThemeEntriesRepository()
 collection_context_repo = CollectionContextRepository()
 manual_post_state_repo = ManualPostStatesRepository()
 manual_codebook_repo = ManualCodebookEntriesRepository()
-state_dump_repo = StateDumpsRepository(
-    database_path = STUDY_DATABASE_PATH
-)
 
 def save_state(data):
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps({
-                "workspace_id": data.workspace_id,
-                "user_email": data.user_email,
-                "collection_context": data.collection_context,
-                "coding_context": data.coding_context,
-                "modeling_context": data.modeling_context,
-                "loading_context": data.loading_context,
-                "manual_coding_context": data.manual_coding_context,
-            }),
-            context=json.dumps({
-                "function": "save_state",
-                "page_url": data.page_url,
-            }),
-        )
-    )
-
     collection_context = CollectionContext(**data.collection_context)
     coding_context = CodingContext(**data.coding_context)
     modeling_context = ModelingContext(**data.modeling_context)
@@ -428,18 +406,6 @@ def get_theme_by_code(code, workspace_id):
 
     return theme
 
-
-def add_state_to_dump(state: str, workspace_id: str, function: str, origin: str):
-    state_dump_repo.insert(
-        StateDump(
-            state=json.dumps(state, cls=DataClassEncoder),
-            context=json.dumps({
-                "function": function,
-                "workspace_id": workspace_id,
-                "origin": origin,
-            }),
-        )
-    )
 
 def load_concept_outline_table(workspace_id: str) -> List[Dict[str, Any]]:
     concept_entries = concept_entries_repo.find({"coding_context_id": workspace_id})
