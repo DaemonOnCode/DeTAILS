@@ -94,8 +94,7 @@ function Invoke-ComponentBuild {
 
         # Copy .env for backend and ollama
         if (
-            ( $componentName -eq 'backend' -or $componentName -eq 'ollama' )
-            -and ( Test-Path -Path '.env' )
+            ( $componentName -eq 'backend' -or $componentName -eq 'ollama' ) -and ( Test-Path -Path '.env' )
         ) {
             Copy-Item -Path ".env" -Destination $destPath -Force -ErrorAction Stop
             Write-Host "Copied '.env' to $destPath"
