@@ -3,9 +3,9 @@ const { ipcMain } = require('electron');
 
 let clientData;
 if (process.env.NODE_ENV === 'development') {
-    clientData = process.env.CLIENT_SECRET_FILE;
+    clientData = require(process.env.CLIENT_SECRET_FILE);
 } else {
-    clientData = require('../../client_secret_.json');
+    clientData = require('../../client_secret_.json'); // Replace with your actual file name and path
 }
 const logger = require('../utils/logger');
 const { findContextByName } = require('../utils/context');

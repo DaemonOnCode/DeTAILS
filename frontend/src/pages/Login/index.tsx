@@ -5,8 +5,8 @@ import { useLogger } from '../../context/logging-context';
 import LoginAnimation from '../../components/Login/login-animation';
 import { GoogleIcon } from '../../components/Shared/Icons';
 import { FaCog } from 'react-icons/fa';
-import { useState } from 'react';
 import { useSettings } from '../../context/settings-context';
+import { toast } from 'react-toastify';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -16,20 +16,16 @@ const LoginPage = () => {
     const logger = useLogger();
     const { login, remoteProcessing, setProcessing } = useAuth();
 
-    // const [checked, setChecked] = useState(false);
-
     const { updateSettings, settings } = useSettings();
 
     const handleGoogleLogin = async () => {
         console.log('Started onclick');
-        // Trigger Electron's main process for OAuth
         try {
             await logger.info('Attempting Google OAuth Login');
             console.log('Attempting Google OAuth Login');
             const { token, user } = await ipcRenderer.invoke('google-oauth-login');
             console.log('Google OAuth Token:', token);
             await logger.info('Google OAuth Login Successful', { user });
-            // Handle successful login logic here
 
             login(user, token);
 
@@ -41,13 +37,12 @@ const LoginPage = () => {
         } catch (error) {
             await logger.error('Google OAuth Login Failed', { error });
             console.error('Google Sign-In Failed:', error);
+            toast.error('Google Sign-In Failed. Please try again.');
         }
     };
 
     const toggleProcessingMode = async (processingBool: boolean) => {
         await setProcessing(processingBool);
-
-        // Notify Electron's main process about the change
         // await ipcRenderer.invoke('set-processing-mode', !remoteProcessing);
 
         await logger.info(`Processing mode switched to: ${remoteProcessing ? 'Remote' : 'Local'}`);
