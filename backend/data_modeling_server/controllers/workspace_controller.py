@@ -1,8 +1,8 @@
 import json
+import os
 from uuid import uuid4
 
-# from database.db_helpers import execute_query
-from constants import STUDY_DATABASE_PATH
+from constants import STUDY_DATABASE_PATH,  CONTEXT_FILES_DIR
 from database import WorkspacesRepository
 from database.state_dump_table import StateDumpsRepository
 from models import Workspace
@@ -70,7 +70,10 @@ def delete_workspace(workspace_id: str):
         )
     )
     workspace_repo.delete({"id": workspace_id})
-    # execute_query("DELETE FROM workspaces WHERE id = ?", (workspace_id,))
+    for file in os.listdir(CONTEXT_FILES_DIR):
+        file_path = os.path.join(CONTEXT_FILES_DIR, file)
+        if os.path.isfile(file_path) and file.startswith(workspace_id):
+            os.remove(file_path)
 
 
 def create_temp_workspace(user_email: str):
