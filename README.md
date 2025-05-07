@@ -376,4 +376,25 @@ Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTIN
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.txt) file for details.
 
+## 📦 Official Builds
+
+For convenience, you can download our latest pre-built binaries/installer here:
+
+- **macOS (Apple Silicon)**  
+  [Download DeTAILS for macOS (.dmg)](https://storage.googleapis.com/details-builds-0625/mac/main/mac-main-1.0.0/DeTAILS-1.0.0-arm64.dmg)
+
+  [Download DeTAILS for macOS (.zip)](https://storage.googleapis.com/details-builds-0625/mac/main/mac-main-1.0.0/zip/darwin/arm64/DeTAILS-darwin-arm64-1.0.0.zip)
+
+- **Windows (x64)**  
+  [Download DeTAILS for Windows (Squirrel Installer)](https://storage.googleapis.com/details-builds-0625/windows/main/win-main-1.0.0/squirrel.windows/x64.zip)
+
+  [Download DeTAILS for Windows (.zip)](https://storage.googleapis.com/details-builds-0625/windows/main/win-main-1.0.0/zip/win32/x64/DeTAILS-win32-x64-1.0.0.zip)
+
+- **Linux (x64)**  
+  [Download DeTAILS for Linux (deb)]()
+
+  [Download DeTAILS for Linux (rpm)]()
+
+  [Download DeTAILS for Linux (.zip)]()
+
 ---
