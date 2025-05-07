@@ -103,7 +103,7 @@ class PaginatedRequest(BaseModel):
     pageSize: int
     filterCode: Optional[str] = None
     searchTerm: Optional[str] = None
-    selectedTypeFilter: Literal["New Data", "Codebook", "Human", "LLM", "All"]
+    selectedTypeFilter: Literal["New Data", "Initial Data", "Human", "LLM", "All"]
     postId: Optional[str] = None     
     responseTypes: List[str] = []
     markedTrue: bool = False

@@ -434,6 +434,6 @@ export type BaseBucketAction =
 
 export type ResponseType = 'sampled' | 'unseen' | 'manual' | 'sampled_copy';
 
-export type SelectedTypeFilter = 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
+export type SelectedTypeFilter = 'New Data' | 'Initial Data' | 'Human' | 'LLM' | 'All';
 
 export type CoderType = 'Human' | 'LLM';

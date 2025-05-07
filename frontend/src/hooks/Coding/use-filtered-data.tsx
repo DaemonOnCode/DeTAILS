@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { SelectedTypeFilter } from '../../types/Coding/shared';
 
 interface UseFilteredDataParams {
     data: any[];
@@ -6,7 +7,7 @@ interface UseFilteredDataParams {
     filter: string | null;
     showCoderType: boolean;
     applyFilters: boolean;
-    selectedTypeFilter: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
+    selectedTypeFilter: SelectedTypeFilter;
     sampledPostResponse: any[];
     unseenPostResponse: any[];
     manualCodingResponses: any[];
@@ -53,7 +54,7 @@ export function useFilteredData({
                 filteredPostIds = unseenPostIds;
                 totalIds = filteredPostIds.length;
                 totalData = filteredData;
-            } else if (selectedTypeFilter === 'Codebook') {
+            } else if (selectedTypeFilter === 'Initial Data') {
                 filteredData = sampledPostResponse;
                 filteredPostIds = sampledPostIds;
                 totalIds = filteredPostIds.length;

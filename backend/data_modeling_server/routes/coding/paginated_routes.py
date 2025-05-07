@@ -83,7 +83,7 @@ async def paginated_responses(
     params: List[Any] = [workspace_id, workspace_id]
 
     if (
-        req.selectedTypeFilter in ["New Data", "Codebook"]
+        req.selectedTypeFilter in ["New Data", "Initial Data"]
         and not (len(req.responseTypes or []) == 1 and req.responseTypes[0] == "sampled")
     ):
         if req.selectedTypeFilter == "New Data":
@@ -209,12 +209,12 @@ async def paginated_posts_metadata(
     workspace_id: str = Header(..., alias="x-workspace-id")
 ):
     print(f"[paginated_posts_metadata] responseTypes: {req.responseTypes}, selectedTypeFilter: {req.selectedTypeFilter}")
-    if req.selectedTypeFilter in ['New Data', 'Codebook'] and not (len(req.responseTypes) == 1 and req.responseTypes[0] == 'sampled'):
+    if req.selectedTypeFilter in ['New Data', 'Initial Data'] and not (len(req.responseTypes) == 1 and req.responseTypes[0] == 'sampled'):
         type_filter = "p.type = ?"
         type_params = []
         if req.selectedTypeFilter == 'New Data':
             type_params.append('unseen')
-        elif req.selectedTypeFilter == 'Codebook':
+        elif req.selectedTypeFilter == 'Initial Data':
             type_params.append('sampled')
     else:
         if req.responseTypes:
