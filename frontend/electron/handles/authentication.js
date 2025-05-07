@@ -3,7 +3,7 @@ const { ipcMain } = require('electron');
 
 let clientData;
 if (process.env.NODE_ENV === 'development') {
-    clientData = process.env.CLIENT_SECRET_FILE;
+    clientData = require(process.env.CLIENT_SECRET_FILE);
 } else {
     clientData = require('../../client_secret_.json');
 }

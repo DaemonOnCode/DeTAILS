@@ -93,10 +93,7 @@ function Invoke-ComponentBuild {
         Write-Host "Copied '$artifactPath' to $destPath"
 
         # Copy .env for backend and ollama
-        if (
-            ( $componentName -eq 'backend' -or $componentName -eq 'ollama' )
-            -and ( Test-Path -Path '.env' )
-        ) {
+        if (($componentName -eq 'backend' -or $componentName -eq 'ollama') -and (Test-Path -Path '.env')) {
             Copy-Item -Path ".env" -Destination $destPath -Force -ErrorAction Stop
             Write-Host "Copied '.env' to $destPath"
         }
@@ -133,5 +130,5 @@ Invoke-ComponentBuild -componentName "chromadb" -folderName "chroma" -buildComma
 
 # Build ollama
 $ollamaFolder = "ollama-0.4.2"
-$buildCommands = "set CGO_ENABLED=1 && make -j 8 && go build -v -x . && echo %ERRORLEVEL% && timeout /T 10 /NOBREAK"
+$buildCommands = "set CGO_ENABLED=1 && make -j 8 && go build -v -x . && echo %ERRORLEVEL%"
 Invoke-ComponentBuild -componentName "ollama" -folderName $ollamaFolder -buildCommands $buildCommands -artifactPath "ollama.exe" -destSubDir "ollama"
