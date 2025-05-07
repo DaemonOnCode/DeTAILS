@@ -21,7 +21,7 @@ export function usePaginatedPostsMetadata({
     responseTypes: ResponseType[];
     searchTerm?: string;
     onlyCoded?: boolean;
-    selectedTypeFilter?: 'New Data' | 'Codebook' | 'Human' | 'LLM' | 'All';
+    selectedTypeFilter?: SelectedTypeFilter;
 }) {
     const { fetchData } = useApi();
     const [page, setPage] = useState(1);

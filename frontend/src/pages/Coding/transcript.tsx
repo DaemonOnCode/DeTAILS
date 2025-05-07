@@ -515,7 +515,7 @@ const TranscriptPage = () => {
             JSON.stringify({
                 state: 'review',
                 codebook: 'true',
-                type: 'Codebook',
+                type: 'Initial Data',
                 split: null
             }),
             {
@@ -556,7 +556,7 @@ const TranscriptPage = () => {
             JSON.stringify({
                 state: 'refine',
                 codebook: 'true',
-                type: 'Codebook',
+                type: 'Initial Data',
                 split: null
             }),
             {
@@ -963,7 +963,7 @@ const TranscriptPage = () => {
                                 <button
                                     className="bg-blue-500 text-white rounded px-4 py-2"
                                     onClick={() => setShowCodebook((prev) => !prev)}>
-                                    {showCodebook ? 'Hide Codebook' : 'Show Codebook'}
+                                    {showCodebook ? 'Hide Codes' : 'Show Codes'}
                                 </button>
                                 <button
                                     className="bg-blue-500 text-white rounded px-4 py-2"

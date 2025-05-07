@@ -99,7 +99,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab') === 'codes' ? 'codes' : 'posts';
         const typeFromUrl = params.get('selectedTypeFilter');
-        const allowedTypes = ['New Data', 'Codebook', 'Human', 'LLM', 'All'];
+        const allowedTypes = ['New Data', 'Initial Data', 'Human', 'LLM', 'All'];
         const defaultType = showCoderType ? 'All' : 'New Data';
         const type = allowedTypes.includes(typeFromUrl ?? '') ? typeFromUrl : defaultType;
         const search = params.get('search');
@@ -167,7 +167,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     const routeDispatch = (action: BaseResponseHandlerActions<any>, refreshRef: RefObject<any>) => {
         let dispatchResult = null;
-        if (selectedTypeFilter === 'Codebook') {
+        if (selectedTypeFilter === 'Initial Data') {
             console.log(action, 'route dispatch codebook updating sample');
             // @ts-ignore
             dispatchResult = dispatchSampledCopyPostResponse({ ...action }, refreshRef);
@@ -283,7 +283,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             if (showFilterDropdown && selectedTypeFilter) {
                 if (selectedTypeFilter === 'All') {
                     if (sampledPostIds.includes(postId ?? '')) {
-                        params.append('type', 'Codebook');
+                        params.append('type', 'Initial Data');
                     } else {
                         params.append('type', 'New Data');
                     }
@@ -370,7 +370,7 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                                     onClick={async () => {
                                         const success = await downloadCodebook();
                                         if (success) {
-                                            toast.success('Codebook downloaded successfully');
+                                            toast.success('Codes downloaded successfully');
                                         } else {
                                             toast.error('Download cancelled or failed');
                                         }
