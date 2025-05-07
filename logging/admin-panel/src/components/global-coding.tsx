@@ -18,6 +18,7 @@ interface FieldChange {
   similarity?: number;
   code: string;
   quote: string;
+  post_id?: string;
 }
 
 interface CRUDChanges {
@@ -49,9 +50,14 @@ interface SequenceState {
   error?: string;
 }
 
+interface CodeToQuoteIdsResult {
+  codeToQuoteIds: Record<string, string[]>;
+  allQuoteIds: string[];
+}
+
 const safeParseContext = (context: string): Context => {
   try {
-    return JSON.parse(context) as Context;
+    return JSON.parse(context);
   } catch {
     return { function: "Unknown" };
   }
@@ -62,7 +68,10 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
   let currentSequence: DatabaseRow[] = [];
   for (const entry of entries) {
     const context = safeParseContext(entry.context);
-    if (context.function === "final_codes") {
+    if (
+      context.function === "final_codes" ||
+      context.function === "final_codes_initial_responses_copy"
+    ) {
       if (currentSequence.length > 0) sequences.push(currentSequence);
       currentSequence = [entry];
     } else if (
@@ -81,13 +90,11 @@ const extractResults = (
   stateType: "generation" | "dispatch"
 ): Map<string, CodingResult> => {
   const results = new Map<string, CodingResult>();
-  const resultsArray: any[] =
-    stateType === "generation"
-      ? state.results || []
-      : state.current_state || [];
+  const resultsArray =
+    stateType === "generation" ? state.results : state.current_state || [];
   resultsArray.forEach((result: any) => {
     results.set(result.id, {
-      id: result.id || "",
+      id: result.id,
       model: result.model || "",
       quote: result.quote || "",
       code: result.code || "",
@@ -99,13 +106,13 @@ const extractResults = (
       is_marked:
         stateType === "generation"
           ? true
-          : result.is_marked !== undefined
+          : result.is_marked !== null
           ? Boolean(result.is_marked)
           : null,
       range_marker: result.range_marker
         ? JSON.parse(result.range_marker)
         : null,
-      response_type: (result.response_type as "Human" | "LLM") || "LLM",
+      response_type: result.response_type || "",
     });
   });
   return results;
@@ -143,6 +150,7 @@ const computeChanges = async (
           similarity,
           code: curr.code,
           quote: curr.quote,
+          post_id: curr.post_id,
         });
       }
       if (prev.code !== curr.code) {
@@ -155,6 +163,7 @@ const computeChanges = async (
           similarity,
           code: curr.code,
           quote: curr.quote,
+          post_id: curr.post_id,
         });
       }
       if (prev.is_marked !== curr.is_marked) {
@@ -165,6 +174,7 @@ const computeChanges = async (
           newValue: curr.is_marked,
           code: curr.code,
           quote: curr.quote,
+          post_id: curr.post_id,
         });
       }
     }
@@ -213,7 +223,7 @@ const computeMetrics = async (
   return { precision, recall };
 };
 
-const FinalCodingResultsDiffViewer: React.FC = () => {
+const GlobalCodingResultsDiffViewer: React.FC = () => {
   const {
     isDatabaseLoaded,
     executeQuery,
@@ -222,13 +232,16 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
     workerPoolRef,
   } = useDatabase();
 
-  const mappingPoolRef = useRef<WorkerPool>(
-    new WorkerPool(new URL("./transcript-worker.js", import.meta.url).href, 4)
+  const mappingPoolRef = useRef(
+    new WorkerPool(
+      new URL("./coding-transcript-worker.js", import.meta.url).href,
+      4
+    )
   );
 
   useEffect(() => {
     mappingPoolRef.current = new WorkerPool(
-      new URL("./transcript-worker.js", import.meta.url).href,
+      new URL("./coding-transcript-worker.js", import.meta.url).href,
       4
     );
     return () => {
@@ -238,9 +251,9 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
 
   const [sequences, setSequences] = useState<DatabaseRow[][]>([]);
   const [sequenceStates, setSequenceStates] = useState<SequenceState[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [openSteps, setOpenSteps] = useState<{ [key: number]: boolean }>({});
-  const similarityCache = useRef<Map<string, number>>(new Map());
+  const similarityCache = useRef(new Map<string, number>());
 
   const getSimilarity = async (
     textA: string,
@@ -297,27 +310,32 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
   };
 
   useEffect(() => {
-    const fetchEntries = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       try {
-        const query = `
+        const sequenceQuery = `
           SELECT * FROM state_dumps
-          WHERE json_extract(context, '$.function') IN ('final_codes', 'dispatchUnseenPostResponse')
+          WHERE json_extract(context, '$.function') IN (
+            'final_codes',
+            'final_codes_initial_responses_copy',
+            'dispatchUnseenPostResponse'
+          )
           AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
         `;
-        const result = (await executeQuery(query, [
+        const sequenceResult = await executeQuery(sequenceQuery, [
           selectedWorkspaceId,
-        ])) as DatabaseRow[];
-        setSequences(groupEntriesIntoSequences(result));
+        ]);
+        const groupedSequences = groupEntriesIntoSequences(sequenceResult);
+        setSequences(groupedSequences);
       } catch (error) {
-        console.error("Error fetching entries:", error);
+        console.error("Error fetching data:", error);
         setSequences([]);
       } finally {
         setIsLoading(false);
       }
     };
-    if (isDatabaseLoaded) fetchEntries();
+    if (isDatabaseLoaded) fetchData();
   }, [isDatabaseLoaded, executeQuery, selectedWorkspaceId]);
 
   const computeSequenceDiff = async (
@@ -327,24 +345,25 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
     const initialEntry = sequence[0];
     const initialContext = safeParseContext(initialEntry.context);
     const isRegeneration = initialContext.run === "regenerate";
-    const initialState = JSON.parse(initialEntry.state);
+    const initialState = JSON.parse(initialEntry.state || "{}");
     const finalState =
       sequence.length > 1
-        ? JSON.parse(sequence[sequence.length - 1].state)
+        ? JSON.parse(sequence[sequence.length - 1].state || "{}")
         : initialState;
 
+    // Determine if this sequence starts with initial copy or final codes
+    const isInitialCopy =
+      initialContext.function === "final_codes_initial_responses_copy";
     const initialResults = extractResults(initialState, "generation");
-    const finalResults = Array.from(
-      (sequence.length > 1
+    const finalResultsRaw =
+      sequence.length > 1
         ? extractResults(finalState, "dispatch")
-        : initialResults
-      ).entries()
-    )
-      .filter(([_, result]) => result.is_marked)
-      .reduce(
-        (map, [id, result]) => map.set(id, result),
-        new Map<string, CodingResult>()
-      );
+        : initialResults;
+    const finalResults = new Map(
+      Array.from(finalResultsRaw.entries()).filter(
+        ([_, result]) => result.is_marked === true
+      )
+    );
 
     const changes = await computeChanges(
       initialResults,
@@ -360,15 +379,8 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
     const stepwiseChanges: { step: number; changes: CRUDChanges }[] = [];
     let prevResults = initialResults;
     for (let i = 1; i < sequence.length; i++) {
-      const currState = JSON.parse(sequence[i].state);
-      const currResults = Array.from(
-        extractResults(currState, "dispatch").entries()
-      )
-        .filter(([_, result]) => result.is_marked)
-        .reduce(
-          (map, [id, result]) => map.set(id, result),
-          new Map<string, CodingResult>()
-        );
+      const currState = JSON.parse(sequence[i].state || "{}");
+      const currResults = extractResults(currState, "dispatch");
       const stepChanges = await computeChanges(
         prevResults,
         currResults,
@@ -384,176 +396,172 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
       prevResults = currResults;
     }
 
-    const humanAccepted = Array.from(finalResults.values()).filter(
-      (r) => r.response_type === "Human" && r.is_marked
-    );
-    const llmAccepted = Array.from(finalResults.values()).filter(
-      (r) => r.response_type !== "Human" && r.is_marked
-    );
-    const humanQuotes = new Set(humanAccepted.map((r) => r.quote));
-    const llmQuotes = new Set(llmAccepted.map((r) => r.quote));
-    const llmAddedCorrect = [...llmQuotes].filter(
-      (q) => !humanQuotes.has(q)
-    ).length;
-
-    const unseenPostIdsQuery = (await executeQuery(
+    // Fetch sampled and unseen post IDs from 'sample_posts' state dump with fallback
+    const samplePostsQuery = await executeQuery(
       `SELECT state FROM state_dumps 
        WHERE json_extract(context, '$.function') = 'sample_posts'
        AND json_extract(context, '$.workspace_id') = ?`,
       [selectedWorkspaceId]
-    )) as DatabaseRow[];
-    const unseenPostIds: string[] = unseenPostIdsQuery.flatMap((row) => {
-      try {
-        const state = JSON.parse(row.state);
-        return (state.groups?.unseen || []) as string[];
-      } catch (e) {
-        console.error("Failed to parse state JSON:", e);
-        return [];
-      }
-    });
-    if (unseenPostIds.length === 0) {
-      throw new Error(
-        "No unseen post IDs found in state_dumps for final_codes."
-      );
-    }
+    );
+    const samplePostsState = samplePostsQuery[0]
+      ? JSON.parse(samplePostsQuery[0].state)
+      : { groups: { sampled: [], unseen: [] } };
+    const sampledPostIds: string[] = samplePostsState.groups?.sampled || [];
+    const unseenPostIds: string[] = samplePostsState.groups?.unseen || [];
+    const allPostIds = [...new Set([...sampledPostIds, ...unseenPostIds])];
 
     const postGroups: Record<
       string,
-      { human: CodingResult[]; llm: CodingResult[] }
+      { llm: CodingResult[]; human: CodingResult[] }
     > = {};
-    finalResults.forEach((result) => {
-      if (!postGroups[result.post_id]) {
-        postGroups[result.post_id] = { human: [], llm: [] };
-      }
-      if (result.response_type === "Human") {
-        postGroups[result.post_id].human.push(result);
-      } else {
-        postGroups[result.post_id].llm.push(result);
-      }
+    allPostIds.forEach((postId) => {
+      postGroups[postId] = {
+        llm: Array.from(initialResults.values()).filter(
+          (r) => r.post_id === postId
+        ),
+        human: Array.from(finalResults.values()).filter(
+          (r) => r.post_id === postId
+        ),
+      };
     });
-    unseenPostIds.forEach((postId) => {
-      if (!postGroups[postId]) {
-        postGroups[postId] = { human: [], llm: [] };
-      }
-    });
-    const postIds = unseenPostIds;
 
-    const allPosts = await batchFetchPostsAndComments(postIds);
+    const allPosts = await batchFetchPostsAndComments(allPostIds);
     const postMap: Record<string, any> = {};
     allPosts.forEach((post) => {
       postMap[post.id] = post;
     });
 
-    const codeToQuoteMaps: Record<
-      string,
-      {
-        llmCodes: Record<string, string[]>;
-        humanCodes: Record<string, string[]>;
-        unmappedIds: string[];
-      }
-    > = {};
-    await Promise.all(
-      postIds.map(async (postId, idx) => {
-        const post = postMap[postId];
-        const { human, llm } = postGroups[postId];
-        const allCodes = [
-          ...human.map((r) => ({
-            id: r.id,
-            text: r.quote,
-            code: r.code,
-            rangeMarker: r.range_marker,
-            markedBy: "human" as const,
-          })),
-          ...llm.map((r) => ({
-            id: r.id,
-            text: r.quote,
-            code: r.code,
-            rangeMarker: r.range_marker,
-            markedBy: "llm" as const,
-          })),
-        ];
-        const map = await mappingPoolRef.current.runTask<{
-          llmCodes: Record<string, string[]>;
-          humanCodes: Record<string, string[]>;
-          unmappedIds: string[];
-        }>(
-          {
-            type: "getCodeToQuoteIds",
-            post,
-            id: idx.toString(),
-            codes: allCodes,
-          },
-          {
-            responseType: "getCodeToQuoteIdsResult",
-            errorType: "error",
-          }
-        );
-        codeToQuoteMaps[postId] = map;
-      })
+    const llmMappings = await Promise.all(
+      allPostIds.map((postId) =>
+        postMap[postId]
+          ? mappingPoolRef.current.runTask<CodeToQuoteIdsResult>(
+              {
+                type: "getCodeToQuoteIds",
+                post: postMap[postId],
+                codes: postGroups[postId].llm
+                  .filter((r) => r)
+                  .map((r) => ({
+                    id: r.id,
+                    text: r.quote,
+                    code: r.code,
+                    rangeMarker: r.range_marker,
+                  })),
+                id: `${postId}-llm`,
+              },
+              {
+                responseType: "getCodeToQuoteIdsResult",
+                errorType: "error",
+              }
+            )
+          : Promise.resolve({ codeToQuoteIds: {}, allQuoteIds: [] })
+      )
     );
 
-    const allQuoteIds = new Set<string>();
-    for (const postId of postIds) {
-      const { unmappedIds, humanCodes, llmCodes } = codeToQuoteMaps[postId];
-      unmappedIds.forEach((qId) => allQuoteIds.add(`${postId}-${qId}`));
-      Object.values(humanCodes)
-        .flat()
-        .forEach((qId) => allQuoteIds.add(`${postId}-${qId}`));
-      Object.values(llmCodes)
-        .flat()
-        .forEach((qId) => allQuoteIds.add(`${postId}-${qId}`));
-    }
+    const humanMappings = await Promise.all(
+      allPostIds.map((postId) =>
+        postMap[postId]
+          ? mappingPoolRef.current.runTask<CodeToQuoteIdsResult>(
+              {
+                type: "getCodeToQuoteIds",
+                post: postMap[postId],
+                codes: postGroups[postId].human
+                  .filter((r) => r)
+                  .map((r) => ({
+                    id: r.id,
+                    text: r.quote,
+                    code: r.code,
+                    rangeMarker: r.range_marker,
+                  })),
+                id: `${postId}-human`,
+              },
+              {
+                responseType: "getCodeToQuoteIdsResult",
+                errorType: "error",
+              }
+            )
+          : Promise.resolve({ codeToQuoteIds: {}, allQuoteIds: [] })
+      )
+    );
+
+    const llmQuoteToCodes: Record<string, Record<string, Set<string>>> = {};
+    const humanQuoteToCodes: Record<string, Record<string, Set<string>>> = {};
+    const allQuoteIds: Record<string, string[]> = {};
+
+    allPostIds.forEach((postId, idx) => {
+      const llmMapping = llmMappings[idx];
+      const humanMapping = humanMappings[idx];
+
+      allQuoteIds[postId] = humanMapping.allQuoteIds;
+
+      llmQuoteToCodes[postId] = {};
+      for (const [codeId, quoteIds] of Object.entries(
+        llmMapping.codeToQuoteIds
+      )) {
+        const code = postGroups[postId].llm.find((r) => r.id === codeId)?.code;
+        if (code) {
+          quoteIds.forEach((quoteId) => {
+            if (!llmQuoteToCodes[postId][quoteId])
+              llmQuoteToCodes[postId][quoteId] = new Set();
+            llmQuoteToCodes[postId][quoteId].add(code);
+          });
+        }
+      }
+
+      humanQuoteToCodes[postId] = {};
+      for (const [codeId, quoteIds] of Object.entries(
+        humanMapping.codeToQuoteIds
+      )) {
+        const code = postGroups[postId].human.find(
+          (r) => r.id === codeId
+        )?.code;
+        if (code) {
+          quoteIds.forEach((quoteId) => {
+            if (!humanQuoteToCodes[postId][quoteId])
+              humanQuoteToCodes[postId][quoteId] = new Set();
+            humanQuoteToCodes[postId][quoteId].add(code);
+          });
+        }
+      }
+    });
 
     const allCodes = new Set<string>();
-    for (const postId of postIds) {
-      const { humanCodes, llmCodes } = codeToQuoteMaps[postId];
-      for (const codeId in humanCodes) {
-        if (humanCodes[codeId].length > 0) {
-          allCodes.add(finalResults.get(codeId)?.code || "");
-        }
-      }
-      for (const codeId in llmCodes) {
-        if (llmCodes[codeId].length > 0) {
-          allCodes.add(finalResults.get(codeId)?.code || "");
-        }
-      }
-    }
+    initialResults.forEach((r) => allCodes.add(r.code));
+    finalResults.forEach((r) => allCodes.add(r.code));
 
     const codeKappas: { code: string; kappa: number }[] = [];
-    let sumA = 0;
-    let sumB = 0;
-    let sumC = 0;
-    let sumD = 0;
+    let sumA = 0,
+      sumB = 0,
+      sumC = 0,
+      sumD = 0;
     for (const code of allCodes) {
       let a = 0,
         b = 0,
         c = 0,
         d = 0;
-      for (const quoteId of allQuoteIds) {
-        const [postId, qId] = quoteId.split("-", 2);
-        const { humanCodes, llmCodes } = codeToQuoteMaps[postId];
-        const humanApplied = Object.entries(humanCodes).some(
-          ([codeId, qIds]) =>
-            finalResults.get(codeId)?.code === code && qIds.includes(qId)
-        );
-        const llmApplied = Object.entries(llmCodes).some(
-          ([codeId, qIds]) =>
-            finalResults.get(codeId)?.code === code && qIds.includes(qId)
-        );
-        if (humanApplied && llmApplied) a++;
-        else if (humanApplied) b++;
-        else if (llmApplied) c++;
-        else d++;
-      }
+      allPostIds.forEach((postId) => {
+        if (allQuoteIds[postId]) {
+          allQuoteIds[postId].forEach((quoteId) => {
+            const llmApplied =
+              llmQuoteToCodes[postId]?.[quoteId]?.has(code) || false;
+            const humanApplied =
+              humanQuoteToCodes[postId]?.[quoteId]?.has(code) || false;
+            if (llmApplied && humanApplied) a++;
+            else if (humanApplied) b++;
+            else if (llmApplied) c++;
+            else d++;
+          });
+        }
+      });
+      const N = a + b + c + d;
+      if (N === 0) continue;
       sumA += a;
       sumB += b;
       sumC += c;
       sumD += d;
-      const N = a + b + c + d;
-      const p0 = N > 0 ? (a + d) / N : 0;
-      const pHumanYes = N > 0 ? (a + b) / N : 0;
-      const pLLMYes = N > 0 ? (a + c) / N : 0;
-      const pe = pHumanYes * pLLMYes + (1 - pHumanYes) * (1 - pLLMYes);
+      const p0 = (a + d) / N;
+      const pLLMYes = (a + c) / N;
+      const pHumanYes = (a + b) / N;
+      const pe = pLLMYes * pHumanYes + (1 - pLLMYes) * (1 - pHumanYes);
       const kappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
       codeKappas.push({ code, kappa });
     }
@@ -563,8 +571,23 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
         ? codeKappas.reduce((sum, { kappa }) => sum + kappa, 0) /
           codeKappas.length
         : 0;
-    const totalN = allCodes.size * allQuoteIds.size;
+
+    const totalN = sumA + sumB + sumC + sumD;
     const percentageAgreement = totalN > 0 ? (sumA + sumD) / totalN : 0;
+
+    const totalLLMResponses = Array.from(initialResults.values()).filter(
+      (r) => r.response_type === "LLM"
+    ).length;
+    const correctLLMResponses = Array.from(finalResults.values()).filter(
+      (r) => r.response_type === "LLM" && r.is_marked === true
+    ).length;
+    const llmAddedCorrect =
+      totalLLMResponses > 0
+        ? (correctLLMResponses / totalLLMResponses) * 100
+        : 0;
+
+    const humanNotInLlmCorrect = changes.inserted.length;
+    const matchingQuotes = sumA;
 
     return {
       sequenceId: seqIndex + 1,
@@ -580,8 +603,8 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
       codeKappas,
       cohenKappa,
       llmAddedCorrect,
-      humanNotInLlmCorrect: sumB,
-      matchingQuotes: sumA,
+      humanNotInLlmCorrect,
+      matchingQuotes,
       percentageAgreement,
     };
   };
@@ -598,7 +621,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
               return newStates;
             });
           })
-          .catch((error: Error) => {
+          .catch((error) => {
             console.error(
               `Error computing diff for sequence ${index + 1}:`,
               error
@@ -614,17 +637,14 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
             });
           });
       });
+    } else {
+      setSequenceStates([]);
     }
   }, [sequences]);
 
   const toggleStep = (step: number) => {
     setOpenSteps((prev) => ({ ...prev, [step]: !prev[step] }));
   };
-
-  const totalRegenerations = sequenceStates.reduce(
-    (count, state) => count + (state.diff && state.diff.isRegeneration ? 1 : 0),
-    0
-  );
 
   if (isLoading)
     return <p className="p-4 text-gray-600">Loading sequences...</p>;
@@ -634,11 +654,8 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
   return (
     <div className="p-4 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold mb-4 text-gray-800">
-        Final Coding Results
+        Global Coding Results
       </h1>
-      <p className="mb-4 text-gray-600">
-        Total number of regenerations: {totalRegenerations}
-      </p>
       {sequenceStates.length === 0 ? (
         <p className="text-gray-600">No sequences found.</p>
       ) : (
@@ -687,17 +704,20 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                 </h2>
                 <div className="mb-4 text-gray-600">
                   <p>
-                    <strong>Weighted Precision:</strong> {seqDiff.precision}
+                    <strong>Weighted Precision:</strong>{" "}
+                    {seqDiff.precision.toFixed(3)}
                   </p>
                   <p>
-                    <strong>Weighted Recall:</strong> {seqDiff.recall}
+                    <strong>Weighted Recall:</strong>{" "}
+                    {seqDiff.recall.toFixed(3)}
                   </p>
                   <p>
-                    <strong>Cohen's Kappa:</strong> {seqDiff.cohenKappa}
+                    <strong>Cohen's Kappa:</strong>{" "}
+                    {seqDiff.cohenKappa.toFixed(3)}
                   </p>
                   <p>
                     <strong>LLM Added Correct:</strong>{" "}
-                    {seqDiff.llmAddedCorrect}
+                    {seqDiff.llmAddedCorrect.toFixed(2)}%
                   </p>
                   <p>
                     <strong>Human Not In LLM Correct:</strong>{" "}
@@ -708,13 +728,13 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                   </p>
                   <p>
                     <strong>Percentage Agreement:</strong>{" "}
-                    {seqDiff.percentageAgreement}
+                    {seqDiff.percentageAgreement.toFixed(3)}
                   </p>
                 </div>
                 {seqDiff.codeKappas.length > 0 && (
                   <div className="mb-4 p-2 bg-gray-50 rounded-lg">
                     <h4 className="text-md font-medium text-gray-600">
-                      Per-Code Cohen's Kappa (This Sequence)
+                      Per-Code Cohen's Kappa
                     </h4>
                     <table className="w-full border-collapse border border-gray-300">
                       <thead>
@@ -727,7 +747,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                         {seqDiff.codeKappas.map(({ code, kappa }) => (
                           <tr key={code} className="hover:bg-gray-50">
                             <td className="p-2 border">{code}</td>
-                            <td className="p-2 border">{kappa}</td>
+                            <td className="p-2 border">{kappa.toFixed(3)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -821,7 +841,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                       {change.newValue}
                                     </td>
                                     <td className="p-2 border">
-                                      {change.similarity}
+                                      {change.similarity?.toFixed(3)}
                                     </td>
                                   </>
                                 )}
@@ -834,7 +854,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                       {change.newValue}
                                     </td>
                                     <td className="p-2 border">
-                                      {change.similarity}
+                                      {change.similarity?.toFixed(3)}
                                     </td>
                                   </>
                                 )}
@@ -1016,7 +1036,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                               {change.newValue}
                                             </td>
                                             <td className="p-2 border">
-                                              {change.similarity}
+                                              {change.similarity?.toFixed(3)}
                                             </td>
                                           </>
                                         )}
@@ -1029,7 +1049,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                               {change.newValue}
                                             </td>
                                             <td className="p-2 border">
-                                              {change.similarity}
+                                              {change.similarity?.toFixed(3)}
                                             </td>
                                           </>
                                         )}
@@ -1091,9 +1111,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-600">
-                    No stepwise changes in this sequence.
-                  </p>
+                  <p className="text-gray-600">No stepwise changes detected.</p>
                 )}
               </div>
             );
@@ -1104,4 +1122,4 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
   );
 };
 
-export default FinalCodingResultsDiffViewer;
+export default GlobalCodingResultsDiffViewer;
