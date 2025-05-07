@@ -12,13 +12,13 @@ from chromadb import HttpClient
 from fastapi import UploadFile
 
 from chromadb.config import Settings as ChromaDBSettings
-from constants import CHROMA_PORT, CONTEXT_FILES_DIR, PATHS, STUDY_DATABASE_PATH
+from constants import CHROMA_PORT, CONTEXT_FILES_DIR, PATHS
 from database import( 
     QectRepository, SelectedPostIdsRepository
 )
 from decorators import log_execution_time
 from ipc import send_ipc_message
-from models.table_dataclasses import CodebookType, DataClassEncoder, LlmResponse, QectResponse, ResponseCreatorType
+from models.table_dataclasses import CodebookType, LlmResponse, QectResponse, ResponseCreatorType
 from routes.websocket_routes import ConnectionManager
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter

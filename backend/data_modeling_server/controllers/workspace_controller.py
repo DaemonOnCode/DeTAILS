@@ -1,5 +1,7 @@
+import os
 from uuid import uuid4
 
+from constants import CONTEXT_FILES_DIR
 from database import WorkspacesRepository
 from models import Workspace
 
@@ -29,6 +31,10 @@ def update_workspace(data):
 
 def delete_workspace(workspace_id: str):
     workspace_repo.delete({"id": workspace_id})
+    for file in os.listdir(CONTEXT_FILES_DIR):
+        file_path = os.path.join(CONTEXT_FILES_DIR, file)
+        if os.path.isfile(file_path) and file.startswith(workspace_id):
+            os.remove(file_path)
 
 
 def create_temp_workspace(user_email: str):
