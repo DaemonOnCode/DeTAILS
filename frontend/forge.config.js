@@ -11,18 +11,21 @@ const extraResourcePath =
           ? path.resolve(__dirname, '..', 'executables_mac')
           : path.resolve(__dirname, '..', 'executables_linux');
 
+function shouldInclude(entryName) {
+    if (entryName === 'chroma') return true;
+    if (entryName === 'data-modeling-server') return true;
+    if (entryName === 'ollama') return true;
+    if (entryName === 'ripgrep') return true;
+    if (entryName === 'zstd') return true;
+    return false;
+}
+
 module.exports = {
     hooks: {
         prePackage: () => {
             console.log('Cleaning old builds...');
             const outDir = path.join(__dirname, 'out');
-            if (process.platform === 'win32') {
-                rimraf.sync(outDir);
-                return;
-            }
-            if (fs.existsSync(outDir)) {
-                fs.rmSync(outDir, { recursive: true, force: true });
-            }
+            rimraf.sync(outDir);
         }
     },
     packagerConfig: {
@@ -32,7 +35,10 @@ module.exports = {
         },
         appCategoryType: 'public.app-category.developer-tools',
         icon: 'public/details-icon',
-        extraResource: [extraResourcePath]
+        extraResource: fs
+            .readdirSync(extraResourcePath)
+            .filter(shouldInclude)
+            .map((name) => path.join(extraResourcePath, name))
     },
     rebuildConfig: {},
     makers: [
