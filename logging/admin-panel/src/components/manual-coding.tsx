@@ -36,7 +36,10 @@ const ManualCodingComparisonViewer: React.FC = () => {
   } = useDatabase();
 
   const mappingPoolRef = useRef(
-    new WorkerPool(new URL("./transcript-worker.js", import.meta.url).href, 4)
+    new WorkerPool(
+      new URL("./manual-transcript-worker.js", import.meta.url).href,
+      4
+    )
   );
 
   useEffect(() => {
