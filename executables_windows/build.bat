@@ -15,11 +15,11 @@ if %ERRORLEVEL% neq 0 (
 echo Current directory: %CD%
 
 echo Entering the ripgrep folder...
-if not exist "ripgrep\" (
+if not exist "backend\ripgrep\" (
     echo The 'ripgrep' folder does not exist in the root directory.
     goto :ERROR
 )
-cd ripgrep
+cd backend\ripgrep
 if %ERRORLEVEL% neq 0 (
     echo Failed to enter the ripgrep folder.
     goto :ERROR
@@ -73,11 +73,11 @@ if %ERRORLEVEL% neq 0 (
 echo Current directory: %CD%
 
 echo Entering the zstd folder...
-if not exist "zstd\" (
+if not exist "backend\zstd\" (
     echo The 'zstd' folder does not exist in the root directory.
     goto :ERROR
 )
-cd zstd
+cd backend\zstd
 if %ERRORLEVEL% neq 0 (
     echo Failed to enter the zstd folder.
     goto :ERROR
@@ -164,11 +164,11 @@ if %ERRORLEVEL% neq 0 (
 echo Current directory: %CD%
 
 echo Entering the data-modeling-server folder...
-if not exist "data-modeling-server\" (
+if not exist "backend\data_modeling_server\" (
     echo The 'data-modeling-server' folder does not exist in the root directory.
     goto :ERROR
 )
-cd data-modeling-server
+cd backend\data_modeling_server
 if %ERRORLEVEL% neq 0 (
     echo Failed to enter the data-modeling-server folder.
     goto :ERROR
@@ -210,7 +210,7 @@ if not exist "main.spec" (
     echo The 'main.spec' file is missing in the data-modeling-server folder.
     goto :ERROR
 )
-pyinstaller main.spec
+python -m PyInstaller main.spec
 if %ERRORLEVEL% neq 0 (
     echo PyInstaller build failed with exit code %ERRORLEVEL%.
     goto :ERROR
@@ -272,11 +272,11 @@ if %ERRORLEVEL% neq 0 (
 echo Current directory: %CD%
 
 echo Entering the chromadb folder...
-if not exist "chroma\" (
+if not exist "backend\chroma\" (
     echo The 'chromadb' folder does not exist in the root directory.
     goto :ERROR
 )
-cd chroma
+cd backend\chroma
 if %ERRORLEVEL% neq 0 (
     echo Failed to enter the chromadb folder.
     goto :ERROR
@@ -305,7 +305,7 @@ if not exist "cli.spec" (
     echo The 'cli.spec' file is missing in the cli folder.
     goto :ERROR
 )
-pyinstaller cli.spec
+python -m PyInstaller cli.spec
 if %ERRORLEVEL% neq 0 (
     echo PyInstaller build failed with exit code %ERRORLEVEL%.
     goto :ERROR
@@ -347,6 +347,71 @@ if %ERRORLEVEL% neq 0 (
 echo Current directory: %CD%
 
 echo Chromadb Build and copy completed successfully.
+
+:: Build ollama
+echo Navigating to the root directory...
+cd ..
+if %ERRORLEVEL% neq 0 (
+    echo Failed to navigate to the root directory.
+    goto :ERROR
+)
+echo Current directory: %CD%
+
+set "ollamaFolder=ollama-0.4.2"
+echo Entering the %ollamaFolder% folder...
+if not exist "%ollamaFolder%\" (
+    echo The '%ollamaFolder%' folder does not exist in the root directory.
+    goto :ERROR
+)
+cd "%ollamaFolder%"
+if %ERRORLEVEL% neq 0 (
+    echo Failed to enter the %ollamaFolder% folder.
+    goto :ERROR
+)
+echo Current directory: %CD%
+
+echo Building ollama...
+set CGO_ENABLED=1
+make -j 8
+if %ERRORLEVEL% neq 0 (
+    echo make failed with exit code %ERRORLEVEL%.
+    goto :ERROR
+)
+go build -v -x .
+if %ERRORLEVEL% neq 0 (
+    echo go build failed with exit code %ERRORLEVEL%.
+    goto :ERROR
+)
+timeout /T 10 /NOBREAK
+
+echo Copying built artifacts to %startDir%\ollama...
+if not exist "%startDir%\ollama\" (
+    mkdir "%startDir%\ollama"
+    if %ERRORLEVEL% neq 0 (
+        echo Failed to create directory %startDir%\ollama.
+        goto :ERROR
+    )
+)
+if not exist "ollama.exe" (
+    echo 'ollama.exe' not found. Build may have failed.
+    goto :ERROR
+)
+copy /Y "ollama.exe" "%startDir%\ollama\"
+if %ERRORLEVEL% neq 0 (
+    echo Failed to copy 'ollama.exe' to %startDir%\ollama.
+    goto :ERROR
+)
+if exist ".env" copy /Y ".env" "%startDir%\ollama\"
+
+echo Returning to the starting directory...
+cd "%startDir%"
+if %ERRORLEVEL% neq 0 (
+    echo Failed to return to the starting directory.
+    goto :ERROR
+)
+echo Current directory: %CD%
+
+echo Ollama Build and copy completed successfully.
 
 echo All builds and copies completed successfully.
 exit /b 0
