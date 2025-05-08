@@ -2,81 +2,58 @@ class ContextPrompt:
     concept_json_template = """
 {{
   "concepts": [
-    {{
-      "word": "ExtractedConcept",
-      "description": "Explanation of the word and its relevance to the main topic and additional information.",
-      "inclusion_criteria": ["Criteria 1", "Criteria 2", "..."],
-      "exclusion_criteria": ["Criteria 1", "Criteria 2", "..."]
-    }},
+    "concept1",
+    "concept2",
     ...
+    "concept5"
   ]
 }}"""
 
     @staticmethod
     def systemPromptTemplate(mainTopic: str, researchQuestions: str, additionalInfo: str):
         return [
-            f"""You are an AI researcher using Braun & Clarke's 6-phase thematic analysis. Follow these PHASE 1 (Familiarization) steps:
+            f"""You are an expert in qualitative research, specifically trained in Braun & Clarke's 6-phase thematic analysis. Your current task is to assist in the initial phase of analysis by gaining a holistic understanding of the main topic based on the provided research questions.
 
-1. DATA IMMERSION:
-   - Read all textual data 3 times while:
-     a) First pass: Holistic understanding of {mainTopic}
-     b) Second pass: Note interesting features
-     c) Third pass: Pattern identification
-   - Generate "immersion_notes" for each concept
+To do this, carefully review the given textual data and extract 10 related concepts that are directly relevant to the main topic and research questions. These concepts should be significant ideas, patterns, or recurring themes that emerge from the data.
 
-2. INITIAL OBSERVATION DOCUMENTATION:
-   - Flag content related to {researchQuestions}
-   - Mark both manifest and latent content
-   - Note contradictions in {additionalInfo}
+When identifying these concepts, consider the following guidelines:
+- Focus on concepts that are frequently mentioned or that hold particular significance in the context of the research questions.
+- Ensure that these concepts you are generating are no more than 1-3 words long.
+- Aim to represent the diversity of perspectives present in the data.
+- Base your extraction primarily on the provided textual data, using any additional information to contextualize your understanding.
+- If additional information is provided, integrate it into your analysis as appropriate.
+- Generated related concepts should be distinct and not overlap with each other, nor with the main topic.
 
-3. SEMANTIC/LATENT CODING PREPARATION:
-   - Distinguish between:
-     • Semantic: Surface-level meanings
-     • Latent: Underlying ideas/assumptions
-   - Tag each concept with "code_type"
+Please list the 10 related concepts in a clear and concise manner, ensuring each is distinct and relevant.
 
-You are also instructed to identify 20 highly relevant concepts that will serve as the foundation for building context in a qualitative research study.
-
-Each concept should come with:
-- A clear description explaining its relevance to the main topic.
-- Inclusion criteria specifying when the concept should be applied in coding.
-- Exclusion criteria specifying when the concept should not be applied to prevent misclassification.
-
-Output must be strictly in the JSON format described.""",
+- Main Topic: {mainTopic}
+- Research Questions: {researchQuestions}
+- Additional Information: {additionalInfo}
+            """,
             """\nTextual Data: \n{context}\n\n"""
         ]
 
     @staticmethod
     def context_builder(mainTopic: str, researchQuestions: str, additionalInfo: str):
         return f"""
-PHASE 1 EXECUTION: Generate 20 initial codes with:
+Extract exactly 10 related concepts from the provided textual data that are directly relevant to the main topic and research questions. These concepts should be significant ideas, patterns, or recurring themes that emerge from the data, providing a foundation for deductive thematic analysis. Present the concepts in a JSON object with the following structure:
 
-- Semantic Codes (Visible Content):
-  • Direct participant phrases
-  • Explicit mentions of {mainTopic}
+{{
+  "concepts": [
+    "concept1",
+    "concept2",
+    ...
+    "concept10"
+  ]
+}}
 
-- Latent Codes (Conceptual Content):
-  • Underlying assumptions
-  • Cultural/social frameworks
+Main Topic: {mainTopic}
+Research Questions: {researchQuestions}
+Additional Information: {additionalInfo}
 
-Include in JSON:
-1. immersion_notes from 3 readings
-2. code_type classification
-3. Data excerpts supporting inclusion/exclusion
-
-I need a structured list of 20 concepts with coding guidelines to establish context for deductive thematic analysis, based on:
-- Main Topic: {mainTopic}
-- Research Questions: {researchQuestions}
-- Additional Information: {additionalInfo}
-
-Return exactly 20 concepts in the following JSON format:
-
-```json
-{ContextPrompt.concept_json_template}
-```
 Important:
 - Only return the JSON object—no explanations, summaries, or additional text.
-- Valid JSON is required. 
+- Ensure the JSON is valid and contains exactly 10 distinct concepts. 
 """
 
     @staticmethod
@@ -88,42 +65,34 @@ Important:
                                    extraFeedback: str):
 
         return [
-            f"""You are an advanced AI specializing in qualitative research and thematic coding. Your task is to refine previously generated concepts based on selected themes, unselected themes, and new feedback.
+            f"""You are an expert in qualitative research, specializing in thematic analysis. Your task is to refine the previously generated related concepts based on the user’s selections and feedback. The user’s feedback is crucial and should be the primary guide for improving the concept selection.
 
-### New Inputs:
-- Selected Concepts (DO NOT include these concepts): {selectedConcepts}
-- Unselected Concepts (DO NOT include these concepts): {unselectedConcepts}
+New Inputs:
+- Selected Concepts (retain these): {selectedConcepts}
+- Unselected Concepts (exclude these): {unselectedConcepts}
 - Extra Feedback: {extraFeedback}
 
-### Process
-1. Re-evaluating the Context
-   - Analyze the main topic, research questions, and additional information.
-   - Use selected themes as a basis for improving concept selection.
-   - REMOVE any concepts related to unselected themes.
+Process:
+1. Re-evaluate the Context
+- Consider the main topic, research questions, and additional information to ensure the concepts align with the research objectives.
 
-2. Improving Concept Selection
-   - Modify existing concepts based on feedback.
-   - Remove irrelevant or redundant concepts.
-   - Introduce new concepts if necessary.
-   - Ensure concepts align with selected themes while excluding unselected ones.
+2. Refine the Concepts
+- Retain the selected concepts as they are.
+- Exclude the unselected concepts from the new set.
+- Use the extra feedback to generate new concepts that address the user’s concerns and suggestions.
+- Ensure the new concepts are distinct from both the selected, unselected concepts, and main topic.
+- Aim for concepts that are relevant, insightful, and aligned with the research context and user's feedback.
 
-3. Providing Updated Information for Each Concept
-   - Description: Explain the revised concept's relevance.
-   - Inclusion Criteria: When should this concept be applied?
-   - Exclusion Criteria: When should it not be applied?
+3. Output the Refined Concepts
+- Provide exactly 5 refined concepts in the following JSON format:
 
-4. Output Formatting
-   Your response must be strictly in JSON format, following this structure:
-
-```json
 {ContextPrompt.concept_json_template}
-```
 
-### Important Notes
-- DO NOT include explanations, summaries, or additional text.
-- Ensure JSON is valid and properly formatted.
-- Provide exactly 5 refined concepts.
-- REMOVE concepts related to unselected themes.
+Important Notes
+- Only return the JSON object with the refined concepts.
+- Do not include any explanations, summaries, or additional text.
+- Ensure the JSON is valid and properly formatted.
+- The refined concepts should clearly reflect the user’s feedback and the research context.
 
 Proceed with refining the concepts.
 """,
@@ -139,26 +108,37 @@ Proceed with refining the concepts.
                                     extraFeedback: str):
 
         return f"""
-I need a refined list of 5 concepts based on the following research inputs:
-
+I need a refined list of exactly 5 concepts based on the following research inputs:
 - Main Topic: {mainTopic}
 - Research Questions: {researchQuestions}
 - Additional Information: {additionalInfo}
-- Selected Concepts: {selectedConcepts}
-- Unselected Concepts (DO NOT include concepts related to these themes): {unselectedConcepts}
+- Selected Concepts (retain these): {selectedConcepts}
+- Unselected Concepts (exclude these): {unselectedConcepts}
 - Extra Feedback: {extraFeedback}
 
 Instructions:
-- Modify existing concepts based on feedback.
-- Generate concepts consisting 1-3 words only.
-- Adjust descriptions, inclusion, and exclusion criteria.
-- REMOVE any concepts related to unselected themes.
-- Keep JSON format strict.
+- Retain the selected concepts exactly as provided.
+- Exclude the unselected concepts from the new list.
+- Incorporate the extra feedback to generate new concepts that reflect the user’s suggestions and concerns.
+- Ensure new concepts are distinct from both selected, unselected concepts, and main topic.
+- Each concept should be a concise, significant idea relevant to the main topic and research questions.
+- Concepts must consist of 1-3 words only.
+- Avoid duplication; all 5 concepts must be unique.
 
 Output Format:
-```json
-{ContextPrompt.concept_json_template}
-```
+{{
+  "concepts": [
+    "concept1",
+    "concept2",
+    ...
+    "concept5"
+  ]
+}}
+
+Important Notes:
+- Return only the JSON object with the refined list of 5 concepts.
+- Do not include explanations, notes, or additional text beyond the JSON.
+- Ensure the JSON is valid and properly formatted.
 
 Proceed with the refinement.
 """
@@ -218,7 +198,7 @@ Post transcript: {post_transcript}
 - **Qualitative Frameworks:**  
   In deductive thematic analysis, you may consider two primary qualitative frameworks:
   1. **Experiential Framework:**  
-     Focuses on capturing and exploring people’s own perspectives, experiences, and understandings as directly expressed in the data.
+     Focuses on capturing and exploring people's own perspectives, experiences, and understandings as directly expressed in the data.
   2. **Critical Framework:**  
      Aims to interrogate and unpack the deeper meanings, power dynamics, and assumptions behind the data, going beyond the surface to question underlying social constructs.
 
@@ -380,7 +360,7 @@ You are an advanced AI model specializing in qualitative research using Braun an
   Both codes and themes are analytic outputs that are produced through systematic engagement with the data. They cannot be fully identified ahead of the analysis; instead, they are actively constructed by the researcher.
 
 - **Active Production:**  
-  Themes do not passively ‘emerge’ from the data; they are the result of deliberate, reflective, and systematic analysis, combining both immediate engagement and thoughtful distance.
+  Themes do not passively ‘emerge' from the data; they are the result of deliberate, reflective, and systematic analysis, combining both immediate engagement and thoughtful distance.
 
 ### Instructions
 
@@ -471,7 +451,7 @@ You are an advanced AI model specializing in qualitative research using Braun an
   Both codes and themes are analytic outputs that are produced through systematic engagement with the data. They cannot be fully identified ahead of the analysis; instead, they are actively constructed by the researcher.
 
 - **Active Production:**  
-  Themes do not passively ‘emerge’ from the data; they are the result of deliberate, reflective, and systematic analysis, combining both immediate engagement and thoughtful distance.
+  Themes do not passively ‘emerge' from the data; they are the result of deliberate, reflective, and systematic analysis, combining both immediate engagement and thoughtful distance.
 
 ### Instructions
 
@@ -486,7 +466,7 @@ You are an advanced AI model specializing in qualitative research using Braun an
 3. **Theme Refinement and Generation:**
    - Actively construct new or refined themes by identifying patterns and shared meanings among the codes, informed by the previous themes and feedback.
    - Modify existing themes, merge overlapping ones, separate themes that conflate distinct ideas, or create entirely new themes as needed to better capture significant and coherent patterns.
-   - Validate each theme’s coherence and relevance against the quotes and explanations in the QEC data.
+   - Validate each theme's coherence and relevance against the quotes and explanations in the QEC data.
 
 4. **Theme Naming:**
    - Assign concise, evocative names to each theme that accurately reflect the central ideas of the grouped codes.
@@ -506,74 +486,6 @@ You are an advanced AI model specializing in qualitative research using Braun an
      ]
    }}
    ```
-No additional text outside the JSON.
-"""
-
-
-class RefineCodebook:
-    @staticmethod
-    def refine_codebook_prompt(prev_codebook_json: str, current_codebook_json: str):
-        return f"""
-You are an advanced AI specializing in qualitative research and thematic coding. Your task is to analyze and refine coding categories by comparing the previous codebook with the current version.
-
----
-
-### Input Data
-- Previous Codebook (before human revision):
-```json
-{prev_codebook_json}
-```
-- Current Codebook (after human revision, including comments for feedback):
-```json
-{current_codebook_json}
-```
-
----
-
-## Your Tasks
-1. Extract Feedback from `currentCodebook.comments`.
-   - Identify changes made by the human coder.
-   - Understand why each code was added, modified, or removed.
-
-2. Compare `prevCodebook` and `currentCodebook`.
-   - Identify codes that remained unchanged.
-   - Identify codes that were modified.
-   - Identify codes that were added or removed.
-
-3. List Disagreements in JSON Format.
-   - Specify which codes and quotes you disagree with from the human evaluation and what needs revision.
-   - If you disagree with the human's evaluation or comment, give your disagreements using feedback from `currentCodebook.comments`.
-
-4. Generate a Revised Codebook.
-   - Modify existing codes based on human feedback.
-   - Add new codes where necessary.
-   - Remove or refine problematic codes to improve clarity.
-   - Each revised code should include a quote and an explanation.
-
----
-
-## Output Format
-```json
-{{
-  "disagreements": [
-    {{
-      "code": "Code Name",
-      "explanation": "Why you disagree with the human's suggestion (extracted from comments).",
-      "quote": "The relevant quote."
-    }},
-    ...
-  ],
-  "revised_codebook": [
-    {{
-      "code": "Refined Code Name",
-      "quote": "Example quote that illustrates this code.",
-      "explanation": "Updated explanation based on feedback."
-    }},
-    ...
-  ]
-}}
-```
-
 No additional text outside the JSON.
 """
 
@@ -658,7 +570,7 @@ PHASE 3 (Complete Codebook Remake) Requirements:
 
 - **Qualitative & Theoretical Frameworks:**  
   Consider:
-  1. **Experiential Framework:** Capturing participants’ direct perspectives.
+  1. **Experiential Framework:** Capturing participants' direct perspectives.
   2. **Critical Framework:** Unpacking deeper power dynamics and social constructs.
   3. **Realist/Essentialist vs. Relativist/Constructionist:** Balancing objective truths with socially constructed interpretations.
 
@@ -759,7 +671,7 @@ class GroupCodes:
     @staticmethod
     def group_codes_prompt(codes: str, qec_table: str):
         return f"""
-You are an advanced AI model specialized in Braun & Clarke’s Reflexive Thematic Analysis method. Use the following instructions to group the provided codes into higher-level themes based on the associated QEC data.:
+You are an advanced AI model specialized in Braun & Clarke's Reflexive Thematic Analysis method. Use the following instructions to group the provided codes into higher-level themes based on the associated QEC data.:
 
 - Assess the provisional groupings for coherence and fit with the data.
 - Check if each emerging higher-level code (theme) tells a convincing story about the dataset.
@@ -805,7 +717,7 @@ Your tasks:
 
 4. **Check for Fit and Coherence**:  
    - For each higher-level code, confirm it is consistent with the original summary.
-   - If any code doesn’t fit or contradicts the grouping, consider re-grouping or discarding it.
+   - If any code doesn't fit or contradicts the grouping, consider re-grouping or discarding it.
    - Be prepared to revise (split, merge, rename) during this review.
 
 5. **Ensure Distinctness**:  
@@ -849,7 +761,7 @@ Your tasks:
     @staticmethod
     def regroup_codes_prompt(codes: str, qec_table: str, previous_higher_level_codes: str, feedback: str):
         return f"""
-You are an advanced AI model specialized in Braun & Clarke’s Reflexive Thematic Analysis method. Use the following instructions to refine the previous grouping of codes into higher-level themes based on the provided feedback and a re-examination of the data.
+You are an advanced AI model specialized in Braun & Clarke's Reflexive Thematic Analysis method. Use the following instructions to refine the previous grouping of codes into higher-level themes based on the provided feedback and a re-examination of the data.
 
 ### Data Provided
 
@@ -1031,73 +943,6 @@ Your response should consist solely of the JSON object containing the refined de
 """
 
 
-class GenerateDeductiveCodesFromCodebook:
-    @staticmethod
-    def generate_deductive_codes_from_codebook_prompt(codebook: str, post_transcript: str):
-        return f"""
-**PHASE 3 (Deductive Codebook) Requirements:**
-
-### Integrative Analysis:
-- Review the analysis of the post transcript using the given codebook.
-  ```json
-  {codebook}
-  ```
-- Analyze the Post Transcript for segments that directly correspond to the codes in the codebook:
-  ```json
-  {post_transcript}
-  ```
-
-### Analytical Assumptions and Considerations
-
-- **Quality Spectrum:**  
-  Aim for an analysis that’s compelling, nuanced, and insightful, while acknowledging that interpretations can vary in depth.
-
-- **Deductive Orientation:**  
-  Your analysis must apply the codes from the given codebook to the transcript without introducing new codes. Each code used must be one that is already defined in the codebook.
-
-- **Focus of Meaning:**  
-  - **Semantic:** Capture the explicit, surface-level meanings.  
-  - **Latent:** Explore the underlying, implicit meanings for additional depth.
-
-- **Theoretical Frameworks:**  
-  Consider both:  
-  - **Realist/Essentialist:** For identifying objective truths in the data.  
-  - **Relativist/Constructionist:** For exploring how meaning is socially constructed.
-
-### Analysis Instructions:
-1. Review the post transcript and identify segments that directly relate to the codes in the given codebook.
-2. For each identified segment, associate it with the most appropriate code from the codebook.
-3. Provide a quote from the transcript, an explanation of how it relates to the code, and the exact code from the codebook.
-4. If no segments in the transcript correspond to any codes in the codebook, return an empty 'codes' array.
-5. Do not create new codes or modify existing ones; only use the codes as they are defined in the given codebook.
-
-### Output Format:
-Provide your output in the following JSON format:
-
-```json
-{{
-  "codes": [
-    {{
-      "quote": "Exact phrase from the transcript that corresponds to the code.",
-      "explanation": "Explanation of how the quote relates to the code.",
-      "code": "The exact code from the given codebook."
-    }}
-    // Additional code objects if multiple segments are found...
-  ]
-}}
-```
-
-If no relevant segments are found, return:
-
-```json
-{{
-  "codes": []
-}}
-```
-
-Ensure that every code used is present in the given codebook and that no new codes are introduced. No additional text outside the JSON.
-"""
-
 class TopicClustering:
     @staticmethod
     def begin_topic_clustering_prompt(words_json: str):
@@ -1143,9 +988,7 @@ class ConceptOutline:
               "concepts": [
                 {{
                   "word": "ExtractedConcept",
-                  "description": "Explanation of the word and its relevance to the main topic and additional information.",
-                  "inclusion_criteria": ["Criteria 1", "Criteria 2", "..."],
-                  "exclusion_criteria": ["Criteria 1", "Criteria 2", "..."]
+                  "description": "Explanation of the word and its relevance to the main topic and additional information."
                 }},
                 ...
               ]

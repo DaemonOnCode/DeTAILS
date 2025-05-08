@@ -14,8 +14,7 @@ from config import CustomSettings
 from constants import STUDY_DATABASE_PATH
 from database import LlmPendingTaskRepository, LlmFunctionArgsRepository
 from database.state_dump_table import StateDumpsRepository
-from models import LlmPendingTask
-from models.table_dataclasses import StateDump
+from models import LlmPendingTask, StateDump
 
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
@@ -311,6 +310,23 @@ class GlobalQueueManager:
                 try:
                     job = await self.queue.get()
                     job_id, function_key, args, kwargs, cfut = job
+
+                    if cfut.cancelled():
+                        print(f"[WORKER {worker_id}] Job {job_id} was cancelled before start; discarding")
+                        self.pending_task_repo.update(
+                            filters={"task_id": job_id},
+                            updates={"status": "cancelled", "completed_at": datetime.now()}
+                        )
+                        with self._lock:
+                            if job_id in self.pending_tasks:
+                                del self.pending_tasks[job_id]
+                            if function_key in self.function_jobs and job_id in self.function_jobs[function_key]:
+                                self.function_jobs[function_key].remove(job_id)
+                                if not self.function_jobs[function_key]:
+                                    del self.function_jobs[function_key]
+                        self.queue.task_done()
+                        continue
+
                     with self._lock:
                         self.worker_states[worker_id] = ("busy", time.time())
                     print(f"[WORKER {worker_id}] Dequeued job {job_id}")

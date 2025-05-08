@@ -101,9 +101,6 @@ async def paginated_responses(
         if "unseen" in req.responseTypes:
             temp_filters.add("p.type = ?")
             temp_params.add("unseen")
-        if "manual" in req.responseTypes:
-            temp_filters.add("p.type = ?")
-            temp_params.add("manual")
         if "sampled_copy" in req.responseTypes:
             temp_filters.add("p.type = ?")
             temp_params.add("sampled")
@@ -225,8 +222,6 @@ async def paginated_posts_metadata(
                 type_params.append("sampled")
             if "unseen" in req.responseTypes:
                 type_params.append("unseen")
-            if "manual" in req.responseTypes:
-                type_params.append("manual")
             if "sampled_copy" in req.responseTypes:
                 type_params.append("sampled")
         else:
@@ -324,8 +319,6 @@ async def paginated_codes(
         response_filters.append("r.codebook_type = 'initial'")
     if "unseen" in req.responseTypes:
         response_filters.append("r.codebook_type = 'final'")
-    if "manual" in req.responseTypes:
-        response_filters.append("r.codebook_type = 'manual'")
     if "sampled_copy" in req.responseTypes:
         response_filters.append("r.codebook_type = 'initial_copy'")
     

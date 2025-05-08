@@ -2,7 +2,7 @@ import asyncio
 import json
 import time
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 
 from constants import STUDY_DATABASE_PATH
 from controllers.coding_controller import cluster_words_with_llm, filter_codes_by_transcript, filter_duplicate_codes_in_db, insert_responses_into_db, process_llm_task, stream_selected_post_ids, summarize_codebook_explanations
@@ -47,12 +47,10 @@ async def generate_codes_endpoint(
     request: Request,
     request_body: GenerateInitialCodesRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+    app_id: str = Header(..., alias="x-app-id"),
 ):
-
-    workspace_id = request.headers.get("x-workspace-id")
-    app_id = request.headers.get("x-app-id")
-    workspace_id = request.headers.get("x-workspace-id")
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Code generation process started.")
 
     coding_context = coding_context_repo.find_one({"id": workspace_id})
@@ -266,11 +264,10 @@ async def generate_codes_endpoint(
     request: Request,
     request_body: RedoInitialCodingRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+    app_id: str = Header(..., alias="x-app-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    app_id = request.headers.get("x-app-id")
-    workspace_id = request.headers.get("x-workspace-id")
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Code generation process started.")
 
     start_time = time.time()

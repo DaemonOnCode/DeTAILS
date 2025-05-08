@@ -1,19 +1,10 @@
 from .table_dataclasses import (
     WorkspaceState, 
-    Model, 
-    Post, 
-    Rule, 
-    TokenizedComment, 
-    TokenizedPost, 
-    Token, 
+    Post,  
     Comment, 
     Dataset, 
     LlmResponse, 
-    Tfidf, 
-    TokenStat, 
-    TokenStatDetailed, 
-    Workspace, 
-    TempTokenStat, 
+    Workspace,  
     TorrentDownloadProgress, 
     PipelineStep, 
     FileStatus, 
@@ -35,6 +26,4 @@ from .table_dataclasses import (
     GroupedCodeEntry,
     ThemeEntry,
     CollectionContext,
-    ManualCodebookEntry,
-    ManualPostState
 )

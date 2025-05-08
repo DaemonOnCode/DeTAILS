@@ -2,7 +2,6 @@ from typing import Dict
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 import asyncio
 import json
-import aiohttp
 
 router = APIRouter()
 

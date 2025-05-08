@@ -13,38 +13,34 @@ import pandas as pd
 
 from config import Settings, CustomSettings
 from constants import CODEBOOK_TYPE_MAP, STUDY_DATABASE_PATH
-from controllers.coding_controller import filter_codes_by_transcript, filter_duplicate_codes_in_db, insert_responses_into_db, process_llm_task, stream_selected_post_ids
+from controllers.coding_controller import process_llm_task
 from controllers.collection_controller import count_comments, get_reddit_post_by_id
 from database import (
-    ManualPostStatesRepository, SelectedPostIdsRepository,
+     SelectedPostIdsRepository,
     QectRepository, FunctionProgressRepository
 )
 from database.state_dump_table import StateDumpsRepository
+from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
-from ipc import send_ipc_message
 from models.coding_models import (
-    GenerateDeductiveCodesRequest,
     RefineCodeRequest, 
     SamplePostsRequest, TranscriptRequest
 )
 from models.table_dataclasses import (
-    CodebookType, GenerationType, ManualPostState,
     StateDump
 )
 from routes.websocket_routes import manager
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
-from models import FunctionProgress
 from database.db_helpers import execute_query, tuned_connection
-from utils.prompts import GenerateDeductiveCodesFromCodebook, RefineSingleCode
+from utils.prompts import RefineSingleCode
 
 
 router = APIRouter(dependencies=[Depends(get_app_id), Depends(get_workspace_id)])
 settings = Settings()
 
-manual_post_state_repo = ManualPostStatesRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
 qect_repo = QectRepository()
 function_progress_repo = FunctionProgressRepository()
@@ -65,170 +61,149 @@ async def get_selected_post_ids_endpoint(
 @router.post("/sample-posts")
 async def sample_posts_endpoint(
     request: Request,
-    request_body: SamplePostsRequest
+    request_body: SamplePostsRequest,
+    workspace_id: str = Header(..., alias="x-workspace-id"),
 ):
     settings = CustomSettings()
 
-    workspace_id = request.headers.get("x-workspace-id")
-
-    if (request_body.sample_size <= 0 or 
-        workspace_id == "" or 
-        request_body.divisions < 1):
+    if request_body.sample_size <= 0 or not workspace_id or request_body.divisions < 1:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
-    
 
     sample_size = request_body.sample_size
     divisions = request_body.divisions
-    workspace_id = request.headers.get("x-workspace-id")
 
+    print(f"Sampling posts for workspace {workspace_id} with sample size {sample_size} and divisions {divisions}")
     start_time = time.time()
 
-
     try:
-        selected_post_ids_repo.update({"workspace_id": workspace_id}, {"type": "ungrouped"})
+        selected_post_ids_repo.update(
+            {"workspace_id": workspace_id},
+            {"type": "ungrouped"}
+        )
     except Exception as e:
-        print(e)
-    
-    post_ids = list(map(lambda x: x["post_id"], selected_post_ids_repo.find({"workspace_id": workspace_id, "type": "ungrouped"}, ["post_id"], map_to_model=False)))
-    print(f"Post IDs: {len(post_ids)}")
+        print("Error resetting selections:", e)
+
+    post_ids = [
+        doc["post_id"]
+        for doc in selected_post_ids_repo.find(
+            {"workspace_id": workspace_id, "type": "ungrouped"},
+            ["post_id"],
+            map_to_model=False
+        )
+    ]
+    print(f"Found {len(post_ids)} posts to sample")
 
     sem = asyncio.Semaphore(os.cpu_count())
 
-    async def fetch_and_compute_length(post_id: str):
+    async def fetch_and_compute_length(pid: str):
         async with sem:
             try:
-                post = await asyncio.to_thread(get_reddit_post_by_id, workspace_id, post_id, [
-                    "id", "title", "selftext"
-                ])
+                post = await asyncio.to_thread(
+                    get_reddit_post_by_id,
+                    workspace_id, pid,
+                    ["id", "title", "selftext"]
+                )
                 num_comments = count_comments(post.get("comments", []))
-                transcript = await anext(generate_transcript(post))
-                length = len(transcript)
-                return post_id, length, num_comments
-            except HTTPException as e:
-                print(f"Post {post_id} not found: {e.detail}")
-                return post_id, None, None
+                transcript   = await anext(generate_transcript(post))
+                return pid, len(transcript), num_comments
+            except HTTPException as he:
+                print(f"Post {pid} not found: {he.detail}")
+                return pid, None, None
             except Exception as e:
-                print(f"Unexpected error for post {post_id}: {e}")
-                return post_id, None, None
+                print(f"Error for post {pid}: {e}")
+                return pid, None, None
 
-    tasks = [fetch_and_compute_length(post_id) for post_id in post_ids]
-    results = await asyncio.gather(*tasks)
+    results = await asyncio.gather(*(fetch_and_compute_length(pid) for pid in post_ids))
+    valid   = [r for r in results if r[1] is not None]
+    invalid = [r[0] for r in results if r[1] is None]
 
-    valid_results = [res for res in results if res[1] is not None]
-    invalid_post_ids = [res[0] for res in results if res[1] is None]
-
-    post_comments = {post_id: num_comments for post_id, _, num_comments in valid_results}
-
-    if invalid_post_ids:
-        print(f"Some posts were not found: {invalid_post_ids}")
-
-    if not valid_results:
+    if invalid:
+        print(f"Could not fetch posts: {invalid}")
+    if not valid:
         raise HTTPException(status_code=400, detail="No valid posts found.")
 
-    df = pd.DataFrame(valid_results, columns=['post_id', 'length', "num_comments"])
+    df = pd.DataFrame(valid, columns=["post_id", "length", "num_comments"])
+    post_comments = {pid: comments for pid, _, comments in valid}
+   
     np.random.seed(settings.ai.randomSeed)
+   
+    raw_sample_size = sample_size
+    N = len(df)
+    if raw_sample_size < 1:
+        total_samples = int(raw_sample_size * N)
+    else:
+        total_samples = int(raw_sample_size)
+    total_samples = min(total_samples, N)
+    print(f"Total samples: {total_samples}", "N:", N)
+    if total_samples < 1:
+        raise RequestError(
+            status_code=400,
+            message="Sample size too small given your data—no posts to return."
+        )
 
     if divisions == 1:
-        return {"sample": df['post_id'].tolist()}
-
-    if divisions in [2, 3]:
-        N = len(df)
-        base_size = N // divisions
-        remainder = N % divisions
-        group_sizes = [base_size + 1 if i < remainder else base_size for i in range(divisions)]
-
-        try:
-            df['stratum'] = pd.qcut(df['length'], q=4, labels=False)
-        except ValueError as e:
-            if "Bin edges must be unique" in str(e):
-                df = df.sample(frac=1, random_state=settings.ai.randomSeed).reset_index(drop=True)
-                groups = []
-                start = 0
-                for size in group_sizes:
-                    end = start + size
-                    group_posts = df.iloc[start:end]['post_id'].tolist()
-                    groups.append(group_posts)
-                    start = end
-            else:
-                raise HTTPException(status_code=500, detail=f"Error in stratification: {e}")
-        else:
-            groups = []
-            remaining_df = df.copy()
-            for size in group_sizes:
-                grouped = remaining_df.groupby('stratum')
-                stratum_sizes = grouped.size()
-                p = size / len(remaining_df) if len(remaining_df) > 0 else 0
-                S_stratum_f = p * stratum_sizes
-                S_stratum = S_stratum_f.astype(int)
-                sum_S_stratum = S_stratum.sum()
-                remainder_samples = size - sum_S_stratum
-                if remainder_samples > 0:
-                    fractional_parts = S_stratum_f - S_stratum
-                    top_indices = fractional_parts.nlargest(remainder_samples).index
-                    S_stratum.loc[top_indices] += 1
-
-                sampled_post_ids = []
-                for stratum, group in grouped:
-                    n_samples = min(S_stratum[stratum], len(group))
-                    if n_samples > 0:
-                        sampled = group.sample(n=n_samples, random_state=settings.ai.randomSeed)
-                        sampled_post_ids.extend(sampled['post_id'].tolist())
-
-                groups.append(sampled_post_ids)
-                remaining_df = remaining_df[~remaining_df['post_id'].isin(sampled_post_ids)]
-    else:
-        remaining_df = df.copy()
-        groups = []
-        for i in range(divisions - 1):
-            try:
-                remaining_df['stratum'] = pd.qcut(remaining_df['length'], q=4, labels=False)
-            except ValueError as e:
-                if "Bin edges must be unique" in str(e):
-                    sampled = remaining_df.sample(frac=sample_size, random_state=settings.ai.randomSeed)
-                else:
-                    raise HTTPException(status_code=500, detail=f"Error in stratification: {e}")
-            else:
-                grouped = remaining_df.groupby('stratum')
-                stratum_sizes = grouped.size()
-                p = sample_size
-                total_to_sample = min(int(p * len(remaining_df)), len(remaining_df))
-                S_stratum_f = p * stratum_sizes
-                S_stratum = S_stratum_f.astype(int)
-                sum_S_stratum = S_stratum.sum()
-                remainder = total_to_sample - sum_S_stratum
-                if remainder > 0:
-                    fractional_parts = S_stratum_f - S_stratum
-                    top_indices = fractional_parts.nlargest(remainder).index
-                    S_stratum.loc[top_indices] += 1
-
-                sampled_post_ids = []
-                for stratum, group in grouped:
-                    n_samples = min(S_stratum[stratum], len(group))
-                    if n_samples > 0:
-                        sampled = group.sample(n=n_samples, random_state=settings.ai.randomSeed)
-                        sampled_post_ids.extend(sampled['post_id'].tolist())
-                sampled = remaining_df[remaining_df['post_id'].isin(sampled_post_ids)]
-
-            groups.append(sampled['post_id'].tolist())
-            remaining_df = remaining_df[~remaining_df['post_id'].isin(sampled['post_id'])]
-
-        groups.append(remaining_df['post_id'].tolist())
+        sampled = df.sample(n=total_samples, random_state=settings.ai.randomSeed)
+        return {"sampled": sampled["post_id"].tolist()}
 
     if divisions == 2:
-        group_names = ["sampled", "unseen"]
-    elif divisions == 3:
-        group_names = ["sampled", "unseen", "manual"]
-        manual_post_state_repo.insert_batch(
-            list(map(lambda x: ManualPostState(
-                workspace_id=workspace_id,
-                post_id=x,
-                is_marked=False,
-            ), groups[-1]))
-        )
+        group_sizes = [total_samples, N - total_samples]
     else:
-        group_names = [f"group_{i+1}" for i in range(divisions)]
+        base = total_samples // divisions
+        rem = total_samples % divisions
+        group_sizes = [base + (1 if i < rem else 0) for i in range(divisions)]
 
-    result = {group_names[i]: groups[i] for i in range(divisions)}
+    try:
+        df["stratum"] = pd.qcut(
+            df["length"],
+            q=4,
+            labels=False,
+            duplicates="drop"
+        )
+    except ValueError as e:
+        if "Bin edges must be unique" in str(e):
+            shuffled = df.sample(n=total_samples, random_state=settings.ai.randomSeed).reset_index(drop=True)
+            groups = []
+            idx = 0
+            for size in group_sizes:
+                s = int(size)
+                groups.append(shuffled.iloc[idx : idx + s]["post_id"].tolist())
+                idx += s
+        else:
+            raise HTTPException(status_code=500, detail=f"Stratification error: {e}")
+    else:
+        remaining = df.copy()
+        groups = []
+        for size in group_sizes:
+            if len(remaining) == 0:
+                groups.append([])
+                continue
+            grp = remaining.groupby("stratum")
+            counts = grp.size()
+            proportion = float(size) / len(remaining)
+            S_f = counts * proportion
+            S = S_f.astype(int)
+            leftover = int(size - int(S.sum()))
+            if leftover > 0:
+                fracs = S_f - S
+                top_bins = fracs.nlargest(leftover).index
+                for b in top_bins:
+                    S.at[b] += 1
+
+            sampled_ids = []
+            for stratum, subset in grp:
+                n = int(min(S.at[stratum], len(subset)))
+                if n > 0:
+                    sampled_ids += subset.sample(n=n, random_state=settings.ai.randomSeed)["post_id"].tolist()
+
+            groups.append(sampled_ids)
+            remaining = remaining[~remaining["post_id"].isin(sampled_ids)]
+
+    if divisions == 2:
+        names = ["sampled", "unseen"]
+    else:
+        names = [f"group_{i+1}" for i in range(divisions)]
+
+    result = {names[i]: groups[i] for i in range(divisions)}
 
     state_dump_repo.insert(
         StateDump(
@@ -247,13 +222,12 @@ async def sample_posts_endpoint(
         )
     )
 
-    for group_name, post_ids in result.items():
+    for grp_name, pids in result.items():
         selected_post_ids_repo.bulk_update(
-            [
-                {"type": group_name} for _ in post_ids
-            ],
-            [{"workspace_id": workspace_id, "post_id": post_id} for post_id in post_ids],
+            [{"type": grp_name} for _ in pids],
+            [{"workspace_id": workspace_id, "post_id": pid} for pid in pids],
         )
+
     return result
 
 
@@ -313,146 +287,6 @@ async def refine_single_code_endpoint(
         )
 
     return parsed_response
-
-
-@router.post("/generate-deductive-codes")
-async def generate_deductive_codes_endpoint(
-    request: Request,
-    request_body: GenerateDeductiveCodesRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
-):
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-    
-    if qect_repo.count({"workspace_id": workspace_id, "codebook_type": CodebookType.MANUAL.value}) != 0:
-        return {
-            "message": "Deductive codes already exist for this dataset.",
-            "data": []
-        }
-
-    app_id = request.headers.get("x-app-id")
-    workspace_id = request.headers.get("x-workspace-id")
-
-    start_time = time.time()
-
-    llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
-
-    function_id = str(uuid4())
-    total_posts = len(request_body.post_ids)
-
-    function_progress_repo.insert(FunctionProgress(
-        workspace_id=request.headers.get("x-workspace-id"),
-        name="manual",
-        function_id=function_id,
-        status="started",
-        current=0,
-        total=total_posts
-    ))
-
-    try:
-        llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
-
-        async def process_post(post_id: str):
-            await send_ipc_message(app_id, f"Dataset {workspace_id}: Fetching data for post {post_id}...")
-            
-            post_data = get_reddit_post_by_id(workspace_id, post_id, [
-                "id", "title", "selftext"
-            ])
-
-            await send_ipc_message(app_id, f"Dataset {workspace_id}: Generating transcript for post {post_id}...")
-            transcripts = generate_transcript(post_data, llm.get_num_tokens)
-
-            async for transcript in transcripts:
-                parsed_response = await process_llm_task(
-                    workspace_id=request.headers.get("x-workspace-id"),
-                    app_id=app_id,
-                    post_id=post_id,
-                    manager=manager,
-                    llm_model=request_body.model,
-                    function_id=function_id,
-                    regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-                    prompt_builder_func=GenerateDeductiveCodesFromCodebook.generate_deductive_codes_from_codebook_prompt,
-                    llm_instance=llm,
-                    llm_queue_manager=llm_queue_manager,
-                    parent_function_name="generate-deductive-codes",
-                    codebook = request_body.codebook,
-                    post_transcript=transcript,
-                    store_response=True,
-                    cacheable_args={
-                        "args":[],
-                        "kwargs": [
-                            "codebook"
-                        ]
-                    }
-                )
-
-                if isinstance(parsed_response, list):
-                    parsed_response = {"codes": parsed_response}
-
-                codes = parsed_response.get("codes", [])
-                for code in codes:
-                    code["postId"] = post_id
-                    code["id"] = str(uuid4())
-
-                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-deductive-codes", post_id=post_id, function_id=function_id)
-                codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes", post_id=post_id, function_id=function_id)
-            await send_ipc_message(app_id, f"Dataset {workspace_id}: Generated codes for post {post_id}...")
-            return codes
-
-        batches = stream_selected_post_ids(workspace_id, ["manual"]) 
-
-        for batch in batches:
-            await send_ipc_message(app_id, f"Dataset {workspace_id}: Processing batch of {len(batch)} posts...")
-            
-            await asyncio.gather(*(process_post(post_id) for post_id in batch))
-
-
-        filter_duplicate_codes_in_db(
-            workspace_id=workspace_id,
-            codebook_type=CodebookType.MANUAL.value,
-            generation_type=GenerationType.INITIAL.value,
-            parent_function_name="redo-final-coding", 
-            function_id=function_id
-        )
-        state_dump_repo.insert(
-            StateDump(
-                state=json.dumps({
-                    "workspace_id": workspace_id,
-                    "codebook": qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.MANUAL.value}, map_to_model=False),
-                }),
-                context=json.dumps({
-                    "function": "generate_deductive_codes",
-                    "run":"initial",
-                    "workspace_id": request.headers.get("x-workspace-id"),
-                    "time_taken": time.time() - start_time, 
-                    "function_id": function_id
-                }),
-            )
-        )
-        await send_ipc_message(app_id, f"Dataset {workspace_id}: All posts processed successfully.")
-
-        return {
-            "message": "Deductive coding completed successfully!",
-            "data": list(map(lambda x: {
-                "id": x.id,
-                "model": x.model,
-                "quote": x.quote,
-                "code": x.code,
-                "type": x.response_type,
-                "explanation": x.explanation,
-                "postId": x.post_id,
-                "chatHistory": json.loads(x.chat_history) if x.chat_history else None,
-                "isMarked": bool(x.is_marked),
-                "rangeMarker": json.loads(x.range_marker) if x.range_marker else None,
-            } , qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.MANUAL.value})))
-        }
-    except Exception as e:
-        print(f"Error in manual_deductive_coding_endpoint: {e}")
-        raise HTTPException(status_code=500, detail="An error occurred during deductive coding.")
-    finally:
-        function_progress_repo.delete({"function_id": function_id})
 
 @router.post("/transcript-data")
 async def get_transcript_data_endpoint(
@@ -559,7 +393,7 @@ async def download_qect_endpoint(
     if not response_types:
         raise HTTPException(status_code=400, detail="responseTypes must be provided")
     
-    response_types = list(map(lambda x: {"sampled": "initial", "unseen": "final", "manual": "manual"}[x], response_types))
+    response_types = list(map(lambda x: {"sampled": "initial", "unseen": "final"}[x], response_types))
 
     placeholders = ",".join("?" for _ in response_types)
     params = tuple([workspace_id, workspace_id, workspace_id, *response_types])

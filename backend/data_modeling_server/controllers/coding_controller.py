@@ -919,7 +919,6 @@ def _apply_type_filters(responseTypes: List[str], filters: List[str], params: Li
         conds = [
             "(r.codebook_type = 'final')",
             "(r.codebook_type = 'initial')",
-            "(r.codebook_type = 'manual')",
             "(r.codebook_type = 'initial_copy')"
         ]
     else:
@@ -929,8 +928,6 @@ def _apply_type_filters(responseTypes: List[str], filters: List[str], params: Li
             conds.append("(r.codebook_type = 'initial_copy')")
         if 'sampled' in responseTypes:
             conds.append("r.codebook_type = 'initial'")
-        if 'manual' in responseTypes:
-            conds.append("r.codebook_type = 'manual'")
     filters.append(f"({' OR '.join(conds)})")
 
 def stream_selected_post_ids(

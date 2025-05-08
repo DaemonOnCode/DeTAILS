@@ -73,7 +73,6 @@ FRONTEND_PAGE_MAPPER = {
     "/code/home": "home",
     "/code/transcripts": "transcripts",
     "/code/transcript/:id/:state": "transcript",
-    "/code/manual-coding": "manual_coding",
     "/code/background-research/context": "context",
     "/code/background-research/related-concepts": "related_concepts",
     "/code/background-research/concept-outline": "concept_outline",
@@ -106,6 +105,5 @@ PAGE_TO_STATES = {
 CODEBOOK_TYPE_MAP = {
     "sampled": "initial",
     "unseen": "final",
-    "manual": "manual",
     "sampled_copy": "initial_copy",
 }

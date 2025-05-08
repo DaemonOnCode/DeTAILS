@@ -96,7 +96,7 @@ async def build_context_from_interests_endpoint(
 
     concepts_with_ids = [Concept(
         id=str(uuid4()),
-        word=word.get("word"),
+        word=word,
         coding_context_id=workspace_id,
     ) for word in concepts_list]
 
@@ -232,8 +232,6 @@ async def generate_definitions_endpoint(
                 coding_context_id=workspace_id,
                 word=entry.get("word"),
                 description=entry.get("description"),
-                inclusion_criteria=", ".join(entry.get("inclusion_criteria", [])),
-                exclusion_criteria=", ".join(entry.get("exclusion_criteria", [])),
                 is_marked=True
             )
             for entry in results
@@ -339,7 +337,7 @@ async def regenerate_concepts_endpoint(
     concepts_list = parsed_concepts.get("concepts", [])
     concepts_with_ids = [Concept(
         id=str(uuid4()),
-        word=word.get("word"),
+        word=word,
         coding_context_id=workspace_id,
     ) for word in concepts_list]
 

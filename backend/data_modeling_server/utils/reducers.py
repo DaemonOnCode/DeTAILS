@@ -1014,16 +1014,6 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
         strict_action_type=True
     )
 
-def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, Any]) -> Dict[str, Any]:
-    return process_action(
-        workspace_id=workspace_id,
-        action=action,
-        codebook_type=CodebookType.MANUAL.value,
-        default_response_type=ResponseCreatorType.HUMAN.value,
-        use_index=True,
-        strict_action_type=False
-    )
-
 def process_all_responses_action(workspace_id: str, action: Dict[str, Any]) -> Dict[str, Any]:
     initial_diff = process_action(
         workspace_id=workspace_id,
