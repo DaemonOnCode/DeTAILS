@@ -11,7 +11,6 @@ import ConceptOutline from "./components/concept-outline";
 import Themes from "./components/themes";
 import Timeline from "./components/timeline";
 import ErrorRates from "./components/error-rates";
-import ManualCoding from "./components/manual-coding";
 import InitialCodebook from "./components/initial-codebook";
 import GlobalCoding from "./components/global-coding";
 
@@ -30,7 +29,6 @@ function App() {
           <Route path="/finalizing-codes" element={<FinalizingCodes />} />
           <Route path="/themes" element={<Themes />} />
           <Route path="/error-rates" element={<ErrorRates />} />
-          <Route path="/manual-coding" element={<ManualCoding />} />
           <Route path="/initial-codebook" element={<InitialCodebook />} />
           <Route path="/global-coding" element={<GlobalCoding />} />
           <Route path="/" element={<SelectDBFile />} />

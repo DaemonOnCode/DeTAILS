@@ -246,6 +246,12 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({
       return json.predictions[0].embeddings.values as number[];
     };
 
+    if (!text1 || !text2) {
+      console.error("Text inputs are empty");
+      if (text1 === text2) return 1;
+      else return 0;
+    }
+
     const [e1, e2] = await Promise.all([
       fetchEmbedding(text1),
       fetchEmbedding(text2),

@@ -39,7 +39,6 @@ interface SequenceDiff {
   cohenKappa: number;
   llmAddedCorrect: number;
   humanNotInLlmCorrect: number;
-  matchingQuotes: number;
   percentageAgreement: number;
 }
 
@@ -577,7 +576,6 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
         : 0;
 
     const humanNotInLlmCorrect = changes.inserted.length;
-    const matchingQuotes = sumA;
 
     return {
       sequenceId: seqIndex + 1,
@@ -594,7 +592,6 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       cohenKappa,
       llmAddedCorrect,
       humanNotInLlmCorrect,
-      matchingQuotes,
       percentageAgreement,
     };
   };
@@ -710,14 +707,11 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
                   </p>
                   <p>
                     <strong>LLM Added Correct:</strong>{" "}
-                    {seqDiff.llmAddedCorrect.toFixed(2)}%
+                    {seqDiff.llmAddedCorrect}%
                   </p>
                   <p>
                     <strong>Human Not In LLM Correct:</strong>{" "}
                     {seqDiff.humanNotInLlmCorrect}
-                  </p>
-                  <p>
-                    <strong>Matching Quotes:</strong> {seqDiff.matchingQuotes}
                   </p>
                   <p>
                     <strong>Percentage Agreement:</strong>{" "}

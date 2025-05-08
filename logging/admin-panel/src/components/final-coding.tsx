@@ -40,7 +40,6 @@ interface SequenceDiff {
   cohenKappa: number;
   llmAddedCorrect: number;
   humanNotInLlmCorrect: number;
-  matchingQuotes: number;
   percentageAgreement: number;
 }
 
@@ -553,9 +552,9 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
         "llm Agree": c,
         disagree: d,
         total: N,
-        p0: p0.toFixed(3),
-        pe: pe.toFixed(3),
-        kappa: kappa.toFixed(3),
+        p0: p0,
+        pe: pe,
+        kappa: kappa,
       });
     }
 
@@ -581,7 +580,6 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
         : 0;
 
     const humanNotInLlmCorrect = changes.inserted.length;
-    const matchingQuotes = sumA;
 
     return {
       sequenceId: seqIndex + 1,
@@ -598,7 +596,6 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
       cohenKappa,
       llmAddedCorrect,
       humanNotInLlmCorrect,
-      matchingQuotes,
       percentageAgreement,
     };
   };
@@ -704,31 +701,25 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                 </h2>
                 <div className="mb-4 text-gray-600">
                   <p>
-                    <strong>Weighted Precision:</strong>{" "}
-                    {seqDiff.precision.toFixed(3)}
+                    <strong>Weighted Precision:</strong> {seqDiff.precision}
                   </p>
                   <p>
-                    <strong>Weighted Recall:</strong>{" "}
-                    {seqDiff.recall.toFixed(3)}
+                    <strong>Weighted Recall:</strong> {seqDiff.recall}
                   </p>
                   <p>
-                    <strong>Cohen's Kappa:</strong>{" "}
-                    {seqDiff.cohenKappa.toFixed(3)}
+                    <strong>Cohen's Kappa:</strong> {seqDiff.cohenKappa}
                   </p>
                   <p>
                     <strong>LLM Added Correct:</strong>{" "}
-                    {seqDiff.llmAddedCorrect.toFixed(2)}%
+                    {seqDiff.llmAddedCorrect}%
                   </p>
                   <p>
                     <strong>Human Not In LLM Correct:</strong>{" "}
                     {seqDiff.humanNotInLlmCorrect}
                   </p>
                   <p>
-                    <strong>Matching Quotes:</strong> {seqDiff.matchingQuotes}
-                  </p>
-                  <p>
                     <strong>Percentage Agreement:</strong>{" "}
-                    {seqDiff.percentageAgreement.toFixed(3)}
+                    {seqDiff.percentageAgreement}
                   </p>
                 </div>
                 {seqDiff.codeKappas.length > 0 && (
@@ -747,7 +738,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                         {seqDiff.codeKappas.map(({ code, kappa }) => (
                           <tr key={code} className="hover:bg-gray-50">
                             <td className="p-2 border">{code}</td>
-                            <td className="p-2 border">{kappa.toFixed(3)}</td>
+                            <td className="p-2 border">{kappa}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -841,7 +832,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                       {change.newValue}
                                     </td>
                                     <td className="p-2 border">
-                                      {change.similarity?.toFixed(3)}
+                                      {change.similarity}
                                     </td>
                                   </>
                                 )}
@@ -854,7 +845,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                       {change.newValue}
                                     </td>
                                     <td className="p-2 border">
-                                      {change.similarity?.toFixed(3)}
+                                      {change.similarity}
                                     </td>
                                   </>
                                 )}
@@ -1036,7 +1027,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                               {change.newValue}
                                             </td>
                                             <td className="p-2 border">
-                                              {change.similarity?.toFixed(3)}
+                                              {change.similarity}
                                             </td>
                                           </>
                                         )}
@@ -1049,7 +1040,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                                               {change.newValue}
                                             </td>
                                             <td className="p-2 border">
-                                              {change.similarity?.toFixed(3)}
+                                              {change.similarity}
                                             </td>
                                           </>
                                         )}

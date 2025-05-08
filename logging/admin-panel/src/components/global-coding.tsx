@@ -3,6 +3,8 @@ import { useDatabase } from "./context";
 import WorkerPool from "./worker-pool";
 import { DatabaseRow, Context, CodingResult } from "../utils/types";
 
+type ExtendedCodingResult = CodingResult & { origin: string };
+
 interface FieldChange {
   type:
     | "model_changed"
@@ -19,12 +21,13 @@ interface FieldChange {
   code: string;
   quote: string;
   post_id?: string;
+  origin: string;
 }
 
 interface CRUDChanges {
-  inserted: CodingResult[];
+  inserted: { result: CodingResult; origin: string }[];
   updated: FieldChange[];
-  deleted: CodingResult[];
+  deleted: ExtendedCodingResult[];
 }
 
 interface SequenceDiff {
@@ -66,22 +69,36 @@ const safeParseContext = (context: string): Context => {
 const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
   const sequences: DatabaseRow[][] = [];
   let currentSequence: DatabaseRow[] = [];
+  let lastInitialCopy: DatabaseRow | null = null;
+
   for (const entry of entries) {
     const context = safeParseContext(entry.context);
-    if (
-      context.function === "final_codes" ||
-      context.function === "final_codes_initial_responses_copy"
-    ) {
-      if (currentSequence.length > 0) sequences.push(currentSequence);
-      currentSequence = [entry];
-    } else if (
-      context.function === "dispatchUnseenPostResponse" &&
-      currentSequence.length > 0
-    ) {
+
+    if (context.function === "final_codes_initial_responses_copy") {
+      lastInitialCopy = entry;
+    } else if (context.function === "final_codes") {
+      if (currentSequence.length > 0) {
+        sequences.push(currentSequence);
+        currentSequence = [];
+      }
+      if (lastInitialCopy) {
+        currentSequence.push(lastInitialCopy);
+      }
+
       currentSequence.push(entry);
+    } else {
+      if (currentSequence.length > 0) {
+        currentSequence.push(entry);
+      } else {
+        console.warn("Entry without a sequence start:", entry);
+      }
     }
   }
-  if (currentSequence.length > 0) sequences.push(currentSequence);
+
+  if (currentSequence.length > 0) {
+    sequences.push(currentSequence);
+  }
+
   return sequences;
 };
 
@@ -119,7 +136,7 @@ const extractResults = (
 };
 
 const computeChanges = async (
-  prevResults: Map<string, CodingResult>,
+  prevResults: Map<string, ExtendedCodingResult>,
   currResults: Map<string, CodingResult>,
   getSimilarity: (textA: string, textB: string) => Promise<number>
 ): Promise<CRUDChanges> => {
@@ -128,7 +145,7 @@ const computeChanges = async (
 
   const inserted = [...currIds]
     .filter((id) => !prevIds.has(id))
-    .map((id) => currResults.get(id)!);
+    .map((id) => ({ result: currResults.get(id)!, origin: "new" }));
   const deleted = [...prevIds]
     .filter((id) => !currIds.has(id))
     .map((id) => prevResults.get(id)!);
@@ -137,46 +154,47 @@ const computeChanges = async (
   const commonIds = [...prevIds].filter((id) => currIds.has(id));
 
   for (const id of commonIds) {
-    const prev = prevResults.get(id);
-    const curr = currResults.get(id);
-    if (prev && curr) {
-      if (prev.quote !== curr.quote) {
-        const similarity = await getSimilarity(prev.quote, curr.quote);
-        updated.push({
-          type: "quote_changed",
-          resultId: id,
-          oldValue: prev.quote,
-          newValue: curr.quote,
-          similarity,
-          code: curr.code,
-          quote: curr.quote,
-          post_id: curr.post_id,
-        });
-      }
-      if (prev.code !== curr.code) {
-        const similarity = await getSimilarity(prev.code, curr.code);
-        updated.push({
-          type: "code_changed",
-          resultId: id,
-          oldValue: prev.code,
-          newValue: curr.code,
-          similarity,
-          code: curr.code,
-          quote: curr.quote,
-          post_id: curr.post_id,
-        });
-      }
-      if (prev.is_marked !== curr.is_marked) {
-        updated.push({
-          type: "is_marked_changed",
-          resultId: id,
-          oldValue: prev.is_marked,
-          newValue: curr.is_marked,
-          code: curr.code,
-          quote: curr.quote,
-          post_id: curr.post_id,
-        });
-      }
+    const prev = prevResults.get(id)!;
+    const curr = currResults.get(id)!;
+    if (prev.quote !== curr.quote) {
+      const similarity = await getSimilarity(prev.quote, curr.quote);
+      updated.push({
+        type: "quote_changed",
+        resultId: id,
+        oldValue: prev.quote,
+        newValue: curr.quote,
+        similarity,
+        code: curr.code,
+        quote: curr.quote,
+        post_id: curr.post_id,
+        origin: prev.origin,
+      });
+    }
+    if (prev.code !== curr.code) {
+      const similarity = await getSimilarity(prev.code, curr.code);
+      updated.push({
+        type: "code_changed",
+        resultId: id,
+        oldValue: prev.code,
+        newValue: curr.code,
+        similarity,
+        code: curr.code,
+        quote: curr.quote,
+        post_id: curr.post_id,
+        origin: prev.origin,
+      });
+    }
+    if (prev.is_marked !== curr.is_marked) {
+      updated.push({
+        type: "is_marked_changed",
+        resultId: id,
+        oldValue: prev.is_marked,
+        newValue: curr.is_marked,
+        code: curr.code,
+        quote: curr.quote,
+        post_id: curr.post_id,
+        origin: prev.origin,
+      });
     }
   }
 
@@ -184,7 +202,7 @@ const computeChanges = async (
 };
 
 const computeMetrics = async (
-  initialResults: Map<string, CodingResult>,
+  initialResults: Map<string, ExtendedCodingResult>,
   finalResults: Map<string, CodingResult>,
   getSimilarity: (textA: string, textB: string) => Promise<number>
 ): Promise<{ precision: number; recall: number }> => {
@@ -318,7 +336,8 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
           WHERE json_extract(context, '$.function') IN (
             'final_codes',
             'final_codes_initial_responses_copy',
-            'dispatchUnseenPostResponse'
+            'dispatchUnseenPostResponse',
+            'dispatchSampledCopyPostResponse'
           )
           AND json_extract(context, '$.workspace_id') = ?
           ORDER BY created_at ASC
@@ -342,23 +361,81 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
     sequence: DatabaseRow[],
     seqIndex: number
   ): Promise<SequenceDiff> => {
-    const initialEntry = sequence[0];
-    const initialContext = safeParseContext(initialEntry.context);
-    const isRegeneration = initialContext.run === "regenerate";
-    const initialState = JSON.parse(initialEntry.state || "{}");
-    const finalState =
-      sequence.length > 1
-        ? JSON.parse(sequence[sequence.length - 1].state || "{}")
-        : initialState;
+    if (sequence.length === 0) {
+      return {
+        sequenceId: seqIndex + 1,
+        initialTimestamp: "",
+        finalTimestamp: "",
+        isRegeneration: false,
+        changes: { inserted: [], updated: [], deleted: [] },
+        stepwiseChanges: [],
+        precision: 0,
+        recall: 0,
+        codeKappas: [],
+        cohenKappa: 0,
+        llmAddedCorrect: 0,
+        humanNotInLlmCorrect: 0,
+        matchingQuotes: 0,
+        percentageAgreement: 0,
+      };
+    }
 
-    // Determine if this sequence starts with initial copy or final codes
-    const isInitialCopy =
-      initialContext.function === "final_codes_initial_responses_copy";
-    const initialResults = extractResults(initialState, "generation");
-    const finalResultsRaw =
-      sequence.length > 1
-        ? extractResults(finalState, "dispatch")
-        : initialResults;
+    let copyInitialResults: Map<string, ExtendedCodingResult> = new Map();
+    let copyFinalResults: Map<string, ExtendedCodingResult> = new Map();
+    const copyEntries = sequence.filter(
+      (entry) =>
+        safeParseContext(entry.context).function ===
+        "final_codes_initial_responses_copy"
+    );
+    if (copyEntries.length > 0) {
+      const initialState = JSON.parse(copyEntries[0].state || "{}");
+      copyInitialResults = new Map(
+        Array.from(extractResults(initialState, "generation").entries()).map(
+          ([id, result]) => [id, { ...result, origin: "copy" }]
+        )
+      );
+      const finalState = JSON.parse(
+        copyEntries[copyEntries.length - 1].state || "{}"
+      );
+      copyFinalResults = new Map(
+        Array.from(extractResults(finalState, "generation").entries()).map(
+          ([id, result]) => [id, { ...result, origin: "copy" }]
+        )
+      );
+    }
+
+    let codesInitialResults: Map<string, ExtendedCodingResult> = new Map();
+    let codesFinalResults: Map<string, ExtendedCodingResult> = new Map();
+    const codeEntries = sequence.filter(
+      (entry) => safeParseContext(entry.context).function === "final_codes"
+    );
+    if (codeEntries.length > 0) {
+      const initialState = JSON.parse(codeEntries[0].state || "{}");
+      codesInitialResults = new Map(
+        Array.from(extractResults(initialState, "generation").entries()).map(
+          ([id, result]) => [id, { ...result, origin: "codes" }]
+        )
+      );
+
+      const finalState = JSON.parse(
+        codeEntries[codeEntries.length - 1].state || "{}"
+      );
+      codesFinalResults = new Map(
+        Array.from(extractResults(finalState, "generation").entries()).map(
+          ([id, result]) => [id, { ...result, origin: "codes" }]
+        )
+      );
+    }
+
+    const initialResults = new Map<string, ExtendedCodingResult>([
+      ...copyInitialResults,
+      ...codesInitialResults,
+    ]);
+
+    const finalResultsRaw = new Map<string, CodingResult>([
+      ...copyFinalResults,
+      ...codesFinalResults,
+    ]);
     const finalResults = new Map(
       Array.from(finalResultsRaw.entries()).filter(
         ([_, result]) => result.is_marked === true
@@ -393,10 +470,9 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
       ) {
         stepwiseChanges.push({ step: i, changes: stepChanges });
       }
-      prevResults = currResults;
+      prevResults = currResults as Map<string, ExtendedCodingResult>;
     }
 
-    // Fetch sampled and unseen post IDs from 'sample_posts' state dump with fallback
     const samplePostsQuery = await executeQuery(
       `SELECT state FROM state_dumps 
        WHERE json_extract(context, '$.function') = 'sample_posts'
@@ -533,6 +609,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
       sumB = 0,
       sumC = 0,
       sumD = 0;
+
     for (const code of allCodes) {
       let a = 0,
         b = 0,
@@ -552,18 +629,32 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
           });
         }
       });
-      const N = a + b + c + d;
-      if (N === 0) continue;
       sumA += a;
       sumB += b;
       sumC += c;
       sumD += d;
+
+      const N = a + b + c + d;
+      if (N === 0) continue;
       const p0 = (a + d) / N;
       const pLLMYes = (a + c) / N;
       const pHumanYes = (a + b) / N;
       const pe = pLLMYes * pHumanYes + (1 - pLLMYes) * (1 - pHumanYes);
       const kappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
       codeKappas.push({ code, kappa });
+      console.table({
+        code,
+        a,
+        b,
+        c,
+        d,
+        N,
+        p0,
+        pLLMYes,
+        pHumanYes,
+        pe,
+        kappa,
+      });
     }
 
     const cohenKappa =
@@ -591,11 +682,12 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
 
     return {
       sequenceId: seqIndex + 1,
-      initialTimestamp: new Date(initialEntry.created_at).toLocaleString(),
+      initialTimestamp: new Date(sequence[0].created_at).toLocaleString(),
       finalTimestamp: new Date(
         sequence[sequence.length - 1].created_at
       ).toLocaleString(),
-      isRegeneration,
+      isRegeneration:
+        safeParseContext(sequence[0].context).run === "regenerate",
       changes,
       stepwiseChanges,
       precision,
@@ -704,20 +796,17 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                 </h2>
                 <div className="mb-4 text-gray-600">
                   <p>
-                    <strong>Weighted Precision:</strong>{" "}
-                    {seqDiff.precision.toFixed(3)}
+                    <strong>Weighted Precision:</strong> {seqDiff.precision}
                   </p>
                   <p>
-                    <strong>Weighted Recall:</strong>{" "}
-                    {seqDiff.recall.toFixed(3)}
+                    <strong>Weighted Recall:</strong> {seqDiff.recall}
                   </p>
                   <p>
-                    <strong>Cohen's Kappa:</strong>{" "}
-                    {seqDiff.cohenKappa.toFixed(3)}
+                    <strong>Cohen's Kappa:</strong> {seqDiff.cohenKappa}
                   </p>
                   <p>
                     <strong>LLM Added Correct:</strong>{" "}
-                    {seqDiff.llmAddedCorrect.toFixed(2)}%
+                    {seqDiff.llmAddedCorrect}%
                   </p>
                   <p>
                     <strong>Human Not In LLM Correct:</strong>{" "}
@@ -728,7 +817,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                   </p>
                   <p>
                     <strong>Percentage Agreement:</strong>{" "}
-                    {seqDiff.percentageAgreement.toFixed(3)}
+                    {seqDiff.percentageAgreement}
                   </p>
                 </div>
                 {seqDiff.codeKappas.length > 0 && (
@@ -747,7 +836,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                         {seqDiff.codeKappas.map(({ code, kappa }) => (
                           <tr key={code} className="hover:bg-gray-50">
                             <td className="p-2 border">{code}</td>
-                            <td className="p-2 border">{kappa.toFixed(3)}</td>
+                            <td className="p-2 border">{kappa}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -766,14 +855,16 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                     <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
                       <thead>
                         <tr className="bg-gray-100">
+                          <th className="p-2 border">Origin</th>
                           <th className="p-2 border">ID</th>
                           <th className="p-2 border">Quote</th>
                           <th className="p-2 border">Code</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {seqDiff.changes.inserted.map((result) => (
+                        {seqDiff.changes.inserted.map(({ result, origin }) => (
                           <tr key={result.id}>
+                            <td className="p-2 border">{origin}</td>
                             <td className="p-2 border">{result.id}</td>
                             <td className="p-2 border">{result.quote}</td>
                             <td className="p-2 border">{result.code}</td>
@@ -799,6 +890,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                         <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
                           <thead>
                             <tr className="bg-gray-100">
+                              <th className="p-2 border">Origin</th>
                               <th className="p-2 border">Result ID</th>
                               <th className="p-2 border">Code</th>
                               <th className="p-2 border">Quote</th>
@@ -827,6 +919,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                           <tbody>
                             {changes.map((change, idx) => (
                               <tr key={idx} className="hover:bg-gray-50">
+                                <td className="p-2 border">{change.origin}</td>
                                 <td className="p-2 border">
                                   {change.resultId}
                                 </td>
@@ -841,7 +934,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                                       {change.newValue}
                                     </td>
                                     <td className="p-2 border">
-                                      {change.similarity?.toFixed(3)}
+                                      {change.similarity}
                                     </td>
                                   </>
                                 )}
@@ -854,7 +947,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                                       {change.newValue}
                                     </td>
                                     <td className="p-2 border">
-                                      {change.similarity?.toFixed(3)}
+                                      {change.similarity}
                                     </td>
                                   </>
                                 )}
@@ -885,6 +978,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                     <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
                       <thead>
                         <tr className="bg-gray-100">
+                          <th className="p-2 border">Origin</th>
                           <th className="p-2 border">ID</th>
                           <th className="p-2 border">Quote</th>
                           <th className="p-2 border">Code</th>
@@ -893,6 +987,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                       <tbody>
                         {seqDiff.changes.deleted.map((result) => (
                           <tr key={result.id}>
+                            <td className="p-2 border">{result.origin}</td>
                             <td className="p-2 border">{result.id}</td>
                             <td className="p-2 border">{result.quote}</td>
                             <td className="p-2 border">{result.code}</td>
@@ -926,23 +1021,29 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                             <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
                               <thead>
                                 <tr className="bg-gray-100">
+                                  <th className="p-2 border">Origin</th>
                                   <th className="p-2 border">ID</th>
                                   <th className="p-2 border">Quote</th>
                                   <th className="p-2 border">Code</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {step.changes.inserted.map((result) => (
-                                  <tr key={result.id}>
-                                    <td className="p-2 border">{result.id}</td>
-                                    <td className="p-2 border">
-                                      {result.quote}
-                                    </td>
-                                    <td className="p-2 border">
-                                      {result.code}
-                                    </td>
-                                  </tr>
-                                ))}
+                                {step.changes.inserted.map(
+                                  ({ result, origin }) => (
+                                    <tr key={result.id}>
+                                      <td className="p-2 border">{origin}</td>
+                                      <td className="p-2 border">
+                                        {result.id}
+                                      </td>
+                                      <td className="p-2 border">
+                                        {result.quote}
+                                      </td>
+                                      <td className="p-2 border">
+                                        {result.code}
+                                      </td>
+                                    </tr>
+                                  )
+                                )}
                               </tbody>
                             </table>
                           ) : (
@@ -971,6 +1072,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                                 <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
                                   <thead>
                                     <tr className="bg-gray-100">
+                                      <th className="p-2 border">Origin</th>
                                       <th className="p-2 border">Result ID</th>
                                       <th className="p-2 border">Code</th>
                                       <th className="p-2 border">Quote</th>
@@ -1019,6 +1121,9 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                                         className="hover:bg-gray-50"
                                       >
                                         <td className="p-2 border">
+                                          {change.origin}
+                                        </td>
+                                        <td className="p-2 border">
                                           {change.resultId}
                                         </td>
                                         <td className="p-2 border">
@@ -1036,7 +1141,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                                               {change.newValue}
                                             </td>
                                             <td className="p-2 border">
-                                              {change.similarity?.toFixed(3)}
+                                              {change.similarity}
                                             </td>
                                           </>
                                         )}
@@ -1049,7 +1154,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                                               {change.newValue}
                                             </td>
                                             <td className="p-2 border">
-                                              {change.similarity?.toFixed(3)}
+                                              {change.similarity}
                                             </td>
                                           </>
                                         )}
@@ -1082,6 +1187,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                             <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
                               <thead>
                                 <tr className="bg-gray-100">
+                                  <th className="p-2 border">Origin</th>
                                   <th className="p-2 border">ID</th>
                                   <th className="p-2 border">Quote</th>
                                   <th className="p-2 border">Code</th>
@@ -1090,6 +1196,9 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                               <tbody>
                                 {step.changes.deleted.map((result) => (
                                   <tr key={result.id}>
+                                    <td className="p-2 border">
+                                      {result.origin}
+                                    </td>
                                     <td className="p-2 border">{result.id}</td>
                                     <td className="p-2 border">
                                       {result.quote}
