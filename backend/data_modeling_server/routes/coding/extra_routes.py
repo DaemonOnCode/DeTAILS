@@ -104,7 +104,12 @@ async def sample_posts_endpoint(
                     ["id", "title", "selftext"]
                 )
                 num_comments = count_comments(post.get("comments", []))
-                transcript   = await anext(generate_transcript(post))
+                first_item = await anext(generate_transcript(post))
+                transcript = (
+                    first_item["transcript"]
+                    if isinstance(first_item, dict)
+                    else first_item
+                )
                 return pid, len(transcript), num_comments
             except HTTPException as he:
                 print(f"Post {pid} not found: {he.detail}")
@@ -244,7 +249,12 @@ async def refine_single_code_endpoint(
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
     post_data = get_reddit_post_by_id(workspace_id, request_body.post_id)
-    transcript =await anext(generate_transcript(post_data))
+    first_item = await anext(generate_transcript(post_data))
+    transcript = (
+        first_item["transcript"]
+        if isinstance(first_item, dict)
+        else first_item
+    )
 
     *chat_history, user_comment = request_body.chat_history
 
@@ -314,7 +324,8 @@ async def get_transcript_data_endpoint(
         r.response_type,
         r.chat_history,
         r.range_marker,
-        r.is_marked
+        r.is_marked,
+        r.source
     FROM qect r
     JOIN selected_post_ids p
       ON r.post_id    = p.post_id
@@ -353,6 +364,7 @@ async def get_transcript_data_endpoint(
             "chatHistory": json.loads(row["chat_history"]) if row["chat_history"] else None,
             "rangeMarker": json.loads(row["range_marker"]) if row["range_marker"] else None,
             "isMarked": bool(row["is_marked"]) if row["is_marked"] is not None else None,
+            "source": json.loads(row["source"]) if row.get("source") else None,
         })
 
     if request_body.manualCoding:

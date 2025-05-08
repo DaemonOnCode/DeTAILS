@@ -249,6 +249,7 @@ class QectResponse(BaseDataclass):
     created_at: Optional[datetime] = field(default_factory=datetime.now)
     is_marked: Optional[bool] = field(default=True)
     range_marker: Optional[str] = None
+    source: Optional[str] = None
 
     
 @dataclass

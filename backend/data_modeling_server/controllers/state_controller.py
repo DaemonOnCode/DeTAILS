@@ -547,8 +547,6 @@ dispatch_configs = {
             "id": ke.id,
             "word": ke.word,
             "description": ke.description,
-            "inclusion_criteria": ke.inclusion_criteria,
-            "exclusion_criteria": ke.exclusion_criteria,
             "isMarked": bool(ke.is_marked)
         }
     },
@@ -567,6 +565,7 @@ dispatch_configs = {
             "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
             "comment": "",
             "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
+            "source": response.source,
         }
     },
     "dispatchInitialCodebookTable": {
@@ -591,6 +590,7 @@ dispatch_configs = {
             "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
             "comment": "",
             "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
+            "source": response.source,
         }
     },
     "dispatchUnseenPostResponse": {
@@ -609,6 +609,7 @@ dispatch_configs = {
             "comment": "",
             "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
             "type": response.response_type,
+            "source": response.source,
         }
     },
     "dispatchAllPostResponse": {
@@ -626,6 +627,7 @@ dispatch_configs = {
             "isMarked": bool(response.is_marked) if response.is_marked is not None else None,
             "comment": "",
             "rangeMarker": json.loads(response.range_marker) if response.range_marker else None,
+            "source": response.source,
         }
     },
     "dispatchGroupedCodes": {

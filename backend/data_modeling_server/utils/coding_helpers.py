@@ -1,72 +1,114 @@
 import asyncio
 import time
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
-def process_comments(comments, prefix=""):
-    result = []
+def process_comments(
+    comments: List[Dict[str, Any]],
+    prefix: str = ""
+) -> Tuple[List[str], Dict[str, str]]:
+    """
+    Flattens nested comments into lines labeled “comment X.Y: …”
+    and builds a map from "comment X.Y" → real comment ID.
+    """
+    lines: List[str] = []
+    label_map: Dict[str, str] = {}
+
     for i, comment in enumerate(comments, start=1):
-        current_number = prefix + str(i)
-        label = "comment " + current_number + ": "
-        result.append(label + comment['body'])
-        if 'comments' in comment and comment['comments']:
-            result.extend(
-                process_comments(
-                    comment['comments'],
-                    prefix=current_number + "."
-                )
+        current = prefix + str(i)
+        label = f"comment {current}"
+        # map label → real comment id
+        label_map[label] = comment["id"]
+        # build the line
+        lines.append(f"{label}: {comment['body']}")
+        # recurse into child comments
+        if comment.get("comments"):
+            child_lines, child_map = process_comments(
+                comment["comments"],
+                prefix=current + "."
             )
-    return result
+            lines.extend(child_lines)
+            label_map.update(child_map)
 
-async def _generate_whole_transcript_async(post):
+    return lines, label_map
+
+async def _generate_whole_transcript_async(
+    post: Dict[str, Any]
+) -> Any:
     header = f"Title: {post['title']}\n\n{post['selftext']}\n\n"
-    comment_strings = process_comments(post.get('comments', []))
+    comment_strings, comment_map = process_comments(post.get("comments", []))
     await asyncio.sleep(0)
-    if comment_strings:
-        yield header + "Comments:\n" + "\n".join(comment_strings) + "\n"
-    else:
-        yield header.strip()
 
-async def _generate_chunks_async(post, token_checker, max_tokens):
+    if comment_strings:
+        transcript = header + "Comments:\n" + "\n".join(comment_strings) + "\n"
+    else:
+        transcript = header.strip()
+
+    yield {
+        "transcript": transcript,
+        "comment_map": comment_map
+    }
+
+async def _generate_chunks_async(
+    post: Dict[str, Any],
+    token_checker: Callable[[str], int],
+    max_tokens: int
+) -> Any:
     header = f"Title: {post['title']}\n\n{post['selftext']}\n\n"
-    comment_strings = process_comments(post.get('comments', []))
-    current_comments = []
+    comment_strings, comment_map = process_comments(post.get("comments", []))
+    current_comments: List[str] = []
 
     for comment_str in comment_strings:
         temp = current_comments + [comment_str]
-        chunk = header + "Comments:\n" + "\n".join(temp) + "\n"
-
+        chunk_text = header + "Comments:\n" + "\n".join(temp) + "\n"
         start_time = time.time()
-        if token_checker(chunk) <= max_tokens:
+
+        if token_checker(chunk_text) <= max_tokens:
             await asyncio.sleep(0)
             current_comments = temp
         else:
             await asyncio.sleep(0)
-            yield header + "Comments:\n" + "\n".join(current_comments) + "\n"
+            yield {
+                "transcript": header + "Comments:\n" + "\n".join(current_comments) + "\n",
+                "comment_map": comment_map
+            }
             current_comments = [comment_str]
+
         print(f"Chunk generation took {time.time() - start_time:.2f} seconds")
 
     if current_comments:
         await asyncio.sleep(0)
-        yield header + "Comments:\n" + "\n".join(current_comments) + "\n"
+        yield {
+            "transcript": header + "Comments:\n" + "\n".join(current_comments) + "\n",
+            "comment_map": comment_map
+        }
     elif not comment_strings:
         await asyncio.sleep(0)
-        yield header
+        yield {
+            "transcript": header.strip(),
+            "comment_map": comment_map
+        }
 
 async def generate_transcript(
-    post,
+    post: Dict[str, Any],
     token_checker: Optional[Callable[[str], int]] = None,
     max_tokens: int = 1_000_000
 ):
+    """
+    Yields dicts:
+      {
+        "transcript": <string chunk>,
+        "comment_map": { "comment 1": "<real-id>", "comment 1.2": "<real-id-1.2>", … }
+      }
+    """
     if token_checker is None:
-        async for chunk in _generate_whole_transcript_async(post):
+        async for item in _generate_whole_transcript_async(post):
             await asyncio.sleep(0)
-            yield chunk
+            yield item
     else:
-        async for chunk in _generate_chunks_async(post, token_checker, max_tokens):
+        async for item in _generate_chunks_async(post, token_checker, max_tokens):
             await asyncio.sleep(0)
-            yield chunk
-
+            yield item
 
 def generate_context_with_codebook(references, main_code, codebook):
     context = ""

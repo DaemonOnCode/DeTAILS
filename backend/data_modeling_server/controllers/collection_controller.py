@@ -1585,7 +1585,12 @@ async def get_post_transcripts_csv(workspace_id: str, post_ids: List[str], csv_f
         async with sem:
             try:
                 post = await asyncio.to_thread(get_reddit_post_by_id, workspace_id, post_id, ["id", "title", "selftext"])
-                transcript = await anext(generate_transcript(post))
+                first_item = await anext(generate_transcript(post))
+                transcript = (
+                    first_item["transcript"]
+                    if isinstance(first_item, dict)
+                    else first_item
+                )
             except HTTPException as e:
                 print(f"Post {post_id} not found: {e.detail}")
                 transcript = ""

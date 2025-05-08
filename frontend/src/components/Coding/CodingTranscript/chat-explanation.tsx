@@ -29,7 +29,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
     const { chatHistories, setChatHistories, review } = useTranscriptContext();
     const prevCode = initialExplanationWithCode.code;
 
-    const chatKey = `${postId}-${initialExplanationWithCode.code}-${initialExplanationWithCode.fullText}-${initialExplanationWithCode.explanation}`;
+    const chatKey = `${postId}-${initialExplanationWithCode.code}-${initialExplanationWithCode.fullText}`;
 
     // console.log(
     //     'Chat Key:',

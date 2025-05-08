@@ -90,6 +90,7 @@ export interface IQECResponse extends IQECRow {
         itemId: string;
         range: [number, number];
     };
+    source?: string;
 }
 
 export interface IQECTRow extends IQECRow {
@@ -104,6 +105,7 @@ export interface IQECTResponse extends IQECTRow {
         itemId: string;
         range: [number, number];
     };
+    source?: string;
 }
 
 export interface IQECTTyRow extends IQECTRow {
@@ -118,6 +120,7 @@ export interface IQECTTyResponse extends IQECTTyRow {
         itemId: string;
         range: [number, number];
     };
+    source?: string;
 }
 
 export interface IRedditPost {
@@ -125,7 +128,7 @@ export interface IRedditPost {
     word: string;
     link: string;
     reason: string;
-    context?: string; // Additional context information if necessary
+    context?: string;
 }
 
 export interface IRedditPostData {
