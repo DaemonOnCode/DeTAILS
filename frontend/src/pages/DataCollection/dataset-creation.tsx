@@ -128,12 +128,7 @@ const DatasetCreationPage = () => {
                 divisions: 2,
                 sample_size: settings.general.sampleRatio
             }),
-        onSuccess: (data: {
-            message: string;
-            sampled: string[];
-            unseen: string[];
-            manual?: string[];
-        }) => {
+        onSuccess: (data: { message: string; sampled: string[]; unseen: string[] }) => {
             setSampledPostIds(data.sampled);
             setUnseenPostIds(data.unseen);
         }

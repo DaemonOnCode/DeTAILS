@@ -18,7 +18,6 @@ export enum ROUTES {
     ANALYSIS = 'report',
     TRANSCRIPT = 'transcript/:id/:state',
     TRANSCRIPTS = 'transcripts',
-    MANUAL_CODING = 'manual-coding',
     FINALIZING_CODES = 'reviewing-codes',
     INITIAL_CODEBOOK = 'initial-codebook',
     INITIAL_CODING_CODEBOOK = 'coding'
@@ -28,7 +27,6 @@ export const PAGE_ROUTES = Object.freeze({
     HOME: `/${CODING_ROUTES}/${ROUTES.HOME}`,
     TRANSCRIPTS: `/${CODING_ROUTES}/${ROUTES.TRANSCRIPTS}`,
     TRANSCRIPT: `/${CODING_ROUTES}/${ROUTES.TRANSCRIPT}`,
-    MANUAL_CODING: `/${CODING_ROUTES}/${ROUTES.MANUAL_CODING}`,
 
     // Nested routes under BACKGROUND_RESEARCH
     CONTEXT: `/${CODING_ROUTES}/${ROUTES.BACKGROUND_RESEARCH}/${ROUTES.LLM_CONTEXT_V2}`,

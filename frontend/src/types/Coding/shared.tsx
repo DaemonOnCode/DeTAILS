@@ -430,7 +430,7 @@ export type BaseBucketAction =
     | { type: 'MOVE_UNPLACED_TO_MISC' }
     | { type: 'RESTORE_STATE'; payload: GroupedCodeBucket[] | ThemeBucket[] };
 
-export type ResponseType = 'sampled' | 'unseen' | 'manual' | 'sampled_copy';
+export type ResponseType = 'sampled' | 'unseen' | 'sampled_copy';
 
 export type SelectedTypeFilter = 'New Data' | 'Initial Data' | 'Human' | 'LLM' | 'All';
 
