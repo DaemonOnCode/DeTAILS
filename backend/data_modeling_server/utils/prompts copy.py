@@ -2,58 +2,76 @@ class ContextPrompt:
     concept_json_template = """
 {{
   "concepts": [
-    "concept1",
-    "concept2",
+    {{
+      "word": "ExtractedConcept",
+      "description": "Explanation of the word and its relevance to the main topic and additional information.",
+    }},
     ...
-    "concept5"
   ]
 }}"""
 
     @staticmethod
     def systemPromptTemplate(mainTopic: str, researchQuestions: str, additionalInfo: str):
         return [
-            f"""You are an expert in qualitative research, specifically trained in Braun & Clarke's 6-phase thematic analysis. Your current task is to assist in the initial phase of analysis by gaining a holistic understanding of the main topic based on the provided research questions.
+            f"""You are an AI researcher using Braun & Clarke's 6-phase thematic analysis. Follow these PHASE 1 (Familiarization) steps:
 
-To do this, carefully review the given textual data and extract 10 related concepts that are directly relevant to the main topic and research questions. These concepts should be significant ideas, patterns, or recurring themes that emerge from the data.
+1. DATA IMMERSION:
+   - Read all textual data 3 times while:
+     a) First pass: Holistic understanding of {mainTopic}
+     b) Second pass: Note interesting features
+     c) Third pass: Pattern identification
+   - Generate "immersion_notes" for each concept
 
-When identifying these concepts, consider the following guidelines:
-- Focus on concepts that are frequently mentioned or that hold particular significance in the context of the research questions.
-- Ensure that these concepts you are generating are no more than 1-3 words long.
-- Aim to represent the diversity of perspectives present in the data.
-- Base your extraction primarily on the provided textual data, using any additional information to contextualize your understanding.
-- If additional information is provided, integrate it into your analysis as appropriate.
-- Generated related concepts should be distinct and not overlap with each other, nor with the main topic.
+2. INITIAL OBSERVATION DOCUMENTATION:
+   - Flag content related to {researchQuestions}
+   - Mark both manifest and latent content
+   - Note contradictions in {additionalInfo}
 
-Please list the 10 related concepts in a clear and concise manner, ensuring each is distinct and relevant.
+3. SEMANTIC/LATENT CODING PREPARATION:
+   - Distinguish between:
+     • Semantic: Surface-level meanings
+     • Latent: Underlying ideas/assumptions
+   - Tag each concept with "code_type"
 
-- Main Topic: {mainTopic}
-- Research Questions: {researchQuestions}
-- Additional Information: {additionalInfo}
-            """,
+You are also instructed to identify 20 highly relevant concepts that will serve as the foundation for building context in a qualitative research study.
+
+Each concept should come with:
+- A clear description explaining its relevance to the main topic.
+
+Output must be strictly in the JSON format described.""",
             """\nTextual Data: \n{context}\n\n"""
         ]
 
     @staticmethod
     def context_builder(mainTopic: str, researchQuestions: str, additionalInfo: str):
         return f"""
-Extract exactly 10 related concepts from the provided textual data that are directly relevant to the main topic and research questions. These concepts should be significant ideas, patterns, or recurring themes that emerge from the data, providing a foundation for deductive thematic analysis. Present the concepts in a JSON object with the following structure:
+PHASE 1 EXECUTION: Generate 20 initial codes with:
 
-{{
-  "concepts": [
-    "concept1",
-    "concept2",
-    ...
-    "concept10"
-  ]
-}}
+- Semantic Codes (Visible Content):
+  • Direct participant phrases
+  • Explicit mentions of {mainTopic}
 
-Main Topic: {mainTopic}
-Research Questions: {researchQuestions}
-Additional Information: {additionalInfo}
+- Latent Codes (Conceptual Content):
+  • Underlying assumptions
+  • Cultural/social frameworks
 
+Include in JSON:
+1. immersion_notes from 3 readings
+2. code_type classification
+
+I need a structured list of 20 concepts with coding guidelines to establish context for deductive thematic analysis, based on:
+- Main Topic: {mainTopic}
+- Research Questions: {researchQuestions}
+- Additional Information: {additionalInfo}
+
+Return exactly 20 concepts in the following JSON format:
+
+```json
+{ContextPrompt.concept_json_template}
+```
 Important:
 - Only return the JSON object—no explanations, summaries, or additional text.
-- Ensure the JSON is valid and contains exactly 10 distinct concepts. 
+- Valid JSON is required. 
 """
 
     @staticmethod
@@ -65,34 +83,40 @@ Important:
                                    extraFeedback: str):
 
         return [
-            f"""You are an expert in qualitative research, specializing in thematic analysis. Your task is to refine the previously generated related concepts based on the user’s selections and feedback. The user’s feedback is crucial and should be the primary guide for improving the concept selection.
+            f"""You are an advanced AI specializing in qualitative research and thematic coding. Your task is to refine previously generated concepts based on selected themes, unselected themes, and new feedback.
 
-New Inputs:
-- Selected Concepts (retain these): {selectedConcepts}
-- Unselected Concepts (exclude these): {unselectedConcepts}
+### New Inputs:
+- Selected Concepts (DO NOT include these concepts): {selectedConcepts}
+- Unselected Concepts (DO NOT include these concepts): {unselectedConcepts}
 - Extra Feedback: {extraFeedback}
 
-Process:
-1. Re-evaluate the Context
-- Consider the main topic, research questions, and additional information to ensure the concepts align with the research objectives.
+### Process
+1. Re-evaluating the Context
+   - Analyze the main topic, research questions, and additional information.
+   - Use selected themes as a basis for improving concept selection.
+   - REMOVE any concepts related to unselected themes.
 
-2. Refine the Concepts
-- Retain the selected concepts as they are.
-- Exclude the unselected concepts from the new set.
-- Use the extra feedback to generate new concepts that address the user’s concerns and suggestions.
-- Ensure the new concepts are distinct from both the selected, unselected concepts, and main topic.
-- Aim for concepts that are relevant, insightful, and aligned with the research context and user's feedback.
+2. Improving Concept Selection
+   - Modify existing concepts based on feedback.
+   - Remove irrelevant or redundant concepts.
+   - Introduce new concepts if necessary.
+   - Ensure concepts align with selected themes while excluding unselected ones.
 
-3. Output the Refined Concepts
-- Provide exactly 5 refined concepts in the following JSON format:
+3. Providing Updated Information for Each Concept
+   - Description: Explain the revised concept's relevance.
 
+4. Output Formatting
+   Your response must be strictly in JSON format, following this structure:
+
+```json
 {ContextPrompt.concept_json_template}
+```
 
-Important Notes
-- Only return the JSON object with the refined concepts.
-- Do not include any explanations, summaries, or additional text.
-- Ensure the JSON is valid and properly formatted.
-- The refined concepts should clearly reflect the user’s feedback and the research context.
+### Important Notes
+- DO NOT include explanations, summaries, or additional text.
+- Ensure JSON is valid and properly formatted.
+- Provide exactly 5 refined concepts.
+- REMOVE concepts related to unselected themes.
 
 Proceed with refining the concepts.
 """,
@@ -108,37 +132,27 @@ Proceed with refining the concepts.
                                     extraFeedback: str):
 
         return f"""
-I need a refined list of exactly 5 concepts based on the following research inputs:
+I need a refined list of 5 concepts based on the following research inputs:
+
 - Main Topic: {mainTopic}
 - Research Questions: {researchQuestions}
 - Additional Information: {additionalInfo}
-- Selected Concepts (retain these): {selectedConcepts}
-- Unselected Concepts (exclude these): {unselectedConcepts}
+- Selected Concepts: {selectedConcepts}
+- Unselected Concepts (DO NOT include concepts related to these themes): {unselectedConcepts}
 - Extra Feedback: {extraFeedback}
 
 Instructions:
-- Retain the selected concepts exactly as provided.
-- Exclude the unselected concepts from the new list.
-- Incorporate the extra feedback to generate new concepts that reflect the user’s suggestions and concerns.
-- Ensure new concepts are distinct from both selected, unselected concepts, and main topic.
-- Each concept should be a concise, significant idea relevant to the main topic and research questions.
-- Concepts must consist of 1-3 words only.
-- Avoid duplication; all 5 concepts must be unique.
+- Modify existing concepts based on feedback.
+- Generate concepts consisting 1-3 words only.
+- Adjust descriptions, inclusion, and exclusion criteria.
+- REMOVE any concepts related to unselected themes.
+- Do not include the same concept twice. All concepts should be unique.
+- Keep JSON format strict.
 
 Output Format:
-{{
-  "concepts": [
-    "concept1",
-    "concept2",
-    ...
-    "concept5"
-  ]
-}}
-
-Important Notes:
-- Return only the JSON object with the refined list of 5 concepts.
-- Do not include explanations, notes, or additional text beyond the JSON.
-- Ensure the JSON is valid and properly formatted.
+```json
+{ContextPrompt.concept_json_template}
+```
 
 Proceed with the refinement.
 """
@@ -988,7 +1002,9 @@ class ConceptOutline:
               "concepts": [
                 {{
                   "word": "ExtractedConcept",
-                  "description": "Explanation of the word and its relevance to the main topic and additional information."
+                  "description": "Explanation of the word and its relevance to the main topic and additional information.",
+                  "inclusion_criteria": ["Criteria 1", "Criteria 2", "..."],
+                  "exclusion_criteria": ["Criteria 1", "Criteria 2", "..."]
                 }},
                 ...
               ]

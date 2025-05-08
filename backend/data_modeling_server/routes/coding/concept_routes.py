@@ -89,7 +89,7 @@ async def build_context_from_interests_endpoint(
 
     concepts_with_ids = [Concept(
         id=str(uuid4()),
-        word=word.get("word"),
+        word=word,
         coding_context_id=workspace_id,
     ) for word in concepts_list]
 
@@ -283,7 +283,7 @@ async def regenerate_concepts_endpoint(
     concepts_list = parsed_concepts.get("concepts", [])
     concepts_with_ids = [Concept(
         id=str(uuid4()),
-        word=word.get("word"),
+        word=word,
         coding_context_id=workspace_id,
     ) for word in concepts_list]
 

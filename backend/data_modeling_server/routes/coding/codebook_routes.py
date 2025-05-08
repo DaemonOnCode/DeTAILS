@@ -1,6 +1,6 @@
 import json
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, Header, Request
 
 from controllers.coding_controller import process_llm_task, summarize_codebook_explanations
 from database import (
@@ -13,13 +13,12 @@ from database import (
     InitialCodebookEntriesRepository,
     ThemeEntriesRepository,
     GroupedCodeEntriesRepository,
-    ManualCodebookEntriesRepository
 )
 from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from models.coding_models import GenerateCodebookWithoutQuotesRequest, RegenerateCodebookWithoutQuotesRequest
-from models.table_dataclasses import CodebookType, InitialCodebookEntry, ManualCodebookEntry
+from models.table_dataclasses import CodebookType, InitialCodebookEntry
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from routes.websocket_routes import manager
@@ -37,7 +36,6 @@ qect_repo = QectRepository()
 initial_codebook_repo = InitialCodebookEntriesRepository()
 grouped_codes_repo = GroupedCodeEntriesRepository()
 themes_repo = ThemeEntriesRepository()
-manual_codebook_repo = ManualCodebookEntriesRepository()
 
 @router.post("/generate-codebook-without-quotes")
 async def generate_codebook_without_quotes_endpoint(
