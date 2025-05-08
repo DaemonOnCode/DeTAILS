@@ -1,4 +1,3 @@
-import e from 'express';
 import {
     ConceptEntry,
     ConceptsTableAction,
@@ -56,9 +55,7 @@ export const conceptOutlineTableReducer = (
             let newRow: ConceptEntry = {
                 word: '',
                 description: '',
-                codes: [],
-                inclusion_criteria: '',
-                exclusion_criteria: ''
+                codes: []
             };
             if (action.entry) {
                 newRow = action.entry;

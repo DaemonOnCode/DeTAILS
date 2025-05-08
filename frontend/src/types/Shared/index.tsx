@@ -203,23 +203,6 @@ export type ModalCallbackPair = {
     onCancel?: () => void;
 };
 
-export type CodebookType = {
-    [code: string]: string;
-};
-
-export interface IManualCodingContext {
-    postStates: { [postId: string]: boolean };
-    addPostIds: (newPostIds: string[], initialState?: boolean) => Promise<void>;
-    updatePostState: (postId: string, state: boolean) => Promise<void>;
-    isLoading: boolean;
-    codebook: CodebookType | null;
-    manualCodingResponses: IQECTTyResponse[];
-    dispatchManualCodingResponses: AsyncDispatch<BaseResponseHandlerActions<IQECTTyResponse>>;
-    updateContext: (updates: Partial<IManualCodingContext>) => Promise<void>;
-    resetContext: () => Promise<void>;
-    generateCodebook: () => Promise<void>;
-}
-
 export interface ICollectionContext {
     type: ModeType;
     metadata: MetadataState;

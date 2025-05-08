@@ -19,21 +19,14 @@ const ConceptTableRow: FC<ConceptTableRowProps> = ({
     onToggleMark,
     onDeleteRow
 }) => {
-    // --- local editable state ---
     const [localWord, setLocalWord] = useState(entry.word);
     const [localDescription, setLocalDescription] = useState(entry.description);
-    const [localInclusion, setLocalInclusion] = useState(entry.inclusion_criteria);
-    const [localExclusion, setLocalExclusion] = useState(entry.exclusion_criteria);
 
-    // Sync up when parent entry changes (e.g. after unlock)
     useEffect(() => {
         setLocalWord(entry.word);
         setLocalDescription(entry.description);
-        setLocalInclusion(entry.inclusion_criteria);
-        setLocalExclusion(entry.exclusion_criteria);
     }, [entry]);
 
-    // Debounced updater
     const debouncedUpdate = useMemo(
         () =>
             debounce((field: string, value: any) => {
@@ -42,7 +35,6 @@ const ConceptTableRow: FC<ConceptTableRowProps> = ({
         [index, onFieldChange]
     );
 
-    // Cancel any pending update on unmount
     useEffect(() => {
         return () => {
             debouncedUpdate.cancel();
@@ -51,7 +43,7 @@ const ConceptTableRow: FC<ConceptTableRowProps> = ({
 
     return (
         <tr className="text-center">
-            <td className="border border-gray-400 p-2">
+            <td className="border border-gray-400 p-2 max-w-32">
                 <textarea
                     className="w-full p-2 border border-gray-300 rounded resize-none h-24"
                     value={localWord}
@@ -73,29 +65,7 @@ const ConceptTableRow: FC<ConceptTableRowProps> = ({
                     }}
                 />
             </td>
-            <td className="border border-gray-400 p-2">
-                <textarea
-                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                    value={localInclusion}
-                    onChange={(e) => {
-                        const v = e.target.value;
-                        setLocalInclusion(v);
-                        debouncedUpdate('inclusion_criteria', v);
-                    }}
-                />
-            </td>
-            <td className="border border-gray-400 p-2">
-                <textarea
-                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                    value={localExclusion}
-                    onChange={(e) => {
-                        const v = e.target.value;
-                        setLocalExclusion(v);
-                        debouncedUpdate('exclusion_criteria', v);
-                    }}
-                />
-            </td>
-            <td className="border border-gray-400 p-2" id={`action-row-${index}`}>
+            <td className="border border-gray-400 p-2 max-w-40" id={`action-row-${index}`}>
                 <div className="flex items-center justify-center space-x-2">
                     <button
                         id={`accept-btn-${index}`}

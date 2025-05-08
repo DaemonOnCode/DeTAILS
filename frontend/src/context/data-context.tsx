@@ -5,7 +5,6 @@ import { CollectionProvider } from './collection-context';
 import { CodingProvider } from './coding-context';
 import { LoadingProvider } from './loading-context';
 import { UndoProvider } from './undo-context';
-import { ManualCodingProvider } from './manual-coding-context';
 
 interface IDataContext {}
 
@@ -19,15 +18,9 @@ export const DataProvider: FC<ILayout> = ({ children }) => {
         <UndoProvider>
             <LoadingProvider>
                 <CollectionProvider>
-                    {/* <FilteringProvider> */}
-                    {/* <ModelingProvider> */}
                     <CodingProvider>
-                        <ManualCodingProvider postIds={[]}>
-                            <DataContext.Provider value={value}>{children}</DataContext.Provider>
-                        </ManualCodingProvider>
+                        <DataContext.Provider value={value}>{children}</DataContext.Provider>
                     </CodingProvider>
-                    {/* </ModelingProvider>
-            </FilteringProvider> */}
                 </CollectionProvider>
             </LoadingProvider>
         </UndoProvider>
