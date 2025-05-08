@@ -91,8 +91,6 @@ const config = {
             LOAD_CODING_CONTEXT: 'state/load-coding-context',
             SAVE_COLLECTION_CONTEXT: 'state/save-collection-context',
             LOAD_COLLECTION_CONTEXT: 'state/load-collection-context',
-            SAVE_MANUAL_CODING_CONTEXT: 'state/save-manual-coding-context',
-            LOAD_MANUAL_CODING_CONTEXT: 'state/load-manual-coding-context',
 
             RESET_CONTEXT_DATA: 'state/reset-context-data',
             CHECK_CONTEXT_DATA_EXISTS: 'state/check-data-existence',
