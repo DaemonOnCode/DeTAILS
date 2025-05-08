@@ -21,10 +21,9 @@ import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import { useLoadingContext } from '../../context/loading-context';
 import { useSettings } from '../../context/settings-context';
 import { useWorkspaceContext } from '../../context/workspace-context';
-import { useManualCodingContext } from '../../context/manual-coding-context';
 import { useNextHandler } from '../../hooks/Coding/use-handler-factory';
 
-const DataViewerPage = () => {
+const DatasetCreationPage = () => {
     const { type, selectedData, setSelectedData, modeInput, isLocked } = useCollectionContext();
     const navigate = useNavigate();
     const { setSampledPostIds, setUnseenPostIds } = useCodingContext();
@@ -39,7 +38,6 @@ const DataViewerPage = () => {
 
     const postIds: string[] = selectedData;
     const isReadyCheck = postIds.length >= SELECTED_POSTS_MIN_THRESHOLD && isLocked;
-    const { addPostIds } = useManualCodingContext();
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
@@ -127,10 +125,8 @@ const DataViewerPage = () => {
             JSON.stringify({
                 workspace_id: currentWorkspace!.id,
                 post_ids: postIds,
-                divisions: settings.general.manualCoding ? 3 : 2,
-                ...(!settings.general.manualCoding
-                    ? { sample_size: settings.general.sampleRatio }
-                    : {})
+                divisions: 2,
+                sample_size: settings.general.sampleRatio
             }),
         onSuccess: (data: {
             message: string;
@@ -140,9 +136,6 @@ const DataViewerPage = () => {
         }) => {
             setSampledPostIds(data.sampled);
             setUnseenPostIds(data.unseen);
-            if (settings.general.manualCoding && data.manual) {
-                addPostIds(data.manual);
-            }
         }
     });
     const handleGenerateInitialCodes = useNextHandler({
@@ -213,4 +206,4 @@ const DataViewerPage = () => {
     );
 };
 
-export default DataViewerPage;
+export default DatasetCreationPage;

@@ -11,7 +11,6 @@ import {
 import {
     TranscriptPage,
     ThemesPage,
-    ManualCodingPage,
     FinalizingCodesPage,
     InitialCodeBookPage,
     ContextPage,
@@ -85,10 +84,6 @@ export const CodingRouter: RouteObject[] = [
         element: <ThemesPage />
     },
     { path: ROUTES.ANALYSIS, element: <ReportPage /> },
-    {
-        path: ROUTES.MANUAL_CODING,
-        element: <ManualCodingPage />
-    },
     {
         path: 'loader',
         children: [

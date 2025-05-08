@@ -202,8 +202,6 @@ export interface ConceptEntry {
     word: string;
     description: string;
     codes?: string[];
-    inclusion_criteria: string;
-    exclusion_criteria: string;
     isMarked?: boolean;
 }
 

@@ -7,8 +7,6 @@ import { AppRouteArray } from '../../types/Shared';
 import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { DetailsIcon } from './Icons';
-import { useSettings } from '../../context/settings-context';
-import { FaAngleLeft } from 'react-icons/fa';
 import { IoMdArrowDropleft } from 'react-icons/io';
 
 // Format route names for display
@@ -49,8 +47,6 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
     const { currentWorkspace } = useWorkspaceContext();
     const [userDropdownVisible, setUserDropdownVisible] = useState<boolean>(false);
 
-    const { settings } = useSettings();
-
     const IGNORED_KEYWORDS = [
         '*',
         '/',
@@ -61,7 +57,6 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
         SHARED_ROUTES.SETTINGS,
         CODING_ROUTES.TRANSCRIPT,
         CODING_ROUTES.TRANSCRIPTS,
-        ...(!settings.general.manualCoding ? [CODING_ROUTES.MANUAL_CODING] : []),
         CODING_ROUTES.HOME,
         SHARED_ROUTES.AUTHENTICATED_SETTINGS
     ];
@@ -115,14 +110,10 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
         });
     };
 
-    // Check if a route should be ignored
     const shouldIgnoreRoute = (path: string | undefined) => {
         if (!path) return false;
         return IGNORED_KEYWORDS.some((keyword) => path.toLowerCase() === keyword);
     };
-
-    // Highlight current route
-    const isCurrentPath = (fullPath: string) => location.pathname === fullPath;
 
     // Find the default route (index: true) within children
     const findDefaultRoute = (children: RouteObject[]): string | null => {
@@ -162,24 +153,6 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
 
         return location.pathname === fullPath;
     }
-
-    // useEffect(() => {
-    //     if (forcedActiveRoute) {
-    //         const forcedFullPath = findRouteFullPath(routes, forcedActiveRoute);
-    //         if (forcedFullPath) {
-    //             const segments = forcedFullPath.split('/').filter(Boolean);
-    //             let currentPath = '';
-    //             const newOpenDropdowns = new Set<string>();
-    //             segments.forEach((segment) => {
-    //                 currentPath += `/${segment}`;
-    //                 newOpenDropdowns.add(currentPath);
-    //             });
-    //             setOpenDropdowns(newOpenDropdowns);
-    //         }
-    //     }
-    //     // We intentionally do not reinitialize openDropdowns on every location change
-    //     // so that manual toggles persist.
-    // }, [forcedActiveRoute, routes]);
 
     // Render the routes recursively
     const renderRoutes = (routes: AppRouteArray, parentPath = ''): JSX.Element[] => {
@@ -273,7 +246,6 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
             }`}>
             <div
                 className={`flex flex-col justify-between ${isCollapsed ? 'max-w-0 hidden' : 'max-w-36 lg:max-w-48'}`}>
-                {/* Left Section: Collapsible Navigation */}
                 <div className={`flex-1 overflow-hidden`}>
                     <nav className="h-full overflow-y-auto">
                         <ul className="p-2 lg:p-4">{renderRoutes(routes)}</ul>
@@ -332,23 +304,16 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
                 </div>
             </div>
 
-            {/* Right Section: Collapse Button (Always Visible) */}
             <div className="min-w-12 lg:min-w-16 flex justify-center items-center bg-gray-900">
                 <button
                     onClick={onToggleCollapse}
                     className="text-white p-2 lg:p-3 rounded-full bg-blue-500 hover:bg-blue-700 transition-transform">
-                    {/* <p
-                        
-                        className={`text:base lg:text-2xl transform transition-transform ${
-                            isCollapsed ? 'rotate-180' : 'rotate-0'
-                        }`}> */}
                     <IoMdArrowDropleft
                         title={isCollapsed ? 'Open sidebar' : 'Collapse sidebar'}
                         className={`text-white text-base lg:text-2xl transform transition-transform ${
                             isCollapsed ? 'rotate-180' : 'rotate-0'
                         }`}
                     />
-                    {/* </p> */}
                 </button>
             </div>
         </div>

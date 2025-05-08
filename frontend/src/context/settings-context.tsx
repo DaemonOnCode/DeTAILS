@@ -13,7 +13,6 @@ export interface ISettingsConfig {
     general: {
         theme: 'light' | 'dark';
         language: string;
-        manualCoding: boolean;
         keepSignedIn: boolean;
         sampleRatio: number;
     };

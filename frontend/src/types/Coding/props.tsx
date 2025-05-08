@@ -3,9 +3,7 @@ import {
     Comments,
     ContentAreaTabs,
     IQECResponse,
-    IQECRow,
     IQECTResponse,
-    IQECTRow,
     IQECTTyResponse,
     IRedditPostData,
     IReference,
@@ -24,12 +22,12 @@ export type PaginationControlsProps = {
 };
 
 export type RedditTableProps = {
-    data: [string, RedditPosts[string]][]; // Post data as [id, postDetails]
-    selectedPosts: string[]; // Set of selected post IDs
-    togglePostSelection: (id: string) => void; // Function to toggle individual post selection
-    toggleSelectPage: (pageData: [string, RedditPosts[string]][]) => void; // Function to toggle all posts on the page
-    isLoading: boolean; // Flag to indicate if data is loading
-    itemsPerPage?: number; // Number of items per page
+    data: [string, RedditPosts[string]][];
+    selectedPosts: string[];
+    togglePostSelection: (id: string) => void;
+    toggleSelectPage: (pageData: [string, RedditPosts[string]][]) => void;
+    isLoading: boolean;
+    itemsPerPage?: number;
 };
 
 export type AddCodeModalProps = {

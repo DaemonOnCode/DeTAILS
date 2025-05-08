@@ -183,15 +183,11 @@ const ConceptsTablePage: FC = () => {
                             <table className="w-full border-separate border-spacing-0">
                                 <thead className="sticky top-0">
                                     <tr className="bg-gray-200">
-                                        <th className="border border-gray-400 p-2">Word</th>
+                                        <th className="border border-gray-400 p-2 max-w-32">
+                                            Word
+                                        </th>
                                         <th className="border border-gray-400 p-2">Description</th>
-                                        <th className="border border-gray-400 p-2">
-                                            Inclusion Criteria
-                                        </th>
-                                        <th className="border border-gray-400 p-2">
-                                            Exclusion Criteria
-                                        </th>
-                                        <th className="border border-gray-400 p-2">
+                                        <th className="border border-gray-400 p-2  max-w-40">
                                             Actions
                                             <div className="mt-2 flex justify-center gap-x-2">
                                                 <button

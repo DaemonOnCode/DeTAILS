@@ -6,7 +6,6 @@
         "theme": "light",
         "language": "en",
         "keepSignedIn": false,
-        "manualCoding": false,
         "sampleRatio": 0.5
     },
     "workspace": {
