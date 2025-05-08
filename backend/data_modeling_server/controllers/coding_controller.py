@@ -316,7 +316,8 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], workspace_id: str,
                     post_id=code["postId"],
                     response_type=ResponseCreatorType.LLM.value,
                     chat_history=None,
-                    codebook_type=codebook_type
+                    codebook_type=codebook_type,
+                    source=code.get("source", "{}"),
                 ), 
                 responses
             )

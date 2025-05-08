@@ -6,6 +6,7 @@ interface Code {
     text: string;
     code: string;
     rangeMarker?: { itemId: string; range: [number, number] };
+    source?: string;
 }
 
 interface Segment {
@@ -114,11 +115,8 @@ function processTranscript(
     console.log(`Worker: Starting processTranscript for post ${post.id}`);
 
     const codeSet = Array.from(new Set([...codes.map((c) => c.code), ...extraCodes]));
-
     const codeColors: Record<string, string> = {};
-    codeSet.forEach((code) => {
-        codeColors[code] = generateColor(code);
-    });
+    codeSet.forEach((code) => (codeColors[code] = generateColor(code)));
 
     const transcriptFlatMap = [
         { id: post.id, text: displayText(post.title), type: 'title', parent_id: null },
@@ -131,123 +129,138 @@ function processTranscript(
 
     const segments = transcriptFlatMap.flatMap((data, dataIndex) => {
         const text = data.text;
+        const intervals: { start: number; end: number; codeId: string; text: string }[] = [];
+        const matched = new Set<string>();
 
-        // Marker-based intervals
-        const markerIntervals = codesWithMarker
-            .filter((c) => c.rangeMarker?.itemId === dataIndex.toString())
-            .map((c) => ({
-                start: c.rangeMarker?.range[0] ?? 0,
-                end: c.rangeMarker?.range[1] ?? 0,
-                codeId: c.id,
-                text: c.text
-            }));
+        for (const c of codesWithMarker) {
+            if (c.rangeMarker!.itemId === String(dataIndex)) {
+                const [start, end] = c.rangeMarker!.range;
+                intervals.push({ start, end, codeId: c.id, text: c.text });
+                matched.add(c.id);
+            }
+        }
 
-        // Fuzzy matching for codes without markers
-        const normalizedText = normalizeText(text);
-        const matchingIntervals = codesWithoutMarker.flatMap((c) => {
-            const normalizedCodeText = normalizeText(c.text);
-            const exactMatch = text.includes(c.text);
+        const withSource = codesWithoutMarker.filter((c) => c.source);
+        const noSource = codesWithoutMarker.filter((c) => !c.source);
 
-            const fuzzyScore = exactMatch
-                ? 100
-                : ratio(normalizedText, normalizedCodeText, { full_process: true });
-            if (dataIndex === 72) {
-                console.log(`Worker: Data index ${dataIndex} normalizedText:`, normalizedText);
-                console.log(
-                    `Worker: Data index ${dataIndex} normalizedCodeText:`,
-                    normalizedCodeText
-                );
-                console.log(`Worker: Data index ${dataIndex} exactMatch:`, exactMatch);
-                console.log(`Worker: Data index ${dataIndex} fuzzyScore:`, fuzzyScore);
+        for (const c of withSource) {
+            if (matched.has(c.id)) continue;
+
+            let isApplicable = false;
+            try {
+                const src = JSON.parse(c.source!);
+
+                if (src.type === 'comment') {
+                    isApplicable = data.type === 'comment' && data.id === src.comment_id;
+                } else if (src.type === 'post') {
+                    isApplicable = src.title ? data.type === 'title' : data.type === 'selftext';
+                }
+            } catch {
+                console.error(`Failed to parse source for code ${c.code}: ${c.source}`);
             }
 
-            if (fuzzyScore >= 85) {
-                const positions = getAllPositions(text, displayText(c.text));
+            if (!isApplicable) continue;
 
-                if (dataIndex === 72) {
-                    console.log(
-                        `Worker: Data index ${dataIndex} positions:`,
-                        positions,
-                        c.text,
-                        text
-                    );
-                }
-                return positions.map((pos) => ({
+            const positions = getAllPositions(text, displayText(c.text));
+            for (const pos of positions) {
+                intervals.push({
                     start: pos,
                     end: pos + c.text.length,
                     codeId: c.id,
                     text: c.text
-                }));
+                });
             }
-            return [];
-        });
-
-        // Combine all intervals
-        const allIntervals = [...markerIntervals, ...matchingIntervals];
-
-        if (dataIndex === 72) {
-            console.log(`Worker: Data index ${dataIndex} intervals1:`, allIntervals);
+            matched.add(c.id);
         }
 
-        if (allIntervals.length === 0) {
+        for (const c of noSource) {
+            if (matched.has(c.id)) continue;
+            if (text.includes(c.text)) {
+                const positions = getAllPositions(text, displayText(c.text));
+                for (const pos of positions) {
+                    intervals.push({
+                        start: pos,
+                        end: pos + c.text.length,
+                        codeId: c.id,
+                        text: c.text
+                    });
+                }
+                matched.add(c.id);
+            }
+        }
+
+        for (const c of noSource) {
+            if (matched.has(c.id)) continue;
+            const normText = normalizeText(text);
+            const normCodeText = normalizeText(c.text);
+            const score = text.includes(c.text)
+                ? 100
+                : ratio(normText, normCodeText, { full_process: true });
+            if (score >= 85) {
+                const positions = getAllPositions(text, displayText(c.text));
+                for (const pos of positions) {
+                    intervals.push({
+                        start: pos,
+                        end: pos + c.text.length,
+                        codeId: c.id,
+                        text: c.text
+                    });
+                }
+                matched.add(c.id);
+            }
+        }
+
+        if (intervals.length === 0) {
             return [createSegment(text, data, dataIndex, 0, [], codeColors, codes)];
         }
 
         const events: { position: number; type: 'start' | 'end'; codeId: string }[] = [];
-        allIntervals.forEach(({ start, end, codeId }) => {
-            events.push({ position: start, type: 'start', codeId });
-            events.push({ position: end, type: 'end', codeId });
-        });
-
+        for (const iv of intervals) {
+            events.push({ position: iv.start, type: 'start', codeId: iv.codeId });
+            events.push({ position: iv.end, type: 'end', codeId: iv.codeId });
+        }
         events.sort(
             (a, b) => a.position - b.position || (a.type === 'end' && b.type === 'start' ? -1 : 1)
         );
 
         const itemSegments: Segment[] = [];
         let currentPos = 0;
-        const currentCodeIds = new Set<string>();
+        const currentCodes = new Set<string>();
 
-        events.forEach((event) => {
-            if (event.position > currentPos) {
-                const segmentText = text.slice(currentPos, event.position);
-                if (segmentText) {
-                    const segment = createSegment(
-                        segmentText,
-                        data,
-                        dataIndex,
-                        itemSegments.length,
-                        Array.from(currentCodeIds),
-                        codeColors,
-                        codes
+        for (const ev of events) {
+            if (ev.position > currentPos) {
+                const segText = text.slice(currentPos, ev.position);
+                if (segText) {
+                    itemSegments.push(
+                        createSegment(
+                            segText,
+                            data,
+                            dataIndex,
+                            itemSegments.length,
+                            Array.from(currentCodes),
+                            codeColors,
+                            codes
+                        )
                     );
-                    itemSegments.push(segment);
                 }
-                currentPos = event.position;
+                currentPos = ev.position;
             }
-
-            if (event.type === 'start') {
-                currentCodeIds.add(event.codeId);
-            } else {
-                currentCodeIds.delete(event.codeId);
-            }
-        });
-
-        // Handle remaining text after the last event
-        if (currentPos < text.length) {
-            const segment = createSegment(
-                text.slice(currentPos),
-                data,
-                dataIndex,
-                itemSegments.length,
-                Array.from(currentCodeIds),
-                codeColors,
-                codes
-            );
-            itemSegments.push(segment);
+            if (ev.type === 'start') currentCodes.add(ev.codeId);
+            else currentCodes.delete(ev.codeId);
         }
 
-        if (dataIndex === 72) {
-            console.log(`Worker: Data index ${dataIndex} segments:`, itemSegments);
+        if (currentPos < text.length) {
+            itemSegments.push(
+                createSegment(
+                    text.slice(currentPos),
+                    data,
+                    dataIndex,
+                    itemSegments.length,
+                    Array.from(currentCodes),
+                    codeColors,
+                    codes
+                )
+            );
         }
 
         return itemSegments;

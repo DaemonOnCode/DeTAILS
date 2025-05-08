@@ -42,7 +42,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
         quote: string,
         explanation: string
     ) {
-        const key = `${postId}-${code}-${quote}-${explanation}`;
+        const key = `${postId}-${code}-${quote}`;
         if (chatHistories && chatHistories[key]) {
             return chatHistories[key];
         }

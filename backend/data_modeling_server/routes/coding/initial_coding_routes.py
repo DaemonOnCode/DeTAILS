@@ -76,27 +76,28 @@ async def generate_codes_endpoint(
         current=0,
         total=total_posts
     ))
+
     try:
         llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
-        
+
         try:
             qect_repo.delete({"workspace_id": workspace_id, "codebook_type": CodebookType.INITIAL.value})
-        except Exception as e:
-            print(e)
+        except Exception:
+            pass
 
         async def process_post(post_id: str):
             try:
                 await send_ipc_message(app_id, f"Dataset {workspace_id}: Fetching data for post {post_id}...")
-                
-                post_data = get_reddit_post_by_id(workspace_id, post_id, [
-                    "id", "title", "selftext"
-                ])
+                post_data = get_reddit_post_by_id(workspace_id, post_id, ["id", "title", "selftext"])
                 await asyncio.sleep(0)
 
                 await send_ipc_message(app_id, f"Dataset {workspace_id}: Generating transcript for post {post_id}...")
-                transcripts = generate_transcript(post_data, llm.get_num_tokens)
+                transcripts_iter = generate_transcript(post_data, llm.get_num_tokens)
 
-                async for transcript in transcripts:
+                all_codes = []
+                async for item in transcripts_iter:
+                    transcript = item["transcript"]
+                    comment_map = item["comment_map"]
                     parsed_response = await process_llm_task(
                         workspace_id=workspace_id,
                         app_id=app_id,
@@ -116,7 +117,7 @@ async def generate_codes_endpoint(
                         post_transcript=transcript,
                         store_response=True,
                         cacheable_args={
-                            "args":[],
+                            "args": [],
                             "kwargs": [
                                 "main_topic",
                                 "additional_info",
@@ -133,49 +134,70 @@ async def generate_codes_endpoint(
                     for code in codes:
                         code["postId"] = post_id
                         code["id"] = str(uuid4())
+                        src = code.get("source")
+                        if isinstance(src, dict) and src.get("type") == "comment":
+                            label   = src["comment_id"]
+                            real_id = comment_map.get(label)
+                            if real_id:
+                                src["comment_id"] = real_id
+                        if isinstance(src, dict):
+                            src["post_id"] = post_id
+                            code["source"] = json.dumps(src)
 
-                    codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-initial-codes", post_id=post_id)
-                    function_progress_repo.update({
-                        "function_id": function_id,
-                    }, {
-                        "current": function_progress_repo.find_one({
-                            "function_id": function_id
-                        }).current + 1
-                    })
-                    codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.INITIAL.value, parent_function_name="generate-initial-codes", post_id=post_id)
+                    codes = filter_codes_by_transcript(
+                        workspace_id,
+                        codes,
+                        transcript,
+                        parent_function_name="generate-initial-codes",
+                        post_id=post_id
+                    )
+
+                    inserted = insert_responses_into_db(
+                        codes,
+                        workspace_id,
+                        request_body.model,
+                        CodebookType.INITIAL.value,
+                        parent_function_name="generate-initial-codes",
+                        post_id=post_id
+                    )
+                    all_codes.extend(inserted)
+
+                    progress = function_progress_repo.find_one({"function_id": function_id})
+                    function_progress_repo.update(
+                        {"function_id": function_id},
+                        {"current": progress.current + 1}
+                    )
 
                 await send_ipc_message(app_id, f"Dataset {workspace_id}: Generated codes for post {post_id}...")
-                return codes
+                return all_codes
 
             except Exception as e:
-                await send_ipc_message(app_id, f"ERROR: Dataset {workspace_id}: Error processing post {post_id} - {str(e)}.")
+                await send_ipc_message(
+                    app_id,
+                    f"ERROR: Dataset {workspace_id}: Error processing post {post_id} - {str(e)}."
+                )
                 return []
 
         batches = stream_selected_post_ids(workspace_id, ["sampled"])
-
         for batch in batches:
-            print(f"Processing batch of {len(batch)} posts...")
             await send_ipc_message(app_id, f"Dataset {workspace_id}: Processing batch of {len(batch)} posts...")
-
-            await asyncio.gather(*(process_post(post_id) for post_id in batch))
+            await asyncio.gather(*(process_post(pid) for pid in batch))
 
         await send_ipc_message(app_id, f"Dataset {workspace_id}: All posts processed successfully.")
 
         unique_codes_query = """
-            SELECT DISTINCT code 
-            FROM qect 
+            SELECT DISTINCT code
+            FROM qect
             WHERE workspace_id = ? AND codebook_type = ?
         """
-        print("Fetching unique codes from qect table")
         unique_codes_result = qect_repo.execute_raw_query(
             unique_codes_query,
             (workspace_id, CodebookType.INITIAL.value),
             keys=True
         )
-        print("Unique codes fetched from qect table")
         unique_codes = [row["code"] for row in unique_codes_result]
 
-        res = await cluster_words_with_llm(
+        clusters = await cluster_words_with_llm(
             workspace_id,
             unique_codes,
             request_body.model,
@@ -186,29 +208,20 @@ async def generate_codes_endpoint(
             parent_function_name="generate-initial-codes",
         )
 
-        print("Clustered words with LLM", res)
+        reverse_map = {}
+        for head, subs in clusters.items():
+            for sub in subs:
+                reverse_map.setdefault(sub, head)
 
-        reverse_map_one_to_one = {}
-
-        
-        for topic_head, subtopics in res.items():
-            for subtopic in subtopics:
-                if subtopic not in reverse_map_one_to_one:
-                    reverse_map_one_to_one[subtopic] = topic_head
-
-        for subtopic, topic_head in reverse_map_one_to_one.items():
-            update_query = """
-                UPDATE qect 
-                SET code = ? 
-                WHERE code = ? AND workspace_id = ? AND codebook_type = ?
-            """
-            print(f"Updating code {subtopic} to {topic_head}")
+        for sub, head in reverse_map.items():
             qect_repo.execute_raw_query(
-                update_query,
-                (topic_head, subtopic, workspace_id, CodebookType.INITIAL.value)
+                """
+                UPDATE qect
+                SET code = ?
+                WHERE code = ? AND workspace_id = ? AND codebook_type = ?
+                """,
+                (head, sub, workspace_id, CodebookType.INITIAL.value)
             )
-            print(f"Updated code {subtopic} to {topic_head}")
-        print("Updated codes in qect table")
 
         filter_duplicate_codes_in_db(
             workspace_id=workspace_id,
@@ -218,15 +231,13 @@ async def generate_codes_endpoint(
             function_id=function_id
         )
 
-        function_progress_repo.update({
-            "function_id": function_id,
-        }, {
-            "status": "completed",
-        })
+        function_progress_repo.update(
+            {"function_id": function_id},
+            {"status": "completed"}
+        )
 
-        return {
-            "message": "Initial codes generated successfully!",
-        }
+        return {"message": "Initial codes generated successfully!"}
+
     except Exception as e:
         print(f"Error in generate_codes_endpoint: {e}")
         raise HTTPException(status_code=500, detail="An error occurred during code generation.")
@@ -305,8 +316,10 @@ async def generate_codes_endpoint(
                 ])
 
                 await send_ipc_message(app_id, f"Dataset {workspace_id}: Generating transcript for post {post_id}...")
-                transcripts = generate_transcript(post_data, llm.get_num_tokens)
-                async for transcript in transcripts:
+                transcripts_iter = generate_transcript(post_data, llm.get_num_tokens)
+                async for item in transcripts_iter:
+                    transcript = item["transcript"]
+                    comment_map = item["comment_map"]
                     parsed_response = await process_llm_task(
                         workspace_id=workspace_id,
                         app_id=app_id,
@@ -347,6 +360,15 @@ async def generate_codes_endpoint(
                     for code in codes:
                         code["postId"] = post_id
                         code["id"] = str(uuid4())
+                        src = code.get("source")
+                        if isinstance(src, dict) and src.get("type") == "comment":
+                            label   = src["comment_id"]
+                            real_id = comment_map.get(label)
+                            if real_id:
+                                src["comment_id"] = real_id
+                        if isinstance(src, dict):
+                            src["post_id"] = post_id
+                            code["source"] = json.dumps(src)
 
                     codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-initial-coding", post_id=post_id, function_id=function_id)
 

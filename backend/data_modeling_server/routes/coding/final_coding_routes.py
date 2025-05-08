@@ -105,11 +105,13 @@ async def final_coding_endpoint(
             await asyncio.sleep(0)
 
             await send_ipc_message(app_id, f"Dataset {workspace_id}: Generating transcript for post {post_id}...")
-            transcripts = generate_transcript(
+            transcripts_iter = generate_transcript(
                 post_data,
                 token_checker=llm.get_num_tokens
             )
-            async for transcript in transcripts:
+            async for item in transcripts_iter:
+                transcript = item["transcript"]
+                comment_map = item["comment_map"]
                 print("Chunk yielded")
                 parsed_response = await process_llm_task(
                     workspace_id=workspace_id,
@@ -147,8 +149,17 @@ async def final_coding_endpoint(
 
                 codes = parsed_response.get("codes", [])
                 for code in codes:
-                    code["postId"] = post_id
-                    code["id"] = str(uuid4())
+                        code["postId"] = post_id
+                        code["id"] = str(uuid4())
+                        src = code.get("source")
+                        if isinstance(src, dict) and src.get("type") == "comment":
+                            label   = src["comment_id"]
+                            real_id = comment_map.get(label)
+                            if real_id:
+                                src["comment_id"] = real_id
+                        if isinstance(src, dict):
+                            src["post_id"] = post_id
+                            code["source"] = json.dumps(src)
 
                 codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="final-coding", post_id=post_id, function_id=function_id)
                 function_progress_repo.update({
@@ -279,9 +290,11 @@ async def redo_final_coding_endpoint(
             ])
 
             await send_ipc_message(app_id, f"Dataset {workspace_id}: Generating transcript for post {post_id}...")
-            transcripts = generate_transcript(post_data, llm.get_num_tokens)
+            transcripts_iter = generate_transcript(post_data, llm.get_num_tokens)
 
-            async for transcript in transcripts:
+            async for item in transcripts_iter:
+                transcript = item["transcript"]
+                comment_map = item["comment_map"]
                 parsed_response = await process_llm_task(
                     workspace_id=workspace_id,
                     app_id=app_id,
@@ -322,8 +335,17 @@ async def redo_final_coding_endpoint(
 
                 codes = parsed_response.get("codes", [])
                 for code in codes:
-                    code["postId"] = post_id
-                    code["id"] = str(uuid4())
+                        code["postId"] = post_id
+                        code["id"] = str(uuid4())
+                        src = code.get("source")
+                        if isinstance(src, dict) and src.get("type") == "comment":
+                            label   = src["comment_id"]
+                            real_id = comment_map.get(label)
+                            if real_id:
+                                src["comment_id"] = real_id
+                        if isinstance(src, dict):
+                            src["post_id"] = post_id
+                            code["source"] = json.dumps(src)
 
                 codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="redo-final-coding", post_id=post_id, function_id=function_id)
 

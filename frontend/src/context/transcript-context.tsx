@@ -146,6 +146,7 @@ export const TranscriptContextProvider: FC<{
         text: string;
         code: string;
         rangeMarker?: { itemId: string; range: [number, number] };
+        source?: string;
     }[] = useMemo(
         () =>
             codeResponses
@@ -154,7 +155,8 @@ export const TranscriptContextProvider: FC<{
                     id: r.id,
                     text: r.quote,
                     code: r.code,
-                    rangeMarker: r.rangeMarker
+                    rangeMarker: r.rangeMarker,
+                    source: r.source
                 })),
         [codeResponses, postId]
     );
@@ -177,7 +179,7 @@ export const TranscriptContextProvider: FC<{
         codeResponses
             .filter((response) => response.postId === postId)
             .forEach((response) => {
-                const key = `${postId}-${response.code}-${response.quote}-${response.explanation}`;
+                const key = `${postId}-${response.code}-${response.quote}`;
                 newChatHistories[key] = response.chatHistory ?? [
                     {
                         id: 1,

@@ -218,20 +218,36 @@ Generate your output strictly in valid JSON format as follows:
       "quote": "Exact phrase from the transcript.",
       "explanation": "How it relates to the code and research focus.",
       "code": "Relevant concept or code derived from the transcript.",
+      "source": {{
+        "type": "comment",
+        "comment_id": "comment 1.2"
+      }}
+    }},
+    {{
+      "quote": "Exact phrase from the post body before 'Comments:'.",
+      "explanation": "How it relates to the code and research focus.",
+      "code": "Relevant concept or code derived from the transcript.",
+      "source": {{
+        "type": "post",
+        "title": true // or false according to if the quote is from the post title,
+      }}
     }}
     // Additional code objects...
   ]
 }}
-```
+````
 
-NOTE:
-**Ensure Accuracy:**
-   - If a phrase fits multiple codes, list each as a separate entry.
-   - Omit phrases that do not align with any valid codes.
-   - If no codes are applicable across the transcript, return 
-   ```json
-   {{ "codes": [] }}
-   ```.
+**NOTE:**
+
+* For any quote extracted from a comment (lines labeled `comment X:`), set `"type": "comment"` and include its `"comment_id"`.
+* For quotes from the post (before comments), set `"type": "post"` and include `"title": true` if it came from the title or `"title": false` if from the selftext.
+* If a phrase fits multiple codes, list each as a separate entry.
+* Omit phrases that do not align with any valid codes.
+* If no codes are applicable across the transcript, return:
+
+  ```json
+  {{ "codes": [] }}
+  ```
 
 No additional text outside the JSON.
 """
@@ -239,11 +255,11 @@ No additional text outside the JSON.
 class FinalCoding:
     @staticmethod
     def final_coding_prompt(final_codebook: str,
-                                post_transcript: str,
-                                concept_table: str,
-                                main_topic: str,
-                                additional_info: str = "",
-                                research_questions: str = ""):
+                            post_transcript: str,
+                            concept_table: str,
+                            main_topic: str,
+                            additional_info: str = "",
+                            research_questions: str = ""):
         return f"""
 PHASE 2 (Deductive Thematic Coding) Requirements:
 
@@ -272,12 +288,12 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
   Your coding is guided by pre-established theoretical constructs. Use the final codebook and concept table as analytical lenses, ensuring that your code assignments reflect these predefined frameworks.
 
 - **Focus of Meaning:**  
-  - **Semantic:** Identify and capture the explicit, surface-level content in the transcript.
+  - **Semantic:** Identify and capture the explicit, surface-level content in the transcript.  
   - **Latent:** Uncover and interpret the underlying, implicit meanings that complement the surface-level analysis.
 
 - **Theoretical Frameworks:**  
-  Consider these approaches:
-  - **Realist/Essentialist:** Seeks to capture objective truths within the data.
+  Consider these approaches:  
+  - **Realist/Essentialist:** Seeks to capture objective truths within the data.  
   - **Relativist/Constructionist:** Recognizes that meanings are contextually and socially constructed.
 
 ### Instructions
@@ -295,23 +311,41 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
        {{
          "quote": "Exact phrase from the transcript.",
          "explanation": "Concise rationale explaining the code assignment based on the final codebook and concept table.",
-         "code": "Assigned code from the final codebook"
+         "code": "Assigned code from the final codebook",
+         "source": {{
+           "type": "comment",
+           "comment_id": "comment 1.2"
+         }}
+       }},
+       {{
+         "quote": "Exact phrase from the post body before 'Comments:'.",
+         "explanation": "Concise rationale explaining the code assignment based on the final codebook and concept table.",
+         "code": "Assigned code from the final codebook",
+         "source": {{
+           "type": "post",
+           "title": true // or false according to if the quote is from the post title,
+         }}
        }}
        // Additional code objects...
      ]
    }}
-   ```
+````
 
 3. **Ensure Accuracy:**
-   - If a phrase fits multiple codes, list each as a separate entry.
-   - Omit phrases that do not align with any valid codes.
-   - If no codes are applicable across the transcript, return 
-   ```json
-   {{ "codes": [] }}
-   ```.
+
+   * For quotes from comments (lines labeled `comment X.Y:`), set `"type": "comment"` and include `"comment_id"`.
+   * For quotes from the post (before comments), set `"type": "post"` and include `"title": true` if it came from the title or `"title": false` if from the selftext.
+   * If a phrase fits multiple codes, list each as a separate entry.
+   * Omit phrases that do not align with any valid codes.
+   * If no codes are applicable across the transcript, return:
+
+     ```json
+     {{ "codes": [] }}
+     ```
 
 No additional text outside the JSON.
 """
+
 
 class ThemeGeneration:
 
@@ -539,12 +573,12 @@ No additional commentary outside the JSON object.
 class RemakerPrompts:
     @staticmethod
     def redo_initial_coding_prompt(main_topic: str,
-                               additional_info: str,
-                               research_questions: str,
-                               concept_table: str,
-                               post_transcript: str,
-                               current_codebook: str,
-                               feedback: str):
+                                   additional_info: str,
+                                   research_questions: str,
+                                   concept_table: str,
+                                   post_transcript: str,
+                                   current_codebook: str,
+                                   feedback: str):
         return f"""
 PHASE 3 (Complete Codebook Remake) Requirements:
 
@@ -552,7 +586,7 @@ PHASE 3 (Complete Codebook Remake) Requirements:
 - Review all provided data from the initial coding phase.
 - Consider the **Main Topic:** {main_topic}, **Additional Information:** {additional_info}, and **Research Questions:** {research_questions}.
 - Analyze the Post Transcript for segments relevant to the research focus.
-  Transcript: 
+  Transcript:
   {post_transcript}
 - Use the Concept Table (JSON) with its inclusion/exclusion criteria: {concept_table}
 
@@ -565,22 +599,22 @@ PHASE 3 (Complete Codebook Remake) Requirements:
   This process is guided by pre-existing theoretical constructs. The updated codebook should reflect these frameworks, ensuring that your codes are consistent with established deductive principles.
 
 - **Focus of Meaning:**  
-  - **Semantic:** Capture the explicit, surface-level meanings.
+  - **Semantic:** Capture the explicit, surface-level meanings.  
   - **Latent:** Identify deeper, implicit meanings that enhance understanding.
 
 - **Qualitative & Theoretical Frameworks:**  
-  Consider:
-  1. **Experiential Framework:** Capturing participants' direct perspectives.
-  2. **Critical Framework:** Unpacking deeper power dynamics and social constructs.
+  Consider:  
+  1. **Experiential Framework:** Capturing participants' direct perspectives.  
+  2. **Critical Framework:** Unpacking deeper power dynamics and social constructs.  
   3. **Realist/Essentialist vs. Relativist/Constructionist:** Balancing objective truths with socially constructed interpretations.
 
 ### Codebook Remake Instructions:
-1. Evaluate the **CURRENT CODEBOOK SUMMARY:** {current_codebook} and incorporate the following feedback as advice **OPTIONAL FEEDBACK:** {feedback}.
-2. Update existing codes, add new ones, or remove redundant entries based on an integrated review of the initial coding data, transcript, and feedback.
-3. Maintain both in-vivo (participant language) and conceptual (researcher-generated) elements.
-4. Apply dual coding:
-   - **Semantic:** For surface-level meanings.
-   - **Latent:** For underlying, implicit meanings.
+1. Evaluate the **CURRENT CODEBOOK SUMMARY:** {current_codebook} and incorporate the following feedback as advice **OPTIONAL FEEDBACK:** {feedback}.  
+2. Update existing codes, add new ones, or remove redundant entries based on an integrated review of the initial coding data, transcript, and feedback.  
+3. Maintain both in-vivo (participant language) and conceptual (researcher-generated) elements.  
+4. Apply dual coding:  
+   - **Semantic:** For surface-level meanings.  
+   - **Latent:** For underlying, implicit meanings.  
 5. Ensure each code directly relates to the research focus and avoid off-topic or forced classifications.
 
 ### Output Format:
@@ -592,80 +626,136 @@ Generate your output strictly in valid JSON format as follows:
     {{
       "quote": "Exact phrase from the transcript or current codebook.",
       "explanation": "Explanation of the code and its relevance.",
-      "code": "Updated or new concept/code."
+      "code": "Updated or new concept/code.",
+      "source": {{
+        "type": "comment",
+        "comment_id": "comment 1.2"
+      }}
+    }},
+    {{
+      "quote": "Exact phrase from the post body before 'Comments:'.",
+      "explanation": "Explanation of the code and its relevance.",
+      "code": "Updated or new concept/code.",
+      "source": {{
+        "type": "post",
+        "title": true
+      }}
     }}
     // Additional code objects...
   ]
 }}
 ```
 
+**Ensure Accuracy:**
+
+   * For quotes from comments (lines labeled `comment X.Y:`), set `"type": "comment"` and include `"comment_id"`.
+   * For quotes from the post (before comments), set `"type": "post"` and include `"title": true` if it came from the title or `"title": false` if from the selftext.
+   * If a phrase fits multiple codes, list each as a separate entry.
+   * Omit phrases that do not align with any valid codes.
+   * If no codes are applicable across the transcript, return:
+
+     ```json
+     {{ "codes": [] }}
+     ```
+
 No additional text outside the JSON.
 """
-
     @staticmethod
     def redo_final_coding_prompt(main_topic: str,
-                                    additional_info: str,
-                                    research_questions: str,
-                                    final_codebook: str,
-                                    current_codebook: str,
-                                    concept_table: str,
-                                    post_transcript: str,
-                                    feedback: str):
-        return f"""
-PHASE 3 (Deductive Codebook Remake) Requirements:
+                              additional_info: str,
+                              research_questions: str,
+                              final_codebook: str,
+                              current_codebook: str,
+                              concept_table: str,
+                              post_transcript: str,
+                              feedback: str):
+      return f"""
 
-### Integrative Analysis:
-- Review the outcomes from the final deductive coding phase.
-- Consider the **Main Topic:** {main_topic} and **Additional Information:** {additional_info}.
-- Address the **Research Questions:** {research_questions}.
-- Utilize the **Final Codebook** (structured thematic codes in JSON format): {final_codebook}
-- Evaluate the **CURRENT CODEBOOK SUMMARY:** {current_codebook} used in the deductive coding phase.
-- Refer to the **Concept Table** (JSON with inclusion/exclusion criteria): {concept_table}
-- Analyze the Post Transcript for segments that are directly relevant:
-  {post_transcript}
+  PHASE 3 (Deductive Codebook Remake) Requirements:
 
-### Analytical Assumptions and Considerations
+  ### Integrative Analysis:
 
-- **Quality Spectrum:**  
-  Aim for an analysis that is compelling, nuanced, and insightful, while acknowledging that interpretations may vary in depth.
+  * Review the outcomes from the final deductive coding phase.
+  * Consider the **Main Topic:** {main_topic} and **Additional Information:** {additional_info}.
+  * Address the **Research Questions:** {research_questions}.
+  * Utilize the **Final Codebook** (structured thematic codes in JSON format): {final_codebook}
+  * Evaluate the **CURRENT CODEBOOK SUMMARY:** {current_codebook} used in the deductive coding phase.
+  * Refer to the **Concept Table** (JSON with inclusion/exclusion criteria): {concept_table}
+  * Analyze the Post Transcript for segments that are directly relevant:
+    {post_transcript}
 
-- **Deductive Orientation:**  
-  Your updated codebook should reflect the deductive framework provided by the final codebook and concept table. Codes must align with these pre-established theoretical constructs.
+  ### Analytical Assumptions and Considerations
 
-- **Focus of Meaning:**  
-  - **Semantic:** Capture explicit, surface-level meanings.
-  - **Latent:** Uncover underlying, implicit meanings that add depth.
+  * **Quality Spectrum:**
+    Aim for an analysis that is compelling, nuanced, and insightful, while acknowledging that interpretations may vary in depth.
 
-- **Theoretical Frameworks:**  
-  Consider both:
-  - **Realist/Essentialist:** For capturing objective truths in the data.
-  - **Relativist/Constructionist:** For exploring the socially constructed nature of meaning.
+  * **Deductive Orientation:**
+    Your updated codebook should reflect the deductive framework provided by the final codebook and concept table. Codes must align with these pre-established theoretical constructs.
 
-### Deductive Codebook Remake & Feedback Integration:
-1. Update existing deductive codes by integrating insights from the final coding phase, CURRENT CODEBOOK, and the following feedback as advice, **OPTIONAL FEEDBACK:** {feedback}.
-2. Adjust codes by updating, adding, or removing entries as needed.
-3. Ensure each code strictly adheres to the inclusion/exclusion criteria and aligns with the deductive approach.
-4. Clearly differentiate between semantic (surface) and latent (underlying) meanings.
-5. Avoid forced or generic codes that are not directly relevant.
+  * **Focus of Meaning:**
 
-### Output Format:
-Generate your output strictly in valid JSON format as follows:
+    * **Semantic:** Capture explicit, surface-level meanings.
+    * **Latent:** Uncover underlying, implicit meanings that add depth.
 
-```json
-{{
-  "codes": [
-    {{
-      "quote": "Exact phrase from the transcript or current codebook.",
-      "explanation": "Explanation of the code and its relevance.",
-      "code": "Updated or new concept/code."
-    }}
-    // Additional code objects...
-  ]
-}}
-```
+  * **Theoretical Frameworks:**
+    Consider both:
+
+    * **Realist/Essentialist:** For capturing objective truths in the data.
+    * **Relativist/Constructionist:** For exploring the socially constructed nature of meaning.
+
+  ### Deductive Codebook Remake & Feedback Integration:
+
+  1. Update existing deductive codes by integrating insights from the final coding phase, CURRENT CODEBOOK, and the following feedback as advice, **OPTIONAL FEEDBACK:** {feedback}.
+  2. Adjust codes by updating, adding, or removing entries as needed.
+  3. Ensure each code strictly adheres to the inclusion/exclusion criteria and aligns with the deductive approach.
+  4. Clearly differentiate between semantic (surface) and latent (underlying) meanings.
+  5. Avoid forced or generic codes that are not directly relevant.
+
+  ### Output Format:
+
+  Generate your output strictly in valid JSON format as follows:
+
+  ```json
+  {{
+    "codes": [
+      {{
+        "quote": "Exact phrase from the transcript or current codebook.",
+        "explanation": "Explanation of the code and its relevance.",
+        "code": "Updated or new concept/code.",
+        "source": {{
+          "type": "comment",
+          "comment_id": "comment 1.2"
+        }}
+      }},
+      {{
+        "quote": "Exact phrase from the post body before 'Comments:'.",
+        "explanation": "Explanation of the code and its relevance.",
+        "code": "Updated or new concept/code.",
+        "source": {{
+          "type": "post",
+          "title": true
+        }}
+      }}
+      // Additional code objects...
+    ]
+  }}
+  ```
+
+ **Ensure Accuracy:**
+
+   * For quotes from comments (lines labeled `comment X.Y:`), set `"type": "comment"` and include `"comment_id"`.
+   * For quotes from the post (before comments), set `"type": "post"` and include `"title": true` if it came from the title or `"title": false` if from the selftext.
+   * If a phrase fits multiple codes, list each as a separate entry.
+   * Omit phrases that do not align with any valid codes.
+   * If no codes are applicable across the transcript, return:
+
+     ```json
+     {{ "codes": [] }}
+     ```
 
 No additional text outside the JSON.
-"""
+  """
+
     
 class GroupCodes:
     @staticmethod
