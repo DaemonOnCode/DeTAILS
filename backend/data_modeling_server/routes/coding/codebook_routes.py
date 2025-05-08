@@ -1,10 +1,7 @@
 import json
-import time
-from typing import Optional
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 
-from constants import STUDY_DATABASE_PATH
 from controllers.coding_controller import process_llm_task, summarize_codebook_explanations
 from database import (
     FunctionProgressRepository, 
@@ -47,48 +44,18 @@ async def generate_codebook_without_quotes_endpoint(
     request: Request,
     request_body: GenerateCodebookWithoutQuotesRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+    app_id: str = Header(..., alias="x-app-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    app_id = request.headers.get("x-app-id")
-
-    start_time = time.time()
-
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
-    manual_coding = bool(qect_repo.find(
-        {"workspace_id": workspace_id, "codebook_type": CodebookType.FINAL.value},
-        map_to_model=False,
-        limit=1
-    ))
-
     codebook_types = [CodebookType.INITIAL.value]
-    if manual_coding:
-        codebook_types.append(CodebookType.FINAL.value)
 
     if qect_repo.count({"workspace_id": workspace_id, "codebook_type": codebook_types, "is_marked": True}) == 0:
         raise RequestError(status_code=400, message="No responses available.")
-
-
-    if manual_coding and manual_codebook_repo.count({"workspace_id": request.headers.get("x-workspace-id")}) > 0:
-        return {
-            "message": "Codebook generated successfully!",
-            "data": {codebook_entries.code: codebook_entries.definition for codebook_entries in manual_codebook_repo.find({"workspace_id": request.headers.get("x-workspace-id")})}
-        }
     
-    if manual_coding and qect_repo.count({"workspace_id": workspace_id}) == 0 and grouped_codes_repo.count({"coding_context_id": workspace_id}) == 0:
-        raise HTTPException(status_code=400, detail="No responses found for the dataset.")
-    
-    def to_higher(code: str) -> Optional[str]:
-        if not manual_coding:
-            return code
-        entry = grouped_codes_repo.find_one({
-            "coding_context_id": workspace_id,
-            "code": code
-        })
-        return entry.higher_level_code if entry else None
-    
-    function_name = "manual_codebook_generation" if manual_coding else "initial_codebook"
+    function_name = "initial_codebook"
     
     summarized_dict = await summarize_codebook_explanations(
         workspace_id = workspace_id,
@@ -99,7 +66,6 @@ async def generate_codebook_without_quotes_endpoint(
         parent_function_name = function_name,
         llm_instance = llm,
         llm_queue_manager = llm_queue_manager,
-        code_transform = to_higher,
         max_input_tokens = 128000,
         retries = 3,
         flush_threshold = 200,
@@ -113,10 +79,7 @@ async def generate_codebook_without_quotes_endpoint(
     print(summarized_grouped_ec)
 
     try:
-        if not manual_coding:
-            initial_codebook_repo.delete({"coding_context_id": workspace_id})
-        else:
-            initial_codebook_repo.delete({"coding_context_id": workspace_id, "manual_coding": True})
+        initial_codebook_repo.delete({"coding_context_id": workspace_id})
     except Exception as e:
         print(e)
     
@@ -133,34 +96,20 @@ async def generate_codebook_without_quotes_endpoint(
         codes=json.dumps(summarized_grouped_ec)  
     )
     
-    if manual_coding:
-        manual_codebook_repo.insert_batch(
-                [
-                    ManualCodebookEntry(
-                        id=str(uuid4()),
-                        workspace_id=request.headers.get("x-workspace-id"),
-                        code= pr[0],
-                        definition= pr[1]
-                    ) for pr in  parsed_response.items() 
-                ]
-            )
-    else:
-        initial_codebook_repo.insert_batch(
-                [
-                    InitialCodebookEntry(
-                        id=str(uuid4()),
-                        coding_context_id=request.headers.get("x-workspace-id"),
-                        code= pr[0],
-                        definition= pr[1],
-                        manual_coding=manual_coding
-                    ) for pr in  parsed_response.items() 
-                ]
-            )
+    initial_codebook_repo.insert_batch(
+        [
+            InitialCodebookEntry(
+                id=str(uuid4()),
+                coding_context_id=request.headers.get("x-workspace-id"),
+                code= pr[0],
+                definition= pr[1]
+            ) for pr in  parsed_response.items() 
+        ]
+    )
 
 
     return {
         "message": "Codebook generated successfully!",
-        "data": parsed_response if manual_coding else {}
     }
     
 @router.post("/regenerate-codebook-without-quotes")
@@ -168,15 +117,10 @@ async def regenerate_codebook_without_quotes_endpoint(
     request: Request,
     request_body: RegenerateCodebookWithoutQuotesRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    workspace_id = Header(..., alias="x-workspace-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
     app_id = request.headers.get("x-app-id")
-
-    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
@@ -224,16 +168,16 @@ async def regenerate_codebook_without_quotes_endpoint(
     )
 
     initial_codebook_repo.insert_batch(
-            [
-                InitialCodebookEntry(
-                    id=str(uuid4()),
-                    coding_context_id=request.headers.get("x-workspace-id"),
-                    code= pr[0],
-                    definition= pr[1],
-                    manual_coding=False
-                ) for pr in  parsed_response.items() 
-            ]
-        )
+        [
+            InitialCodebookEntry(
+                id=str(uuid4()),
+                coding_context_id=request.headers.get("x-workspace-id"),
+                code= pr[0],
+                definition= pr[1],
+                manual_coding=False
+            ) for pr in  parsed_response.items() 
+        ]
+    )
 
     return {
         "message": "Codebook regenerated successfully!",

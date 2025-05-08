@@ -4,7 +4,7 @@ import json
 import os
 import re
 import time
-from typing import Any, AsyncGenerator, Callable, Dict, Generator, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, AsyncGenerator, Callable, Dict, Generator, List, Optional
 import unicodedata
 from uuid import uuid4
 
@@ -280,16 +280,6 @@ def filter_duplicate_codes(codes: List[Dict[str, Any]], parent_function_name: st
     return filtered_codes
 
 def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generation_type: str, parent_function_name: str, function_id: str = None):
-    count_before = qect_repo.count({
-        "workspace_id": workspace_id,
-        "codebook_type": codebook_type,
-    })
-
-    before_delete = qect_repo.find({
-        "workspace_id": workspace_id,
-        "codebook_type": codebook_type,
-    })
-
     delete_query = """
         DELETE FROM qect
         WHERE id NOT IN (
@@ -309,27 +299,9 @@ def filter_duplicate_codes_in_db(workspace_id: str, codebook_type: str, generati
     """
     params = (workspace_id, codebook_type, workspace_id, codebook_type)
     qect_repo.execute_raw_query(delete_query, params)
-    
-    count_after = qect_repo.count({
-        "workspace_id": workspace_id,
-        "codebook_type": codebook_type,
-    })
-    
-    duplicates_removed = count_before - count_after
-
-    after_delete = qect_repo.find({
-        "workspace_id": workspace_id,
-        "codebook_type": codebook_type,
-    })
-
-    print(f"Duplicates removed: {duplicates_removed}, Count before: {count_before}, Count after: {count_after}")
-
-    after_delete_response_ids = list(map(lambda x: x.id, after_delete))
-
 
 
 def insert_responses_into_db(responses: List[Dict[str, Any]], workspace_id: str, model: str, codebook_type: str, parent_function_name: str = "", post_id: str = "", function_id: str = None) -> List[Dict[str, Any]]:
-    initial_responses = responses
     responses = list(filter(lambda response: response.get("code") and response.get("quote") and response.get("explanation"), responses))
     qect_repo.insert_batch(
        list(
@@ -563,7 +535,7 @@ async def summarize_with_llm(
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
             prompt_builder_func=lambda **p: (
-                "Combine these summaries into one concise 1–2 line summary. "
+                "Combine these summaries into one concise 1-2 line summary. "
                 "Respond *only* with valid JSON object, e.g.:\n"
                 "```json\n{\"summary\": \"...\"}\n```"
                 + "\n\n" + "\n\n".join(p["texts"])
@@ -793,7 +765,6 @@ def _apply_type_filters(responseTypes: List[str], filters: List[str], params: Li
         conds = [
             "(r.codebook_type = 'final')",
             "(r.codebook_type = 'initial')",
-            "(r.codebook_type = 'manual')",
             "(r.codebook_type = 'initial_copy')"
         ]
     else:
@@ -803,8 +774,6 @@ def _apply_type_filters(responseTypes: List[str], filters: List[str], params: Li
             conds.append("(r.codebook_type = 'initial_copy')")
         if 'sampled' in responseTypes:
             conds.append("r.codebook_type = 'initial'")
-        if 'manual' in responseTypes:
-            conds.append("r.codebook_type = 'manual'")
     filters.append(f"({' OR '.join(conds)})")
 
 def stream_selected_post_ids(

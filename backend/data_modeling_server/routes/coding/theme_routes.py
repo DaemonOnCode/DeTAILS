@@ -1,11 +1,9 @@
 import asyncio
 import json
-import time
 from typing import Optional
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, Request
 
-from constants import STUDY_DATABASE_PATH
 from controllers.coding_controller import process_llm_task, summarize_codebook_explanations
 from database import (
     FunctionProgressRepository, 
@@ -49,16 +47,11 @@ async def theme_generation_endpoint(
     request: Request,
     request_body: ThemeGenerationRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+    app_id: str = Header(..., alias="x-app-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
-    app_id = request.headers.get("x-app-id")
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Theme generation process started.")
-
-    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
@@ -158,8 +151,6 @@ async def theme_generation_endpoint(
             ) 
         )
 
-    
-
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Theme generation completed.")
 
     await asyncio.sleep(5)
@@ -174,16 +165,11 @@ async def redo_theme_generation_endpoint(
     request: Request,
     request_body: RedoThemeGenerationRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+    app_id: str = Header(..., alias="x-app-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
-    app_id = request.headers.get("x-app-id")
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Theme generation redo process started.")
-
-    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 

@@ -1,6 +1,3 @@
-import sqlite3
-from typing import List
-
 from database.db_helpers import tuned_connection
 from .base_class import BaseRepository
 from models import Comment

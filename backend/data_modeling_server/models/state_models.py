@@ -25,12 +25,6 @@ class CollectionContext(BaseModel):
     selected_data: list = []
     data_filters: dict = {}
     is_locked: bool = False
-    # mode_input: str = ""
-    # subreddit: str = ""
-    # selected_posts: list = []
-
-class ModelingContext(BaseModel):
-    models: list = []
 
 class CodingContext(BaseModel):
     main_topic: Optional[str] = None
@@ -55,8 +49,3 @@ class CodingContext(BaseModel):
 
 class LoadingContext(BaseModel):
     page_state: dict = {}
-
-class ManualCodingContext(BaseModel):
-    post_states: dict = {}
-    manual_coding_responses: list = []
-    codebook: dict = {}

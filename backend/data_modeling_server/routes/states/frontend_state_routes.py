@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, Header, Request
 from fastapi.responses import FileResponse
 import pandas as pd
 import tempfile
@@ -20,23 +20,19 @@ from database import (
     InitialCodebookEntriesRepository,
     ConceptEntriesRepository,
     ConceptsRepository,
-    ManualCodebookEntriesRepository,
-    ManualPostStatesRepository,
     QectRepository,
     ResearchQuestionsRepository,
     SelectedConceptsRepository,
     SelectedPostIdsRepository,
     ThemeEntriesRepository
 )
-from constants import FRONTEND_PAGE_MAPPER, PAGE_TO_STATES, STUDY_DATABASE_PATH, TEMP_DIR
+from constants import FRONTEND_PAGE_MAPPER, PAGE_TO_STATES, TEMP_DIR
 from models.table_dataclasses import (
     CodebookType, CodingContext, 
     CollectionContext, ContextFile, 
-    Concept, ManualCodebookEntry, 
-    ManualPostState, ResearchQuestion, 
+    Concept, ResearchQuestion, 
     SelectedConcept, SelectedPostId
 )
-from utils.reducers import process_manual_coding_responses_action
 
 coding_context_repo = CodingContextRepository()
 context_files_repo = ContextFilesRepository()
@@ -50,17 +46,15 @@ initial_codebook_repo = InitialCodebookEntriesRepository()
 grouped_codes_repo = GroupedCodeEntriesRepository()
 themes_repo = ThemeEntriesRepository()
 collection_context_repo = CollectionContextRepository()
-manual_post_state_repo = ManualPostStatesRepository()
-manual_codebook_repo = ManualCodebookEntriesRepository()
-
 
 router = APIRouter()
 
 @router.post("/save-coding-context")
-async def save_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="workspaceId is required")
+async def save_coding_context(
+    request: Request, 
+    request_body: Dict[str, Any] = Body(...),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+) -> Dict[str, Any]:
     try:
         if not coding_context_repo.find_one({"id": workspace_id}, fail_silently=True):
             coding_context = CodingContext(id=workspace_id)
@@ -216,11 +210,11 @@ async def save_coding_context(request: Request, request_body: Dict[str, Any] = B
         return {"success": False}
 
 @router.post("/load-coding-context")
-async def load_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="workspaceId is required")
-
+async def load_coding_context(
+    request: Request, 
+    request_body: Dict[str, Any] = Body(...),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+) -> Dict[str, Any]:
     states: List[str] = request_body.get("states", [])
     if not states:
         states = [
@@ -238,11 +232,11 @@ async def load_coding_context(request: Request, request_body: Dict[str, Any] = B
     return response
 
 @router.post("/save-collection-context")
-async def save_collection_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="workspaceId is required")
-
+async def save_collection_context(
+    request: Request, 
+    request_body: Dict[str, Any] = Body(...),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+) -> Dict[str, Any]:
     operation_type = request_body.get("type")
     if not operation_type:
         raise HTTPException(status_code=400, detail="Operation type is required")
@@ -349,11 +343,11 @@ async def save_collection_context(request: Request, request_body: Dict[str, Any]
         return {"success": False}
 
 @router.post("/load-collection-context")
-async def load_collection_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="workspaceId is required")
-
+async def load_collection_context(
+    request: Request, 
+    request_body: Dict[str, Any] = Body(...),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+) -> Dict[str, Any]:
     states = request_body.get("states", [])
     if not states:
         states = ["type", "metadata", "dataset", "modeInput", "selectedData", "dataFilters", "isLocked"]
@@ -383,133 +377,12 @@ async def load_collection_context(request: Request, request_body: Dict[str, Any]
 
     return response
 
-@router.post("/save-manual-coding-context")
-async def save_manual_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="workspaceId is required")
-
-    operation_type = request_body.get("type")
-    if not operation_type:
-        raise HTTPException(status_code=400, detail="Operation type is required")
-    
-    if operation_type == "addPostIds":
-        new_post_ids = request_body.get("newPostIds", [])
-        inserted_rows = []
-        for post_id in new_post_ids:
-            existing = manual_post_state_repo.find_one({"workspace_id": workspace_id, "post_id": post_id}, fail_silently=True)
-            if not existing:
-                post_state = ManualPostState(workspace_id=workspace_id, post_id=post_id, is_marked=False)
-                inserted_row = manual_post_state_repo.insert_returning(post_state)
-                inserted_rows.append(inserted_row)
-        post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
-        diff = {"inserted": inserted_rows}
-        return {
-            "success": True,
-            "postStates": {ps.post_id: bool(ps.is_marked) for ps in post_states},
-            "diff": diff
-        }
-
-    elif operation_type == "updatePostState":
-        post_id = request_body.get("postId")
-        state = request_body.get("state")
-        if post_id is None or state is None:
-            raise HTTPException(status_code=400, detail="postId and state are required")
-        old_state = manual_post_state_repo.find_one(
-            {"workspace_id": workspace_id, "post_id": post_id}, columns=["is_marked"], map_to_model=False
-        )
-        old_is_marked = old_state["is_marked"] if old_state else None
-        manual_post_state_repo.update({"workspace_id": workspace_id, "post_id": post_id}, {"is_marked": bool(state)})
-        diff = {"updated": {"is_marked": {"old": old_is_marked, "new": bool(state)}}}
-        post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
-        return {
-            "success": True,
-            "postStates": {ps.post_id: ps.is_marked for ps in post_states},
-            "diff": diff
-        }
-
-    elif operation_type == "dispatchManualCodingResponses":
-        action = request_body.get("action")
-        if not action or "type" not in action:
-            raise HTTPException(status_code=400, detail="Invalid action")
-        diff = process_manual_coding_responses_action(workspace_id, action)
-        responses = qect_repo.find({"workspace_id": workspace_id, "codebook_type": "manual"})
-        return {"success": True, "manualCodingResponses": [{
-                "id": r["id"],
-                "model": r["model"],
-                "quote": r["quote"],
-                "code": r["code"],
-                "type": r["response_type"],
-                "explanation": r["explanation"],
-                "postId": r["post_id"],
-                "chatHistory": json.loads(r["chat_history"]) if r["chat_history"] else None,
-                "isMarked": bool(r["is_marked"]) if r["is_marked"] is not None else None ,
-                "rangeMarker": json.loads(r["range_marker"]) if r["range_marker"] else None,
-            } for r in responses], "diff": diff}
-
-    elif operation_type == "setCodebook":
-        return {"success": True, "codebook": request_body.get("codebook", {})}
-
-    elif operation_type == "updateContext":
-        updates = request_body.get("updates", {})
-        if "postStates" in updates:
-            new_post_states = updates["postStates"]
-            manual_post_state_repo.delete({"workspace_id": workspace_id})
-            for post_id, state in new_post_states.items():
-                manual_post_state_repo.insert(ManualPostState(workspace_id=workspace_id, post_id=post_id, state=state))
-        if "codebook" in updates:
-            new_codebook = updates["codebook"]
-            manual_codebook_repo.delete({"workspace_id": workspace_id})
-            for code, description in new_codebook.items():
-                manual_codebook_repo.insert(ManualCodebookEntry(workspace_id=workspace_id, code=code, description=description))
-        post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
-        codebook_entries = manual_codebook_repo.find({"workspace_id": workspace_id})
-        responses = qect_repo.find({"workspace_id": workspace_id, "codebook_type": "manual"})
-        return {
-            "success": True,
-            "postStates": {ps.post_id: ps.is_marked for ps in post_states},
-            "codebook": {entry.code: entry.definition for entry in codebook_entries}
-        }
-
-    elif operation_type == "resetContext":
-        manual_post_state_repo.delete({"workspace_id": workspace_id})
-        manual_codebook_repo.delete({"workspace_id": workspace_id})
-        qect_repo.delete({"workspace_id": workspace_id, "codebook_type": "manual"})
-        return {"success": True}
-
-    else:
-        raise HTTPException(status_code=400, detail="Invalid operation type")
-
-@router.post("/load-manual-coding-context")
-async def load_manual_coding_context(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="workspaceId is required")
-
-    states = request_body.get("states", [])
-    if not states:
-        states = ["postStates", "codebook"]
-
-    response = {}
-
-    if "postStates" in states:
-        post_states = manual_post_state_repo.find({"workspace_id": workspace_id})
-        response["postStates"] = {ps.post_id: bool(ps.is_marked) for ps in post_states}
-
-    if "codebook" in states:
-        codebook_entries = manual_codebook_repo.find({"workspace_id": workspace_id})
-        response["codebook"] = {entry.code: entry.definition for entry in codebook_entries}
-    return response
-
 @router.post("/reset-context-data")
 async def reset_context_data_endpoint(
     request: Request,
     request_body: Any = Body(...),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="workspaceId is required")
-
     request_body = request_body or {}
     page = FRONTEND_PAGE_MAPPER.get(request_body.get("page"), None)
 
@@ -581,10 +454,6 @@ async def reset_context_data_endpoint(
             {"id": workspace_id},
             {"data_filters": json.dumps({}), "is_locked": False}
         )
-    elif page == "manual_coding":
-        manual_codebook_repo.delete({"workspace_id": workspace_id})
-        manual_post_state_repo.update({"workspace_id": workspace_id}, {"is_marked": False})
-        qect_repo.delete({"workspace_id": workspace_id, "codebook_type": "manual"})
     else:
         raise HTTPException(status_code=400, detail="Invalid page")
     
@@ -592,11 +461,11 @@ async def reset_context_data_endpoint(
 
 
 @router.post("/check-data-existence")
-async def check_data_existence(request: Request, request_body: Dict[str, Any] = Body(...)) -> Dict[str, bool]:
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="workspaceId is required")
-
+async def check_data_existence(
+    request: Request, 
+    request_body: Dict[str, Any] = Body(...),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+) -> Dict[str, bool]:
     page = request_body.get("page")
     if not page:
         raise HTTPException(status_code=400, detail="page is required")
@@ -654,12 +523,6 @@ async def check_data_existence(request: Request, request_body: Dict[str, Any] = 
         elif state == "isLocked":
             collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists |= (collection_context is not None) and collection_context.is_locked
-        elif state == "postStates":
-            exists |= manual_post_state_repo.count({"workspace_id": workspace_id}) > 0
-        elif state == "codebook":
-            exists |= manual_codebook_repo.count({"workspace_id": workspace_id}) > 0
-        elif state == "manualCodingResponses":
-            exists |= qect_repo.count({"workspace_id": workspace_id, "codebook_type": "manual"}) > 0
 
     print(f"Data existence check for workspace {workspace_id} on page {page}: {exists}")
     return {"exists": bool(exists)}

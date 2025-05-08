@@ -92,8 +92,6 @@ def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> D
                 coding_context_id=workspace_id,
                 word=entry_data["word"],
                 description=entry_data.get("description"),
-                inclusion_criteria=entry_data.get("inclusion_criteria"),
-                exclusion_criteria=entry_data.get("exclusion_criteria"),
                 is_marked=entry_data.get("isMarked")
             )
             inserted_row = concept_entries_repo.insert_returning(entry)
@@ -137,8 +135,6 @@ def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> D
                 coding_context_id=workspace_id,
                 word=entry_data["word"],
                 description=entry_data.get("description"),
-                inclusion_criteria=entry_data.get("inclusion_criteria"),
-                exclusion_criteria=entry_data.get("exclusion_criteria"),
                 is_marked=entry_data.get("isMarked")
             )
             inserted_row = concept_entries_repo.insert_returning(entry)
@@ -181,8 +177,6 @@ def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> D
             coding_context_id=workspace_id,
             word=entry_data.get("word", ""),
             description=entry_data.get("description", ""),
-            inclusion_criteria=entry_data.get("inclusion_criteria", ""),
-            exclusion_criteria=entry_data.get("exclusion_criteria", ""),
             is_marked=True
         )
         inserted_row = concept_entries_repo.insert_returning(entry)
@@ -195,8 +189,6 @@ def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> D
             coding_context_id=workspace_id,
             word=entry_data["word"],
             description=entry_data.get("description"),
-            inclusion_criteria=entry_data.get("inclusion_criteria"),
-            exclusion_criteria=entry_data.get("exclusion_criteria"),
             is_marked=entry_data.get("isMarked")
         )
         inserted_row = concept_entries_repo.insert_returning(entry)
@@ -220,8 +212,6 @@ def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> D
                 coding_context_id=workspace_id,
                 word=entry_data["word"],
                 description=entry_data.get("description"),
-                inclusion_criteria=entry_data.get("inclusion_criteria"),
-                exclusion_criteria=entry_data.get("exclusion_criteria"),
                 is_marked=bool(entry_data.get("isMarked"))
             )
             inserted_row = concept_entries_repo.insert_returning(entry)
@@ -1012,16 +1002,6 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
         default_response_type=ResponseCreatorType.LLM.value,
         use_index=False,
         strict_action_type=True
-    )
-
-def process_manual_coding_responses_action(workspace_id: str, action: Dict[str, Any]) -> Dict[str, Any]:
-    return process_action(
-        workspace_id=workspace_id,
-        action=action,
-        codebook_type=CodebookType.MANUAL.value,
-        default_response_type=ResponseCreatorType.HUMAN.value,
-        use_index=True,
-        strict_action_type=False
     )
 
 def process_all_responses_action(workspace_id: str, action: Dict[str, Any]) -> Dict[str, Any]:

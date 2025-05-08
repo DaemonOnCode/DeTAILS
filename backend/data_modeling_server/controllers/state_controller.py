@@ -11,7 +11,6 @@ from zipfile import ZipFile
 
 from chromadb import HttpClient
 from fastapi import HTTPException, UploadFile
-from constants import STUDY_DATABASE_PATH
 from controllers.workspace_controller import upgrade_workspace_from_temp
 from database import (
     GroupedCodeEntriesRepository,
@@ -27,12 +26,10 @@ from database import (
     ContextFilesRepository,
     ResearchQuestionsRepository,
     CodingContextRepository,
-    CollectionContextRepository,
-    ManualPostStatesRepository,
-    ManualCodebookEntriesRepository
+    CollectionContextRepository
 )
 from models import WorkspaceState, Workspace
-from models.state_models import CodingContext, CollectionContext, LoadingContext, ManualCodingContext, ModelingContext
+from models.state_models import LoadingContext
 from models.table_dataclasses import CodebookType
 from utils.chroma_export import chroma_export_cli, chroma_import
 from utils.reducers import process_all_responses_action, process_concept_table_action, process_grouped_codes_action, process_initial_codebook_table_action, process_sampled_copy_post_response_action, process_sampled_post_response_action, process_themes_action, process_unseen_post_response_action
@@ -51,79 +48,16 @@ initial_codebook_repo = InitialCodebookEntriesRepository()
 grouped_codes_repo = GroupedCodeEntriesRepository()
 themes_repo = ThemeEntriesRepository()
 collection_context_repo = CollectionContextRepository()
-manual_post_state_repo = ManualPostStatesRepository()
-manual_codebook_repo = ManualCodebookEntriesRepository()
 
 def save_state(data):
-    collection_context = CollectionContext(**data.collection_context)
-    coding_context = CodingContext(**data.coding_context)
-    modeling_context = ModelingContext(**data.modeling_context)
     loading_context = LoadingContext(**data.loading_context)
-    manual_coding_context = ManualCodingContext(**data.manual_coding_context)
-
-    metadata = json.dumps(collection_context.metadata)
-    selected_data = json.dumps(collection_context.selected_data)
-    data_filters = json.dumps(collection_context.data_filters)
-
-    models = json.dumps(modeling_context.models)
-    context_files = json.dumps(coding_context.context_files)
-    concepts = json.dumps(coding_context.concepts)
-    selected_concepts = json.dumps(coding_context.selected_concepts)
-    concept_table = json.dumps(coding_context.concept_table)
-    references_data = json.dumps(coding_context.references_data)
-    themes = json.dumps(coding_context.themes)
-    grouped_codes = json.dumps(coding_context.grouped_codes)
-    research_questions = json.dumps(coding_context.research_questions)
-    sampled_post_responses = json.dumps(coding_context.sampled_post_responses)
-    sampled_post_with_themes_responses = json.dumps(coding_context.sampled_post_with_themes_responses)
-    unseen_post_response = json.dumps(coding_context.unseen_post_response)
-    unplaced_codes = json.dumps(coding_context.unplaced_codes)
-    unplaced_subcodes = json.dumps(coding_context.unplaced_subcodes)
-    sampled_post_ids = json.dumps(coding_context.sampled_post_ids)
-    unseen_post_ids = json.dumps(coding_context.unseen_post_ids)
-    conflicting_responses = json.dumps(coding_context.conflicting_responses)
-    initial_codebook = json.dumps(coding_context.initial_codebook)
-
 
     page_state = json.dumps(loading_context.page_state)
-
-    post_states = json.dumps(manual_coding_context.post_states)
-    manual_coding_responses = json.dumps(manual_coding_context.manual_coding_responses)
-    codebook = json.dumps(manual_coding_context.codebook)
 
     workspace_state = WorkspaceState(
         user_email=data.user_email,
         workspace_id=data.workspace_id,
-        mode_input=collection_context.mode_input,
-        type=collection_context.type,
-        metadata=metadata,
-        selected_data=selected_data,
-        models=models,
-        data_filters=data_filters,
-        is_locked=collection_context.is_locked,
-        main_topic=coding_context.main_topic,
-        additional_info=coding_context.additional_info,
-        context_files=context_files,
-        concepts=concepts,
-        selected_concepts=selected_concepts,
-        concept_table=concept_table,
-        references_data=references_data,
-        themes=themes,
-        grouped_codes=grouped_codes,
-        research_questions=research_questions,
-        sampled_post_responses=sampled_post_responses,
-        sampled_post_with_themes_responses=sampled_post_with_themes_responses,
-        unseen_post_response=unseen_post_response,
-        unplaced_codes=unplaced_codes,
-        unplaced_subcodes=unplaced_subcodes,
-        sampled_post_ids=sampled_post_ids,
-        unseen_post_ids=unseen_post_ids,
-        conflicting_responses=conflicting_responses,
-        initial_codebook=initial_codebook,
         page_state=page_state,
-        post_states=post_states,
-        manual_coding_responses=manual_coding_responses,
-        codebook=codebook,
         updated_at=datetime.now(),
     )
 
@@ -185,11 +119,7 @@ def load_state(data):
         return {"success": True, "data": None}
 
     json_fields = [
-        "selected_data", "metadata", "models", "data_filters", "context_files", "concepts", "selected_concepts",
-        "concept_table", "references_data", "themes", "grouped_codes", "research_questions",
-        "sampled_post_responses", "sampled_post_with_themes_responses", "initial_codebook",
-        "unseen_post_response", "unplaced_codes", "unplaced_subcodes", "sampled_post_ids", "unseen_post_ids",
-        "conflicting_responses", "page_state", "post_states", "manual_coding_responses", "codebook"
+        "page_state"
     ]
 
     for field in json_fields:
@@ -414,8 +344,6 @@ def load_concept_outline_table(workspace_id: str) -> List[Dict[str, Any]]:
             "id": ke.id,
             "word": ke.word,
             "description": ke.description,
-            "inclusion_criteria": ke.inclusion_criteria,
-            "exclusion_criteria": ke.exclusion_criteria,
             "isMarked": bool(ke.is_marked)
         }
         for ke in concept_entries
@@ -587,8 +515,6 @@ dispatch_configs = {
             "id": ke.id,
             "word": ke.word,
             "description": ke.description,
-            "inclusion_criteria": ke.inclusion_criteria,
-            "exclusion_criteria": ke.exclusion_criteria,
             "isMarked": bool(ke.is_marked)
         }
     },

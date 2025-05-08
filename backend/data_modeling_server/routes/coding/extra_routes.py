@@ -3,46 +3,37 @@ import csv
 import json
 import os
 import tempfile
-import time
 from typing import Any, Dict, List
-from uuid import uuid4
 from fastapi import APIRouter, Body, Depends, HTTPException, Header, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 import numpy as np
 import pandas as pd
 
 from config import Settings, CustomSettings
-from constants import CODEBOOK_TYPE_MAP, STUDY_DATABASE_PATH
-from controllers.coding_controller import filter_codes_by_transcript, filter_duplicate_codes_in_db, insert_responses_into_db, process_llm_task, stream_selected_post_ids
+from constants import CODEBOOK_TYPE_MAP
+from controllers.coding_controller import process_llm_task
 from controllers.collection_controller import count_comments, get_reddit_post_by_id
 from database import (
-    ManualPostStatesRepository, SelectedPostIdsRepository,
+    SelectedPostIdsRepository,
     QectRepository, FunctionProgressRepository
 )
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
-from ipc import send_ipc_message
 from models.coding_models import (
-    GenerateDeductiveCodesRequest,
     RefineCodeRequest, 
     SamplePostsRequest, TranscriptRequest
-)
-from models.table_dataclasses import (
-    CodebookType, GenerationType, ManualPostState,
 )
 from routes.websocket_routes import manager
 from services.langchain_llm import LangchainLLMService, get_llm_service
 from services.llm_service import GlobalQueueManager, get_llm_manager
 from utils.coding_helpers import generate_transcript
-from models import FunctionProgress
 from database.db_helpers import execute_query, tuned_connection
-from utils.prompts import GenerateDeductiveCodesFromCodebook, RefineSingleCode
+from utils.prompts import  RefineSingleCode
 
 
 router = APIRouter(dependencies=[Depends(get_app_id), Depends(get_workspace_id)])
 settings = Settings()
 
-manual_post_state_repo = ManualPostStatesRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
 qect_repo = QectRepository()
 function_progress_repo = FunctionProgressRepository()
@@ -58,11 +49,10 @@ async def get_selected_post_ids_endpoint(
 @router.post("/sample-posts")
 async def sample_posts_endpoint(
     request: Request,
-    request_body: SamplePostsRequest
+    request_body: SamplePostsRequest,
+    workspace_id: str = Header(..., alias="x-workspace-id"),
 ):
     settings = CustomSettings()
-
-    workspace_id = request.headers.get("x-workspace-id")
 
     if (request_body.sample_size <= 0 or 
         workspace_id == "" or 
@@ -72,10 +62,6 @@ async def sample_posts_endpoint(
 
     sample_size = request_body.sample_size
     divisions = request_body.divisions
-    workspace_id = request.headers.get("x-workspace-id")
-
-    start_time = time.time()
-
 
     try:
         selected_post_ids_repo.update({"workspace_id": workspace_id}, {"type": "ungrouped"})
@@ -110,8 +96,6 @@ async def sample_posts_endpoint(
     valid_results = [res for res in results if res[1] is not None]
     invalid_post_ids = [res[0] for res in results if res[1] is None]
 
-    post_comments = {post_id: num_comments for post_id, _, num_comments in valid_results}
-
     if invalid_post_ids:
         print(f"Some posts were not found: {invalid_post_ids}")
 
@@ -124,7 +108,7 @@ async def sample_posts_endpoint(
     if divisions == 1:
         return {"sample": df['post_id'].tolist()}
 
-    if divisions in [2, 3]:
+    if divisions == 2:
         N = len(df)
         base_size = N // divisions
         remainder = N % divisions
@@ -209,15 +193,6 @@ async def sample_posts_endpoint(
 
     if divisions == 2:
         group_names = ["sampled", "unseen"]
-    elif divisions == 3:
-        group_names = ["sampled", "unseen", "manual"]
-        manual_post_state_repo.insert_batch(
-            list(map(lambda x: ManualPostState(
-                workspace_id=workspace_id,
-                post_id=x,
-                is_marked=False,
-            ), groups[-1]))
-        )
     else:
         group_names = [f"group_{i+1}" for i in range(divisions)]
 
@@ -242,7 +217,6 @@ async def refine_single_code_endpoint(
     llm_service: LangchainLLMService = Depends(get_llm_service),
     workspace_id: str = Header(..., alias="x-workspace-id")
 ):
-    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
     post_data = get_reddit_post_by_id(workspace_id, request_body.post_id)
@@ -268,132 +242,6 @@ async def refine_single_code_endpoint(
     )
 
     return parsed_response
-
-
-@router.post("/generate-deductive-codes")
-async def generate_deductive_codes_endpoint(
-    request: Request,
-    request_body: GenerateDeductiveCodesRequest,
-    llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
-):
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-    
-    if qect_repo.count({"workspace_id": workspace_id, "codebook_type": CodebookType.MANUAL.value}) != 0:
-        return {
-            "message": "Deductive codes already exist for this dataset.",
-            "data": []
-        }
-
-    app_id = request.headers.get("x-app-id")
-    workspace_id = request.headers.get("x-workspace-id")
-
-    start_time = time.time()
-
-    llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
-
-    function_id = str(uuid4())
-    total_posts = len(request_body.post_ids)
-
-    function_progress_repo.insert(FunctionProgress(
-        workspace_id=request.headers.get("x-workspace-id"),
-        name="manual",
-        function_id=function_id,
-        status="started",
-        current=0,
-        total=total_posts
-    ))
-
-    try:
-        llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
-
-        async def process_post(post_id: str):
-            await send_ipc_message(app_id, f"Dataset {workspace_id}: Fetching data for post {post_id}...")
-            
-            post_data = get_reddit_post_by_id(workspace_id, post_id, [
-                "id", "title", "selftext"
-            ])
-
-            await send_ipc_message(app_id, f"Dataset {workspace_id}: Generating transcript for post {post_id}...")
-            transcripts = generate_transcript(post_data, llm.get_num_tokens)
-
-            async for transcript in transcripts:
-                parsed_response = await process_llm_task(
-                    workspace_id=request.headers.get("x-workspace-id"),
-                    app_id=app_id,
-                    post_id=post_id,
-                    manager=manager,
-                    llm_model=request_body.model,
-                    function_id=function_id,
-                    regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-                    prompt_builder_func=GenerateDeductiveCodesFromCodebook.generate_deductive_codes_from_codebook_prompt,
-                    llm_instance=llm,
-                    llm_queue_manager=llm_queue_manager,
-                    parent_function_name="generate-deductive-codes",
-                    codebook = request_body.codebook,
-                    post_transcript=transcript,
-                    store_response=True,
-                    cacheable_args={
-                        "args":[],
-                        "kwargs": [
-                            "codebook"
-                        ]
-                    }
-                )
-
-                if isinstance(parsed_response, list):
-                    parsed_response = {"codes": parsed_response}
-
-                codes = parsed_response.get("codes", [])
-                for code in codes:
-                    code["postId"] = post_id
-                    code["id"] = str(uuid4())
-
-                codes = filter_codes_by_transcript(workspace_id, codes, transcript, parent_function_name="generate-deductive-codes", post_id=post_id, function_id=function_id)
-                codes = insert_responses_into_db(codes, workspace_id, request_body.model, CodebookType.MANUAL.value, parent_function_name="generate-deductive-codes", post_id=post_id, function_id=function_id)
-            await send_ipc_message(app_id, f"Dataset {workspace_id}: Generated codes for post {post_id}...")
-            return codes
-
-        batches = stream_selected_post_ids(workspace_id, ["manual"]) 
-
-        for batch in batches:
-            await send_ipc_message(app_id, f"Dataset {workspace_id}: Processing batch of {len(batch)} posts...")
-            
-            await asyncio.gather(*(process_post(post_id) for post_id in batch))
-
-
-        filter_duplicate_codes_in_db(
-            workspace_id=workspace_id,
-            codebook_type=CodebookType.MANUAL.value,
-            generation_type=GenerationType.INITIAL.value,
-            parent_function_name="redo-final-coding", 
-            function_id=function_id
-        )
-
-        await send_ipc_message(app_id, f"Dataset {workspace_id}: All posts processed successfully.")
-
-        return {
-            "message": "Deductive coding completed successfully!",
-            "data": list(map(lambda x: {
-                "id": x.id,
-                "model": x.model,
-                "quote": x.quote,
-                "code": x.code,
-                "type": x.response_type,
-                "explanation": x.explanation,
-                "postId": x.post_id,
-                "chatHistory": json.loads(x.chat_history) if x.chat_history else None,
-                "isMarked": bool(x.is_marked),
-                "rangeMarker": json.loads(x.range_marker) if x.range_marker else None,
-            } , qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.MANUAL.value})))
-        }
-    except Exception as e:
-        print(f"Error in manual_deductive_coding_endpoint: {e}")
-        raise HTTPException(status_code=500, detail="An error occurred during deductive coding.")
-    finally:
-        function_progress_repo.delete({"function_id": function_id})
 
 @router.post("/transcript-data")
 async def get_transcript_data_endpoint(
@@ -500,7 +348,7 @@ async def download_qect_endpoint(
     if not response_types:
         raise HTTPException(status_code=400, detail="responseTypes must be provided")
     
-    response_types = list(map(lambda x: {"sampled": "initial", "unseen": "final", "manual": "manual"}[x], response_types))
+    response_types = list(map(lambda x: {"sampled": "initial", "unseen": "final"}[x], response_types))
 
     placeholders = ",".join("?" for _ in response_types)
     params = tuple([workspace_id, workspace_id, workspace_id, *response_types])

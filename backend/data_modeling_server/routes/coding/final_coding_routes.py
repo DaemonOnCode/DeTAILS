@@ -1,11 +1,9 @@
 import asyncio
 from datetime import datetime
 import json
-import time
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 
-from constants import STUDY_DATABASE_PATH
 from controllers.coding_controller import filter_codes_by_transcript, filter_duplicate_codes_in_db,insert_responses_into_db, process_llm_task, stream_qect_pages, stream_selected_post_ids, summarize_codebook_explanations
 from controllers.collection_controller import get_reddit_post_by_id
 from database import (
@@ -49,11 +47,10 @@ async def final_coding_endpoint(
     request: Request,
     request_body: GenerateFinalCodesRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+    app_id: str = Header(..., alias="x-app-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    app_id = request.headers.get("x-app-id")
-    workspace_id = request.headers.get("x-workspace-id")
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Final coding process started.")
 
     coding_context = coding_context_repo.find_one({"id": workspace_id})
@@ -63,14 +60,11 @@ async def final_coding_endpoint(
     if qect_repo.count({"workspace_id": workspace_id, "codebook_type": [CodebookType.INITIAL.value], "is_marked": True}) == 0:
         raise RequestError(status_code=400, message="No responses available.")
 
-
     final_codebook = initial_codebook_repo.find_one({"coding_context_id": workspace_id}, map_to_model=False)
     main_topic = coding_context.main_topic
     additional_info = coding_context.additional_info or ""
     research_questions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
     concept_table = concept_entries_repo.find({"coding_context_id": workspace_id, "is_marked": True}, map_to_model=False)
-
-    start_time = time.time()
 
     function_id = str(uuid4())
     total_posts = selected_post_ids_repo.count({"workspace_id": workspace_id, "type": "unseen"})
@@ -219,11 +213,10 @@ async def redo_final_coding_endpoint(
     request: Request,
     request_body: RedoFinalCodingRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+    app_id: str = Header(..., alias="x-app-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    app_id = request.headers.get("x-app-id")
-    workspace_id = request.headers.get("x-workspace-id")
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Final coding process started.")
 
     coding_context = coding_context_repo.find_one({"id": workspace_id})
@@ -238,8 +231,6 @@ async def redo_final_coding_endpoint(
     additional_info = coding_context.additional_info or ""
     research_questions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
     concept_table = concept_entries_repo.find({"coding_context_id": workspace_id, "is_marked": True}, map_to_model=False)
-
-    start_time = time.time()
 
     function_id = str(uuid4())
     total_posts = selected_post_ids_repo.count({"workspace_id": workspace_id, "type": "unseen"})

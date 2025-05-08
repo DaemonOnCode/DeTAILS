@@ -100,41 +100,8 @@ class Workspace(BaseDataclass):
 class WorkspaceState(BaseDataclass):
     user_email: str = field(metadata={"primary_key": True})
     workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
-    # Collection Context
-    mode_input: Optional[str] = None
-    selected_data : Optional[str] = None
-    metadata: Optional[str] = None
-    type: Optional[str] = None
-    data_filters: Optional[str] = None
-    is_locked: Optional[bool] = None
-    # Modeling Context
-    models: Optional[str] = None 
-    # Coding Context
-    main_topic: Optional[str] = None
-    additional_info: Optional[str] = None
-    context_files: Optional[str] = None 
-    research_questions: Optional[str] = None 
-    concepts: Optional[str] = None 
-    selected_concepts: Optional[str] = None 
-    concept_table: Optional[str] = None 
-    references_data: Optional[str] = None 
-    sampled_post_ids: Optional[str] = None 
-    unseen_post_ids: Optional[str] = None 
-    sampled_post_responses: Optional[str] = None 
-    unseen_post_response: Optional[str] = None 
-    grouped_codes: Optional[str] = None 
-    unplaced_subcodes: Optional[str] = None  
-    themes: Optional[str] = None 
-    unplaced_codes: Optional[str] = None 
-    sampled_post_with_themes_responses: Optional[str] = None  
-    conflicting_responses: Optional[str] = None  
-    initial_codebook: Optional[str] = None  
     # Loading Context
     page_state: Optional[str] = None
-    # Manual Coding Context
-    post_states: Optional[str] = None 
-    manual_coding_responses: Optional[str] = None  
-    codebook: Optional[str] = None 
     # Metadata
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
 
@@ -143,51 +110,7 @@ class WorkspaceState(BaseDataclass):
 class SelectedPostId(BaseDataclass):
     workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
     post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
-    type: Optional[str] = field(metadata={"not_null": True}, default="ungrouped")  # "sampled" or "unseen" or "test" corresponding to sampledPostReponse, UnseenPostResponse, and manualCoding Responses or "ungrouped"
-
-
-@dataclass
-class Rule(BaseDataclass):
-    workspace_id: str = field(metadata={"not_null": True, "foreign_key": "workspaces(id)"})
-    step: int = field(metadata={"not_null": True})
-    fields: str = field(metadata={"not_null": True})
-    words: str = field(metadata={"not_null": True})
-    action: str = field(metadata={"not_null": True})
-    id: str = field(metadata={"primary_key": True})
-    pos: Optional[str] = None
-
-
-@dataclass
-class TokenStat(BaseDataclass):
-    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
-    removed_tokens: Optional[str] = None
-    included_tokens: Optional[str] = None
-
-
-@dataclass
-class TokenStatDetailed(BaseDataclass):
-    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
-    token: str = field(metadata={"primary_key": True})
-    status: str = field(metadata={"primary_key": True})
-    pos: Optional[str] = None
-    count_words: Optional[int] = None
-    count_docs: Optional[int] = None
-    tfidf_min: Optional[float] = None
-    tfidf_max: Optional[float] = None
-
-
-@dataclass
-class Model(BaseDataclass):
-    id: str = field(metadata={"primary_key": True})
-    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
-    model_name: Optional[str] = None
-    method: Optional[str] = None
-    topics: Optional[str] = None
-    started_at: Optional[datetime] = field(default_factory=datetime.now)
-    finished_at: Optional[datetime] = None
-    num_topics: Optional[int] = None
-    stage: Optional[str] = None
-
+    type: Optional[str] = field(metadata={"not_null": True}, default="ungrouped")  # "sampled" or "unseen" corresponding to sampledPostReponse, unseenPostResponse Responses or "ungrouped"
 
 @dataclass
 class Dataset(BaseDataclass):
@@ -239,21 +162,6 @@ class Comment(BaseDataclass):
 
 
 @dataclass
-class TokenizedPost(BaseDataclass):
-    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
-    post_id: str = field(metadata={"primary_key": True, "foreign_key": "posts(id)"})
-    title: Optional[str] = None
-    selftext: Optional[str] = None
-
-
-@dataclass
-class TokenizedComment(BaseDataclass):
-    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"})
-    comment_id: str = field(metadata={"primary_key": True, "foreign_key": "comments(id)"})
-    body: Optional[str] = None
-
-
-@dataclass
 class LlmResponse(BaseDataclass):
     id: str = field(metadata={"primary_key": True})
     workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
@@ -263,30 +171,6 @@ class LlmResponse(BaseDataclass):
     function_id: str = field(metadata={"not_null": True})
     additional_info: Optional[str] = None
     created_at: Optional[datetime] = field(default_factory=datetime.now)
-
-@dataclass
-class Token(BaseDataclass):
-    count: int
-    doc_id: str = field(metadata={"primary_key": True}),
-    token: str = field(metadata={"primary_key": True}),
-    pos: str = field(metadata={"primary_key": True}),
-
-@dataclass
-class Tfidf(BaseDataclass):
-    tfidf_min: float
-    tfidf_max: float
-    token: str = field(metadata={"primary_key": True})
-
-@dataclass
-class TempTokenStat(BaseDataclass):
-    status: str = field(metadata={"primary_key": True})
-    count_words: int
-    count_docs: int
-    tfidf_min: float
-    tfidf_max: float
-    workspace_id: str = field(metadata={"primary_key": True, "foreign_key": "workspaces(id)"}),
-    token: str = field(metadata={"primary_key": True}),
-    pos: str = field(metadata={"primary_key": True}),
 
 @dataclass
 class TorrentDownloadProgress(BaseDataclass):
@@ -453,8 +337,6 @@ class ConceptEntry(BaseDataclass):
     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
     word: str = field(metadata={"not_null": True})
     description: Optional[str] = None
-    inclusion_criteria: Optional[str] = None
-    exclusion_criteria: Optional[str] = None
     is_marked: Optional[bool] = field(default=True)
 
 
@@ -464,7 +346,6 @@ class InitialCodebookEntry(BaseDataclass):
     coding_context_id: str = field(metadata={"foreign_key": "coding_context(id)", "not_null": True})
     code: str = field(metadata={"not_null": True})
     definition: Optional[str] = None
-    manual_coding: Optional[bool] = False
 
 @dataclass
 class GroupedCodeEntry(BaseDataclass):
@@ -490,18 +371,3 @@ class CollectionContext(BaseDataclass):
     mode_input: Optional[str] = None
     data_filters: Optional[str] = None
     is_locked: bool = False
-    
-
-@dataclass
-class ManualCodebookEntry(BaseDataclass):
-    id: str = field(metadata={"primary_key": True})
-    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
-    code: str = field(metadata={"not_null": True})
-    definition: Optional[str] = None
-
-@dataclass
-class ManualPostState(BaseDataclass):
-    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
-    post_id: str = field(metadata={"foreign_key": "selected_post_ids(post_id)", "not_null": True})
-    id: Optional[int] = field(default=None, metadata={"primary_key": True, "auto_increment": True})
-    is_marked: Optional[bool] = field(default=False)

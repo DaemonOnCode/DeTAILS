@@ -1,9 +1,7 @@
 import json
-import time
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, Request
 
-from constants import STUDY_DATABASE_PATH
 from controllers.coding_controller import process_llm_task, summarize_codebook_explanations
 from database import (
     FunctionProgressRepository, 
@@ -45,18 +43,12 @@ async def group_codes_endpoint(
     request: Request,
     request_body: GroupCodesRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+    app_id: str = Header(..., alias="x-app-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
-    app_id = request.headers.get("x-app-id")
-
     if qect_repo.count({"workspace_id": workspace_id, "codebook_type": [CodebookType.INITIAL_COPY.value,CodebookType.FINAL.value], "is_marked": True}) == 0:
         raise RequestError(status_code=400, message="No codes available for grouping.")
-
-    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 
@@ -154,19 +146,12 @@ async def regroup_codes_endpoint(
     request: Request,
     request_body: RegroupCodesRequest,
     llm_queue_manager: GlobalQueueManager = Depends(get_llm_manager),
-    llm_service: LangchainLLMService = Depends(get_llm_service)
+    llm_service: LangchainLLMService = Depends(get_llm_service),
+    workspace_id: str = Header(..., alias="x-workspace-id"),
+    app_id: str = Header(..., alias="x-app-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    if not workspace_id:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
-    app_id = request.headers.get("x-app-id")
-
     if qect_repo.count({"workspace_id": workspace_id, "codebook_type": [CodebookType.INITIAL_COPY.value,CodebookType.FINAL.value], "is_marked": True}) == 0:
         raise RequestError(status_code=400, message="No codes available for grouping.")
-
-
-    start_time = time.time()
 
     llm, _ = llm_service.get_llm_and_embeddings(request_body.model)
 

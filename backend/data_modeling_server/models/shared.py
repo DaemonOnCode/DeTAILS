@@ -11,9 +11,9 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    def check_model(self, model_name: str):
+    def check_model(self, model_name: str) -> bool:
         return True
 
     @abstractmethod
-    def check_embedding_model(self, embedding_name: str):
+    def check_embedding_model(self, embedding_name: str) -> bool:
         return True

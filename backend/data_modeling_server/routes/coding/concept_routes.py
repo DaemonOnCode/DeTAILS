@@ -4,7 +4,6 @@ from typing import List
 from uuid import uuid4
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 
-from constants import STUDY_DATABASE_PATH
 from controllers.coding_controller import initialize_vector_store, process_llm_task, save_context_files, summarize_codebook_explanations
 from database import (
     CodingContextRepository,
@@ -54,8 +53,6 @@ async def build_context_from_interests_endpoint(
     researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
 
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Processing started.")
-
-    start_time = time.time()
 
     llm, embeddings = llm_service.get_llm_and_embeddings(model)
 
@@ -147,8 +144,6 @@ async def generate_definitions_endpoint(
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
     
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Processing started.")
-
-    start_time = time.time()
     
     llm, embeddings = llm_service.get_llm_and_embeddings(model)
     
@@ -204,8 +199,6 @@ async def generate_definitions_endpoint(
                 coding_context_id=workspace_id,
                 word=entry.get("word"),
                 description=entry.get("description"),
-                inclusion_criteria=", ".join(entry.get("inclusion_criteria", [])),
-                exclusion_criteria=", ".join(entry.get("exclusion_criteria", [])),
                 is_marked=True
             )
             for entry in results
@@ -246,8 +239,6 @@ async def regenerate_concepts_endpoint(
     selected_concepts = list(map(lambda x: x.concept_id, selected_concepts_repo.find({"coding_context_id": workspace_id})))
 
     await send_ipc_message(app_id, f"Dataset {workspace_id}: Regenerating concepts with feedback...")
-
-    start_time = time.time()
 
     llm, embeddings = llm_service.get_llm_and_embeddings(request_body.model)
 
