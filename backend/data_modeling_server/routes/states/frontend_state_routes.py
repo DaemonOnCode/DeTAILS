@@ -526,6 +526,12 @@ async def reset_context_data_endpoint(
         grouped_codes_repo.delete({"coding_context_id": workspace_id})
     elif page == "generating_themes":
         themes_repo.delete({"coding_context_id": workspace_id})
+    elif page == "data_type":
+        collection_context_repo.update(
+            {"id": workspace_id},
+            {"type": None}
+        )
+        context_files_repo.delete({"coding_context_id": workspace_id})
     elif page == "data_source":
         collection_context_repo.update(
             {"id": workspace_id},

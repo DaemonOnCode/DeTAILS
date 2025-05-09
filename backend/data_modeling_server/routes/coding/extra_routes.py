@@ -315,12 +315,7 @@ async def get_transcript_data_endpoint(
         r.post_id,
         r.quote,
         r.explanation,
-        CASE
-          WHEN :manualCoding = 1
-            THEN COALESCE(g.higher_level_code, r.code)
-          ELSE
-            r.code
-        END AS code,
+        r.code AS code,
         r.response_type,
         r.chat_history,
         r.range_marker,
@@ -338,7 +333,6 @@ async def get_transcript_data_endpoint(
     """
 
     params: Dict[str, Any] = {
-        "manualCoding": 1 if request_body.manualCoding else 0,
         "workspace_id": workspace_id,
         "post_id":     post_id,
     }
@@ -367,25 +361,14 @@ async def get_transcript_data_endpoint(
             "source": json.loads(row["source"]) if row.get("source") else None,
         })
 
-    if request_body.manualCoding:
-        codes_sql = """
-        SELECT DISTINCT
-            g.higher_level_code AS code
-        FROM grouped_code_entries g
-        WHERE g.coding_context_id = ?
-            AND g.higher_level_code IS NOT NULL
-        ORDER BY g.higher_level_code;
-        """
-        code_rows = execute_query(codes_sql, [workspace_id], keys=True)
-    else:
-        codes_sql = """
-        SELECT DISTINCT r.code
-            FROM qect r
-        WHERE r.workspace_id = ?
-            AND r.code IS NOT NULL
-        ORDER BY r.code;
-        """
-        code_rows = execute_query(codes_sql, [workspace_id], keys=True)
+    codes_sql = """
+    SELECT DISTINCT r.code
+        FROM qect r
+    WHERE r.workspace_id = ?
+        AND r.code IS NOT NULL
+    ORDER BY r.code;
+    """
+    code_rows = execute_query(codes_sql, [workspace_id], keys=True)
     all_codes = [r["code"] for r in code_rows if r["code"]]
 
     return {

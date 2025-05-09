@@ -1074,7 +1074,7 @@ class ConceptOutline:
             "research questions, and additional feedback. Try not to be completely dependant on context and think more about the main topic, additional information about main topic, and research questions.\n\n"
             "Your response must be in JSON format as a list of objects, each containing "
             """
-            {{
+            ```json{{
               "concepts": [
                 {{
                   "word": "ExtractedConcept",
@@ -1082,7 +1082,7 @@ class ConceptOutline:
                 }},
                 ...
               ]
-            }}"""
+            }}```"""
             "\nTextual Data: \n{context}\n\n"
         )
         

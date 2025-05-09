@@ -127,7 +127,7 @@ async def build_context_from_interests_endpoint(
                 "concepts": [
                     {
                         "id": concepts_with_ids[idx].id,
-                         **word,
+                         "word": word,
                     }
                     for idx, word in enumerate(concepts_list)
                 ]
@@ -203,6 +203,19 @@ async def generate_definitions_endpoint(
                 f"Research Questions: {researchQuestions}\n"
                 f"Words to define: {', '.join(batch_words)}\n\n"
                 f"Provide the response in JSON format."
+                 "Your response must be in JSON format as a list of objects, each containing "
+                """
+                ```json
+                {
+                    "concepts": [
+                        {
+                        "word": "ExtractedConcept",
+                        "description": "Explanation of the word and its relevance to the main topic and additional information."
+                        },
+                        ...
+                    ]
+                }```\n"""
+                "Follow the JSON format strictly. "
             )
         
         parsed_output = await process_llm_task(
@@ -356,7 +369,7 @@ async def regenerate_concepts_endpoint(
                 "concepts": [
                     {
                         "id": concepts_with_ids[idx].id,
-                        **word,
+                        "word": word,
                     }
                     for idx, word in enumerate(concepts_list)
                 ]

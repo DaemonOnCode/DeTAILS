@@ -128,7 +128,6 @@ class PaginatedPostRequest(BaseModel):
 class TranscriptRequest(BaseModel):
     postId: str
     responseTypes: List[str]
-    manualCoding: bool = False
 
 class AnalysisRequest(BaseModel):
     viewType: Literal['post', 'code']

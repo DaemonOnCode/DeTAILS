@@ -88,7 +88,7 @@ async def generate_codebook_without_quotes_endpoint(
     print(summarized_grouped_ec)
 
     try:
-        initial_codebook_repo.delete({"coding_context_id": workspace_id, "manual_coding": True})
+        initial_codebook_repo.delete({"coding_context_id": workspace_id})
     except Exception as e:
         print(e)
     
@@ -203,7 +203,6 @@ async def regenerate_codebook_without_quotes_endpoint(
                     coding_context_id=request.headers.get("x-workspace-id"),
                     code= pr[0],
                     definition= pr[1],
-                    manual_coding=False
                 ) for pr in  parsed_response.items() 
             ]
         )
