@@ -448,7 +448,6 @@ async def reset_context_data_endpoint(
             {"id": workspace_id},
             {"type": None}
         )
-        context_files_repo.delete({"coding_context_id": workspace_id})
     elif page == "data_source":
         collection_context_repo.update(
             {"id": workspace_id},
