@@ -38,8 +38,10 @@ interface SequenceDiff {
   recall: number;
   codeKappas: { code: string; kappa: number }[];
   cohenKappa: number;
+  krippendorffAlpha: number;
   llmAddedCorrect: number;
   humanNotInLlmCorrect: number;
+  matchingQuotes: number;
   percentageAgreement: number;
 }
 
@@ -223,6 +225,66 @@ const computeMetrics = async (
   return { precision, recall };
 };
 
+const masiDistance = (setA: Set<string>, setB: Set<string>): number => {
+  if (setA.size === 0 && setB.size === 0) return 0;
+  const intersection = new Set([...setA].filter((x) => setB.has(x)));
+  const union = new Set([...setA, ...setB]);
+  const jaccard = intersection.size / union.size;
+  const monotonicity = setA.size === setB.size ? 1 : 0.5;
+  return 1 - jaccard * monotonicity;
+};
+
+const calculateKrippendorffAlpha = (
+  data: { coder: string; item: string; labels: Set<string> }[]
+): number => {
+  const items = Array.from(new Set(data.map((d) => d.item)));
+
+  const annotations: { [item: string]: { [coder: string]: Set<string> } } = {};
+  data.forEach((d) => {
+    if (!annotations[d.item]) annotations[d.item] = {};
+    annotations[d.item][d.coder] = d.labels;
+  });
+
+  const annotationTable = items.map((item) => ({
+    item,
+    llm: Array.from(annotations[item]?.llm || []),
+    human: Array.from(annotations[item]?.human || []),
+  }));
+  console.table(annotationTable);
+
+  let Do = 0;
+  let count = 0;
+  items.forEach((item) => {
+    const llmLabels = annotations[item]?.llm || new Set();
+    const humanLabels = annotations[item]?.human || new Set();
+    if (llmLabels && humanLabels) {
+      const distance = masiDistance(llmLabels, humanLabels);
+      Do += distance;
+      count++;
+    }
+  });
+  Do = count > 0 ? Do / count : 0;
+  console.log(`Observed disagreement (Do): ${Do}`);
+
+  let De = 0;
+  let deCount = 0;
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const setA = annotations[items[i]]?.llm || new Set();
+      const setB = annotations[items[j]]?.human || new Set();
+      const distance = masiDistance(setA, setB);
+      De += distance;
+      deCount++;
+    }
+  }
+  De = deCount > 0 ? De / deCount : 0;
+  console.log(`Expected disagreement (De): ${De}`);
+
+  const alpha = De > 0 ? 1 - Do / De : 1;
+  console.log(`Krippendorff's Alpha: ${alpha}`);
+  return alpha;
+};
+
 const FinalCodingResultsDiffViewer: React.FC = () => {
   const {
     isDatabaseLoaded,
@@ -232,7 +294,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
     workerPoolRef,
   } = useDatabase();
 
-  const mappingPoolRef = useRef(null as unknown as WorkerPool);
+  const mappingPoolRef = useRef<WorkerPool | null>(null);
 
   useEffect(() => {
     mappingPoolRef.current = new WorkerPool(
@@ -240,7 +302,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
       4
     );
     return () => {
-      mappingPoolRef.current.terminate();
+      mappingPoolRef.current?.terminate();
     };
   }, []);
 
@@ -280,12 +342,13 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
     }
 
     const results = await Promise.all(
-      chunks.map((chunk) =>
+      chunks.map((chunk, idx) =>
         workerPoolRef.current!.runTask<any[]>(
           {
             type: "fetchPostsAndCommentsBatch",
             workspaceId: selectedWorkspaceId as string,
             postIds: chunk,
+            id: `${chunk.join(",")}-${new Date().getTime()}-${idx}`,
           },
           {
             responseType: "fetchPostsAndCommentsBatchResult",
@@ -388,15 +451,19 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
        AND json_extract(context, '$.workspace_id') = ?`,
       [selectedWorkspaceId]
     );
-    const unseenPostIds: string[] = unseenPostIdsQuery.flatMap((row: any) => {
-      try {
-        const state = JSON.parse(row.state);
-        return state.groups?.unseen || [];
-      } catch (e) {
-        console.error("Failed to parse state JSON:", e);
-        return [];
-      }
-    });
+    const unseenPostIds: string[] = [
+      ...new Set(
+        unseenPostIdsQuery.flatMap((row: any) => {
+          try {
+            const state = JSON.parse(row.state);
+            return state.groups?.unseen || [];
+          } catch (e) {
+            console.error("Failed to parse state JSON:", e);
+            return [];
+          }
+        })
+      ),
+    ] as string[];
     if (unseenPostIds.length === 0) {
       throw new Error("No unseen post IDs found.");
     }
@@ -424,7 +491,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
 
     const llmMappings = await Promise.all(
       unseenPostIds.map((postId) =>
-        mappingPoolRef.current.runTask<CodeToQuoteIdsResult>(
+        mappingPoolRef.current!.runTask<CodeToQuoteIdsResult>(
           {
             type: "getCodeToQuoteIds",
             post: postMap[postId],
@@ -434,7 +501,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
               code: r.code,
               rangeMarker: r.range_marker,
             })),
-            id: `${postId}-llm`,
+            id: `${postId}-llm-${new Date().getTime()}`,
           },
           {
             responseType: "getCodeToQuoteIdsResult",
@@ -446,7 +513,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
 
     const humanMappings = await Promise.all(
       unseenPostIds.map((postId) =>
-        mappingPoolRef.current.runTask<CodeToQuoteIdsResult>(
+        mappingPoolRef.current!.runTask<CodeToQuoteIdsResult>(
           {
             type: "getCodeToQuoteIds",
             post: postMap[postId],
@@ -456,7 +523,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
               code: r.code,
               rangeMarker: r.range_marker,
             })),
-            id: `${postId}-human`,
+            id: `${postId}-human-${new Date().getTime()}`,
           },
           {
             responseType: "getCodeToQuoteIdsResult",
@@ -473,7 +540,7 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
     unseenPostIds.forEach((postId, idx) => {
       const llmMapping = llmMappings[idx];
       const humanMapping = humanMappings[idx];
-      allQuoteIds[postId] = llmMapping.allQuoteIds;
+      allQuoteIds[postId] = [...new Set(llmMapping.allQuoteIds)];
 
       llmQuoteToCodes[postId] = {};
       for (const [codeId, quoteIds] of Object.entries(
@@ -521,6 +588,11 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
         c = 0,
         d = 0;
       unseenPostIds.forEach((postId) => {
+        let prevA = a,
+          prevB = b,
+          prevC = c,
+          prevD = d;
+        allQuoteIds[postId] = [...new Set(allQuoteIds[postId])];
         allQuoteIds[postId].forEach((quoteId) => {
           const llmApplied =
             llmQuoteToCodes[postId][quoteId]?.has(code) || false;
@@ -531,6 +603,15 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
           else if (llmApplied) c++;
           else d++;
         });
+
+        console.log(
+          "Quote ids:",
+          a - prevA,
+          b - prevB,
+          c - prevC,
+          d - prevD,
+          postId
+        );
       });
       const N = a + b + c + d;
       if (N === 0) continue;
@@ -558,28 +639,43 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
       });
     }
 
-    const cohenKappa =
-      codeKappas.length > 0
-        ? codeKappas.reduce((sum, { kappa }) => sum + kappa, 0) /
-          codeKappas.length
-        : 0;
-
     const totalN = sumA + sumB + sumC + sumD;
-    const percentageAgreement = totalN > 0 ? (sumA + sumD) / totalN : 0;
+    const p0 = totalN > 0 ? (sumA + sumD) / totalN : 0;
+    const pLLMYes = totalN > 0 ? (sumA + sumC) / totalN : 0;
+    const pHumanYes = totalN > 0 ? (sumA + sumB) / totalN : 0;
+    const pe = pLLMYes * pHumanYes + (1 - pLLMYes) * (1 - pHumanYes);
+    const cohenKappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
+    const percentageAgreement = p0;
 
-    // Updated LLM Added Correct calculation
+    const alphaData = unseenPostIds
+      .flatMap((postId) =>
+        allQuoteIds[postId].map((quoteId) => [
+          {
+            coder: "llm",
+            item: quoteId,
+            labels: llmQuoteToCodes[postId][quoteId] || new Set(),
+          },
+          {
+            coder: "human",
+            item: quoteId,
+            labels: humanQuoteToCodes[postId][quoteId] || new Set(),
+          },
+        ])
+      )
+      .flat();
+
+    const krippendorffAlpha = calculateKrippendorffAlpha(alphaData);
+
     const totalLLMResponses = Array.from(initialResults.values()).filter(
       (r) => r.response_type === "LLM"
     ).length;
     const correctLLMResponses = Array.from(finalResults.values()).filter(
       (r) => r.response_type === "LLM" && r.is_marked === true
     ).length;
-    const llmAddedCorrect =
-      totalLLMResponses > 0
-        ? (correctLLMResponses / totalLLMResponses) * 100
-        : 0;
+    const llmAddedCorrect = totalLLMResponses > 0 ? correctLLMResponses : 0;
 
     const humanNotInLlmCorrect = changes.inserted.length;
+    const matchingQuotes = sumA;
 
     return {
       sequenceId: seqIndex + 1,
@@ -594,8 +690,10 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
       recall,
       codeKappas,
       cohenKappa,
+      krippendorffAlpha,
       llmAddedCorrect,
       humanNotInLlmCorrect,
+      matchingQuotes,
       percentageAgreement,
     };
   };
@@ -710,12 +808,19 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
                     <strong>Cohen's Kappa:</strong> {seqDiff.cohenKappa}
                   </p>
                   <p>
+                    <strong>Krippendorff's Alpha:</strong>{" "}
+                    {seqDiff.krippendorffAlpha}
+                  </p>
+                  <p>
                     <strong>LLM Added Correct:</strong>{" "}
-                    {seqDiff.llmAddedCorrect}%
+                    {seqDiff.llmAddedCorrect}
                   </p>
                   <p>
                     <strong>Human Not In LLM Correct:</strong>{" "}
                     {seqDiff.humanNotInLlmCorrect}
+                  </p>
+                  <p>
+                    <strong>Matching Quotes:</strong> {seqDiff.matchingQuotes}
                   </p>
                   <p>
                     <strong>Percentage Agreement:</strong>{" "}

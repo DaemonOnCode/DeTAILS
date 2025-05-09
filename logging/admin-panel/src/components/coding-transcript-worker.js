@@ -54,33 +54,54 @@ function getCodeToQuoteMap(post, codes) {
     ...post.comments.flatMap((comment) => traverseComments(comment, post.id)),
   ];
 
-  const allQuoteIds = transcriptFlatMap.map(getQuoteId);
+  const allQuoteIds = Array.from(new Set(transcriptFlatMap.map(getQuoteId)));
   const codeToQuoteIds = {};
 
   codes.forEach((code) => {
-    const quoteIds = new Set();
-    if (code.rangeMarker) {
-      const dataIndex = parseInt(code.rangeMarker.itemId);
-      if (dataIndex >= 0 && dataIndex < transcriptFlatMap.length) {
-        const element = transcriptFlatMap[dataIndex];
-        const quoteId = getQuoteId(element);
-        quoteIds.add(quoteId);
-      }
-    } else {
-      transcriptFlatMap.forEach((element) => {
-        const elementText = normalizeText(element.text);
-        const codeText = normalizeText(code.text);
-        const exactMatch = element.text.includes(code.text);
+    codeToQuoteIds[code.id] = new Set();
+  });
+
+  transcriptFlatMap.forEach((data, index) => {
+    const quoteId = getQuoteId(data);
+
+    codes.forEach((code) => {
+      let isMatch = false;
+
+      if (code.rangeMarker && code.rangeMarker.itemId === String(index)) {
+        isMatch = true;
+      } else if (code.source) {
+        try {
+          const src = JSON.parse(code.source);
+          if (
+            src.type === "comment" &&
+            data.type === "comment" &&
+            data.id === src.comment_id
+          ) {
+            isMatch = true;
+          } else if (src.type === "post") {
+            if (src.title && data.type === "title") isMatch = true;
+            else if (!src.title && data.type === "selftext") isMatch = true;
+          }
+        } catch {
+          console.error("Error parsing source metadata:", code.source);
+        }
+      } else {
+        const normText = normalizeText(data.text);
+        const normCodeText = normalizeText(code.text);
+        const exactMatch = data.text.includes(code.text);
         const fuzzyScore = exactMatch
           ? 100
-          : ratio(elementText, codeText, { full_process: true });
-        if (fuzzyScore >= 85) {
-          const quoteId = getQuoteId(element);
-          quoteIds.add(quoteId);
-        }
-      });
-    }
-    codeToQuoteIds[code.id] = Array.from(quoteIds);
+          : ratio(normText, normCodeText, { full_process: true });
+        if (fuzzyScore >= 85) isMatch = true;
+      }
+
+      if (isMatch) {
+        codeToQuoteIds[code.id].add(quoteId);
+      }
+    });
+  });
+  Object.keys(codeToQuoteIds).forEach((codeId) => {
+    codeToQuoteIds[codeId] = Array.from(codeToQuoteIds[codeId]);
   });
 
   return { codeToQuoteIds, allQuoteIds };
