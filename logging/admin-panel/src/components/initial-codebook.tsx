@@ -52,10 +52,7 @@ const groupCodebookSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
   let currentSequence: DatabaseRow[] = [];
   for (const entry of entries) {
     const context = safeParseContext(entry.context);
-    if (
-      context.function === "manual_codebook_generation" ||
-      context.function === "initial_codebook"
-    ) {
+    if (context.function === "initial_codebook") {
       if (currentSequence.length > 0) sequences.push(currentSequence);
       currentSequence = [entry];
     } else if (

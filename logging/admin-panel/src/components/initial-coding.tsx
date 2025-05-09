@@ -222,12 +222,26 @@ const computeMetrics = async (
 };
 
 const masiDistance = (setA: Set<string>, setB: Set<string>): number => {
-  if (setA.size === 0 && setB.size === 0) return 0;
   const intersection = new Set([...setA].filter((x) => setB.has(x)));
   const union = new Set([...setA, ...setB]);
-  const jaccard = intersection.size / union.size;
-  const monotonicity = setA.size === setB.size ? 1 : 0.5;
-  return 1 - jaccard * monotonicity;
+  const len_intersection = intersection.size;
+  const len_union = union.size;
+  const len_label1 = setA.size;
+  const len_label2 = setB.size;
+
+  let m: number;
+  if (len_label1 === len_label2 && len_label1 === len_intersection) {
+    m = 1;
+  } else if (len_intersection === Math.min(len_label1, len_label2)) {
+    m = 0.67;
+  } else if (len_intersection > 0) {
+    m = 0.33;
+  } else {
+    m = 0;
+  }
+
+  const jaccard = len_union === 0 ? 1 : len_intersection / len_union;
+  return 1 - jaccard * m;
 };
 
 const calculateKrippendorffAlpha = (
@@ -679,11 +693,16 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     const initialLLMResponses = Array.from(initialResults.values()).filter(
       (r) => r.response_type === "LLM"
     );
+    const totalLLMResponses = Array.from(initialResults.values()).filter(
+      (r) => r.response_type === "LLM"
+    ).length;
     const correctLLMResponses = initialLLMResponses.filter(
       (r) => finalResults.has(r.id) && r.is_marked === true
     ).length;
     const llmAddedCorrect =
-      initialLLMResponses.length > 0 ? correctLLMResponses : 0;
+      initialLLMResponses.length > 0
+        ? (correctLLMResponses / totalLLMResponses) * 100
+        : 0;
 
     const humanNotInLlmCorrect = changes.inserted.length;
     const matchingQuotes = sumA;
@@ -824,7 +843,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
                   </p>
                   <p>
                     <strong>LLM Added Correct:</strong>{" "}
-                    {seqDiff.llmAddedCorrect}
+                    {seqDiff.llmAddedCorrect}%
                   </p>
                   <p>
                     <strong>Human Not In LLM Correct:</strong>{" "}
