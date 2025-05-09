@@ -170,6 +170,19 @@ async def generate_definitions_endpoint(
                 f"Research Questions: {researchQuestions}\n"
                 f"Words to define: {', '.join(batch_words)}\n\n"
                 f"Provide the response in JSON format."
+                 "Your response must be in JSON format as a list of objects, each containing "
+                """
+                ```json
+                {
+                    "concepts": [
+                        {
+                        "word": "ExtractedConcept",
+                        "description": "Explanation of the word and its relevance to the main topic and additional information."
+                        },
+                        ...
+                    ]
+                }```\n"""
+                "Follow the JSON format strictly. "
             )
         
         parsed_output = await process_llm_task(
