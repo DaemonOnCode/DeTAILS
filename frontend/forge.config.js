@@ -35,10 +35,8 @@ module.exports = {
         },
         appCategoryType: 'public.app-category.developer-tools',
         icon: 'public/details-icon',
-        extraResource: fs
-            .readdirSync(extraResourcePath)
-            .filter(shouldInclude)
-            .map((name) => path.join(extraResourcePath, name))
+        extraResource: [extraResourcePath],
+        executableName: process.platform === 'linux' ? 'details' : undefined
     },
     rebuildConfig: {},
     makers: [
