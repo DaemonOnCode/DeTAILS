@@ -40,7 +40,6 @@ interface UnifiedCodingPageProps {
     showRerunCoding?: boolean;
     handleRerun?: () => void;
     conflictingResponses?: any[];
-    manualCoding?: boolean;
     onPostSelect?: (postId: string | null) => void;
     showCoderType?: boolean;
     coderType?: CoderType;
@@ -60,7 +59,6 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
     showRerunCoding = false,
     handleRerun = () => {},
     conflictingResponses = [],
-    manualCoding = false,
     onPostSelect = () => {},
     showCoderType = false,
     coderType,
@@ -272,11 +270,6 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
 
     const handleViewTranscript = useCallback(
         (postId: string | null) => {
-            if (manualCoding) {
-                onPostSelect(postId);
-                return;
-            }
-
             console.log('View transcript clicked', postId);
 
             const params = new URLSearchParams();

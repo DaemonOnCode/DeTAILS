@@ -16,7 +16,6 @@ interface RelatedCodesProps {
         explanation: string;
         quote: string;
     }[];
-    manualCoding?: boolean;
 }
 
 const RelatedCodes: FC<RelatedCodesProps> = ({
@@ -27,8 +26,7 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
     codeCounts,
     conflictingCodes = [],
     codeColors,
-    dispatchFunction,
-    manualCoding = false
+    dispatchFunction
 }) => {
     const { chatHistories, hoveredCodeText, setHoveredCode, selectedExplanations } =
         useTranscriptContext();
@@ -74,31 +72,27 @@ const RelatedCodes: FC<RelatedCodesProps> = ({
                 </ul>
             </div>
 
-            {!manualCoding && (
-                <>
-                    <h3 className="text-lg font-bold">Explanations</h3>
-                    <div className="flex-1 overflow-y-auto" ref={explanationRef}>
-                        {selectedExplanations.map((explanationItem) => {
-                            const existingChat = getStoredChatHistory(
-                                postId,
-                                explanationItem.code,
-                                explanationItem.fullText,
-                                explanationItem.explanation
-                            );
-                            return (
-                                <ChatExplanation
-                                    key={`${explanationItem.code}-${explanationItem.fullText}-${explanationItem.explanation}`}
-                                    initialExplanationWithCode={explanationItem}
-                                    existingChatHistory={existingChat}
-                                    postId={postId}
-                                    workspaceId={workspaceId}
-                                    dispatchFunction={dispatchFunction}
-                                />
-                            );
-                        })}
-                    </div>
-                </>
-            )}
+            <h3 className="text-lg font-bold">Explanations</h3>
+            <div className="flex-1 overflow-y-auto" ref={explanationRef}>
+                {selectedExplanations.map((explanationItem) => {
+                    const existingChat = getStoredChatHistory(
+                        postId,
+                        explanationItem.code,
+                        explanationItem.fullText,
+                        explanationItem.explanation
+                    );
+                    return (
+                        <ChatExplanation
+                            key={`${explanationItem.code}-${explanationItem.fullText}-${explanationItem.explanation}`}
+                            initialExplanationWithCode={explanationItem}
+                            existingChatHistory={existingChat}
+                            postId={postId}
+                            workspaceId={workspaceId}
+                            dispatchFunction={dispatchFunction}
+                        />
+                    );
+                })}
+            </div>
         </div>
     );
 };
