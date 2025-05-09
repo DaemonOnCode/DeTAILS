@@ -7,21 +7,14 @@ def process_comments(
     comments: List[Dict[str, Any]],
     prefix: str = ""
 ) -> Tuple[List[str], Dict[str, str]]:
-    """
-    Flattens nested comments into lines labeled “comment X.Y: …”
-    and builds a map from "comment X.Y" → real comment ID.
-    """
     lines: List[str] = []
     label_map: Dict[str, str] = {}
 
     for i, comment in enumerate(comments, start=1):
         current = prefix + str(i)
         label = f"comment {current}"
-        # map label → real comment id
         label_map[label] = comment["id"]
-        # build the line
         lines.append(f"{label}: {comment['body']}")
-        # recurse into child comments
         if comment.get("comments"):
             child_lines, child_map = process_comments(
                 comment["comments"],
@@ -94,13 +87,6 @@ async def generate_transcript(
     token_checker: Optional[Callable[[str], int]] = None,
     max_tokens: int = 1_000_000
 ):
-    """
-    Yields dicts:
-      {
-        "transcript": <string chunk>,
-        "comment_map": { "comment 1": "<real-id>", "comment 1.2": "<real-id-1.2>", … }
-      }
-    """
     if token_checker is None:
         async for item in _generate_whole_transcript_async(post):
             await asyncio.sleep(0)

@@ -235,7 +235,7 @@ Generate your output strictly in valid JSON format as follows:
     // Additional code objects...
   ]
 }}
-````
+```
 
 **NOTE:**
 
@@ -329,7 +329,7 @@ PHASE 2 (Deductive Thematic Coding) Requirements:
        // Additional code objects...
      ]
    }}
-````
+```
 
 3. **Ensure Accuracy:**
 
