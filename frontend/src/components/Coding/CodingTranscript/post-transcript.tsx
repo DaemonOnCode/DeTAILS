@@ -42,7 +42,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     clearedToLeaveRef,
     showBackButton = true,
     codebookCodes = [],
-    manualCoding,
     showAddCodeinHighlight = true
 }) => {
     const {
@@ -426,7 +425,6 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                             )}
                             dispatchFunction={dispatchCodeResponse}
                             conflictingCodes={conflictingCodes}
-                            manualCoding={manualCoding}
                         />
                     </div>
                 </div>

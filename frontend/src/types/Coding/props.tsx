@@ -124,7 +124,6 @@ export type TopToolbarProps = {
     showCodebookButton?: boolean;
     showCodebook?: boolean;
     onShowCodebook?: (e: any) => void;
-    manualCoding?: boolean;
     showDoneButton?: boolean;
     onDoneClick?: () => void;
     isDone?: boolean;
@@ -230,7 +229,6 @@ export type PostTranscriptProps = {
     clearedToLeaveRef: RefObject<{ check: boolean } | null>;
     showBackButton?: boolean;
     codebookCodes?: string[];
-    manualCoding?: boolean;
     showAddCodeinHighlight?: boolean;
 };
 

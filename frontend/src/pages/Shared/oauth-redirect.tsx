@@ -2,7 +2,6 @@ function OAuthRedirectPage() {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-green-500 to-blue-500 text-white">
             <div className="bg-white p-6 rounded-xl shadow-lg flex flex-col items-center max-w-md text-center">
-                {/* Success Icon */}
                 <div className="mb-4">
                     <svg
                         className="w-16 h-16 text-green-500"
@@ -18,19 +17,11 @@ function OAuthRedirectPage() {
                         />
                     </svg>
                 </div>
-
-                {/* Heading */}
                 <h1 className="text-3xl font-bold text-gray-800 mb-2">Login Successful!</h1>
 
-                {/* Instructions */}
                 <p className="text-gray-600 mb-6">
                     You can now safely close this tab and return to the app.
                 </p>
-
-                {/* Fallback Button */}
-                {/* <p className="text-sm text-gray-500">
-          Please close this tab manually.
-        </p> */}
             </div>
         </div>
     );

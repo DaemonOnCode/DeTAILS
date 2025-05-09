@@ -27,9 +27,6 @@ const useWorkspaceUtils = () => {
             workspace_id: currentWorkspace?.id || '',
             user_email: user?.email || '',
             page_url: `${location.pathname}${location.search}`,
-            collection_context: {},
-            modeling_context: {},
-            coding_context: {},
             loading_context: {
                 page_state:
                     Object.fromEntries(
@@ -37,8 +34,7 @@ const useWorkspaceUtils = () => {
                             .filter(([_, value]) => value && 'isFirstRun' in value)
                             .map(([key, value]) => [key, value.isFirstRun])
                     ) || {}
-            },
-            manual_coding_context: {}
+            }
         };
     };
 
