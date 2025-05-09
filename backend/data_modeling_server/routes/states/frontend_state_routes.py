@@ -443,6 +443,12 @@ async def reset_context_data_endpoint(
         grouped_codes_repo.delete({"coding_context_id": workspace_id})
     elif page == "generating_themes":
         themes_repo.delete({"coding_context_id": workspace_id})
+    elif page == "data_type":
+        collection_context_repo.update(
+            {"id": workspace_id},
+            {"type": None}
+        )
+        context_files_repo.delete({"coding_context_id": workspace_id})
     elif page == "data_source":
         collection_context_repo.update(
             {"id": workspace_id},
@@ -479,50 +485,70 @@ async def check_data_existence(
     for state in states:
         if state == "contextFiles":
             exists |= context_files_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Context files exist: {exists}")
         elif state == "mainTopic":
             coding_context = coding_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists |= (coding_context is not None) and (coding_context.main_topic is not None)
+            print(f"Main topic exists: {exists}")
         elif state == "additionalInfo":
             coding_context = coding_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists |= (coding_context is not None) and (coding_context.additional_info is not None)
+            print(f"Additional info exists: {exists}")
         elif state == "researchQuestions":
             exists |= research_question_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Research questions exist: {exists}")
         elif state == "concepts":
             exists |= concepts_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Concepts exist: {exists}")
         elif state == "selectedConcepts":
             exists |= selected_concepts_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Selected concepts exist: {exists}")
         elif state == "conceptOutlineTable":
             exists |= concept_entries_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Concept outline table exists: {exists}")
         elif state == "sampledPostResponse":
             exists |= qect_repo.count({"workspace_id": workspace_id, "codebook_type": CodebookType.INITIAL.value}) > 0
+            print(f"Sampled post response exists: {exists}")
         elif state == "sampledPostIds":
             exists |= selected_posts_repo.count({"workspace_id": workspace_id, "type": "sampled"}) > 0
+            print(f"Sampled post IDs exist: {exists}")
         elif state == "unseenPostIds":
             exists |= selected_posts_repo.count({"workspace_id": workspace_id, "type": "unseen"}) > 0
+            print(f"Unseen post IDs exist: {exists}")
         elif state == "unseenPostResponse":
             exists |= qect_repo.count({"workspace_id": workspace_id, "codebook_type": CodebookType.FINAL.value}) > 0
+            print(f"Unseen post response exists: {exists}")
         elif state == "sampledCopyPostResponse":
             exists |= qect_repo.count({"workspace_id": workspace_id, "codebook_type": CodebookType.INITIAL_COPY.value}) > 0
+            print(f"Sampled copy post response exists: {exists}")
         elif state == "initialCodebookTable":
             exists |= initial_codebook_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Initial codebook table exists: {exists}")
         elif state == "groupedCodes":
             exists |= grouped_codes_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Grouped codes exist: {exists}")
         elif state == "themes":
             exists |= themes_repo.count({"coding_context_id": workspace_id}) > 0
+            print(f"Themes exist: {exists}")
         elif state == "type":
             collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists |= (collection_context is not None) and (collection_context.type is not None)
+            print(f"Collection context type exists: {exists}")
         elif state == "modeInput":
             collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists |= (collection_context is not None) and (collection_context.mode_input is not None)
+            print(f"Mode input exists: {exists}")
         elif state == "selectedData":
             exists |= selected_posts_repo.count({"workspace_id": workspace_id}) > 0
+            print(f"Selected data exist: {exists}")
         elif state == "dataFilters":
             collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists |= (collection_context is not None) and (collection_context.data_filters is not None) and (collection_context.data_filters != json.dumps({}))
+            print(f"Data filters exist: {exists}")
         elif state == "isLocked":
             collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
             exists |= (collection_context is not None) and collection_context.is_locked
+            print(f"Is locked exists: {exists}")
 
     print(f"Data existence check for workspace {workspace_id} on page {page}: {exists}")
     return {"exists": bool(exists)}

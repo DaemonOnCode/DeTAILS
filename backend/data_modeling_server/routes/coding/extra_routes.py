@@ -17,6 +17,7 @@ from database import (
     SelectedPostIdsRepository,
     QectRepository, FunctionProgressRepository
 )
+from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from models.coding_models import (
@@ -54,31 +55,42 @@ async def sample_posts_endpoint(
 ):
     settings = CustomSettings()
 
-    if (request_body.sample_size <= 0 or 
-        workspace_id == "" or 
-        request_body.divisions < 1):
+    if request_body.sample_size <= 0 or not workspace_id or request_body.divisions < 1:
         raise HTTPException(status_code=400, detail="Invalid request parameters.")
-    
 
     sample_size = request_body.sample_size
     divisions = request_body.divisions
 
+    print(f"Sampling posts for workspace {workspace_id} with sample size {sample_size} and divisions {divisions}")
+
     try:
-        selected_post_ids_repo.update({"workspace_id": workspace_id}, {"type": "ungrouped"})
+        selected_post_ids_repo.update(
+            {"workspace_id": workspace_id},
+            {"type": "ungrouped"}
+        )
     except Exception as e:
-        print(e)
-    
-    post_ids = list(map(lambda x: x["post_id"], selected_post_ids_repo.find({"workspace_id": workspace_id, "type": "ungrouped"}, ["post_id"], map_to_model=False)))
-    print(f"Post IDs: {len(post_ids)}")
+        print("Error resetting selections:", e)
+
+    post_ids = [
+        doc["post_id"]
+        for doc in selected_post_ids_repo.find(
+            {"workspace_id": workspace_id, "type": "ungrouped"},
+            ["post_id"],
+            map_to_model=False
+        )
+    ]
+    print(f"Found {len(post_ids)} posts to sample")
 
     sem = asyncio.Semaphore(os.cpu_count())
 
-    async def fetch_and_compute_length(post_id: str):
+    async def fetch_and_compute_length(pid: str):
         async with sem:
             try:
-                post = await asyncio.to_thread(get_reddit_post_by_id, workspace_id, post_id, [
-                    "id", "title", "selftext"
-                ])
+                post = await asyncio.to_thread(
+                    get_reddit_post_by_id,
+                    workspace_id, pid,
+                    ["id", "title", "selftext"]
+                )
                 num_comments = count_comments(post.get("comments", []))
                 first_item = await anext(generate_transcript(post))
                 transcript = (
@@ -86,126 +98,111 @@ async def sample_posts_endpoint(
                     if isinstance(first_item, dict)
                     else first_item
                 )
-                return post, len(transcript), num_comments
+                return pid, len(transcript), num_comments
+            except HTTPException as he:
+                print(f"Post {pid} not found: {he.detail}")
+                return pid, None, None
             except Exception as e:
-                print(f"Unexpected error for post {post_id}: {e}")
-                return post_id, None, None
+                print(f"Error for post {pid}: {e}")
+                return pid, None, None
 
-    tasks = [fetch_and_compute_length(post_id) for post_id in post_ids]
-    results = await asyncio.gather(*tasks)
+    results = await asyncio.gather(*(fetch_and_compute_length(pid) for pid in post_ids))
+    valid   = [r for r in results if r[1] is not None]
+    invalid = [r[0] for r in results if r[1] is None]
 
-    valid_results = [res for res in results if res[1] is not None]
-    invalid_post_ids = [res[0] for res in results if res[1] is None]
-
-    if invalid_post_ids:
-        print(f"Some posts were not found: {invalid_post_ids}")
-
-    if not valid_results:
+    if invalid:
+        print(f"Could not fetch posts: {invalid}")
+    if not valid:
         raise HTTPException(status_code=400, detail="No valid posts found.")
 
-    df = pd.DataFrame(valid_results, columns=['post_id', 'length', "num_comments"])
+    df = pd.DataFrame(valid, columns=["post_id", "length", "num_comments"])
+   
     np.random.seed(settings.ai.randomSeed)
+   
+    raw_sample_size = sample_size
+    N = len(df)
+    if raw_sample_size < 1:
+        total_samples = int(raw_sample_size * N)
+    else:
+        total_samples = int(raw_sample_size)
+    total_samples = min(total_samples, N)
+    print(f"Total samples: {total_samples}", "N:", N)
+    if total_samples < 1:
+        raise RequestError(
+            status_code=400,
+            message="Sample size too small given your data—no posts to return."
+        )
 
     if divisions == 1:
-        return {"sample": df['post_id'].tolist()}
+        sampled = df.sample(n=total_samples, random_state=settings.ai.randomSeed)
+        return {"sampled": sampled["post_id"].tolist()}
 
     if divisions == 2:
-        N = len(df)
-        base_size = N // divisions
-        remainder = N % divisions
-        group_sizes = [base_size + 1 if i < remainder else base_size for i in range(divisions)]
-
-        try:
-            df['stratum'] = pd.qcut(df['length'], q=4, labels=False)
-        except ValueError as e:
-            if "Bin edges must be unique" in str(e):
-                df = df.sample(frac=1, random_state=settings.ai.randomSeed).reset_index(drop=True)
-                groups = []
-                start = 0
-                for size in group_sizes:
-                    end = start + size
-                    group_posts = df.iloc[start:end]['post_id'].tolist()
-                    groups.append(group_posts)
-                    start = end
-            else:
-                raise HTTPException(status_code=500, detail=f"Error in stratification: {e}")
-        else:
-            groups = []
-            remaining_df = df.copy()
-            for size in group_sizes:
-                grouped = remaining_df.groupby('stratum')
-                stratum_sizes = grouped.size()
-                p = size / len(remaining_df) if len(remaining_df) > 0 else 0
-                S_stratum_f = p * stratum_sizes
-                S_stratum = S_stratum_f.astype(int)
-                sum_S_stratum = S_stratum.sum()
-                remainder_samples = size - sum_S_stratum
-                if remainder_samples > 0:
-                    fractional_parts = S_stratum_f - S_stratum
-                    top_indices = fractional_parts.nlargest(remainder_samples).index
-                    S_stratum.loc[top_indices] += 1
-
-                sampled_post_ids = []
-                for stratum, group in grouped:
-                    n_samples = min(S_stratum[stratum], len(group))
-                    if n_samples > 0:
-                        sampled = group.sample(n=n_samples, random_state=settings.ai.randomSeed)
-                        sampled_post_ids.extend(sampled['post_id'].tolist())
-
-                groups.append(sampled_post_ids)
-                remaining_df = remaining_df[~remaining_df['post_id'].isin(sampled_post_ids)]
+        group_sizes = [total_samples, N - total_samples]
     else:
-        remaining_df = df.copy()
-        groups = []
-        for i in range(divisions - 1):
-            try:
-                remaining_df['stratum'] = pd.qcut(remaining_df['length'], q=4, labels=False)
-            except ValueError as e:
-                if "Bin edges must be unique" in str(e):
-                    sampled = remaining_df.sample(frac=sample_size, random_state=settings.ai.randomSeed)
-                else:
-                    raise HTTPException(status_code=500, detail=f"Error in stratification: {e}")
-            else:
-                grouped = remaining_df.groupby('stratum')
-                stratum_sizes = grouped.size()
-                p = sample_size
-                total_to_sample = min(int(p * len(remaining_df)), len(remaining_df))
-                S_stratum_f = p * stratum_sizes
-                S_stratum = S_stratum_f.astype(int)
-                sum_S_stratum = S_stratum.sum()
-                remainder = total_to_sample - sum_S_stratum
-                if remainder > 0:
-                    fractional_parts = S_stratum_f - S_stratum
-                    top_indices = fractional_parts.nlargest(remainder).index
-                    S_stratum.loc[top_indices] += 1
+        base = total_samples // divisions
+        rem = total_samples % divisions
+        group_sizes = [base + (1 if i < rem else 0) for i in range(divisions)]
 
-                sampled_post_ids = []
-                for stratum, group in grouped:
-                    n_samples = min(S_stratum[stratum], len(group))
-                    if n_samples > 0:
-                        sampled = group.sample(n=n_samples, random_state=settings.ai.randomSeed)
-                        sampled_post_ids.extend(sampled['post_id'].tolist())
-                sampled = remaining_df[remaining_df['post_id'].isin(sampled_post_ids)]
-
-            groups.append(sampled['post_id'].tolist())
-            remaining_df = remaining_df[~remaining_df['post_id'].isin(sampled['post_id'])]
-
-        groups.append(remaining_df['post_id'].tolist())
-
-    if divisions == 2:
-        group_names = ["sampled", "unseen"]
-    else:
-        group_names = [f"group_{i+1}" for i in range(divisions)]
-
-    result = {group_names[i]: groups[i] for i in range(divisions)}
-
-    for group_name, post_ids in result.items():
-        selected_post_ids_repo.bulk_update(
-            [
-                {"type": group_name} for _ in post_ids
-            ],
-            [{"workspace_id": workspace_id, "post_id": post_id} for post_id in post_ids],
+    try:
+        df["stratum"] = pd.qcut(
+            df["length"],
+            q=4,
+            labels=False,
+            duplicates="drop"
         )
+    except ValueError as e:
+        if "Bin edges must be unique" in str(e):
+            shuffled = df.sample(n=total_samples, random_state=settings.ai.randomSeed).reset_index(drop=True)
+            groups = []
+            idx = 0
+            for size in group_sizes:
+                s = int(size)
+                groups.append(shuffled.iloc[idx : idx + s]["post_id"].tolist())
+                idx += s
+        else:
+            raise HTTPException(status_code=500, detail=f"Stratification error: {e}")
+    else:
+        remaining = df.copy()
+        groups = []
+        for size in group_sizes:
+            if len(remaining) == 0:
+                groups.append([])
+                continue
+            grp = remaining.groupby("stratum")
+            counts = grp.size()
+            proportion = float(size) / len(remaining)
+            S_f = counts * proportion
+            S = S_f.astype(int)
+            leftover = int(size - int(S.sum()))
+            if leftover > 0:
+                fracs = S_f - S
+                top_bins = fracs.nlargest(leftover).index
+                for b in top_bins:
+                    S.at[b] += 1
+
+            sampled_ids = []
+            for stratum, subset in grp:
+                n = int(min(S.at[stratum], len(subset)))
+                if n > 0:
+                    sampled_ids += subset.sample(n=n, random_state=settings.ai.randomSeed)["post_id"].tolist()
+
+            groups.append(sampled_ids)
+            remaining = remaining[~remaining["post_id"].isin(sampled_ids)]
+
+    if divisions == 2:
+        names = ["sampled", "unseen"]
+    else:
+        names = [f"group_{i+1}" for i in range(divisions)]
+
+    result = {names[i]: groups[i] for i in range(divisions)}
+
+    for grp_name, pids in result.items():
+        selected_post_ids_repo.bulk_update(
+            [{"type": grp_name} for _ in pids],
+            [{"workspace_id": workspace_id, "post_id": pid} for pid in pids],
+        )
+
     return result
 
 
@@ -266,12 +263,7 @@ async def get_transcript_data_endpoint(
         r.post_id,
         r.quote,
         r.explanation,
-        CASE
-          WHEN :manualCoding = 1
-            THEN COALESCE(g.higher_level_code, r.code)
-          ELSE
-            r.code
-        END AS code,
+        r.code AS code,
         r.response_type,
         r.chat_history,
         r.range_marker,
@@ -289,7 +281,6 @@ async def get_transcript_data_endpoint(
     """
 
     params: Dict[str, Any] = {
-        "manualCoding": 1 if request_body.manualCoding else 0,
         "workspace_id": workspace_id,
         "post_id":     post_id,
     }
@@ -318,25 +309,14 @@ async def get_transcript_data_endpoint(
             "source": json.loads(row["source"]) if row.get("source") else None,
         })
 
-    if request_body.manualCoding:
-        codes_sql = """
-        SELECT DISTINCT
-            g.higher_level_code AS code
-        FROM grouped_code_entries g
-        WHERE g.coding_context_id = ?
-            AND g.higher_level_code IS NOT NULL
-        ORDER BY g.higher_level_code;
-        """
-        code_rows = execute_query(codes_sql, [workspace_id], keys=True)
-    else:
-        codes_sql = """
-        SELECT DISTINCT r.code
-            FROM qect r
-        WHERE r.workspace_id = ?
-            AND r.code IS NOT NULL
-        ORDER BY r.code;
-        """
-        code_rows = execute_query(codes_sql, [workspace_id], keys=True)
+    codes_sql = """
+    SELECT DISTINCT r.code
+        FROM qect r
+    WHERE r.workspace_id = ?
+        AND r.code IS NOT NULL
+    ORDER BY r.code;
+    """
+    code_rows = execute_query(codes_sql, [workspace_id], keys=True)
     all_codes = [r["code"] for r in code_rows if r["code"]]
 
     return {

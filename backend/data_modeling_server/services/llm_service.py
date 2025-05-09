@@ -431,7 +431,7 @@ class GlobalQueueManager:
                     print(f"[WORKER {worker_id}] Error in loop: {e}")
         except Exception as e:
             print(f"[WORKER {worker_id}] Unexpected error: {e}")
-
+            
     async def submit_task(self, func: Callable, function_key: str, *args, cacheable_args: Optional[Dict[str, List]] = None, **kwargs) -> Tuple[str, asyncio.Future]:
         try:
             if not self.running:

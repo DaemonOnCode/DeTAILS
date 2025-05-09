@@ -172,7 +172,6 @@ async def regenerate_codebook_without_quotes_endpoint(
                 coding_context_id=request.headers.get("x-workspace-id"),
                 code= pr[0],
                 definition= pr[1],
-                manual_coding=False
             ) for pr in  parsed_response.items() 
         ]
     )

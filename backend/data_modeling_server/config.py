@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 import json
 
-from constants import ACADEMIC_TORRENT_MAGNET, PATHS
+from constants import PATHS
 
 class AppSettings:
     def __init__(self, id: str = "", **kwargs):
@@ -13,11 +13,10 @@ class AppSettings:
 
 class GeneralSettings:
     def __init__(self, theme: str = "light", language: str = "en", 
-                 keepSignedIn: bool = False, manualCoding: bool = False, **kwargs):
+                 keepSignedIn: bool = False, **kwargs):
         self.theme = theme
         self.language = language
         self.keepSignedIn = keepSignedIn
-        self.manualCoding = manualCoding
 
 class WorkspaceSettings:
     def __init__(self, layout: str = "grid", **kwargs):
@@ -67,7 +66,6 @@ ProviderValue = Union[APIKeyProviderDict, CredentialsProviderDict, OllamaProvide
 class AISettings:
     def __init__(self, model: str = "", providers: Dict[str, ProviderValue] = None, temperature: float = 0.0, randomSeed: int = 42, cutoff: int = 300, **kwargs):
         self.model = model
-        # Initialize providers sub-settings if provided.
         self.providers = {}
         if providers is not None:
             if "google" in providers:

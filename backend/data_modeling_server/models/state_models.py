@@ -7,11 +7,7 @@ class SaveStateRequest(BaseModel):
     user_email: str
     workspace_id: str
     page_url: str = "/"
-    coding_context: Dict[str, Any]
-    collection_context: Dict[str, Any]
-    modeling_context: Dict[str, Any]
     loading_context: Dict[str, Any]
-    manual_coding_context: Dict[str, Any]
 
 class LoadStateRequest(BaseModel):
     workspace_id: str

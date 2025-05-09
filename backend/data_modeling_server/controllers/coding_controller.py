@@ -12,6 +12,7 @@ from chromadb import HttpClient
 from fastapi import UploadFile
 
 from chromadb.config import Settings as ChromaDBSettings
+from config import CustomSettings
 from constants import CHROMA_PORT, CONTEXT_FILES_DIR, PATHS
 from database import( 
     QectRepository, SelectedPostIdsRepository
@@ -190,8 +191,8 @@ async def process_llm_task(
                     else:
                        job_id, response_future = await llm_queue_manager.submit_task(llm_instance.invoke, function_id, prompt_text)
 
-            response = await asyncio.wait_for(response_future, timeout=5 * 60)
-
+            
+            response = await asyncio.wait_for(response_future, timeout=CustomSettings().ai.cutoff)
             response = response["answer"] if retriever else response.content
 
             match = re.search(regex_pattern, response, re.DOTALL)
