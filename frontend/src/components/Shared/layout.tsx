@@ -6,22 +6,18 @@ import { useWebSocket } from '../../context/websocket-context';
 import { motion } from 'framer-motion';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { AppRoutes } from '../../router';
-import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { AppRouteArray } from '../../types/Shared';
 import { recursivePathHider } from '../../utility/protect-routes';
-import { toast } from 'react-toastify';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import BookmarkToastOverlay from './bookmark-tab-toast';
-import { useApi } from '../../hooks/Shared/use-api';
 
 const { ipcRenderer } = window.require('electron');
 
 export const Layout: FC<ILayout> = ({ children }) => {
     const { serviceStarting } = useWebSocket();
-    const { remoteProcessing, user } = useAuth();
-    const { workspaces, currentWorkspace, addWorkspaceBatch, addWorkspace, setWorkspaceLoading } =
-        useWorkspaceContext();
+    const { remoteProcessing } = useAuth();
+    const { workspaces, currentWorkspace } = useWorkspaceContext();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
     useEffect(() => {
@@ -34,11 +30,6 @@ export const Layout: FC<ILayout> = ({ children }) => {
     }, [currentWorkspace?.id]);
 
     const { saveWorkspaceData, loadWorkspaceData } = useWorkspaceUtils();
-    const { fetchData } = useApi();
-
-    // useEffect(() => {
-    //     console.log('Workspaces:', workspaces, 'Current Workspace:', currentWorkspace);
-    // }, [currentWorkspace]);
 
     const isLoading = useRef(false);
 
@@ -51,93 +42,6 @@ export const Layout: FC<ILayout> = ({ children }) => {
         }
     }, [workspaces, currentWorkspace]);
 
-    const handleImportWorkspace = async (e: any, imported_file_path: string) => {
-        try {
-            console.log('Importing workspace from ZIP file:', imported_file_path);
-            const fs = window.require('fs');
-            const fileBuffer = fs.readFileSync(imported_file_path);
-            const formData = new FormData();
-            formData.append('user_email', user?.email || '');
-            formData.append(
-                'file',
-                new Blob([fileBuffer], { type: 'application/zip' }),
-                imported_file_path.split('/').pop()
-            );
-            const { data: result, error } = await fetchData(REMOTE_SERVER_ROUTES.IMPORT_WORKSPACE, {
-                method: 'POST',
-                headers: {},
-                body: formData
-            });
-
-            if (error) {
-                console.error('Failed to import workspace:', error);
-                toast.warning('Failed to import workspace.');
-                return;
-            }
-            console.log('Workspace imported successfully:', result);
-            addWorkspaceBatch([...workspaces, result.workspace]);
-        } catch (error) {
-            console.error('Error importing workspace:', error);
-            toast.warning('An error occurred while importing the workspace.');
-        }
-    };
-
-    // Listener for Export Workspace
-    const handleExportWorkspace = async (e: any) => {
-        console.log('Exporting workspace', currentWorkspace);
-        try {
-            const { data: response, error } = await fetchData<Response>(
-                REMOTE_SERVER_ROUTES.EXPORT_WORKSPACE,
-                {
-                    method: 'POST',
-                    rawResponse: true,
-                    body: JSON.stringify({
-                        workspace_id: currentWorkspace?.id ?? '',
-                        user_email: user?.email ?? ''
-                    })
-                }
-            );
-
-            if (error) {
-                console.error('Failed to export workspace:', error);
-                toast.warning('Failed to export workspace.');
-                return;
-            }
-            console.warn('File System Access API not supported. Using fallback.');
-            const reader = response.body?.getReader();
-            const stream = new ReadableStream({
-                start(controller) {
-                    const pump = async () => {
-                        if (!reader) {
-                            controller.close();
-                            return;
-                        }
-                        const { done, value } = await reader.read();
-                        if (done) {
-                            controller.close();
-                            return;
-                        }
-                        controller.enqueue(value);
-                        pump();
-                    };
-                    pump();
-                }
-            });
-            const blob = await new Response(stream).blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'exported_workspace.zip';
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            console.log('Workspace exported and file saved successfully.');
-        } catch (error) {
-            console.error('Error exporting workspace:', error);
-            toast.warning('An error occurred while exporting the workspace.');
-        }
-    };
     useEffect(() => {
         if (!currentWorkspace) return;
         // Listener for Save Workspace
@@ -146,18 +50,10 @@ export const Layout: FC<ILayout> = ({ children }) => {
             await saveWorkspaceData();
         };
 
-        // Listener for Import Workspace
-
-        // Register the IPC listeners
         ipcRenderer.on('menu-save-workspace', handleSaveWorkspace);
-        ipcRenderer.on('menu-import-workspace', handleImportWorkspace);
-        ipcRenderer.on('menu-export-workspace', handleExportWorkspace);
 
-        // Cleanup function to remove listeners when the component unmounts
         return () => {
             ipcRenderer.removeListener('menu-save-workspace', handleSaveWorkspace);
-            ipcRenderer.removeListener('menu-import-workspace', handleImportWorkspace);
-            ipcRenderer.removeListener('menu-export-workspace', handleExportWorkspace);
         };
     }, [currentWorkspace]);
 

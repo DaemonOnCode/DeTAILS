@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useCallback, useEffect, useState } from 'react';
 import PaginationControls from './pagination-control';
 import RedditTable from './reddit-table';
 import { RedditPosts, SetState } from '../../types/Coding/shared';
@@ -185,12 +185,13 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         return response.data.post_ids || [];
     };
 
-    const toggleSelectAll = async () => {
-        if (isLocked) return;
+    const toggleSelectAll = useCallback(async () => {
+        if (isLocked || isSelectingAll) return;
 
-        if (selectedData.length === totalCount) {
-            await setSelectedData([]);
+        if (selectedData.length > 0) {
+            setSelectedData([]);
         } else {
+            setIsLoading(true);
             setIsSelectingAll(true);
             try {
                 const allIds = await fetchAllMatchingPostIds();
@@ -199,9 +200,10 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 console.error('Error selecting all posts:', error);
             } finally {
                 setIsSelectingAll(false);
+                setIsLoading(false);
             }
         }
-    };
+    }, [isLocked, isSelectingAll, selectedData, setSelectedData]);
 
     useEffect(() => {
         console.log('Fetching posts with filters:', dataFilters);
@@ -231,23 +233,44 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setCurrentPage(1);
     };
 
-    const togglePostSelection = (id: string) => {
-        if (isLocked) return;
-        setSelectedData((prev) =>
-            prev.includes(id) ? prev.filter((postId) => postId !== id) : [...prev, id]
-        );
-    };
+    const togglePostSelection = useCallback(
+        async (id: string) => {
+            if (isLocked || isSelectingAll) return;
+            console.log('Toggling post selection:', id, 'Currently selected:', selectedData);
+            setIsSelectingAll(true);
+            await setSelectedData((prev) => {
+                const isSelected = prev.includes(id);
+                console.log('Is selected:', isSelected, 'Previous state:', prev);
+                return isSelected ? prev.filter((postId) => postId !== id) : [...prev, id];
+            });
+            setIsSelectingAll(false);
+        },
+        [isLocked, isSelectingAll, selectedData]
+    );
 
-    const toggleSelectPage = (pageData: [string, RedditPosts[string]][]) => {
-        if (isLocked) return;
-        const pageIds = pageData.map(([id]) => id);
-        const allSelected = pageIds.every((id) => selectedData.includes(id));
-        setSelectedData((prev) =>
-            allSelected
-                ? prev.filter((id) => !pageIds.includes(id))
-                : [...new Set([...prev, ...pageIds])]
-        );
-    };
+    const toggleSelectPage = useCallback(
+        async (pageData: [string, RedditPosts[string]][]) => {
+            if (isLocked || isSelectingAll) return;
+            const pageIds = pageData.map(([id]) => id);
+            const allSelected = pageIds.every((id) => selectedData.includes(id));
+            console.log(
+                'Page IDs:',
+                pageIds,
+                'Selected Data:',
+                selectedData,
+                'All selected:',
+                allSelected
+            );
+            setIsSelectingAll(true);
+            await setSelectedData((prev) =>
+                allSelected
+                    ? prev.filter((id) => !pageIds.includes(id))
+                    : [...new Set([...prev, ...pageIds])]
+            );
+            setIsSelectingAll(false);
+        },
+        [isLocked, isSelectingAll, selectedData]
+    );
 
     const handleApplyFilters = () => {
         setDataFilters((prev) => ({

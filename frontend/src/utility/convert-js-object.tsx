@@ -29,8 +29,10 @@ export const saveCSV = async (renderer: any, data: Record<string, any>[], fileNa
 
     if (result.success) {
         console.log('File saved:', result.filePath);
+        return true;
     } else {
         console.error('File save error:', result.message);
+        return false;
     }
 };
 
@@ -39,7 +41,9 @@ export const saveExcel = async (renderer: any, data: Record<string, any>[], file
 
     if (result.success) {
         console.log('File saved:', result.filePath);
+        return true;
     } else {
         console.error('File save error:', result.message);
+        return false;
     }
 };

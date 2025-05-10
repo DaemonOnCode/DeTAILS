@@ -73,9 +73,6 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
     const [selectedConcepts, setSelectedConceptsState] = useState<string[]>([]);
     const [references, setReferencesState] = useState<{ [code: string]: IReference[] }>({});
     const [conceptOutlineTable, setConceptTableState] = useState<ConceptEntry[]>([]);
-    const [sampledPostResponse, setSampledPostResponseState] = useState<IQECResponse[]>([]);
-    const [unseenPostResponse, setUnseenPostResponseState] = useState<IQECTTyResponse[]>([]);
-    const [sampledCopyPostResponse, setSampledCopyPostResponseState] = useState<IQECResponse[]>([]);
     const [themes, setThemesState] = useState<ThemeBucket[]>([]);
     const [unplacedCodes, setUnplacedCodesState] = useState<string[]>([]);
     const [groupedCodes, setGroupedCodesState] = useState<GroupedCodeBucket[]>([]);
@@ -109,9 +106,6 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
         selectedConcepts: setSelectedConceptsState,
         references: setReferencesState,
         conceptOutlineTable: setConceptTableState,
-        sampledPostResponse: setSampledPostResponseState,
-        unseenPostResponse: setUnseenPostResponseState,
-        sampledCopyPostResponse: setSampledCopyPostResponseState,
         themes: setThemesState,
         groupedCodes: setGroupedCodesState,
         sampledPostIds: setSampledPostIdsState,
@@ -186,7 +180,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         name: 'setUnseenPostIds'
                     }
                 ],
-                downloadData: { name: 'codebook' }
+                downloadData: { name: 'initial-codes' }
             },
             [PAGE_ROUTES.INITIAL_CODEBOOK]: {
                 relatedStates: [
@@ -204,7 +198,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         name: 'dispatchSampledCopyPostResponse'
                     }
                 ],
-                downloadData: { name: 'final_codebook' }
+                downloadData: { name: 'final-codes' }
             },
             [PAGE_ROUTES.REVIEWING_CODES]: {
                 relatedStates: [
@@ -214,13 +208,13 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     }
                 ],
                 downloadData: {
-                    name: 'codebook_with_grouped_codes'
+                    name: 'codes-with-reviewed-codes'
                 }
             },
             [PAGE_ROUTES.GENERATING_THEMES]: {
                 relatedStates: [{ name: 'setThemes' }, { name: 'setUnplacedCodes' }],
                 downloadData: {
-                    name: 'codebook_with_themes',
+                    name: 'codes-with-themes',
                     condition: themes.length > 0
                 }
             }
@@ -418,12 +412,6 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                     if (data.selectedConcepts) setSelectedConceptsState(data.selectedConcepts);
                     if (data.references) setReferencesState(data.references);
                     if (data.conceptOutlineTable) setConceptTableState(data.conceptOutlineTable);
-                    if (data.sampledPostResponse)
-                        setSampledPostResponseState(data.sampledPostResponse);
-                    if (data.unseenPostResponse)
-                        setUnseenPostResponseState(data.unseenPostResponse);
-                    if (data.sampledCopyPostResponse)
-                        setSampledCopyPostResponseState(data.sampledCopyPostResponse);
                     if (data.themes) setThemesState(data.themes);
                     if (data.unplacedCodes) setUnplacedCodesState(data.unplacedCodes);
                     if (data.groupedCodes) setGroupedCodesState(data.groupedCodes);
@@ -446,9 +434,6 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         setSelectedConceptsState([]);
                         setReferencesState({});
                         setConceptTableState([]);
-                        setSampledPostResponseState([]);
-                        setUnseenPostResponseState([]);
-                        setSampledCopyPostResponseState([]);
                         setThemesState([]);
                         setGroupedCodesState([]);
                         setSampledPostIdsState([]);
@@ -586,7 +571,8 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
             researchQuestions,
             sampledPostIds,
             unseenPostIds,
-            initialCodebookTable
+            initialCodebookTable,
+            location.pathname
         ]
     );
 

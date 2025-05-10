@@ -23,33 +23,6 @@ const menuTemplate = (state) => {
                         state.mainWindow.webContents.send('menu-save-workspace');
                     }
                 },
-                {
-                    label: 'Import workspace',
-                    accelerator: 'CmdOrCtrl+I',
-                    enabled: isUserLoaded,
-                    click: async () => {
-                        if (!isUserLoaded) return;
-                        const { canceled, filePaths } = await dialog.showOpenDialog({
-                            properties: ['openFile'],
-                            filters: [{ name: 'ZIP', extensions: ['zip'] }]
-                        });
-                        if (!canceled && filePaths.length > 0) {
-                            state.mainWindow.webContents.send(
-                                'menu-import-workspace',
-                                filePaths[0]
-                            );
-                        }
-                    }
-                },
-                {
-                    label: 'Export workspace',
-                    accelerator: 'CmdOrCtrl+E',
-                    enabled: isUserLoaded,
-                    click: async () => {
-                        if (!isUserLoaded) return;
-                        state.mainWindow.webContents.send('menu-export-workspace');
-                    }
-                },
                 { type: 'separator' },
                 { label: 'Exit', role: 'quit' }
             ]
@@ -66,15 +39,6 @@ const menuTemplate = (state) => {
                         state.mainWindow.webContents.send('undo');
                     }
                 },
-                {
-                    label: 'Redo',
-                    accelerator: 'Shift+CmdOrCtrl+Z',
-                    selector: 'redo:',
-                    click: () => {
-                        electronLogger.log('Redo clicked');
-                        state.mainWindow.webContents.send('redo');
-                    }
-                },
                 { type: 'separator' },
                 { label: 'Cut', accelerator: 'CmdOrCtrl+X', selector: 'cut:' },
                 { label: 'Copy', accelerator: 'CmdOrCtrl+C', selector: 'copy:' },
@@ -84,14 +48,7 @@ const menuTemplate = (state) => {
         },
         {
             label: 'View',
-            submenu: [
-                { label: 'Reload', role: 'reload' },
-                { label: 'Toggle Developer Tools', role: 'toggleDevTools' }
-            ]
-        },
-        {
-            label: 'Help',
-            submenu: [{ label: 'About', click: () => electronLogger.log('About clicked') }]
+            submenu: [{ label: 'Toggle Developer Tools', role: 'toggleDevTools' }]
         }
     ];
 };

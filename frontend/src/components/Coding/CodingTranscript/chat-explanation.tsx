@@ -31,14 +31,6 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
 
     const chatKey = `${postId}-${initialExplanationWithCode.code}-${initialExplanationWithCode.fullText}`;
 
-    // console.log(
-    //     'Chat Key:',
-    //     chatKey,
-    //     'Chat Histories:',
-    //     chatHistories,
-    //     chatHistories[chatKey],
-    //     existingChatHistory
-    // );
     const initialMessages = chatHistories[chatKey] ?? existingChatHistory;
 
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -476,7 +468,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
         return (
             <div key={msg.id} className="flex mb-4 w-full">
                 <div
-                    className={`relative flex-1 p-4 rounded ${chainStyle}`}
+                    className={`relative flex-1 p-4 rounded ${chainStyle} overflow-wrap`}
                     style={{ backgroundColor: bg }}>
                     {isInitial ? (
                         latestNewMessage?.code !== messages[0].code ? (
@@ -504,7 +496,7 @@ const ChatExplanation: FC<ChatExplanationProps> = ({
                             }
                         />
                     ) : (
-                        <p className="whitespace-pre-wrap">{msg.text}</p>
+                        <p className="whitespace-pre-wrap overflow-wrap">{msg.text}</p>
                     )}
 
                     {msg.command === 'EDIT_QUOTE' && msg.text !== 'Thinking...' && (

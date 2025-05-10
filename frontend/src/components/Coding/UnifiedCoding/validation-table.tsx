@@ -101,15 +101,17 @@ const ValidationTable: FC<ValidationTableProps> = ({
         return (
             <div className="text-center py-6">
                 <p className="text-gray-600">No responses are available right now.</p>
-                <p className="text-gray-600">
-                    You can{' '}
-                    <button
-                        onClick={() => onViewTranscript(currentPostId ?? null)}
-                        className="text-blue-500 underline">
-                        {currentPostId ? 'visit this transcript' : 'visit transcript'}
-                    </button>{' '}
-                    to add codes
-                </p>
+                {!(!currentPostId || currentPostId === 'coded-data') && (
+                    <p className="text-gray-600">
+                        You can{' '}
+                        <button
+                            onClick={() => onViewTranscript(currentPostId ?? null)}
+                            className="text-blue-500 underline">
+                            visit this transcript
+                        </button>{' '}
+                        to add codes
+                    </p>
+                )}
             </div>
         );
     }

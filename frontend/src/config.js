@@ -84,8 +84,7 @@ const config = {
             SAVE_STATE: 'state/save-state',
             LOAD_STATE: 'state/load-state',
             DELETE_STATE: 'state/delete-state',
-            IMPORT_WORKSPACE: 'state/import-workspace',
-            EXPORT_WORKSPACE: 'state/export-workspace',
+            RESTORE_LAST_SAVED: 'state/restore-last-saved',
 
             SAVE_CODING_CONTEXT: 'state/save-coding-context',
             LOAD_CODING_CONTEXT: 'state/load-coding-context',

@@ -974,7 +974,7 @@ const TranscriptPage = () => {
                         )}
 
                         <p className="px-6 py-2 text-center bg-gray-100 text-base lg:text-lg font-bold text-[#203636]">
-                            Double click Quote to filter related Code and Explanation
+                            Select Quotation to Add/Filter Codes
                         </p>
 
                         <div

@@ -1,4 +1,4 @@
-import React, { RefObject, useEffect, useImperativeHandle, useState } from 'react';
+import React, { RefObject, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
 import { useCollectionContext } from '../../context/collection-context';
 
@@ -75,21 +75,29 @@ const TorrentSelectionPanel: React.FC<{
     };
 
     useEffect(() => {
+        console.log(activeSubreddit, modeInput, 'toggling subreddit');
         if (!activeSubreddit) return;
 
         const files = getFilesForSubreddit(activeSubreddit);
         const hasFiles = files.length > 0;
-        const base = modeInput.includes('|files|')
-            ? modeInput.split('|files|')[0]
-            : `reddit|torrent|${activeSubreddit}`;
+        const base = `reddit|torrent|${activeSubreddit}`;
         const nextInput = hasFiles ? `${base}|files|${files.join(',')}` : `${base}|files|`;
 
         const sortedFilteredNextInput = sortAndFilterFileList(nextInput, activeSubreddit);
         const sortedFilteredModeInput = sortAndFilterFileList(modeInput, activeSubreddit);
 
-        if (sortedFilteredNextInput !== sortedFilteredModeInput) {
+        console.log(
+            'sortedFilteredNextInput',
+            sortedFilteredNextInput,
+            'sortedFilteredModeInput',
+            sortedFilteredModeInput
+        );
+        if (!modeInput.startsWith(base) || sortedFilteredNextInput !== sortedFilteredModeInput) {
             setModeInput(sortedFilteredNextInput);
         }
+        // if (sortedFilteredNextInput !== sortedFilteredModeInput) {
+        //     setModeInput(sortedFilteredNextInput);
+        // }
     }, [selected, activeSubreddit, modeInput]);
 
     useEffect(() => {
@@ -185,41 +193,48 @@ const TorrentSelectionPanel: React.FC<{
         setExpandedYears((prev) => ({ ...prev, [key]: !prev[key] }));
     };
 
-    const toggleSubredditSelection = (subreddit: string) => {
-        const current = selected[subreddit];
-        const postsAvailable = Object.keys(dataResponse[subreddit].posts).length > 0;
-        const commentsAvailable = Object.keys(dataResponse[subreddit].comments).length > 0;
-        const postsAllSelected = postsAvailable
-            ? Object.values(current.posts).every((arr) => arr.every(Boolean))
-            : true;
-        const commentsAllSelected = commentsAvailable
-            ? Object.values(current.comments).every((arr) => arr.every(Boolean))
-            : true;
-        const newValue = !(postsAllSelected && commentsAllSelected);
+    const toggleSubredditSelection = useCallback(
+        (subreddit: string) => {
+            console.log('toggling subreddit selection', subreddit);
+            const current = selected[subreddit];
+            const postsAvailable = Object.keys(dataResponse[subreddit].posts).length > 0;
+            const commentsAvailable = Object.keys(dataResponse[subreddit].comments).length > 0;
+            const postsAllSelected = postsAvailable
+                ? Object.values(current.posts).every((arr) => arr.every(Boolean))
+                : true;
+            const commentsAllSelected = commentsAvailable
+                ? Object.values(current.comments).every((arr) => arr.every(Boolean))
+                : true;
+            const newValue = !(postsAllSelected && commentsAllSelected);
 
-        setSelected((prev) => {
-            const updated = { ...prev };
-            const newSubreddit = {
-                posts: {} as { [year: string]: boolean[] },
-                comments: {} as { [year: string]: boolean[] }
-            };
-            Object.keys(dataResponse[subreddit].posts).forEach((year) => {
-                newSubreddit.posts[year] = dataResponse[subreddit].posts[year].map(() => newValue);
+            setSelected((prev) => {
+                const updated = { ...prev };
+                const newSubreddit = {
+                    posts: {} as { [year: string]: boolean[] },
+                    comments: {} as { [year: string]: boolean[] }
+                };
+                Object.keys(dataResponse[subreddit].posts).forEach((year) => {
+                    newSubreddit.posts[year] = dataResponse[subreddit].posts[year].map(
+                        () => newValue
+                    );
+                });
+                Object.keys(dataResponse[subreddit].comments).forEach((year) => {
+                    newSubreddit.comments[year] = dataResponse[subreddit].comments[year].map(
+                        () => newValue
+                    );
+                });
+                updated[subreddit] = newSubreddit;
+                if (newValue && activeSubreddit !== subreddit) {
+                    console.log('resetting other subreddits');
+                    const resetState = resetOtherSubreddits(subreddit, updated);
+                    setActiveSubreddit(subreddit);
+                    return resetState;
+                }
+                return updated;
             });
-            Object.keys(dataResponse[subreddit].comments).forEach((year) => {
-                newSubreddit.comments[year] = dataResponse[subreddit].comments[year].map(
-                    () => newValue
-                );
-            });
-            updated[subreddit] = newSubreddit;
-            if (newValue && activeSubreddit !== subreddit) {
-                const resetState = resetOtherSubreddits(subreddit, updated);
-                setActiveSubreddit(subreddit);
-                return resetState;
-            }
-            return updated;
-        });
-    };
+        },
+        [selected, activeSubreddit]
+    );
 
     const toggleTypeSelection = (subreddit: string, type: 'posts' | 'comments') => {
         const current = selected[subreddit][type];
@@ -318,7 +333,7 @@ const TorrentSelectionPanel: React.FC<{
                 return (
                     <div
                         key={subreddit}
-                        className="relative max-h-96 overflow-y-auto mb-4 rounded border w-full">
+                        className={`relative max-h-96 overflow-y-auto mb-4 rounded border w-full ${activeSubreddit === subreddit && 'border-blue-500 border-2'}`}>
                         <div
                             className="sticky top-0 bg-gray-300 z-30 flex flex-wrap items-center justify-between p-2 cursor-pointer"
                             onClick={() => toggleSubredditSelection(subreddit)}>

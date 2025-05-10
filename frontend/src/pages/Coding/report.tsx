@@ -102,12 +102,17 @@ const ReportPage: React.FC = () => {
             summary: summaryView
         };
         const suggestedName = `${viewType}_${summaryView ? 'summary' : 'detailed'}_analysis.csv`;
-        await downloadFileWithStreaming(
+        const result = await downloadFileWithStreaming(
             fetchData,
             REMOTE_SERVER_ROUTES.DOWNLOAD_ANALYSIS_REPORT,
             payload,
             suggestedName
         );
+        if (result) {
+            toast.success('File downloaded successfully');
+        } else {
+            toast.error('Failed to download file');
+        }
     }, [viewType, summaryView]);
 
     const [modal, setModal] = useState({ id: '', link: '', sentence: '' });

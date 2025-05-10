@@ -116,7 +116,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                         value={selectedTypeFilter}
                         onChange={(e) => handleSelectedTypeFilter?.(e.target.value)}
                         className="w-full p-2 border rounded shadow bg-white cursor-pointer">
-                        <option value="All">All</option>
+                        <option value="All">Complete Dataset</option>
                         {showCoderType ? (
                             <>
                                 <option value="Human">Human</option>
