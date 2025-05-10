@@ -148,7 +148,7 @@ function processTranscript(
 
             let isApplicable = false;
             try {
-                const src = JSON.parse(c.source!);
+                const src = c.source === 'string' ? JSON.parse(c.source) : c.source;
 
                 if (src.type === 'comment') {
                     isApplicable = data.type === 'comment' && data.id === src.comment_id;

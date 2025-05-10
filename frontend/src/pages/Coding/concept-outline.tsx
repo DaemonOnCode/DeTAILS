@@ -104,8 +104,8 @@ const ConceptsTablePage: FC = () => {
         }
     }, [conceptOutlineTable, tableRef, storageKey]);
 
-    const onFieldChange = (index: number, field: string, value: any) => {
-        const action = { type: 'UPDATE_FIELD', index, field, value };
+    const onFieldChange = (index: number, fields: string[], values: any[]) => {
+        const action = { type: 'UPDATE_FIELDS', index, fields, values };
         performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action, false);
     };
 

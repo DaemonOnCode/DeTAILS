@@ -1,19 +1,10 @@
-import React, {
-    createContext,
-    useState,
-    useEffect,
-    useContext,
-    FC,
-    Dispatch,
-    useMemo
-} from 'react';
+import React, { createContext, useState, useEffect, useContext, FC, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { v4 } from 'uuid';
 import { useLoadingContext } from './loading-context';
 import { PAGE_ROUTES as CODING_PAGE_ROUTES } from '../constants/Coding/shared';
 import { REMOTE_SERVER_ROUTES } from '../constants/Shared';
 import { useApi } from '../hooks/Shared/use-api';
-import { SetState } from '../types/Coding/shared';
 import { useLoadingSteps } from '../hooks/Shared/use-loading-steps';
 import {
     ModeType,
@@ -226,8 +217,6 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
         if (data.success) {
             setTypeState(null);
             setMetadataState(null);
-            // setDatasetState([]);
-            // setDatasetIdState(v4());
             setModeInputState('');
             setSelectedDataState([]);
             setDataFiltersState({});
