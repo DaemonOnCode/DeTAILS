@@ -33,7 +33,7 @@ export const CodingRouter: RouteObject[] = [
     {
         path: ROUTES.BACKGROUND_RESEARCH,
         children: [
-            { path: ROUTES.LLM_CONTEXT_V2, element: <ContextPage />, index: true },
+            { path: ROUTES.LLM_CONTEXT, element: <ContextPage />, index: true },
             { path: ROUTES.RELATED_CONCEPTS, element: <RelevantConceptsPage /> },
             { path: ROUTES.CONCEPT_OUTLINE, element: <ConceptOutlinePage /> }
         ]

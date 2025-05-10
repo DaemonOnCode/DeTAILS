@@ -61,19 +61,25 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                                         }
                                         await resetDataAfterPage(location.pathname);
                                         const error = await onNextClick?.(e);
-                                        console.log('Abort error on route:', error);
+                                        console.log(
+                                            'Abort error on route:',
+                                            error,
+                                            'nextPageFull',
+                                            nextPageFull
+                                        );
                                         if (!error) {
                                             loadingDispatch({
                                                 type: 'SET_FIRST_RUN_DONE',
                                                 route: location.pathname
                                             });
+                                            autoNavigateToNext && navigate(nextPageFull);
                                         } else {
                                             loadingDispatch({
                                                 type: 'SET_REST_UNDONE',
                                                 route: location.pathname
                                             });
+                                            navigate(location.pathname);
                                         }
-                                        autoNavigateToNext && navigate(nextPageFull);
                                     });
                                 } else {
                                     try {
@@ -92,13 +98,18 @@ const NavigationBottomBar: FC<NavigationBottomBarProps> = ({
                                             type: 'SET_FIRST_RUN_DONE',
                                             route: location.pathname
                                         });
+                                        autoNavigateToNext && navigate(nextPageFull);
                                     } else {
                                         loadingDispatch({
                                             type: 'SET_REST_UNDONE',
                                             route: location.pathname
                                         });
+                                        loadingDispatch({
+                                            type: 'SET_LOADING_DONE_ROUTE',
+                                            route: nextPageFull
+                                        });
+                                        navigate(location.pathname);
                                     }
-                                    autoNavigateToNext && navigate(nextPageFull);
                                 }
                             } catch (e) {
                                 console.error('Error in NavigationBottomBar:', e);

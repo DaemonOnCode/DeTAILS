@@ -29,7 +29,6 @@ const DatasetCreationPage = () => {
     const { setSampledPostIds, setUnseenPostIds } = useCodingContext();
     const { settings } = useSettings();
     const { loadFolderData, loadTorrentData } = useRedditData();
-    const logger = useLogger();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
     const location = useLocation();
@@ -131,7 +130,8 @@ const DatasetCreationPage = () => {
         onSuccess: (data: { message: string; sampled: string[]; unseen: string[] }) => {
             setSampledPostIds(data.sampled);
             setUnseenPostIds(data.unseen);
-        }
+        },
+        unsetLoadingDone: true
     });
     const handleGenerateInitialCodes = useNextHandler({
         startLog: 'Generating initial codes',
@@ -190,8 +190,12 @@ const DatasetCreationPage = () => {
                             nextPage={PAGE_ROUTES.INITIAL_CODING}
                             isReady={isReadyCheck}
                             onNextClick={async () => {
-                                await handleSampling();
-                                await handleGenerateInitialCodes();
+                                let error = false;
+                                error = await handleSampling();
+                                console.log('Error in Sampling:', error);
+                                error = await handleGenerateInitialCodes();
+                                console.log('Error in Generating:', error);
+                                return error;
                             }}
                         />
                     </footer>

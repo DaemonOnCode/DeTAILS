@@ -137,11 +137,7 @@ const InitialCodeBook = () => {
 
     useEffect(() => {
         if (loadingState[stepRoute]?.isLoading) {
-            navigate(
-                getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                    text: 'Generating Initial Codebook'
-                })
-            );
+            navigate(getCodingLoaderUrl(LOADER_ROUTES.CODEBOOK_LOADER));
         }
     }, []);
 

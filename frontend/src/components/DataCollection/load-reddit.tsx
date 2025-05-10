@@ -2,7 +2,6 @@ import { FC, RefObject, useEffect, useImperativeHandle, useRef, useState } from 
 import useRedditData from '../../hooks/DataCollection/use-reddit-data';
 import { useCollectionContext } from '../../context/collection-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
-import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import TorrentDataTab from '../../components/DataCollection/load-torrent-data';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
@@ -20,12 +19,10 @@ const LoadReddit: FC<{
     const location = useLocation();
     const { modeInput, setModeInput, type } = useCollectionContext();
     const {
-        data,
         loadFolderData,
         loadTorrentData,
         error,
         handleLoadTorrentFromFiles,
-        loading,
         checkPrimaryTorrentForSubreddit
     } = useRedditData();
     const { saveWorkspaceData } = useWorkspaceUtils();
@@ -246,7 +243,6 @@ const LoadReddit: FC<{
             ? modeInput.split('|').slice(2).join('|')
             : '';
 
-    // Handler to update active tab and the URL query parameter.
     const updateActiveTab = (tab: 'folder' | 'torrent') => {
         setActiveTab(tab);
         searchParams.set('activeTab', tab);
@@ -256,7 +252,6 @@ const LoadReddit: FC<{
 
     return (
         <div className="flex flex-col h-full">
-            {/* Tab header */}
             <header className="p-4 border-b flex space-x-4" id="reddit-dataset-tabs">
                 <button
                     className={`px-4 py-2 rounded ${
@@ -277,8 +272,6 @@ const LoadReddit: FC<{
                     Local Folder
                 </button>
             </header>
-
-            {/* Main content area */}
             <main className="flex-1 min-h-0 overflow-auto p-4" id="reddit-dataset-main">
                 {activeTab === 'folder' && (
                     <div>

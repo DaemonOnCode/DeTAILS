@@ -2,11 +2,8 @@ import { RefObject, Suspense, useCallback, useEffect, useMemo, useState } from '
 import { SetState } from '../../types/Coding/shared';
 import TorrentSelectionPanel from './torrent-selection-panel';
 import { createResource } from '../../utility/resource-creator';
-import useServerUtils from '../../hooks/Shared/get-server-url';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import { TorrentFilesSelectedState } from '../../types/DataCollection/shared';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useCollectionContext } from '../../context/collection-context';
 import { useApi } from '../../hooks/Shared/use-api';
 import { TORRENT_END_DATE, TORRENT_START_DATE } from '../../constants/DataCollection/shared';
 import { useSettings } from '../../context/settings-context';
@@ -47,7 +44,6 @@ const TorrentDataTab = ({
     setDownloadPath: SetState<string>;
 }) => {
     const location = useLocation();
-    const { getServerUrl } = useServerUtils();
     const { fetchData } = useApi();
     const [checking, setChecking] = useState<boolean>(false);
     const navigate = useNavigate();
@@ -75,21 +71,9 @@ const TorrentDataTab = ({
                         throwIfNoEntry: false
                     })
                     ?.isDirectory();
-            console.log(
-                'Folder exists:',
-                checkPath,
-                fs.existsSync(path),
-                fs
-                    .lstatSync(path, {
-                        throwIfNoEntry: false
-                    })
-                    ?.isDirectory()
-            );
-            // setFolderExists(checkPath);
             return checkPath;
         } catch (error) {
             console.error('Error checking folder existence:', error);
-            // setFolderExists(false);
             return false;
         }
     };
@@ -116,7 +100,6 @@ const TorrentDataTab = ({
 
     const checkTransmissionStatus = async () => {
         setChecking(true);
-        // await new Promise((resolve) => setTimeout(resolve, 1000));
         try {
             const { data, error } = await fetchData<{ exists: boolean }>(
                 REMOTE_SERVER_ROUTES.CHECK_TRANSMISSION
@@ -136,12 +119,10 @@ const TorrentDataTab = ({
         }
     };
 
-    // Initial check when component mounts.
     useEffect(() => {
         checkTransmissionStatus();
-    }, [getServerUrl]);
+    }, []);
 
-    // Use process.platform from Electron to detect the platform.
     let platform: 'windows' | 'macos' | 'linux' | 'unknown' = 'unknown';
     if (process.platform === 'win32') {
         platform = 'windows';
@@ -151,7 +132,6 @@ const TorrentDataTab = ({
         platform = 'linux';
     }
 
-    // Show loading screen if transmission check is still pending.
     if (transmissionExists === null) {
         return <div>Checking Transmission daemon availability...</div>;
     }
@@ -165,7 +145,6 @@ const TorrentDataTab = ({
         new Date(torrentStart).getTime() < new Date(TORRENT_START_DATE).getTime() ||
         new Date(torrentEnd).getTime() > new Date(TORRENT_END_DATE).getTime();
 
-    // If Transmission is not present, show installation instructions along with a re-check and settings navigation button.
     if (!transmissionExists) {
         return (
             <div className="p-4">
@@ -271,7 +250,6 @@ const TorrentDataTab = ({
 
     return (
         <div className="flex h-full w-full">
-            {/* Left half: independent scroll */}
             <div className="w-1/2 h-full overflow-y-auto p-4">
                 <div className="mb-4">
                     <label className="block mb-1">Subreddit Name</label>
@@ -382,7 +360,6 @@ const TorrentDataTab = ({
                 </button>
             </div>
 
-            {/* Right half: TorrentSelectionPanel with its own scroll */}
             <div className="w-1/2 h-full overflow-y-auto p-4">
                 <Suspense fallback={<div className="p-4">Loading data...</div>}>
                     <TorrentSelectionPanel

@@ -11,11 +11,7 @@ import React, {
 import { ILayout } from '../types/Coding/shared';
 import { ILoadingState, ILoadingContext, StepHandle, ModalCallbacks } from '../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../constants/Shared';
-import {
-    PAGE_ROUTES as CODING_PAGE_ROUTES,
-    ROUTES as CODING_ROUTES,
-    LOADER_ROUTES as CODING_LOADER_ROUTES
-} from '../constants/Coding/shared';
+import { PAGE_ROUTES as CODING_PAGE_ROUTES } from '../constants/Coding/shared';
 import { loadingReducer } from '../reducers/loading';
 import { useLocation } from 'react-router-dom';
 
@@ -327,16 +323,19 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         console.log('Checking if state is locked for route:', currentRoute);
         const appRoutes = Object.keys(initialPageState);
         const currentIndex = appRoutes.indexOf(currentRoute);
+        console.log('Current route index:', currentIndex);
         if (currentIndex === -1) return false;
         console.log('Current route index:', currentIndex);
         const subsequentRoutes = appRoutes.slice(currentIndex + 1);
+        console.log('subsequent routes:', subsequentRoutes);
         for (const route of subsequentRoutes) {
             const state = loadingState[route];
             if (state.isLoading || !state.isFirstRun) {
                 console.log(
                     'State is locked for route:',
                     route,
-                    state.isLoading || !state.isFirstRun
+                    state.isLoading,
+                    !state.isFirstRun
                 );
                 return true;
             }
@@ -346,6 +345,7 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
 
     const lockedUpdate = useCallback(
         async (id: string, updateFn: () => Promise<any>) => {
+            console.log('Locked update called for route:', id, location.pathname);
             if (!isStateLocked(location.pathname)) {
                 console.log('State is not locked, proceeding with update:', id);
                 return updateFn();
@@ -413,27 +413,24 @@ export const LoadingProvider: React.FC<ILayout> = ({ children }) => {
         });
     };
 
-    const value = useMemo(
-        () => ({
-            loadingState,
-            loadingDispatch,
-            registerStepRef,
-            resetDataAfterPage,
-            checkIfDataExists,
-            showProceedConfirmModal,
-            setShowProceedConfirmModal,
-            openModal,
-            requestArrayRef,
-            updateContext,
-            resetContext,
-            abortRequests,
-            abortRequestsByRoute,
-            openCredentialModalForCredentialError,
-            isStateLocked,
-            lockedUpdate
-        }),
-        [loadingState, showProceedConfirmModal, lockedUpdate]
-    );
+    const value = {
+        loadingState,
+        loadingDispatch,
+        registerStepRef,
+        resetDataAfterPage,
+        checkIfDataExists,
+        showProceedConfirmModal,
+        setShowProceedConfirmModal,
+        openModal,
+        requestArrayRef,
+        updateContext,
+        resetContext,
+        abortRequests,
+        abortRequestsByRoute,
+        openCredentialModalForCredentialError,
+        isStateLocked,
+        lockedUpdate
+    };
 
     return (
         <LoadingContext.Provider value={value}>

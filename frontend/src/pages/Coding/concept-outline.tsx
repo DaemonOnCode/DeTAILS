@@ -68,19 +68,27 @@ const ConceptsTablePage: FC = () => {
         const result = await saveCSV(ipcRenderer, conceptOutlineTable, 'ConceptTable');
         console.log(result);
         setSaving(false);
-        toast.success('Concept Table saved as CSV');
+        if (result) {
+            toast.success('Concept Table saved as CSV');
+        } else {
+            toast.error('Failed to save Concept Table as CSV');
+        }
         await logger.info('ConceptTable saved as CSV');
     };
 
-    const handleSaveExcel = async () => {
-        await logger.info('Saving ConceptTable as Excel');
-        setSaving(true);
-        const result = await saveExcel(ipcRenderer, conceptOutlineTable, 'ConceptTable');
-        console.log(result);
-        setSaving(false);
-        toast.success('Concept Table saved as Excel');
-        await logger.info('ConceptTable saved as Excel');
-    };
+    // const handleSaveExcel = async () => {
+    //     await logger.info('Saving ConceptTable as Excel');
+    //     setSaving(true);
+    //     const result = await saveExcel(ipcRenderer, conceptOutlineTable, 'ConceptTable');
+    //     console.log(result);
+    //     setSaving(false);
+    //     if (result) {
+    //         toast.success('Concept Table saved as Excel');
+    //     } else {
+    //         toast.error('Failed to save Concept Table as Excel');
+    //     }
+    //     await logger.info('ConceptTable saved as Excel');
+    // };
 
     useEffect(() => {
         return () => {
@@ -241,12 +249,12 @@ const ConceptsTablePage: FC = () => {
                                 disabled={saving}>
                                 Save as CSV
                             </button>
-                            <button
+                            {/* <button
                                 onClick={handleSaveExcel}
                                 className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
                                 disabled={saving}>
                                 Save as Excel
-                            </button>
+                            </button> */}
                         </div>
                     </div>
 

@@ -19,6 +19,7 @@ export type HandlerConfig<T> = {
     onSuccess?: (data: T) => void;
     checkUnsaved?: () => void;
     errorRoute?: string;
+    unsetLoadingDone?: boolean;
 };
 
 export type RetryHandlerConfig<T> = {
@@ -34,6 +35,7 @@ export type RetryHandlerConfig<T> = {
     onSuccess?: (data: T) => void;
     onError?: (error: any) => void;
     errorRoute?: string;
+    unsetLoadingDone?: boolean;
 };
 
 export function useNextHandler<T>(config: HandlerConfig<T>) {
@@ -50,7 +52,7 @@ export function useNextHandler<T>(config: HandlerConfig<T>) {
             e?.preventDefault?.();
             loadingDispatch({ type: 'SET_LOADING_ROUTE', route: config.loadingRoute });
 
-            logger.info(config.startLog);
+            await logger.info(config.startLog);
             navigate(getCodingLoaderUrl(config.loaderRoute, config.loaderParams || {}));
 
             const body = config.buildBody();
@@ -77,10 +79,18 @@ export function useNextHandler<T>(config: HandlerConfig<T>) {
                     if (config.nextRoute)
                         navigate(config.nextRoute ?? `${location.pathname}${location.search}`);
                     else navigate(config.errorRoute ?? `${location.pathname}${location.search}`);
-                    loadingDispatch({
-                        type: 'SET_LOADING_DONE_ROUTE',
-                        route: config.loadingRoute
-                    });
+                    console.log(
+                        'error route:',
+                        config.errorRoute,
+                        'unsetLoadingDone:1',
+                        config.unsetLoadingDone
+                    );
+                    if (!config.unsetLoadingDone) {
+                        loadingDispatch({
+                            type: 'SET_LOADING_DONE_ROUTE',
+                            route: config.loadingRoute
+                        });
+                    }
                     throw new Error(JSON.stringify(error.message));
                 }
                 return true;
@@ -89,10 +99,18 @@ export function useNextHandler<T>(config: HandlerConfig<T>) {
             if (config.doneLog) await logger.info(config.doneLog);
             config.onSuccess?.(data as T);
 
+            console.log(
+                'error route:',
+                config.errorRoute,
+                'unsetLoadingDone:2',
+                config.unsetLoadingDone
+            );
+            if (config.unsetLoadingDone) return;
             loadingDispatch({
                 type: 'SET_LOADING_DONE_ROUTE',
                 route: config.loadingRoute
             });
+
             if (config.nextRoute) navigate(config.nextRoute);
         },
         [config, fetchData, fetchLLMData]
@@ -130,10 +148,18 @@ export function useRetryHandler<T = any>(config: RetryHandlerConfig<T>) {
             if (error.name !== 'AbortError') {
                 config.onError?.(error);
                 toast.error(JSON.stringify(error.message) ?? `${config.startLog} failed.`);
-                loadingDispatch({
-                    type: 'SET_LOADING_DONE_ROUTE',
-                    route: config.loadingRoute
-                });
+                console.log(
+                    'error route:',
+                    config.errorRoute,
+                    'unsetLoadingDone:1',
+                    config.unsetLoadingDone
+                );
+                if (!config.unsetLoadingDone) {
+                    loadingDispatch({
+                        type: 'SET_LOADING_DONE_ROUTE',
+                        route: config.loadingRoute
+                    });
+                }
                 navigate(config.errorRoute ?? `${location.pathname}${location.search}`);
             }
             return true;
@@ -142,10 +168,18 @@ export function useRetryHandler<T = any>(config: RetryHandlerConfig<T>) {
         if (config.doneLog) await logger.info(config.doneLog);
         config.onSuccess?.(data as T);
 
+        console.log(
+            'error route:',
+            config.errorRoute,
+            'unsetLoadingDone:2',
+            config.unsetLoadingDone
+        );
+        if (config.unsetLoadingDone) return;
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: config.loadingRoute
         });
+
         navigate(config.nextRoute ?? config.loadingRoute);
     }, [fetchData, fetchLLMData, config]);
 }

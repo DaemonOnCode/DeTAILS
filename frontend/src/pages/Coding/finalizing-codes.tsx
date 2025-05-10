@@ -23,6 +23,7 @@ import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import { usePaginatedResponses } from '../../hooks/Coding/use-paginated-responses';
 import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
+import RedditViewModal from '../../components/Shared/reddit-view-modal';
 
 const FinalzingCodes = () => {
     const location = useLocation();
@@ -62,6 +63,9 @@ const FinalzingCodes = () => {
             codeRefs.current.delete(code);
         }
     }, []);
+
+    const [modal, setModal] = useState({ id: '', link: '', sentence: '' });
+    const handleViewPost = (id: string) => setModal({ id, link: '', sentence: '' });
 
     const handleSearch = () => {
         const trimmedQuery = searchQuery.trim().toLowerCase();
@@ -303,7 +307,7 @@ const FinalzingCodes = () => {
                         <div className="flex-1 overflow-auto pb-6" id="finalized-code-table">
                             <ValidationTable
                                 codeResponses={codeResponses}
-                                onViewTranscript={() => {}}
+                                onViewTranscript={handleViewPost}
                                 dispatchCodeResponses={() => {}}
                                 onReRunCoding={() => {}}
                                 onUpdateResponses={() => {}}
@@ -315,6 +319,15 @@ const FinalzingCodes = () => {
                                 loadPreviousPage={loadPreviousPage}
                                 isLoadingPage={isLoadingPage}
                             />
+                            {modal.id && (
+                                <RedditViewModal
+                                    isViewOpen
+                                    postLink={modal.link}
+                                    postText={modal.sentence}
+                                    postId={modal.id}
+                                    closeModal={() => setModal({ id: '', link: '', sentence: '' })}
+                                />
+                            )}
                         </div>
                     ) : (
                         <>

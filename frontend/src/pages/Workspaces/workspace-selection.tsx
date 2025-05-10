@@ -6,7 +6,8 @@ import {
     FiChevronDown,
     FiChevronRight,
     FiEdit,
-    FiTrash2
+    FiTrash2,
+    FiGitMerge
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
@@ -121,6 +122,10 @@ const WorkspaceSelectionPage: React.FC = () => {
             const result = addResponse.data;
             if (!result || !result.id) {
                 console.error('Invalid response from server:', result);
+                showToast({
+                    type: 'error',
+                    message: 'Invalid response from server.'
+                });
                 return;
             }
             addWorkspace({
@@ -132,6 +137,10 @@ const WorkspaceSelectionPage: React.FC = () => {
             setNewWorkspaceName('');
         } catch (error) {
             console.error('Error adding workspace:', error);
+            showToast({
+                type: 'error',
+                message: 'Error adding workspace.'
+            });
         }
     };
 
@@ -154,6 +163,10 @@ const WorkspaceSelectionPage: React.FC = () => {
             });
             if (renameResponse.error) {
                 console.error('Error renaming workspace:', renameResponse.error.message);
+                showToast({
+                    type: 'error',
+                    message: 'Error renaming workspace.'
+                });
                 return;
             }
             updateWorkspace(workspaceId, renameWorkspaceName);
@@ -161,6 +174,10 @@ const WorkspaceSelectionPage: React.FC = () => {
             setRenamingWorkspace(null);
         } catch (error) {
             console.error('Error renaming workspace:', error);
+            showToast({
+                type: 'error',
+                message: 'Error renaming workspace.'
+            });
         }
     };
 
@@ -182,6 +199,36 @@ const WorkspaceSelectionPage: React.FC = () => {
             deleteWorkspace(workspaceId);
         } catch (error) {
             console.error('Error deleting workspace:', error);
+            showToast({
+                type: 'error',
+                message: 'Error deleting workspace.'
+            });
+        }
+    };
+
+    const handleRestoreLastSaved = async (workspaceId: string) => {
+        try {
+            const restoreResponse = await fetchData(REMOTE_SERVER_ROUTES.RESTORE_LAST_SAVED, {
+                method: 'POST',
+                body: JSON.stringify({
+                    workspace_id: workspaceId,
+                    user_email: user?.email || ''
+                })
+            });
+            if (restoreResponse.error) {
+                console.error('Error restoring last saved:', restoreResponse.error.message);
+                return;
+            }
+            showToast({
+                type: 'success',
+                message: 'Workspace restored successfully.'
+            });
+        } catch (error) {
+            console.error('Error restoring last saved:', error);
+            showToast({
+                type: 'error',
+                message: 'Error restoring workspace.'
+            });
         }
     };
 
@@ -228,7 +275,7 @@ const WorkspaceSelectionPage: React.FC = () => {
     }
 
     return (
-        <div className="max-h-page h-page flex flex-col overflow-hidden">
+        <div className="max-h-page h-page flex flex-col">
             <div className="flex justify-between items-center mb-4">
                 <h1 className="text-2xl font-bold">Workspace Management</h1>
             </div>
@@ -247,7 +294,7 @@ const WorkspaceSelectionPage: React.FC = () => {
                     Add
                 </button>
             </div>
-            <div className="shadow-lg rounded-lg my-4 flex flex-col flex-1 overflow-hidden">
+            <div className="shadow-[0_0_5px_rgba(0,0,0,0.25)] rounded-lg my-4 flex flex-col flex-1 overflow-hidden">
                 <div className="p-4 border-b">
                     <h2 className="text-lg font-semibold">All Workspaces</h2>
                 </div>
@@ -294,14 +341,25 @@ const WorkspaceSelectionPage: React.FC = () => {
                                             setRenamingWorkspace(workspace.id);
                                             setRenameWorkspaceName(workspace.name);
                                         }}
+                                        title="Edit Workspace"
                                         className="text-blue-500 hover:text-blue-600">
                                         <FiEdit />
                                     </button>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
+                                            handleRestoreLastSaved(workspace.id);
+                                        }}
+                                        title="Restore Last Saved"
+                                        className="text-[#6e5494] hover:text-[#4d3177]">
+                                        <FiGitMerge />
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             handleDeleteWorkspace(workspace.id);
                                         }}
+                                        title="Delete Workspace"
                                         className="text-red-500 hover:text-red-600">
                                         <FiTrash2 />
                                     </button>
