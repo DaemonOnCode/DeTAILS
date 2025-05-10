@@ -199,15 +199,16 @@ async def download_report(
                 break
             for row in batch:
                 if not summary:
-                    row = list(map(lambda x: {
-                        "postId": x[1],
-                        "theme": x[4],
-                        "higherLevelCode": x[3],
-                        "code": x[2],
-                        "quote": x[5],
-                        "explanation": x[6],
-                    }, row))
-                clean = [("" if cell is None else cell) for cell in row]
+                    transformed_row = {
+                        "postId": row[1],
+                        "theme": row[3],
+                        "higherLevelCode": row[2],
+                        "quote": row[4],
+                        "explanation": row[5],
+                    }
+                    clean = [("" if cell is None else cell) for cell in transformed_row.values()]
+                else:
+                    clean = [("" if cell is None else cell) for cell in row]
                 writer.writerow(clean)
 
         tmp.flush()

@@ -98,7 +98,7 @@ def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> D
             diff["inserted"].append(inserted_row)
 
     elif action_type == "SET_ALL_CORRECT":
-        old_rows = concept_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"])
+        old_rows = concept_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"], map_to_model=False)
         old_is_marked = {row["id"]: row["is_marked"] for row in old_rows}
         updated_rows = concept_entries_repo.update_returning({"coding_context_id": workspace_id}, {"is_marked": True})
         diff["updated"] = [
@@ -107,7 +107,7 @@ def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> D
         ]
 
     elif action_type == "SET_ALL_INCORRECT":
-        old_rows = concept_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"])
+        old_rows = concept_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"], map_to_model=False)
         old_is_marked = {row["id"]: row["is_marked"] for row in old_rows}
         updated_rows = concept_entries_repo.update_returning({"coding_context_id": workspace_id}, {"is_marked": False})
         diff["updated"] = [
@@ -116,7 +116,7 @@ def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> D
         ]
 
     elif action_type == "SET_ALL_UNMARKED":
-        old_rows = concept_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"])
+        old_rows = concept_entries_repo.find({"coding_context_id": workspace_id}, columns=["id", "is_marked"], map_to_model=False)
         old_is_marked = {row["id"]: row["is_marked"] for row in old_rows}
         updated_rows = concept_entries_repo.update_returning({"coding_context_id": workspace_id}, {"is_marked": None})
         diff["updated"] = [
