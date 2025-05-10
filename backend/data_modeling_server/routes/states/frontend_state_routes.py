@@ -73,10 +73,8 @@ async def save_coding_context(
             raise HTTPException(status_code=400, detail="Invalid action")
         
         diff = config["process_func"](workspace_id, action)
-        if operation_type == "dispatchAllPostResponse":
-            sampled_responses = qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.INITIAL.value})
-            unseen_responses = qect_repo.find({"workspace_id": workspace_id, "codebook_type": CodebookType.FINAL.value})
-            data = sampled_responses + unseen_responses
+        if operation_type == "dispatchAllPostResponse" or operation_type == "dispatchSampledPostResponse" or operation_type == "dispatchUnseenPostResponse":
+            data = []
         else:
             data = config["repo"].find(config["conditions"](workspace_id))
             print(f"Finding data for operation type: {operation_type}", data)
@@ -219,7 +217,7 @@ async def load_coding_context(
     if not states:
         states = [
             "mainTopic", "additionalInfo", "contextFiles", "researchQuestions",
-            "concepts", "selectedConcepts", "conceptOutlineTable", "sampledPostIds", "sampledPostResponses"
+            "concepts", "selectedConcepts", "conceptOutlineTable", "sampledPostIds"
         ]
 
     response: Dict[str, Any] = {}

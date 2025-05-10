@@ -201,6 +201,24 @@ def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> D
             entry = entries[action["index"]]
             diff["deleted"] = concept_entries_repo.delete_returning({"id": entry.id})
 
+    elif action_type == "UPDATE_FIELDS":
+        entries = concept_entries_repo.find({"coding_context_id": workspace_id})
+        if 0 <= action["index"] < len(entries):
+            entry = entries[action["index"]]
+            fields = action["fields"]
+            values = action["values"]
+            changes = dict(zip(fields, values))
+            old_values = {field: getattr(entry, field) for field in fields}
+            updated_rows = concept_entries_repo.update_returning(
+                {"id": entry.id},
+                changes
+            )
+            if updated_rows:
+                diff["updated"] = [{
+                    "id": updated_rows[0]["id"],
+                    "changes": {field: {"old": old_values[field], "new": updated_rows[0][field]} for field in fields}
+                }]
+
     elif action_type == "RESET":
         diff["deleted"] = concept_entries_repo.delete_returning({"coding_context_id": workspace_id})
 

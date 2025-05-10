@@ -1,4 +1,4 @@
-import { FC, useState, useEffect, useMemo } from 'react';
+import { FC, useState, useEffect, useMemo, useRef } from 'react';
 import { FaTrash } from 'react-icons/fa';
 import debounce from 'lodash/debounce';
 import { ConceptEntry } from '../../../types/Coding/shared';
@@ -7,7 +7,7 @@ import { DEBOUNCE_DELAY } from '../../../constants/Shared';
 interface ConceptTableRowProps {
     entry: ConceptEntry;
     index: number;
-    onFieldChange: (index: number, field: string, value: any) => void;
+    onFieldChange: (index: number, fields: string[], value: any[]) => void;
     onToggleMark: (index: number, isMarked: boolean | undefined) => void;
     onDeleteRow: (index: number) => void;
 }
@@ -21,6 +21,14 @@ const ConceptTableRow: FC<ConceptTableRowProps> = ({
 }) => {
     const [localWord, setLocalWord] = useState(entry.word);
     const [localDescription, setLocalDescription] = useState(entry.description);
+    const [pendingChanges, setPendingChanges] = useState<{ word?: string; description?: string }>(
+        {}
+    );
+    const pendingChangesRef = useRef(pendingChanges);
+
+    useEffect(() => {
+        pendingChangesRef.current = pendingChanges;
+    }, [pendingChanges]);
 
     useEffect(() => {
         setLocalWord(entry.word);
@@ -29,8 +37,16 @@ const ConceptTableRow: FC<ConceptTableRowProps> = ({
 
     const debouncedUpdate = useMemo(
         () =>
-            debounce((field: string, value: any) => {
-                onFieldChange(index, field, value);
+            debounce(() => {
+                const changes = pendingChangesRef.current;
+                if (changes.word !== undefined || changes.description !== undefined) {
+                    onFieldChange(
+                        index,
+                        ['word', 'description'],
+                        [changes.word ?? localWord, changes.description ?? localDescription]
+                    );
+                    setPendingChanges({});
+                }
             }, DEBOUNCE_DELAY),
         [index, onFieldChange]
     );
@@ -50,7 +66,8 @@ const ConceptTableRow: FC<ConceptTableRowProps> = ({
                     onChange={(e) => {
                         const v = e.target.value;
                         setLocalWord(v);
-                        debouncedUpdate('word', v);
+                        setPendingChanges((prev) => ({ ...prev, word: v }));
+                        debouncedUpdate();
                     }}
                 />
             </td>
@@ -61,7 +78,8 @@ const ConceptTableRow: FC<ConceptTableRowProps> = ({
                     onChange={(e) => {
                         const v = e.target.value;
                         setLocalDescription(v);
-                        debouncedUpdate('description', v);
+                        setPendingChanges((prev) => ({ ...prev, description: v }));
+                        debouncedUpdate();
                     }}
                 />
             </td>

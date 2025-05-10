@@ -4,12 +4,8 @@ import { useCollectionContext } from '../../context/collection-context';
 
 interface DataResponse {
     [subreddit: string]: {
-        posts: {
-            [year: string]: string[];
-        };
-        comments: {
-            [year: string]: string[];
-        };
+        posts: { [year: string]: string[] };
+        comments: { [year: string]: string[] };
     };
 }
 
@@ -18,11 +14,8 @@ const TorrentSelectionPanel: React.FC<{
     selectedFilesRef: RefObject<any | null>;
 }> = ({ dataResource, selectedFilesRef }) => {
     const dataResponse = dataResource.read();
-
     const { modeInput, setModeInput } = useCollectionContext();
-
     const [activeSubreddit, setActiveSubreddit] = useState<string | null>(null);
-
     const [selected, setSelected] = useState<TorrentFilesSelectedState>(() => {
         const initial: TorrentFilesSelectedState = {};
         Object.keys(dataResponse).forEach((subreddit) => {
@@ -37,10 +30,29 @@ const TorrentSelectionPanel: React.FC<{
         });
         return initial;
     });
-
     const [expandedSubreddits, setExpandedSubreddits] = useState<{ [key: string]: boolean }>({});
     const [expandedTypes, setExpandedTypes] = useState<{ [key: string]: boolean }>({});
     const [expandedYears, setExpandedYears] = useState<{ [key: string]: boolean }>({});
+
+    function sortAndFilterFileList(input: string, subreddit: string): string {
+        const parts = input.split('|');
+        if (parts.length < 4) return input;
+        const fileList = parts.pop()!.split(',').filter(Boolean);
+        const validFiles = fileList.filter((file) => {
+            const [prefix, yearMonth] = file.split('_');
+            const [year, month] = yearMonth.split('-');
+            const type = prefix === 'RS' ? 'posts' : prefix === 'RC' ? 'comments' : null;
+            return (
+                type &&
+                dataResponse[subreddit] &&
+                dataResponse[subreddit][type][year]?.includes(month)
+            );
+        });
+        validFiles.sort();
+        const sortedFilteredFileList = validFiles.join(',');
+        parts.push(sortedFilteredFileList);
+        return parts.join('|');
+    }
 
     const getFilesForSubreddit = (subreddit: string): string[] => {
         const fileList: string[] = [];
@@ -51,9 +63,8 @@ const TorrentSelectionPanel: React.FC<{
                 const selectedArray = subredditSelection[type][year];
                 const filesArray = dataResponse[subreddit][type][year];
                 selectedArray.forEach((isSelected, index) => {
-                    if (isSelected) {
+                    if (isSelected && filesArray[index]) {
                         const prefix = type === 'posts' ? 'RS' : 'RC';
-                        // Assume that the file value (e.g. "03") represents the month.
                         const month = filesArray[index];
                         fileList.push(`${prefix}_${year}-${month}`);
                     }
@@ -68,18 +79,18 @@ const TorrentSelectionPanel: React.FC<{
 
         const files = getFilesForSubreddit(activeSubreddit);
         const hasFiles = files.length > 0;
-
-        // take existing base (in case user has typed other args), or default
         const base = modeInput.includes('|files|')
             ? modeInput.split('|files|')[0]
             : `reddit|torrent|${activeSubreddit}`;
+        const nextInput = hasFiles ? `${base}|files|${files.join(',')}` : `${base}|files|`;
 
-        const nextInput = hasFiles ? `${base}|files|${files.join(',')}` : `${base}|files|`; // clear the files list if none
+        const sortedFilteredNextInput = sortAndFilterFileList(nextInput, activeSubreddit);
+        const sortedFilteredModeInput = sortAndFilterFileList(modeInput, activeSubreddit);
 
-        if (nextInput !== modeInput) {
-            setModeInput(nextInput);
+        if (sortedFilteredNextInput !== sortedFilteredModeInput) {
+            setModeInput(sortedFilteredNextInput);
         }
-    }, [selected, activeSubreddit, modeInput, setModeInput]);
+    }, [selected, activeSubreddit, modeInput]);
 
     useEffect(() => {
         if (modeInput && modeInput.includes('|files|')) {
@@ -90,23 +101,29 @@ const TorrentSelectionPanel: React.FC<{
                 setActiveSubreddit(subredditFromMode);
                 const filesList = filesStr.split(',').filter(Boolean);
                 const updatedSelected = { ...selected };
-                filesList.forEach((fileEntry) => {
+
+                const validFiles = filesList.filter((fileEntry) => {
                     const [prefix, yearMonth] = fileEntry.split('_');
                     const [year, month] = yearMonth.split('-');
                     const type = prefix === 'RS' ? 'posts' : prefix === 'RC' ? 'comments' : null;
-                    if (
+                    return (
                         type &&
                         dataResponse[subredditFromMode] &&
-                        dataResponse[subredditFromMode][type][year]
-                    ) {
-                        const monthArray = dataResponse[subredditFromMode][type][year];
-                        const monthIndex = monthArray.findIndex((m) => m === month);
-                        if (monthIndex !== -1) {
-                            updatedSelected[subredditFromMode][type][year] = [
-                                ...updatedSelected[subredditFromMode][type][year]
-                            ];
-                            updatedSelected[subredditFromMode][type][year][monthIndex] = true;
-                        }
+                        dataResponse[subredditFromMode][type][year]?.includes(month)
+                    );
+                });
+
+                validFiles.forEach((fileEntry) => {
+                    const [prefix, yearMonth] = fileEntry.split('_');
+                    const [year, month] = yearMonth.split('-');
+                    const type = prefix === 'RS' ? 'posts' : 'comments';
+                    const monthArray = dataResponse[subredditFromMode][type][year];
+                    const monthIndex = monthArray.findIndex((m) => m === month);
+                    if (monthIndex !== -1) {
+                        updatedSelected[subredditFromMode][type][year] = [
+                            ...updatedSelected[subredditFromMode][type][year]
+                        ];
+                        updatedSelected[subredditFromMode][type][year][monthIndex] = true;
                     }
                 });
                 setSelected(updatedSelected);
@@ -120,21 +137,7 @@ const TorrentSelectionPanel: React.FC<{
             getFiles: () => {
                 const result: Array<[string, string[]]> = [];
                 Object.keys(selected).forEach((subreddit) => {
-                    const fileList: string[] = [];
-                    (['posts', 'comments'] as const).forEach((type) => {
-                        Object.keys(selected[subreddit][type]).forEach((year) => {
-                            const selectedArray = selected[subreddit][type][year];
-                            const filesArray = dataResponse[subreddit][type][year];
-                            selectedArray.forEach((isSelected, index) => {
-                                if (isSelected) {
-                                    const prefix = type === 'posts' ? 'RS' : 'RC';
-                                    // Here we assume that the file value (e.g. "03") represents the month.
-                                    const month = filesArray[index];
-                                    fileList.push(`${prefix}_${year}-${month}`);
-                                }
-                            });
-                        });
-                    });
+                    const fileList = getFilesForSubreddit(subreddit);
                     if (fileList.length > 0) {
                         result.push([subreddit, fileList]);
                     }
@@ -186,7 +189,6 @@ const TorrentSelectionPanel: React.FC<{
         const current = selected[subreddit];
         const postsAvailable = Object.keys(dataResponse[subreddit].posts).length > 0;
         const commentsAvailable = Object.keys(dataResponse[subreddit].comments).length > 0;
-
         const postsAllSelected = postsAvailable
             ? Object.values(current.posts).every((arr) => arr.every(Boolean))
             : true;
