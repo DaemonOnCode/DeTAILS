@@ -14,6 +14,7 @@ from database import (
     SelectedConceptsRepository
 )
 from database.state_dump_table import StateDumpsRepository
+from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from headers.workspace_id import get_workspace_id
 from ipc import send_ipc_message
@@ -239,6 +240,9 @@ async def generate_definitions_endpoint(
         results.extend(parsed_output.get("concepts", []))
         print("Parsed output:", parsed_output)
 
+        if isinstance(parsed_output.get("concepts"), list) and len(parsed_output.get("concepts")) == 1 and not isinstance(parsed_output.get("concepts")[0].get("word"), str):
+            raise RequestError(status_code=400, message="Invalid response format from LLM.")
+        
         concept_entries = [
             ConceptEntry(
                 id=str(uuid4()),

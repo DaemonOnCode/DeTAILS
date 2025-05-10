@@ -11,7 +11,7 @@ from zipfile import ZipFile
 
 from chromadb import HttpClient
 from fastapi import HTTPException, UploadFile
-from constants import STUDY_DATABASE_PATH
+from constants import STUDY_DATABASE_PATH, FRONTEND_PAGE_MAPPER, PAGE_TO_STATES
 from controllers.workspace_controller import upgrade_workspace_from_temp
 from database import (
     GroupedCodeEntriesRepository,
@@ -126,7 +126,116 @@ def save_state(data):
     )
 
 
-def load_state(data):
+def check_page_data_existence(workspace_id: str, page_key: str) -> bool:
+    print(f"Checking page data existence for {page_key} in workspace {workspace_id}")
+    page_key = FRONTEND_PAGE_MAPPER.get(page_key)
+    if not page_key:
+        return False
+    
+    print(f"Page key: {page_key}")
+    
+    states = PAGE_TO_STATES.get(page_key, [])
+    print(f"States: {states}")
+    if not states:
+        return False
+    
+    for state in states:
+        if state == "contextFiles":
+            if context_files_repo.count({"coding_context_id": workspace_id}) == 0:
+                return False
+        elif state == "mainTopic":
+            coding_context = coding_context_repo.find_one({"id": workspace_id}, fail_silently=True)
+            if not coding_context or coding_context.main_topic is None:
+                return False
+        elif state == "additionalInfo":
+            coding_context = coding_context_repo.find_one({"id": workspace_id}, fail_silently=True)
+            if not coding_context or coding_context.additional_info is None:
+                return False
+        elif state == "researchQuestions":
+            if research_question_repo.count({"coding_context_id": workspace_id}) == 0:
+                return False
+        elif state == "concepts":
+            if concepts_repo.count({"coding_context_id": workspace_id}) == 0:
+                return False
+        elif state == "selectedConcepts":
+            if selected_concepts_repo.count({"coding_context_id": workspace_id}) == 0:
+                return False
+        elif state == "conceptOutlineTable":
+            if concept_entries_repo.count({"coding_context_id": workspace_id}) == 0:
+                return False
+        elif state == "sampledPostResponse":
+            if qect_repo.count({"workspace_id": workspace_id, "codebook_type": CodebookType.INITIAL.value}) == 0:
+                return False
+        elif state == "sampledPostIds":
+            if selected_posts_repo.count({"workspace_id": workspace_id, "type": "sampled"}) == 0:
+                return False
+        elif state == "unseenPostIds":
+            if selected_posts_repo.count({"workspace_id": workspace_id, "type": "unseen"}) == 0:
+                return False
+        elif state == "unseenPostResponse":
+            if qect_repo.count({"workspace_id": workspace_id, "codebook_type": CodebookType.FINAL.value}) == 0:
+                return False
+        elif state == "initialCodebookTable":
+            if initial_codebook_repo.count({"coding_context_id": workspace_id}) == 0:
+                return False
+        elif state == "groupedCodes":
+            if grouped_codes_repo.count({"coding_context_id": workspace_id}) == 0:
+                return False
+        elif state == "themes":
+            if themes_repo.count({"coding_context_id": workspace_id}) == 0:
+                return False
+        elif state == "type":
+            collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
+            if not collection_context or collection_context.type is None:
+                return False
+        elif state == "modeInput":
+            collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
+            if not collection_context or collection_context.mode_input is None:
+                return False
+        elif state == "selectedData":
+            if selected_posts_repo.count({"workspace_id": workspace_id}) == 0:
+                return False
+        elif state == "dataFilters":
+            collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
+            if (not collection_context or collection_context.data_filters is None or 
+                collection_context.data_filters == json.dumps({})):
+                return False
+        elif state == "isLocked":
+            collection_context = collection_context_repo.find_one({"id": workspace_id}, fail_silently=True)
+            if not collection_context or not collection_context.is_locked:
+                return False
+    return True
+
+def restore_loading_page_state(workspace_id: str, user_email: str):
+    workspace_state = workspace_state_repo.find_one(
+        {"workspace_id": workspace_id, "user_email": user_email},
+        fail_silently=True
+    )
+
+    print(f"Restoring loading page state for workspace {workspace_id}: {workspace_state}")
+
+    if not workspace_state:
+        return {"success": True, "data": None}
+    
+    page_state = json.loads(workspace_state.page_state)
+
+    print(f"Page state before update: {page_state}", type(page_state))
+
+    for key in page_state.keys():
+        data_exists = check_page_data_existence(workspace_id, key)
+        print(f"Checking data existence for {key}: {data_exists}")
+        page_state[key] = not data_exists
+        print(f"Updated page state for {key}: {page_state[key]}")
+
+    print(f"Updated page state: {page_state}")
+
+    workspace_state_repo.update(
+        {"workspace_id": workspace_id},
+        {"page_state": json.dumps(page_state)}
+    )
+
+
+def load_state(data, restore_last_saved=False):
     state = None
     try:
         state = workspace_state_repo.find_one(
@@ -134,6 +243,8 @@ def load_state(data):
         )
     except Exception as e:
         print(e)
+    if restore_last_saved:
+        restore_loading_page_state(data.workspace_id, data.user_email)
 
     if not state:
         return {"success": True, "data": None}

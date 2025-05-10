@@ -54,19 +54,36 @@ class BaseRepository(Generic[T]):
                 cursor.execute(create_statement)
                 conn.commit()
                 return
-
+            
         table_schema = self.get_table_schema()
         model_fields = self.get_model_fields()
         missing_columns = set(model_fields.keys()) - set(table_schema.keys())
+        extra_columns = set(table_schema.keys()) - set(model_fields.keys())
 
-        if missing_columns:
+        if missing_columns or extra_columns:
             with tuned_connection(self.database_path) as conn:
                 cursor = conn.cursor()
-                for col in missing_columns:
-                    col_type = SQLITE_TYPE_MAPPING.get(model_fields[col], "TEXT")
-                    query = f"ALTER TABLE {self.table_name} ADD COLUMN {col} {col_type}"
-                    cursor.execute(query)
+                if missing_columns:
+                    for col in missing_columns:
+                        col_type = SQLITE_TYPE_MAPPING.get(model_fields[col], "TEXT")
+                        query = f"ALTER TABLE {self.table_name} ADD COLUMN {col} {col_type}"
+                        cursor.execute(query)
+                
+                if extra_columns:
+                    new_table_name = f"{self.table_name}_new"
+                    create_statement = generate_create_table_statement(model=self.model, table_name=new_table_name)
+                    cursor.execute(create_statement)
+                    
+                    common_columns = list(set(table_schema.keys()) - extra_columns)
+                    columns_str = ", ".join(common_columns)
+                    copy_query = f"INSERT INTO {new_table_name} ({columns_str}) SELECT {columns_str} FROM {self.table_name}"
+                    cursor.execute(copy_query)
+                    
+                    cursor.execute(f"DROP TABLE {self.table_name}")
+                    cursor.execute(f"ALTER TABLE {new_table_name} RENAME TO {self.table_name}")
+                
                 conn.commit()
+
     
     @handle_db_errors
     @auto_recover
