@@ -1,9 +1,10 @@
 import asyncio
+import sys
 import ctypes
 import os
 import subprocess
-import sys
 import json
+import threading
 import time
 from functools import lru_cache
 import aiohttp
@@ -31,6 +32,10 @@ async def read_stream(stream: aiohttp.StreamReader | None):
         if not line:
             break
         print(line.decode().strip())
+
+def _drain_pipe(pipe):
+    for raw in pipe:
+        print(raw.decode().rstrip())
 
 def get_transmission_cmd():
     settings_path = PATHS.get("settings")
@@ -77,6 +82,19 @@ def get_transmission_cmd():
             print("Error reading custom transmission settings:", e)
     return default_cmd
 
+async def run_blocking(cmd: list[str]) -> tuple[str, str, int]:
+    loop = asyncio.get_running_loop()
+    def _run():
+        cp = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        return cp.stdout, cp.stderr, cp.returncode
+    return await loop.run_in_executor(None, _run)
+
+
 class GlobalTransmissionDaemonManager:
     def __init__(self):
         self._lock = asyncio.Lock()
@@ -109,13 +127,10 @@ class GlobalTransmissionDaemonManager:
 
         if sys.platform == "win32":
             try:
-                proc = await asyncio.create_subprocess_exec(
-                    "tasklist", "/FI", f"IMAGENAME eq {process_name}",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
+                stdout, _err, _rc = await run_blocking(
+                    ["tasklist", "/FI", f"IMAGENAME eq {process_name}"]
                 )
-                stdout, _ = await proc.communicate()
-                lines = stdout.decode().splitlines()
+                lines = stdout.splitlines()
                 for line in lines:
                     if process_name in line:
                         parts = line.split()
@@ -152,23 +167,17 @@ class GlobalTransmissionDaemonManager:
                     return "other_error"
 
             for pid in pids:
-                check_proc = await asyncio.create_subprocess_exec(
-                    "tasklist", "/FI", f"PID eq {pid}",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
+                out2, _e2, _ = await run_blocking(
+                    ["tasklist", "/FI", f"PID eq {pid}"]
                 )
-                stdout, _ = await check_proc.communicate()
-                if pid not in stdout.decode():
+                if pid not in out2:
                     print(f"Process PID {pid} not found, likely already terminated.")
                     continue
 
-                proc = await asyncio.create_subprocess_exec(
-                    "taskkill", "/F", "/PID", pid,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
+                stdout, stderr, _ = await run_blocking(
+                    ["taskkill", "/F", "/PID", pid]
                 )
-                stdout, stderr = await proc.communicate()
-                output = stdout.decode() + stderr.decode()  
+                output = stdout + stderr
                 result = parse_taskkill_output(output)
 
                 if result == "success":
@@ -196,13 +205,10 @@ class GlobalTransmissionDaemonManager:
 
                 start_time = time.time()
                 while time.time() - start_time < 30:  
-                    check_proc = await asyncio.create_subprocess_exec(
-                        "tasklist", "/FI", f"PID eq {pid}",
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE
+                    confirm_out, _e, _ = await run_blocking(
+                        ["tasklist", "/FI", f"PID eq {pid}"]
                     )
-                    stdout, _ = await check_proc.communicate()
-                    if pid not in stdout.decode():
+                    if pid not in confirm_out:
                         print(f"Confirmed termination of PID {pid}.")
                         break
                     await asyncio.sleep(1)
@@ -222,13 +228,33 @@ class GlobalTransmissionDaemonManager:
                     raise RuntimeError("Transmission CLI is not available on this system.")
                 await self._kill_existing_daemons()
                 print("Starting Transmission daemon...", self._transmission_cmd)
-                self._process = await asyncio.create_subprocess_exec(
-                    *self._transmission_cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
-                self._stdout_task = asyncio.create_task(read_stream(self._process.stdout))
-                self._stderr_task = asyncio.create_task(read_stream(self._process.stderr))
+                if sys.platform == "win32":
+                    loop = asyncio.get_running_loop()
+                    def _spawn():
+                        return subprocess.Popen(
+                            self._transmission_cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE
+                        )
+                    self._process = await loop.run_in_executor(None, _spawn)
+                    threading.Thread(
+                        target=_drain_pipe,
+                        args=(self._process.stdout,),
+                        daemon=True
+                    ).start()
+                    threading.Thread(
+                        target=_drain_pipe,
+                        args=(self._process.stderr,),
+                        daemon=True
+                    ).start()
+                else:
+                    self._process = await asyncio.create_subprocess_exec(
+                        *self._transmission_cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                    self._stdout_task = asyncio.create_task(read_stream(self._process.stdout))
+                    self._stderr_task = asyncio.create_task(read_stream(self._process.stderr))
                 if not await wait_for_transmission():
                     raise RuntimeError("Transmission daemon did not start properly within the timeout period.")
                 print("Transmission daemon started.")
@@ -249,8 +275,10 @@ class GlobalTransmissionDaemonManager:
                     else:
                         self._process.terminate()
                         await self._process.wait()
-                    self._stdout_task.cancel()
-                    self._stderr_task.cancel()
+                    if self._stdout_task:
+                        self._stdout_task.cancel()
+                    if self._stderr_task:
+                        self._stderr_task.cancel()
                     self._process = None
                     print("Transmission daemon terminated.")
                 finally:

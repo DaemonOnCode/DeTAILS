@@ -23,7 +23,6 @@ class TorrentDownloadProgressRepository(BaseRepository[TorrentDownloadProgress])
   SELECT 
     run_id,
     workspace_id,
-    workspace_id,
     status,
     progress,
     completed_files,
@@ -34,7 +33,7 @@ class TorrentDownloadProgressRepository(BaseRepository[TorrentDownloadProgress])
     files_already_downloaded,
     messages
   FROM torrent_download_progress
-  WHERE workspace_id = ? AND workspace_id = ?
+  WHERE workspace_id = ?
 )
 SELECT json_object(
   'overall', json_object(
@@ -61,7 +60,6 @@ SELECT json_object(
     FROM pipeline_steps ps
     WHERE ps.run_id = o.run_id
       AND ps.workspace_id = o.workspace_id
-      AND ps.workspace_id = o.workspace_id
     ORDER BY CASE ps.step_label
         WHEN 'Metadata' THEN 1
         WHEN 'Verification' THEN 2
@@ -86,12 +84,11 @@ SELECT json_object(
     FROM file_status fs
     WHERE fs.run_id = o.run_id
       AND fs.workspace_id = o.workspace_id
-      AND fs.workspace_id = o.workspace_id
   )
 ) AS run_state
 FROM overall o;
         """
-        rows = self.execute_raw_query(query, (workspace_id, workspace_id), keys=True)
+        rows = self.execute_raw_query(query, (workspace_id, ), keys=True)
         print(rows)
         return rows
     

@@ -6,7 +6,7 @@ import os
 import shutil
 from typing import Dict
 from uuid import uuid4
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Form, Body
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Form, Body, Header
 from fastapi.responses import FileResponse
 from controllers.collection_controller import (
     check_primary_torrent, create_dataset, delete_dataset, 
@@ -367,11 +367,10 @@ async def prepare_torrent_data_from_files(
 @router.post("/torrent-status")
 async def get_torrent_status_endpoint(
     request: Request,
-    request_body: GetTorrentStatusRequest
+    request_body: GetTorrentStatusRequest,
+    workspace_id: str = Header(..., alias="x-workspace-id"),
 ):
-    workspace_id = request.headers.get("x-workspace-id")
-    workspace_id = request.headers.get("x-workspace-id")
-    return progress_repo.get_current_status(workspace_id, workspace_id)
+    return progress_repo.get_current_status(workspace_id)
 
 @router.post("/check-reddit-torrent-availability")
 async def check_reddit_torrent_availability(

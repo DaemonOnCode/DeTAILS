@@ -11,7 +11,10 @@ import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
+import sys
 import tempfile
+import threading
 import time
 from typing import Any, Counter, Dict, List, Optional, Tuple
 from uuid import uuid4
@@ -763,37 +766,65 @@ async def run_command_async(command: str) -> str:
         print("Command executed successfully.")
     return stdout.decode()
 
-
 async def run_command_and_stream(command):
-    process = await asyncio.create_subprocess_shell(
-        command,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        limit=1024 * 1024 * 512 # 512 MB buffer size
-    )
-    buffer = bytearray()
-    try:
+    if sys.platform == "win32":
+        loop = asyncio.get_running_loop()
+        proc = await loop.run_in_executor(
+            None,
+            lambda: subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=1 
+            )
+        )
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+        def _reader():
+            for raw in proc.stdout:
+                line = raw.decode("utf-8", errors="ignore").rstrip("\r\n")
+                loop.call_soon_threadsafe(queue.put_nowait, line)
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+        threading.Thread(target=_reader, daemon=True).start()
         while True:
-            chunk = await process.stdout.read(65536)
-            if not chunk:
-                if buffer:
-                    yield buffer.decode('utf-8', errors='ignore').strip()
+            line = await queue.get()
+            if line is None:
                 break
-            buffer.extend(chunk)
-            
+            yield line
+        await loop.run_in_executor(None, proc.wait)
+
+    else:
+        process = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            limit=1024 * 1024 * 512,  # 512 MB buffer
+        )
+        buffer = bytearray()
+        try:
             while True:
-                newline_idx = buffer.find(b'\n')
-                if newline_idx == -1:
+                chunk = await process.stdout.read(65536)
+                if not chunk:
+                    if buffer:
+                        yield buffer.decode("utf-8", errors="ignore").strip()
                     break
-                line = buffer[:newline_idx].decode('utf-8', errors='ignore').strip()
-                buffer = buffer[newline_idx + 1:]
-                if line: 
-                    yield line
-    except Exception as e:
-        print(f"Error reading stream: {e}")
-        raise
-    finally:
-        await process.wait()
+                buffer.extend(chunk)
+
+                while True:
+                    newline_idx = buffer.find(b"\n")
+                    if newline_idx == -1:
+                        break
+                    line = buffer[:newline_idx].decode("utf-8", errors="ignore").strip()
+                    buffer = buffer[newline_idx + 1 :]
+                    if line:
+                        yield line
+        except Exception as e:
+            print(f"Error reading stream: {e}")
+            raise
+        finally:
+            await process.wait()
 
 async def process_reddit_data(
     manager: ConnectionManager,
