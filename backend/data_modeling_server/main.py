@@ -19,7 +19,6 @@ from database import (
     SelectedPostIdsRepository, CodingContextRepository,
     ContextFilesRepository, ResearchQuestionsRepository,
 )
-from database.initialize import initialize_study_database
 from constants import PATHS, get_default_transmission_cmd
 
 
