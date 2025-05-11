@@ -23,7 +23,10 @@ import { DetailsLLMIcon } from '../../Shared/Icons';
 import { toast } from 'react-toastify';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../../constants/Shared';
-import { downloadFileWithStreaming } from '../../../utility/file-downloader';
+import {
+    downloadFileWithStreaming,
+    generateUniqueFileName
+} from '../../../utility/file-downloader';
 import { usePaginatedResponses } from '../../../hooks/Coding/use-paginated-responses';
 import { useWorkspaceContext } from '../../../context/workspace-context';
 
@@ -209,10 +212,6 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                 return dispatchResult;
             } else {
                 console.log(action, 'route dispatch updating both');
-                // // @ts-ignore
-                // dispatchResult = dispatchSampledPostResponse(action, refreshRef);
-                // // @ts-ignore
-                // dispatchResult = dispatchUnseenPostResponse(action, refreshRef);
                 // @ts-ignore
                 dispatchResult = dispatchAllPostResponse(action, refreshRef);
             }
@@ -228,7 +227,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             fetchData,
             REMOTE_SERVER_ROUTES.DOWNLOAD_CODES,
             payload,
-            'codebook.csv'
+            responseTypes.includes('sampled')
+                ? generateUniqueFileName('initial_codes', currentWorkspace)
+                : generateUniqueFileName('all_codes', currentWorkspace)
         );
     };
 
@@ -244,7 +245,9 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
             fetchData,
             REMOTE_SERVER_ROUTES.GET_TRANSCRIPTS_CSV,
             payload,
-            'transcripts.csv'
+            responseTypes.includes('sampled')
+                ? generateUniqueFileName('initial_transcripts', currentWorkspace)
+                : generateUniqueFileName('all_transcripts', currentWorkspace)
         );
     };
 

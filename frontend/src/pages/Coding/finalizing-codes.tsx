@@ -155,7 +155,7 @@ const FinalzingCodes = () => {
 
     const handleUpdateBucketName = (bucketId, newName) => {
         const action = { type: 'UPDATE_BUCKET_NAME', payload: { bucketId, newName } };
-        performWithUndoForReducer(groupedCodes, dispatchGroupedCodes, action);
+        performWithUndoForReducer(groupedCodes, dispatchGroupedCodes, action, false);
     };
 
     const handleDropToBucket = (bucketId, code) => {

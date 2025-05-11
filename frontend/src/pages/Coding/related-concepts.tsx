@@ -22,7 +22,6 @@ import { Concept } from '../../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
-import { toast } from 'react-toastify';
 import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
 
 const ConceptCloudPage: FC = () => {
@@ -206,7 +205,7 @@ const ConceptCloudPage: FC = () => {
                 <div className="relative flex justify-center items-center flex-col">
                     <p className="py-4">
                         These related concepts are generated using the context you provided DeTAILS.
-                        Please select 5 or more to proceed{' '}
+                        Please select all concepts that best align with your thought process.{' '}
                     </p>
                     <div id="concept-cloud" className="w-full">
                         <ConceptCloud

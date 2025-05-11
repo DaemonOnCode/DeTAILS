@@ -10,9 +10,10 @@ import { PostSummaryTable, PostSummaryRow } from '../../components/Coding/Report
 import { CodeDetailedTable, CodeDetailRow } from '../../components/Coding/Report/code-detailed';
 import { CodeSummaryTable, CodeSummaryRow } from '../../components/Coding/Report/code-summary';
 import { useApi } from '../../hooks/Shared/use-api';
-import { downloadFileWithStreaming } from '../../utility/file-downloader';
+import { downloadFileWithStreaming, generateUniqueFileName } from '../../utility/file-downloader';
 import { useLoadingContext } from '../../context/loading-context';
 import { useLocation } from 'react-router-dom';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 const PAGE_SIZE = 20;
 
@@ -34,6 +35,7 @@ const ReportPage: React.FC = () => {
     const nextRef = useRef(true);
 
     const { loadingState } = useLoadingContext();
+    const { currentWorkspace } = useWorkspaceContext();
     const stepRoute = location.pathname;
 
     const [overallStats, setOverallStats] = useState<{
@@ -101,7 +103,10 @@ const ReportPage: React.FC = () => {
             viewType,
             summary: summaryView
         };
-        const suggestedName = `${viewType}_${summaryView ? 'summary' : 'detailed'}_analysis.csv`;
+        const suggestedName = generateUniqueFileName(
+            `${viewType}_${summaryView ? 'summary' : 'detailed'}_analysis`,
+            currentWorkspace
+        );
         const result = await downloadFileWithStreaming(
             fetchData,
             REMOTE_SERVER_ROUTES.DOWNLOAD_ANALYSIS_REPORT,

@@ -4,6 +4,8 @@ import { StepHandle } from '../../types/Shared';
 import { SetState } from '../../types/Coding/shared';
 import { useApi } from './use-api';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
+import { generateUniqueFileName } from '../../utility/file-downloader';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 export interface LoadingHandlerRef {
     resetStep: (currentPath: string) => Promise<void>;
@@ -27,6 +29,7 @@ export function useLoadingSteps(
 ) {
     const { loadingState } = useLoadingContext();
     const { fetchData } = useApi();
+    const { currentWorkspace } = useWorkspaceContext();
 
     useImperativeHandle(
         pathRef,
@@ -73,7 +76,7 @@ export function useLoadingSteps(
                                 rawResponse: true
                             }
                         );
-                        let filename = 'downloaded_file.csv';
+                        let filename = 'downloaded_file';
                         const contentDisposition = data.headers.get('Content-Disposition');
                         if (contentDisposition) {
                             const match = contentDisposition.match(/filename="?(.+)"?/);
@@ -84,7 +87,10 @@ export function useLoadingSteps(
                         if ('showSaveFilePicker' in window) {
                             try {
                                 const fileHandle = await (window as any).showSaveFilePicker({
-                                    suggestedName: filename,
+                                    suggestedName: generateUniqueFileName(
+                                        filename,
+                                        currentWorkspace
+                                    ),
                                     types: [
                                         {
                                             description: 'CSV Files',
