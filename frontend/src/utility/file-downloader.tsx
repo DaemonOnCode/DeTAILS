@@ -1,5 +1,6 @@
 import { toast } from 'react-toastify';
 import { FetchResponse } from '../hooks/Shared/use-api';
+import { Workspace } from '../types/Shared';
 
 export async function downloadFile(
     content: string,
@@ -59,7 +60,6 @@ export const downloadFileWithStreaming = async (
             });
         } catch (error) {
             console.error('File save cancelled or failed', error);
-            // toast.error('Download failed');
             return false;
         }
     }
@@ -74,7 +74,6 @@ export const downloadFileWithStreaming = async (
 
         if (error) {
             console.error('Error fetching data:', error);
-            // toast.error('Download failed');
             return false;
         }
 
@@ -82,11 +81,9 @@ export const downloadFileWithStreaming = async (
             const writable = await fileHandle.createWritable();
             try {
                 await data.body.pipeTo(writable);
-                // toast.success('File saved successfully');
                 return true;
             } catch (pipeError) {
                 console.error('Error piping stream:', pipeError);
-                // toast.error('Failed to save file');
                 return false;
             }
         } else {
@@ -103,7 +100,11 @@ export const downloadFileWithStreaming = async (
         }
     } catch (err) {
         console.error('Download error', err);
-        // toast.error('Download failed');
         return false;
     }
+};
+
+export const generateUniqueFileName = (baseName: string, workspace: Workspace): string => {
+    const timestamp = new Date().toISOString().replace(/[:.-]/g, '_');
+    return `${workspace.name}_${baseName}_${timestamp}`;
 };

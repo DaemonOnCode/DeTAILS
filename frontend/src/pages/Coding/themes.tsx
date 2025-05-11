@@ -16,7 +16,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { DetailsLLMIcon } from '../../components/Shared/Icons';
-import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
@@ -161,8 +160,6 @@ const ThemesPage = () => {
         };
     }, []);
 
-    const { fetchLLMData } = useApi();
-
     const { scrollRef: themeRef, storageKey: codeStorageKey } = useScrollRestoration('theme-list');
     const { scrollRef: unplacedRef, storageKey: unplacedStorageKey } =
         useScrollRestoration('unplaced-list');
@@ -198,35 +195,8 @@ const ThemesPage = () => {
 
     const handleUpdateThemeName = (themeId: string, newName: string) => {
         const action = { type: 'UPDATE_THEME_NAME', payload: { themeId, newName } };
-        performWithUndoForReducer(themes, dispatchThemes, action);
+        performWithUndoForReducer(themes, dispatchThemes, action, false);
     };
-
-    // const handleRefreshThemes = async (extraFeedback = '') => {
-    //     loadingDispatch({ type: 'SET_LOADING_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
-    //     navigate(getCodingLoaderUrl(LOADER_ROUTES.THEME_GENERATION_LOADER));
-
-    //     const { data: results, error } = await fetchLLMData<{
-    //         message: string;
-    //     }>(REMOTE_SERVER_ROUTES.REDO_THEME_GENERATION, {
-    //         method: 'POST',
-    //         body: JSON.stringify({ model: settings.ai.model, feedback: extraFeedback })
-    //     });
-
-    //     if (error) {
-    //         console.error('Error refreshing themes:', error);
-    //         if (error.name !== 'AbortError') {
-    //             loadingDispatch({
-    //                 type: 'SET_LOADING_DONE_ROUTE',
-    //                 route: PAGE_ROUTES.GENERATING_THEMES
-    //             });
-    //         }
-    //         return;
-    //     }
-
-    //     console.log('Results:', results);
-    //     loadingDispatch({ type: 'SET_LOADING_DONE_ROUTE', route: PAGE_ROUTES.GENERATING_THEMES });
-    //     navigate(PAGE_ROUTES.GENERATING_THEMES);
-    // };
 
     const handleRefreshThemes = useRetryHandler({
         startLog: 'Refreshing themes',

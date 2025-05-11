@@ -198,7 +198,7 @@ export const CodingProvider: FC<ILayout> = ({ children }) => {
                         name: 'dispatchSampledCopyPostResponse'
                     }
                 ],
-                downloadData: { name: 'final-codes' }
+                downloadData: { name: 'all-codes' }
             },
             [PAGE_ROUTES.REVIEWING_CODES]: {
                 relatedStates: [

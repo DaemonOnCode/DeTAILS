@@ -56,7 +56,7 @@ const WorkspaceSelectionPage: React.FC = () => {
             isLoading.current = true;
             setWorkspaceLoading(true);
 
-            const maxRetries = 5;
+            const maxRetries = 10;
             const baseDelayMs = 2000;
 
             const route = `${REMOTE_SERVER_ROUTES.GET_WORKSPACES}?user_email=${encodeURIComponent(

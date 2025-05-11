@@ -21,10 +21,8 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     const { fetchData } = useApi();
     const { registerCallback, unregisterCallback } = useWebSocket();
 
-    // Local state for all AI settings
     const [localAi, setLocalAi] = useState(ai);
 
-    // Other existing state
     const [downloadedModels, setDownloadedModels] = useState<any[]>([]);
     const [downloadedModelsLoading, setDownloadedModelsLoading] = useState(false);
     const [ollamaInput, setOllamaInput] = useState('');
@@ -42,12 +40,10 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     const [modelError, setModelError] = useState<string | null>(null);
     const [isCheckingModel, setIsCheckingModel] = useState(false);
 
-    // Sync localAi with global ai when it changes
     useEffect(() => {
         setLocalAi(ai);
     }, [ai]);
 
-    // Set the save callback to apply localAi to global settings
     useEffect(() => {
         setSaveCurrentSettings(() => () => updateSettings('ai', localAi));
     }, [localAi, updateSettings, setSaveCurrentSettings]);
@@ -55,7 +51,7 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     const [selectedProvider, setSelectedProvider] = useState<string>(
         localAi.model.split('-', 1)[0]
     );
-    // Reset provider-specific local state when provider changes
+
     useEffect(() => {
         const providerSettings = localAi.providers[selectedProvider];
         setLocalEmbedding(providerSettings?.textEmbedding || '');
@@ -64,7 +60,6 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         setModelError(null);
     }, [selectedProvider, localAi.providers]);
 
-    // Fetch downloaded Ollama models
     useEffect(() => {
         const fetchDownloadedModels = async () => {
             setDownloadedModelsLoading(true);
@@ -100,7 +95,6 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         return () => unregisterCallback('pull-ollama-model');
     }, [pullingModelName, registerCallback, unregisterCallback]);
 
-    // Combine models from all providers using localAi
     const combinedModels = useMemo(() => {
         const models: string[] = [];
         for (const provider in localAi.providers) {
@@ -112,7 +106,6 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         return Array.from(new Set(models));
     }, [localAi.providers]);
 
-    // Handlers updating local state
     const handleModelChange = (e: any) => {
         setLocalAi((prev) => ({ ...prev, model: e.target.value }));
         markSectionDirty('ai', true);
