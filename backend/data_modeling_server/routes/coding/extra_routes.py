@@ -388,7 +388,7 @@ async def download_qect_endpoint(
     if not response_types:
         raise HTTPException(status_code=400, detail="responseTypes must be provided")
     
-    response_types = list(map(lambda x: {"sampled": "initial", "unseen": "final"}[x], response_types))
+    response_types = list(map(lambda x: {"sampled": "initial", "unseen": "final", "sampled_copy": "initial"}[x], response_types))
 
     placeholders = ",".join("?" for _ in response_types)
     params = tuple([workspace_id, workspace_id, workspace_id, *response_types])

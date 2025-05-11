@@ -181,8 +181,6 @@ def process_concept_table_action(workspace_id: str, action: Dict[str, Any]) -> D
             coding_context_id=workspace_id,
             word=entry_data.get("word", ""),
             description=entry_data.get("description", ""),
-            inclusion_criteria=entry_data.get("inclusion_criteria", ""),
-            exclusion_criteria=entry_data.get("exclusion_criteria", ""),
             is_marked=True
         )
         inserted_row = concept_entries_repo.insert_returning(entry)
