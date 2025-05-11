@@ -1,4 +1,14 @@
+import os
 import sys
+os.environ.setdefault('PYTHONUTF8', '1')
+os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+
+for stream in (sys.stdin, sys.stdout, sys.stderr):
+    try:
+        stream.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,12 +85,6 @@ def health_check():
     return {"status": "HTTP server is up!"}
 
 if __name__ == "__main__":
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except Exception as e:
-        print(f"Error reconfiguring stdout: {e}")
-        pass
-
     is_pyinstaller = getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")
     uvicorn.run(
         "app_http:app",
