@@ -157,8 +157,9 @@ const TorrentDataTab = ({
                         <ol className="list-decimal ml-6 mb-4">
                             <li>
                                 In some cases, you may need to install the Microsoft Visual C++
-                                Redistributable before installing Transmission. Download it from:
+                                Redistributable before installing Transmission. Download it from:{' '}
                                 <button
+                                    className="text-blue-500 underline focus:outline-none"
                                     onClick={() =>
                                         shell.openExternal(
                                             'https://aka.ms/vs/17/release/vc_redist.x64.exe'
