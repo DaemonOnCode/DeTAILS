@@ -1533,7 +1533,7 @@ async def get_post_transcripts_csv(workspace_id: str, post_ids: List[str], csv_f
                 writer.writerow({"Post ID": post_ids[next_index], "Transcript": transcripts[next_index]})
                 next_index += 1
 
-    with open(csv_file, "w", newline="") as csvfile:
+    with open(csv_file, "w", newline="", encoding="utf-8", errors="replace") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=["Post ID", "Transcript"])
         writer.writeheader()
 

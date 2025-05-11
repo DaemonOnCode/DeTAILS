@@ -612,10 +612,10 @@ async def download_data(
         raise HTTPException(status_code=404, detail="No data found for download")
 
     df = pd.DataFrame([d if isinstance(d, dict) else d.__dict__ for d in data])
-    csv_data = df.to_csv(index=False)
+    csv_data = df.to_csv(index=False, encoding="utf-8", errors="replace")
     os.makedirs(TEMP_DIR, exist_ok=True)
 
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=TEMP_DIR, suffix='.csv') as temp_file:
+    with tempfile.NamedTemporaryFile(mode='w', encoding="utf-8", errors="replace", delete=False, dir=TEMP_DIR, suffix='.csv') as temp_file:
         temp_file.write(csv_data)
         temp_file_path = temp_file.name
 

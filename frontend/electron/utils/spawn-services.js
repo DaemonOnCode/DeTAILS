@@ -23,7 +23,8 @@ const servicesConfig = (executablesPath) => {
             name: 'backend',
             folder: path.join(executablesPath, 'data-modeling-server'),
             command: isWindows ? 'main.exe' : './main',
-            args: []
+            args: [],
+            env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }
         },
         ollama: {
             name: 'ollama',
@@ -42,7 +43,8 @@ const spawnService = async (config, globalCtx) => {
             cwd: config.folder,
             shell: !isWindows,
             detached: false,
-            stdio: ['pipe', 'pipe', 'pipe']
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: config.env ?? process.env
         };
         const service = spawn(config.command, config.args, extraConfig);
 

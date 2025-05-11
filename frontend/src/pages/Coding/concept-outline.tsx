@@ -14,6 +14,8 @@ import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import ConceptOutlineRow from '../../components/Coding/ConceptOutline/concept-outline-row';
 import { getCodingLoaderUrl } from '../../utility/get-loader-url';
+import { generateUniqueFileName } from '../../utility/file-downloader';
+import { useWorkspaceContext } from '../../context/workspace-context';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -21,6 +23,7 @@ const ConceptsTablePage: FC = () => {
     const { conceptOutlineTable, dispatchConceptOutlinesTable } = useCodingContext();
     const [saving, setSaving] = useState(false);
     const { loadingState } = useLoadingContext();
+    const { currentWorkspace } = useWorkspaceContext();
     const { performWithUndoForReducer } = useUndo();
 
     const navigate = useNavigate();
@@ -65,7 +68,11 @@ const ConceptsTablePage: FC = () => {
     const handleSaveCsv = async () => {
         await logger.info('Saving ConceptTable as CSV');
         setSaving(true);
-        const result = await saveCSV(ipcRenderer, conceptOutlineTable, 'ConceptTable');
+        const result = await saveCSV(
+            ipcRenderer,
+            conceptOutlineTable,
+            generateUniqueFileName('concept-table', currentWorkspace)
+        );
         console.log(result);
         setSaving(false);
         if (result) {
