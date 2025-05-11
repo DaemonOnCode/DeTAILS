@@ -12,12 +12,7 @@ interface ConceptOutlineResult {
 }
 
 interface FieldChange {
-  type:
-    | "word_changed"
-    | "description_changed"
-    | "inclusion_criteria_changed"
-    | "exclusion_criteria_changed"
-    | "is_marked_changed";
+  type: "word_changed" | "description_changed" | "is_marked_changed";
   resultId: string;
   word: string;
   oldValue: any;
@@ -212,34 +207,6 @@ const computeChanges = async (
           similarity,
         });
       }
-      if (prev.inclusion_criteria !== curr.inclusion_criteria) {
-        const similarity = await getSimilarity(
-          prev.inclusion_criteria,
-          curr.inclusion_criteria
-        );
-        updated.push({
-          type: "inclusion_criteria_changed",
-          resultId: key,
-          word: curr.word,
-          oldValue: prev.inclusion_criteria,
-          newValue: curr.inclusion_criteria,
-          similarity,
-        });
-      }
-      if (prev.exclusion_criteria !== curr.exclusion_criteria) {
-        const similarity = await getSimilarity(
-          prev.exclusion_criteria,
-          curr.exclusion_criteria
-        );
-        updated.push({
-          type: "exclusion_criteria_changed",
-          resultId: key,
-          word: curr.word,
-          oldValue: prev.exclusion_criteria,
-          newValue: curr.exclusion_criteria,
-          similarity,
-        });
-      }
       if (prev.isMarked !== curr.isMarked) {
         updated.push({
           type: "is_marked_changed",
@@ -263,8 +230,6 @@ const computeMetrics = async (
   const initialKeys = new Set(initialResults.keys());
   const finalKeys = new Set(finalResults.keys());
 
-  // console.log("Initial keys:", initialKeys, "Final keys:", finalKeys);
-
   const common = [...initialKeys].filter((k) => finalKeys.has(k));
   const inserted = [...finalKeys].filter((k) => !initialKeys.has(k));
   const deleted = [...initialKeys].filter((k) => !finalKeys.has(k));
@@ -277,11 +242,10 @@ const computeMetrics = async (
   let TP = 0;
   for (const key of common) {
     const fin = finalResults.get(key)!;
-    // console.log(finalResults.get(key), "finalResults", key);
     if (fin.isMarked === true) {
       const init = initialResults.get(key)!;
       const fields: Array<keyof Omit<ConceptOutlineResult, "id" | "isMarked">> =
-        ["word", "description", "inclusion_criteria", "exclusion_criteria"];
+        ["word", "description"];
       const sims = await Promise.all(
         fields.map((f) => getSimilarity(init[f] || "", fin[f] || ""))
       );
@@ -480,16 +444,6 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
         base += `Description Changed from "${change.oldValue || "N/A"}" to "${
           change.newValue || "N/A"
         }"`;
-        break;
-      case "inclusion_criteria_changed":
-        base += `Inclusion Criteria Changed from "${
-          change.oldValue || "N/A"
-        }" to "${change.newValue || "N/A"}"`;
-        break;
-      case "exclusion_criteria_changed":
-        base += `Exclusion Criteria Changed from "${
-          change.oldValue || "N/A"
-        }" to "${change.newValue || "N/A"}"`;
         break;
       case "is_marked_changed":
         base += `Old Is Marked: ${change.oldValue}, New Is Marked: ${change.newValue}`;

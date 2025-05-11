@@ -294,7 +294,6 @@ const computeMetrics = async (
       effectiveNameChange,
     });
 
-    // Include in macro average only if either initial or final code count is greater than 0
     if (initCodes.size > 0 || finalCodes.size > 0) {
       macroPrecisionSum += precision;
       macroRecallSum += recall;
@@ -319,10 +318,7 @@ const computeMetrics = async (
         recall: 0,
         jaccard: 0,
       });
-      // For inserted themes, include in macro if finalCodeCount > 0
       if (finalCodes.size > 0) {
-        macroPrecisionSum += 0; // precision is 0
-        macroRecallSum += 0; // recall is 0
         macroCount++;
       }
       console.log(
