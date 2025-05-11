@@ -133,7 +133,7 @@ flowchart LR
 ## Technology Stack
 
 - **Frontend:** React, Electron, TypeScript, Tailwind CSS
-- **Backend:** Python, FastAPI, Pydantic
+- **Backend:** Python, FastAPI
 - **AI/LLM:** Ollama (Local), OpenAI API, Gemini API, Vertex AI API (Google Cloud)
 - **Search:** ChromaDB (Vector), ripgrep (Text)
 - **Database:** SQLite
