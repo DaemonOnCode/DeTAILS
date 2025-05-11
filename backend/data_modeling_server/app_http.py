@@ -2,6 +2,9 @@ import os
 import sys
 os.environ.setdefault('PYTHONUTF8', '1')
 os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+import asyncio
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 for stream in (sys.stdin, sys.stdout, sys.stderr):
     try:
