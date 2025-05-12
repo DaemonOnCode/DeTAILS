@@ -180,12 +180,12 @@ const ThemesPage = () => {
 
     const handleDropToBucket = (themeId: string, code: string) => {
         const action = { type: 'MOVE_CODE_TO_THEME', payload: { code, targetThemeId: themeId } };
-        performWithUndoForReducer(themes, dispatchThemes, action);
+        performWithUndoForReducer(themes, dispatchThemes, action, false);
     };
 
     const handleAddTheme = () => {
         const action = { type: 'ADD_THEME' };
-        performWithUndoForReducer(themes, dispatchThemes, action);
+        performWithUndoForReducer(themes, dispatchThemes, action, false);
     };
 
     const handleDeleteTheme = (themeId: string) => {
@@ -213,7 +213,7 @@ const ThemesPage = () => {
 
     const handleMoveToMiscellaneous = useCallback(() => {
         const action = { type: 'MOVE_UNPLACED_TO_MISC' };
-        performWithUndoForReducer(themes, dispatchThemes, action);
+        performWithUndoForReducer(themes, dispatchThemes, action, false);
     }, [themes, dispatchThemes, performWithUndoForReducer]);
 
     useEffect(() => {

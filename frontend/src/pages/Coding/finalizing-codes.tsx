@@ -160,12 +160,12 @@ const FinalzingCodes = () => {
 
     const handleDropToBucket = (bucketId, code) => {
         const action = { type: 'MOVE_CODE', payload: { code, targetBucketId: bucketId } };
-        performWithUndoForReducer(groupedCodes, dispatchGroupedCodes, action);
+        performWithUndoForReducer(groupedCodes, dispatchGroupedCodes, action, false);
     };
 
     const handleAddBucket = () => {
         const action = { type: 'ADD_BUCKET' };
-        performWithUndoForReducer(groupedCodes, dispatchGroupedCodes, action);
+        performWithUndoForReducer(groupedCodes, dispatchGroupedCodes, action, false);
     };
 
     const handleDeleteBucket = (bucketId) => {
@@ -176,7 +176,7 @@ const FinalzingCodes = () => {
 
     const handleMoveToMiscellaneous = () => {
         const action = { type: 'MOVE_UNPLACED_TO_MISC' };
-        performWithUndoForReducer(groupedCodes, dispatchGroupedCodes, action);
+        performWithUndoForReducer(groupedCodes, dispatchGroupedCodes, action, false);
     };
 
     const handleFeedbackSubmit = async () => {
