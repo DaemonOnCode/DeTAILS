@@ -126,7 +126,7 @@ const ConceptsTablePage: FC = () => {
 
     const onToggleMark = (index: number, isMarked: boolean | undefined) => {
         const action = { type: 'TOGGLE_MARK', index, isMarked };
-        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action);
+        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action, false);
     };
 
     const onDeleteRow = (index: number) => {
@@ -144,12 +144,12 @@ const ConceptsTablePage: FC = () => {
         } else {
             action = { type: finalDecision ? 'SET_ALL_CORRECT' : 'SET_ALL_INCORRECT' };
         }
-        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action);
+        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action, false);
     };
 
     const handleAddNewRow = () => {
         const action = { type: 'ADD_ROW' };
-        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action);
+        performWithUndoForReducer(conceptOutlineTable, dispatchConceptOutlinesTable, action, false);
         setTimeout(() => {
             if (tableRef.current) {
                 tableRef.current.scrollTo({

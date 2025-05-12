@@ -89,14 +89,19 @@ const ConceptCloud: FC<ConceptCloudProps> = ({
     };
 
     const saveEdit = () => {
-        performWithUndo([concepts, selectedConcepts], [setConcepts, setSelectedConcepts], () => {
-            setConcepts((prev) =>
-                prev.map((k) => (k.id === editingWordId ? { ...k, word: newWord } : k))
-            );
-            setSelectedConcepts((prev) =>
-                prev.find((sk) => sk === editingWordId) ? prev : [...prev, editingWordId]
-            );
-        });
+        performWithUndo(
+            [concepts, selectedConcepts],
+            [setConcepts, setSelectedConcepts],
+            () => {
+                setConcepts((prev) =>
+                    prev.map((k) => (k.id === editingWordId ? { ...k, word: newWord } : k))
+                );
+                setSelectedConcepts((prev) =>
+                    prev.find((sk) => sk === editingWordId) ? prev : [...prev, editingWordId]
+                );
+            },
+            false
+        );
         setEditingWordId(null);
         setNewWord('');
     };

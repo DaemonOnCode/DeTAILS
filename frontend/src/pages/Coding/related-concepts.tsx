@@ -20,7 +20,6 @@ import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { useLoadingContext } from '../../context/loading-context';
 import { Concept } from '../../types/Shared';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
-import { useApi } from '../../hooks/Shared/use-api';
 import { useSettings } from '../../context/settings-context';
 import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
 
@@ -37,7 +36,6 @@ const ConceptCloudPage: FC = () => {
     const location = useLocation();
     const { saveWorkspaceData } = useWorkspaceUtils();
 
-    const { fetchLLMData } = useApi();
     const hasSavedRef = useRef(false);
 
     const { loadingState, loadingDispatch, openModal, checkIfDataExists, resetDataAfterPage } =
