@@ -18,6 +18,7 @@ from database import(
     QectRepository, SelectedPostIdsRepository
 )
 from decorators import log_execution_time
+from errors.request_errors import RequestError
 from ipc import send_ipc_message
 from models.table_dataclasses import CodebookType, LlmResponse, QectResponse, ResponseCreatorType
 from routes.websocket_routes import ConnectionManager
@@ -46,9 +47,10 @@ def get_temperature_and_random_seed():
 
 def initialize_vector_store(workspace_id: str, model: str, embeddings: Any):
     chroma_client = HttpClient(host="localhost", port=CHROMA_PORT)
+    print("DB name:", f"{workspace_id.replace('-','_')}_{model.replace(':','_')}"[:60]+"0")
     vector_store = Chroma(
         embedding_function=embeddings,
-        collection_name=f"{workspace_id.replace('-','_')}_{model.replace(':','_')}"[:60],
+        collection_name=f"{workspace_id.replace('-','_')}_{model.replace(':','_')}"[:60]+"0",
         client=chroma_client,
         client_settings=ChromaDBSettings(anonymized_telemetry=False)
     )
@@ -141,6 +143,7 @@ async def process_llm_task(
     stream_output: bool = False,  
     llm_queue_manager: GlobalQueueManager = None,
     cacheable_args: Optional[Dict[str, Any]] = None,
+    raise_error: bool = False,
     **prompt_params
 ):
     max_retries = retries
@@ -226,6 +229,8 @@ async def process_llm_task(
             if retries == 0:
                 await send_ipc_message(app_id, f"ERROR: Dataset {workspace_id}: LLM failed after multiple attempts.")
                 extracted_data = []
+                if raise_error:
+                    raise RequestError(status_code=500, message=f"LLM failed after multiple attempts: {str(e)}")
 
     return extracted_data
 

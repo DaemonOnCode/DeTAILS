@@ -23,14 +23,18 @@ from constants import PATHS, get_default_transmission_cmd
 
 
 def set_initial_settings():
-    with open(PATHS["settings"], "r") as f:
-        file = f.read()
-        print(file)
-        settings = json.loads(file)
-    if not settings["transmission"]["downloadDir"]:
-        settings["transmission"]["downloadDir"] = PATHS["transmission"]
-    if not settings["transmission"]["path"]:
-        settings["transmission"]["path"] = get_default_transmission_cmd()[0]
+    try:
+        with open(PATHS["settings"], "r") as f:
+            content = f.read().strip()
+            settings = json.loads(content) if content else {}
+    except (FileNotFoundError, json.JSONDecodeError):
+        settings = {}
+    transmission = settings.get("transmission", {})
+    if not transmission.get("downloadDir"):
+        transmission["downloadDir"] = PATHS["transmission"]
+    if not transmission.get("path"):
+        transmission["path"] = get_default_transmission_cmd()[0]
+    settings["transmission"] = transmission
     with open(PATHS["settings"], "w") as f:
         json.dump(settings, f, indent=4)
 
