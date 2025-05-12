@@ -374,6 +374,8 @@ Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTIN
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE.txt) file for details.
+This project is licensed under GPL 3.0 only. It contains two MIT-licensed modules, one Apache 2.0 module (GPL 3.0 is compatible with Apache 2.0’s patent and notice terms), and one GPL 2.0 (or later) module which we relicense under GPL 3.0.
+
+See the [LICENSE](LICENSE.txt) file for details.
 
 ---
