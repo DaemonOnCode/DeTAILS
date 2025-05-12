@@ -35,6 +35,15 @@ const TorrentSelectionPanel: React.FC<{
     const [expandedYears, setExpandedYears] = useState<{ [key: string]: boolean }>({});
 
     function sortAndFilterFileList(input: string, subreddit: string): string {
+        if (typeof input !== 'string') {
+            return input;
+        }
+
+        const idx = input.indexOf('|files|');
+        if (idx === -1) {
+            return input;
+        }
+
         const parts = input.split('|');
         if (parts.length < 4) return input;
         const fileList = parts.pop()!.split(',').filter(Boolean);

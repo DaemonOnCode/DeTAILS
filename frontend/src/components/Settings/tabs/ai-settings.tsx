@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, FC } from 'react';
+import { useState, useEffect, useMemo, FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaTrash } from 'react-icons/fa';
-import { ISettingsConfig, useSettings } from '../../../context/settings-context';
+import { useSettings } from '../../../context/settings-context';
 import { useApi } from '../../../hooks/Shared/use-api';
 import { useWebSocket } from '../../../context/websocket-context';
 import { REMOTE_SERVER_ROUTES } from '../../../constants/Shared';
@@ -11,7 +11,8 @@ import SearchMetadata from '../components/search-metadata';
 import DownloadedModels from '../components/downloaded-model';
 import PullProgress from '../components/pull-progress';
 import { CommonSettingTabProps } from '../../../types/Settings/props';
-import { ModelObj, Metadata, ProviderSettings } from '../../../types/Settings/shared';
+import { ModelObj, Metadata } from '../../../types/Settings/shared';
+import { toast } from 'react-toastify';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -319,7 +320,13 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model: fullModelName })
             });
-            if (error) throw new Error(error.message.error_message || 'Unknown error');
+            console.log('Pull model response:', data, error);
+            if (error) {
+                toast.error(
+                    `Error pulling model: ${error.message.error_message || 'Unknown error'}`
+                );
+                throw new Error(error.message.error_message || 'Unknown error');
+            }
             setDownloadedModels((prev) => [...prev, { name: fullModelName }]);
             const newModelList = [...(localAi.providers.ollama?.modelList || []), fullModelName];
             setLocalAi((prev) => ({

@@ -232,6 +232,11 @@ const TorrentLoader: React.FC = () => {
             setTotalFiles(0);
             setDownloadedFiles([]);
             await new Promise((resolve) => setTimeout(resolve, 10000));
+            setSteps(initialSteps);
+            setFiles({});
+            setMessages(['Retrying request...']);
+            setTotalFiles(0);
+            setDownloadedFiles([]);
             const { subreddit, start, end, postsOnly, useFallback, downloadPath } =
                 parseModeInput(modeInput);
             const { error } = await loadTorrentData(
