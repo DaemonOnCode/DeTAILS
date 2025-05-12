@@ -1,9 +1,11 @@
 import asyncio
 import calendar
+import ctypes
 from datetime import datetime
 import os
 
 import shutil
+import tempfile
 from typing import Dict
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Form, Body, Header
@@ -18,6 +20,7 @@ from controllers.collection_controller import (
 )
 from database import PipelineStepsRepository, TorrentDownloadProgressRepository
 from database.state_dump_table import StateDumpsRepository
+from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from ipc import send_ipc_message
 from models.collection_models import (
@@ -343,19 +346,42 @@ async def prepare_torrent_data_from_files(
     prepared_folder = os.path.join(DATASETS_DIR, f"prepared-torrent-{request_body.subreddit}-{workspace_id}")
     os.makedirs(prepared_folder, exist_ok=True)
 
-    for file_path in valid_files:
-        if os.path.exists(file_path):
-            file_name = os.path.basename(file_path)
-            link_path = os.path.join(prepared_folder, file_name)
-            if os.path.lexists(link_path):
-                try:
-                    os.remove(link_path)
-                except Exception as e:
-                    print(f"Error removing existing symlink: {link_path}", e)
-            os.symlink(os.path.abspath(file_path), link_path)
-            print(f"Created symlink: {link_path} -> {os.path.abspath(file_path)}")
+    symlink_commands = []
+
+    for src in valid_files:
+        name = os.path.basename(src)
+        link_path = os.path.join(prepared_folder, name)
+
+        if os.path.lexists(link_path):
+            try:
+                os.remove(link_path)
+            except OSError:
+                pass
+
+        if os.name == 'nt':
+            symlink_commands.append(f'mklink "{link_path}" "{os.path.abspath(src)}"')
         else:
-            print(f"File not found: {file_path}")
+            os.symlink(os.path.abspath(src), link_path)
+
+    if os.name == 'nt' and symlink_commands:
+        print("Creating Windows symlinks (requires admin)...")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.bat', delete=False) as bat:
+            bat.write("\r\n".join(symlink_commands))
+            bat_path = bat.name
+
+        result = ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", "cmd.exe", f'/c "{bat_path}"', None, 1
+        )
+        if result <= 32:
+            os.unlink(bat_path)
+            raise RequestError(
+                status_code=403,
+                message = f"Failed to create symlinks: admin privileges denied (ShellExecute returned {result})"
+            )
+
+        import time
+        time.sleep(2)
+        os.unlink(bat_path)
 
     parse_reddit_files(workspace_id, prepared_folder, date_filter=None)
 

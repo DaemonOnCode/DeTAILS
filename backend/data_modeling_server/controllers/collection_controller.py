@@ -58,12 +58,15 @@ study_comments_repo = CommentsRepository(
 def get_current_download_dir():
     with open(PATHS["settings"], "r") as f:
         settings = json.load(f)
-        # print(settings)
+        if settings.get("transmission") is None:
+            settings["transmission"] = {}
+        if settings["transmission"].get("downloadDir") is None:
+            settings["transmission"]["downloadDir"] = ""
         if settings["transmission"]["downloadDir"] == "" :
             settings["transmission"]["downloadDir"] = PATHS["transmission"]
             with open(PATHS["settings"], "w") as f:
                 json.dump(settings, f, indent=4)
-        return settings["transmission"]["downloadDir"]
+        return PATHS["transmission"]
 
 
 def normalize_file_key(file_key: str, current_download_dir: str = None) -> str:

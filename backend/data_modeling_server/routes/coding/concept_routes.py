@@ -88,6 +88,7 @@ async def build_context_from_interests_endpoint(
         additionalInfo=additionalInfo,
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
+        raise_error=True,
     )
 
     if isinstance(parsed_concepts, list):
@@ -231,6 +232,7 @@ async def generate_definitions_endpoint(
             input_text=input_text,
             llm_instance=llm,
             llm_queue_manager=llm_queue_manager,
+            raise_error=True,
         )
         
 
@@ -345,6 +347,7 @@ async def regenerate_concepts_endpoint(
         selectedConcepts=selected_words,
         unselectedConcepts=unselected_words,
         extraFeedback=request_body.extraFeedback,
+        raise_error=True,
     )
 
     if isinstance(parsed_concepts, list):

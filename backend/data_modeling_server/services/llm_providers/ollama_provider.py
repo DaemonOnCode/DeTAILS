@@ -1,5 +1,5 @@
 from typing import Type
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_ollama import ChatOllama, OllamaEmbeddings, OllamaLLM
 from langchain_core.callbacks import StreamingStdOutCallbackHandler
 
 from config import CustomSettings
@@ -13,12 +13,11 @@ class OllamaProvider(LLMProvider):
 
     def get_llm(self, model_name, num_ctx, num_predict, temperature, random_seed):
         try:
-            return ChatOllama(
+            return OllamaLLM(
                 model=model_name,
-                num_ctx=num_ctx,
-                num_predict=num_predict,
+                num_ctx=min(num_ctx, 8192),
+                num_predict=min(num_predict, 8192),
                 temperature=temperature,
-                seed=random_seed,
                 callbacks=[StreamingStdOutCallbackHandler(), AllChainDetails()]
             )
         except Exception as e:
