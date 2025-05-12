@@ -155,10 +155,10 @@ flowchart LR
 
 - **Frontend:** React, Electron, TypeScript, Tailwind CSS
 - **Backend:** Python, FastAPI
-- **AI/LLM:** Ollama (Local), OpenAI API, Gemini API, Vertex AI API (Google Cloud)
-- **Search:** ChromaDB (Vector), ripgrep (Text)
+- **AI/LLM:** Ollama (Local) [[Source Code](https://github.com/ollama/ollama)], OpenAI API, Gemini API, Vertex AI API (Google Cloud)
+- **Search:** ChromaDB (Vector) [[Source Code](https://github.com/chroma-core/chroma)], ripgrep (Text) [[Source Code](https://github.com/BurntSushi/ripgrep)]
 - **Database:** SQLite
-- **Utilities:** Zstandard (Decompression of files), Transmission (Torrents - Academic Torrents [Primary](https://academictorrents.com/details/1614740ac8c94505e4ecb9d88be8bed7b6afddd4), [Fallback](https://academictorrents.com/details/ba051999301b109eab37d16f027b3f49ade2de13))
+- **Utilities:** Zstandard (Decompression of files) [[Source Code](https://github.com/facebook/zstd)], Transmission (Torrents - Academic Torrents [Primary](https://academictorrents.com/details/1614740ac8c94505e4ecb9d88be8bed7b6afddd4), [Fallback](https://academictorrents.com/details/ba051999301b109eab37d16f027b3f49ade2de13))
 
 ## 📁 Folder Structure
 
