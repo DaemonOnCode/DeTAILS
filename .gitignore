@@ -11,6 +11,7 @@ ollama-*
 **/chroma_data
 **/.env
 **/*.txt
+!LICENSE.txt
 **/*.log
 !**/requirements*.txt
 transmission-downloads
