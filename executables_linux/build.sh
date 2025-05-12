@@ -59,7 +59,7 @@ build_backend() {
   cd "$PROJECT_ROOT/backend/data_modeling_server"
   rm -rf dist build
   source ./linenv/bin/activate
-  pyinstaller main.spec
+  python3 -m PyInstaller main.spec
   deactivate
   mkdir -p "$PROJECT_ROOT/executables/data-modeling-server"
   cp dist/main "$PROJECT_ROOT/executables/data-modeling-server/"
@@ -91,7 +91,7 @@ build_chroma() {
   cd chromadb/cli
   rm -rf build
   rm -rf dist/cli
-  pyinstaller cli.spec
+  python3 -m PyInstaller cli.spec
   deactivate
   mkdir -p "$PROJECT_ROOT/executables/chroma"
   cp -r dist/cli "$PROJECT_ROOT/executables/chroma/"

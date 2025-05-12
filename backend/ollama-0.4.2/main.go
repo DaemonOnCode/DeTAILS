@@ -137,8 +137,24 @@ func main() {
 
 	// Debugging resolved paths
 	fmt.Println("Starting Ollama CLI")
-	fmt.Println(ResolvePath(os.Getenv("OLLAMA_TMPDIR")))
-	fmt.Println(ResolvePath(os.Getenv("OLLAMA_LLM_LIBRARY")))
+
+	tmpDir := ResolvePath(os.Getenv("OLLAMA_TMPDIR"))
+	fmt.Println(tmpDir)
+	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
+		err := os.MkdirAll(tmpDir, 0755)
+		if err != nil {
+			log.Fatalf("Failed to create directory %s: %v", tmpDir, err)
+		}
+	}
+
+	llmLibDir := ResolvePath(os.Getenv("OLLAMA_LLM_LIBRARY"))
+	fmt.Println(llmLibDir)
+	if _, err := os.Stat(llmLibDir); os.IsNotExist(err) {
+		err := os.MkdirAll(llmLibDir, 0755)
+		if err != nil {
+			log.Fatalf("Failed to create directory %s: %v", llmLibDir, err)
+		}
+	}
 
 	// Execute the CLI command
 	cobra.CheckErr(cmd.NewCLI().ExecuteContext(context.Background()))

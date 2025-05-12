@@ -97,7 +97,7 @@ build_backend() {
     rm -rf ./dist
     rm -rf ./build
     echo "Building the backend"
-    pyinstaller main.spec
+    python3 -m PyInstaller main.spec
     echo "Copying the built backend"
     mkdir -p "$EXEC_DIR/data-modeling-server"
     cp -r ./dist/main "$EXEC_DIR/data-modeling-server/"
@@ -137,7 +137,7 @@ build_chromadb() {
     source "$ABC_ENV_PATH/chroma_env/linenv/bin/activate"
     cd "$ROOT_DIR/backend/chroma/chromadb/cli" || exit
     echo "Building chromadb"
-    pyinstaller cli.spec
+    python3 -m PyInstaller cli.spec
     echo "Copying the built chromadb"
     mkdir -p "$EXEC_DIR/chroma"
     cp -r dist/cli "$EXEC_DIR/chroma/"

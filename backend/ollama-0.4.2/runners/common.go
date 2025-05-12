@@ -68,22 +68,7 @@ func Refresh(payloadFS fs.FS) (string, error) {
 		}()
 	}
 	fmt.Println("In Refresh")
-	if hasPayloads(payloadFS) {
-		fmt.Println("Has Payloads", payloadFS)
-		if runnersDir == "" {
-			fmt.Println("Runners Dir is empty, running extractRunners")
-			runnersDir, err = extractRunners(payloadFS)
-			if err != nil {
-				fmt.Println("Error in extractRunners", err)
-			}
-		} else {
-			fmt.Println("Runners Dir is not empty, running refreshRunners")
-			err = refreshRunners(payloadFS, runnersDir)
-			if err != nil {
-				fmt.Println("Error in refreshRunners", err)
-			}
-		}
-	} else if runnersDir == "" {
+	if runnersDir == "" {
 		fmt.Println("Runners Dir is empty, running locateRunners")
 		runnersDir, err = locateRunners()
 		if err != nil {
