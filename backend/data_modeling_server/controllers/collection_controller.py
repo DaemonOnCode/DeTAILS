@@ -209,7 +209,7 @@ def update_run_progress(run_id: str, new_message: str, current_download_dir: str
             file_data = file_repo.get_file_progress(run_id, key)
             file_messages = json.loads(file_data.messages) if file_data.messages else []
             file_messages.append(new_message)
-            file_repo.update_file_progress(run_id, key, {"messages": json.dumps(file_messages)})
+            file_repo.update_file_progress(run_id, key, {"messages": json.dumps(file_messages), "status": "complete" if "processed file:" in new_message.lower() else "in-progress"})
 
     if "downloading" in new_message.lower() and "%" in new_message:
         key = get_file_key_full(new_message, r"Downloading\s+(.*?):\s+([\d.]+)%\s+\((\d+)/(\d+)\s+bytes\)", group_index=1, current_download_dir=DOWNLOAD_DIR)
