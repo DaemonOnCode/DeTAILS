@@ -166,26 +166,12 @@ async def generate_definitions_endpoint(
     results = []
     
     for batch_words in word_batches:
-        input_text = (
-                f"Main Topic: {mainTopic}\n"
-                f"Additional information about main topic: {additionalInfo}\n\n"
-                f"Research Questions: {researchQuestions}\n"
-                f"Words to define: {', '.join(batch_words)}\n\n"
-                f"Provide the response in JSON format."
-                 "Your response must be in JSON format as a list of objects, each containing "
-                """
-                ```json
-                {
-                    "concepts": [
-                        {
-                        "word": "ExtractedConcept",
-                        "description": "Explanation of the word and its relevance to the main topic and additional information."
-                        },
-                        ...
-                    ]
-                }```\n"""
-                "Follow the JSON format strictly. "
-            )
+        input_text = ConceptOutline.input_prompt_builder(
+            mainTopic=mainTopic,
+            researchQuestions=researchQuestions,
+            additionalInfo=additionalInfo,
+            batch_words=batch_words,
+        )
         
         parsed_output = await process_llm_task(
             workspace_id=request.headers.get("x-workspace-id"),

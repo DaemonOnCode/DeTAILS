@@ -65,7 +65,7 @@ Important:
                                    extraFeedback: str):
 
         return [
-            f"""You are an expert in qualitative research, specializing in thematic analysis. Your task is to refine the previously generated related concepts based on the user’s selections and feedback. The user’s feedback is crucial and should be the primary guide for improving the concept selection.
+            f"""You are an expert in qualitative research, specializing in specializing in Braun & Clarke's six-phase thematic analysis. Your task is to refine the previously generated related concepts based on the user's selections and feedback. The user's feedback is crucial and should be the primary guide for improving the concept selection.
 
 New Inputs:
 - Selected Concepts (retain these): {selectedConcepts}
@@ -79,7 +79,7 @@ Process:
 2. Refine the Concepts
 - Retain the selected concepts as they are.
 - Exclude the unselected concepts from the new set.
-- Use the extra feedback to generate new concepts that address the user’s concerns and suggestions.
+- Use the extra feedback to generate new concepts that address the user's concerns and suggestions.
 - Ensure the new concepts are distinct from both the selected, unselected concepts, and main topic.
 - Aim for concepts that are relevant, insightful, and aligned with the research context and user's feedback.
 
@@ -92,7 +92,7 @@ Important Notes
 - Only return the JSON object with the refined concepts.
 - Do not include any explanations, summaries, or additional text.
 - Ensure the JSON is valid and properly formatted.
-- The refined concepts should clearly reflect the user’s feedback and the research context.
+- The refined concepts should clearly reflect the user's feedback and the research context.
 
 Proceed with refining the concepts.
 """,
@@ -119,7 +119,7 @@ I need a refined list of exactly 5 concepts based on the following research inpu
 Instructions:
 - Retain the selected concepts exactly as provided.
 - Exclude the unselected concepts from the new list.
-- Incorporate the extra feedback to generate new concepts that reflect the user’s suggestions and concerns.
+- Incorporate the extra feedback to generate new concepts that reflect the user's suggestions and concerns.
 - Ensure new concepts are distinct from both selected, unselected concepts, and main topic.
 - Each concept should be a concise, significant idea relevant to the main topic and research questions.
 - Concepts must consist of 1-3 words only.
@@ -150,107 +150,68 @@ class InitialCodePrompts:
                             additional_info: str,
                             research_questions: str,
                             concept_table: str,
-                            post_transcript: str):
+                            post_transcript: str) -> str:
         return f"""
-PHASE 2 (Generating Initial Codes) Requirements:
+## Initial Coding Instructions
 
-1. LINE-BY-LINE CODING:
-   - Code every data element that is directly relevant to the main topic and research questions.
-   - Use both:
-     • In-vivo codes (participant language)
-     • Conceptual codes (researcher-generated)
-   - Do not generate codes for off-topic content or segments that do not relate to the main research focus. Avoid generic labels such as "N/A", "irrelevant", "off-topic", or similar.
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to generate **initial codes** by extracting meaningful quotes from the transcript that link to the main topic, research questions, additional information, and concept table.
 
-2. CONSTANT COMPARISON:
-   - Compare newly generated codes with existing ones in the provided concept table.
-   - Highlight similarities or differences in how {main_topic} is handled.
+### 1. Read the Transcript
+First, read the entire transcript to understand its overall content and context.
 
-3. CODING TYPES:
-   - Semantic: Code the explicit (surface) meaning.
-     Example: "I hate Monday mornings" → "Negative time perception"
-   - Latent: Code the underlying (implicit) meaning.
-     Example: Same quote → "Capitalist time construct resistance"
+### 2. Line-by-Line Coding
+- **Extract:** For each relevant segment, copy the complete, exact quote.
+- **Code:** Assign a concise label that reflects its meaning relative to:
+  - **Main Topic:** {main_topic}  
+  - **Additional Information:** {additional_info}  
+  - **Research Questions:** {research_questions}  
+  - **Concept Table (JSON):** {concept_table}  
+- **Skip:** Do *not* code irrelevant or off-topic content. Avoid generic labels like “irrelevant,” “off-topic,” etc.
+- Generate each code as a natural phrase - just as a human would write—avoiding any programming-style formats (no camelCase, snake_case, kebab-case, PascalCase, etc.).
+     
+### 3. Analytical Perspectives
+- **Semantic:** Surface-level, explicit meaning.  
+- **Latent:** Underlying, implicit assumptions.  
+- **Experiential Framework:** Participants' own perspectives.  
+- **Critical Framework:** Power dynamics and deeper meanings.  
+- **Realist vs. Constructionist:** Objective “truth” vs. socially constructed reality.
 
-Only generate codes that directly contribute to understanding the phenomenon under study. Exclude any codes that do not have a clear link to the main topic or research questions.
-
-You are an advanced AI model specializing in qualitative research and deductive thematic analysis using Braun and Clarke's method. Your task is to extract thematic codes from the given post transcript using the provided concept table.
-
-Main Topic: {main_topic}
-Additional Information: {additional_info}
-Research Questions: {research_questions}
-
-Concept Table (JSON): {concept_table}
-
-Post transcript: {post_transcript}
-
-### Analytical Assumptions and Considerations
-
-- **Quality Spectrum:**  
-  Analysis and interpretation of data are inherently subjective and may range from weaker (unconvincing, underdeveloped, shallow, superficial) to stronger (compelling, insightful, thoughtful, rich, complex, deep, nuanced).
-
-- **Deductive Orientation:**  
-  This analysis is deductive, meaning it is shaped by existing theoretical constructs. These established frameworks provide the 'lens' through which you read, code, and interpret the data.
-
-- **Focus of Meaning:**  
-  - **Semantic:** Capture the explicit, surface-level meanings as expressed directly in the text.
-  - **Latent:** Delve into the underlying, implicit meanings and assumptions that may not be immediately apparent.
-
-- **Qualitative Frameworks:**  
-  In deductive thematic analysis, you may consider two primary qualitative frameworks:
-  1. **Experiential Framework:**  
-     Focuses on capturing and exploring people's own perspectives, experiences, and understandings as directly expressed in the data.
-  2. **Critical Framework:**  
-     Aims to interrogate and unpack the deeper meanings, power dynamics, and assumptions behind the data, going beyond the surface to question underlying social constructs.
-
-- **Theoretical Frameworks:**  
-  Your analysis may be informed by the following two main theoretical approaches:
-  1. **Realist/Essentialist:**  
-     Assumes that there is an objective truth or reality that the data reflects. This approach aims to capture and describe this reality as directly as possible.
-  2. **Relativist/Constructionist:**  
-     Posits that reality is subjective and constructed through social interactions. This perspective encourages exploring multiple, context-dependent interpretations of the data.
-
-Generate your output strictly in valid JSON format as follows:
+### 4. Output Format
+Return **only** valid JSON, exactly matching this structure:
 
 ```json
 {{
   "codes": [
     {{
-      "quote": "Exact phrase from the transcript.",
-      "explanation": "How it relates to the code and research focus.",
-      "code": "Relevant concept or code derived from the transcript.",
+      "quote": "Complete and exact phrase from the transcript (from the start to the end of the sentence).",
+      "explanation": "How this quote supports the research focus.",
+      "code": "Assigned code label.",
       "source": {{
-        "type": "comment",
-        "comment_id": "comment 1.2"
-      }}
-    }},
-    {{
-      "quote": "Exact phrase from the post body before 'Comments:'.",
-      "explanation": "How it relates to the code and research focus.",
-      "code": "Relevant concept or code derived from the transcript.",
-      "source": {{
-        "type": "post",
-        "title": true // or false according to if the quote is from the post title,
+        "type": "comment", // "comment" or "post"
+        "comment_id": "1.2", // required if type is "comment"
+        "title": false // required if type is "post": true = title, false = body
       }}
     }}
-    // Additional code objects...
+    // …additional code objects…
   ]
 }}
-```
-
-**NOTE:**
-
-* For any quote extracted from a comment (lines labeled `comment X:`), set `"type": "comment"` and include its `"comment_id"`.
-* For quotes from the post (before comments), set `"type": "post"` and include `"title": true` if it came from the title or `"title": false` if from the selftext.
-* If a phrase fits multiple codes, list each as a separate entry.
-* Omit phrases that do not align with any valid codes.
-* If no codes are applicable across the transcript, return:
+````
+  
+* If a quote fits multiple codes, list each as a separate entry.
+* Omit quotes that do not align with any valid codes.
+* If no codes apply, return:
 
   ```json
   {{ "codes": [] }}
   ```
+* **Do not** include any text outside the JSON.
 
-No additional text outside the JSON.
+---
+
+Transcript:
+{post_transcript}
 """
+
 
 class FinalCoding:
     @staticmethod
@@ -261,90 +222,67 @@ class FinalCoding:
                             additional_info: str = "",
                             research_questions: str = ""):
         return f"""
-PHASE 2 (Deductive Thematic Coding) Requirements:
+    ## Final Coding Instructions
 
-### Context and Input Information
-- **Main Topic:** {main_topic}
-- **Additional Information:** {additional_info}
-- **Research Questions:** {research_questions}
+    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to assign codes — either by selecting existing codes from the final codebook or generating new ones directly from the data — to meaningful quotes in the transcript, ensuring each code serves as evidence for the main topic, research questions, additional information, or concept table.
 
-- **Final Codebook:**  
-  (Structured thematic codes)  
-  {final_codebook}
+    ### 1. Read the Transcript
+    First, read the entire transcript to understand its overall content and context.
 
-- **Concept Table:**  
-  (JSON format with inclusion/exclusion criteria)  
-  {concept_table}
+    ### 2. Line-by-Line Coding
+    - **Extract:** For each relevant segment, copy the complete, exact quote.
+    - **Code:** Assign a label from the final codebook or generate a concise new label that reflects its meaning relative to:
+      - **Main Topic:** {main_topic}  
+      - **Additional Information:** {additional_info}  
+      - **Research Questions:** {research_questions}  
+      - **Concept Table (JSON):** {concept_table}  
+      - **Final Codebook:** {final_codebook}
+    - **Skip:** Do *not* code irrelevant or off-topic content. Avoid generic labels like “irrelevant,” “off-topic,” etc.
+    - Ensure each code — whether drawn from the final codebook or newly generated — is phrased as a natural phrase, avoiding any programming-style formats (should not be camelCase, snake_case, kebab-case, PascalCase, etc.).
 
-- **Post Transcript:**  
-  {post_transcript}
+    ### 3. Analytical Perspectives
+- **Semantic:** Surface-level, explicit meaning.  
+- **Latent:** Underlying, implicit assumptions.  
+- **Experiential Framework:** Participants' own perspectives.  
+- **Critical Framework:** Power dynamics and deeper meanings.  
+- **Realist vs. Constructionist:** Objective “truth” vs. socially constructed reality.
 
-### Analytical Assumptions and Considerations
+    ### 4. Output Format
+    Return **only** valid JSON, exactly matching this structure:
 
-- **Quality Spectrum:**  
-  Recognize that your analysis may range from superficial to deeply nuanced. Aim for compelling and insightful interpretations that are well supported by the data.
+    ```json
+    {{
+      "codes": [
+        {{
+          "quote": "Complete and exact phrase from the transcript (from the start to the end of the sentence).",
+          "explanation": "How this quote supports the research focus and fits the assigned code.",
+          "code": "Assigned code from the final codebook.",
+          "source": {{
+            "type": "comment", // "comment" or "post"
+            "comment_id": "1.2", // required if type is "comment"
+            "title": false // required if type is "post": true = title, false = body
+          }}
+        }}
+        // …additional code objects…
+      ]
+    }}
+    ```
 
-- **Deductive Orientation:**  
-  Your coding is guided by pre-established theoretical constructs. Use the final codebook and concept table as analytical lenses, ensuring that your code assignments reflect these predefined frameworks.
+    * If a quote fits multiple codes, list each as a separate entry.
+    * Omit quotes that do not align with any valid codes from the final codebook.
+    * If no codes apply, return:
 
-- **Focus of Meaning:**  
-  - **Semantic:** Identify and capture the explicit, surface-level content in the transcript.  
-  - **Latent:** Uncover and interpret the underlying, implicit meanings that complement the surface-level analysis.
+      ```json
+      {{ "codes": [] }}
+      ```
+    ***Do not** include any text outside the JSON.
 
-- **Theoretical Frameworks:**  
-  Consider these approaches:  
-  - **Realist/Essentialist:** Seeks to capture objective truths within the data.  
-  - **Relativist/Constructionist:** Recognizes that meanings are contextually and socially constructed.
+    ---
 
-### Instructions
+    Transcript:
+    {post_transcript}
+    """
 
-1. **Analyze the Post Transcript:**
-   - Read the transcript carefully and compare its phrases with the codes in the final codebook.
-   - Reference the relevant concepts and criteria from the concept table.
-   - Ensure that you only code transcript segments directly related to the main topic and research questions.
-   - Avoid forced or generic classifications; assign codes only when they are clearly supported by the provided materials.
-
-2. **Generate Output in Valid JSON Format:**
-   ```json
-   {{
-     "codes": [
-       {{
-         "quote": "Exact phrase from the transcript.",
-         "explanation": "Concise rationale explaining the code assignment based on the final codebook and concept table.",
-         "code": "Assigned code from the final codebook",
-         "source": {{
-           "type": "comment",
-           "comment_id": "comment 1.2"
-         }}
-       }},
-       {{
-         "quote": "Exact phrase from the post body before 'Comments:'.",
-         "explanation": "Concise rationale explaining the code assignment based on the final codebook and concept table.",
-         "code": "Assigned code from the final codebook",
-         "source": {{
-           "type": "post",
-           "title": true // or false according to if the quote is from the post title,
-         }}
-       }}
-       // Additional code objects...
-     ]
-   }}
-```
-
-3. **Ensure Accuracy:**
-
-   * For quotes from comments (lines labeled `comment X.Y:`), set `"type": "comment"` and include `"comment_id"`.
-   * For quotes from the post (before comments), set `"type": "post"` and include `"title": true` if it came from the title or `"title": false` if from the selftext.
-   * If a phrase fits multiple codes, list each as a separate entry.
-   * Omit phrases that do not align with any valid codes.
-   * If no codes are applicable across the transcript, return:
-
-     ```json
-     {{ "codes": [] }}
-     ```
-
-No additional text outside the JSON.
-"""
 
 
 class ThemeGeneration:
@@ -352,7 +290,7 @@ class ThemeGeneration:
     @staticmethod
     def theme_generation_prompt(qec_table: str, unique_codes: str):
         return f"""
-You are an advanced AI model specializing in qualitative research using Braun and Clarke's (2006) thematic analysis approach. Your task is to analyze a provided list of unique codes along with a restructured QEC dataset, and then generate higher-level themes based on this information.
+    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to analyze a provided list of unique codes along with a QEC (Quote-Explanation-Code) data, and then generate higher-level themes based on this information.
 
 ### Data Provided
 
@@ -363,23 +301,20 @@ You are an advanced AI model specializing in qualitative research using Braun an
     {unique_codes}
 
 
-2. **QEC Data (JSON):**  
-   The data is organized so that for each unique code, an array of associated quotes and explanations is provided. For example, the structure for a given code is as follows:
+2. **QEC Data (JSON):**
+  The Code and summary table contains the rationale summary (summary), and the assigned code.
+   - Example structure in JSON:
+     ```json
+     [
+        {{
+          "code": "CodeName",
+          "summary": "Summary of multiple explanations signifying the meaning of the code."
+        }}
+        // Additional instances...
+      ]
+     ```
 
-   ```json
-   {{
-     "code": "CodeName",
-     "instances": [
-       {{
-         "quote": "The quote here.",
-         "explanation": "Explanation for why this code was chosen."
-       }}
-       // Additional instances...
-     ]
-   }}
-   ```
-
-   Data: 
+   Data:
    {qec_table}
 
 ### Analytical Assumptions and Considerations
@@ -394,7 +329,7 @@ You are an advanced AI model specializing in qualitative research using Braun an
   Both codes and themes are analytic outputs that are produced through systematic engagement with the data. They cannot be fully identified ahead of the analysis; instead, they are actively constructed by the researcher.
 
 - **Active Production:**  
-  Themes do not passively ‘emerge' from the data; they are the result of deliberate, reflective, and systematic analysis, combining both immediate engagement and thoughtful distance.
+  Themes do not passively 'emerge' from the data; they are the result of deliberate, reflective, and systematic analysis, combining both immediate engagement and thoughtful analysis.
 
 ### Instructions
 
@@ -434,17 +369,17 @@ You are an advanced AI model specializing in qualitative research using Braun an
     @staticmethod
     def redo_theme_generation_prompt(qec_table: str, unique_codes: str, previous_themes: str, feedback: str):
         return f"""
-You are an advanced AI model specializing in qualitative research using Braun and Clarke's (2006) thematic analysis approach. Previously, you generated themes based on a provided list of unique codes and a QEC dataset. Now, you are tasked with refining those themes by incorporating feedback and re-analyzing the original data to produce improved higher-level themes.
+    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Previously, you generated themes based on a provided list of unique codes and a QEC (Quote-Explanation-Code) data. Now, you are tasked with refining those themes by incorporating optional feedback and re-analyzing the original data to produce improved higher-level themes.
 
 ### Data Provided
 
 1. **Previous Themes:**  
-   The themes generated in the previous run, which the user did not like and wants to be changed and need to keep in mind to avoid while generating a new version, provided in JSON format:
+   The themes generated in the previous run, which the user did not like and wants to be changed, provided in JSON format:
 
    {previous_themes}
 
 2. **Feedback:**  
-   Feedback on the previous themes to guide refinement:
+   Optional feedback on the previous themes to guide refinement:
 
    {feedback}
 
@@ -454,21 +389,18 @@ You are an advanced AI model specializing in qualitative research using Braun an
    Codes:
    {unique_codes}
 
-4. **QEC Data (JSON):**  
-   The data is organized so that for each unique code, an array of associated quotes and explanations is provided. For example, the structure for a given code is as follows:
-
-   ```json
-   {{
-     "code": "CodeName",
-     "instances": [
-       {{
-         "quote": "The quote here.",
-         "explanation": "Explanation for why this code was chosen."
-       }}
-       // Additional instances...
-     ]
-   }}
-   ```
+4. **QEC Data (JSON):**
+  The Code and summary table contains the rationale summary (summary), and the assigned code.
+   - Example structure in JSON:
+     ```json
+     [
+        {{
+          "code": "CodeName",
+          "summary": "Summary of multiple explanations signifying the meaning of the code."
+        }}
+        // Additional instances...
+      ]
+     ```
 
    Data:
    {qec_table}
@@ -485,7 +417,7 @@ You are an advanced AI model specializing in qualitative research using Braun an
   Both codes and themes are analytic outputs that are produced through systematic engagement with the data. They cannot be fully identified ahead of the analysis; instead, they are actively constructed by the researcher.
 
 - **Active Production:**  
-  Themes do not passively ‘emerge' from the data; they are the result of deliberate, reflective, and systematic analysis, combining both immediate engagement and thoughtful distance.
+  Themes do not passively 'emerge' from the data; they are the result of deliberate, reflective, and systematic analysis, combining both immediate engagement and thoughtful distance.
 
 ### Instructions
 
@@ -532,7 +464,7 @@ class RefineSingleCode:
                                   user_comment: str,
                                   transcript: str):
         return f"""
-You are an advanced AI model specializing in qualitative research and thematic coding. Your task is to evaluate a previously generated qualitative code and its corresponding quote in light of a user's comment from the chat history. You must determine whether you agree or disagree with the user's comment regarding the provided code and quote, provide a clear explanation for your stance, and output a command indicating the appropriate action. The available commands are:
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to evaluate a previously generated code and its corresponding quote in light of a user's comment from the chat history. You must determine whether you agree or disagree with the user's comment regarding the provided code and quote, provide a clear explanation for your stance, and output a command indicating the appropriate action. The available commands are:
 - REMOVE_QUOTE: if the code/quote is deemed inappropriate or not representative.
 - ACCEPT_QUOTE: if the code/quote is deemed appropriate and well-supported.
 - EDIT_QUOTE: if you believe that the code/quote needs revision. In this case, provide a list of alternative code suggestions along with your explanation.
@@ -580,191 +512,165 @@ class RemakerPrompts:
                                    current_codebook: str,
                                    feedback: str):
         return f"""
-PHASE 3 (Complete Codebook Remake) Requirements:
+## Initial Coding Instructions
 
-### Integrative Analysis:
-- Review all provided data from the initial coding phase.
-- Consider the **Main Topic:** {main_topic}, **Additional Information:** {additional_info}, and **Research Questions:** {research_questions}.
-- Analyze the Post Transcript for segments relevant to the research focus.
-  Transcript:
-  {post_transcript}
-- Use the Concept Table (JSON) with its inclusion/exclusion criteria: {concept_table}
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to generate **initial codes** by extracting meaningful quotes from the transcript that link to the main topic, research questions, additional information, and concept table.
 
-### Analytical Assumptions and Considerations
+### 1. Read the Transcript
+First, read the entire transcript to understand its overall content and context.
 
-- **Quality Spectrum:**  
-  Your analysis may vary from underdeveloped to richly nuanced. Strive for thoughtful and compelling insights in your revised codebook.
+### 2. Review and Integrate Feedback
+The initial coding was completed once, but the user found the resulting codebook unsatisfactory.
+   - **Examine the initial codebook**, Initial codebook: `{current_codebook}`
+   - **Consider the optional feedback**, Optional feedback: `{feedback}`
+   - **Identify issues**, What might have led the user to reject the original codes?
 
-- **Deductive Orientation:**  
-  This process is guided by pre-existing theoretical constructs. The updated codebook should reflect these frameworks, ensuring that your codes are consistent with established deductive principles.
+### 3. Line-by-Line Coding
+- **Extract:** For each relevant segment, copy the complete, exact quote.
+- **Code:** Assign a concise label that reflects its meaning relative to:
+  - **Main Topic:** {main_topic}  
+  - **Additional Information:** {additional_info}  
+  - **Research Questions:** {research_questions}  
+  - **Concept Table (JSON):** {concept_table}  
+  - Adjust for the identified issues.
+- **Skip:** Do *not* code irrelevant or off-topic content. Avoid generic labels like “irrelevant,” “off-topic,” etc.
+- Generate each code as a natural phrase - just as a human would write—avoiding any programming-style formats (should not be camelCase, snake_case, kebab-case, PascalCase, etc.).
 
-- **Focus of Meaning:**  
-  - **Semantic:** Capture the explicit, surface-level meanings.  
-  - **Latent:** Identify deeper, implicit meanings that enhance understanding.
+### 4. Analytical Perspectives
+- **Semantic:** Surface-level, explicit meaning.  
+- **Latent:** Underlying, implicit assumptions.  
+- **Experiential Framework:** Participants' own perspectives.  
+- **Critical Framework:** Power dynamics and deeper meanings.  
+- **Realist vs. Constructionist:** Objective “truth” vs. socially constructed reality.
 
-- **Qualitative & Theoretical Frameworks:**  
-  Consider:  
-  1. **Experiential Framework:** Capturing participants' direct perspectives.  
-  2. **Critical Framework:** Unpacking deeper power dynamics and social constructs.  
-  3. **Realist/Essentialist vs. Relativist/Constructionist:** Balancing objective truths with socially constructed interpretations.
-
-### Codebook Remake Instructions:
-1. Evaluate the **CURRENT CODEBOOK SUMMARY:** {current_codebook} and incorporate the following feedback as advice **OPTIONAL FEEDBACK:** {feedback}.  
-2. Update existing codes, add new ones, or remove redundant entries based on an integrated review of the initial coding data, transcript, and feedback.  
-3. Maintain both in-vivo (participant language) and conceptual (researcher-generated) elements.  
-4. Apply dual coding:  
-   - **Semantic:** For surface-level meanings.  
-   - **Latent:** For underlying, implicit meanings.  
-5. Ensure each code directly relates to the research focus and avoid off-topic or forced classifications.
-
-### Output Format:
-Generate your output strictly in valid JSON format as follows:
+### 5. Output Format
+Return **only** valid JSON, exactly matching this structure:
 
 ```json
 {{
   "codes": [
     {{
-      "quote": "Exact phrase from the transcript or current codebook.",
-      "explanation": "Explanation of the code and its relevance.",
-      "code": "Updated or new concept/code.",
+      "quote": "Complete and exact phrase from the transcript (from the start to the end of the sentence).",
+      "explanation": "How this quote supports the research focus.",
+      "code": "Assigned code label.",
       "source": {{
-        "type": "comment",
-        "comment_id": "comment 1.2"
-      }}
-    }},
-    {{
-      "quote": "Exact phrase from the post body before 'Comments:'.",
-      "explanation": "Explanation of the code and its relevance.",
-      "code": "Updated or new concept/code.",
-      "source": {{
-        "type": "post",
-        "title": true
+        "type": "comment", // "comment" or "post"
+        "comment_id": "1.2", // required if type is "comment"
+        "title": false // required if type is "post": true = title, false = body
       }}
     }}
-    // Additional code objects...
+    // …additional code objects…
   ]
 }}
-```
-
-**Ensure Accuracy:**
-
-   * For quotes from comments (lines labeled `comment X.Y:`), set `"type": "comment"` and include `"comment_id"`.
-   * For quotes from the post (before comments), set `"type": "post"` and include `"title": true` if it came from the title or `"title": false` if from the selftext.
-   * If a phrase fits multiple codes, list each as a separate entry.
-   * Omit phrases that do not align with any valid codes.
-   * If no codes are applicable across the transcript, return:
-
-     ```json
-     {{ "codes": [] }}
-     ```
-
-No additional text outside the JSON.
-"""
-    @staticmethod
-    def redo_final_coding_prompt(main_topic: str,
-                              additional_info: str,
-                              research_questions: str,
-                              final_codebook: str,
-                              current_codebook: str,
-                              concept_table: str,
-                              post_transcript: str,
-                              feedback: str):
-      return f"""
-
-  PHASE 3 (Deductive Codebook Remake) Requirements:
-
-  ### Integrative Analysis:
-
-  * Review the outcomes from the final deductive coding phase.
-  * Consider the **Main Topic:** {main_topic} and **Additional Information:** {additional_info}.
-  * Address the **Research Questions:** {research_questions}.
-  * Utilize the **Final Codebook** (structured thematic codes in JSON format): {final_codebook}
-  * Evaluate the **CURRENT CODEBOOK SUMMARY:** {current_codebook} used in the deductive coding phase.
-  * Refer to the **Concept Table** (JSON with inclusion/exclusion criteria): {concept_table}
-  * Analyze the Post Transcript for segments that are directly relevant:
-    {post_transcript}
-
-  ### Analytical Assumptions and Considerations
-
-  * **Quality Spectrum:**
-    Aim for an analysis that is compelling, nuanced, and insightful, while acknowledging that interpretations may vary in depth.
-
-  * **Deductive Orientation:**
-    Your updated codebook should reflect the deductive framework provided by the final codebook and concept table. Codes must align with these pre-established theoretical constructs.
-
-  * **Focus of Meaning:**
-
-    * **Semantic:** Capture explicit, surface-level meanings.
-    * **Latent:** Uncover underlying, implicit meanings that add depth.
-
-  * **Theoretical Frameworks:**
-    Consider both:
-
-    * **Realist/Essentialist:** For capturing objective truths in the data.
-    * **Relativist/Constructionist:** For exploring the socially constructed nature of meaning.
-
-  ### Deductive Codebook Remake & Feedback Integration:
-
-  1. Update existing deductive codes by integrating insights from the final coding phase, CURRENT CODEBOOK, and the following feedback as advice, **OPTIONAL FEEDBACK:** {feedback}.
-  2. Adjust codes by updating, adding, or removing entries as needed.
-  3. Ensure each code strictly adheres to the inclusion/exclusion criteria and aligns with the deductive approach.
-  4. Clearly differentiate between semantic (surface) and latent (underlying) meanings.
-  5. Avoid forced or generic codes that are not directly relevant.
-
-  ### Output Format:
-
-  Generate your output strictly in valid JSON format as follows:
+````
+  
+* If a quote fits multiple codes, list each as a separate entry.
+* Omit quotes that do not align with any valid codes.
+* If no codes apply, return:
 
   ```json
-  {{
-    "codes": [
-      {{
-        "quote": "Exact phrase from the transcript or current codebook.",
-        "explanation": "Explanation of the code and its relevance.",
-        "code": "Updated or new concept/code.",
-        "source": {{
-          "type": "comment",
-          "comment_id": "comment 1.2"
-        }}
-      }},
-      {{
-        "quote": "Exact phrase from the post body before 'Comments:'.",
-        "explanation": "Explanation of the code and its relevance.",
-        "code": "Updated or new concept/code.",
-        "source": {{
-          "type": "post",
-          "title": true
-        }}
-      }}
-      // Additional code objects...
-    ]
-  }}
+  {{ "codes": [] }}
   ```
+* **Do not** include any text outside the JSON.
 
- **Ensure Accuracy:**
+---
 
-   * For quotes from comments (lines labeled `comment X.Y:`), set `"type": "comment"` and include `"comment_id"`.
-   * For quotes from the post (before comments), set `"type": "post"` and include `"title": true` if it came from the title or `"title": false` if from the selftext.
-   * If a phrase fits multiple codes, list each as a separate entry.
-   * Omit phrases that do not align with any valid codes.
-   * If no codes are applicable across the transcript, return:
+Transcript:
+{post_transcript}
+"""
 
-     ```json
-     {{ "codes": [] }}
-     ```
 
-No additional text outside the JSON.
-  """
+
+
+
+
+    @staticmethod
+    def redo_final_coding_prompt(main_topic: str,
+                                additional_info: str,
+                                research_questions: str,
+                                final_codebook: str,
+                                current_codebook: str,
+                                concept_table: str,
+                                post_transcript: str,
+                                feedback: str):
+        return f"""
+    ## Redo Final Coding Instructions
+    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to assign codes — either by selecting existing codes from the final codebook or generating new ones directly from the data — to meaningful quotes in the transcript, ensuring each code serves as evidence for the main topic, research questions, additional information, or concept table.
+
+    ### 1. Read the Transcript
+    First, read the entire transcript to understand its overall content and context.
+
+    ### 2. Review and Integrate Feedback
+    The final coding was completed once, but the user found the resulting code assignments unsatisfactory.
+      - **Examine the current code assignments:** {current_codebook}
+      - **Consider the optional feedback:** {feedback}
+      - **Identify issues:** What might have led to the unsatisfactory code assignments?
+
+    ### 3. Line-by-Line Coding
+    - **Extract:** For each relevant segment, copy the complete, exact quote.
+    - **Code:** Assign a concise label that reflects its meaning relative to:
+      - **Main Topic:** {main_topic}  
+      - **Additional Information:** {additional_info}  
+      - **Research Questions:** {research_questions}  
+      - **Concept Table (JSON):** {concept_table}  
+      - **Final Codebook:** {final_codebook}
+      - Adjust for the identified issues.
+      - Use existing codes from the final codebook, or update/propose new codes if the predefined ones do not fit the data well.
+    - **Skip:** Do *not* code irrelevant or off-topic content. Avoid generic labels like “irrelevant,” “off-topic,” etc.
+    - Ensure each code is a natural phrase — avoiding any programming-style formats (should not be in camelCase, snake_case, kebab-case, PascalCase, etc.).
+
+    ### 4. Analytical Perspectives
+- **Semantic:** Surface-level, explicit meaning.  
+- **Latent:** Underlying, implicit assumptions.  
+- **Experiential Framework:** Participants' own perspectives.  
+- **Critical Framework:** Power dynamics and deeper meanings.  
+- **Realist vs. Constructionist:** Objective “truth” vs. socially constructed reality.
+
+    ### 5. Output Format
+    Return **only** valid JSON, exactly matching this structure:
+
+    ```json
+    {{
+      "codes": [
+        {{
+          "quote": "Complete and exact phrase from the transcript (from the start to the end of the sentence).",
+          "explanation": "How this quote supports the research focus and justifies the assigned code (note if it's updated or new).",
+          "code": "Assigned code (from final codebook or updated/new).",
+          "source": {{
+            "type": "comment", // "comment" or "post"
+            "comment_id": "1.2", // required if type is "comment"
+            "title": false // required if type is "post": true = title, false = body
+          }}
+        }}
+        // …additional code objects…
+      ]
+    }}
+    ```
+
+    * If a quote fits multiple codes, list each as a separate entry.
+    * Omit quotes that do not align with any valid codes.
+    * If no codes apply, return:
+
+      ```json
+      {{ "codes": [] }}
+      ```
+    * **Do not** include any text outside the JSON.
+
+    ---
+
+    Transcript:
+    {post_transcript}
+    """
 
     
 class GroupCodes:
     @staticmethod
     def group_codes_prompt(codes: str, qec_table: str):
         return f"""
-You are an advanced AI model specialized in Braun & Clarke's Reflexive Thematic Analysis method. Use the following instructions to group the provided codes into higher-level themes based on the associated QEC data.:
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to follow instructions to group the provided codes into higher-level codes based on the associated QEC (Quote-Explanation-Code) data:
 
 - Assess the provisional groupings for coherence and fit with the data.
-- Check if each emerging higher-level code (theme) tells a convincing story about the dataset.
+- Check if each emerging higher-level code tells a convincing story about the dataset.
 - Determine whether any candidate codes should be merged, split, or discarded.
  
 - Fine-tune and finalize higher-level codes so each has a clear central concept.
@@ -802,12 +708,10 @@ Your tasks:
 3. **Develop Higher-Level Codes**:  
    - Group related lower-level codes under more encompassing, conceptual headings.
    - Name each higher-level code in a succinct, meaningful way.
-   - Provide a **short definition** explaining the unifying concept and why these codes logically fit together.
-   - Ensure that each higher-level code strictly captures not more than 5-7 lower-level codes.
 
 4. **Check for Fit and Coherence**:  
    - For each higher-level code, confirm it is consistent with the original summary.
-   - If any code doesn't fit or contradicts the grouping, consider re-grouping or discarding it.
+   - If any code doesn't fit or contradicts the grouping, consider re-grouping it.
    - Be prepared to revise (split, merge, rename) during this review.
 
 5. **Ensure Distinctness**:  
@@ -815,7 +719,7 @@ Your tasks:
    - Avoid overlapping definitions or repeated coverage of the same pattern.
 
 6. **Finalize Output**:  
-   - Return the result in **valid JSON** only, following a structure similar to the one below (you may include additional fields such as `relationship` or `notes` if needed).
+   - Return the result in **valid JSON** only, following the same structure given below.
    - Do **not** include any text outside the JSON object.
 
 ### **Output Format**  
@@ -843,7 +747,6 @@ Your tasks:
 
 **Important**:
 - Provide clear, compelling names for each higher-level code.
-- Ensure that each higher-level code strictly captures not more than 7 lower-level codes.
 - Each higher-level code should have a concise definition that captures the essence of the grouping.
 - Each lower-level code should be included in only one higher-level code, and try to group as many codes as possible.
 - Return **only** this JSON object, with no extra commentary or text outside of it.
@@ -851,16 +754,16 @@ Your tasks:
     @staticmethod
     def regroup_codes_prompt(codes: str, qec_table: str, previous_higher_level_codes: str, feedback: str):
         return f"""
-You are an advanced AI model specialized in Braun & Clarke's Reflexive Thematic Analysis method. Use the following instructions to refine the previous grouping of codes into higher-level themes based on the provided feedback and a re-examination of the data.
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to follow instructions to refine the previous grouping of codes into higher-level codes based on the provided optional feedback and a re-examination of the data.
 
 ### Data Provided
 
 1. **Previous Higher-Level Codes:**  
-   The higher-level codes generated in the previous run, which the user did not like and wants to be changed and need to keep in mind to avoid while generating a new version, provided in JSON format:  
+   The higher-level codes generated in the previous run, which the user did not like and wants to be changed, provided in JSON format:  
    {previous_higher_level_codes}
 
 2. **Feedback:**  
-   Feedback on the previous higher-level codes to guide refinement, try to stick to the feedback at all times:  
+   Optional feedback on the previous higher-level codes to guide refinement, try to stick to the feedback at all times (if there is one):  
    {feedback}
 
 3. **Code and Summary Data (JSON):**  
@@ -874,7 +777,7 @@ You are an advanced AI model specialized in Braun & Clarke's Reflexive Thematic 
 ### Instructions
 
 1. **Review Previous Higher-Level Codes and Feedback:**  
-   - Examine the previous higher-level codes and the feedback provided.  
+   - Examine the previous higher-level codes and the optional feedback.  
    - Identify areas where the groupings can be changed based on the feedback.
 
 2. **Review the Code and Summary Data:**  
@@ -930,7 +833,6 @@ You are an advanced AI model specialized in Braun & Clarke's Reflexive Thematic 
 
 **Important**:  
 - Provide clear, compelling names for each higher-level code.  
-- Ensure that each higher-level code strictly captures not more than 7 lower-level codes.  
 - Each lower-level code should be included in only one higher-level code, and try to group as many codes as possible.  
 - Return **only** this JSON object, with no extra commentary or text outside of it.
 """
@@ -940,7 +842,7 @@ class GenerateCodebookWithoutQuotes:
     @staticmethod
     def generate_codebook_without_quotes_prompt(codes: str):
         return f"""
-You are an AI assistant tasked with summarizing multiple explanations for various codes and merging them into a single definition for each code.
+You are an expert in qualitative research, tasked with summarizing multiple explanations for various codes and merging them into a single definition for each code.
 
 The input JSON object will be structured as follows:
 ```json
@@ -973,7 +875,7 @@ Your response should consist solely of the JSON object containing the definition
     @staticmethod
     def regenerate_codebook_without_quotes_prompt(codes: str, previous_codebook: str, feedback: str):
         return f"""
-You are an AI assistant tasked with refining code definitions based on previous outputs and feedback. Previously, you generated definitions for various codes by summarizing multiple explanations. Now, you will refine those definitions using feedback and by re-examining the original explanations.
+You are an expert in qualitative research, tasked with refining code definitions based on previous outputs and feedback. Previously, you generated definitions for various codes by summarizing multiple explanations. Now, you will refine those definitions using feedback and by re-examining the original explanations.
 
 ### Data Provided
 
@@ -1035,55 +937,84 @@ Your response should consist solely of the JSON object containing the refined de
 
 class TopicClustering:
     @staticmethod
-    def begin_topic_clustering_prompt(words_json: str):
-        return (
-            "Cluster the following distinct words into topics where each topic contains words that are closely related in meaning, "
-            "such as synonyms or words representing the same concept. "
-            "Aim to create a moderate number of topics, balancing between having too many fine-grained topics and too few overly broad ones. "
-            "Group words that share a common theme or meaning, even if not perfectly synonymous, to achieve fewer topics overall. "
-            "Choose highly descriptive and specific names for the topics that precisely reflect the common category of the words in each cluster. "
-            "Provide only the JSON output in the following format, wrapped in markdown code blocks (```json ... ```): "
-            "{ \"topic1\": [\"word1\", \"word2\", ...], \"topic2\": [\"word3\", \"word4\", ...], ... }. "
-            "Do not include any additional text or explanations. "
-            "Here are the words to cluster in JSON format: " + words_json
-        )
+    def begin_topic_clustering_prompt(words_json: str) -> str:
+        return f"""
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis.  
+Your task is to review the list of initial codes and merge any that share the same meaning into a single, more abstract code. Aim for a balanced set of clusters—neither too many highly granular codes nor too few overly broad ones. Use concise, descriptive names that capture the essence of each group.
+
+Return **only** valid JSON (no extra text), wrapped in a markdown code block, in this format:
+
+```json
+{{
+  "ClusterName1": ["codeA", "codeB", ...],
+  "ClusterName2": ["codeC", "codeD", ...],
+  …
+}}
+```
+
+Here are the codes to cluster (JSON array of strings):
+{words_json}
+"""
 
     @staticmethod
-    def continuation_prompt_builder(current_clusters_keys: str, words_json: str):
-        return (
-            f"Given the existing topic names: {current_clusters_keys}, "
-            "assign the following distinct new words to the existing topics if they are likely to belong based on the topic name, "
-            "grouping words that share a common theme or meaning with the topic. "
-            "Only create a new topic if a word does not relate to any existing topic names. "
-            "When in doubt, prefer assigning to an existing topic rather than creating a new one. "
-            "Each new word should be assigned to exactly one topic, and all new words must be included in the output without duplication. "
-            "Provide only the JSON output containing only the new words, in the following format, "
-            "wrapped in markdown code blocks (```json ... ```): "
-            "{ \"topic1\": [\"new_word1\", \"new_word2\", ...], \"topic2\": [\"new_word3\", ...], ... }. "
-            "Do not include any additional text or explanations. "
-            "Here are the new words to assign in JSON format: " + words_json
-        )
+    def continuation_prompt_builder(current_clusters_keys: str, words_json: str) -> str:
+        return f"""
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis.  
+You have already generated the following clusters: {current_clusters_keys}  
+Your task now is to review the list of **more initial codes** and either assign each one to an **existing cluster** if it fits that cluster's meaning or create a new cluster.  
+- **Only** create a new cluster when a code does **not** clearly belong under any existing cluster name.  
+- Each new code must appear **exactly once** in your output.  
+
+Return **only** valid JSON (no extra text), wrapped in a markdown code block, in this format:
+
+```json
+{{
+  "ClusterName1": ["newCodeA", "newCodeB", …],
+  "ClusterName2": ["newCodeC", …],
+  "NewClusterName3": ["newCodeD", …]
+}}
+````
+
+Here are the new codes to assign (JSON array of strings):
+{words_json}
+"""
+
+
     
 class ConceptOutline:
     @staticmethod
     def definition_prompt_builder():
-        system_prompt = (
-            "You are an AI assistant specializing in qualitative research. "
-            "Your task is to provide definitions, inclusion criteria, and exclusion criteria "
-            "for the following list of words based on the provided context, main topic, "
-            "research questions, and additional feedback. Try not to be completely dependant on context and think more about the main topic, additional information about main topic, and research questions.\n\n"
-            "Your response must be in JSON format as a list of objects, each containing "
-            """
-            ```json{{
-              "concepts": [
-                {{
-                  "word": "ExtractedConcept",
-                  "description": "Explanation of the word and its relevance to the main topic and additional information."
-                }},
-                ...
-              ]
-            }}```"""
-            "\nTextual Data: \n{context}\n\n"
-        )
-        
+        system_prompt = """You are an expert in qualitative research. Your task is to provide clear, concise definitions for a list of terms based on the provided context, main topic, research questions, and additional information. If the context does not contain sufficient detail, you may draw on your broader domain knowledge.
+
+IMPORTANT - respond *only* in JSON, formatted as an array of objects with this schema:
+
+```json{{
+  "concepts": [
+    {{
+      "word": "<Term>",
+      "description": "<Definition of the term, including its relevance to the main topic, research questions, or additional information>"
+    }},
+    ...
+  ]
+}}```
+            \nTextual Data: \n{context}\n\n"""
         return system_prompt
+            
+    @staticmethod
+    def input_prompt_builder(mainTopic: str, additionalInfo: str, researchQuestions: str, batch_words: list):
+        return f"""Main Topic: {mainTopic}\n
+                Additional information about main topic: {additionalInfo}\n\n 
+                Research Questions: {researchQuestions}\n
+                Words to define: {', '.join(batch_words)}\n\n
+                Provide the response in JSON format.
+                Your response must be in JSON format as a list of objects with this schema 
+         ```json{{
+  "concepts": [
+    {{
+      "word": "<Term>",
+      "description": "<Definition of the term, including its relevance to the main topic, research questions, or additional information>"
+    }},
+    ...
+  ]
+}}```\n
+                Follow the JSON format strictly. """

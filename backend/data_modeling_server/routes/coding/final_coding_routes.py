@@ -70,9 +70,8 @@ async def final_coding_endpoint(
     total_posts = selected_post_ids_repo.count({"workspace_id": workspace_id, "type": "unseen"})
 
     try:
-        print(function_progress_repo.find())
-        if function_progress_repo.find_one({"name": "final"}):
-            function_progress_repo.delete({"name": "final"})
+        if function_progress_repo.find_one({"name": "final", "workspace_id": workspace_id}):
+            function_progress_repo.delete({"name": "final", "workspace_id": workspace_id})
     except Exception as e:
         print(f"Error in final_coding_endpoint: {e}")
 
@@ -154,7 +153,7 @@ async def final_coding_endpoint(
                         src = code.get("source")
                         if isinstance(src, dict) and src.get("type") == "comment":
                             label   = src["comment_id"]
-                            real_id = comment_map.get(label)
+                            real_id = comment_map.get("comment "+label)
                             if real_id:
                                 src["comment_id"] = real_id
                         if isinstance(src, dict):
@@ -245,6 +244,12 @@ async def redo_final_coding_endpoint(
 
     function_id = str(uuid4())
     total_posts = selected_post_ids_repo.count({"workspace_id": workspace_id, "type": "unseen"})
+
+    try:
+        if function_progress_repo.find_one({"name": "final", "workspace_id": workspace_id}):
+            function_progress_repo.delete({"name": "final", "workspace_id": workspace_id})
+    except Exception as e:
+        print(f"Error in redo_final_coding_endpoint: {e}")
 
     function_progress_repo.insert(FunctionProgress(
         workspace_id=workspace_id,
@@ -340,7 +345,7 @@ async def redo_final_coding_endpoint(
                         src = code.get("source")
                         if isinstance(src, dict) and src.get("type") == "comment":
                             label   = src["comment_id"]
-                            real_id = comment_map.get(label)
+                            real_id = comment_map.get("comment "+label)
                             if real_id:
                                 src["comment_id"] = real_id
                         if isinstance(src, dict):

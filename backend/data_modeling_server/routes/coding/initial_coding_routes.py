@@ -137,7 +137,7 @@ async def generate_codes_endpoint(
                         src = code.get("source")
                         if isinstance(src, dict) and src.get("type") == "comment":
                             label   = src["comment_id"]
-                            real_id = comment_map.get(label)
+                            real_id = comment_map.get("comment "+label)
                             if real_id:
                                 src["comment_id"] = real_id
                         if isinstance(src, dict):
@@ -268,6 +268,9 @@ async def generate_codes_endpoint(
     researchQuestions = [rq.question for rq in research_question_repo.find({"coding_context_id": workspace_id})]
     concept_table = concept_entries_repo.find({"coding_context_id": workspace_id, "is_marked": True}, map_to_model=False)
 
+    if function_progress_repo.find_one({"name": "initial", "workspace_id": workspace_id}, fail_silently=True):
+        function_progress_repo.delete({"name": "initial", "workspace_id": workspace_id})
+
     function_progress_repo.insert(FunctionProgress(
         workspace_id=workspace_id,
         name="initial",
@@ -363,7 +366,7 @@ async def generate_codes_endpoint(
                         src = code.get("source")
                         if isinstance(src, dict) and src.get("type") == "comment":
                             label   = src["comment_id"]
-                            real_id = comment_map.get(label)
+                            real_id = comment_map.get("comment "+label)
                             if real_id:
                                 src["comment_id"] = real_id
                         if isinstance(src, dict):
