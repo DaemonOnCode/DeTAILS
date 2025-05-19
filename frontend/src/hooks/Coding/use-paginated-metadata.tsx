@@ -1,5 +1,4 @@
-// hooks/usePaginatedMetadata.ts
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useApi } from '../Shared/use-api';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { ResponseType, SelectedTypeFilter } from '../../types/Coding/shared';
@@ -8,6 +7,7 @@ interface BaseArgs {
     pageSize?: number;
     responseTypes: ResponseType[];
     searchTerm?: string;
+    activeTab?: 'posts' | 'codes';
 }
 
 export function usePaginatedPostsMetadata({
@@ -15,11 +15,9 @@ export function usePaginatedPostsMetadata({
     responseTypes,
     searchTerm = '',
     onlyCoded = false,
-    selectedTypeFilter = 'New Data'
-}: {
-    pageSize?: number;
-    responseTypes: ResponseType[];
-    searchTerm?: string;
+    selectedTypeFilter = 'New Data',
+    activeTab = 'posts'
+}: BaseArgs & {
     onlyCoded?: boolean;
     selectedTypeFilter?: SelectedTypeFilter;
 }) {
@@ -62,12 +60,13 @@ export function usePaginatedPostsMetadata({
                 setPage(pageNum);
             }
         },
-        [fetchData, pageSize, responseTypes, searchTerm, onlyCoded, selectedTypeFilter]
+        [pageSize, responseTypes, searchTerm, onlyCoded, selectedTypeFilter, activeTab]
     );
 
     useEffect(() => {
+        if (activeTab !== 'posts') return;
         loadPage(1);
-    }, [responseTypes, searchTerm, onlyCoded]);
+    }, [responseTypes, searchTerm, onlyCoded, activeTab]);
 
     const loadNextPage = () => {
         if (hasNext && !isLoading) loadPage(page + 1);
@@ -93,7 +92,8 @@ export function usePaginatedCodesMetadata({
     pageSize = 50,
     responseTypes,
     searchTerm = '',
-    selectedTypeFilter = 'New Data'
+    selectedTypeFilter = 'New Data',
+    activeTab = 'posts'
 }: BaseArgs & {
     selectedTypeFilter?: SelectedTypeFilter;
 }) {
@@ -128,12 +128,13 @@ export function usePaginatedCodesMetadata({
                 setPage(pageToLoad);
             }
         },
-        [fetchData, pageSize, responseTypes, searchTerm, selectedTypeFilter]
+        [pageSize, responseTypes, searchTerm, selectedTypeFilter, activeTab]
     );
 
     useEffect(() => {
+        if (activeTab !== 'codes') return;
         loadPage(1);
-    }, [JSON.stringify(responseTypes), searchTerm]);
+    }, [JSON.stringify(responseTypes), searchTerm, activeTab, selectedTypeFilter]);
 
     const loadNextPage = () => {
         if (hasNext && !isLoading) loadPage(page + 1);

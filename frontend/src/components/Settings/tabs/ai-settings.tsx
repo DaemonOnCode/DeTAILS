@@ -50,7 +50,7 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     }, [localAi, updateSettings, setSaveCurrentSettings]);
 
     const [selectedProvider, setSelectedProvider] = useState<string>(
-        localAi.model.split('-', 1)[0]
+        localAi.model ? localAi.model.split('-', 1)[0] : Object.keys(localAi.providers)[0]
     );
 
     useEffect(() => {
@@ -291,18 +291,21 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         }
     };
 
-    const handleRemoveModel = (modelToRemove: string) => {
+    const handleRemoveModel = (model: string) => {
         const providerSettings = localAi.providers[selectedProvider];
-        const newModelList = providerSettings.modelList.filter((m) => m !== modelToRemove);
+        const newModelList = providerSettings.modelList.filter((m) => m !== model);
+        const newProviders = {
+            ...localAi.providers,
+            [selectedProvider]: {
+                ...providerSettings,
+                modelList: newModelList
+            }
+        };
+        const newModel = localAi.model === `${selectedProvider}-${model}` ? '' : localAi.model;
         setLocalAi((prev) => ({
             ...prev,
-            providers: {
-                ...prev.providers,
-                [selectedProvider]: {
-                    ...prev.providers[selectedProvider],
-                    modelList: newModelList
-                }
-            }
+            providers: newProviders,
+            model: newModel
         }));
         markSectionDirty('ai', true);
     };
@@ -630,19 +633,6 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
     return (
         <div className="p-6">
             <h2 className="text-2xl font-bold mb-4">AI Settings</h2>
-            <ModelSelect
-                combinedModels={combinedModels}
-                selectedModel={localAi.model}
-                onModelChange={handleModelChange}
-            />
-            <AIParameters
-                temperature={localAi.temperature}
-                randomSeed={localAi.randomSeed}
-                cutoff={localAi.cutoff}
-                onTemperatureChange={handleTemperatureChange}
-                onRandomSeedChange={handleRandomSeedChange}
-                onCutoffChange={handleCutoffChange}
-            />
             <div className="my-4">
                 <label className="block font-medium">Select Provider</label>
                 <select
@@ -657,6 +647,21 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
                 </select>
             </div>
             {renderProviderSettings()}
+            <div className="mt-4">
+                <ModelSelect
+                    combinedModels={combinedModels}
+                    selectedModel={localAi.model}
+                    onModelChange={handleModelChange}
+                />
+            </div>
+            <AIParameters
+                temperature={localAi.temperature}
+                randomSeed={localAi.randomSeed}
+                cutoff={localAi.cutoff}
+                onTemperatureChange={handleTemperatureChange}
+                onRandomSeedChange={handleRandomSeedChange}
+                onCutoffChange={handleCutoffChange}
+            />
         </div>
     );
 };

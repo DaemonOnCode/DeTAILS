@@ -158,19 +158,19 @@ const ConceptCloudPage: FC = () => {
         {
             target: '#concept-cloud',
             content:
-                'This is your Relevant Concepts page. Click on concepts to select or deselect them. The main topic is fixed. You can edit or delete the concepts as you wish.',
+                'This is your Related Concepts page. Click on concepts to select or deselect them. The main topic is fixed. You can edit or delete the concepts as you wish.',
             placement: 'bottom'
         },
         {
             target: '.concept2',
             content:
-                'These are your concepts. Click on them to select or deselect them. You can also edit or delete by clicking on the respective icon when hovering.',
+                'These are your Related concepts. Click on them to select or deselect them. You can also edit or delete by clicking on the respective icon when hovering.',
             placement: 'right'
         },
         {
             target: '.refresh-concepts-btn',
             content:
-                'Click here to refresh the Relevant concepts with new suggestions based on your feedback.',
+                'Click here to refresh the Related concepts page with new suggestions based on your feedback.',
             placement: 'left'
         },
         {

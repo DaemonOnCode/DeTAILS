@@ -20,7 +20,7 @@ const GeneralSettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) 
             <h2 className="text-2xl font-bold mb-4">General Settings</h2>
             <div className="mb-4">
                 <div className="flex justify-between items-center">
-                    <label className="font-medium">Sample Ratio</label>
+                    <label className="font-medium">Dataset Sample Ratio</label>
                     <span>{localGeneral.sampleRatio.toFixed(2)}</span>
                 </div>
                 <input

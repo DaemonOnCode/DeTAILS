@@ -60,7 +60,8 @@ const LeftPanel: FC<LeftPanelProps> = ({
         responseTypes,
         searchTerm: activeTab === 'posts' ? debouncedSearchQuery : '',
         onlyCoded: selectedItem?.endsWith('coded-data') ?? false,
-        selectedTypeFilter
+        selectedTypeFilter,
+        activeTab
     });
 
     const {
@@ -74,7 +75,9 @@ const LeftPanel: FC<LeftPanelProps> = ({
     } = usePaginatedCodesMetadata({
         pageSize: 20,
         responseTypes,
-        searchTerm: activeTab === 'codes' ? debouncedSearchQuery : ''
+        searchTerm: activeTab === 'codes' ? debouncedSearchQuery : '',
+        selectedTypeFilter,
+        activeTab
     });
 
     useInfiniteScroll(listRef, {

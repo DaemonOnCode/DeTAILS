@@ -79,20 +79,17 @@ const InitialCoding = () => {
     const steps: TutorialStep[] = [
         {
             target: '#unified-coding-page',
-            content:
-                'This area shows your unified coding interface with all your posts and coding responses for Initial coding.',
+            content: 'Edit/add codes.',
             placement: 'bottom'
         },
         {
             target: '#coding-controls',
-            content:
-                'Use these controls to download the initial codes or toggle review mode for coding responses.',
+            content: 'Use these controls to download codes or toggle between review and edit mode.',
             placement: 'bottom'
         },
         {
             target: '#redo-coding-btn',
-            content:
-                'Use this button to create a new initial codes based on the previously generated codes and some optional feedback.',
+            content: 'Provide feedback and redo entire coding.',
             placement: 'top'
         },
         {
