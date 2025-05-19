@@ -1023,22 +1023,66 @@ def process_unseen_post_response_action(workspace_id: str, action: Dict[str, Any
     )
 
 def process_all_responses_action(workspace_id: str, action: Dict[str, Any]) -> Dict[str, Any]:
-    initial_diff = process_action(
-        workspace_id=workspace_id,
-        action=action,
-        codebook_type=CodebookType.INITIAL_COPY.value,
-        default_response_type=ResponseCreatorType.LLM.value,
-        use_index=True,
-        strict_action_type=False,
-        force=True
-    )
-    final_diff = process_action(
-        workspace_id=workspace_id,
-        action=action,
-        codebook_type=CodebookType.FINAL.value,
-        default_response_type=ResponseCreatorType.LLM.value,
-        use_index=False,
-        strict_action_type=True,
-        force=True
-    )
+    action_type = action.get("type")
+    
+    if action_type == "RESTORE_DIFF":
+        filtered_action_initial = {
+            **action,
+            "payload": {
+                "inserted": [row for row in action["payload"]["inserted"] if row.get("codebook_type") == CodebookType.INITIAL_COPY.value],
+                "deleted": [row for row in action["payload"]["deleted"] if row.get("codebook_type") == CodebookType.INITIAL_COPY.value],
+                "updated": action["payload"]["updated"]
+            }
+        }
+        
+        initial_diff = process_action(
+            workspace_id=workspace_id,
+            action=filtered_action_initial,
+            codebook_type=CodebookType.INITIAL_COPY.value,
+            default_response_type=ResponseCreatorType.LLM.value,
+            use_index=True,
+            strict_action_type=False,
+            force=True
+        )
+
+        filtered_action_final = {
+            **action,
+            "payload": {
+                "inserted": [row for row in action["payload"]["inserted"] if row.get("codebook_type") == CodebookType.FINAL.value],
+                "deleted": [row for row in action["payload"]["deleted"] if row.get("codebook_type") == CodebookType.FINAL.value],
+                "updated": action["payload"]["updated"]
+            }
+        }
+        
+        final_diff = process_action(
+            workspace_id=workspace_id,
+            action=filtered_action_final,
+            codebook_type=CodebookType.FINAL.value,
+            default_response_type=ResponseCreatorType.LLM.value,
+            use_index=False,
+            strict_action_type=True,
+            force=True
+        )
+        
+    else:
+        initial_diff = process_action(
+            workspace_id=workspace_id,
+            action=action,
+            codebook_type=CodebookType.INITIAL_COPY.value,
+            default_response_type=ResponseCreatorType.LLM.value,
+            use_index=True,
+            strict_action_type=False,
+            force=True
+        )
+        
+        final_diff = process_action(
+            workspace_id=workspace_id,
+            action=action,
+            codebook_type=CodebookType.FINAL.value,
+            default_response_type=ResponseCreatorType.LLM.value,
+            use_index=False,
+            strict_action_type=True,
+            force=True
+        )
+    
     return merge_diffs(initial_diff, final_diff)

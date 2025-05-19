@@ -1,44 +1,49 @@
 import asyncio
-import time
+import json
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
 def process_comments(
     comments: List[Dict[str, Any]],
     prefix: str = ""
-) -> Tuple[List[str], Dict[str, str]]:
-    lines: List[str] = []
+) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+    comment_list: List[Dict[str, Any]] = []
     label_map: Dict[str, str] = {}
 
     for i, comment in enumerate(comments, start=1):
         current = prefix + str(i)
         label = f"comment {current}"
         label_map[label] = comment["id"]
-        lines.append(f"{label}: {comment['body']}")
+        comment_dict = {
+            "id": comment["id"],
+            "body": comment["body"]
+        }
         if comment.get("comments"):
-            child_lines, child_map = process_comments(
+            child_comments, child_map = process_comments(
                 comment["comments"],
                 prefix=current + "."
             )
-            lines.extend(child_lines)
+            comment_dict["comments"] = child_comments
             label_map.update(child_map)
+        else:
+            comment_dict["comments"] = []
+        comment_list.append(comment_dict)
 
-    return lines, label_map
+    return comment_list, label_map
 
 async def _generate_whole_transcript_async(
     post: Dict[str, Any]
 ) -> Any:
-    header = f"Title: {post['title']}\n\n{post['selftext']}\n\n"
-    comment_strings, comment_map = process_comments(post.get("comments", []))
+    comment_list, comment_map = process_comments(post.get("comments", []))
+    transcript_dict = {
+        "title": post["title"],
+        "body": post["selftext"],
+        "comments": comment_list
+    }
+    transcript_json = json.dumps(transcript_dict)
     await asyncio.sleep(0)
-
-    if comment_strings:
-        transcript = header + "Comments:\n" + "\n".join(comment_strings) + "\n"
-    else:
-        transcript = header.strip()
-
     yield {
-        "transcript": transcript,
+        "transcript": transcript_json,
         "comment_map": comment_map
     }
 
@@ -47,40 +52,39 @@ async def _generate_chunks_async(
     token_checker: Callable[[str], int],
     max_tokens: int
 ) -> Any:
-    header = f"Title: {post['title']}\n\n{post['selftext']}\n\n"
-    comment_strings, comment_map = process_comments(post.get("comments", []))
-    current_comments: List[str] = []
-
-    for comment_str in comment_strings:
-        temp = current_comments + [comment_str]
-        chunk_text = header + "Comments:\n" + "\n".join(temp) + "\n"
-        start_time = time.time()
-
-        if token_checker(chunk_text) <= max_tokens:
-            await asyncio.sleep(0)
-            current_comments = temp
-        else:
-            await asyncio.sleep(0)
+    header = {
+        "title": post["title"],
+        "selftext": post["selftext"]
+    }
+    comment_list, comment_map = process_comments(post.get("comments", []))
+    
+    if not comment_list:
+        transcript_dict = {**header, "comments": []}
+        transcript_json = json.dumps(transcript_dict)
+        yield {
+            "transcript": transcript_json,
+            "comment_map": comment_map
+        }
+    else:
+        current_comments: List[Dict[str, Any]] = []
+        for comment in comment_list:
+            temp = current_comments + [comment]
+            chunk_dict = {**header, "comments": temp}
+            chunk_json = json.dumps(chunk_dict)
+            if token_checker(chunk_json) <= max_tokens:
+                current_comments = temp
+            else:
+                if current_comments:
+                    yield {
+                        "transcript": json.dumps({**header, "comments": current_comments}),
+                        "comment_map": comment_map
+                    }
+                current_comments = [comment]
+        if current_comments:
             yield {
-                "transcript": header + "Comments:\n" + "\n".join(current_comments) + "\n",
+                "transcript": json.dumps({**header, "comments": current_comments}),
                 "comment_map": comment_map
             }
-            current_comments = [comment_str]
-
-        print(f"Chunk generation took {time.time() - start_time:.2f} seconds")
-
-    if current_comments:
-        await asyncio.sleep(0)
-        yield {
-            "transcript": header + "Comments:\n" + "\n".join(current_comments) + "\n",
-            "comment_map": comment_map
-        }
-    elif not comment_strings:
-        await asyncio.sleep(0)
-        yield {
-            "transcript": header.strip(),
-            "comment_map": comment_map
-        }
 
 async def generate_transcript(
     post: Dict[str, Any],

@@ -91,7 +91,6 @@ def parse_size(size_str: str) -> float:
         return number / (1024 * 1024)
     else:
         return number
-    
 
 @router.get("/model-metadata/{model_name}")
 def get_model_metadata(model_name: str):
@@ -103,6 +102,7 @@ def get_model_metadata(model_name: str):
     resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "html.parser")
+    page_text = soup.get_text(" ", strip=True)
 
     name_elem = soup.find("a", attrs={"x-test-model-name": True})
     desc_elem = soup.find("span", id="summary-content")
@@ -110,44 +110,60 @@ def get_model_metadata(model_name: str):
         "name": (name_elem.get_text(strip=True) if name_elem else "").strip(),
         "description": (desc_elem.get_text(strip=True) if desc_elem else "").strip(),
     }
-
-    ul = None
-    for candidate in soup.find_all("ul"):
-        if candidate.find("a", href=re.compile(rf"^/library/{re.escape(model_name)}:")):
-            ul = candidate
+    
+    if model_name not in page_text:
+        raise RequestError(500, message="Model name not found in page text.")
+    
+    lines = page_text.splitlines()
+    for line in lines:
+        if (len(line) > 50 and
+            not re.search(r"\d+\.\d+\s*(GB|MB)", line) and  
+            not re.search(r"\b[0-9a-f]{6,}\b", line) and 
+            not re.search(r"\d+\s+(seconds?|minutes?|hours?|days?|weeks?|months?|years?)\s+ago", line)):
+            main_model["description"] = line.strip()
             break
-    if ul is None:
-        raise RequestError(500, message="Could not locate versions list on Ollama page.")
 
     tags = []
-    for li in ul.find_all("li", recursive=False):
-        text = li.get_text(" ", strip=True)
+    tag_pattern = rf"{re.escape(model_name)}:(\S+)" 
+    size_pattern = r"(\d+\.\d+\s*(GB|MB)|\d+\s*(GB|MB))"
+    hash_pattern = r"\b([0-9a-f]{6,})\b"
+    updated_pattern = r"(\d+\s+(seconds?|minutes?|hours?|days?|weeks?|months?|years?)\s+ago)"
 
-        a = li.find("a", href=re.compile(rf"^/library/{re.escape(model_name)}:"))
-        tag = ""
-        if a and ":" in a["href"]:
-            tag = a["href"].split(":", 1)[1]
+    potential_entries = page_text.split()
+    seen_tags = set()
+    current_tag = {}
+    i = 0
+    while i < len(potential_entries):
+        word = potential_entries[i]
 
-        hash_match = re.search(r"\b([0-9a-f]{6,})\b", text)
-        hash_ = hash_match.group(1) if hash_match else ""
+        tag_match = re.match(tag_pattern, word)
+        if tag_match:
+            tag = tag_match.group(1)
+            if tag not in seen_tags:
+                if current_tag:
+                    tags.append(current_tag)
+                current_tag = {"tag": tag, "size": "", "hash": "", "updated": ""}
+                seen_tags.add(tag)
+            i += 1
+            continue
 
-        size_match = re.search(r"([\d\.]+\s*(?:GB|MB))", text, re.IGNORECASE)
-        size = size_match.group(1) if size_match else ""
+        if current_tag:
+            if re.match(size_pattern, word):
+                current_tag["size"] = word
+            elif re.match(hash_pattern, word):
+                current_tag["hash"] = word
+            elif re.match(updated_pattern, " ".join(potential_entries[i:i+3])):
+                current_tag["updated"] = " ".join(potential_entries[i:i+3])
+                i += 2  
+        i += 1
 
-        updated_match = re.search(r"(\d+\s+(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\s+ago)$", text)
-        updated = updated_match.group(1) if updated_match else ""
-
-        tags.append({
-            "tag":        tag,
-            "hash":       hash_,
-            "size":       size,
-            "updated":    updated
-        })
+    if current_tag:
+        tags.append(current_tag)
 
     if not tags:
-        raise RequestError(500, message="Scraping found no model versions — page format likely changed.")
+        raise RequestError(500, message="No tags found — page format likely changed.")
 
     return {
         "main_model": main_model,
-        "tags":       tags
+        "tags": tags
     }

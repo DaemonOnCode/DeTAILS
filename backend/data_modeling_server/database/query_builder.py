@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional, TypeVar, Generic, Tuple, Any, List, Dict, Union
 from dataclasses import fields
 import typing
@@ -63,6 +64,16 @@ class QueryBuilder(Generic[T]):
         )
         if is_optional_bool and isinstance(value, int):
             return bool(value)
+        
+        is_datetime = (
+            (origin is Union and datetime in args and type(None) in args)
+            or (expected is datetime)
+        )
+        if is_datetime and isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                pass
 
         return value
 
