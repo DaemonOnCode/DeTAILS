@@ -142,13 +142,14 @@ function processTranscript(
 
         const withSource = codesWithoutMarker.filter((c) => c.source);
         const noSource = codesWithoutMarker.filter((c) => !c.source);
+        const codesWithSourceErrors = [];
 
         for (const c of withSource) {
             if (matched.has(c.id)) continue;
 
             let isApplicable = false;
             try {
-                const src = c.source === 'string' ? JSON.parse(c.source) : c.source;
+                const src = typeof c.source === 'string' ? JSON.parse(c.source) : c.source;
 
                 if (src.type === 'comment') {
                     isApplicable = data.type === 'comment' && data.id === src.comment_id;
@@ -157,6 +158,8 @@ function processTranscript(
                 }
             } catch {
                 console.error(`Failed to parse source for code ${c.code}: ${c.source}`);
+                codesWithSourceErrors.push(c);
+                continue;
             }
 
             if (!isApplicable) continue;
@@ -173,23 +176,26 @@ function processTranscript(
             matched.add(c.id);
         }
 
-        for (const c of noSource) {
-            if (matched.has(c.id)) continue;
-            if (text.includes(c.text)) {
-                const positions = getAllPositions(text, displayText(c.text));
-                for (const pos of positions) {
-                    intervals.push({
-                        start: pos,
-                        end: pos + c.text.length,
-                        codeId: c.id,
-                        text: c.text
-                    });
-                }
+        const codesForTextMatching = [...noSource, ...codesWithSourceErrors].filter(
+            (c) => !matched.has(c.id)
+        );
+
+        for (const c of codesForTextMatching) {
+            const positions = getAllPositions(text, displayText(c.text));
+            for (const pos of positions) {
+                intervals.push({
+                    start: pos,
+                    end: pos + c.text.length,
+                    codeId: c.id,
+                    text: c.text
+                });
+            }
+            if (positions.length > 0) {
                 matched.add(c.id);
             }
         }
 
-        for (const c of noSource) {
+        for (const c of codesForTextMatching) {
             if (matched.has(c.id)) continue;
             const normText = normalizeText(text);
             const normCodeText = normalizeText(c.text);

@@ -326,7 +326,6 @@ const calculateKrippendorffAlpha = (
     annotations[d.item][d.coder] = d.labels;
   });
 
-  // Log annotation table
   const annotationTable = items.map((item) => ({
     item,
     llm: Array.from(annotations[item]?.llm || []),
@@ -334,7 +333,6 @@ const calculateKrippendorffAlpha = (
   }));
   console.table(annotationTable);
 
-  // Calculate and log observed disagreement (Do)
   let Do = 0;
   let count = 0;
   items.forEach((item) => {
@@ -349,7 +347,6 @@ const calculateKrippendorffAlpha = (
   Do = count > 0 ? Do / count : 0;
   console.log(`Observed disagreement (Do): ${Do}`);
 
-  // Calculate and log expected disagreement (De)
   let De = 0;
   let deCount = 0;
   for (let i = 0; i < items.length; i++) {
@@ -364,7 +361,6 @@ const calculateKrippendorffAlpha = (
   De = deCount > 0 ? De / deCount : 0;
   console.log(`Expected disagreement (De): ${De}`);
 
-  // Calculate and log Krippendorff's Alpha
   const alpha = De > 0 ? 1 - Do / De : 1;
   console.log(`Krippendorff's Alpha: ${alpha}`);
   return alpha;
@@ -782,7 +778,6 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
       sumC = 0,
       sumD = 0;
 
-    // Calculate per-code Cohen's Kappa with logging
     for (const code of allCodes) {
       let a = 0,
         b = 0,
@@ -816,7 +811,6 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
       const kappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
       codeKappas.push({ code, kappa });
 
-      // Log per-code Kappa details
       console.log(`Sequence ${seqIndex + 1}, Code: ${code}`);
       console.table({
         overlap: a,
@@ -830,7 +824,6 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
       });
     }
 
-    // Calculate and log overall Cohen's Kappa using total sums
     const totalN = sumA + sumB + sumC + sumD;
     const p0 = totalN > 0 ? (sumA + sumD) / totalN : 0;
     const pLLMYes = totalN > 0 ? (sumA + sumC) / totalN : 0;
