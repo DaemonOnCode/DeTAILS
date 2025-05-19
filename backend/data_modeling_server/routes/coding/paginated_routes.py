@@ -311,8 +311,38 @@ async def paginated_codes(
     req: PaginatedPostRequest,
     workspace_id: str = Header(..., alias="x-workspace-id")
 ):
+    if req.selectedTypeFilter in ['New Data', 'Initial Data'] and not (len(req.responseTypes) == 1 and req.responseTypes[0] == 'sampled'):
+        type_filter = "p.type = ?"
+        type_params = []
+        if req.selectedTypeFilter == 'New Data':
+            type_params.append('unseen')
+        elif req.selectedTypeFilter == 'Initial Data':
+            type_params.append('sampled')
+
+        print(f"[paginated_codes]1 type_filter: {type_filter}, type_params: {type_params}")
+    else:
+        type_values = []
+        if req.responseTypes: 
+            if "sampled" in req.responseTypes or "sampled_copy" in req.responseTypes:
+                type_values.append("sampled")
+            if "unseen" in req.responseTypes:
+                type_values.append("unseen")
+        if type_values:  
+            type_placeholders = ", ".join(["?" for _ in type_values])
+            type_filter = f"p.type IN ({type_placeholders})"
+            type_params = type_values
+        else:
+            type_filter = None 
+            type_params = []
+
+        print(f"[paginated_codes]2 type_filter: {type_filter}, type_params: {type_params}")
+
     filters = ["p.workspace_id = ?", "r.workspace_id = ?"]
     params = [workspace_id, workspace_id]
+
+    if type_filter:
+        filters.append(type_filter)
+        params.extend(type_params)
 
     response_filters = []
     if "sampled" in req.responseTypes:

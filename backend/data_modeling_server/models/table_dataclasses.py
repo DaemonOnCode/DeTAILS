@@ -212,7 +212,7 @@ class FileStatus(BaseDataclass):
 
 @dataclass
 class FunctionProgress(BaseDataclass):
-    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)"})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "primary_key": True})
     name: Optional[str] = field(metadata={"not_null": True, "primary_key": True})
     function_id: str = field(metadata={"not_null": True})
     status: str = field(default="idle")

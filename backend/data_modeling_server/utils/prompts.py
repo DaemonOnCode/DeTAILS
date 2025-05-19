@@ -12,9 +12,9 @@ class ContextPrompt:
     @staticmethod
     def systemPromptTemplate(mainTopic: str, researchQuestions: str, additionalInfo: str):
         return [
-            f"""You are an expert in qualitative research, specifically trained in Braun & Clarke's 6-phase thematic analysis. Your current task is to assist in the initial phase of analysis by gaining a holistic understanding of the main topic based on the provided research questions.
+            f"""You are an expert in qualitative research. Your task is to assist in an analysis by gaining a holistic understanding of the main topic and the provided research questions.
 
-To do this, carefully review the given textual data and extract 10 related concepts that are directly relevant to the main topic and research questions. These concepts should be significant ideas, patterns, or recurring themes that emerge from the data.
+Carefully review the textual data below and extract 10 related concepts that will help us better understand the main topic and answer research questions. These concepts will serve as lenses through which we further analyze data to address the research questions and main topic of interest.
 
 When identifying these concepts, consider the following guidelines:
 - Focus on concepts that are frequently mentioned or that hold particular significance in the context of the research questions.
@@ -22,7 +22,7 @@ When identifying these concepts, consider the following guidelines:
 - Aim to represent the diversity of perspectives present in the data.
 - Base your extraction primarily on the provided textual data, using any additional information to contextualize your understanding.
 - If additional information is provided, integrate it into your analysis as appropriate.
-- Generated related concepts should be distinct and not overlap with each other, nor with the main topic.
+- Generated related concepts should be distinct and not overlap with each other, nor directly with the main topic.
 
 Please list the 10 related concepts in a clear and concise manner, ensuring each is distinct and relevant.
 
@@ -36,7 +36,7 @@ Please list the 10 related concepts in a clear and concise manner, ensuring each
     @staticmethod
     def context_builder(mainTopic: str, researchQuestions: str, additionalInfo: str):
         return f"""
-Extract exactly 10 related concepts from the provided textual data that are directly relevant to the main topic and research questions. These concepts should be significant ideas, patterns, or recurring themes that emerge from the data, providing a foundation for deductive thematic analysis. Present the concepts in a JSON object with the following structure:
+Carefully review the textual data below and extract 10 related concepts that will help us better understand the main topic and answer research questions. Present the concepts in a JSON object with the following structure:
 
 {{
   "concepts": [
@@ -65,7 +65,7 @@ Important:
                                    extraFeedback: str):
 
         return [
-            f"""You are an expert in qualitative research, specializing in specializing in Braun & Clarke's six-phase thematic analysis. Your task is to refine the previously generated related concepts based on the user's selections and feedback. The user's feedback is crucial and should be the primary guide for improving the concept selection.
+            f"""You are an expert in qualitative research. Your task is to support the analysis by developing a holistic understanding of the main topic and research questions, and by refining previously generated related concepts based on the user's selections and feedback. User feedback, when provided, is crucial and should serve as the primary guide for improving concept selection.
 
 New Inputs:
 - Selected Concepts (retain these): {selectedConcepts}
@@ -152,9 +152,9 @@ class InitialCodePrompts:
                             concept_table: str,
                             post_transcript: str) -> str:
         return f"""
-## Initial Coding Instructions
+##Coding Instructions
 
-You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to generate **initial codes** by extracting meaningful quotes from the transcript that link to the main topic, research questions, additional information, and concept table.
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to generate codes by extracting meaningful quotes from the transcript that link to the main topic, that are evidence to answer research questions, support additional information, and concept table.
 
 ### 1. Read the Transcript
 First, read the entire transcript to understand its overall content and context.
@@ -167,16 +167,9 @@ First, read the entire transcript to understand its overall content and context.
   - **Research Questions:** {research_questions}  
   - **Concept Table (JSON):** {concept_table}  
 - **Skip:** Do *not* code irrelevant or off-topic content. Avoid generic labels like “irrelevant,” “off-topic,” etc.
-- Generate each code as a natural phrase - just as a human would write—avoiding any programming-style formats (no camelCase, snake_case, kebab-case, PascalCase, etc.).
+- Generate each code as a natural phrase - just as a expert human qualitative researcher would. Each word in the code should be seperated by a space.
      
-### 3. Analytical Perspectives
-- **Semantic:** Surface-level, explicit meaning.  
-- **Latent:** Underlying, implicit assumptions.  
-- **Experiential Framework:** Participants' own perspectives.  
-- **Critical Framework:** Power dynamics and deeper meanings.  
-- **Realist vs. Constructionist:** Objective “truth” vs. socially constructed reality.
-
-### 4. Output Format
+### 3. Output Format
 Return **only** valid JSON, exactly matching this structure:
 
 ```json
@@ -222,9 +215,9 @@ class FinalCoding:
                             additional_info: str = "",
                             research_questions: str = ""):
         return f"""
-    ## Final Coding Instructions
+    ## Coding Instructions
 
-    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to assign codes — either by selecting existing codes from the final codebook or generating new ones directly from the data — to meaningful quotes in the transcript, ensuring each code serves as evidence for the main topic, research questions, additional information, or concept table.
+    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to assign codes — either by selecting existing codes from the final codebook or generating new ones directly from the data — to meaningful quotes from the transcript that link to the main topic, that are evidence to answer research questions, support additional information, and concept table.
 
     ### 1. Read the Transcript
     First, read the entire transcript to understand its overall content and context.
@@ -238,16 +231,10 @@ class FinalCoding:
       - **Concept Table (JSON):** {concept_table}  
       - **Final Codebook:** {final_codebook}
     - **Skip:** Do *not* code irrelevant or off-topic content. Avoid generic labels like “irrelevant,” “off-topic,” etc.
-    - Ensure each code — whether drawn from the final codebook or newly generated — is phrased as a natural phrase, avoiding any programming-style formats (should not be camelCase, snake_case, kebab-case, PascalCase, etc.).
+    - Generate each code as a natural phrase - just as a expert human qualitative researcher would. Each word in the code should be seperated by a space.
+ 
 
-    ### 3. Analytical Perspectives
-- **Semantic:** Surface-level, explicit meaning.  
-- **Latent:** Underlying, implicit assumptions.  
-- **Experiential Framework:** Participants' own perspectives.  
-- **Critical Framework:** Power dynamics and deeper meanings.  
-- **Realist vs. Constructionist:** Objective “truth” vs. socially constructed reality.
-
-    ### 4. Output Format
+    ### 3. Output Format
     Return **only** valid JSON, exactly matching this structure:
 
     ```json
@@ -290,7 +277,7 @@ class ThemeGeneration:
     @staticmethod
     def theme_generation_prompt(qec_table: str, unique_codes: str):
         return f"""
-    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to analyze a provided list of unique codes along with a QEC (Quote-Explanation-Code) data, and then generate higher-level themes based on this information.
+    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to analyze a provided list of unique codes along with a QEC (Quote-Explanation-Code) data, and then generate higher-level themes based on this information. These themes should be directly linked to the Main topic and research questions.
 
 ### Data Provided
 
@@ -369,7 +356,7 @@ class ThemeGeneration:
     @staticmethod
     def redo_theme_generation_prompt(qec_table: str, unique_codes: str, previous_themes: str, feedback: str):
         return f"""
-    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Previously, you generated themes based on a provided list of unique codes and a QEC (Quote-Explanation-Code) data. Now, you are tasked with refining those themes by incorporating optional feedback and re-analyzing the original data to produce improved higher-level themes.
+    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Previously, you generated themes based on a provided list of unique codes and a QEC (Quote-Explanation-Code) data. Now, you are tasked with refining those themes by incorporating optional feedback and re-analyzing the original data to produce improved higher-level themes. These themes should be directly linked to the Main topic and research questions.
 
 ### Data Provided
 
@@ -512,18 +499,18 @@ class RemakerPrompts:
                                    current_codebook: str,
                                    feedback: str):
         return f"""
-## Initial Coding Instructions
+## Coding Instructions
 
-You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to generate **initial codes** by extracting meaningful quotes from the transcript that link to the main topic, research questions, additional information, and concept table.
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to generate codes by extracting meaningful quotes from the transcript that link to the main topic, that are evidence to answer research questions, support additional information, and concept table.
 
 ### 1. Read the Transcript
 First, read the entire transcript to understand its overall content and context.
 
 ### 2. Review and Integrate Feedback
-The initial coding was completed once, but the user found the resulting codebook unsatisfactory.
+The initial coding was completed once, but the user found the resulting codebook underwhelming.
    - **Examine the initial codebook**, Initial codebook: `{current_codebook}`
    - **Consider the optional feedback**, Optional feedback: `{feedback}`
-   - **Identify issues**, What might have led the user to reject the original codes?
+   - **Identify issues**: What might have led the user to find the original codes less than satisfactory?
 
 ### 3. Line-by-Line Coding
 - **Extract:** For each relevant segment, copy the complete, exact quote.
@@ -534,16 +521,9 @@ The initial coding was completed once, but the user found the resulting codebook
   - **Concept Table (JSON):** {concept_table}  
   - Adjust for the identified issues.
 - **Skip:** Do *not* code irrelevant or off-topic content. Avoid generic labels like “irrelevant,” “off-topic,” etc.
-- Generate each code as a natural phrase - just as a human would write—avoiding any programming-style formats (should not be camelCase, snake_case, kebab-case, PascalCase, etc.).
+- Generate each code as a natural phrase - just as a expert human qualitative researcher would. Each word in the phrase should be seperated by a space.
 
-### 4. Analytical Perspectives
-- **Semantic:** Surface-level, explicit meaning.  
-- **Latent:** Underlying, implicit assumptions.  
-- **Experiential Framework:** Participants' own perspectives.  
-- **Critical Framework:** Power dynamics and deeper meanings.  
-- **Realist vs. Constructionist:** Objective “truth” vs. socially constructed reality.
-
-### 5. Output Format
+### 4. Output Format
 Return **only** valid JSON, exactly matching this structure:
 
 ```json
@@ -594,17 +574,18 @@ Transcript:
                                 post_transcript: str,
                                 feedback: str):
         return f"""
-    ## Redo Final Coding Instructions
-    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to assign codes — either by selecting existing codes from the final codebook or generating new ones directly from the data — to meaningful quotes in the transcript, ensuring each code serves as evidence for the main topic, research questions, additional information, or concept table.
+    ## Coding Instructions
+
+    You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to assign codes — either by selecting existing codes from the final codebook or generating new ones directly from the data — to meaningful quotes in the transcriptthat link to the main topic, that are evidence to answer research questions, support additional information, and concept table.
 
     ### 1. Read the Transcript
     First, read the entire transcript to understand its overall content and context.
 
     ### 2. Review and Integrate Feedback
-    The final coding was completed once, but the user found the resulting code assignments unsatisfactory.
+    The final coding was completed once, but the user found the resulting codebook underwhelming.
       - **Examine the current code assignments:** {current_codebook}
       - **Consider the optional feedback:** {feedback}
-      - **Identify issues:** What might have led to the unsatisfactory code assignments?
+      - **Identify issues**: What might have led the user to find the original codes less than satisfactory?
 
     ### 3. Line-by-Line Coding
     - **Extract:** For each relevant segment, copy the complete, exact quote.
@@ -617,16 +598,9 @@ Transcript:
       - Adjust for the identified issues.
       - Use existing codes from the final codebook, or update/propose new codes if the predefined ones do not fit the data well.
     - **Skip:** Do *not* code irrelevant or off-topic content. Avoid generic labels like “irrelevant,” “off-topic,” etc.
-    - Ensure each code is a natural phrase — avoiding any programming-style formats (should not be in camelCase, snake_case, kebab-case, PascalCase, etc.).
-
-    ### 4. Analytical Perspectives
-- **Semantic:** Surface-level, explicit meaning.  
-- **Latent:** Underlying, implicit assumptions.  
-- **Experiential Framework:** Participants' own perspectives.  
-- **Critical Framework:** Power dynamics and deeper meanings.  
-- **Realist vs. Constructionist:** Objective “truth” vs. socially constructed reality.
-
-    ### 5. Output Format
+    - Generate each code as a natural phrase - just as a expert human qualitative researcher would. Each word in the code should be seperated by a space.
+ 
+    ### 4. Output Format
     Return **only** valid JSON, exactly matching this structure:
 
     ```json
@@ -667,7 +641,7 @@ class GroupCodes:
     @staticmethod
     def group_codes_prompt(codes: str, qec_table: str):
         return f"""
-You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to follow instructions to group the provided codes into higher-level codes based on the associated QEC (Quote-Explanation-Code) data:
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to follow instructions to group the provided codes into higher-level codes based on the associated QEC (Quote-Explanation-Code) data. These higher-level codes should be directly linked to the Main topic and research questions.
 
 - Assess the provisional groupings for coherence and fit with the data.
 - Check if each emerging higher-level code tells a convincing story about the dataset.
@@ -754,7 +728,7 @@ Your tasks:
     @staticmethod
     def regroup_codes_prompt(codes: str, qec_table: str, previous_higher_level_codes: str, feedback: str):
         return f"""
-You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to follow instructions to refine the previous grouping of codes into higher-level codes based on the provided optional feedback and a re-examination of the data.
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to follow instructions to refine the previous grouping of codes into higher-level codes based on the provided optional feedback and a re-examination of the data. These higher-level codes should be directly linked to the Main topic and research questions.
 
 ### Data Provided
 
@@ -842,7 +816,9 @@ class GenerateCodebookWithoutQuotes:
     @staticmethod
     def generate_codebook_without_quotes_prompt(codes: str):
         return f"""
-You are an expert in qualitative research, tasked with summarizing multiple explanations for various codes and merging them into a single definition for each code.
+## Generate Codebook Instructions
+
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to summarize multiple explanations for various codes and merge them into a single definition for each code.
 
 The input JSON object will be structured as follows:
 ```json
@@ -855,9 +831,9 @@ The input JSON object will be structured as follows:
 The input JSON object containing the codes and their explanations is: 
 {codes}
 
-For each code in the JSON object, analyze all the provided explanations. Identify the common themes, key points, and any notable differences or contradictions among the explanations.
+For each code in the JSON object, analyze all the provided explanations. Identify the common key points, and any notable differences or contradictions among the explanations.
 
-Based on your analysis, create a single, coherent definition for each code that captures the essence of all its explanations. The definition should be concise, clear, and representative of the various perspectives presented. If there are contradictions, acknowledge them in the definition or provide a definition that encompasses the different viewpoints. Aim for definitions that are approximately 1-2 sentences long, but ensure they are comprehensive enough to cover the main points.
+Based on your analysis, create a single, coherent definition for each code that captures the essence of all its explanations. The definition should be concise, clear, and representative of the various perspectives presented. If there are contradictions, acknowledge them in the definition or provide a definition that encompasses the different viewpoints. Aim for definitions that are approximately a few sentences long, but ensure they are comprehensive enough to cover the main points.
 
 Do not simply select one explanation as the definition; instead, create a new definition that integrates the key elements from all explanations for each code.
 
@@ -875,12 +851,14 @@ Your response should consist solely of the JSON object containing the definition
     @staticmethod
     def regenerate_codebook_without_quotes_prompt(codes: str, previous_codebook: str, feedback: str):
         return f"""
+## Generate Codebook Instructions
+
 You are an expert in qualitative research, tasked with refining code definitions based on previous outputs and feedback. Previously, you generated definitions for various codes by summarizing multiple explanations. Now, you will refine those definitions using feedback and by re-examining the original explanations.
 
 ### Data Provided
 
 1. **Previous Codebook:**  
-   The definitions generated in the previous run, which the user did not like and wants to be changed and need to keep in mind to avoid while generating a new version, provided in JSON format:
+   The definitions generated in the previous run, which the user did not prefer so wants them to be changed and need to keep in mind to avoid while generating a new version, provided in JSON format:
 
    {previous_codebook}
 
@@ -915,7 +893,7 @@ You are an expert in qualitative research, tasked with refining code definitions
 3. **Refine the Definitions:**  
    - For each code, refine the definition by addressing the feedback while maintaining the essence of the original definition where appropriate.  
    - Ensure that the refined definition remains grounded in the original explanations, integrating their key elements while addressing the feedback.  
-   - The refined definition should be concise (1-2 sentences), clear, and representative of the various perspectives in the explanations.  
+   - The refined definition should be concise (a few sentences), clear, and representative of the various perspectives in the explanations.  
    - If there are contradictions in the explanations, acknowledge them or provide a definition that encompasses the different viewpoints.  
    - Do not simply select one explanation as the definition; instead, create a new definition that integrates the key elements from all explanations, refined based on the feedback.
 
@@ -941,6 +919,8 @@ class TopicClustering:
         return f"""
 You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis.  
 Your task is to review the list of initial codes and merge any that share the same meaning into a single, more abstract code. Aim for a balanced set of clusters—neither too many highly granular codes nor too few overly broad ones. Use concise, descriptive names that capture the essence of each group.
+Generate each cluster code (reviewed code) as a natural phrase - just as a expert human qualitative researcher would. Each word in the code should be seperated by a space.
+ 
 
 Return **only** valid JSON (no extra text), wrapped in a markdown code block, in this format:
 
@@ -964,6 +944,8 @@ You have already generated the following clusters: {current_clusters_keys}
 Your task now is to review the list of **more initial codes** and either assign each one to an **existing cluster** if it fits that cluster's meaning or create a new cluster.  
 - **Only** create a new cluster when a code does **not** clearly belong under any existing cluster name.  
 - Each new code must appear **exactly once** in your output.  
+- Generate each cluster code (reviewed code) as a natural phrase - just as a expert human qualitative researcher would. Each word in the code should be seperated by a space.
+ 
 
 Return **only** valid JSON (no extra text), wrapped in a markdown code block, in this format:
 
