@@ -38,7 +38,7 @@ const ConceptsTablePage: FC = () => {
         {
             target: '#concepts-header',
             content:
-                'Welcome to the Concept Outline page. Here you can review and edit your concept outlines.',
+                'Welcome to the Concept Outline page. Here you can review and edit your concept outline.',
             placement: 'bottom'
         },
         {
@@ -199,7 +199,7 @@ const ConceptsTablePage: FC = () => {
                                 <thead className="sticky top-0">
                                     <tr className="bg-gray-200">
                                         <th className="border border-gray-400 p-2 max-w-32">
-                                            Word
+                                            Related Concepts
                                         </th>
                                         <th className="border border-gray-400 p-2">Description</th>
                                         <th className="border border-gray-400 p-2  max-w-40">

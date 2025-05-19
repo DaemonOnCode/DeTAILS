@@ -5,6 +5,7 @@ import { useLoadingContext } from '../../context/loading-context';
 import { useLocation } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES } from '../../constants/Shared';
 import { useWorkspaceContext } from '../../context/workspace-context';
+import { toast } from 'react-toastify';
 
 export type FetchResponse<T = any> =
     | { data: T; error?: never; abort: () => void }
@@ -184,6 +185,17 @@ export const useApi = (): UseApiResult => {
             customAbortController: AbortController | null = null
         ): Promise<FetchLLMResponse<T>> => {
             console.log('Fetching LLM data:', route, options, settings);
+
+            if (!settings.ai.model) {
+                toast.error('Please select a model before making a request.');
+                return {
+                    error: {
+                        message: 'No model selected',
+                        name: 'ModelError'
+                    },
+                    abort: () => {}
+                };
+            }
 
             const [provider, ...modelParts] = settings.ai.model.split('-');
             const model = modelParts.join('-');

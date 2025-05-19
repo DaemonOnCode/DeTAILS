@@ -89,7 +89,7 @@ export const SettingsContext = createContext<ISettingsContext>({
 export const SettingsProvider: FC<ILayout> = ({ children }) => {
     const [settings, setSettings] = useState<ISettingsConfig>(defaultSettings);
     const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
-    const [settingsFetched, setSettingsFetched] = useState<boolean>(false); // New flag
+    const [settingsFetched, setSettingsFetched] = useState<boolean>(false);
     const [dirtySections, setDirtySections] = useState<Record<Sections, boolean>>(
         Object.assign({}, ...Object.keys(defaultSettings).map((key) => ({ [key]: false })))
     );

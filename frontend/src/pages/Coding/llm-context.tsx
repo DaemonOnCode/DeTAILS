@@ -157,8 +157,8 @@ const ContextPage = () => {
     };
 
     const handleOnNextClick = useNextHandler({
-        startLog: 'Starting Relevant Concept Generation',
-        doneLog: 'Relevant Concept generated',
+        startLog: 'Starting Related Concept Generation',
+        doneLog: 'Related Concepts generated',
         loadingRoute: PAGE_ROUTES.RELATED_CONCEPTS,
         loaderRoute: LOADER_ROUTES.THEME_LOADER,
         remoteRoute: REMOTE_SERVER_ROUTES.BUILD_CONTEXT,

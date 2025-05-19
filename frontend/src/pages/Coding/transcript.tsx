@@ -41,7 +41,8 @@ const TranscriptPage = () => {
     const {
         dispatchUnseenPostResponse,
         dispatchSampledPostResponse,
-        dispatchSampledCopyPostResponse
+        dispatchSampledCopyPostResponse,
+        dispatchAllPostResponse
     } = useCodingContext();
     const { currentWorkspace } = useWorkspaceContext();
 
@@ -677,7 +678,7 @@ const TranscriptPage = () => {
         ]
     ]);
 
-    const currentConfig = config.get(
+    let currentConfig = config.get(
         JSON.stringify({
             state: state ?? 'review',
             codebook: (codebook ?? 'false') as 'true' | 'false',
@@ -685,6 +686,55 @@ const TranscriptPage = () => {
             split
         })
     );
+
+    currentConfig = {
+        ...currentConfig,
+        codebook: currentConfig.codebook
+            ? {
+                  ...currentConfig.codebook,
+                  dispatchFunction:
+                      location.state?.selectedTypeFilter === 'All' &&
+                      (currentConfig.codebook.responses.includes('unseen') ||
+                          currentConfig.codebook.responses.includes('sampled_copy'))
+                          ? (...args) => {
+                                console.log('Dispatching with all for codebook:', args);
+                                // @ts-ignore
+                                return dispatchAllPostResponse({ ...args[0] }, refetchRef);
+                            }
+                          : currentConfig.codebook.dispatchFunction
+              }
+            : null,
+        topTranscript: currentConfig.topTranscript
+            ? {
+                  ...currentConfig.topTranscript,
+                  dispatchFunction:
+                      location.state?.selectedTypeFilter === 'All' &&
+                      (currentConfig.topTranscript.responses.includes('unseen') ||
+                          currentConfig.topTranscript.responses.includes('sampled_copy'))
+                          ? (...args) => {
+                                console.log('Dispatching with all for topTranscript:', args);
+                                // @ts-ignore
+                                return dispatchAllPostResponse({ ...args[0] }, refetchRef);
+                            }
+                          : currentConfig.topTranscript.dispatchFunction
+              }
+            : null,
+        bottomTranscript: currentConfig.bottomTranscript
+            ? {
+                  ...currentConfig.bottomTranscript,
+                  dispatchFunction:
+                      location.state?.selectedTypeFilter === 'All' &&
+                      (currentConfig.bottomTranscript.responses.includes('unseen') ||
+                          currentConfig.bottomTranscript.responses.includes('sampled_copy'))
+                          ? (...args) => {
+                                console.log('Dispatching with all for bottomTranscript:', args);
+                                // @ts-ignore
+                                return dispatchAllPostResponse({ ...args[0] }, refetchRef);
+                            }
+                          : currentConfig.bottomTranscript.dispatchFunction
+              }
+            : null
+    };
 
     console.log('Current config:', currentConfig, {
         state: state ?? 'review',
@@ -897,7 +947,7 @@ const TranscriptPage = () => {
             placement: 'right'
         },
         {
-            content: 'This section shows the information related to the transcript.',
+            content: 'This section shows codes & explanations related to the transcript.',
             target: '#transcript-metadata',
             placement: 'left'
         }
@@ -974,7 +1024,8 @@ const TranscriptPage = () => {
                         )}
 
                         <p className="px-6 py-2 text-center bg-gray-100 text-base lg:text-lg font-bold text-[#203636]">
-                            Select Quotation to Add/Filter Codes
+                            Select text to add code and an explanation to it. Double-click
+                            highlighted text to filter its code and explanation.
                         </p>
 
                         <div
