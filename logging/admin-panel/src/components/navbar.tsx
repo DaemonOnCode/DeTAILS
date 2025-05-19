@@ -31,6 +31,14 @@ function NavBar() {
           </Link>
         </li>
         <li>
+          <Link
+            to="/dataset-details"
+            className="text-white hover:text-gray-300"
+          >
+            Dataset Details
+          </Link>
+        </li>
+        <li>
           <Link to="/initial-coding" className="text-white hover:text-gray-300">
             Initial Coding
           </Link>

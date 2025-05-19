@@ -13,6 +13,7 @@ import Timeline from "./components/timeline";
 import ErrorRates from "./components/error-rates";
 import InitialCodebook from "./components/initial-codebook";
 import GlobalCoding from "./components/global-coding";
+import DatasetStats from "./components/dataset-details";
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route path="/error-rates" element={<ErrorRates />} />
           <Route path="/initial-codebook" element={<InitialCodebook />} />
           <Route path="/global-coding" element={<GlobalCoding />} />
+          <Route path="/dataset-details" element={<DatasetStats />} />
           <Route path="/" element={<SelectDBFile />} />
         </Routes>
       </DatabaseProvider>
