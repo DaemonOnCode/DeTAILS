@@ -27,8 +27,8 @@
             "openai": {
                 "name": "OpenAI",
                 "apiKey": "",
-                "modelList": [],
-                "textEmbedding": ""
+                "modelList": ["gpt-4.1-2025-04-14", "gpt-4o-2024-08-06"],
+                "textEmbedding": "text-embedding-3-large"
             },
             "vertexai": {
                 "name": "Google Vertex AI",
@@ -36,7 +36,8 @@
                 "modelList": [
                     "gemini-2.0-flash-thinking-exp-01-21",
                     "gemini-2.0-flash-001",
-                    "gemini-2.0-pro-exp-02-05"
+                    "gemini-2.0-pro-exp-02-05",
+                    "gemini-2.5-pro-preview-03-25"
                 ],
                 "textEmbedding": "text-embedding-005"
             },
@@ -45,7 +46,7 @@
                 "modelList": []
             }
         },
-        "temperature": 0.0,
+        "temperature": 1.0,
         "randomSeed": 42,
         "cutoff": 300
     },
