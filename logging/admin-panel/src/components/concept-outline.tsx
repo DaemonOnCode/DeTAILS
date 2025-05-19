@@ -6,8 +6,6 @@ interface ConceptOutlineResult {
   id: string | null;
   word: string;
   description: string;
-  inclusion_criteria: string;
-  exclusion_criteria: string;
   isMarked: boolean | null;
 }
 
@@ -78,10 +76,6 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
   return sequences;
 };
 
-const normalizeCriteria = (criteria: string | string[]): string => {
-  return Array.isArray(criteria) ? criteria.join(", ") : criteria || "";
-};
-
 const extractResults = (
   state: any,
   stateType: "generation" | "dispatch"
@@ -111,8 +105,6 @@ const extractResults = (
           id,
           word,
           description: result.description || "",
-          inclusion_criteria: normalizeCriteria(result.inclusion_criteria),
-          exclusion_criteria: normalizeCriteria(result.exclusion_criteria),
           isMarked:
             result.is_marked !== undefined ? Boolean(result.is_marked) : null,
         });
@@ -524,8 +516,6 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                         <th className="p-2 border">ID</th>
                         <th className="p-2 border">Word</th>
                         <th className="p-2 border">Description</th>
-                        <th className="p-2 border">Inclusion Criteria</th>
-                        <th className="p-2 border">Exclusion Criteria</th>
                         <th className="p-2 border">Is Marked</th>
                       </tr>
                     </thead>
@@ -537,12 +527,6 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                             {concept.word || "N/A"}
                           </td>
                           <td className="p-2 border">{concept.description}</td>
-                          <td className="p-2 border">
-                            {concept.inclusion_criteria}
-                          </td>
-                          <td className="p-2 border">
-                            {concept.exclusion_criteria}
-                          </td>
                           <td className="p-2 border">
                             {concept.isMarked === null
                               ? "N/A"
@@ -646,8 +630,6 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                         <th className="p-2 border">ID</th>
                         <th className="p-2 border">Word</th>
                         <th className="p-2 border">Description</th>
-                        <th className="p-2 border">Inclusion Criteria</th>
-                        <th className="p-2 border">Exclusion Criteria</th>
                         <th className="p-2 border">Is Marked</th>
                       </tr>
                     </thead>
@@ -659,12 +641,6 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                             {concept.word || "N/A"}
                           </td>
                           <td className="p-2 border">{concept.description}</td>
-                          <td className="p-2 border">
-                            {concept.inclusion_criteria}
-                          </td>
-                          <td className="p-2 border">
-                            {concept.exclusion_criteria}
-                          </td>
                           <td className="p-2 border">
                             {concept.isMarked === null
                               ? "N/A"
@@ -707,12 +683,6 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                                 <th className="p-2 border">ID</th>
                                 <th className="p-2 border">Word</th>
                                 <th className="p-2 border">Description</th>
-                                <th className="p-2 border">
-                                  Inclusion Criteria
-                                </th>
-                                <th className="p-2 border">
-                                  Exclusion Criteria
-                                </th>
                                 <th className="p-2 border">Is Marked</th>
                               </tr>
                             </thead>
@@ -727,12 +697,6 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                                   </td>
                                   <td className="p-2 border">
                                     {concept.description}
-                                  </td>
-                                  <td className="p-2 border">
-                                    {concept.inclusion_criteria}
-                                  </td>
-                                  <td className="p-2 border">
-                                    {concept.exclusion_criteria}
                                   </td>
                                   <td className="p-2 border">
                                     {concept.isMarked === null
@@ -789,12 +753,6 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                                 <th className="p-2 border">ID</th>
                                 <th className="p-2 border">Word</th>
                                 <th className="p-2 border">Description</th>
-                                <th className="p-2 border">
-                                  Inclusion Criteria
-                                </th>
-                                <th className="p-2 border">
-                                  Exclusion Criteria
-                                </th>
                                 <th className="p-2 border">Is Marked</th>
                               </tr>
                             </thead>
@@ -809,12 +767,6 @@ const ConceptOutlineTableDiffViewer: React.FC = () => {
                                   </td>
                                   <td className="p-2 border">
                                     {concept.description}
-                                  </td>
-                                  <td className="p-2 border">
-                                    {concept.inclusion_criteria}
-                                  </td>
-                                  <td className="p-2 border">
-                                    {concept.exclusion_criteria}
                                   </td>
                                   <td className="p-2 border">
                                     {concept.isMarked === null

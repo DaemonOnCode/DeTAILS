@@ -67,32 +67,43 @@ function getCodeToQuoteMap(post, codes) {
     codes.forEach((code) => {
       let isMatch = false;
 
-      if (code.rangeMarker && code.rangeMarker.itemId === String(index)) {
-        isMatch = true;
+      if (code.rangeMarker) {
+        if (code.rangeMarker.itemId === String(index)) {
+          isMatch = true;
+        }
       } else if (code.source) {
         try {
           const src = JSON.parse(code.source);
           if (
-            src.type === "comment" &&
-            data.type === "comment" &&
-            data.id === src.comment_id
+            (src.type === "comment" &&
+              data.type === "comment" &&
+              data.id === src.comment_id) ||
+            (src.type === "post" &&
+              ((src.title && data.type === "title") ||
+                (!src.title && data.type === "selftext")))
           ) {
             isMatch = true;
-          } else if (src.type === "post") {
-            if (src.title && data.type === "title") isMatch = true;
-            else if (!src.title && data.type === "selftext") isMatch = true;
           }
         } catch {
           console.error("Error parsing source metadata:", code.source);
+          const lowerDataText = data.text.toLowerCase();
+          const lowerCodeText = code.text.toLowerCase();
+          if (
+            lowerDataText.includes(lowerCodeText) ||
+            ratio(lowerDataText, lowerCodeText) >= 85
+          ) {
+            isMatch = true;
+          }
         }
       } else {
-        const normText = normalizeText(data.text);
-        const normCodeText = normalizeText(code.text);
-        const exactMatch = data.text.includes(code.text);
-        const fuzzyScore = exactMatch
-          ? 100
-          : ratio(normText, normCodeText, { full_process: true });
-        if (fuzzyScore >= 85) isMatch = true;
+        const lowerDataText = data.text.toLowerCase();
+        const lowerCodeText = code.text.toLowerCase();
+        if (
+          lowerDataText.includes(lowerCodeText) ||
+          ratio(lowerDataText, lowerCodeText) >= 85
+        ) {
+          isMatch = true;
+        }
       }
 
       if (isMatch) {
@@ -100,6 +111,7 @@ function getCodeToQuoteMap(post, codes) {
       }
     });
   });
+
   Object.keys(codeToQuoteIds).forEach((codeId) => {
     codeToQuoteIds[codeId] = Array.from(codeToQuoteIds[codeId]);
   });

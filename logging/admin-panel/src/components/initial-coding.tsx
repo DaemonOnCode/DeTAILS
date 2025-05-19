@@ -18,6 +18,7 @@ interface FieldChange {
   similarity?: number;
   code: string;
   quote: string;
+  post_id?: string;
 }
 
 interface CRUDChanges {
@@ -112,11 +113,60 @@ const extractResults = (
       response_type: result.response_type,
     });
   });
-  console.log(
-    `Extracted ${results.size} results from ${stateType} state.`,
-    resultsArray
-  );
   return results;
+};
+
+function cloneResults(
+  results: Map<string, CodingResult>
+): Map<string, CodingResult> {
+  return new Map(
+    Array.from(results.entries()).map(([id, result]) => [id, { ...result }])
+  );
+}
+
+const applyDiff = (
+  currentResults: Map<string, CodingResult>,
+  diff: {
+    inserted: CodingResult[];
+    updated: {
+      id: string;
+      changes: { [key: string]: { old: any; new: any } };
+    }[];
+    deleted: CodingResult[];
+  }
+): Map<string, CodingResult> => {
+  const newResults = new Map(currentResults);
+
+  diff.deleted.forEach((result) => {
+    newResults.delete(result.id);
+  });
+
+  diff.updated.forEach((update) => {
+    const result = newResults.get(update.id);
+    if (result) {
+      const updatedResult = { ...result };
+      Object.entries(update.changes).forEach(([key, change]) => {
+        if (key === "is_marked") {
+          (updatedResult as any)[key] =
+            change.new !== null ? Boolean(change.new) : null;
+        } else {
+          if (key in updatedResult) {
+            (updatedResult as any)[key] = change.new;
+          }
+        }
+      });
+      newResults.set(update.id, updatedResult);
+    }
+  });
+
+  diff.inserted.forEach((result) => {
+    newResults.set(result.id, {
+      ...result,
+      is_marked: result.is_marked !== null ? Boolean(result.is_marked) : null,
+    });
+  });
+
+  return newResults;
 };
 
 const computeChanges = async (
@@ -151,6 +201,7 @@ const computeChanges = async (
           similarity,
           code: curr.code,
           quote: curr.quote,
+          post_id: curr.post_id,
         });
       }
       if (prev.code !== curr.code) {
@@ -163,6 +214,7 @@ const computeChanges = async (
           similarity,
           code: curr.code,
           quote: curr.quote,
+          post_id: curr.post_id,
         });
       }
       if (prev.is_marked !== curr.is_marked) {
@@ -173,6 +225,7 @@ const computeChanges = async (
           newValue: curr.is_marked,
           code: curr.code,
           quote: curr.quote,
+          post_id: curr.post_id,
         });
       }
     }
@@ -204,16 +257,8 @@ const computeMetrics = async (
     unweightedTP++;
   }
 
-  const falseMarkedCount = commonIds.filter((id) => {
-    const final = finalResults.get(id)!;
-    return final.is_marked === false;
-  }).length;
-  const FP = deletedIds.length + falseMarkedCount;
-
-  const FN = insertedIds.filter((id) => {
-    const final = finalResults.get(id)!;
-    return final.is_marked === true;
-  }).length;
+  const FP = deletedIds.length;
+  const FN = insertedIds.length;
 
   const precision = unweightedTP + FP > 0 ? TP / (unweightedTP + FP) : 0;
   const recall = unweightedTP + FN > 0 ? TP / (unweightedTP + FN) : 0;
@@ -248,7 +293,6 @@ const calculateKrippendorffAlpha = (
   data: { coder: string; item: string; labels: Set<string> }[]
 ): number => {
   const items = Array.from(new Set(data.map((d) => d.item)));
-
   const annotations: { [item: string]: { [coder: string]: Set<string> } } = {};
   data.forEach((d) => {
     if (!annotations[d.item]) annotations[d.item] = {};
@@ -311,9 +355,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       new URL("./coding-transcript-worker.js", import.meta.url).href,
       4
     );
-    return () => {
-      mappingPoolRef.current?.terminate();
-    };
+    return () => mappingPoolRef.current?.terminate();
   }, []);
 
   const [sequences, setSequences] = useState<DatabaseRow[][]>([]);
@@ -328,9 +370,8 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
   ): Promise<number> => {
     if (textA === textB) return 1.0;
     const key = [textA, textB].sort().join("-");
-    if (similarityCache.current.has(key)) {
+    if (similarityCache.current.has(key))
       return similarityCache.current.get(key)!;
-    }
     const sim = await calculateSimilarity(textA, textB);
     similarityCache.current.set(key, sim);
     return sim;
@@ -339,9 +380,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
   const batchFetchPostsAndComments = async (
     postIds: string[]
   ): Promise<any[]> => {
-    if (!workerPoolRef.current) {
-      throw new Error("Worker pool not initialized");
-    }
+    if (!workerPoolRef.current) throw new Error("Worker pool not initialized");
     if (postIds.length === 0) return [];
 
     const NUM_CHUNKS = 4;
@@ -407,19 +446,61 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     const initialContext = safeParseContext(initialEntry.context);
     const isRegeneration = initialContext.run === "regenerate";
     const initialState = JSON.parse(initialEntry.state);
-    const finalState =
-      sequence.length > 1
-        ? JSON.parse(sequence[sequence.length - 1].state)
-        : initialState;
-
     const initialResults = extractResults(initialState, "generation");
-    const finalResultsRaw =
-      sequence.length > 1
-        ? extractResults(finalState, "dispatch")
-        : initialResults;
+
+    let currentResults = cloneResults(initialResults);
+    const stepwiseChanges: { step: number; changes: CRUDChanges }[] = [];
+
+    for (let i = 1; i < sequence.length; i++) {
+      const currState = JSON.parse(sequence[i].state);
+      const diff = currState.diff;
+      if (diff) {
+        const updatedChanges = await Promise.all(
+          diff.updated.map(async (u: any) => {
+            const changes: FieldChange[] = [];
+            for (const [key, change] of Object.entries(u.changes as any[])) {
+              let type: FieldChange["type"];
+              if (key === "quote") type = "quote_changed";
+              else if (key === "code") type = "code_changed";
+              else if (key === "is_marked") type = "is_marked_changed";
+              else continue;
+              let similarity: number | undefined;
+              if (type === "quote_changed" || type === "code_changed") {
+                similarity = await getSimilarity(change.old, change.new);
+              }
+              const result = currentResults.get(u.id);
+              changes.push({
+                type,
+                resultId: u.id,
+                oldValue: change.old,
+                newValue: change.new,
+                similarity,
+                code: result?.code || "",
+                quote: result?.quote || "",
+                post_id: result?.post_id || "",
+              });
+            }
+            return changes;
+          })
+        );
+        const stepChanges: CRUDChanges = {
+          inserted: diff.inserted || [],
+          updated: updatedChanges.flat(),
+          deleted: diff.deleted || [],
+        };
+        if (
+          stepChanges.inserted.length > 0 ||
+          stepChanges.updated.length > 0 ||
+          stepChanges.deleted.length > 0
+        ) {
+          stepwiseChanges.push({ step: i, changes: stepChanges });
+        }
+        currentResults = applyDiff(currentResults, diff);
+      }
+    }
 
     const finalResults = new Map(
-      Array.from(finalResultsRaw.entries()).filter(
+      Array.from(currentResults.entries()).filter(
         ([_, result]) => result.is_marked === true
       )
     );
@@ -435,26 +516,6 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       getSimilarity
     );
 
-    const stepwiseChanges: { step: number; changes: CRUDChanges }[] = [];
-    let prevResults = initialResults;
-    for (let i = 1; i < sequence.length; i++) {
-      const currState = JSON.parse(sequence[i].state);
-      const currResults = extractResults(currState, "dispatch");
-      const stepChanges = await computeChanges(
-        prevResults,
-        currResults,
-        getSimilarity
-      );
-      if (
-        stepChanges.inserted.length > 0 ||
-        stepChanges.updated.length > 0 ||
-        stepChanges.deleted.length > 0
-      ) {
-        stepwiseChanges.push({ step: i, changes: stepChanges });
-      }
-      prevResults = currResults;
-    }
-
     const sampledPostIdsQuery = await executeQuery(
       `SELECT state FROM state_dumps 
        WHERE json_extract(context, '$.function') = 'sample_posts'
@@ -463,22 +524,13 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     );
     const sampledPostIds: string[] = [
       ...new Set(
-        sampledPostIdsQuery.flatMap((row: any) => {
-          try {
-            const state = JSON.parse(row.state);
-
-            console.log("Sampled state:", state);
-            return state.groups?.sampled || [];
-          } catch (e) {
-            console.error("Failed to parse state JSON:", e);
-            return [];
-          }
-        })
+        sampledPostIdsQuery.flatMap(
+          (row: any) => JSON.parse(row.state).groups?.sampled || []
+        )
       ),
     ] as string[];
-    if (sampledPostIds.length === 0) {
+    if (sampledPostIds.length === 0)
       throw new Error("No sampled post IDs found.");
-    }
 
     const postGroups: Record<
       string,
@@ -497,9 +549,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
 
     const allPosts = await batchFetchPostsAndComments(sampledPostIds);
     const postMap: Record<string, any> = {};
-    allPosts.forEach((post) => {
-      postMap[post.id] = post;
-    });
+    allPosts.forEach((post) => (postMap[post.id] = post));
 
     const llmMappings = await Promise.all(
       sampledPostIds.map((postId) =>
@@ -595,20 +645,12 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       sumC = 0,
       sumD = 0;
 
-    console.log("Sampled post ids:", sampledPostIds);
     for (const code of allCodes) {
       let a = 0,
         b = 0,
         c = 0,
         d = 0;
       sampledPostIds.forEach((postId) => {
-        allQuoteIds[postId] = [...new Set(allQuoteIds[postId])];
-        let prevA = a,
-          prevB = b,
-          prevC = c,
-          prevD = d;
-
-        console.log("Sampled post ids:", sampledPostIds, allQuoteIds[postId]);
         allQuoteIds[postId].forEach((quoteId) => {
           const llmApplied =
             llmQuoteToCodes[postId][quoteId]?.has(code) || false;
@@ -619,18 +661,8 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
           else if (llmApplied) c++;
           else d++;
         });
-
-        console.log(
-          "Quote ids:",
-          a - prevA,
-          b - prevB,
-          c - prevC,
-          d - prevD,
-          postId
-        );
       });
 
-      console.log("Final counts:", a, b, c, d);
       const N = a + b + c + d;
       if (N === 0) continue;
       sumA += a;
@@ -663,13 +695,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     const pHumanYes = totalN > 0 ? (sumA + sumB) / totalN : 0;
     const pe = pLLMYes * pHumanYes + (1 - pLLMYes) * (1 - pHumanYes);
     const cohenKappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
-    const percentageAgreement = p0;
-
-    console.log("All quote ids:", Object.keys(allQuoteIds));
-
-    Object.entries(allQuoteIds).forEach(([k, v]) => {
-      console.log(k, v.length, new Set(v).size);
-    });
+    console.log(`Overall Cohen's Kappa: ${cohenKappa}`);
 
     const alphaData = sampledPostIds
       .flatMap((postId) =>
@@ -693,14 +719,12 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     const initialLLMResponses = Array.from(initialResults.values()).filter(
       (r) => r.response_type === "LLM"
     );
-    const totalLLMResponses = Array.from(initialResults.values()).filter(
-      (r) => r.response_type === "LLM"
-    ).length;
+    const totalLLMResponses = initialLLMResponses.length;
     const correctLLMResponses = initialLLMResponses.filter(
       (r) => finalResults.has(r.id) && r.is_marked === true
     ).length;
     const llmAddedCorrect =
-      initialLLMResponses.length > 0
+      totalLLMResponses > 0
         ? (correctLLMResponses / totalLLMResponses) * 100
         : 0;
 
@@ -724,7 +748,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       llmAddedCorrect,
       humanNotInLlmCorrect,
       matchingQuotes,
-      percentageAgreement,
+      percentageAgreement: p0,
     };
   };
 
@@ -733,13 +757,13 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       setSequenceStates(sequences.map(() => ({ diff: null, isLoading: true })));
       sequences.forEach((sequence, index) => {
         computeSequenceDiff(sequence, index)
-          .then((diff) => {
+          .then((diff) =>
             setSequenceStates((prev) => {
               const newStates = [...prev];
               newStates[index] = { diff, isLoading: false };
               return newStates;
-            });
-          })
+            })
+          )
           .catch((error) => {
             console.error(
               `Error computing diff for sequence ${index + 1}:`,
@@ -967,7 +991,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
                                       {change.newValue}
                                     </td>
                                     <td className="p-2 border">
-                                      {change.similarity}
+                                      {change.similarity?.toFixed(3) ?? "N/A"}
                                     </td>
                                   </>
                                 )}
@@ -980,7 +1004,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
                                       {change.newValue}
                                     </td>
                                     <td className="p-2 border">
-                                      {change.similarity}
+                                      {change.similarity?.toFixed(3) ?? "N/A"}
                                     </td>
                                   </>
                                 )}
@@ -1162,7 +1186,8 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
                                               {change.newValue}
                                             </td>
                                             <td className="p-2 border">
-                                              {change.similarity}
+                                              {change.similarity?.toFixed(3) ??
+                                                "N/A"}
                                             </td>
                                           </>
                                         )}
@@ -1175,7 +1200,8 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
                                               {change.newValue}
                                             </td>
                                             <td className="p-2 border">
-                                              {change.similarity}
+                                              {change.similarity?.toFixed(3) ??
+                                                "N/A"}
                                             </td>
                                           </>
                                         )}
