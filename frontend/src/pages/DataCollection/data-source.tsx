@@ -14,6 +14,7 @@ import { useLoadingContext } from '../../context/loading-context';
 const UploadDataPage = () => {
     const { type, modeInput } = useCollectionContext();
     const [searchParams] = useSearchParams();
+    const { abortRequests, checkIfDataExists, openModal } = useLoadingContext();
     console.log('Selected mode:', modeInput, searchParams.get('type'), type);
     const datasetType = searchParams.get('type') ?? type ?? modeInput.split('|')[0];
 
@@ -69,13 +70,22 @@ const UploadDataPage = () => {
     const processDataRef = useRef<{ run: () => Promise<void> } | null>(null);
 
     const handleButtonClick = async () => {
-        if (!processDataRef.current?.run) return;
+        abortRequests(PAGE_ROUTES.DATASET_CREATION);
+
         loadingDispatch({
             type: 'SET_LOADING_ROUTE',
             route: PAGE_ROUTES.DATASET_CREATION
         });
 
-        await processDataRef.current?.run();
+        const dataExists = await checkIfDataExists(location.pathname);
+        if (dataExists) {
+            openModal('confirm-data-processing', async () => {
+                await processDataRef.current?.run();
+            });
+        } else {
+            await processDataRef.current?.run();
+        }
+
         loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: PAGE_ROUTES.DATASET_CREATION

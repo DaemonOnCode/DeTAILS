@@ -327,12 +327,11 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         onBack();
     };
 
-    const transcriptHandleMouseUp = useCallback(
-        lodash.throttle(() => {
-            handleTextSelection(_selectionRef);
-        }, 100),
-        [handleTextSelection, _selectionRef]
-    );
+    const transcriptHandleMouseUp = useCallback(() => {
+        handleTextSelection(_selectionRef);
+        const selection = window.getSelection();
+        console.log('MouseUp selection:', selection?.toString().trim());
+    }, [handleTextSelection, _selectionRef]);
 
     const transcriptHandleMouseClick = useCallback(() => {
         handleSegmentLeave(false);

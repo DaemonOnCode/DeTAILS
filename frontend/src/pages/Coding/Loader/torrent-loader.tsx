@@ -223,7 +223,7 @@ const TorrentLoader: React.FC = () => {
         logger.info('Retrying request...');
         try {
             abortRequestsByRoute(
-                `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATASET_CREATION}`
+                `/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`
             );
             abortRequestsByRoute(location.pathname);
             setSteps(initialSteps);

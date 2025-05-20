@@ -82,7 +82,7 @@ async def generate_codebook_without_quotes_endpoint(
         store_response = False
     )
     
-    summarized_grouped_ec = {code: summary for code, summary in summarized_dict.items()}
+    summarized_grouped_ec = {code: [summary] for code, summary in summarized_dict.items()}
 
     print(summarized_grouped_ec)
 
@@ -90,13 +90,25 @@ async def generate_codebook_without_quotes_endpoint(
         initial_codebook_repo.delete({"coding_context_id": workspace_id})
     except Exception as e:
         print(e)
-    
+
+    parsed_response = await process_llm_task(
+        workspace_id=request.headers.get("x-workspace-id"),
+        app_id=app_id,
+        manager=manager,
+        llm_model=request_body.model,
+        parent_function_name=function_name,
+        regex_pattern=r"```json\s*([\s\S]*?)\s*```",
+        prompt_builder_func=GenerateCodebookWithoutQuotes.generate_codebook_without_quotes_prompt,
+        llm_instance=llm,
+        llm_queue_manager=llm_queue_manager,
+        codes=json.dumps(summarized_grouped_ec)  
+    )
 
     state_dump_repo.insert(
             StateDump(
                 state=json.dumps({
                     "workspace_id": workspace_id,
-                    "codebook": summarized_grouped_ec,
+                    "codebook": parsed_response,
                 }),
                 context=json.dumps({
                     "function": function_name,
@@ -114,7 +126,7 @@ async def generate_codebook_without_quotes_endpoint(
                 coding_context_id=request.headers.get("x-workspace-id"),
                 code= pr[0],
                 definition= pr[1],
-            ) for pr in  summarized_grouped_ec.items() 
+            ) for pr in  parsed_response.items() 
         ]
     )
 
