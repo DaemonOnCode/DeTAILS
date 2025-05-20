@@ -17,19 +17,13 @@ const VirtualizedTableRow: FC<VirtualizedTableRowProps> = ({
     root
 }) => {
     const rowRef = useRef<HTMLTableRowElement>(null);
-    const isVisible = useIntersectionObserver(rowRef, {
-        root,
-        rootMargin: '100px'
-    });
 
     const [localDefinition, setLocalDefinition] = useState(entry.definition);
 
-    // Sync local state when the prop changes
     useEffect(() => {
         setLocalDefinition(entry.definition);
     }, [entry.definition]);
 
-    // Debounced updater for definition changes
     const debouncedUpdate = useMemo(
         () =>
             debounce((idx: number, value: string) => {
@@ -38,7 +32,6 @@ const VirtualizedTableRow: FC<VirtualizedTableRowProps> = ({
         [onDefinitionChange]
     );
 
-    // Cancel any pending debounced calls on unmount
     useEffect(() => {
         return () => {
             debouncedUpdate.cancel();
@@ -49,19 +42,15 @@ const VirtualizedTableRow: FC<VirtualizedTableRowProps> = ({
         <tr ref={rowRef}>
             <td className="border border-gray-400 p-2 w-64 max-w-64 break-words">{entry.code}</td>
             <td className="border border-gray-400 p-2 w-full">
-                {isVisible ? (
-                    <textarea
-                        className="w-full p-2 border border-gray-300 rounded resize-none h-24"
-                        value={localDefinition}
-                        onChange={(e) => {
-                            const v = e.target.value;
-                            setLocalDefinition(v);
-                            debouncedUpdate(index, v);
-                        }}
-                    />
-                ) : (
-                    <div className="w-full p-2 h-24 overflow-hidden">{entry.definition}</div>
-                )}
+                <textarea
+                    className="w-full p-2 border border-gray-300 rounded resize-none h-24"
+                    value={localDefinition}
+                    onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalDefinition(v);
+                        debouncedUpdate(index, v);
+                    }}
+                />
             </td>
         </tr>
     );
