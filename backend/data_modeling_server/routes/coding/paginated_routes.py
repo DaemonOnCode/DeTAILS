@@ -153,7 +153,7 @@ async def paginated_responses(
         ON r.post_id = p.post_id
        AND r.workspace_id = p.workspace_id
      WHERE {where_clause}
-  ORDER BY r.post_id ASC
+  ORDER BY r.post_id ASC, r.id ASC
      LIMIT ? OFFSET ?
     """
     print(f"[paginated_responses] slice_sql: {slice_sql}", params)
@@ -171,7 +171,7 @@ async def paginated_responses(
            AND r.workspace_id = p.workspace_id
          WHERE {where_clause}
            AND r.id IN ({ph2})
-      ORDER BY r.post_id ASC
+      ORDER BY r.post_id ASC, r.id ASC
         """
         resp_rows = execute_query(resp_sql, params + page_ids, keys=True)
 
