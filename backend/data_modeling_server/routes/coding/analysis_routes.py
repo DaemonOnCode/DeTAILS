@@ -39,17 +39,17 @@ async def analysis_report(
     if req.viewType == "post":
         stats_sql = f"""
         SELECT
-          COUNT(DISTINCT r.post_id)    AS totalUniquePosts,
+          COUNT(DISTINCT r.post_id) AS totalUniquePosts,
           COUNT(DISTINCT g.higher_level_code) AS totalUniqueCodes,
-          COUNT(*)                     AS totalQuoteCount
+          COUNT(*) AS totalQuoteCount
         {BASE_JOIN}
         """
     else:  
         stats_sql = f"""
         SELECT
           COUNT(DISTINCT g.higher_level_code) AS totalUniqueCodes,
-          COUNT(DISTINCT r.post_id)    AS totalUniquePosts,
-          COUNT(*)                     AS totalQuoteCount
+          COUNT(DISTINCT r.post_id) AS totalUniquePosts,
+          COUNT(*) AS totalQuoteCount
         {BASE_JOIN}
         """
     stat_row = execute_query(stats_sql, params, keys=True)[0]
@@ -60,9 +60,9 @@ async def analysis_report(
         data_sql = f"""
         SELECT
           r.id,
-          r.post_id    AS postId,
+          r.post_id AS postId,
           g.higher_level_code AS code,
-          t.theme               AS theme,
+          t.theme AS theme,
           r.quote,
           r.explanation
         {BASE_JOIN}
@@ -75,9 +75,9 @@ async def analysis_report(
     elif req.viewType == "post" and req.summary:
         data_sql = f"""
         SELECT
-          r.post_id             AS postId,
+          r.post_id AS postId,
           COUNT(DISTINCT g.higher_level_code) AS uniqueCodeCount,
-          COUNT(*)              AS totalQuoteCount
+          COUNT(*) AS totalQuoteCount
         {BASE_JOIN}
         GROUP BY r.post_id
         ORDER BY r.post_id DESC
@@ -90,13 +90,13 @@ async def analysis_report(
         data_sql = f"""
         SELECT
           r.id,
-          r.post_id            AS postId,
+          r.post_id AS postId,
           g.higher_level_code AS code,
-          t.theme              AS theme,
+          t.theme AS theme,
           r.quote,
           r.explanation
         {BASE_JOIN}
-        ORDER BY r.id DESC
+        ORDER BY r.id DESC, t.theme
         LIMIT :limit OFFSET :offset
         """
         rows = execute_query(data_sql, params, keys=True)
@@ -105,10 +105,10 @@ async def analysis_report(
     else:
         data_sql = f"""
         SELECT
-          t.theme               AS theme,
+          t.theme AS theme,
           COUNT(DISTINCT r.post_id) AS uniquePosts,
           COUNT(DISTINCT g.higher_level_code) AS uniqueCodes,
-          COUNT(*)                  AS totalQuoteCount
+          COUNT(*) AS totalQuoteCount
         {BASE_JOIN}
         GROUP BY t.theme
         ORDER BY t.theme
@@ -140,9 +140,9 @@ async def download_report(
         sql = f"""
         SELECT
           r.id,
-          r.post_id            AS postId,
-          g.higher_level_code  AS code,
-          t.theme              AS theme,
+          r.post_id AS postId,
+          g.higher_level_code AS code,
+          t.theme AS theme,
           r.quote,
           r.explanation
         {BASE_JOIN}
@@ -151,9 +151,9 @@ async def download_report(
     elif viewType == "post" and summary:
         sql = f"""
         SELECT
-          r.post_id             AS postId,
+          r.post_id AS postId,
           COUNT(DISTINCT g.higher_level_code) AS uniqueCodeCount,
-          COUNT(*)              AS totalQuoteCount
+          COUNT(*) AS totalQuoteCount
         {BASE_JOIN}
         GROUP BY r.post_id
         ORDER BY r.post_id
@@ -162,21 +162,21 @@ async def download_report(
         sql = f"""
         SELECT
           r.id,
-          r.post_id            AS postId,
-          g.higher_level_code  AS code,
-          t.theme              AS theme,
+          r.post_id AS postId,
+          g.higher_level_code AS code,
+          t.theme AS theme,
           r.quote,
           r.explanation
         {BASE_JOIN}
-        ORDER BY r.id
+        ORDER BY r.id, t.theme
         """
     else:
         sql = f"""
         SELECT
-          t.theme               AS theme,
+          t.theme AS theme,
           COUNT(DISTINCT r.post_id) AS uniquePosts,
           COUNT(DISTINCT g.higher_level_code) AS uniqueCodes,
-          COUNT(*)                  AS totalQuoteCount
+          COUNT(*) AS totalQuoteCount
         {BASE_JOIN}
         GROUP BY t.theme
         ORDER BY t.theme

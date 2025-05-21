@@ -28,7 +28,7 @@ def set_initial_settings():
             content = f.read().strip()
             settings = json.loads(content) if content else {}
     except (FileNotFoundError, json.JSONDecodeError):
-        settings = {}
+        return
     transmission = settings.get("transmission", {})
     if not transmission.get("downloadDir"):
         transmission["downloadDir"] = PATHS["transmission"]
@@ -53,6 +53,7 @@ initialize_database([
     ContextFilesRepository, ResearchQuestionsRepository,
 ])
 FunctionProgressRepository().delete({}, all=True)
+TorrentDownloadProgressRepository().delete({}, all=True)
 
 def run_http():
     uvicorn.run(
