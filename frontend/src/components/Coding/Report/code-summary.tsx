@@ -32,7 +32,7 @@ export const CodeSummaryTable: React.FC<Props> = ({ rows, overallStats }) => {
                     <thead className="sticky top-0 z-30 bg-gray-200 border-b-2 border-gray-400 shadow-md">
                         <tr>
                             <th className="p-2 border border-gray-400 bg-gray-200">Theme</th>
-                            <th className="p-2 border border-gray-400 bg-gray-200">Unique Posts</th>
+                            <th className="p-2 border border-gray-400 bg-gray-200">Posts</th>
                             <th className="p-2 border border-gray-400 bg-gray-200">Unique Codes</th>
                             <th className="p-2 border border-gray-400 bg-gray-200">Total Quotes</th>
                         </tr>
