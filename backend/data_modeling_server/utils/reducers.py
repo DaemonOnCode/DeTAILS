@@ -755,6 +755,91 @@ def process_action(
             {"id": row["id"], "changes": {"is_marked": {"old": old_is_marked.get(row["id"]), "new": None}}}
             for row in updated_rows if old_is_marked.get(row["id"]) is not None
         ]
+    
+    elif action_type == "SET_ALL_CORRECT_BY_FILTER":
+        current_filter = action.get("filter")
+        if not current_filter:
+            raise HTTPException(
+                status_code=400,
+                detail="Filter is required for SET_ALL_CORRECT_BY_FILTER"
+            )
+
+        addition_filters = {}
+        if current_filter["type"] == "codes":
+            addition_filters["code"] = current_filter["value"]
+        elif current_filter["type"] == "posts":
+            addition_filters["post_id"] = current_filter["value"].replace("|coded-data", "")
+
+        filters = {**base_filters, **addition_filters}
+
+        old_rows = qect_repo.find(filters)
+        old_is_marked = {row["id"]: row["is_marked"] for row in old_rows}
+
+        true_count = sum(1 for row in old_rows if row["is_marked"])
+
+        if true_count < len(old_rows):
+            updated_rows = qect_repo.update_returning(filters, {"is_marked": True})
+            diff["updated"] = [
+                {
+                    "id": row["id"],
+                    "changes": {"is_marked": {"old": old_is_marked.get(row["id"]), "new": True}}
+                }
+                for row in updated_rows
+                if old_is_marked.get(row["id"]) != True
+            ]
+        else:
+            updated_rows = qect_repo.update_returning(filters, {"is_marked": None})
+            diff["updated"] = [
+                {
+                    "id": row["id"],
+                    "changes": {"is_marked": {"old": old_is_marked.get(row["id"]), "new": None}}
+                }
+                for row in updated_rows
+                if old_is_marked.get(row["id"]) is not None
+            ]
+
+
+    elif action_type == "SET_ALL_INCORRECT_BY_FILTER":
+        current_filter = action.get("filter")
+        if not current_filter:
+            raise HTTPException(
+                status_code=400,
+                detail="Filter is required for SET_ALL_INCORRECT_BY_FILTER"
+            )
+
+        addition_filters = {}
+        if current_filter["type"] == "codes":
+            addition_filters["code"] = current_filter["value"]
+        elif current_filter["type"] == "posts":
+            addition_filters["post_id"] = current_filter["value"].replace("|coded-data", "")
+
+        filters = {**base_filters, **addition_filters}
+
+        old_rows = qect_repo.find(filters)
+        old_is_marked = {row["id"]: row["is_marked"] for row in old_rows}
+
+        false_count = sum(1 for row in old_rows if row["is_marked"] is False)
+
+        if false_count < len(old_rows):
+            updated_rows = qect_repo.update_returning(filters, {"is_marked": False})
+            diff["updated"] = [
+                {
+                    "id": row["id"],
+                    "changes": {"is_marked": {"old": old_is_marked.get(row["id"]), "new": False}}
+                }
+                for row in updated_rows
+                if old_is_marked.get(row["id"]) is not False
+            ]
+        else:
+            updated_rows = qect_repo.update_returning(filters, {"is_marked": None})
+            diff["updated"] = [
+                {
+                    "id": row["id"],
+                    "changes": {"is_marked": {"old": old_is_marked.get(row["id"]), "new": None}}
+                }
+                for row in updated_rows
+                if old_is_marked.get(row["id"]) is not None
+            ]
 
     elif action_type == "UPDATE_COMMENT":
         comment = action.get("comment")

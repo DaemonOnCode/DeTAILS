@@ -16,7 +16,6 @@ interface Props {
 }
 
 export const PostDetailedTable: React.FC<Props> = ({ rows, onViewPost }) => {
-    // group by postId
     const grouped = useMemo(() => {
         return rows.reduce<Record<string, PostDetailRow[]>>((acc, r) => {
             (acc[r.postId] ||= []).push(r);
@@ -50,8 +49,8 @@ export const PostDetailedTable: React.FC<Props> = ({ rows, onViewPost }) => {
                         <tr key={item.id} className="hover:bg-gray-50">
                             <td className="p-2 border">{item.code}</td>
                             <td className="p-2 border">{item.theme}</td>
-                            <td className="p-2 border">{item.quote}</td>
-                            <td className="p-2 border">{item.explanation}</td>
+                            <td className="p-2 border overflow-wrap">{item.quote}</td>
+                            <td className="p-2 border overflow-wrap">{item.explanation}</td>
                         </tr>
                     ))}
                 </tbody>

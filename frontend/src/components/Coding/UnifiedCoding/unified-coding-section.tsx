@@ -332,8 +332,6 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         setShowFeedbackModal(true);
     };
 
-    // usEff
-
     return (
         <div
             id="unified-coding-page"
@@ -402,7 +400,10 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
                             onReRunCoding={handleReRunCoding}
                             onUpdateResponses={handleUpdateResponses}
                             conflictingResponses={conflictingResponses}
-                            currentPostId={selectedItem}
+                            currentFilter={{
+                                type: activeTab,
+                                value: selectedItem
+                            }}
                             showCoderType={showCoderType}
                             isLoadingPage={isLoadingPage}
                             hasNextPage={hasNextPage}

@@ -48,7 +48,6 @@ export const PostSummaryTable: React.FC<Props> = ({ rows, overallStats, onViewPo
                 </table>
             </div>
 
-            {/* Quick Stats panel */}
             <div className="p-4 border border-gray-300 rounded-lg">
                 <h3 className="text-lg font-semibold mb-2">Quick Stats</h3>
                 <div className="flex flex-col space-y-2">

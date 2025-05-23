@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IQECResponse, IQECTTyResponse } from '../../../types/Coding/shared';
 import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
 import { useInfiniteScroll } from '../../../hooks/Coding/use-infinite-scroll';
@@ -12,7 +12,10 @@ interface ValidationTableProps {
     onReRunCoding: () => void;
     onUpdateResponses: (updatedResponses: any[]) => void;
     conflictingResponses?: IQECResponse[];
-    currentPostId?: string | null;
+    currentFilter?: {
+        type: 'codes' | 'posts';
+        value: string;
+    };
     showCoderType?: boolean;
     isLoadingPage: boolean;
     hasNextPage: boolean;
@@ -41,7 +44,7 @@ const ValidationTable: FC<ValidationTableProps> = ({
     onReRunCoding,
     onUpdateResponses,
     conflictingResponses = [],
-    currentPostId,
+    currentFilter,
     showCoderType = true,
     isLoadingPage,
     hasNextPage,
@@ -80,6 +83,13 @@ const ValidationTable: FC<ValidationTableProps> = ({
     };
 
     const handleToggleAllSelectOrReject = (isSelect: boolean) => {
+        if (currentFilter.value && currentFilter.value !== 'coded-data') {
+            dispatchCodeResponses({
+                type: isSelect ? 'SET_ALL_CORRECT_BY_FILTER' : 'SET_ALL_INCORRECT_BY_FILTER',
+                filter: currentFilter
+            });
+            return;
+        }
         dispatchCodeResponses({
             type: isSelect ? 'SET_ALL_CORRECT' : 'SET_ALL_INCORRECT'
         });
@@ -101,11 +111,11 @@ const ValidationTable: FC<ValidationTableProps> = ({
         return (
             <div className="text-center py-6">
                 <p className="text-gray-600">No responses are available right now.</p>
-                {!(!currentPostId || currentPostId === 'coded-data') && (
+                {!(!currentFilter || currentFilter.value === 'coded-data') && (
                     <p className="text-gray-600">
                         You can{' '}
                         <button
-                            onClick={() => onViewTranscript(currentPostId ?? null)}
+                            onClick={() => onViewTranscript(currentFilter.value ?? null)}
                             className="text-blue-500 underline">
                             visit this transcript
                         </button>{' '}

@@ -98,6 +98,9 @@ const LeftPanel: FC<LeftPanelProps> = ({
                 (prev === 'coded-data' || prev?.split('|')?.[1] === 'coded-data') &&
                 selection !== null
             ) {
+                if (selection === 'coded-data') {
+                    return selection;
+                }
                 const newFilter = `${selection}|coded-data`;
                 onFilterSelect(newFilter);
                 return newFilter;
