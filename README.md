@@ -9,21 +9,21 @@
 For convenience, you can download our latest pre-built binaries/installer here:
 
 - **macOS (Apple Silicon)**  
-  [Download DeTAILS for macOS (.dmg)](https://storage.googleapis.com/details-builds-0625/mac/main/mac-main-1.0.0/DeTAILS-1.0.0-arm64.dmg)
+  [Download DeTAILS for macOS (.dmg)](https://storage.googleapis.com/details-official-builds-2025/mac/main/mac-main-1.0.0/DeTAILS-1.0.0-arm64.dmg)
 
-  [Download DeTAILS for macOS (.zip)](https://storage.googleapis.com/details-builds-0625/mac/main/mac-main-1.0.0/zip/darwin/arm64/DeTAILS-darwin-arm64-1.0.0.zip)
+  [Download DeTAILS for macOS (.zip)](https://storage.googleapis.com/details-official-builds-2025/mac/main/mac-main-1.0.0/zip/darwin/arm64/DeTAILS-darwin-arm64-1.0.0.zip)
 
 - **Windows (x64)**  
-  [Download DeTAILS for Windows (Squirrel Installer)](https://storage.googleapis.com/details-builds-0625/windows/main/win-main-1.0.0/squirrel.windows/x64.zip)
+  [Download DeTAILS for Windows (Squirrel Installer)](https://storage.googleapis.com/details-official-builds-2025/windows/main/win-main-1.0.0/squirrel.windows/x64.zip)
 
-  [Download DeTAILS for Windows (.zip)](https://storage.googleapis.com/details-builds-0625/windows/main/win-main-1.0.0/zip/win32/x64/DeTAILS-win32-x64-1.0.0.zip)
+  [Download DeTAILS for Windows (.zip)](https://storage.googleapis.com/details-official-builds-2025/windows/main/win-main-1.0.0/zip/win32/x64/DeTAILS-win32-x64-1.0.0.zip)
 
 - **Linux (x64)**  
-  [Download DeTAILS for Linux (deb)](https://storage.googleapis.com/details-builds-0625/linux/main/linux-main-1.0.0/deb/x64/details_1.0.0_amd64.deb)
+  [Download DeTAILS for Linux (deb)](https://storage.googleapis.com/details-official-builds-2025/linux/main/linux-main-1.0.0/deb/x64/details_1.0.0_amd64.deb)
 
-  [Download DeTAILS for Linux (rpm)](https://storage.googleapis.com/details-builds-0625/linux/main/linux-main-1.0.0/rpm/x64/details-1.0.0-1.x86_64.rpm)
+  [Download DeTAILS for Linux (rpm)](https://storage.googleapis.com/details-official-builds-2025/linux/main/linux-main-1.0.0/rpm/x64/details-1.0.0-1.x86_64.rpm)
 
-  [Download DeTAILS for Linux (.zip)](https://storage.googleapis.com/details-builds-0625/linux/main/linux-main-1.0.0/zip/linux/x64/DeTAILS-linux-x64-1.0.0.zip)
+  [Download DeTAILS for Linux (.zip)](https://storage.googleapis.com/details-official-builds-2025/linux/main/linux-main-1.0.0/zip/linux/x64/DeTAILS-linux-x64-1.0.0.zip)
 
 ## ✨ What is this?
 
