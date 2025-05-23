@@ -96,7 +96,7 @@ async def analysis_report(
           r.quote,
           r.explanation
         {BASE_JOIN}
-        ORDER BY r.id DESC, t.theme
+        ORDER BY t.theme, r.id DESC
         LIMIT :limit OFFSET :offset
         """
         rows = execute_query(data_sql, params, keys=True)
@@ -168,7 +168,7 @@ async def download_report(
           r.quote,
           r.explanation
         {BASE_JOIN}
-        ORDER BY r.id, t.theme
+        ORDER BY t.theme, r.id
         """
     else:
         sql = f"""

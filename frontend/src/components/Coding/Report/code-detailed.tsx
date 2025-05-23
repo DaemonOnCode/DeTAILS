@@ -16,7 +16,6 @@ interface Props {
 }
 
 export const CodeDetailedTable: React.FC<Props> = ({ rows, onViewPost }) => {
-    // group by code
     const grouped = useMemo(() => {
         return rows.reduce<Record<string, CodeDetailRow[]>>((acc, r) => {
             (acc[r.code] ||= []).push(r);
@@ -53,8 +52,8 @@ export const CodeDetailedTable: React.FC<Props> = ({ rows, onViewPost }) => {
                                         {item.postId}
                                     </button>
                                 </td>
-                                <td className="p-2 border">{item.quote}</td>
-                                <td className="p-2 border">{item.explanation}</td>
+                                <td className="p-2 border overflow-wrap">{item.quote}</td>
+                                <td className="p-2 border overflow-wrap">{item.explanation}</td>
                             </tr>
                         ))}
                     </tbody>
