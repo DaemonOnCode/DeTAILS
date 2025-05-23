@@ -157,7 +157,7 @@ class InitialCodePrompts:
 You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to generate codes by extracting meaningful quotes from the transcript that link to the main topic, that are evidence to answer research questions, support additional information, and concept table.
 
 ### 1. Read the Transcript
-First, read the entire transcript to understand its overall content and context.
+First, read the entire transcript to understand its overall content and context. Only code the post if it contains quotes that link to the main topic, that are evidence to answer research questions, support additional information, and concept table; otherwise, skip it.
 
 ### 2. Line-by-Line Coding
 - **Extract:** For each relevant segment, copy the complete, exact quote.
@@ -220,7 +220,7 @@ class FinalCoding:
     You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to assign codes — either by selecting existing codes from the final codebook or generating new ones directly from the data — to meaningful quotes from the transcript that link to the main topic, that are evidence to answer research questions, support additional information, and concept table.
 
     ### 1. Read the Transcript
-    First, read the entire transcript to understand its overall content and context.
+    First, read the entire transcript to understand its overall content and context. Only code the post if it contains quotes that link to the main topic, that are evidence to answer research questions, support additional information, and concept table; otherwise, skip it.
 
     ### 2. Line-by-Line Coding
     - **Extract:** For each relevant segment, copy the complete, exact quote.
@@ -504,7 +504,7 @@ class RemakerPrompts:
 You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to generate codes by extracting meaningful quotes from the transcript that link to the main topic, that are evidence to answer research questions, support additional information, and concept table.
 
 ### 1. Read the Transcript
-First, read the entire transcript to understand its overall content and context.
+First, read the entire transcript to understand its overall content and context. Only code the post if it contains quotes that link to the main topic, that are evidence to answer research questions, support additional information, and concept table; otherwise, skip it.
 
 ### 2. Review and Integrate Feedback
 The initial coding was completed once, but the user found the resulting codebook underwhelming.
@@ -579,7 +579,7 @@ Transcript:
     You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to assign codes — either by selecting existing codes from the final codebook or generating new ones directly from the data — to meaningful quotes in the transcriptthat link to the main topic, that are evidence to answer research questions, support additional information, and concept table.
 
     ### 1. Read the Transcript
-    First, read the entire transcript to understand its overall content and context.
+    First, read the entire transcript to understand its overall content and context. Only code the post if it contains quotes that link to the main topic, that are evidence to answer research questions, support additional information, and concept table; otherwise, skip it.
 
     ### 2. Review and Integrate Feedback
     The final coding was completed once, but the user found the resulting codebook underwhelming.

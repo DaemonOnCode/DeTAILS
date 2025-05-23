@@ -127,8 +127,8 @@ const LeftPanel: FC<LeftPanelProps> = ({
                             </>
                         ) : (
                             <>
-                                <option value="New Data">New Data</option>
-                                <option value="Initial Data">Initial Data</option>
+                                <option value="New Data">Final Coding</option>
+                                <option value="Initial Data">Initial Coding</option>
                             </>
                         )}
                     </select>
