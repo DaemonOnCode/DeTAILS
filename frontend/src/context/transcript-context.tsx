@@ -75,6 +75,8 @@ interface ITranscriptContext {
         marker: TextMarker | null,
         container: HTMLElement | null
     ) => boolean;
+    isSelecting: boolean;
+    setIsSelecting: SetState<boolean>;
 }
 
 const TranscriptContext = createContext<ITranscriptContext>({
@@ -114,7 +116,9 @@ const TranscriptContext = createContext<ITranscriptContext>({
     containerRef: { current: null },
     selectedTextMarker: null,
     setSelectedTextMarker: () => {},
-    isValidSelection: () => false
+    isValidSelection: () => false,
+    isSelecting: false,
+    setIsSelecting: () => {}
 });
 
 export const TranscriptContextProvider: FC<{
@@ -211,6 +215,8 @@ export const TranscriptContextProvider: FC<{
     const [selectedSegment, setSelectedSegment] = useState<Segment | null>(null);
 
     const [selectedExplanations, setSelectedExplanations] = useState<Explanation[]>([]);
+
+    const [isSelecting, setIsSelecting] = useState(false);
 
     const activeSegment = selectedSegment || hoveredSegment;
 
@@ -410,6 +416,7 @@ export const TranscriptContextProvider: FC<{
 
     const handleSegmentInteraction = useCallback(
         (segment: Segment | null, isPermanent = false, relatedCodeText?: string[]) => {
+            if (isSelecting) return;
             console.log('Handling segment interaction:', segment, isPermanent);
             if (!segment || !segment.fullText.length) return;
 
@@ -453,7 +460,7 @@ export const TranscriptContextProvider: FC<{
 
             setSelectedExplanations(uniqueExplanations);
         },
-        [codeResponses, selectedSegment, review]
+        [codeResponses, selectedSegment, review, isSelecting]
     );
 
     const handleSegmentLeave = (isPermanent: boolean = true) => {
@@ -500,7 +507,9 @@ export const TranscriptContextProvider: FC<{
             containerRef,
             selectedTextMarker,
             setSelectedTextMarker,
-            isValidSelection
+            isValidSelection,
+            isSelecting,
+            setIsSelecting
         }),
         [
             review,
@@ -517,7 +526,8 @@ export const TranscriptContextProvider: FC<{
             codes,
             allExplanations,
             processTranscript,
-            selectedTextMarker
+            selectedTextMarker,
+            isSelecting
         ]
     );
 

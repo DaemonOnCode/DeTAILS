@@ -17,6 +17,7 @@ from constants import CHROMA_PORT, CONTEXT_FILES_DIR, PATHS
 from database import( 
     QectRepository, SelectedPostIdsRepository
 )
+from database.llm_pending_tasks import LlmPendingTaskRepository
 from decorators import log_execution_time
 from errors.request_errors import RequestError
 from ipc import send_ipc_message
@@ -38,6 +39,7 @@ from utils.prompts import TopicClustering
 llm_responses_repo = LlmResponsesRepository()
 qect_repo = QectRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
+pending_task_repo  = LlmPendingTaskRepository()
 
 def get_temperature_and_random_seed():
     with open(PATHS["settings"], "r") as f:
@@ -195,6 +197,14 @@ async def process_llm_task(
                        job_id, response_future = await llm_queue_manager.submit_task(llm_instance.invoke, function_id, prompt_text)
 
             
+            while True:
+                rec = pending_task_repo.find_one({"task_id": job_id}, fail_silently=True)
+                if not rec:
+                    break
+                status = rec.status
+                if status in ("in-progress", "failed", "cancelled", "completed"):
+                    break
+                await asyncio.sleep(15)
             response = await asyncio.wait_for(response_future, timeout=CustomSettings().ai.cutoff)
             response = response["answer"] if retriever else response.content
 

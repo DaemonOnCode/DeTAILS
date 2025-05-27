@@ -19,6 +19,7 @@ from controllers.collection_controller import (
     update_run_progress, upload_dataset_file
 )
 from database import PipelineStepsRepository, TorrentDownloadProgressRepository
+from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from ipc import send_ipc_message
 from models.collection_models import (
@@ -57,7 +58,8 @@ async def parse_reddit_dataset_endpoint(
     request_body: ParseDatasetRequest = Body(...)
 ):
     workspace_id = request.headers.get("x-workspace-id")
-    return parse_reddit_files(workspace_id)
+    app_id = request.headers.get("x-app-id")
+    return await parse_reddit_files(app_id, workspace_id)
 
 
 @router.post("/reddit-posts-by-batch")
@@ -216,9 +218,8 @@ async def download_reddit_from_torrent_endpoint(
 
             print("Parsing files in academic folder:", academic_folder)
             if os.path.exists(academic_folder or ""):
-                await asyncio.to_thread(
-                    parse_reddit_files,
-                    workspace_id, academic_folder, date_filter={"start_date": start_date, "end_date": end_date}, is_primary = not request_body.use_fallback
+                await parse_reddit_files(
+                    app_id, workspace_id, academic_folder, date_filter={"start_date": start_date, "end_date": end_date}, is_primary = not request_body.use_fallback
                 )
 
             print("Finished parsing files.")
@@ -311,6 +312,7 @@ async def prepare_torrent_data_from_files(
     request_body: ParseRedditFromTorrentFilesRequest
 ):
     workspace_id = request.headers.get("x-workspace-id")
+    app_id = request.headers.get("x-app-id")
     folder_name = f"academic-torrent-{request_body.subreddit}"
     target_folder = os.path.join(DATASETS_DIR, folder_name)
     if not os.path.exists(target_folder):
@@ -340,49 +342,58 @@ async def prepare_torrent_data_from_files(
     prepared_folder = os.path.join(DATASETS_DIR, f"prepared-torrent-{request_body.subreddit}-{workspace_id}")
     os.makedirs(prepared_folder, exist_ok=True)
 
-    symlink_commands = []
+    try:
 
-    for src in valid_files:
-        name = os.path.basename(src)
-        link_path = os.path.join(prepared_folder, name)
+        symlink_commands = []
 
-        if os.path.lexists(link_path):
-            try:
-                os.remove(link_path)
-            except OSError:
-                pass
+        for src in valid_files:
+            name = os.path.basename(src)
+            link_path = os.path.join(prepared_folder, name)
 
-        if os.name == 'nt':
-            symlink_commands.append(f'mklink "{link_path}" "{os.path.abspath(src)}"')
-        else:
-            os.symlink(os.path.abspath(src), link_path)
+            if os.path.lexists(link_path):
+                try:
+                    os.remove(link_path)
+                except OSError:
+                    pass
 
-    if os.name == 'nt' and symlink_commands:
-        print("Creating Windows symlinks (requires admin)...")
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.bat', delete=False) as bat:
-            bat.write("\r\n".join(symlink_commands))
-            bat_path = bat.name
+            if os.name == 'nt':
+                symlink_commands.append(f'mklink "{link_path}" "{os.path.abspath(src)}"')
+            else:
+                os.symlink(os.path.abspath(src), link_path)
 
-        result = ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", "cmd.exe", f'/c "{bat_path}"', None, 1
-        )
-        if result <= 32:
-            os.unlink(bat_path)
-            raise RequestError(
-                status_code=403,
-                message = f"Failed to create symlinks: admin privileges denied (ShellExecute returned {result})"
+        if os.name == 'nt' and symlink_commands:
+            print("Creating Windows symlinks (requires admin)...")
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.bat', delete=False) as bat:
+                bat.write("\r\n".join(symlink_commands))
+                bat_path = bat.name
+
+            result = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", f'/c "{bat_path}"', None, 1
             )
+            if result <= 32:
+                os.unlink(bat_path)
+                raise RequestError(
+                    status_code=403,
+                    message = f"Failed to create symlinks: admin privileges denied (ShellExecute returned {result})"
+                )
 
-        import time
-        time.sleep(2)
-        os.unlink(bat_path)
+            import time
+            time.sleep(2)
+            os.unlink(bat_path)
 
-    parse_reddit_files(workspace_id, prepared_folder, date_filter=None)
+        await parse_reddit_files(app_id, workspace_id, prepared_folder, date_filter=None)
 
-    shutil.rmtree(prepared_folder, ignore_errors=True)
-    print(f"Removed prepared folder: {prepared_folder}")
 
-    return {"message": "Torrent files prepared and parsed.", "workspace_id": workspace_id}
+        return {"message": "Torrent files prepared and parsed.", "workspace_id": workspace_id}
+    except Exception as e:
+        print(f"Error preparing torrent data: {e}")
+        raise RequestError(
+            status_code=500,
+            message=f"Failed to prepare torrent data: {str(e)}"
+        )
+    finally: 
+        shutil.rmtree(prepared_folder, ignore_errors=True)
+        print(f"Removed prepared folder: {prepared_folder}")
 
 @router.post("/torrent-status")
 async def get_torrent_status_endpoint(

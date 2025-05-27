@@ -63,7 +63,8 @@ const PostTranscript: FC<PostTranscriptProps> = ({
         switchModalOn,
         setSwitchModalOn,
         selectedTextMarker,
-        isValidSelection
+        isValidSelection,
+        setIsSelecting
     } = useTranscriptContext();
 
     const { performWithUndo, performWithUndoForReducer, batch } = useUndo();
@@ -329,6 +330,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
 
     const transcriptHandleMouseUp = useCallback(() => {
         handleTextSelection(_selectionRef);
+        setIsSelecting(false);
         const selection = window.getSelection();
         console.log('MouseUp selection:', selection?.toString().trim());
     }, [handleTextSelection, _selectionRef]);
@@ -367,6 +369,9 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     <div
                         id="transcript-container"
                         className={`flex-1 overflow-auto ${isEditHighlightModalOpen ? 'cursor-pencil' : ''}`}
+                        onMouseDown={() => {
+                            setIsSelecting(true);
+                        }}
                         onMouseUp={transcriptHandleMouseUp}
                         onClick={transcriptHandleMouseClick}
                         ref={containerRef}>
