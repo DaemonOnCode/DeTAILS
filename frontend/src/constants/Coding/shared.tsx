@@ -60,7 +60,8 @@ export enum LOADER_ROUTES {
     THEME_GENERATION_LOADER = 'theme-generation-loader',
     DETAILS_LOADER = 'details-loader',
     DATA_LOADING_LOADER = 'data-loading-loader',
-    TORRENT_DATA_LOADER = 'torrent-data-loader'
+    TORRENT_DATA_LOADER = 'torrent-data-loader',
+    REDDIT_DATA_LOADER = 'reddit-data-loader'
 }
 
 export const WORD_CLOUD_MIN_THRESHOLD = 1;

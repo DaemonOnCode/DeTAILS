@@ -6,7 +6,8 @@ import {
     FinalCodingLoaderPage,
     ThemeGenerationLoaderPage,
     ThemeLoaderPage,
-    TorrentLoaderPage
+    TorrentLoaderPage,
+    RedditDataLoaderPage
 } from '../pages/Coding/Loader';
 import {
     TranscriptPage,
@@ -110,6 +111,10 @@ export const CodingRouter: RouteObject[] = [
             {
                 path: LOADER_ROUTES.TORRENT_DATA_LOADER,
                 element: <TorrentLoaderPage />
+            },
+            {
+                path: LOADER_ROUTES.REDDIT_DATA_LOADER,
+                element: <RedditDataLoaderPage />
             }
         ]
     }

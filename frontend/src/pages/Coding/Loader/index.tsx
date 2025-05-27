@@ -4,3 +4,4 @@ export { default as FinalCodingLoaderPage } from './coding-loader';
 export { default as ThemeGenerationLoaderPage } from './theme-generation-loader';
 export { default as DataLoadingLoaderPage } from './data-loader';
 export { default as TorrentLoaderPage } from './torrent-loader';
+export { default as RedditDataLoaderPage } from './reddit-data-loader';

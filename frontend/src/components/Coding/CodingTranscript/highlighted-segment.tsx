@@ -14,11 +14,12 @@ const HighlightedSegment: FC<HighlightedSegmentProps> = memo(({ segment }) => {
         handleSegmentLeave,
         hoveredCode,
         selectedSegment,
-        setSelectedSegment
+        setSelectedSegment,
+        isSelecting
     } = useTranscriptContext();
     const segmentRef = useRef<HTMLSpanElement>(null);
 
-    const isActive = activeSegment?.index === segment.index;
+    const isActive = activeSegment?.index === segment.index && !isSelecting;
 
     if (segment.backgroundColours.length === 0) {
         return (

@@ -543,8 +543,10 @@ def omit_first_if_matches_structure(data: list) -> list:
         return data[1:]
     return data
 
+async def parse_reddit_files(app_id: str, workspace_id: str, dataset_path: str = None, date_filter: dict[str, datetime] = None, is_primary: bool = False) -> dict:
+    await send_ipc_message(app_id, "Starting to parse Reddit dataset")
 
-def parse_reddit_files(workspace_id: str, dataset_path: str = None, date_filter: dict[str, datetime] = None, is_primary: bool = False) -> dict:
+    await send_ipc_message(app_id, "Clearing existing posts and comments for this workspace")
     existing_posts_count = post_repo.count({"workspace_id": workspace_id})
     if existing_posts_count > 0:
         post_repo.delete({"workspace_id": workspace_id})
@@ -558,6 +560,7 @@ def parse_reddit_files(workspace_id: str, dataset_path: str = None, date_filter:
     if study_comments_repo.count({"workspace_id": workspace_id}) > 0:
         study_comments_repo.delete({"workspace_id": workspace_id})
 
+    await send_ipc_message(app_id, f"Setting up dataset directory for workspace {workspace_id}")
     dataset_path = dataset_path or os.path.join(DATASETS_DIR, workspace_id)
     
     all_files = []
@@ -605,6 +608,10 @@ def parse_reddit_files(workspace_id: str, dataset_path: str = None, date_filter:
                 all_files.append({"type": "submissions", "path": full_path})
             elif f.endswith("_comments.json"):
                 all_files.append({"type": "comments", "path": full_path})
+
+    total_files = len(all_files)
+    processed_files = 0
+    await send_ipc_message(app_id, f"Starting to parse Reddit dataset with {total_files} files")
 
     start_ts = end_ts = None
     if date_filter:
@@ -713,7 +720,7 @@ def parse_reddit_files(workspace_id: str, dataset_path: str = None, date_filter:
                     body=c.get("body", ""),
                     author=c.get("author", ""),
                     post_id=post_id,
-                    created_utc= int(created),
+                    created_utc=int(created),
                     link_id=link_id,
                     parent_id=parent_id,
                     controversiality=c.get("controversiality", 0),
@@ -735,8 +742,13 @@ def parse_reddit_files(workspace_id: str, dataset_path: str = None, date_filter:
                     print(f"Skipping duplicate comment with key: {key}")
             comment_repo.insert_batch(unique_comments)
             study_comments_repo.insert_batch(unique_comments)
-    update_dataset(workspace_id, name=subreddit)
 
+        processed_files += 1
+        message = f"Processed {processed_files} of {total_files} files"
+        await send_ipc_message(app_id, message)
+
+    update_dataset(workspace_id, name=subreddit)
+    await send_ipc_message(app_id, "Finished parsing Reddit dataset")
     return {"message": "Reddit dataset parsed successfully"}
 
 

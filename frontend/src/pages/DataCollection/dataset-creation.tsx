@@ -44,20 +44,12 @@ const DatasetCreationPage = () => {
             if (inputSplits.length && inputSplits[0] === 'reddit') {
                 if (inputSplits[1] === 'torrent') {
                     if (inputSplits[3] === 'files') {
-                        navigate(
-                            getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                                text: 'Loading Data'
-                            })
-                        );
+                        navigate(getCodingLoaderUrl(LOADER_ROUTES.REDDIT_DATA_LOADER));
                     } else {
                         navigate(getCodingLoaderUrl(LOADER_ROUTES.TORRENT_DATA_LOADER));
                     }
                 } else {
-                    navigate(
-                        getCodingLoaderUrl(LOADER_ROUTES.DATA_LOADING_LOADER, {
-                            text: 'Loading Data'
-                        })
-                    );
+                    navigate(getCodingLoaderUrl(LOADER_ROUTES.REDDIT_DATA_LOADER));
                 }
             }
         } else {
