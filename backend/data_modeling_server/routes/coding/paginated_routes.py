@@ -382,7 +382,7 @@ async def paginated_codes(
         FROM qect r
         JOIN selected_post_ids p ON r.post_id = p.post_id AND r.workspace_id = p.workspace_id
         WHERE {where_clause}
-        ORDER BY r.code
+        ORDER BY LOWER(r.code) ASC
         LIMIT ? OFFSET ?
     """
     rows = execute_query(slice_sql, params + [req.pageSize, offset], keys=True)

@@ -50,7 +50,7 @@ const HighlightModal: FC<HighlightModalProps> = ({
                         }
                     }}>
                     <option value="null">Select a code</option>
-                    {codes.map((code, idx) => (
+                    {codes.sort().map((code, idx) => (
                         <option key={idx} value={code}>
                             {code}
                         </option>
