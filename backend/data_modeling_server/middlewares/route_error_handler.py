@@ -7,8 +7,6 @@ import logging
 from pydantic_core import ValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from constants import STUDY_DATABASE_PATH
-from database.error_table import ErrorLogRepository
 from errors.credential_errors import CredentialError, InvalidCredentialError, MissingCredentialError
 from errors.database_errors import (
     QueryExecutionError, RecordNotFoundError, InsertError, UpdateError, DeleteError
@@ -17,7 +15,6 @@ from errors.llm_errors import ConfigurationError, EmbeddingsInitializationError,
 from errors.ollama_errors import InvalidModelError, OllamaError, PullModelError, DeleteModelError
 from errors.request_errors import RequestError
 from errors.vertex_ai_errors import InvalidGenAIModelError, InvalidTextEmbeddingError, VertexAIError
-from models.table_dataclasses import ErrorLog
 
 logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -64,8 +61,6 @@ EXCEPTION_HANDLERS = {
     RequestError: lambda e: (e.status_code, e.message),
 }
 
-error_log_repository = ErrorLogRepository(database_path = STUDY_DATABASE_PATH)
-
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         try:
@@ -79,16 +74,6 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                 print(f"Handling exception: {exception_type.__name__} - {str(e)}, status_code: {status_code}, error_message: {error_message}")
                 logging.error(f"{exception_type.__name__}: {str(e)}")
                 traceback.print_exc()
-                error_log_repository.insert(
-                    ErrorLog(
-                        type = exception_type.__name__,
-                        message = str(e),
-                        context = json.dumps({
-                            "route": request.url.path
-                        }),
-                        traceback=traceback.format_exc()
-                    )
-                )
                 return JSONResponse(
                     status_code=status_code,
                     content={"error": exception_type.__name__, "error_message": error_message}
@@ -96,16 +81,6 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             else:
                 logging.critical(f"Unhandled exception: {str(e)}")
                 traceback.print_exc()
-                error_log_repository.insert(
-                    ErrorLog(
-                        type = "UnhandledException",
-                        message = str(e),
-                        context = json.dumps({
-                            "route": request.url.path
-                        }),
-                        traceback=traceback.format_exc()
-                    )
-                )
                 return JSONResponse(
                     status_code=500,
                     content={"error": exception_type.__name__, "error_message": "Internal server error"}
