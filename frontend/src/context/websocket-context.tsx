@@ -1,12 +1,4 @@
-import React, {
-    FC,
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useRef,
-    useState
-} from 'react';
+import { FC, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from './auth-context';
 import { ILayout } from '../types/Coding/shared';
@@ -30,7 +22,6 @@ const WebSocketContext = createContext<IWebSocketContext>({
 export const WebSocketProvider: FC<ILayout> = ({ children }) => {
     const { remoteProcessing, isAuthenticated } = useAuth();
 
-    //— state & refs
     const [serviceStarting, setServiceStarting] = useState(true);
     const messageCbs = useRef<Record<string, CallbackFn>>({});
     const lastPing = useRef<Date | null>(null);
@@ -42,7 +33,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
     const MAX_RETRIES = 25;
     const BASE_DELAY = 2000;
 
-    /** Ensure we never leave a dangling timeout */
     const clearTimers = () => {
         if (pingTimer.current) {
             clearTimeout(pingTimer.current);
@@ -54,7 +44,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         }
     };
 
-    /** Reset retry state after a successful connection */
     const resetRetries = useCallback(() => {
         retryCount.current = 0;
         if (reconnectTimer.current) {
@@ -63,7 +52,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         }
     }, []);
 
-    /** Watchdog: if no ping in 60s, warn */
     const schedulePingWatchdog = useCallback(() => {
         if (pingTimer.current) clearTimeout(pingTimer.current);
         pingTimer.current = setTimeout(() => {
@@ -75,34 +63,27 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         }, 60_000);
     }, []);
 
-    /** Handle raw messages from the main process */
     const handleWsMessage = useCallback(
         (_: any, raw: string) => {
-            // ping
             if (raw === 'ping') {
                 lastPing.current = new Date();
                 schedulePingWatchdog();
                 return;
             }
-            // dispatch to all registered callbacks
             Object.values(messageCbs.current).forEach((cb) => cb(raw));
         },
         [schedulePingWatchdog]
     );
 
-    /** Send the `connect-ws` IPC, catch failure to trigger a retry schedule */
     const doConnect = useCallback(async () => {
         try {
             await ipcRenderer.invoke('connect-ws');
-            // we’ll get a 'ws-connected' event next
         } catch (err) {
             console.warn('invoke(connect-ws) failed:', err);
-            // schedule next retry
             scheduleReconnect();
         }
     }, []);
 
-    /** Schedule an exponential‐backoff reconnect */
     const scheduleReconnect = useCallback(() => {
         retryCount.current += 1;
         if (retryCount.current > MAX_RETRIES) {
@@ -117,7 +98,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         }, delay);
     }, [doConnect]);
 
-    /** Hook up the `ws-connected` and `ws-closed` listeners */
     const setupStatusListeners = useCallback(
         (waitForBackend: boolean) => {
             const onOpen = () => {
@@ -147,7 +127,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         [isAuthenticated, resetRetries, schedulePingWatchdog, scheduleReconnect]
     );
 
-    /** If we're in local mode, watch for service start/stop */
     const pollLocalBackend = useCallback(() => {
         setServiceStarting(true);
         retryCount.current = 0;
@@ -176,7 +155,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         };
     }, [doConnect]);
 
-    /** Public API for consumers */
     const registerCallback = (event: string, cb: CallbackFn) => {
         messageCbs.current[event] = cb;
     };
@@ -184,7 +162,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         delete messageCbs.current[event];
     };
 
-    /** 1) Tear down on logout */
     useEffect(() => {
         if (!isAuthenticated) {
             clearTimers();
@@ -196,16 +173,12 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
         }
     }, [isAuthenticated]);
 
-    /** 2) Main hookup: ws-message, status listeners, connect or poll */
     useEffect(() => {
-        // always listen for messages
         ipcRenderer.removeAllListeners('ws-message');
         ipcRenderer.on('ws-message', handleWsMessage);
 
-        // status
         const teardownStatus = setupStatusListeners(!remoteProcessing);
 
-        // either remote (just connect once) or local (poll)
         let teardownBackend = () => {};
         if (remoteProcessing) {
             setServiceStarting(false);
@@ -215,7 +188,6 @@ export const WebSocketProvider: FC<ILayout> = ({ children }) => {
             teardownBackend = pollLocalBackend();
         }
 
-        // cleanup
         return () => {
             teardownStatus();
             teardownBackend();

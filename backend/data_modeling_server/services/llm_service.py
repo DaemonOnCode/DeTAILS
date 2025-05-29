@@ -183,22 +183,21 @@ class GlobalQueueManager:
                 with self._lock:
                     pending_count = len(self.pending_tasks)
                     queue_size = self.queue.qsize()
-                    pending_jobs_count = self.pending_task_repo.count(filters={"status": "pending"})
-
+                    pending_db = self.pending_task_repo.count(filters={"status": "pending"})
                     all_idle = all(state == "idle" for state, _ in self.worker_states.values())
-                    if all_idle and self.worker_states:
-                        max_last_updated = max(last_updated for _, last_updated in self.worker_states.values())
-                        time_since_last_activity = current_time - max_last_updated
-                        if (time_since_last_activity > self.idle_threshold and pending_jobs_count == 0 and queue_size == 0):
-                            print(f"[STATUS] All workers idle for {time_since_last_activity:.2f}s, "
-                                  f"no pending or queued jobs, stopping manager")
-                            await self.stop()
-                            break
 
-                    if pending_count == 0 and queue_size == 0:
-                        print("[STATUS] No pending tasks or queued jobs, stopping manager")
-                        await self.stop()
-                        break
+                if all_idle and pending_db == 0 and queue_size == 0:
+                    print("[STATUS] all workers idle & no DB work - stopping")
+                    await self.stop()
+                    break
+
+                if pending_count == 0 and queue_size == 0 and pending_db == 0:
+                    print("[STATUS] no in-flight, queued, or DB-pending - stopping")
+                    await self.stop()
+                    break
+
+                print(f"[STATUS] Pending tasks: {pending_count}, Queue size: {queue_size}, "
+                    f"DB pending: {pending_db}, functions: {len(self.function_cache)}")
                 pending_jobs_count = self.pending_task_repo.count(filters={"status": "pending"})
                 print(f"[STATUS] Pending tasks: {pending_count}, Queue size: {queue_size}, DB pending: {pending_jobs_count}, function_cache: {len(self.function_cache)}, Current cutoff: {self.cutoff}")
             except Exception as e:
@@ -214,7 +213,7 @@ class GlobalQueueManager:
                 available_space = self._max_queue_size - current_size
                 if available_space == 0:
                     print("[ENQUEUE] Queue full, waiting")
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(1)
                     continue
                 pending_tasks = self.pending_task_repo.find(filters={"status": "pending"}, limit=available_space)
 
@@ -282,6 +281,10 @@ class GlobalQueueManager:
                                     "completed_at": datetime.now()
                                 }
                             )
+                            with self._lock:
+                                stray = self.pending_tasks.pop(job_id, None)
+                            if stray is not None:
+                                stray.set_exception(ValueError("No pending future found"))
                             continue
                 else:
                     print("[ENQUEUE] Queue not empty or no pending tasks, waiting")
@@ -396,6 +399,7 @@ class GlobalQueueManager:
                                             )
                                             print(f"[WORKER {worker_id}] Cancelled job {jid}")
                                     self.cancelled_jobs_count[function_key] = 0  
+                                cfut.set_exception(e)
                         else:
                             print(f"[WORKER {worker_id}] Job {job_id} failed: {e}")
                             cfut.set_exception(e)
@@ -434,10 +438,6 @@ class GlobalQueueManager:
             
     async def submit_task(self, func: Callable, function_key: str, *args, cacheable_args: Optional[Dict[str, List]] = None, **kwargs) -> Tuple[str, asyncio.Future]:
         try:
-            if not self.running:
-                print("[SUBMIT] Manager not running, starting it")
-                future = asyncio.run_coroutine_threadsafe(self.start(), self.loop)
-                await asyncio.wrap_future(future)
             job_id = str(uuid.uuid4())
             cfut = ConcurrentFuture()
             with self._lock:
@@ -451,9 +451,14 @@ class GlobalQueueManager:
             except Exception as e:
                 with self._lock:
                     self.pending_tasks.pop(job_id, None)
-                cfut.set_exception(e)
                 print(f"[SUBMIT] submit_task_sync failed for {job_id}: {e}")
+                cfut.set_exception(e)
                 raise
+            if not self.running:
+                self.stop_event.clear() 
+                print("[SUBMIT] Manager not running, starting it")
+                future = asyncio.run_coroutine_threadsafe(self.start(), self.loop)
+                await asyncio.wrap_future(future)
             asyncio_fut = asyncio.wrap_future(cfut, loop=asyncio.get_running_loop())
             return job_id, asyncio_fut
         except Exception as e:
