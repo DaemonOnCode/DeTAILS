@@ -443,6 +443,125 @@ No additional text outside the JSON.
 """
 
 
+    @staticmethod
+    def theme_generation_continuation_prompt(
+        unique_codes: str,
+        qec_table: str,
+        existing_clusters: str
+    ) -> str:
+        return f"""
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. You have already generated the following themes from earlier batches:
+```json
+{existing_clusters}
+````
+
+Now integrate this new batch of data:
+
+1. **List of Unique Codes:**
+
+```json
+{unique_codes}
+```
+
+2. **QEC Data (JSON):**
+
+```json
+{qec_table}
+```
+
+Follow the same analytic process:
+
+* Identify patterns and shared meanings among codes.
+* Integrate each new code into an existing theme or create new themes as needed.
+* Merge overlapping themes or split those conflating distinct ideas.
+* Validate coherence of each theme against the QEC data.
+* Assign concise, evocative names to any new themes.
+
+**Output Format**
+Return **only** this JSON object, with no extra commentary:
+
+```json
+{{
+  "themes": [
+    {{
+      "theme": "Theme Name 1",
+      "codes": ["CodeA", "CodeB"]
+    }},
+    {{
+      "theme": "Theme Name 2",
+      "codes": ["CodeC"]
+    }}
+    // …
+  ]
+}}
+```
+
+"""
+
+    @staticmethod
+    def redo_theme_generation_continuation_prompt(
+        previous_themes: str,
+        feedback: str,
+        unique_codes: str,
+        qec_table: str,
+        existing_themes: str
+    ) -> str:
+        return f"""
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Previously you generated these themes:
+
+```json
+{previous_themes}
+```
+
+User feedback:
+{feedback}
+
+So far, after integrating earlier batches, you have:
+
+```json
+{existing_themes}
+```
+
+Now refine and extend using this full dataset:
+
+1. **List of Unique Codes:**
+
+```json
+{unique_codes}
+```
+
+2. **QEC Data (JSON):**
+
+```json
+{qec_table}
+```
+
+Your tasks:
+
+* Incorporate the feedback into your existing themes.
+* Integrate any codes not yet assigned, adding or modifying themes as needed.
+* Merge, split, rename, or discard themes to improve coherence and distinctness.
+* Validate each theme against the QEC data.
+
+**Output Format**
+Return **only** this JSON object, with no extra commentary:
+
+```json
+{{
+  "themes": [
+    {{
+      "theme": "Refined Theme 1",
+      "codes": ["CodeX", "CodeY"]
+    }},
+    // ...
+  ]
+}}
+```
+
+"""
+
+
+
 class RefineSingleCode:
     @staticmethod
     def refine_single_code_prompt(chat_history: str,
@@ -810,6 +929,152 @@ You are an expert in qualitative research, specializing in Braun & Clarke's six-
 - Each lower-level code should be included in only one higher-level code, and try to group as many codes as possible.  
 - Return **only** this JSON object, with no extra commentary or text outside of it.
 """
+    
+    @staticmethod
+    def group_codes_continuation_prompt(
+        codes: str,
+        qec_table: str,
+        existing_clusters: str
+    ) -> str:
+        return f"""
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to refine existing higher-level codes and integrate a new batch of codes based on the provided QEC (Quote-Explanation-Code) data. These higher-level codes should remain directly linked to the Main topic and research questions.
+
+- Assess the provisional groupings for coherence and fit with the data.  
+- Check if each emerging higher-level code tells a convincing story about the dataset.  
+- Determine whether any candidate codes should be merged, split, or discarded.  
+- Fine-tune and finalize higher-level codes so each has a clear central concept.  
+- Write a concise definition capturing the essence of each grouping.  
+- Ensure the groupings form a coherent overall story about the data.
+
+### Data Provided
+
+1. **Existing Higher-Level Codes**  
+   ```json
+   {existing_clusters}
+````
+
+2. **New Code and Summary Data**
+
+   ```json
+   {qec_table}
+   ```
+
+3. **List of Unique Codes**
+
+   ```json
+   {codes}
+   ```
+
+### Your Tasks
+
+1. **Review** the existing higher-level codes above.
+2. **Integrate** each new code into one of those existing groups, or create new higher-level codes if needed.
+3. **Apply** all thematic-analysis checks (fit, coherence, distinctness) and refine names/definitions internally.
+
+### Output Format
+
+Return **only** this JSON object, with no extra text:
+
+```json
+{{
+  "higher_level_codes": [
+    {{
+      "name": "NameOfHigherLevelCode1",
+      "codes": [
+        "RelevantLowerLevelCodeA",
+        "RelevantLowerLevelCodeB"
+      ]
+    }},
+    {{
+      "name": "NameOfHigherLevelCode2",
+      "codes": [
+        "RelevantLowerLevelCodeC"
+      ]
+    }}
+    // ...
+  ]
+}}
+```
+
+"""
+
+    @staticmethod
+    def regroup_codes_continuation_prompt(
+        codes: str,
+        qec_table: str,
+        existing_higher_level_codes: str,
+        previous_higher_level_codes: str,
+        feedback: str
+    ) -> str:
+        return f"""
+```
+
+You are an expert in qualitative research, specializing in Braun & Clarke's six-phase thematic analysis. Your task is to refine the previous higher-level codes using the provided feedback, then integrate a new batch of codes. These higher-level codes should remain directly linked to the Main topic and research questions.
+
+* Review and refine group coherence, narrative, and distinctness.
+* Merge, split, or discard codes as needed.
+* Refine names and definitions internally.
+* Ensure a coherent overall story about the data.
+
+### Data Provided
+
+1. **Previous Higher-Level Codes**
+
+   ```json
+   {previous_higher_level_codes}
+   ```
+
+2. **User Feedback**
+
+   ```json
+   {feedback}
+   ```
+
+3. **Existing Higher-Level Codes** (so far)
+
+   ```json
+   {existing_higher_level_codes}
+   ```
+
+4. **New Code and Summary Data**
+
+   ```json
+   {qec_table}
+   ```
+
+5. **List of Unique Codes**
+
+   ```json
+   {codes}
+   ```
+
+### Your Tasks
+
+1. **Incorporate** the feedback into your refinements of the previous codes.
+2. **Assign** each new code into an existing group or create new ones as needed.
+3. **Apply** all thematic-analysis checks (fit, coherence, distinctness) and refine names/definitions internally.
+
+### Output Format
+
+Return **only** this JSON object, with no extra text:
+
+```json
+{{
+  "higher_level_codes": [
+    {{
+      "name": "NameOfHigherLevelCode1",
+      "codes": [
+        "codeA",
+        "codeB"
+      ]
+    }},
+    // ...
+  ]
+}}
+"""
+
+
+
 
 
 class GenerateCodebookWithoutQuotes:

@@ -5,7 +5,7 @@ import { useSettings } from '../../context/settings-context';
 interface TutorialWrapperProps {
     pageId?: string;
     lastPage?: boolean;
-    promptOnFirstPage?: boolean; // if true, show modal prompt on first page
+    promptOnFirstPage?: boolean;
     steps: TutorialStep[];
     onFinish?: () => void;
     excludedTarget?: string;
@@ -23,7 +23,6 @@ const TutorialWrapper: React.FC<TutorialWrapperProps> = ({
 }) => {
     const { settings, skipTutorialGlobally, skipTutorialForPage, updateSettings } = useSettings();
 
-    // Determine if the tutorial should be shown based on context settings.
     const effectiveShowTutorial = useMemo(
         () =>
             settings.tutorials.showGlobal &&
@@ -31,10 +30,7 @@ const TutorialWrapper: React.FC<TutorialWrapperProps> = ({
         [settings.tutorials, pageId]
     );
 
-    // Local state for controlling whether to show the tutorial overlay.
     const [showOverlay, setShowOverlay] = useState(false);
-    // Local state for the prompt; only relevant when promptOnFirstPage is true
-    // and the global prompt hasn’t been handled (hasRun is false).
     const [showPrompt, setShowPrompt] = useState(false);
 
     useEffect(() => {
@@ -55,7 +51,6 @@ const TutorialWrapper: React.FC<TutorialWrapperProps> = ({
     }, [effectiveShowTutorial, promptOnFirstPage, settings.tutorials.hasRun]);
 
     const handleSkipPrompt = async () => {
-        // If the user skips on the first page, disable tutorials globally and mark this page as done.
         if (pageId) {
             await skipTutorialForPage(pageId);
         }
@@ -64,21 +59,17 @@ const TutorialWrapper: React.FC<TutorialWrapperProps> = ({
     };
 
     const handleShowTutorial = async () => {
-        // Reset skipPages so that all pages will show their tutorials,
-        // and mark that the global prompt has been handled.
         await updateSettings('tutorials', { hasRun: true, skipPages: [] });
         setShowPrompt(false);
         setShowOverlay(true);
     };
 
     const handleOverlayFinish = async () => {
-        // Mark this page as done.
         if (pageId) {
             console.log('pageid', pageId);
             await skipTutorialForPage(pageId);
         }
         if (lastPage) {
-            // On the final page, once the tutorial finishes, disable tutorials globally.
             await skipTutorialGlobally();
         }
         onFinish?.();

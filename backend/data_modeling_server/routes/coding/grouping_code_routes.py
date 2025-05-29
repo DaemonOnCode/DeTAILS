@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from constants import STUDY_DATABASE_PATH
-from controllers.coding_controller import process_llm_task, summarize_codebook_explanations
+from controllers.coding_controller import batch_llm_hierarchy, summarize_codebook_explanations
 from database import (
     FunctionProgressRepository, 
     QectRepository, 
@@ -74,10 +74,10 @@ async def group_codes_endpoint(
         parent_function_name="group-codes",
         llm_instance=llm,
         llm_queue_manager=llm_queue_manager,
-        max_input_tokens=128000,        
+        max_input_tokens=8000,        
         retries=3,
         flush_threshold=200,             
-        page_size=500,              
+        page_size=100,              
         concurrency_limit=4,
         store_response=False
     )
@@ -93,26 +93,22 @@ async def group_codes_endpoint(
     except Exception as e:
         print(e)
 
-    parsed_response = await process_llm_task(
-        workspace_id=request.headers.get("x-workspace-id"),
-        app_id=app_id,
-        manager=manager,
-        llm_model=request_body.model,
-        parent_function_name="group-codes",
-        regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-        prompt_builder_func=GroupCodes.group_codes_prompt,
-        llm_instance=llm,
-        llm_queue_manager=llm_queue_manager,
-        codes=json.dumps([summary["code"] for summary in code_summary_table]),
-        qec_table=json.dumps(code_summary_table)
+    higher_level_codes = await batch_llm_hierarchy(
+        workspace_id = workspace_id,
+        app_id = app_id,
+        manager = manager,
+        llm_model = request_body.model,
+        llm_instance = llm,
+        llm_queue_manager = llm_queue_manager,
+        item_table = code_summary_table,
+        initial_prompt = GroupCodes.group_codes_prompt,
+        continuation_prompt = GroupCodes.group_codes_continuation_prompt,
+        parent_fn_base = "group-codes",
+        parse_key = "higher_level_codes",
+        chunk_size = 100,
+        retries = 3,
     )
 
-    print(parsed_response)
-
-    if isinstance(parsed_response, list):
-        parsed_response = {"higher_level_codes": parsed_response}
-
-    higher_level_codes = parsed_response.get("higher_level_codes", [])
     for higher_level_code in higher_level_codes:
         higher_level_code["id"] = str(uuid4())
 
@@ -203,10 +199,10 @@ async def regroup_codes_endpoint(
         parent_function_name = "regroup-codes",
         llm_instance = llm,
         llm_queue_manager = llm_queue_manager,
-        max_input_tokens = 128000,
+        max_input_tokens = 8000,
         retries = 3,
         flush_threshold = 200,
-        page_size = 500,
+        page_size = 100,
         concurrency_limit = 4,
         store_response = False
     )
@@ -225,28 +221,26 @@ async def regroup_codes_endpoint(
     except Exception as e:
         print(e)
 
-    parsed_response = await process_llm_task(
-        workspace_id=request.headers.get("x-workspace-id"),
-        app_id=app_id,
-        manager=manager,
-        llm_model=request_body.model,
-        regex_pattern=r"```json\s*([\s\S]*?)\s*```",
-        prompt_builder_func=GroupCodes.regroup_codes_prompt,
-        llm_instance=llm,
-        llm_queue_manager=llm_queue_manager,
-        parent_function_name="regroup-codes",
-        codes=json.dumps([summary["code"] for summary in code_summary_table]),
-        qec_table=json.dumps(code_summary_table),
-        previous_codes=previous_codes_json,
-        feedback=request_body.feedback
+    higher_level_codes = await batch_llm_hierarchy(
+        workspace_id = workspace_id,
+        app_id = app_id,
+        manager = manager,
+        llm_model = request_body.model,
+        llm_instance = llm,
+        llm_queue_manager = llm_queue_manager,
+        item_table = code_summary_table,
+        initial_prompt = lambda codes, qec_table: GroupCodes.regroup_codes_prompt(
+            codes, qec_table,
+            previous_higher_level_codes=json.dumps(previous_codes_json),
+            feedback=request_body.feedback
+        ),
+        continuation_prompt = GroupCodes.regroup_codes_continuation_prompt,
+        parent_fn_base = "regroup-codes",
+        parse_key = "higher_level_codes",
+        chunk_size = 100,
+        retries = 3,
     )
 
-    print(parsed_response)
-
-    if isinstance(parsed_response, list):
-        parsed_response = {"higher_level_codes": parsed_response}
-
-    higher_level_codes = parsed_response.get("higher_level_codes", [])
     for higher_level_code in higher_level_codes:
         higher_level_code["id"] = str(uuid4())
 

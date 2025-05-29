@@ -4,7 +4,7 @@ import json
 import os
 import re
 import time
-from typing import Any, AsyncGenerator, Callable, Dict, Generator, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, AsyncGenerator, Callable, Dict, Generator, List, Optional, Sequence, Tuple, Type, TypeVar, Union
 import unicodedata
 from uuid import uuid4
 
@@ -203,11 +203,17 @@ async def process_llm_task(
             
             while True:
                 rec = pending_task_repo.find_one({"task_id": job_id}, fail_silently=True)
-                if not rec:
-                    break
+                if rec is None:
+                    raise RuntimeError(f"LLM task {job_id} vanished from the DB")
                 status = rec.status
-                if status in ("in-progress", "failed", "cancelled", "completed"):
+
+                if status == "completed":
                     break
+
+                if status in ("failed", "cancelled"):
+                    error = getattr(rec, "error", "unknown")
+                    raise RuntimeError(f"LLM task {job_id} {status}: {error}")
+
                 await asyncio.sleep(15)
             response = await asyncio.wait_for(response_future, timeout=CustomSettings().ai.cutoff)
 
@@ -483,8 +489,100 @@ def insert_responses_into_db(responses: List[Dict[str, Any]], workspace_id: str,
     )
     return responses
 
-def divide_into_fixed_chunks(words: List[str], chunk_size: int) -> List[List[str]]:
-    return [words[i:i + chunk_size] for i in range(0, len(words), chunk_size)]
+T = TypeVar("T") 
+
+def divide_into_fixed_chunks(items: List[T], chunk_size: int) -> List[List[T]]:
+    return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
+
+async def batch_llm_hierarchy(
+    workspace_id: str,
+    app_id: str,
+    manager: Any,
+    llm_model: str,
+    llm_instance: Any,
+    llm_queue_manager: Any,
+    item_table: List[T],
+    initial_prompt: Callable[..., str],
+    continuation_prompt: Callable[..., str],
+    parent_fn_base: str,
+    parse_key: str,
+    chunk_size: int = 100,
+    retries: int = 3,
+    regex_pattern: str = r"```json\s*([\s\S]*?)\s*```",
+) -> List[Dict[str, Any]]:
+
+    keys = [item["code"] for item in item_table]
+    summary_map = {item["code"]: item["summary"] for item in item_table}
+
+    chunks = [keys[i : i + chunk_size] for i in range(0, len(keys), chunk_size)]
+    if not chunks:
+        return []
+
+    current_clusters: Optional[List[Dict[str, Any]]] = None
+    i = 0
+
+    while i < len(chunks):
+        batch_keys = chunks[i]
+        batch_items = [{"code": k, "summary": summary_map[k]} for k in batch_keys]
+
+        if current_clusters is None:
+            fn_name = f"{parent_fn_base}-batch-1"
+            prompt_fn = initial_prompt
+            prompt_args = {
+                "codes": json.dumps(batch_keys),
+                "qec_table": json.dumps(batch_items),
+            }
+        else:
+            fn_name = f"{parent_fn_base}-batch-{i+1}"
+            prompt_fn = continuation_prompt
+            prompt_args = {
+                "existing_clusters": json.dumps([c["name"] for c in current_clusters]),
+                "codes": json.dumps(batch_keys),
+                "qec_table": json.dumps(batch_items),
+            }
+
+        try:
+            resp = await process_llm_task(
+                workspace_id=workspace_id,
+                app_id=app_id,
+                manager=manager,
+                llm_model=llm_model,
+                parent_function_name=fn_name,
+                regex_pattern=regex_pattern,
+                prompt_builder_func=prompt_fn,
+                llm_instance=llm_instance,
+                llm_queue_manager=llm_queue_manager,
+                retries=retries,
+                store_response=True,
+                **prompt_args
+            )
+        except Exception:
+            if len(batch_keys) > 1:
+                mid = len(batch_keys) // 2
+                left, right = batch_keys[:mid], batch_keys[mid:]
+                chunks = chunks[:i] + [left, right] + chunks[i+1:]
+                continue
+            else:
+                raise
+
+        if isinstance(resp, list):
+            new_clusters = resp
+        else:
+            new_clusters = resp.get(parse_key, [])
+
+        if current_clusters is None:
+            current_clusters = new_clusters
+        else:
+            by_name = {c["name"]: c for c in current_clusters}
+            for nc in new_clusters:
+                if nc["name"] in by_name:
+                    by_name[nc["name"]]["codes"].extend(nc["codes"])
+                else:
+                    current_clusters.append(nc)
+
+        i += 1
+
+    return current_clusters or []
 
 async def cluster_words_with_llm(
     workspace_id:str, 
@@ -624,6 +722,7 @@ async def summarize_with_llm(
     store_response: bool = False,
     max_input_tokens: int = 128000,
     retries: int = 3,
+    concurrency_limit: int = 4,
     **kwargs
 ) -> Dict[str, str]:
     if not texts:
@@ -679,7 +778,7 @@ async def summarize_with_llm(
                 llm_instance=llm_instance,
                 llm_queue_manager=llm_queue_manager,
                 store_response=store_response,
-                retries=1,
+                retries=retries,
                 **kwargs
             )
             if isinstance(out, dict):
@@ -687,14 +786,20 @@ async def summarize_with_llm(
             prompt += "\n\nPlease output valid JSON as shown above."
         return {"summary": "unavailable"}
 
-
-    parts: List[Dict[str, Any]] = []
-    remaining = texts
-    while remaining:
-        chunk, remaining = build_chunk(remaining, max_input_tokens)
+    chunks = []
+    remaining_texts = texts
+    while remaining_texts:
+        chunk, remaining_texts = build_chunk(remaining_texts, max_input_tokens)
         if not chunk:
             break
-        parts.append(await summarize_chunk(chunk))
+        chunks.append(chunk)
+
+    sem = asyncio.Semaphore(concurrency_limit)
+    async def sem_summarize(c):
+        async with sem:
+            return await summarize_chunk(c)
+
+    parts = await asyncio.gather(*(sem_summarize(c) for c in chunks))
 
     if len(parts) > 1:
         combined_texts = [p.get("summary", "") for p in parts]
@@ -707,7 +812,7 @@ async def summarize_with_llm(
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
             prompt_builder_func=lambda **p: (
-                "Combine these summaries into one concise 1–2 line summary. "
+                "Combine these summaries into one concise 1-2 line summary. "
                 "Respond *only* with valid JSON object, e.g.:\n"
                 "```json\n{\"summary\": \"...\"}\n```"
                 + "\n\n" + "\n\n".join(p["texts"])
@@ -715,7 +820,9 @@ async def summarize_with_llm(
             parent_function_name=f"{parent_function_name} recurse",
             store_response=store_response,
             max_input_tokens=max_input_tokens,
-            retries=retries
+            retries=retries,
+            concurrency_limit=concurrency_limit,
+            **kwargs
         )
     return parts[0]
 
@@ -724,9 +831,6 @@ def split_into_batches(
     max_tokens: int,
     llm_instance: Any
 ) -> List[List[str]]:
-    """
-    Build batches of codes so each batch fits within max_tokens.
-    """
     fixed = (
         "Provide 1-2 line summaries for each code. "
         "Return *only* a single JSON object mapping code->summary, e.g.:\n"
@@ -796,7 +900,7 @@ async def batch_multiple_codes_task(
             llm_instance=llm_instance,
             llm_queue_manager=llm_queue_manager,
             store_response=store_response,
-            retries=1
+            retries=retries
         )
         if isinstance(out, dict):
             if not any(c in out for c in batch):
@@ -870,12 +974,35 @@ async def summarize_codebook_explanations(
     max_input_tokens: int = 128000,
     retries: int = 3,
     flush_threshold: int = 200,
-    page_size: int = 500,
+    page_size: int = 100,
     concurrency_limit: int = 4,
     store_response: bool = False
 ) -> Dict[str, str]:
     grouped: Dict[str, List[str]] = defaultdict(list)
     interim: Dict[str, str] = {}
+
+    flush_sem = asyncio.Semaphore(concurrency_limit)
+    flush_tasks: List[asyncio.Task] = []
+
+    async def _flush_wrapper(snapshot: Dict[str, List[str]]):
+        try:
+            return await _flush_and_summarize(
+                snapshot,
+                interim,
+                workspace_id,
+                app_id,
+                manager,
+                llm_model,
+                parent_function_name,
+                llm_instance,
+                llm_queue_manager,
+                max_input_tokens,
+                retries,
+                store_response,
+                concurrency_limit
+            )
+        finally:
+            flush_sem.release()
 
     async for page in stream_qect_pages(workspace_id, codebook_types, page_size):
         for row in page:
@@ -884,25 +1011,19 @@ async def summarize_codebook_explanations(
             grouped[code].append(row['explanation'])
 
         if len(grouped) >= flush_threshold:
-            new = await _flush_and_summarize(
-                grouped, interim,
-                workspace_id, app_id, manager,
-                llm_model, parent_function_name, llm_instance,
-                llm_queue_manager, max_input_tokens, retries,
-                store_response, concurrency_limit
-            )
-            interim.update(new)
+            snapshot = dict(grouped)
             grouped.clear()
 
+            await flush_sem.acquire()
+            flush_tasks.append(asyncio.create_task(_flush_wrapper(snapshot)))
+
     if grouped:
-        new = await _flush_and_summarize(
-            grouped, interim,
-            workspace_id, app_id, manager,
-            llm_model, parent_function_name, llm_instance,
-            llm_queue_manager, max_input_tokens, retries,
-            store_response, concurrency_limit
-        )
-        interim.update(new)
+        snapshot = dict(grouped)
+        await flush_sem.acquire()
+        flush_tasks.append(asyncio.create_task(_flush_wrapper(snapshot)))
+
+    for result in await asyncio.gather(*flush_tasks):
+        interim.update(result)
 
     grouped_summaries: Dict[str, List[str]] = defaultdict(list)
     for key, summary in interim.items():
@@ -910,24 +1031,35 @@ async def summarize_codebook_explanations(
         grouped_summaries[base].append(summary)
 
     final: Dict[str, str] = {}
+    collapse_tasks: Dict[str, asyncio.Task] = {}
     for base, sums in grouped_summaries.items():
         if len(sums) == 1:
             final[base] = sums[0]
         else:
-            final[base] = await summarize_with_llm(
-                workspace_id=workspace_id,
-                texts=sums,
-                llm_model=llm_model,
-                app_id=app_id,
-                manager=manager,
-                llm_instance=llm_instance,
-                llm_queue_manager=llm_queue_manager,
-                prompt_builder_func=lambda **p: "Combine these summaries into 1-2 lines:\n\n" + "\n\n".join(p["texts"]),
-                parent_function_name=f"{parent_function_name} collapse",
-                store_response=store_response,
-                max_input_tokens=max_input_tokens,
-                retries=retries
+            collapse_tasks[base] = asyncio.create_task(
+                summarize_with_llm(
+                    workspace_id=workspace_id,
+                    texts=sums,
+                    llm_model=llm_model,
+                    app_id=app_id,
+                    manager=manager,
+                    llm_instance=llm_instance,
+                    llm_queue_manager=llm_queue_manager,
+                    prompt_builder_func=lambda **p: 
+                        "Combine these summaries into 1-2 lines:\n\n"
+                        + "\n\n".join(p["texts"]),
+                    parent_function_name=f"{parent_function_name} collapse",
+                    store_response=store_response,
+                    max_input_tokens=max_input_tokens,
+                    retries=retries,
+                    concurrency_limit=concurrency_limit
+                )
             )
+
+    for base, task in collapse_tasks.items():
+        resp = await task
+        final[base] = resp.get("summary", "")
+
     return final
 
 

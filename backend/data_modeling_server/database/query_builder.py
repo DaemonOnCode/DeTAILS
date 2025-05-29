@@ -194,7 +194,7 @@ class QueryBuilder(Generic[T]):
         elif self.offset_clause:
             query += f" LIMIT -1 {self.offset_clause}"
 
-        print(f"Generated SQL Query: {query}", params)
+        # print(f"Generated SQL Query: {query}", params)
         return query, tuple(params)
 
     def count(self, filters: Optional[Dict[str, Any]] = None) -> Tuple[str, Tuple[Any, ...]]:

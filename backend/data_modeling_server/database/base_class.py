@@ -150,9 +150,9 @@ class BaseRepository(Generic[T]):
             conn.row_factory = Row
             cursor = conn.cursor()
             cursor.execute(query, params)
-            print(query, params)
+            # print(query, params)
             row = cursor.fetchone()
-        print(row, "row")
+        # print(row, "row")
         if not row:
             raise RecordNotFoundError(f"Record not found for query: {query} with params: {params}")
         if not map_to_model:
@@ -190,7 +190,7 @@ class BaseRepository(Generic[T]):
         try:
             # update_dict = asdict(updates)
             query, params = self.query_builder_instance.update(filters, updates)
-            print(query, params, "update")
+            # print(query, params, "update")
             return self.execute_query(query, params, result=True)
         except sqlite3.Error as e:
             raise UpdateError(f"Failed to update records in table {self.table_name}. Error: {e}")
@@ -240,7 +240,7 @@ class BaseRepository(Generic[T]):
         if limit is not None:
             self.query_builder_instance.limit(limit)
         query, params = self.query_builder_instance.find(filters)
-        print(query, params, "find")
+        # print(query, params, "find")
         result = self.fetch_all(query, params, map_to_model=map_to_model)
         self.query_builder_instance.reset()
         return result
@@ -281,7 +281,7 @@ class BaseRepository(Generic[T]):
             if keys:
                 conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            print(query, params, "execute raw query")
+            # print(query, params, "execute raw query")
             result = cursor.execute(query, params)
             conn.commit()
             if keys:
@@ -324,7 +324,7 @@ class BaseRepository(Generic[T]):
     @auto_recover
     def update_returning(self, filters: Dict[str, Any], updates:  Dict[str, Any]) -> List[Dict[str, Any]]:
         query, params = self.query_builder_instance.update(filters, updates)
-        print(query, params, "update returning")
+        # print(query, params, "update returning")
         query = query.rstrip().rstrip(';') + " RETURNING *;"
         return self.fetch_all(query, params, map_to_model=False)
 
@@ -362,5 +362,5 @@ class BaseRepository(Generic[T]):
 
     def _map_to_model(self, row: Row) -> T:
         row_dict = {key: row[key] for key in row.keys() if key in self.get_model_fields()}
-        print(row_dict, "row_dict", self.model, "row", row)
+        # print(row_dict, "row_dict", self.model, "row", row)
         return self.model(**row_dict)
