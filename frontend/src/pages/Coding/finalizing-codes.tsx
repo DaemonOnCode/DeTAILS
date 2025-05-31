@@ -18,7 +18,6 @@ import { getCodingLoaderUrl } from '../../utility/get-loader-url';
 import { useLogger } from '../../context/logging-context';
 import useWorkspaceUtils from '../../hooks/Shared/workspace-utils';
 import { createTimer } from '../../utility/timer';
-import { getGroupedCodeOfSubCode } from '../../utility/theme-finder';
 import { useUndo } from '../../hooks/Shared/use-undo';
 import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import { usePaginatedResponses } from '../../hooks/Coding/use-paginated-responses';
@@ -37,14 +36,15 @@ const FinalzingCodes = () => {
     const { saveWorkspaceData } = useWorkspaceUtils();
     const hasSavedRef = useRef(false);
     const [review, setReview] = useState(true);
-
-    const stepRoute = location.pathname;
-
     const [searchQuery, setSearchQuery] = useState('');
+    const [reviewSearchQuery, setReviewSearchQuery] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [noResults, setNoResults] = useState(false);
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
     const codeRefs = useRef(new Map());
+
+    const stepRoute = location.pathname;
 
     const normalBuckets = useMemo(() => {
         return groupedCodes.filter((bucket) => bucket.id !== null);
@@ -109,6 +109,16 @@ const FinalzingCodes = () => {
         }
     }, [searchQuery]);
 
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearchTerm(reviewSearchQuery);
+        }, 300);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [reviewSearchQuery]);
+
     const {
         responsesByPostId,
         isLoadingPage,
@@ -119,7 +129,8 @@ const FinalzingCodes = () => {
     } = usePaginatedResponses({
         pageSize: 10,
         responseTypes: ['sampled_copy', 'unseen'],
-        markedTrue: true
+        markedTrue: true,
+        searchTerm: review ? debouncedSearchTerm : ''
     });
 
     const codeResponses = useMemo(() => {
@@ -127,11 +138,11 @@ const FinalzingCodes = () => {
             .flat()
             .map((r) => ({
                 ...r,
-                code: getGroupedCodeOfSubCode(r.code, groupedCodes),
+                code: r.higherLevelCode || r.code,
                 subCode: r.code
             }))
             .filter((r) => r.isMarked);
-    }, [responsesByPostId, groupedCodes]);
+    }, [responsesByPostId]);
 
     const { scrollRef: codeRef, storageKey: codeStorageKey } = useScrollRestoration(
         `code-list-${review}`
@@ -298,6 +309,19 @@ const FinalzingCodes = () => {
                                 className="p-2 border rounded"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                    </header>
+                )}
+                {review && (
+                    <header className="py-4">
+                        <div className="flex justify-start items-center">
+                            <input
+                                type="text"
+                                placeholder="Search in table (code, reviewed code)..."
+                                className="p-2 border rounded min-w-96 max-w-5xl"
+                                value={reviewSearchQuery}
+                                onChange={(e) => setReviewSearchQuery(e.target.value)}
                             />
                         </div>
                     </header>

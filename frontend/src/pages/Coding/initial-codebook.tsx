@@ -17,6 +17,11 @@ import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import VirtualizedTableRow from '../../components/Coding/InitialCodebook/virtualized-table-row';
 import { DetailsLLMIcon } from '../../components/Shared/Icons';
 import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
+import { toast } from 'react-toastify';
+import { generateUniqueFileName } from '../../utility/file-downloader';
+import { useWorkspaceContext } from '../../context/workspace-context';
+import { saveCSV } from '../../utility/convert-js-object';
+const { ipcRenderer } = window.require('electron');
 
 const InitialCodeBook = () => {
     const { initialCodebookTable, dispatchInitialCodebookTable } = useCodingContext();
@@ -25,6 +30,7 @@ const InitialCodeBook = () => {
     const { performWithUndoForReducer } = useUndo();
 
     const logger = useLogger();
+    const { currentWorkspace } = useWorkspaceContext();
     const { saveWorkspaceData } = useWorkspaceUtils();
     const navigate = useNavigate();
     const { settings } = useSettings();
@@ -53,8 +59,27 @@ const InitialCodeBook = () => {
     }, []);
 
     const stepRoute = location.pathname;
+    const [saving, setSaving] = useState(false);
 
     const { scrollRef: tableRef } = useScrollRestoration('initial-codebook-table');
+
+    const handleSaveCsv = async () => {
+        await logger.info('Saving InitialCodebookTable as CSV');
+        setSaving(true);
+        const result = await saveCSV(
+            ipcRenderer,
+            initialCodebookTable,
+            generateUniqueFileName('initial-codebook', currentWorkspace)
+        );
+        console.log(result);
+        setSaving(false);
+        if (result) {
+            toast.success('Initial Codebook saved as CSV');
+        } else {
+            toast.error('Failed to save Initial Codebook as CSV');
+        }
+        await logger.info('InitialCodebookTable saved as CSV');
+    };
 
     const handleDefinitionChange = (index: number, newDefinition: string) => {
         const action = {
@@ -191,7 +216,14 @@ const InitialCodeBook = () => {
                             </tbody>
                         </table>
                     </div>
-                    <div className="pt-4 flex justify-end">
+                    <div className="pt-4 flex justify-between">
+                        <button
+                            id="save-csv-button"
+                            onClick={handleSaveCsv}
+                            disabled={saving}
+                            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
+                            {saving ? 'Saving…' : 'Save CSV'}
+                        </button>
                         <button
                             id="refresh-codes-button"
                             onClick={() => {

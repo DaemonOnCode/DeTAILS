@@ -629,10 +629,10 @@ async def parse_reddit_files(app_id: str, workspace_id: str, dataset_path: str =
                 raw_data_str = f.read()
         except FileNotFoundError:
             print(f"File not found: {file['path']}")
-            raise e
+            raise 
         except PermissionError:
             print(f"Permission denied: {file['path']}")
-            raise e
+            raise 
         except IOError as e:
             print(f"IO error reading file {file['path']}: {e}")
             raise e
@@ -1343,34 +1343,7 @@ async def get_reddit_data_from_torrent(
     academic_folder = os.path.join(parent_dir, academic_folder_name)
     if not os.path.exists(academic_folder):
         os.makedirs(academic_folder, exist_ok=True)
-
-    # if not use_fallback:
-    #     primary_hash = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
-    #     torrents = c.get_torrents()
-    #     torrent_to_use = next((t for t in torrents if t.hashString == primary_hash), None)
-    #     if not torrent_to_use:
-    #         torrent_to_use = c.add_torrent(PRIMARY_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
         
-    #     torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, torrent_to_use)
-    #     files_to_process = get_files_to_process_primary(torrent_to_use.get_files(), subreddit, submissions_only)
-    #     magnet_link = PRIMARY_MAGNET_LINK
-    #     message = f"Using primary torrent for subreddit '{subreddit}'."
-    # else:
-    #     fallback_hash = FALLBACK_MAGNET_LINK.split("btih:")[1].split("&")[0]
-    #     torrents = c.get_torrents()
-    #     torrent_to_use = next((t for t in torrents if t.hashString == fallback_hash), None)
-    #     if not torrent_to_use:
-    #         torrent_to_use = c.add_torrent(FALLBACK_MAGNET_LINK, download_dir=TRANSMISSION_ABSOLUTE_DOWNLOAD_DIR)
-        
-    #     torrent_to_use = await wait_for_metadata(manager, app_id, run_id, c, torrent_to_use)
-    #     wanted_range = generate_month_range(start_month, end_month)
-    #     files_to_process = get_files_to_process_fallback(torrent_to_use.get_files(), wanted_range, submissions_only)
-    #     magnet_link = FALLBACK_MAGNET_LINK
-    #     message = f"Using fallback torrent with range {start_month} to {end_month}."
-    
-    # await send_ipc_message(app_id, message)
-    # update_run_progress(run_id, message, current_download_dir=current_download_dir)
-
     if not use_fallback:
         torrent_hash_string = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
         magnet_link = PRIMARY_MAGNET_LINK

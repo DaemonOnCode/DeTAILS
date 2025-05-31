@@ -35,10 +35,11 @@ const RedditTable: FC<RedditTableProps> = ({
                                     }}
                                     checked={areAllPagePostsSelected}
                                     disabled={isLocked}
+                                    className="h-4 w-4 cursor-pointer"
                                 />
                             )}
                         </th>
-                        <th className="px-4 py-4 border">URL</th>
+                        <th className="px-4 py-4 border">ID</th>
                         <th className="px-4 py-4 border">Created UTC</th>
                         <th className="px-4 py-4 border">Title</th>
                         <th className="px-4 py-4 border">Text</th>
@@ -74,6 +75,7 @@ const RedditTable: FC<RedditTableProps> = ({
                                           checked={selectedPosts.includes(post[0])}
                                           onChange={() => togglePostSelection(post[0])}
                                           disabled={isLocked}
+                                          className="h-4 w-4"
                                       />
                                   </td>
                                   <td className="px-4 py-6 border">
