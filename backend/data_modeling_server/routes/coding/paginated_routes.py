@@ -74,7 +74,6 @@ async def paginated_posts(
         "hasPrevious": hasPrevious,
     }
 
-
 @router.post("/paginated-responses")
 async def paginated_responses(
     req: PaginatedRequest,
@@ -111,28 +110,32 @@ async def paginated_responses(
 
     _apply_type_filters(req.responseTypes, filters, params)
 
-
     if req.selectedTypeFilter == "Human":
         filters.append("r.response_type = ?"); params.append("Human")
     elif req.selectedTypeFilter == "LLM":
         filters.append("r.response_type = ?"); params.append("LLM")
 
     stripped_post_id = req.postId.replace("|coded-data", "") if req.postId else None
-    print("stripped_post_id", stripped_post_id, req.postId)
     if stripped_post_id and req.postId != "coded-data":
         filters.append("r.post_id = ?")
         params.append(stripped_post_id)
 
-    print(f"[paginated_responses] filterCode: {req.filterCode}, searchTerm: {req.searchTerm}")
     if req.filterCode:
         filters.append("r.code = ?")
         params.append(req.filterCode)
         
+        
+    print(f"markedTrue: {req.markedTrue}")
+
     print(f"markedTrue: {req.markedTrue}")
     if req.markedTrue:
         filters.append("r.is_marked = ?")
         params.append(1)
 
+    if req.searchTerm:
+        filters.append("(r.code LIKE ? OR gce.higher_level_code LIKE ?)")
+        like = f"%{req.searchTerm}%"
+        params += [like, like]
 
     where_clause = " AND ".join(filters)
 
@@ -142,6 +145,8 @@ async def paginated_responses(
       JOIN selected_post_ids p
         ON r.post_id = p.post_id
        AND r.workspace_id = p.workspace_id
+      LEFT JOIN grouped_code_entries gce
+        ON r.code = gce.code
      WHERE {where_clause}
     """
     total_rows = execute_query(total_rows_sql, params)[0][0]
@@ -153,11 +158,12 @@ async def paginated_responses(
       JOIN selected_post_ids p
         ON r.post_id = p.post_id
        AND r.workspace_id = p.workspace_id
+      LEFT JOIN grouped_code_entries gce
+        ON r.code = gce.code
      WHERE {where_clause}
   ORDER BY r.post_id ASC, r.id ASC
      LIMIT ? OFFSET ?
     """
-    print(f"[paginated_responses] slice_sql: {slice_sql}", params)
     slice_ids = execute_query(slice_sql, params + [req.pageSize, offset])
     page_ids = [r[0] for r in slice_ids]
 
@@ -165,11 +171,13 @@ async def paginated_responses(
     if page_ids:
         ph2 = ",".join("?" for _ in page_ids)
         resp_sql = f"""
-        SELECT r.*
+        SELECT r.*, gce.higher_level_code
           FROM qect r
           JOIN selected_post_ids p
             ON r.post_id = p.post_id
            AND r.workspace_id = p.workspace_id
+          LEFT JOIN grouped_code_entries gce
+            ON r.code = gce.code
          WHERE {where_clause}
            AND r.id IN ({ph2})
       ORDER BY r.post_id ASC, r.id ASC
@@ -184,13 +192,14 @@ async def paginated_responses(
             "quote": row["quote"],
             "explanation": row["explanation"],
             "code": row["code"],
+            "higherLevelCode": row["higher_level_code"],  
             "type": row["response_type"],
             "codebookType": row["codebook_type"],
             "chatHistory": row["chat_history"],
             "rangeMarker": row["range_marker"],
             "isMarked": bool(row["is_marked"]) if row["is_marked"] is not None else None,
         }
-        post_id = row["post_id"] 
+        post_id = row["post_id"]
         responses.setdefault(post_id, []).append(transformed_row)
 
     return {
@@ -216,7 +225,7 @@ async def paginated_posts_metadata(
             type_params.append('sampled')
     else:
         if req.responseTypes:
-            type_placeholders = ", ".join(["?" for _ in req.responseTypes])
+            type_placeholders = ", ".join("?" for _ in req.responseTypes)
             type_filter = f"p.type IN ({type_placeholders})"
             type_params = []
             if "sampled" in req.responseTypes:
@@ -226,7 +235,7 @@ async def paginated_posts_metadata(
             if "sampled_copy" in req.responseTypes:
                 type_params.append("sampled")
         else:
-            type_filter = "1=1" 
+            type_filter = "1=1"
             type_params = []
 
     print(f"[paginated_posts_metadata] type_filter: {type_filter}, type_params: {type_params}")
@@ -235,7 +244,7 @@ async def paginated_posts_metadata(
 
     if req.searchTerm:
         search_filter = "LOWER(p2.title) LIKE ?"
-        search_param = f"%{req.searchTerm.lower()}%"  
+        search_param = f"%{req.searchTerm.lower()}%"
     else:
         search_filter = ""
         search_param = None
@@ -247,13 +256,13 @@ async def paginated_posts_metadata(
         params = base_params + [search_param]
 
     if req.onlyCoded:
-        subquery = """
-        EXISTS (
-            SELECT 1 FROM qect r
-            WHERE r.post_id = p.post_id AND r.workspace_id = p.workspace_id
-        )
-        """
-        filters.append(subquery)
+        filters.append("""
+            EXISTS (
+                SELECT 1 FROM qect r
+                WHERE r.post_id = p.post_id
+                  AND r.workspace_id = p.workspace_id
+            )
+        """)
 
     where_clause = " AND ".join(filters)
 
@@ -275,16 +284,25 @@ async def paginated_posts_metadata(
     total_coded_sql = f"""
     SELECT COUNT(DISTINCT p.post_id)
     FROM selected_post_ids p
-    WHERE p.workspace_id = ? AND ({type_filter}) AND EXISTS (
+    WHERE p.workspace_id = ? AND ({type_filter})
+      AND EXISTS (
         SELECT 1 FROM qect r
-        WHERE r.post_id = p.post_id AND r.workspace_id = p.workspace_id
-    )
+        WHERE r.post_id = p.post_id
+          AND r.workspace_id = p.workspace_id
+      )
     """
     total_coded_posts = execute_query(total_coded_sql, [workspace_id] + type_params)[0][0]
 
     offset = (req.page - 1) * req.pageSize
     slice_sql = f"""
-    SELECT DISTINCT p.post_id, p2.title
+    SELECT DISTINCT
+      p.post_id,
+      p2.title,
+      CASE WHEN EXISTS (
+        SELECT 1 FROM qect r
+        WHERE r.post_id = p.post_id
+          AND r.workspace_id = p.workspace_id
+      ) THEN 1 ELSE 0 END AS is_coded
     FROM selected_post_ids p
     JOIN posts p2 ON p.post_id = p2.id
     WHERE {where_clause}
@@ -294,16 +312,27 @@ async def paginated_posts_metadata(
     slice_params = params + [req.pageSize, offset]
     rows = execute_query(slice_sql, slice_params)
 
-    post_ids = [str(row[0]) for row in rows]
-    titles = {str(row[0]): row[1] for row in rows}
+    posts = []
+    coded_post_ids = []
+    for post_id, title, is_coded in rows:
+        pid = str(post_id)
+        posts.append({
+            "postId": pid,
+            "title": title,
+            "isCoded": bool(is_coded)
+        })
+        if is_coded:
+            coded_post_ids.append(pid)
 
     return {
-        "postIds": post_ids,
-        "titles": titles,
+        # "posts": posts,
+        "postIds": [p["postId"] for p in posts],
+        "titles":  {p["postId"]: p["title"] for p in posts},
+        "codedPostIds": coded_post_ids,
         "total": total,
         "totalPosts": total_posts,
         "totalCodedPosts": total_coded_posts,
-        "hasNext": offset + len(post_ids) < total,
+        "hasNext":     offset + len(posts) < total,
         "hasPrevious": req.page > 1
     }
         

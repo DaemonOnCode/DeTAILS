@@ -50,6 +50,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
         titles,
         totalPosts,
         totalCodedPosts,
+        postIsCodedMap,
         isLoading: loadingPosts,
         hasNextPage: postsHasNext,
         hasPreviousPage: postsHasPrev,
@@ -63,6 +64,8 @@ const LeftPanel: FC<LeftPanelProps> = ({
         selectedTypeFilter,
         activeTab
     });
+
+    console.log('post codes', postIsCodedMap);
 
     const {
         codes,
@@ -219,6 +222,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                                     selectedItem={selectedItem}
                                     handleSelect={handleSelect}
                                     containerRef={listRef}
+                                    isCoded={postIsCodedMap[postId] ?? false}
                                 />
                             ))
                         )}

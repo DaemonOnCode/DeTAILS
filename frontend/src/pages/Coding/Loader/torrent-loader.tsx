@@ -90,14 +90,13 @@ const TorrentLoader: React.FC = () => {
     const { abortRequestsByRoute, loadingDispatch } = useLoadingContext();
     const logBottomRef = useRef<HTMLDivElement>(null);
     const fileBottomRef = useRef<HTMLDivElement>(null);
-
     const totalFilesRef = useRef(0);
+
     useEffect(() => {
         totalFilesRef.current = totalFiles;
     }, [totalFiles]);
 
     const navigate = useNavigate();
-
     const { loadTorrentData } = useRedditData();
     const logger = useLogger();
     const { registerCallback, unregisterCallback } = useWebSocket();
@@ -326,20 +325,22 @@ const TorrentLoader: React.FC = () => {
             if (msg.includes('Metadata progress:')) {
                 const match = msg.match(/Metadata progress:\s+([\d.]+)/);
                 const percent = match ? parseFloat(match[1]) : 0;
-                updated[0] = {
-                    ...updated[0],
-                    status: 'in-progress',
-                    progress: Math.max(updated[0].progress, percent),
-                    messages: [...updated[0].messages, msg]
-                };
-            }
-            if (msg.includes('Metadata download complete')) {
-                updated[0] = {
-                    ...updated[0],
-                    status: 'complete',
-                    progress: 100,
-                    messages: [...updated[0].messages, msg]
-                };
+                if (percent < updated[0].progress) {
+                    updated[0].progress = percent;
+                    updated[0].status = 'in-progress';
+                } else {
+                    updated[0].progress = Math.max(updated[0].progress, percent);
+                    if (percent >= 100) {
+                        updated[0].status = 'complete';
+                    } else {
+                        updated[0].status = 'in-progress';
+                    }
+                }
+                updated[0].messages.push(msg);
+            } else if (msg.includes('Metadata download complete')) {
+                updated[0].progress = 100;
+                updated[0].status = 'complete';
+                updated[0].messages.push(msg);
             }
             if (msg.includes('Verification in progress:')) {
                 updated[1] = {
@@ -380,11 +381,27 @@ const TorrentLoader: React.FC = () => {
                     };
                 }
             }
-            if (msg.includes('Parsing files into dataset')) {
+            if (
+                msg.includes('Starting to parse Reddit dataset') ||
+                msg.includes('Clearing existing posts and comments for this workspace')
+            ) {
                 updated[4] = {
                     ...updated[4],
                     status: 'in-progress',
                     progress: 30,
+                    messages: [...updated[4].messages, msg]
+                };
+            }
+            const processedMatch = msg.match(/Processed\s+(\d+)\s+of\s+(\d+)\s+files/i);
+            if (processedMatch) {
+                const done = parseInt(processedMatch[1], 10);
+                const total = parseInt(processedMatch[2], 10);
+                const fileProgress = total > 0 ? (done / total) * 70 : 0;
+                const totalProgress = 30 + fileProgress;
+                updated[4] = {
+                    ...updated[4],
+                    status: done >= total ? 'complete' : 'in-progress',
+                    progress: done >= total ? 100 : totalProgress,
                     messages: [...updated[4].messages, msg]
                 };
             }
@@ -584,6 +601,7 @@ const TorrentLoader: React.FC = () => {
             return updated;
         });
     };
+
     const fileList = Object.values(files);
 
     return (
@@ -618,7 +636,6 @@ const TorrentLoader: React.FC = () => {
                 )}
                 {/* Pipeline Steps */}
                 <div className="flex flex-col h-max gap-4">
-                    {/* <div className="flex flex-col"> */}
                     {steps.map((step, index) => {
                         if (index === 3) return <></>;
 

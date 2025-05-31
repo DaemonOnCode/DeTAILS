@@ -30,6 +30,7 @@ export function usePaginatedPostsMetadata({
     const [hasNext, setHasNext] = useState(false);
     const [hasPrev, setHasPrev] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [postIsCodedMap, setPostIsCodedMap] = useState<Record<string, boolean>>({});
 
     const loadPage = useCallback(
         async (pageNum: number) => {
@@ -58,6 +59,13 @@ export function usePaginatedPostsMetadata({
                 setHasNext(data.hasNext);
                 setHasPrev(data.hasPrevious);
                 setPage(pageNum);
+                setPostIsCodedMap((prev) => {
+                    const next = pageNum === 1 ? {} : { ...prev };
+                    data.postIds.forEach((id) => {
+                        next[id] = data.codedPostIds.includes(id);
+                    });
+                    return next;
+                });
             }
         },
         [pageSize, responseTypes, searchTerm, onlyCoded, selectedTypeFilter, activeTab]
@@ -84,7 +92,8 @@ export function usePaginatedPostsMetadata({
         hasNextPage: hasNext,
         hasPreviousPage: hasPrev,
         loadNextPage,
-        loadPreviousPage
+        loadPreviousPage,
+        postIsCodedMap
     };
 }
 

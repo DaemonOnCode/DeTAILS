@@ -600,10 +600,10 @@ async def parse_reddit_files(app_id: str, workspace_id: str, dataset_path: str =
                 raw_data_str = f.read()
         except FileNotFoundError:
             print(f"File not found: {file['path']}")
-            raise e
+            raise 
         except PermissionError:
             print(f"Permission denied: {file['path']}")
-            raise e
+            raise 
         except IOError as e:
             print(f"IO error reading file {file['path']}: {e}")
             raise e
@@ -1312,7 +1312,6 @@ async def get_reddit_data_from_torrent(
     academic_folder = os.path.join(parent_dir, academic_folder_name)
     if not os.path.exists(academic_folder):
         os.makedirs(academic_folder, exist_ok=True)
-
     if not use_fallback:
         torrent_hash_string = PRIMARY_MAGNET_LINK.split("btih:")[1].split("&")[0]
         magnet_link = PRIMARY_MAGNET_LINK

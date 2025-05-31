@@ -321,7 +321,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 <input
                     id="reddit-table-search"
                     type="text"
-                    placeholder="Search by title, text, or URL..."
+                    placeholder="Search by title, text, or ID of Post..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="p-2 border border-gray-300 rounded flex-grow mr-4"
