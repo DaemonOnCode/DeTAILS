@@ -299,7 +299,22 @@ const FinalzingCodes = () => {
                         Go into edit mode, place unplaced codes into code buckets to proceed.
                     </p>
                 )}
-                <ReviewToggle review={review} setReview={setReview} />
+                <div className="flex justify-evenly">
+                    {review && (
+                        <header className="py-4">
+                            <div className="flex justify-start items-center">
+                                <input
+                                    type="text"
+                                    placeholder="Search code, reviewed code in table..."
+                                    className="p-2 border rounded min-w-96 max-w-5xl"
+                                    value={reviewSearchQuery}
+                                    onChange={(e) => setReviewSearchQuery(e.target.value)}
+                                />
+                            </div>
+                        </header>
+                    )}
+                    <ReviewToggle review={review} setReview={setReview} />
+                </div>
                 {!review && (
                     <header className="py-4">
                         <div className="flex justify-end items-center">
@@ -309,19 +324,6 @@ const FinalzingCodes = () => {
                                 className="p-2 border rounded"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-                    </header>
-                )}
-                {review && (
-                    <header className="py-4">
-                        <div className="flex justify-start items-center">
-                            <input
-                                type="text"
-                                placeholder="Search in table (code, reviewed code)..."
-                                className="p-2 border rounded min-w-96 max-w-5xl"
-                                value={reviewSearchQuery}
-                                onChange={(e) => setReviewSearchQuery(e.target.value)}
                             />
                         </div>
                     </header>
@@ -399,7 +401,7 @@ const FinalzingCodes = () => {
                                     <button
                                         onClick={handleAddBucket}
                                         className="px-4 py-2 bg-blue-500 text-white rounded">
-                                        + Add New Code
+                                        + Add New Reviewed Code
                                     </button>
                                     <button
                                         id="refresh-codes-button"

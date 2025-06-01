@@ -30,7 +30,6 @@ const PaginationControls: FC<PaginationControlsProps> = ({
     const location = useLocation();
     return (
         <div className="flex items-center justify-between mt-4">
-            {/* Previous button */}
             <button
                 onClick={onPrevious}
                 title={TooltipMessages.Previous}
@@ -43,31 +42,20 @@ const PaginationControls: FC<PaginationControlsProps> = ({
                 Previous
             </button>
 
-            {/* Middle content */}
             <div className="flex items-center space-x-4">
                 <p>{selectedCount} posts selected</p>
 
-                {/* If locked, show "Unlock" button; if unlocked, show "Lock" button */}
                 <button
                     onClick={async () => {
                         console.log('loading reddit data', loading);
                         if (loading) return;
-                        // setIsLocked((locked) => {
-                        //     if (!locked) {
-                        //         return true;
-                        //     }
                         if (!isLocked) {
                             setIsLocked(true);
                             return;
                         }
                         if (await checkIfDataExists(location.pathname)) {
                             openModal('reddit-lock-btn', async (e: any) => {
-                                // setShowProceedConfirmModal(false);
                                 abortRequests(location.pathname);
-                                // loadingDispatch({
-                                //     type: 'SET_FIRST_RUN_DONE',
-                                //     route: location.pathname
-                                // });
                                 setIsLocked(false);
                             });
                         } else {
@@ -76,15 +64,8 @@ const PaginationControls: FC<PaginationControlsProps> = ({
                                 type: 'SET_REST_UNDONE',
                                 route: location.pathname
                             });
-                            // loadingDispatch({
-                            //     type: 'SET_FIRST_RUN_DONE',
-                            //     route: location.pathname
-                            // });
                             setIsLocked(false);
-                            // return false;
                         }
-
-                        // });
                     }}
                     className={`px-4 py-2 rounded ${
                         isLocked || selectedCount > 0

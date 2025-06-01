@@ -149,7 +149,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
         setIsLoading(false);
     };
 
-    const fetchAllMatchingPostIds = async (): Promise<string[]> => {
+    const fetchAllMatchingPostIds = useCallback(async (): Promise<string[]> => {
         setIsLoading(true);
         const startTime = dataFilters.reddit?.start_time
             ? Math.floor(new Date(dataFilters.reddit.start_time).getTime() / 1000)
@@ -183,19 +183,27 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
             return [];
         }
         return response.data.post_ids || [];
-    };
+    }, [
+        dataFilters.reddit?.start_time,
+        dataFilters.reddit?.end_time,
+        dataFilters.reddit?.hide_removed,
+        debouncedSearchTerm,
+        currentWorkspace!.id
+    ]);
 
     const toggleSelectAll = useCallback(async () => {
         if (isLocked || isSelectingAll) return;
 
-        if (selectedData.length > 0) {
+        if (selectedData.length === totalCount) {
             setSelectedData([]);
         } else {
             setIsLoading(true);
             setIsSelectingAll(true);
             try {
                 const allIds = await fetchAllMatchingPostIds();
-                await setSelectedData(allIds);
+                await setSelectedData((prev) => {
+                    return [...new Set([...prev, ...allIds])];
+                });
             } catch (error) {
                 console.error('Error selecting all posts:', error);
             } finally {
@@ -203,7 +211,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 setIsLoading(false);
             }
         }
-    }, [isLocked, isSelectingAll, selectedData, setSelectedData]);
+    }, [isLocked, isSelectingAll, fetchAllMatchingPostIds]);
 
     useEffect(() => {
         console.log('Fetching posts with filters:', dataFilters);
@@ -443,7 +451,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                                 id="hideRemovedCheckbox"
                             />
                             <label htmlFor="hideRemovedCheckbox" className="ml-2">
-                                Hide posts with [removed] or [deleted]
+                                Hide completely empty posts
                             </label>
                         </div>
                         <div className="flex justify-end space-x-4">
@@ -478,7 +486,7 @@ const RedditTableRenderer: FC<RedditTableRendererProps> = ({
                 totalPages={totalPages}
                 onNext={handleNextPage}
                 onPrevious={handlePreviousPage}
-                loading={isLoading}
+                loading={isLoading || isSelectingAll}
                 locked={isLocked || isSelectingAll}
                 onLock={handleLockDataset}
                 onUnlock={handleUnlockDataset}

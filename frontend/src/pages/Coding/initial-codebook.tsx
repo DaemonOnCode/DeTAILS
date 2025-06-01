@@ -221,8 +221,8 @@ const InitialCodeBook = () => {
                             id="save-csv-button"
                             onClick={handleSaveCsv}
                             disabled={saving}
-                            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
-                            {saving ? 'Saving…' : 'Save CSV'}
+                            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-green-700 disabled:opacity-50">
+                            {saving ? 'Saving…' : 'Download Initial Codebook (CSV)'}
                         </button>
                         <button
                             id="refresh-codes-button"

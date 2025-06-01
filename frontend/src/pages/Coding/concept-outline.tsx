@@ -246,7 +246,7 @@ const ConceptsTablePage: FC = () => {
                             <button
                                 onClick={handleAddNewRow}
                                 className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                Add New Row
+                                + Add New Row
                             </button>
                         </div>
                         <div className="flex gap-x-4">
@@ -254,7 +254,7 @@ const ConceptsTablePage: FC = () => {
                                 onClick={handleSaveCsv}
                                 className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
                                 disabled={saving}>
-                                Save as CSV
+                                Download Concept Outline (CSV)
                             </button>
                             {/* <button
                                 onClick={handleSaveExcel}

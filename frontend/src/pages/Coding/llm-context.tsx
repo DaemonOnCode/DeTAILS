@@ -251,7 +251,7 @@ const ContextPage = () => {
                                     <p>Research Questions:</p>
                                     <div className="flex items-center">
                                         <textarea
-                                            className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none"
+                                            className="p-2 border border-gray-300 rounded w-96 max-h-40 resize-none"
                                             placeholder="Type your research question here..."
                                             value={newQuestion}
                                             onChange={(e) => setNewQuestion(e.target.value)}
@@ -268,7 +268,7 @@ const ContextPage = () => {
                                         {localResearchQuestions.map((question, index) => (
                                             <li key={index} className="flex items-start mb-4">
                                                 <textarea
-                                                    className="p-2 border border-gray-300 rounded w-72 max-h-40 resize-none auto-height"
+                                                    className="p-2 border border-gray-300 rounded w-96 max-h-40 resize-none auto-height"
                                                     value={question}
                                                     onChange={(e) =>
                                                         updateQuestion(index, e.target.value)
