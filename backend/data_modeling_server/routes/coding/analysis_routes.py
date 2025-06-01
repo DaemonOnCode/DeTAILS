@@ -186,7 +186,7 @@ async def download_report(
     cursor = conn.cursor()
     try:
         cursor.execute(sql, {"workspace_id": workspace_id})
-        columns = [col[0] for col in cursor.description]
+        columns = list(filter(lambda colName: colName not in ["id"], [col[0] for col in cursor.description]))
 
 
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w", newline="", encoding="utf-8")
