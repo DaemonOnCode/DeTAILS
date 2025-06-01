@@ -110,35 +110,42 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
 
 const extractResults = (
   state: any,
-  stateType: "generation" | "dispatch"
+  stateType: "generation" | "dispatch",
+  selectedPostIds: string[]
 ): Map<string, ExtendedCodingResult> => {
   const results = new Map<string, ExtendedCodingResult>();
   const resultsArray =
     stateType === "generation" ? state.results : state.current_state || [];
   resultsArray.forEach((result: any) => {
-    const origin = result.codebook_type === "initial_copy" ? "copy" : "codes";
-    results.set(result.id, {
-      id: result.id,
-      model: result.model || "",
-      quote: result.quote || "",
-      code: result.code || "",
-      explanation: result.explanation || "",
-      post_id: result.post_id || "",
-      chat_history: result.chat_history
-        ? JSON.parse(result.chat_history)
-        : null,
-      is_marked:
-        stateType === "generation"
-          ? true
-          : result.is_marked !== null
-          ? Boolean(result.is_marked)
+    if (selectedPostIds.includes(result.post_id)) {
+      const origin = result.codebook_type === "initial_copy" ? "copy" : "codes";
+      results.set(result.id, {
+        id: result.id,
+        model: result.model || "",
+        quote: result.quote || "",
+        code: result.code || "",
+        explanation: result.explanation || "",
+        post_id: result.post_id || "",
+        chat_history: result.chat_history
+          ? JSON.parse(result.chat_history)
           : null,
-      range_marker: result.range_marker
-        ? JSON.parse(result.range_marker)
-        : null,
-      response_type: result.response_type || "",
-      origin,
-    });
+        is_marked:
+          stateType === "generation"
+            ? true
+            : result.is_marked !== null
+            ? Boolean(result.is_marked)
+            : null,
+        range_marker: result.range_marker
+          ? JSON.parse(result.range_marker)
+          : null,
+        response_type: result.response_type || "",
+        origin,
+      });
+    } else {
+      console.warn(
+        `Result with ID ${result.id} and post_id ${result.post_id} is not in selected posts`
+      );
+    }
   });
   return results;
 };
@@ -389,6 +396,11 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
   const [sequenceStates, setSequenceStates] = useState<SequenceState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [openSteps, setOpenSteps] = useState<{ [key: number]: boolean }>({});
+  const [availablePosts, setAvailablePosts] = useState<
+    { id: string; title: string }[]
+  >([]);
+  const [tempSelectedPostIds, setTempSelectedPostIds] = useState<string[]>([]);
+  const [selectedPostIds, setSelectedPostIds] = useState<string[]>([]);
   const similarityCache = useRef(new Map<string, number>());
 
   const getSimilarity = async (
@@ -444,6 +456,44 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
   };
 
   useEffect(() => {
+    const fetchAvailablePosts = async () => {
+      try {
+        const samplePostsQuery = await executeQuery(
+          `SELECT state FROM state_dumps 
+         WHERE json_extract(context, '$.function') = 'sample_posts'
+         AND json_extract(context, '$.workspace_id') = ?
+         ORDER BY created_at DESC LIMIT 1`,
+          [selectedWorkspaceId]
+        );
+        const samplePostsState = samplePostsQuery[0]
+          ? JSON.parse(samplePostsQuery[0].state)
+          : { groups: { sampled: [], unseen: [] } };
+        const allPostIds: string[] = [
+          ...new Set([
+            ...(samplePostsState.groups?.sampled || []),
+            ...(samplePostsState.groups?.unseen || []),
+          ]),
+        ];
+        if (allPostIds.length === 0) {
+          setAvailablePosts([]);
+          return;
+        }
+        const postsQuery = await executeQuery(
+          `SELECT id, title FROM posts WHERE id IN (${allPostIds
+            .map(() => "?")
+            .join(",")})`,
+          allPostIds
+        );
+        setAvailablePosts(postsQuery);
+      } catch (error) {
+        console.error("Error fetching available posts:", error);
+        setAvailablePosts([]);
+      }
+    };
+    if (isDatabaseLoaded) fetchAvailablePosts();
+  }, [isDatabaseLoaded, executeQuery, selectedWorkspaceId]);
+
+  useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -474,10 +524,13 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
     if (isDatabaseLoaded) fetchData();
   }, [isDatabaseLoaded, executeQuery, selectedWorkspaceId]);
 
-  async function computeSequenceDiff(
+  const computeSequenceDiff = async (
     sequence: DatabaseRow[],
-    seqIndex: number
-  ): Promise<SequenceDiff> {
+    seqIndex: number,
+    selectedPostIds: string[]
+  ): Promise<SequenceDiff> => {
+    console.log("Selected Post IDs:", selectedPostIds);
+
     if (sequence.length === 0) {
       return {
         sequenceId: seqIndex + 1,
@@ -511,11 +564,19 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
 
     if (copyEntries.length > 0) {
       const initialState = JSON.parse(copyEntries[0].state || "{}");
-      copyInitialResults = extractResults(initialState, "generation");
+      copyInitialResults = extractResults(
+        initialState,
+        "generation",
+        selectedPostIds
+      );
     }
     if (codeEntries.length > 0) {
       const initialState = JSON.parse(codeEntries[0].state || "{}");
-      codesInitialResults = extractResults(initialState, "generation");
+      codesInitialResults = extractResults(
+        initialState,
+        "generation",
+        selectedPostIds
+      );
     }
 
     let currentCopyResults = cloneResults(copyInitialResults);
@@ -536,75 +597,82 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
             ? "copy"
             : "codes";
 
-        let prevResults: Map<string, ExtendedCodingResult>;
+        let targetResults: Map<string, ExtendedCodingResult>;
         if (origin === "both") {
-          prevResults = new Map([
+          targetResults = new Map([
             ...currentCopyResults,
             ...currentCodesResults,
           ]);
         } else {
-          prevResults =
+          targetResults =
             origin === "copy" ? currentCopyResults : currentCodesResults;
         }
 
+        const filteredInserted = diff.inserted.filter((item: CodingResult) =>
+          selectedPostIds.includes(item.post_id)
+        );
+        const filteredUpdated = diff.updated.filter((update: any) =>
+          targetResults.has(update.id)
+        );
+        const filteredDeleted = diff.deleted.filter((item: CodingResult) =>
+          targetResults.has(item.id)
+        );
+
+        const diffToApply = {
+          inserted: filteredInserted,
+          updated: filteredUpdated,
+          deleted: filteredDeleted,
+        };
+
         if (origin === "both") {
-          currentCopyResults = applyDiff(currentCopyResults, diff);
-          currentCodesResults = applyDiff(currentCodesResults, diff);
+          currentCopyResults = applyDiff(currentCopyResults, diffToApply);
+          currentCodesResults = applyDiff(currentCodesResults, diffToApply);
         } else {
-          const targetResults =
-            origin === "copy" ? currentCopyResults : currentCodesResults;
-          const updatedTarget = applyDiff(targetResults, diff);
+          const updatedTarget = applyDiff(targetResults, diffToApply);
           if (origin === "copy") currentCopyResults = updatedTarget;
           else currentCodesResults = updatedTarget;
         }
 
-        const updatedResults = new Map([
-          ...currentCopyResults,
-          ...currentCodesResults,
-        ]);
-
         const stepChanges: CRUDChanges = {
-          inserted: diff.inserted.map((r: any) => ({
+          inserted: filteredInserted.map((r: any) => ({
             result: r,
             origin: r.codebook_type === "initial_copy" ? "copy" : "codes",
           })),
           updated: (
             await Promise.all(
-              diff.updated
-                .filter((u: any) => prevResults.has(u.id))
-                .map(async (u: any) => {
-                  const changes: FieldChange[] = [];
-                  for (const [key, change] of Object.entries(
-                    u.changes as any[]
-                  )) {
-                    let type: FieldChange["type"];
-                    if (key === "quote") type = "quote_changed";
-                    else if (key === "code") type = "code_changed";
-                    else if (key === "is_marked") type = "is_marked_changed";
-                    else continue;
-                    const similarity =
-                      type === "quote_changed" || type === "code_changed"
-                        ? await getSimilarity(change.old, change.new)
-                        : undefined;
-                    const result = updatedResults.get(u.id);
-                    changes.push({
-                      type,
-                      resultId: u.id,
-                      oldValue: change.old,
-                      newValue: change.new,
-                      similarity,
-                      code: result?.code || "",
-                      quote: result?.quote || "",
-                      post_id: result?.post_id || "",
-                      origin: result?.origin || "",
-                    });
-                  }
-                  return changes;
-                })
+              filteredUpdated.map(async (u: any) => {
+                const changes: FieldChange[] = [];
+                for (const [key, change] of Object.entries(
+                  u.changes as any[]
+                )) {
+                  let type: FieldChange["type"];
+                  if (key === "quote") type = "quote_changed";
+                  else if (key === "code") type = "code_changed";
+                  else if (key === "is_marked") type = "is_marked_changed";
+                  else continue;
+                  const similarity =
+                    type === "quote_changed" || type === "code_changed"
+                      ? await getSimilarity(change.old, change.new)
+                      : undefined;
+                  const result = targetResults.get(u.id);
+                  changes.push({
+                    type,
+                    resultId: u.id,
+                    oldValue: change.old,
+                    newValue: change.new,
+                    similarity,
+                    code: result?.code || "",
+                    quote: result?.quote || "",
+                    post_id: result?.post_id || "",
+                    origin: result?.origin || "",
+                  });
+                }
+                return changes;
+              })
             )
           ).flat(),
-          deleted: diff.deleted.map((r: any) => {
-            const result = prevResults.get(r.id);
+          deleted: filteredDeleted.map((r: any) => {
+            const result = targetResults.get(r.id);
             return { ...result, origin: result?.origin || "" };
           }),
         };
@@ -647,24 +715,11 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
       getSimilarity
     );
 
-    const samplePostsQuery = await executeQuery(
-      `SELECT state FROM state_dumps 
-     WHERE json_extract(context, '$.function') = 'sample_posts'
-     AND json_extract(context, '$.workspace_id') = ?`,
-      [selectedWorkspaceId]
-    );
-    const samplePostsState = samplePostsQuery[0]
-      ? JSON.parse(samplePostsQuery[0].state)
-      : { groups: { sampled: [], unseen: [] } };
-    const sampledPostIds: string[] = samplePostsState.groups?.sampled || [];
-    const unseenPostIds: string[] = samplePostsState.groups?.unseen || [];
-    const allPostIds = [...new Set([...sampledPostIds, ...unseenPostIds])];
-
     const postGroups: Record<
       string,
       { llm: ExtendedCodingResult[]; human: ExtendedCodingResult[] }
     > = {};
-    allPostIds.forEach((postId) => {
+    selectedPostIds.forEach((postId) => {
       postGroups[postId] = {
         llm: Array.from(initialResults.values()).filter(
           (r) => r.post_id === postId
@@ -675,12 +730,12 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
       };
     });
 
-    const allPosts = await batchFetchPostsAndComments(allPostIds);
+    const allPosts = await batchFetchPostsAndComments(selectedPostIds);
     const postMap: Record<string, any> = {};
     allPosts.forEach((post) => (postMap[post.id] = post));
 
     const llmMappings = await Promise.all(
-      allPostIds.map((postId) =>
+      selectedPostIds.map((postId) =>
         postMap[postId]
           ? mappingPoolRef.current!.runTask<CodeToQuoteIdsResult>(
               {
@@ -704,7 +759,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
     );
 
     const humanMappings = await Promise.all(
-      allPostIds.map((postId) =>
+      selectedPostIds.map((postId) =>
         postMap[postId]
           ? mappingPoolRef.current!.runTask<CodeToQuoteIdsResult>(
               {
@@ -731,7 +786,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
     const humanQuoteToCodes: Record<string, Record<string, Set<string>>> = {};
     const allQuoteIds: Record<string, string[]> = {};
 
-    allPostIds.forEach((postId, idx) => {
+    selectedPostIds.forEach((postId, idx) => {
       const llmMapping = llmMappings[idx];
       const humanMapping = humanMappings[idx];
 
@@ -783,7 +838,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
         b = 0,
         c = 0,
         d = 0;
-      allPostIds.forEach((postId) => {
+      selectedPostIds.forEach((postId) => {
         if (allQuoteIds[postId]) {
           allQuoteIds[postId].forEach((quoteId) => {
             const llmApplied =
@@ -830,7 +885,6 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
     const pHumanYes = totalN > 0 ? (sumA + sumB) / totalN : 0;
     const pe = pLLMYes * pHumanYes + (1 - pLLMYes) * (1 - pHumanYes);
     const cohenKappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
-    console.log(`Overall Cohen's Kappa: ${cohenKappa}`);
 
     const percentageAgreement = p0;
 
@@ -849,7 +903,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
     const humanNotInLlmCorrect = changes.inserted.length;
     const matchingQuotes = sumA;
 
-    const alphaData = allPostIds
+    const alphaData = selectedPostIds
       .flatMap((postId) =>
         allQuoteIds[postId].map((quoteId) => [
           {
@@ -887,13 +941,13 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
       matchingQuotes,
       percentageAgreement,
     };
-  }
+  };
 
   useEffect(() => {
-    if (sequences.length > 0) {
+    if (sequences.length > 0 && selectedPostIds.length > 0) {
       setSequenceStates(sequences.map(() => ({ diff: null, isLoading: true })));
       sequences.forEach((sequence, index) => {
-        computeSequenceDiff(sequence, index)
+        computeSequenceDiff(sequence, index, selectedPostIds)
           .then((diff) =>
             setSequenceStates((prev) => {
               const newStates = [...prev];
@@ -920,11 +974,70 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
     } else {
       setSequenceStates([]);
     }
-  }, [sequences]);
+  }, [sequences, selectedPostIds]);
 
   const toggleStep = (step: number) => {
     setOpenSteps((prev) => ({ ...prev, [step]: !prev[step] }));
   };
+
+  if (selectedPostIds.length === 0) {
+    return (
+      <div className="p-4 max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4 text-gray-800">
+          Select Posts for Calculation
+        </h1>
+        {availablePosts.length > 0 ? (
+          <div>
+            <div className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                checked={tempSelectedPostIds.length === availablePosts.length}
+                onChange={() => {
+                  if (tempSelectedPostIds.length === availablePosts.length) {
+                    setTempSelectedPostIds([]);
+                  } else {
+                    setTempSelectedPostIds(
+                      availablePosts.map((post) => post.id)
+                    );
+                  }
+                }}
+                className="mr-2"
+              />
+              <span>Select all</span>
+            </div>
+            {availablePosts.map((post) => (
+              <div key={post.id} className="flex items-center mb-2">
+                <input
+                  type="checkbox"
+                  checked={tempSelectedPostIds.includes(post.id)}
+                  onChange={() => {
+                    setTempSelectedPostIds((prev) =>
+                      prev.includes(post.id)
+                        ? prev.filter((id) => id !== post.id)
+                        : [...prev, post.id]
+                    );
+                  }}
+                  className="mr-2"
+                />
+                <span>
+                  {post.title} (ID: {post.id})
+                </span>
+              </div>
+            ))}
+            <button
+              onClick={() => setSelectedPostIds(tempSelectedPostIds)}
+              disabled={tempSelectedPostIds.length === 0}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
+            >
+              Compute with selected posts
+            </button>
+          </div>
+        ) : (
+          <p className="text-gray-600">No posts available for selection.</p>
+        )}
+      </div>
+    );
+  }
 
   if (isLoading)
     return <p className="p-4 text-gray-600">Loading sequences...</p>;
@@ -936,6 +1049,17 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
       <h1 className="text-2xl font-bold mb-4 text-gray-800">
         Global Coding Results
       </h1>
+      <div className="mb-4">
+        <button
+          onClick={() => {
+            setSelectedPostIds([]);
+            setTempSelectedPostIds([]);
+          }}
+          className="px-4 py-2 bg-gray-500 text-white rounded"
+        >
+          Select different posts
+        </button>
+      </div>
       {sequenceStates.length === 0 ? (
         <p className="text-gray-600">No sequences found.</p>
       ) : (
@@ -1047,6 +1171,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                     <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
                       <thead>
                         <tr className="bg-gray-100">
+                          <th className="p-2 border">Post ID</th>
                           <th className="p-2 border">Origin</th>
                           <th className="p-2 border">ID</th>
                           <th className="p-2 border">Quote</th>
@@ -1056,6 +1181,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                       <tbody>
                         {seqDiff.changes.inserted.map(({ result, origin }) => (
                           <tr key={result.id}>
+                            <td className="p-2 border">{result.post_id}</td>
                             <td className="p-2 border">{origin}</td>
                             <td className="p-2 border">{result.id}</td>
                             <td className="p-2 border">{result.quote}</td>
@@ -1082,6 +1208,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                         <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
                           <thead>
                             <tr className="bg-gray-100">
+                              <th className="p-2 border">Post ID</th>
                               <th className="p-2 border">Origin</th>
                               <th className="p-2 border">Result ID</th>
                               <th className="p-2 border">Code</th>
@@ -1111,6 +1238,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                           <tbody>
                             {changes.map((change, index) => (
                               <tr key={index} className="hover:bg-gray-50">
+                                <td className="p-2 border">{change.post_id}</td>
                                 <td className="p-2 border">{change.origin}</td>
                                 <td className="p-2 border">
                                   {change.resultId}
@@ -1170,6 +1298,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                     <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
                       <thead>
                         <tr className="bg-gray-100">
+                          <th className="p-2 border">Post ID</th>
                           <th className="p-2 border">Origin</th>
                           <th className="p-2 border">ID</th>
                           <th className="p-2 border">Quote</th>
@@ -1179,6 +1308,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                       <tbody>
                         {seqDiff.changes.deleted.map((result) => (
                           <tr key={result.id}>
+                            <td className="p-2 border">{result.post_id}</td>
                             <td className="p-2 border">{result.origin}</td>
                             <td className="p-2 border">{result.id}</td>
                             <td className="p-2 border">{result.quote}</td>
@@ -1213,6 +1343,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                             <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
                               <thead>
                                 <tr className="bg-gray-100">
+                                  <th className="p-2 border">Post ID</th>
                                   <th className="p-2 border">Origin</th>
                                   <th className="p-2 border">ID</th>
                                   <th className="p-2 border">Quote</th>
@@ -1223,6 +1354,9 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                                 {step.changes.inserted.map(
                                   ({ result, origin }) => (
                                     <tr key={result.id}>
+                                      <td className="p-2 border">
+                                        {result.post_id}
+                                      </td>
                                       <td className="p-2 border">{origin}</td>
                                       <td className="p-2 border">
                                         {result.id}
@@ -1264,6 +1398,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                                 <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
                                   <thead>
                                     <tr className="bg-gray-100">
+                                      <th className="p-2 border">Post ID</th>
                                       <th className="p-2 border">Origin</th>
                                       <th className="p-2 border">Result ID</th>
                                       <th className="p-2 border">Code</th>
@@ -1312,6 +1447,9 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                                         key={index}
                                         className="hover:bg-gray-50"
                                       >
+                                        <td className="p-2 border">
+                                          {change.post_id}
+                                        </td>
                                         <td className="p-2 border">
                                           {change.origin}
                                         </td>
@@ -1381,6 +1519,7 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                             <table className="table-auto w-full border-collapse border border-gray-300 mb-2">
                               <thead>
                                 <tr className="bg-gray-100">
+                                  <th className="p-2 border">Post ID</th>
                                   <th className="p-2 border">Origin</th>
                                   <th className="p-2 border">ID</th>
                                   <th className="p-2 border">Quote</th>
@@ -1390,6 +1529,9 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
                               <tbody>
                                 {step.changes.deleted.map((result) => (
                                   <tr key={result.id}>
+                                    <td className="p-2 border">
+                                      {result.post_id}
+                                    </td>
                                     <td className="p-2 border">
                                       {result.origin}
                                     </td>

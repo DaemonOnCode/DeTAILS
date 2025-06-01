@@ -85,33 +85,36 @@ const groupEntriesIntoSequences = (entries: DatabaseRow[]): DatabaseRow[][] => {
 
 const extractResults = (
   state: any,
-  stateType: "generation" | "dispatch"
+  stateType: "generation" | "dispatch",
+  selectedPostIds: string[]
 ): Map<string, CodingResult> => {
   const results = new Map<string, CodingResult>();
   const resultsArray =
     stateType === "generation" ? state.results : state.current_state;
   resultsArray.forEach((result: any) => {
-    results.set(result.id, {
-      id: result.id,
-      model: result.model,
-      quote: result.quote,
-      code: result.code,
-      explanation: result.explanation,
-      post_id: result.post_id,
-      chat_history: result.chat_history
-        ? JSON.parse(result.chat_history)
-        : null,
-      is_marked:
-        stateType === "generation"
-          ? true
-          : result.is_marked !== null
-          ? Boolean(result.is_marked)
+    if (selectedPostIds.includes(result.post_id)) {
+      results.set(result.id, {
+        id: result.id,
+        model: result.model,
+        quote: result.quote,
+        code: result.code,
+        explanation: result.explanation,
+        post_id: result.post_id,
+        chat_history: result.chat_history
+          ? JSON.parse(result.chat_history)
           : null,
-      range_marker: result.range_marker
-        ? JSON.parse(result.range_marker)
-        : null,
-      response_type: result.response_type,
-    });
+        is_marked:
+          stateType === "generation"
+            ? true
+            : result.is_marked !== null
+            ? Boolean(result.is_marked)
+            : null,
+        range_marker: result.range_marker
+          ? JSON.parse(result.range_marker)
+          : null,
+        response_type: result.response_type,
+      });
+    }
   });
   return results;
 };
@@ -362,6 +365,11 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
   const [sequenceStates, setSequenceStates] = useState<SequenceState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [openSteps, setOpenSteps] = useState<{ [key: number]: boolean }>({});
+  const [availablePosts, setAvailablePosts] = useState<
+    { id: string; title: string }[]
+  >([]);
+  const [tempSelectedPostIds, setTempSelectedPostIds] = useState<string[]>([]);
+  const [selectedPostIds, setSelectedPostIds] = useState<string[]>([]);
   const similarityCache = useRef(new Map<string, number>());
 
   const getSimilarity = async (
@@ -438,15 +446,56 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     if (isDatabaseLoaded) fetchEntries();
   }, [isDatabaseLoaded, executeQuery, selectedWorkspaceId]);
 
+  useEffect(() => {
+    const fetchAvailablePosts = async () => {
+      try {
+        const sampledPostIdsQuery = await executeQuery(
+          `SELECT state FROM state_dumps 
+           WHERE json_extract(context, '$.function') = 'sample_posts'
+           AND json_extract(context, '$.workspace_id') = ?
+           ORDER BY created_at DESC LIMIT 1`,
+          [selectedWorkspaceId]
+        );
+        const sampledPostIds: string[] = [
+          ...new Set(
+            sampledPostIdsQuery.flatMap(
+              (row: any) => JSON.parse(row.state).groups?.sampled || []
+            )
+          ),
+        ] as string[];
+        if (sampledPostIds.length === 0) {
+          setAvailablePosts([]);
+          return;
+        }
+        const postsQuery = await executeQuery(
+          `SELECT id, title FROM posts WHERE id IN (${sampledPostIds
+            .map(() => "?")
+            .join(",")})`,
+          sampledPostIds
+        );
+        setAvailablePosts(postsQuery);
+      } catch (error) {
+        console.error("Error fetching available posts:", error);
+        setAvailablePosts([]);
+      }
+    };
+    if (isDatabaseLoaded) fetchAvailablePosts();
+  }, [isDatabaseLoaded, executeQuery, selectedWorkspaceId]);
+
   const computeSequenceDiff = async (
     sequence: DatabaseRow[],
-    seqIndex: number
+    seqIndex: number,
+    selectedPostIds: string[]
   ): Promise<SequenceDiff> => {
     const initialEntry = sequence[0];
     const initialContext = safeParseContext(initialEntry.context);
     const isRegeneration = initialContext.run === "regenerate";
     const initialState = JSON.parse(initialEntry.state);
-    const initialResults = extractResults(initialState, "generation");
+    const initialResults = extractResults(
+      initialState,
+      "generation",
+      selectedPostIds
+    );
 
     let currentResults = cloneResults(initialResults);
     const stepwiseChanges: { step: number; changes: CRUDChanges }[] = [];
@@ -455,10 +504,20 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       const currState = JSON.parse(sequence[i].state);
       const diff = currState.diff;
       if (diff) {
+        const filteredInserted = diff.inserted.filter((item: CodingResult) =>
+          selectedPostIds.includes(item.post_id)
+        );
+        const filteredUpdated = diff.updated.filter((update: any) =>
+          currentResults.has(update.id)
+        );
+        const filteredDeleted = diff.deleted.filter((item: CodingResult) =>
+          currentResults.has(item.id)
+        );
+
         const updatedChanges = await Promise.all(
-          diff.updated.map(async (u: any) => {
+          filteredUpdated.map(async (u: any) => {
             const changes: FieldChange[] = [];
-            for (const [key, change] of Object.entries(u.changes as any[])) {
+            for (const [key, change] of Object.entries(u.changes) as any) {
               let type: FieldChange["type"];
               if (key === "quote") type = "quote_changed";
               else if (key === "code") type = "code_changed";
@@ -483,11 +542,13 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
             return changes;
           })
         );
+
         const stepChanges: CRUDChanges = {
-          inserted: diff.inserted || [],
+          inserted: filteredInserted,
           updated: updatedChanges.flat(),
-          deleted: diff.deleted || [],
+          deleted: filteredDeleted,
         };
+
         if (
           stepChanges.inserted.length > 0 ||
           stepChanges.updated.length > 0 ||
@@ -495,7 +556,13 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
         ) {
           stepwiseChanges.push({ step: i, changes: stepChanges });
         }
-        currentResults = applyDiff(currentResults, diff);
+
+        const filteredDiff = {
+          inserted: filteredInserted,
+          updated: filteredUpdated,
+          deleted: filteredDeleted,
+        };
+        currentResults = applyDiff(currentResults, filteredDiff);
       }
     }
 
@@ -516,27 +583,11 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       getSimilarity
     );
 
-    const sampledPostIdsQuery = await executeQuery(
-      `SELECT state FROM state_dumps 
-       WHERE json_extract(context, '$.function') = 'sample_posts'
-       AND json_extract(context, '$.workspace_id') = ?`,
-      [selectedWorkspaceId]
-    );
-    const sampledPostIds: string[] = [
-      ...new Set(
-        sampledPostIdsQuery.flatMap(
-          (row: any) => JSON.parse(row.state).groups?.sampled || []
-        )
-      ),
-    ] as string[];
-    if (sampledPostIds.length === 0)
-      throw new Error("No sampled post IDs found.");
-
     const postGroups: Record<
       string,
       { llm: CodingResult[]; human: CodingResult[] }
     > = {};
-    sampledPostIds.forEach((postId) => {
+    selectedPostIds.forEach((postId) => {
       postGroups[postId] = {
         llm: Array.from(initialResults.values()).filter(
           (r) => r.post_id === postId && r.is_marked === true
@@ -547,12 +598,12 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       };
     });
 
-    const allPosts = await batchFetchPostsAndComments(sampledPostIds);
+    const allPosts = await batchFetchPostsAndComments(selectedPostIds);
     const postMap: Record<string, any> = {};
     allPosts.forEach((post) => (postMap[post.id] = post));
 
     const llmMappings = await Promise.all(
-      sampledPostIds.map((postId) =>
+      selectedPostIds.map((postId) =>
         mappingPoolRef.current!.runTask<CodeToQuoteIdsResult>(
           {
             type: "getCodeToQuoteIds",
@@ -574,7 +625,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     );
 
     const humanMappings = await Promise.all(
-      sampledPostIds.map((postId) =>
+      selectedPostIds.map((postId) =>
         mappingPoolRef.current!.runTask<CodeToQuoteIdsResult>(
           {
             type: "getCodeToQuoteIds",
@@ -599,45 +650,58 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     const humanQuoteToCodes: Record<string, Record<string, Set<string>>> = {};
     const allQuoteIds: Record<string, string[]> = {};
 
-    sampledPostIds.forEach((postId, idx) => {
+    selectedPostIds.forEach((postId, idx) => {
       const llmMapping = llmMappings[idx];
       const humanMapping = humanMappings[idx];
       allQuoteIds[postId] = [...new Set(llmMapping.allQuoteIds)];
 
       llmQuoteToCodes[postId] = {};
-      for (const [codeId, quoteIds] of Object.entries(
-        llmMapping.codeToQuoteIds
-      )) {
-        const code = postGroups[postId].llm.find((r) => r.id === codeId)?.code;
-        if (code) {
-          quoteIds.forEach((quoteId) => {
-            if (!llmQuoteToCodes[postId][quoteId])
-              llmQuoteToCodes[postId][quoteId] = new Set();
-            llmQuoteToCodes[postId][quoteId].add(code);
-          });
+      humanQuoteToCodes[postId] = {};
+      allQuoteIds[postId].forEach((quoteId) => {
+        llmQuoteToCodes[postId][quoteId] = new Set();
+        humanQuoteToCodes[postId][quoteId] = new Set();
+      });
+
+      if (postGroups[postId].llm.length > 0) {
+        for (const [codeId, quoteIds] of Object.entries(
+          llmMapping.codeToQuoteIds
+        )) {
+          const code = postGroups[postId].llm.find(
+            (r) => r.id === codeId
+          )?.code;
+          if (code) {
+            quoteIds.forEach((quoteId) => {
+              llmQuoteToCodes[postId][quoteId].add(code);
+            });
+          }
         }
       }
 
-      humanQuoteToCodes[postId] = {};
-      for (const [codeId, quoteIds] of Object.entries(
-        humanMapping.codeToQuoteIds
-      )) {
-        const code = postGroups[postId].human.find(
-          (r) => r.id === codeId
-        )?.code;
-        if (code) {
-          quoteIds.forEach((quoteId) => {
-            if (!humanQuoteToCodes[postId][quoteId])
-              humanQuoteToCodes[postId][quoteId] = new Set();
-            humanQuoteToCodes[postId][quoteId].add(code);
-          });
+      if (postGroups[postId].human.length > 0) {
+        for (const [codeId, quoteIds] of Object.entries(
+          humanMapping.codeToQuoteIds
+        )) {
+          const code = postGroups[postId].human.find(
+            (r) => r.id === codeId
+          )?.code;
+          if (code) {
+            quoteIds.forEach((quoteId) => {
+              humanQuoteToCodes[postId][quoteId].add(code);
+            });
+          }
         }
       }
     });
 
     const allCodes = new Set<string>();
-    initialResults.forEach((r) => allCodes.add(r.code));
-    finalResults.forEach((r) => allCodes.add(r.code));
+    selectedPostIds.forEach((postId) => {
+      Object.values(llmQuoteToCodes[postId]).forEach((set) =>
+        set.forEach((code) => allCodes.add(code))
+      );
+      Object.values(humanQuoteToCodes[postId]).forEach((set) =>
+        set.forEach((code) => allCodes.add(code))
+      );
+    });
 
     const codeKappas: { code: string; kappa: number }[] = [];
     let sumA = 0,
@@ -650,12 +714,10 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
         b = 0,
         c = 0,
         d = 0;
-      sampledPostIds.forEach((postId) => {
+      selectedPostIds.forEach((postId) => {
         allQuoteIds[postId].forEach((quoteId) => {
-          const llmApplied =
-            llmQuoteToCodes[postId][quoteId]?.has(code) || false;
-          const humanApplied =
-            humanQuoteToCodes[postId][quoteId]?.has(code) || false;
+          const llmApplied = llmQuoteToCodes[postId][quoteId].has(code);
+          const humanApplied = humanQuoteToCodes[postId][quoteId].has(code);
           if (llmApplied && humanApplied) a++;
           else if (humanApplied) b++;
           else if (llmApplied) c++;
@@ -697,18 +759,18 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     const cohenKappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
     console.log(`Overall Cohen's Kappa: ${cohenKappa}`);
 
-    const alphaData = sampledPostIds
+    const alphaData = selectedPostIds
       .flatMap((postId) =>
         allQuoteIds[postId].map((quoteId) => [
           {
             coder: "llm",
             item: quoteId,
-            labels: llmQuoteToCodes[postId][quoteId] || new Set(),
+            labels: llmQuoteToCodes[postId][quoteId],
           },
           {
             coder: "human",
             item: quoteId,
-            labels: humanQuoteToCodes[postId][quoteId] || new Set(),
+            labels: humanQuoteToCodes[postId][quoteId],
           },
         ])
       )
@@ -753,10 +815,10 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
   };
 
   useEffect(() => {
-    if (sequences.length > 0) {
+    if (sequences.length > 0 && selectedPostIds.length > 0) {
       setSequenceStates(sequences.map(() => ({ diff: null, isLoading: true })));
       sequences.forEach((sequence, index) => {
-        computeSequenceDiff(sequence, index)
+        computeSequenceDiff(sequence, index, selectedPostIds)
           .then((diff) =>
             setSequenceStates((prev) => {
               const newStates = [...prev];
@@ -781,7 +843,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
           });
       });
     }
-  }, [sequences]);
+  }, [sequences, selectedPostIds]);
 
   const toggleStep = (step: number) => {
     setOpenSteps((prev) => ({ ...prev, [step]: !prev[step] }));
@@ -797,6 +859,65 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
   if (!isDatabaseLoaded)
     return <p className="p-4 text-gray-600">Please select a database first.</p>;
 
+  if (selectedPostIds.length === 0) {
+    return (
+      <div className="p-4 max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4 text-gray-800">
+          Select Posts for Calculation
+        </h1>
+        {availablePosts.length > 0 ? (
+          <div>
+            <div className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                checked={tempSelectedPostIds.length === availablePosts.length}
+                onChange={() => {
+                  if (tempSelectedPostIds.length === availablePosts.length) {
+                    setTempSelectedPostIds([]);
+                  } else {
+                    setTempSelectedPostIds(
+                      availablePosts.map((post) => post.id)
+                    );
+                  }
+                }}
+                className="mr-2"
+              />
+              <span>Select all</span>
+            </div>
+            {availablePosts.map((post) => (
+              <div key={post.id} className="flex items-center mb-2">
+                <input
+                  type="checkbox"
+                  checked={tempSelectedPostIds.includes(post.id)}
+                  onChange={() => {
+                    setTempSelectedPostIds((prev) =>
+                      prev.includes(post.id)
+                        ? prev.filter((id) => id !== post.id)
+                        : [...prev, post.id]
+                    );
+                  }}
+                  className="mr-2"
+                />
+                <span>
+                  {post.title} (ID: {post.id})
+                </span>
+              </div>
+            ))}
+            <button
+              onClick={() => setSelectedPostIds(tempSelectedPostIds)}
+              disabled={tempSelectedPostIds.length === 0}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
+            >
+              Compute with selected posts
+            </button>
+          </div>
+        ) : (
+          <p className="text-gray-600">No posts available for selection.</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold mb-4 text-gray-800">
@@ -805,6 +926,17 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       <p className="mb-4 text-gray-600">
         Total number of regenerations: {totalRegenerations}
       </p>
+      <div className="mb-4">
+        <button
+          onClick={() => {
+            setSelectedPostIds([]);
+            setTempSelectedPostIds([]);
+          }}
+          className="px-4 py-2 bg-gray-500 text-white rounded"
+        >
+          Select different posts
+        </button>
+      </div>
       {sequenceStates.length === 0 ? (
         <p className="text-gray-600">No sequences found.</p>
       ) : (
