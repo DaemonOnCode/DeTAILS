@@ -7,7 +7,8 @@ import {
     FiChevronRight,
     FiEdit,
     FiTrash2,
-    FiGitMerge
+    FiGitMerge,
+    FiInfo
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { REMOTE_SERVER_ROUTES, ROUTES as SHARED_ROUTES } from '../../constants/Shared';
@@ -43,6 +44,7 @@ const WorkspaceSelectionPage: React.FC = () => {
 
     const [newWorkspaceName, setNewWorkspaceName] = useState<string>('');
     const [renameWorkspaceName, setRenameWorkspaceName] = useState<string>('');
+    const [showInfoModal, setShowInfoModal] = useState(false);
 
     useEffect(() => {
         setCurrentWorkspace(null);
@@ -279,20 +281,35 @@ const WorkspaceSelectionPage: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
                 <h1 className="text-2xl font-bold">Workspace Management</h1>
             </div>
-            <div className="flex items-center gap-2 my-4">
-                <input
-                    type="text"
-                    placeholder="New Workspace Name"
-                    value={newWorkspaceName}
-                    onChange={(e) => setNewWorkspaceName(e.target.value)}
-                    className="px-3 py-2 border rounded-md text-gray-700 w-full max-w-lg min-w-36"
-                />
-                <button
-                    onClick={handleAddWorkspace}
-                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center gap-2">
-                    <FiFolderPlus />
-                    Add
-                </button>
+            <div className="flex justify-between">
+                <div className="flex items-center gap-2 my-4">
+                    <input
+                        type="text"
+                        placeholder="New Workspace Name"
+                        value={newWorkspaceName}
+                        onChange={(e) => setNewWorkspaceName(e.target.value)}
+                        className="px-3 py-2 border rounded-md text-gray-700 min-w-36 w-96"
+                    />
+                    <button
+                        onClick={handleAddWorkspace}
+                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center gap-2">
+                        <FiFolderPlus />
+                        Add
+                    </button>
+                </div>
+                <div
+                    className="flex gap-x-2 items-center cursor-pointer"
+                    onClick={() => setShowInfoModal(true)}>
+                    <FiEdit className="text-blue-500" />
+                    <FiGitMerge className="text-[#6e5494]" />
+                    <FiTrash2 className="text-red-500" />
+                    <button
+                        // onClick={() => setShowInfoModal(true)}
+                        className="text-gray-500 hover:text-gray-700"
+                        title="Information about icons">
+                        <FiInfo size={20} />
+                    </button>
+                </div>
             </div>
             <div className="shadow-[0_0_5px_rgba(0,0,0,0.25)] rounded-lg my-4 flex flex-col flex-1 overflow-hidden">
                 <div className="p-4 border-b">
@@ -379,21 +396,16 @@ const WorkspaceSelectionPage: React.FC = () => {
                                         <textarea
                                             value={newDescription}
                                             onChange={(e) => {
-                                                // e.stopPropagation();
                                                 setNewDescription(e.target.value);
                                             }}
-                                            onBlur={(e) => {
-                                                // e.stopPropagation();
-                                                handleUpdateDescription(workspace.id);
-                                            }}
+                                            onBlur={() => handleUpdateDescription(workspace.id)}
                                             className="w-full px-2 py-1 border rounded-md text-gray-700 resize-none"
                                             autoFocus
                                         />
                                     ) : (
                                         <p
                                             className="text-sm text-gray-600 cursor-pointer hover:underline"
-                                            onClick={(e) => {
-                                                // e.stopPropagation();
+                                            onClick={() => {
                                                 setEditingDescription(workspace.id);
                                                 setNewDescription(workspace.description || '');
                                             }}>
@@ -407,6 +419,38 @@ const WorkspaceSelectionPage: React.FC = () => {
                     ))}
                 </div>
             </div>
+            {showInfoModal && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+                    onClick={() => setShowInfoModal(false)}>
+                    <div
+                        className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full"
+                        onClick={(e) => e.stopPropagation()}>
+                        <h2 className="text-xl font-bold mb-4">Icon Explanations</h2>
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <FiEdit className="text-blue-500" />
+                                <span>Edit: Click to rename the workspace.</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <FiGitMerge className="text-[#6e5494]" />
+                                <span>
+                                    Restore: Click to restore the workspace to the last saved state.
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <FiTrash2 className="text-red-500" />
+                                <span>Delete: Click to delete the workspace.</span>
+                            </div>
+                        </div>
+                        <button
+                            className="mt-6 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md"
+                            onClick={() => setShowInfoModal(false)}>
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

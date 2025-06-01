@@ -176,7 +176,7 @@ const ReportPage: React.FC = () => {
                     <button
                         className="min-w-32 px-4 py-2 bg-blue-500 text-white rounded"
                         onClick={handleDownloadData}>
-                        Download Data
+                        Download Report (CSV)
                     </button>
 
                     <div className="flex text-center justify-center items-center p-2 lg:p-4 gap-x-2">
