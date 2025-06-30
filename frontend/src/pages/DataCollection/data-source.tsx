@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useCollectionContext } from '../../context/collection-context';
 import { useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom';
 import LoadInterview from '../../components/DataCollection/load-interviews';
@@ -94,6 +94,29 @@ const UploadDataPage = () => {
 
     const stepRoute = location.pathname;
 
+    const isReady = useMemo(() => {
+        if (!modeInput) return false;
+
+        if (type === 'reddit') {
+            const noUploadError = !modeInput.includes('upload') || !modeInput.includes('undefined');
+
+            const torrentOk =
+                !modeInput.includes('torrent') ||
+                (modeInput.includes('files') &&
+                    (modeInput.split('|files|')[1] ?? '').split(',').filter((f) => f.trim() !== '')
+                        .length > 0);
+
+            return noUploadError && torrentOk;
+        }
+
+        if (type === 'interview') {
+            const [, phase] = modeInput.split('|');
+            return phase === 'prepared' || phase === 'anonymized';
+        }
+
+        return false;
+    }, [modeInput, type]);
+
     if (loadingState[stepRoute]?.isFirstRun) {
         return (
             <p className="h-page w-full flex justify-center items-center">
@@ -128,7 +151,7 @@ const UploadDataPage = () => {
                         {datasetType === 'reddit' ? (
                             <LoadReddit processRef={processDataRef} />
                         ) : datasetType === 'interview' ? (
-                            <LoadInterview />
+                            <LoadInterview processRef={processDataRef} />
                         ) : (
                             <div className="flex flex-col items-center justify-center h-maxPageContent">
                                 <p>Choose what type of data to retrieve from Data selection page</p>
@@ -142,16 +165,7 @@ const UploadDataPage = () => {
                         <NavigationBottomBar
                             previousPage={PAGE_ROUTES.DATA_TYPE}
                             nextPage={`${PAGE_ROUTES.DATASET_CREATION}`}
-                            isReady={
-                                !!modeInput &&
-                                (!modeInput.includes('upload') ||
-                                    !modeInput.includes('undefined')) &&
-                                (!modeInput.includes('torrent') ||
-                                    (modeInput.includes('files') &&
-                                        (modeInput.split('|files|')[1] ?? '')
-                                            .split(',')
-                                            .filter((file) => file.trim() !== '').length > 0))
-                            }
+                            isReady={isReady}
                             onNextClick={handleButtonClick}
                         />
                     </footer>

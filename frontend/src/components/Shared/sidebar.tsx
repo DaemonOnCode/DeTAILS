@@ -8,6 +8,7 @@ import { ROUTES as CODING_ROUTES } from '../../constants/Coding/shared';
 import { useWorkspaceContext } from '../../context/workspace-context';
 import { DetailsIcon } from './Icons';
 import { IoMdArrowDropleft } from 'react-icons/io';
+import { useCodingContext } from '../../context/coding-context';
 
 // Format route names for display
 const formatRouteName = (path: string, workspaceName: string = 'Temporary') => {
@@ -45,6 +46,7 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const { currentWorkspace } = useWorkspaceContext();
+    const { contextFiles } = useCodingContext();
     const [userDropdownVisible, setUserDropdownVisible] = useState<boolean>(false);
 
     const IGNORED_KEYWORDS = [
@@ -152,6 +154,10 @@ const Sidebar: FC<SidebarProps> = ({ routes, isCollapsed, onToggleCollapse }) =>
         }
 
         return location.pathname === fullPath;
+    }
+
+    if (Object.keys(contextFiles).length === 0) {
+        IGNORED_KEYWORDS.push(CODING_ROUTES.CONCEPT_OUTLINE, CODING_ROUTES.RELATED_CONCEPTS);
     }
 
     // Render the routes recursively

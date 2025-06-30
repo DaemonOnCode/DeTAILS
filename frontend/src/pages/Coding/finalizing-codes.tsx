@@ -23,10 +23,13 @@ import useScrollRestoration from '../../hooks/Shared/use-scroll-restoration';
 import { usePaginatedResponses } from '../../hooks/Coding/use-paginated-responses';
 import { useNextHandler, useRetryHandler } from '../../hooks/Coding/use-handler-factory';
 import RedditViewModal from '../../components/Shared/reddit-view-modal';
+import InterviewViewModal from '../../components/Shared/interview-modal';
+import { useCollectionContext } from '../../context/collection-context';
 
 const FinalzingCodes = () => {
     const location = useLocation();
     const { groupedCodes, dispatchGroupedCodes } = useCodingContext();
+    const { type } = useCollectionContext();
     const { loadingState, openModal, checkIfDataExists, resetDataAfterPage, loadingDispatch } =
         useLoadingContext();
     const { performWithUndoForReducer } = useUndo();
@@ -345,7 +348,7 @@ const FinalzingCodes = () => {
                                 loadPreviousPage={loadPreviousPage}
                                 isLoadingPage={isLoadingPage}
                             />
-                            {modal.id && (
+                            {modal.id && type === 'reddit' ? (
                                 <RedditViewModal
                                     isViewOpen
                                     postLink={modal.link}
@@ -353,6 +356,14 @@ const FinalzingCodes = () => {
                                     postId={modal.id}
                                     closeModal={() => setModal({ id: '', link: '', sentence: '' })}
                                 />
+                            ) : modal.id && type === 'interview' ? (
+                                <InterviewViewModal
+                                    fileId={modal.id}
+                                    isOpen
+                                    closeModal={() => setModal({ id: '', link: '', sentence: '' })}
+                                />
+                            ) : (
+                                <></>
                             )}
                         </div>
                     ) : (

@@ -44,6 +44,8 @@ const TranscriptPage = () => {
         dispatchSampledCopyPostResponse,
         dispatchAllPostResponse
     } = useCodingContext();
+    const { modeInput } = useCollectionContext();
+    const isInterview = modeInput?.startsWith('interview') || false;
     const { currentWorkspace } = useWorkspaceContext();
 
     const allClearedToLeaveRef = useRef<{ check: boolean } | null>(null);
@@ -1067,9 +1069,11 @@ const TranscriptPage = () => {
                                         <TranscriptContextProvider
                                             postId={id ?? ''}
                                             review={state === 'review'}
-                                            codeResponses={codeResponses ?? []}>
+                                            codeResponses={codeResponses ?? []}
+                                            isInterview={isInterview}>
                                             <PostTranscript
                                                 post={post}
+                                                dataType={isInterview ? 'interview' : 'reddit'}
                                                 codebookCodes={codebookCodes}
                                                 clearedToLeaveRef={allClearedToLeaveRef}
                                                 onBack={() =>
@@ -1130,9 +1134,11 @@ const TranscriptPage = () => {
                                 <TranscriptContextProvider
                                     postId={id ?? ''}
                                     review={state === 'review'}
-                                    codeResponses={codeResponses ?? []}>
+                                    codeResponses={codeResponses ?? []}
+                                    isInterview={isInterview}>
                                     <PostTranscript
                                         post={post}
+                                        dataType={isInterview ? 'interview' : 'reddit'}
                                         codebookCodes={codebookCodes}
                                         clearedToLeaveRef={allClearedToLeaveRef}
                                         _selectionRef={bottomSelectionRef}

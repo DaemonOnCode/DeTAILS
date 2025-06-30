@@ -30,6 +30,9 @@ const useDocxImage = (docxUrl: string, scale: number = 1): UseDocxImageResult =>
                 }
 
                 const container = document.createElement('div');
+                container.style.position = 'absolute';
+                container.style.left = '-10000px';
+                container.style.top = '-10000px';
                 container.style.width = `${600 * scale}px`;
                 container.style.height = `${800 * scale}px`;
                 container.style.overflow = 'hidden';

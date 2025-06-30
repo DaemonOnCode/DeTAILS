@@ -1,6 +1,5 @@
 import { ChangeEvent, FC } from 'react';
 
-// Reusable Card Component
 interface CardProps {
     title: string;
     description: string;

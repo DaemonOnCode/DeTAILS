@@ -127,7 +127,8 @@ export const TranscriptContextProvider: FC<{
     review: boolean;
     codeResponses: (IQECResponse | IQECTResponse | IQECTTyResponse)[];
     splitCheck?: boolean;
-}> = ({ children, review, codeResponses, postId, splitCheck = false }) => {
+    isInterview?: boolean;
+}> = ({ children, review, codeResponses, postId, splitCheck = false, isInterview = false }) => {
     console.log('Running provider', review);
 
     const worker = useMemo(() => {
@@ -407,7 +408,12 @@ export const TranscriptContextProvider: FC<{
                 worker.addEventListener('message', handleMessage);
                 worker.postMessage({
                     type: 'processTranscript',
-                    data: { post, codes, extraCodes }
+                    data: {
+                        post,
+                        codes,
+                        extraCodes,
+                        dataType: isInterview ? 'interview' : 'reddit'
+                    }
                 });
             });
         },

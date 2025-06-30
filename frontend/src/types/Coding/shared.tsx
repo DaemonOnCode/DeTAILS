@@ -375,6 +375,7 @@ export type Segment = {
     index: number | string;
     codeQuotes: Record<string, string>;
     codeToOriginalQuotes?: Record<string, string[]>;
+    speaker?: string;
 };
 
 export type PageState = {

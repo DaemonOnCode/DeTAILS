@@ -20,6 +20,7 @@ interface Segment {
     fullText: string[];
     codeQuotes: Record<string, string>;
     codeToOriginalQuotes: Record<string, string[]>;
+    speaker?: string;
 }
 
 function displayText(text: string): string {
@@ -87,7 +88,8 @@ function createSegment(
         backgroundColours: relatedCodeText.map((code) => codeColors[code]),
         fullText: activeCodes.map((c) => c.text),
         codeQuotes,
-        codeToOriginalQuotes
+        codeToOriginalQuotes,
+        speaker: data.speaker || undefined
     };
 }
 
@@ -106,7 +108,8 @@ function traverseComments(comment: any, parentId: string | null): any[] {
 function processTranscript(
     post: any,
     codes: Code[],
-    extraCodes: string[] = []
+    extraCodes: string[] = [],
+    dataType: 'reddit' | 'interview' = 'reddit'
 ): {
     processedSegments: Segment[];
     codeSet: string[];
@@ -118,11 +121,31 @@ function processTranscript(
     const codeColors: Record<string, string> = {};
     codeSet.forEach((code) => (codeColors[code] = generateColor(code)));
 
-    const transcriptFlatMap = [
-        { id: post.id, text: displayText(post.title), type: 'title', parent_id: null },
-        { id: post.id, text: displayText(post.selftext), type: 'selftext', parent_id: null },
-        ...post.comments.flatMap((comment: any) => traverseComments(comment, post.id))
-    ];
+    let transcriptFlatMap: Array<{
+        id: string;
+        text: string;
+        type: string;
+        parent_id: string | null;
+        speaker?: string;
+    }>;
+
+    if (dataType === 'interview') {
+        // `post` here is really an array of turns
+        transcriptFlatMap = post.map((turn: any) => ({
+            id: String(turn.id),
+            text: displayText(turn.text),
+            type: 'turn',
+            parent_id: null,
+            speaker: turn.speaker
+        }));
+    } else {
+        // reddit flow
+        transcriptFlatMap = [
+            { id: post.id, text: displayText(post.title), type: 'title', parent_id: null },
+            { id: post.id, text: displayText(post.selftext), type: 'selftext', parent_id: null },
+            ...post.comments.flatMap((comment: any) => traverseComments(comment, post.id))
+        ];
+    }
 
     const codesWithMarker = codes.filter((c) => c.rangeMarker);
     const codesWithoutMarker = codes.filter((c) => !c.rangeMarker);
@@ -155,6 +178,8 @@ function processTranscript(
                     isApplicable = data.type === 'comment' && data.id === src.comment_id;
                 } else if (src.type === 'post') {
                     isApplicable = src.title ? data.type === 'title' : data.type === 'selftext';
+                } else if (src.type === 'turn') {
+                    isApplicable = data.type === 'turn' && data.id === String(src.turn_id);
                 }
             } catch {
                 console.error(`Failed to parse source for code ${c.code}: ${c.source}`);
@@ -280,8 +305,8 @@ onmessage = (event: MessageEvent) => {
     const { type, data } = event.data;
     if (type === 'processTranscript') {
         try {
-            const { post, codes, extraCodes } = data;
-            const result = processTranscript(post, codes, extraCodes);
+            const { post, codes, extraCodes, dataType } = data;
+            const result = processTranscript(post, codes, extraCodes, dataType);
             postMessage({ type: 'processTranscriptResult', data: result });
         } catch (error) {
             postMessage({ type: 'error', error: (error as Error).message });

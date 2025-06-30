@@ -35,7 +35,12 @@ const FileCard = ({ filePath, fileName, onRemove, onClick }: FileCardProps) => {
             className="relative flex items-center justify-center h-48 w-36 border rounded shadow-lg bg-white hover:cursor-pointer"
             onClick={() => onClick?.()}>
             <div className="absolute -top-2 -right-2 text-red-500 bg-white rounded-full font-bold border h-6 w-6 flex justify-center items-center">
-                <button onClick={() => onRemove(filePath)} className="">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRemove(filePath);
+                    }}
+                    className="">
                     <ImCross className="h-3 w-3" />
                 </button>
             </div>

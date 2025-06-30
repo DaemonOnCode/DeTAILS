@@ -13,6 +13,8 @@ import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { useSettings } from '../../context/settings-context';
 import { debounce } from 'lodash';
 import { useNextHandler } from '../../hooks/Coding/use-handler-factory';
+import { useLoadingContext } from '../../context/loading-context';
+import { toast } from 'react-toastify';
 
 const fs = window.require('fs');
 const { ipcRenderer } = window.require('electron');
@@ -36,6 +38,7 @@ const ContextPage = () => {
     } = useCodingContext();
     const { settings } = useSettings();
     const { saveWorkspaceData } = useWorkspaceUtils();
+    const { loadingDispatch } = useLoadingContext();
 
     const [localMainTopic, setLocalMainTopic] = useState(globalMainTopic);
     const [localAdditionalInfo, setLocalAdditionalInfo] = useState(globalAdditionalInfo);
@@ -83,8 +86,12 @@ const ContextPage = () => {
     };
 
     const addQuestion = () => {
-        if (newQuestion.trim() !== '') {
-            const updatedQuestions = [...localResearchQuestions, newQuestion];
+        const questions = newQuestion
+            .split(/(?:\s*\n\s*){2,}/)
+            .map((q) => q.trim())
+            .filter((q) => q);
+        if (questions.length > 0) {
+            const updatedQuestions = [...localResearchQuestions, ...questions];
             setLocalResearchQuestions(updatedQuestions);
             debouncedSetResearchQuestions(updatedQuestions);
             setNewQuestion('');
@@ -118,7 +125,7 @@ const ContextPage = () => {
             .forEach((textarea) => adjustHeight(textarea));
     }, [localResearchQuestions]);
 
-    const checkIfReady = Object.keys(contextFiles).length > 0 && localMainTopic.length > 0;
+    const checkIfReady = localMainTopic.length > 0;
 
     const hasSavedRef = useRef(false);
     useEffect(() => {
@@ -187,13 +194,43 @@ const ContextPage = () => {
         }
     });
 
+    const handleOnNextClickWithoutFiles = async () => {
+        console.log('No context files provided, proceeding to data type selection');
+        if (newQuestion.trim() !== '') {
+            alert(
+                "You have an unsaved research question. Please click 'Add' to include it or clear the text before proceeding."
+            );
+            toast.error('Unsaved research question');
+            return;
+        }
+        if (Object.keys(contextFiles).length > 0) return;
+
+        navigate(PAGE_ROUTES.DATA_TYPE);
+        loadingDispatch({
+            type: 'SET_FIRST_RUN_DONE',
+            route: PAGE_ROUTES.RELATED_CONCEPTS
+        });
+        loadingDispatch({
+            type: 'SET_FIRST_RUN_DONE',
+            route: PAGE_ROUTES.CONCEPT_OUTLINE
+        });
+        loadingDispatch({
+            type: 'SET_FIRST_RUN_DONE',
+            route: PAGE_ROUTES.DATA_TYPE
+        });
+        loadingDispatch({
+            type: 'SET_LOADING_DONE_ROUTE',
+            route: PAGE_ROUTES.DATA_TYPE
+        });
+    };
+
     return (
         <>
             <TutorialWrapper
                 steps={steps}
                 promptOnFirstPage
                 pageId={location.pathname}
-                excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH}`}>
+                excludedTarget={`#route-/${SHARED_ROUTES.CODING}/${ROUTES.BACKGROUND_RESEARCH} `}>
                 <div className="w-full h-full flex justify-between flex-col relative">
                     <div className="max-h-maxPageContent h-maxPageContent">
                         <section id="file-section" className="max-h-3/5 h-3/5 border-b-2">
@@ -252,7 +289,7 @@ const ContextPage = () => {
                                     <div className="flex items-center">
                                         <textarea
                                             className="p-2 border border-gray-300 rounded w-96 max-h-40 resize-none"
-                                            placeholder="Type your research question here..."
+                                            placeholder="Enter research questions, separate multiple questions with blank lines"
                                             value={newQuestion}
                                             onChange={(e) => setNewQuestion(e.target.value)}
                                         />
@@ -288,9 +325,17 @@ const ContextPage = () => {
                     </div>
                     <NavigationBottomBar
                         previousPage={PAGE_ROUTES.HOME}
-                        nextPage={PAGE_ROUTES.RELATED_CONCEPTS}
+                        nextPage={
+                            Object.keys(contextFiles).length > 0
+                                ? PAGE_ROUTES.RELATED_CONCEPTS
+                                : PAGE_ROUTES.DATA_TYPE
+                        }
                         isReady={checkIfReady}
-                        onNextClick={handleOnNextClick}
+                        onNextClick={
+                            Object.keys(contextFiles).length > 0
+                                ? handleOnNextClick
+                                : handleOnNextClickWithoutFiles
+                        }
                         autoNavigateToNext={false}
                         disabledTooltipText="Files or main topic is missing"
                     />

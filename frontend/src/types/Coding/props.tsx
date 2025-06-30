@@ -230,6 +230,7 @@ export type PostTranscriptProps = {
     showBackButton?: boolean;
     codebookCodes?: string[];
     showAddCodeinHighlight?: boolean;
+    dataType?: 'reddit' | 'interview';
 };
 
 export interface CodeViewProps {

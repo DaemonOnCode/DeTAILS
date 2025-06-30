@@ -18,6 +18,11 @@ export interface InterviewMetadata {
     source: 'folder';
 }
 
+export interface InterviewFile {
+    fileName: string;
+    filePath: string;
+}
+
 export type MetadataState = RedditMetadata | InterviewMetadata | null;
 
 export type RedditData = any;

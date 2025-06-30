@@ -26,6 +26,7 @@ const defaultContext: ICollectionContext = {
     selectedData: [],
     dataFilters: {},
     isLocked: false,
+    setMetadata: async () => {},
     setType: async () => {},
     setModeInput: async () => {},
     setSelectedData: async () => {},
@@ -172,6 +173,16 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
         });
     };
 
+    const setMetadata = async (metadata: MetadataState) => {
+        return lockedUpdate('set-metadata', async () => {
+            const data = await saveCollectionContext('setMetadata', { metadata });
+            if (data.success) {
+                setMetadataState(metadata);
+            }
+            return data;
+        });
+    };
+
     const addDatasetItem = async (newData: RedditData | InterviewData) => {
         return lockedUpdate('add-dataset-item', async () => {
             const data = await saveCollectionContext('addDatasetItem', { data: newData });
@@ -241,6 +252,9 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
                 relatedStates: [
                     {
                         name: 'setModeInput'
+                    },
+                    {
+                        name: 'setMetadata'
                     }
                 ]
             },
@@ -337,6 +351,7 @@ export const CollectionProvider: FC<{ children: React.ReactNode }> = ({ children
         setModeInput,
         setSelectedData,
         setDataFilters,
+        setMetadata,
         setIsLocked,
         setDatasetId,
         updateContext,

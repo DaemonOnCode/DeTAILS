@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import Card from '../../components/DataCollection/card';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
@@ -9,6 +9,7 @@ import NavigationBottomBar from '../../components/Coding/Shared/navigation-botto
 import TutorialWrapper from '../../components/Shared/tutorial-wrapper';
 import { TutorialStep } from '../../components/Shared/custom-tutorial-overlay';
 import { useLoadingContext } from '../../context/loading-context';
+import { useCodingContext } from '../../context/coding-context';
 
 const HomePage = () => {
     const navigate = useNavigate();
@@ -17,6 +18,7 @@ const HomePage = () => {
 
     const { loadingState, loadingDispatch } = useLoadingContext();
     const { setType, modeInput } = useCollectionContext();
+    const { contextFiles } = useCodingContext();
 
     const handleRedditRetrieval = () => {
         console.log('Retrieve Reddit clicked', modeInput);
@@ -83,15 +85,25 @@ const HomePage = () => {
                     Data Import & Retrieval Tool
                 </h1>
 
-                <div className="flex flex-1 justify-center items-start flex-wrap gap-8 w-full max-w-screen-sm lg:max-w-screen-xl">
-                    <div id="card-container">
-                        <Card
-                            title="Online Sources"
-                            description="Retrieve online communities' public discussions (submissions and comments)."
-                            buttonText="Retrieve Reddit"
-                            buttonColor="bg-blue-500 hover:bg-blue-600"
-                            onButtonClick={handleRedditRetrieval}
-                        />
+                <div className="w-full max-w-screen-sm lg:max-w-screen-xl flex-1 overflow-auto">
+                    <div id="card-container" className="flex flex-wrap justify-center gap-8">
+                        {Object.keys(contextFiles).length > 0 ? (
+                            <Card
+                                title="Online Sources"
+                                description="Retrieve online communities' public discussions (submissions and comments)."
+                                buttonText="Retrieve Reddit"
+                                buttonColor="bg-blue-500 hover:bg-blue-600"
+                                onButtonClick={handleRedditRetrieval}
+                            />
+                        ) : (
+                            <Card
+                                title="Interview Transcripts"
+                                description="Import interview transcripts from offline sources."
+                                buttonText="Retrieve Interviews"
+                                buttonColor="bg-green-500 hover:bg-green-600"
+                                onButtonClick={handleInterviewImport}
+                            />
+                        )}
                     </div>
                 </div>
 

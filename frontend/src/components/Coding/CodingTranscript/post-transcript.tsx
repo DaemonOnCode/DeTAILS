@@ -42,8 +42,11 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     clearedToLeaveRef,
     showBackButton = true,
     codebookCodes = [],
-    showAddCodeinHighlight = true
+    showAddCodeinHighlight = true,
+    dataType = 'reddit'
 }) => {
+    const postId = dataType === 'interview' ? (post as any)[0].interview_file_id : post.id;
+
     const {
         selectedText,
         setSelectedText,
@@ -109,12 +112,21 @@ const PostTranscript: FC<PostTranscriptProps> = ({
     const [addHighlightModalHidden, setAddHighlightModalHidden] = useState(false);
 
     const currentReferences = useMemo(() => {
-        console.log('remaking Current References:', codeSet, codeResponses, post.id);
+        console.log('remaking Current References:', codeSet, codeResponses, postId);
         return Object.fromEntries(
             codeSet.map((code) => [
                 code,
                 codeResponses
-                    .filter((response) => response.code === code && response.postId === post.id)
+                    .filter((response) => {
+                        console.log('Checking response:', response, code, post);
+                        if (dataType === 'interview') {
+                            return (
+                                response.code === code &&
+                                response.postId === (post as any)[0]?.interview_file_id
+                            );
+                        }
+                        return response.code === code && response.postId === postId;
+                    })
                     .map((response) => ({
                         text: response.quote,
                         isComment: true,
@@ -263,7 +275,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         type: 'ADD_RESPONSE',
                         response: {
                             id: Math.random().toString(36),
-                            postId: post.id,
+                            postId: postId,
                             code: selectedCode,
                             quote: selectedText,
                             explanation: reasoning,
@@ -288,7 +300,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                     console.log('Edit Difference:', difference, extra);
                     performWithUndoForReducer(codeResponses, dispatchCodeResponse, {
                         type: 'EDIT_HIGHLIGHT',
-                        postId: post.id,
+                        postId,
                         sentence: extra?.reference.text,
                         code: extra?.code,
                         newSentence: extra?.newText,
@@ -302,7 +314,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                 batch(() => {
                     performWithUndoForReducer(codeResponses, dispatchCodeResponse, {
                         type: 'DELETE_HIGHLIGHT',
-                        postId: post.id,
+                        postId: postId,
                         sentence: extra?.reference.text,
                         code: extra?.code
                     });
@@ -375,44 +387,60 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                         onMouseUp={transcriptHandleMouseUp}
                         onClick={transcriptHandleMouseClick}
                         ref={containerRef}>
-                        <div className="mb-6">
-                            <h2 className="text-xl font-bold mb-2 relative">
-                                {processedSegments
-                                    .filter(
-                                        (segment) =>
-                                            segment.id === post.id && segment.type === 'title'
-                                    )
-                                    .map((segment, index) => (
-                                        <HighlightedSegment key={index} segment={segment} />
-                                    ))}
-                            </h2>
-                            <p className="text-gray-700 leading-relaxed relative">
-                                {processedSegments
-                                    .filter(
-                                        (segment) =>
-                                            segment.id === post.id && segment.type === 'selftext'
-                                    )
-                                    .map((segment, index) => (
-                                        <HighlightedSegment key={index} segment={segment} />
-                                    ))}
-                            </p>
-                        </div>
-                        <h2 className="text-lg font-semibold mb-2">Comments</h2>
-                        <div className="max-h-full">
-                            <RedditComments
-                                comments={post.comments}
-                                hoveredCode={hoveredCode}
-                                processedSegments={processedSegments}
-                                setHoveredCodeText={setHoveredCodeText}
-                                level={0}
-                            />
-                        </div>
+                        {dataType === 'interview' ? (
+                            <>
+                                {processedSegments.map((segment, i) => (
+                                    <div key={i} className="mb-2">
+                                        <strong className=" select-none">{segment.speaker}:</strong>
+                                        <br />
+                                        <HighlightedSegment segment={segment} />
+                                    </div>
+                                ))}
+                            </>
+                        ) : (
+                            <>
+                                <div className="mb-6">
+                                    <h2 className="text-xl font-bold mb-2 relative">
+                                        {processedSegments
+                                            .filter(
+                                                (segment) =>
+                                                    segment.id === postId &&
+                                                    segment.type === 'title'
+                                            )
+                                            .map((segment, index) => (
+                                                <HighlightedSegment key={index} segment={segment} />
+                                            ))}
+                                    </h2>
+                                    <p className="text-gray-700 leading-relaxed relative">
+                                        {processedSegments
+                                            .filter(
+                                                (segment) =>
+                                                    segment.id === postId &&
+                                                    segment.type === 'selftext'
+                                            )
+                                            .map((segment, index) => (
+                                                <HighlightedSegment key={index} segment={segment} />
+                                            ))}
+                                    </p>
+                                </div>
+                                <h2 className="text-lg font-semibold mb-2">Comments</h2>
+                                <div className="max-h-full">
+                                    <RedditComments
+                                        comments={post.comments}
+                                        hoveredCode={hoveredCode}
+                                        processedSegments={processedSegments}
+                                        setHoveredCodeText={setHoveredCodeText}
+                                        level={0}
+                                    />
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
                 <div className="w-1/3 pl-4 flex flex-col overflow-hidden">
                     <div className="flex-1 overflow-y-auto">
                         <RelatedCodes
-                            postId={post.id}
+                            postId={postId}
                             workspaceId={currentWorkspace?.id ?? ''}
                             codeSet={additionalCodes}
                             codeResponses={codeResponses}
@@ -421,7 +449,7 @@ const PostTranscript: FC<PostTranscriptProps> = ({
                                 (acc, code) => {
                                     acc[code] = codeResponses.filter(
                                         (response) =>
-                                            response.code === code && response.postId === post.id
+                                            response.code === code && response.postId === postId
                                     ).length;
                                     return acc;
                                 },

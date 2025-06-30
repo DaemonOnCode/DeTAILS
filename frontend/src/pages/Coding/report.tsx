@@ -14,6 +14,8 @@ import { downloadFileWithStreaming, generateUniqueFileName } from '../../utility
 import { useLoadingContext } from '../../context/loading-context';
 import { useLocation } from 'react-router-dom';
 import { useWorkspaceContext } from '../../context/workspace-context';
+import { useCollectionContext } from '../../context/collection-context';
+import InterviewViewModal from '../../components/Shared/interview-modal';
 
 const PAGE_SIZE = 20;
 
@@ -45,6 +47,7 @@ const ReportPage: React.FC = () => {
     } | null>(null);
 
     const { fetchData } = useApi();
+    const { type } = useCollectionContext();
 
     const fetchPage = useCallback(async () => {
         if (loadingRef.current || !nextRef.current) return;
@@ -243,7 +246,7 @@ const ReportPage: React.FC = () => {
                 {loading && <div className="text-center py-2">Loading…</div>}
             </main>
 
-            {modal.id && (
+            {modal.id && type === 'reddit' ? (
                 <RedditViewModal
                     isViewOpen
                     postLink={modal.link}
@@ -251,6 +254,14 @@ const ReportPage: React.FC = () => {
                     postId={modal.id}
                     closeModal={() => setModal({ id: '', link: '', sentence: '' })}
                 />
+            ) : modal.id && type === 'interview' ? (
+                <InterviewViewModal
+                    fileId={modal.id}
+                    isOpen
+                    closeModal={() => setModal({ id: '', link: '', sentence: '' })}
+                />
+            ) : (
+                <></>
             )}
 
             <footer>

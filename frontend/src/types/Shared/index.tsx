@@ -217,6 +217,7 @@ export interface ICollectionContext {
     datasetDispatch: React.Dispatch<DataAction>;
     setDatasetId: SetState<string>;
     setModeInput: SetState<string>;
+    setMetadata: SetState<MetadataState>;
     metadataDispatch: React.Dispatch<MetadataAction>;
     setType: SetState<ModeType>;
     setSelectedData: SetState<string[]>;
